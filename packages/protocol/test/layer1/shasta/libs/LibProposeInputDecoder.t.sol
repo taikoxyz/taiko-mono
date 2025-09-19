@@ -13,6 +13,7 @@ contract LibProposeInputDecoderTest is Test {
         // Setup simple test case
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
+            nextProposalBlockId: 1000,
             lastFinalizedProposalId: 9,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -116,6 +117,7 @@ contract LibProposeInputDecoderTest is Test {
         // Setup complex test case
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
+            nextProposalBlockId: 10_000,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
@@ -285,6 +287,7 @@ contract LibProposeInputDecoderTest is Test {
         // Test with various edge cases to ensure correctness
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: bytes32(uint256(0xdead)),
             bondInstructionsHash: bytes32(uint256(0xbeef))

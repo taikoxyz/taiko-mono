@@ -38,9 +38,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         // Arrange: Setup core state with genesis transition hash for chain continuity
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Configure mocks and create proposal with valid future deadline
@@ -53,6 +51,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Submit proposal with valid deadline
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         // Assert: Verify proposal was accepted and stored successfully
@@ -71,9 +70,7 @@ contract InboxProposeValidation is InboxTest {
         vm.warp(1000); // Set block.timestamp = 1000
 
         // Arrange: Setup core state for proposal submission
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Create proposal with expired deadline (security test)
@@ -87,6 +84,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Submission should fail with DeadlineExceeded error
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -101,9 +99,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         // Arrange: Setup core state for proposal submission
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Create proposal with no deadline (deadline = 0)
@@ -115,6 +111,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Submit proposal without deadline constraint
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         // Assert: Should succeed with no deadline validation
@@ -135,6 +132,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -164,6 +162,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Invalid state should be rejected with InvalidState error
         vm.expectRevert(InvalidState.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -181,6 +180,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -203,6 +203,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Unauthorized proposer should be rejected
         vm.expectRevert();
         vm.prank(Bob);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -225,8 +226,12 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Try to submit proposal 3, but with wrong parent proposals count
         // Setup core state for proposal 3
+        // Calculate the correct nextProposalBlockId based on proposal 2's block
+        uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(2, 2);
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
+        coreState3.nextProposalBlockId = uint48(prevProposalBlock + 1); // Previous proposal's block
+            // + 1
 
         setupProposalMocks(Alice);
 
@@ -249,6 +254,10 @@ contract InboxProposeValidation is InboxTest {
         );
 
         // Act & Assert: Should revert with IncorrectProposalCount
+        // Roll to the correct block for proposal 3
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(3, 2);
+        vm.roll(targetBlock);
+
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
@@ -270,6 +279,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -295,6 +305,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.NoBlobs.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -314,6 +325,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -339,6 +351,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 

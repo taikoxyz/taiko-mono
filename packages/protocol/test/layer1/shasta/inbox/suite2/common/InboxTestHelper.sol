@@ -29,9 +29,10 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -44,13 +45,8 @@ contract InboxTestHelper is CommonTest {
         return keccak256(abi.encode(transition));
     }
 
-    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
+    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Derivation memory derivation;
 
@@ -107,8 +103,10 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
+        // Line 215 sets nextProposalBlockId to block.number+1
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
+            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
