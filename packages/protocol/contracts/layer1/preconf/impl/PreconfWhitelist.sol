@@ -29,7 +29,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// address.
     ///     The proposer address is their main identifier and is used on-chain to identify the
     /// operator and decide if they are allowed to propose.
-    ///     The sequencer address is used off-chain to to identify the address that is emitting
+    ///     The sequencer address is used off-chain to identify the address that is emitting
     /// preconfirmations.
     ///     NOTE: These two addresses may be the same, it is up to the operator to decide.
     mapping(address proposer => OperatorInfo info) public operators;

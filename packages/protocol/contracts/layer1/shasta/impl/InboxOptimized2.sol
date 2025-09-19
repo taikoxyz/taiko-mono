@@ -29,35 +29,7 @@ contract InboxOptimized2 is InboxOptimized1 {
     constructor(IInbox.Config memory _config) InboxOptimized1(_config) { }
 
     // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Decodes custom-encoded proposed event data
-    /// @dev Uses LibProposedEventEncoder for efficient decoding
-    /// @param _data The custom-encoded event data in compact binary format
-    /// @return _ The decoded ProposedEventPayload struct
-    function decodeProposedEventData(bytes memory _data)
-        external
-        pure
-        returns (ProposedEventPayload memory)
-    {
-        return LibProposedEventEncoder.decode(_data);
-    }
-
-    /// @notice Decodes custom-encoded proved event data
-    /// @dev Uses LibProvedEventEncoder for efficient decoding
-    /// @param _data The custom-encoded event data in compact binary format
-    /// @return _ The decoded ProvedEventPayload struct
-    function decodeProvedEventData(bytes memory _data)
-        external
-        pure
-        returns (ProvedEventPayload memory)
-    {
-        return LibProvedEventEncoder.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
-    // Public Functions
+    // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
@@ -65,8 +37,8 @@ contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Overrides base implementation to use custom encoding
     /// @param _payload The ProposedEventPayload to encode
     /// @return Custom-encoded bytes with reduced size
-    function encodeProposedEventData(ProposedEventPayload memory _payload)
-        public
+    function _encodeProposedEventData(ProposedEventPayload memory _payload)
+        internal
         pure
         virtual
         override
@@ -80,8 +52,8 @@ contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Overrides base implementation to use custom encoding
     /// @param _payload The ProvedEventPayload to encode
     /// @return Custom-encoded bytes with reduced size
-    function encodeProvedEventData(ProvedEventPayload memory _payload)
-        public
+    function _encodeProvedEventData(ProvedEventPayload memory _payload)
+        internal
         pure
         virtual
         override

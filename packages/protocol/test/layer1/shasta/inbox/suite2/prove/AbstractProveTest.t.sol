@@ -6,6 +6,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
+import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
@@ -20,6 +21,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
+    InboxHelper internal helper;
+
+    // Cache contract name to avoid repeated calls and potential recursion
+    string private contractName;
+    bool private useOptimizedInputEncoding;
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -27,6 +33,14 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
+
+        // Initialize the helper for encoding/decoding operations
+        helper = new InboxHelper();
+
+        // Cache contract name and determine encoding types
+        contractName = getTestContractName();
+        useOptimizedInputEncoding =
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for creating proposals to prove
         currentProposer = _selectProposer(Bob);
@@ -282,7 +296,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function test_prove_RevertWhen_EmptyProposals() public {
         // Create empty ProveInput
         IInbox.ProveInput memory input;
-        bytes memory proveData = inbox.encodeProveInput(input);
+        bytes memory proveData = _encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with EmptyProposals
@@ -297,7 +311,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
 
-        bytes memory proveData = inbox.encodeProveInput(input);
+        bytes memory proveData = _encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with InconsistentParams
@@ -349,7 +363,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             metadata: metadata
         });
 
-        bytes memory proveData = inbox.encodeProveInput(input);
+        bytes memory proveData = _encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should succeed with any designated prover
@@ -366,6 +380,19 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     // Helper functions for prove input creation
     // ---------------------------------------------------------------
 
+    /// @notice Encodes ProveInput using appropriate method based on inbox type
+    function _encodeProveInput(IInbox.ProveInput memory _input)
+        internal
+        view
+        returns (bytes memory)
+    {
+        if (useOptimizedInputEncoding) {
+            return helper.encodeProveInputOptimized(_input);
+        } else {
+            return helper.encodeProveInput(_input);
+        }
+    }
+
     function _createConsecutiveProposals(uint8 count)
         internal
         returns (IInbox.Proposal[] memory proposals)
@@ -375,7 +402,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             if (i == 0) {
                 proposals[i] = _proposeAndGetProposal();
             } else {
-                vm.roll(block.number + 1);
+                // Don't roll here - _proposeConsecutiveProposal handles the rolling
                 vm.warp(block.timestamp + 12);
                 proposals[i] = _proposeConsecutiveProposal(proposals[i - 1]);
             }
@@ -440,7 +467,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             metadata: metadata
         });
 
-        return inbox.encodeProveInput(input);
+        return _encodeProveInput(input);
     }
 
     function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
@@ -472,6 +499,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Create and submit proposal
+        // For the first proposal, we must be at block >= 2
+        // since genesis nextProposalBlockId = 2 (prevents blockhash(0) issue)
+        if (block.number < 2) {
+            vm.roll(2);
+        }
         bytes memory proposeData = _createFirstProposeInput();
 
         vm.prank(currentProposer);
@@ -489,8 +521,24 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
+        // Each proposal sets nextProposalBlockId = block.number + 1
+        // Need to roll 1 block forward from the last proposal
+        uint48 expectedNextBlockId;
+        if (_parent.id == 0) {
+            expectedNextBlockId = 2; // Genesis value - prevents blockhash(0) issue
+            // For first proposal after genesis, roll to block 2
+            vm.roll(2);
+        } else {
+            // For subsequent proposals, need 1-block gap
+            // Roll forward by 1 block from current position
+            vm.roll(block.number + 1);
+            // nextProposalBlockId should be current block number
+            expectedNextBlockId = uint48(block.number);
+        }
+
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
+            nextProposalBlockId: expectedNextBlockId,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -552,7 +600,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             metadata: metadata
         });
 
-        return inbox.encodeProveInput(input);
+        return _encodeProveInput(input);
     }
 
     function _createTransitionForProposal(IInbox.Proposal memory _proposal)
@@ -615,7 +663,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             numForcedInclusions: 0
         });
 
-        return inbox.encodeProposeInput(input);
+        if (useOptimizedInputEncoding) {
+            return helper.encodeProposeInputOptimized(input);
+        } else {
+            return helper.encodeProposeInput(input);
+        }
     }
 
     function _createFirstProposeInput() internal view returns (bytes memory) {
@@ -629,6 +681,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         input.parentProposals = parentProposals;
         input.blobReference = blobRef;
 
-        return inbox.encodeProposeInput(input);
+        if (useOptimizedInputEncoding) {
+            return helper.encodeProposeInputOptimized(input);
+        } else {
+            return helper.encodeProposeInput(input);
+        }
     }
 }
