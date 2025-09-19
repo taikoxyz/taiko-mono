@@ -52,8 +52,15 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		}
 	}
 
-	host, _ := mysqlC.Host(ctx)
-	port, _ := mysqlC.MappedPort(ctx, "3306/tcp")
+	host, err := mysqlC.Host(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port, err := mysqlC.MappedPort(ctx, "3306/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
 		dbUsername, dbPassword, host, port.Int(), dbName)

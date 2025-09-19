@@ -52,12 +52,18 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		}
 	}
 
-	host, _ := mysqlC.Host(ctx)
-	p, _ := mysqlC.MappedPort(ctx, "3306/tcp")
-	port := p.Int()
+	host, err := mysqlC.Host(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port, err := mysqlC.MappedPort(ctx, "3306/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-		dbUsername, dbPassword, host, port, dbName)
+		dbUsername, dbPassword, host, port.Int(), dbName)
 
 	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
