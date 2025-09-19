@@ -66,7 +66,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		dbUsername, dbPassword, host, port.Int(), dbName)
 
 	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger: logger.Default.LogMode(logger.Error),
 	})
 	if err != nil {
 		t.Fatal(err)
