@@ -41,7 +41,8 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
         useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedHashing = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized4"));
 

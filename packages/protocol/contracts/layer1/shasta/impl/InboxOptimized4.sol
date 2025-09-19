@@ -88,4 +88,27 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     {
         return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized proposal hashing using LibHashing
+    /// @dev Uses LibHashing for efficient proposal hashing
+    /// @param _proposal The proposal data to hash
+    /// @return bytes32 The keccak256 hash of the proposal struct
+    function _hashProposal(Proposal memory _proposal) internal pure override returns (bytes32) {
+        return LibHashing.hashProposal(_proposal);
+    }
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized derivation hashing using LibHashing
+    /// @dev Uses LibHashing for efficient derivation hashing
+    /// @param _derivation The derivation data to hash
+    /// @return bytes32 The keccak256 hash of the derivation struct
+    function _hashDerivation(Derivation memory _derivation)
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
+        return LibHashing.hashDerivation(_derivation);
+    }
 }

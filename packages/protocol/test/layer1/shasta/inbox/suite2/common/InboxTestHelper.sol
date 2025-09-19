@@ -204,7 +204,7 @@ contract InboxTestHelper is CommonTest {
     {
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            nextProposalBlockId: 0,  // Add missing field for forced inclusion
+            nextProposalBlockId: uint48(block.number + 1),  // Set to block.number + 1 as per propose() logic
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
             bondInstructionsHash: bytes32(0)

@@ -45,10 +45,12 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
         useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedEventEncoding = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized2"))
-            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedHashing = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized4"));
 
@@ -1139,6 +1141,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
             // Update core state for this proposal
             coreState_.nextProposalId = proposalId;
+            coreState_.nextProposalBlockId = uint48(block.number); // Update to match current block
 
             // Create proposal input
             bytes memory proposeData = _createProposeInputWithCustomParams(
@@ -1166,9 +1169,15 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
                 })
             });
             
-            // Update core state for next iteration
-            coreState_.nextProposalId = proposalId + 1;
-            
+            // Create a copy of core state for the proposal hash before updating for next iteration
+            IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
+                nextProposalId: proposalId + 1,
+                nextProposalBlockId: uint48(block.number + 1), // Contract sets this to block.number + 1
+                lastFinalizedProposalId: coreState_.lastFinalizedProposalId,
+                lastFinalizedTransitionHash: coreState_.lastFinalizedTransitionHash,
+                bondInstructionsHash: coreState_.bondInstructionsHash
+            });
+
             // Update last proposal reference for next iteration
             lastProposal_ = IInbox.Proposal({
                 id: proposalId,
@@ -1176,12 +1185,15 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: 0,
                 coreStateHash: useOptimizedHashing
-                    ? helper.hashCoreStateOptimized(coreState_)
-                    : helper.hashCoreState(coreState_),
+                    ? helper.hashCoreStateOptimized(proposalCoreState)
+                    : helper.hashCoreState(proposalCoreState),
                 derivationHash: useOptimizedHashing
                     ? helper.hashDerivationOptimized(actualDerivation)
                     : helper.hashDerivation(actualDerivation)
             });
+
+            // Update core state for next iteration
+            coreState_ = proposalCoreState;
         }
 
         return (lastProposal_, coreState_);
