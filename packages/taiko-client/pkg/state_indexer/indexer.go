@@ -590,6 +590,7 @@ func (s *Indexer) getTransitionsForFinalization(
 			"gracePeriod", s.finalizationGracePeriod,
 			"currentTime", uint64(time.Now().Unix()),
 		)
+
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
 			break
