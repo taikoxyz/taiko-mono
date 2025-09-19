@@ -16,7 +16,7 @@ import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.so
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
+/// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based
 /// rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
@@ -841,12 +841,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Try to finalize the current proposal
             bool hasRecord = i < _input.transitionRecords.length;
 
-            TransitionRecord memory transitionrecord =
+            TransitionRecord memory transitionRecord =
                 hasRecord ? _input.transitionRecords[i] : emptyRecord;
 
             bool finalized;
             (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionrecord, hasRecord);
+                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
 
             if (!finalized) break;
 
