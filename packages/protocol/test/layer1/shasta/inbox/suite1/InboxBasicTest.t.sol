@@ -47,6 +47,7 @@ contract InboxBasicTest is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -74,6 +75,7 @@ contract InboxBasicTest is InboxTest {
         expectRevertWithReason(InvalidState.selector, "Wrong core state should be rejected");
 
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -100,6 +102,7 @@ contract InboxBasicTest is InboxTest {
         expectRevertWithReason(DeadlineExceeded.selector, "Expired deadline should be rejected");
 
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 

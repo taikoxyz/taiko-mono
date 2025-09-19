@@ -45,8 +45,23 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
 
         for (uint48 i = 1; i <= numProposals; i++) {
+            // Calculate correct block for this proposal
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2); // Base block 2
+            vm.roll(targetBlock);
+
+            // Calculate the correct nextProposalBlockId based on the current proposal
+            uint48 nextBlockId;
+            if (i == 1) {
+                nextBlockId = 2; // Genesis value for first proposal (prevents blockhash(0))
+            } else {
+                // For subsequent proposals, it's previous proposal's block + 1
+                uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 2);
+                nextBlockId = uint48(prevProposalBlock + 1);
+            }
+
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: nextBlockId,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
@@ -110,10 +125,14 @@ contract InboxOutOfOrderProving is InboxTest {
             });
 
             // Store proposal for use in next iteration's validation
+            // The contract increments nextProposalId and sets nextProposalBlockId to block.number +
+            // 2
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
+                        nextProposalBlockId: uint48(block.number + 1), // Single increment from
+                            // contract
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
@@ -182,9 +201,11 @@ contract InboxOutOfOrderProving is InboxTest {
             });
         }
 
-        // Setup for finalization
+        // Setup for finalization - calculate correct nextProposalBlockId
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(numProposals, 2);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -219,6 +240,9 @@ contract InboxOutOfOrderProving is InboxTest {
             lastTransition.checkpoint
         );
 
+        // Roll to the next valid proposal block
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 2);
+        vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
@@ -242,112 +266,18 @@ contract InboxOutOfOrderProving is InboxTest {
         // Store proposals for later use
         IInbox.Proposal[] memory storedProposals = new IInbox.Proposal[](3);
 
-        // Create 3 proposals
+        // Create 3 proposals - use the unified submitProposal method
         for (uint48 i = 1; i <= 3; i++) {
-            IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
-                nextProposalId: i,
-                lastFinalizedProposalId: 0,
-                lastFinalizedTransitionHash: initialParentHash,
-                bondInstructionsHash: bytes32(0)
-            });
-            // Core state will be validated by the contract during propose()
-
-            mockProposerAllowed(Alice);
-            mockForcedInclusionDue(false);
-
-            LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords =
-                new IInbox.TransitionRecord[](0);
-
-            // Include proposals array for validation
-            bytes memory proposalData;
-            if (i == 1) {
-                // First proposal needs genesis for validation
-                proposalData = encodeProposeInputWithGenesis(
-                    uint48(0), proposalCoreState, proposalBlobRef, emptyTransitionRecords
-                );
-            } else {
-                // For subsequent proposals, we need to create the previous proposal structure
-                (IInbox.Proposal memory prevProposal,) =
-                    InboxTestLib.createProposal(i - 1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-                prevProposal.coreStateHash = keccak256(
-                    abi.encode(
-                        IInbox.CoreState({
-                            nextProposalId: i,
-                            lastFinalizedProposalId: 0,
-                            lastFinalizedTransitionHash: initialParentHash,
-                            bondInstructionsHash: bytes32(0)
-                        })
-                    )
-                );
-
-                proposalData = encodeProposeInputForSubsequent(
-                    uint48(0),
-                    proposalCoreState,
-                    prevProposal,
-                    proposalBlobRef,
-                    emptyTransitionRecords
-                );
-
-                // Store the previous proposal for later use
-                storedProposals[i - 2] = prevProposal;
-            }
-
-            vm.prank(Alice);
-            inbox.propose(bytes(""), proposalData);
+            IInbox.Proposal memory proposal = submitProposal(i, Alice);
+            storedProposals[i - 1] = proposal;
         }
-
-        // Store the last proposal
-        (IInbox.Proposal memory lastProp,) =
-            InboxTestLib.createProposal(3, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-        lastProp.coreStateHash = keccak256(
-            abi.encode(
-                IInbox.CoreState({
-                    nextProposalId: 4,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedTransitionHash: initialParentHash,
-                    bondInstructionsHash: bytes32(0)
-                })
-            )
-        );
-        storedProposals[2] = lastProp;
 
         // Prove only proposals 1 and 3 (skip 2)
         for (uint48 i = 1; i <= 3; i += 2) {
             bytes32 storedProposalHash = inbox.getProposalHash(i);
 
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            // Create proposal with correct coreStateHash that was stored during submission
-            IInbox.CoreState memory updatedCoreState = IInbox.CoreState({
-                nextProposalId: i + 1,
-                lastFinalizedProposalId: 0,
-                lastFinalizedTransitionHash: initialParentHash,
-                bondInstructionsHash: bytes32(0)
-            });
-
-            IInbox.Derivation memory derivation = IInbox.Derivation({
-                originBlockNumber: uint48(block.number - 1),
-                originBlockHash: blockhash(block.number - 1),
-                isForcedInclusion: false,
-                basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                })
-            });
-
-            IInbox.Proposal memory proposal = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: uint48(0), // Set to 0 as returned by
-                    // mockProposerAllowed
-                coreStateHash: keccak256(abi.encode(updatedCoreState)),
-                derivationHash: keccak256(abi.encode(derivation))
-            });
+            // Use the stored proposals that were actually constructed during creation
+            IInbox.Proposal memory proposal = storedProposals[i - 1];
 
             bytes32 parentHash = i == 1 ? initialParentHash : bytes32(uint256(999)); // Dummy parent
                 // for 3
@@ -374,8 +304,11 @@ contract InboxOutOfOrderProving is InboxTest {
         }
 
         // Try to finalize - should only finalize proposal 1 because 2 is missing
+        // Calculate correct nextProposalBlockId based on the last proposal
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(3, 2);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
+            nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -430,6 +363,9 @@ contract InboxOutOfOrderProving is InboxTest {
             transition1.checkpoint // Use the header from the transition being finalized
         );
 
+        // Roll to the next valid proposal block
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(4, 2);
+        vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
