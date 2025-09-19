@@ -34,26 +34,28 @@ func New(taikoAnchorAddress common.Address, chainID *big.Int, rpc *rpc.Client) (
 // ValidateAnchorTx checks whether the given transaction is a valid `TaikoAnchor.anchorV3` transaction.
 func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	if tx.To() == nil || *tx.To() != v.taikoAnchorAddress {
-		return fmt.Errorf("invalid TaikoAnchor.anchorV3 transaction to: %s, want: %s", tx.To(), v.taikoAnchorAddress)
+		return fmt.Errorf(
+			"invalid TaikoAnchor.anchorV3 / updateState transaction to: %s, want: %s", tx.To(), v.taikoAnchorAddress,
+		)
 	}
 
 	sender, err := types.LatestSignerForChainID(v.chainID).Sender(tx)
 	if err != nil {
-		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 transaction sender: %w", err)
+		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 / updateState transaction sender: %w", err)
 	}
 
 	if sender != v.goldenTouchAddress {
-		return fmt.Errorf("invalid TaikoAnchor.anchorV3 transaction sender: %s", sender)
+		return fmt.Errorf("invalid TaikoAnchor.anchorV3 / updateState transaction sender: %s", sender)
 	}
 
 	var method *abi.Method
 	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
-		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 transaction method: %w", err)
+		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 / updateState transaction method: %w", err)
 	}
-	if method.Name != "anchorV3" {
+	if method.Name != "anchorV3" && method.Name != "updateState" {
 		return fmt.Errorf(
-			"invalid TaikoAnchor.anchorV3 transaction selector, expect: %s, actual: %s",
-			"anchorV3",
+			"invalid TaikoAnchor.anchorV3 or updateState transaction selector, expect: %s, actual: %s",
+			"anchorV3 or updateState",
 			method.Name,
 		)
 	}

@@ -67,14 +67,17 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	}()
 
 	// RLP encoded empty list
+	s.initShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
+	s.initShastaGenesisProposal()
 	s.ProposeValidBlock(proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
+	s.initShastaGenesisProposal()
 	s.proposeEmptyBlockOp(context.Background(), proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
@@ -155,6 +158,8 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		// If the transaction is underpriced, we just ignore it.
 		s.Equal("replacement transaction underpriced", err.Error())
 	}
+
+	s.initShastaGenesisProposal()
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
@@ -234,6 +239,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	s.Nil(err)
 	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
 
+	s.initShastaGenesisProposal()
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
@@ -260,14 +266,45 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 }
 
 func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyncer) {
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Already forked into Shasta.
+	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+		s.initShastaGenesisProposal()
+		return
+	}
+
+	txList := make([]types.Transactions, 0)
+	for i := 0; i < int(s.RPCClient.ShastaClients.ForkHeight.Uint64()-head.Number.Uint64()); i++ {
+		txList = append(txList, types.Transactions{})
+	}
+
+	log.Info("Forking into Shasta", "numBlocks", len(txList))
+
+	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
+
+	s.initShastaGenesisProposal()
+
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{}))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
+
+	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.RPCClient.ShastaClients.ForkHeight, headBlock.Number())
+	s.GreaterOrEqual(1, len(headBlock.Transactions()))
+}
+
+func (s *ClientTestSuite) initShastaGenesisProposal() {
 	var (
-		txMgr = s.TxMgr("enableProver", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
+		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
 		inbox = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
 	)
 
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	if head.Number.Uint64()+1 >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
 		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
 		s.Nil(err)
 		if proposalHash != (common.Hash{}) {
@@ -285,35 +322,6 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 		s.Nil(err)
 		return
 	}
-
-	txList := make([]types.Transactions, 0)
-	for i := 0; i < int(s.RPCClient.ShastaClients.ForkHeight.Uint64()-head.Number.Uint64()); i++ {
-		txList = append(txList, types.Transactions{})
-	}
-
-	log.Info("Forking into Shasta", "numBlocks", len(txList))
-
-	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
-	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-
-	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(new(big.Int).Sub(s.RPCClient.ShastaClients.ForkHeight, common.Big1), head.Number)
-
-	data, err := encoding.ShastaInboxABI.Pack("initV3", common.Address{}, head.Hash())
-	s.Nil(err)
-
-	receipt, err := txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{}))
-	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-
-	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(s.RPCClient.ShastaClients.ForkHeight, headBlock.Number())
-	s.GreaterOrEqual(1, len(headBlock.Transactions()))
 }
 
 // RandomHash generates a random blob of data and returns it as a hash.

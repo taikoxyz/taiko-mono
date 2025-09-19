@@ -685,8 +685,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
-	// TODO: fix this test.
-	s.T().Skip()
 	if os.Getenv("L2_NODE") != "l2_geth" {
 		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
 			"querying by hash.")

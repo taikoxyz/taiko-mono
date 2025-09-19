@@ -625,7 +625,7 @@ func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 		removedTransitions++
 	}
 
-	log.Info(
+	log.Debug(
 		"Cleaned up invalid data after reorg",
 		"safeHeight", safeHeight,
 		"removedProposals", removedProposals,
