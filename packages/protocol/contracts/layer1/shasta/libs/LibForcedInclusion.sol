@@ -43,7 +43,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev See `IInbox.storeForcedInclusion`
-    function storeForcedInclusion(
+    function saveForcedInclusion(
         Storage storage $,
         uint64, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
@@ -60,7 +60,7 @@ library LibForcedInclusion {
 
         $.queue[$.tail++] = inclusion;
 
-        emit IForcedInclusionStore.ForcedInclusionStored(inclusion);
+        emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
     /// @dev Internal implementation of consuming forced inclusions
