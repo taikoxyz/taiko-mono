@@ -49,7 +49,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
-
     function init(
         address _owner,
         uint8 _operatorChangeDelay,
@@ -282,7 +281,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
-
         // Get epoch-stable randomness
         uint256 rand = _getRandomNumber(_epochTimestamp);
 
@@ -331,5 +329,4 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
         return uint256(beaconRoot);
     }
-
 }
