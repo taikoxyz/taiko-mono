@@ -12,7 +12,6 @@ contract TolbaVerifier is ComposeVerifier {
     constructor(
         address _taikoInbox,
         address _sgxGethVerifier,
-        address _opVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
@@ -21,7 +20,7 @@ contract TolbaVerifier is ComposeVerifier {
             _taikoInbox,
             _sgxGethVerifier,
             address(0),
-            _opVerifier,
+            address(0),
             _sgxRethVerifier,
             _risc0RethVerifier,
             _sp1RethVerifier
