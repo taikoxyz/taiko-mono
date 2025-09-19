@@ -119,20 +119,20 @@ To review each sub-command's command line flags, use:
 
 `/events?`.
 
-Filter params:
+Filter parameters:
 
 Mandatory:
-`address`: user's ethereum address who sent the message.
+`address`: user's Ethereum address who sent the message.
 
 Optional:
 `chainID`: chain ID of the source chain. Default: all chains. Options: any integer.
 `msgHash`: filter events by message hash. Default: all msgHashes. Options: any hash.
-`eventType`: filter events by event type. Default: all eventType. Options: Enum value, `0` for sendETH, `1` for sendERC20.
+`eventType`: filter events by event type. Default: all event types. Options: Enum value, `0` for sendETH, `1` for sendERC20.
 `event`: filter events by event name. Default: all event names. Options: `MessageSent`, `MessageStatusChanged`
 
 Pagination:
 `page`: page number to retrieve. Default: 0.
-`size`: size to retrieve per page. Default: 100
+`size`: number of items to retrieve per page. Default: 100
 
 Example:
 `http://localhost:4101/events?page=3&address=0x79B9F64744C98Cd8cc20ADb79B6a297E964254cc&size=1&msgHash=0x47ce4d255907937aba12dfa09d87a0a707fea7eeac687924ac0a80fa291c3289&eventType=1`:

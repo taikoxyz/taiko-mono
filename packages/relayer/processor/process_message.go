@@ -34,7 +34,7 @@ var (
 )
 
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
-// get it's on-chain current status.
+// get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
 	ctx context.Context,
 	signal [32]byte,
@@ -93,7 +93,7 @@ func (p *Processor) processMessage(
 		return nil
 	}
 
-	// if we are, we dont need to continue
+	// if we are, we don't need to continue
 	if err := checkHash(msgBody.Event.Raw.TxHash); err != nil {
 		return false, 0, err
 	}
@@ -151,7 +151,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	// if paused, lets requeue
+	// if paused, let's requeue
 	if paused {
 		return true, msgBody.TimesRetried, nil
 	}
@@ -167,7 +167,7 @@ func (p *Processor) processMessage(
 			return false, msgBody.TimesRetried, err
 		}
 
-		// dont check quota for NFTs
+		// don't check quota for NFTs
 		if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
 			// default to ETH (zero address) and msg value, overwrite if ERC20
 			var tokenAddress = zeroAddress
@@ -470,7 +470,7 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, relayer.ErrUnprofitable
 		}
 
-		// now simulate the transaction and lets confirm it is profitable
+		// now simulate the transaction and let's confirm it is profitable
 		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
 		if err != nil {
 			return nil, err
@@ -501,8 +501,8 @@ func (p *Processor) sendProcessMessageCall(
 		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
 	}
 
-	// we should check event status one more time, after we have waiting for
-	// confirmations, and after we have generated proof. its possible another relayer
+	// we should check event status one more time, after we have waited for
+	// confirmations, and after we have generated proof. it's possible another relayer
 	// or the user themself has claimed this in the time it took
 	// for us to do this work, which would cause us to revert.
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
