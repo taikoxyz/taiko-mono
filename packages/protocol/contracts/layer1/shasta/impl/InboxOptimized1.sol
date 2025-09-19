@@ -80,7 +80,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return hashAndDeadline The transition record hash and finalization deadline
-    function _loadTransitionRecordHashAndDeadline(
+    function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -101,7 +101,7 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return super._loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
