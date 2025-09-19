@@ -411,9 +411,7 @@ contract LibHashingGasTest is Test {
                 blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
-            }),
-            designatedProver: address(0x1234567890123456789012345678901234567890),
-            actualProver: address(0x9876543210987654321098765432109876543210)
+            })
         });
 
         // Initialize test checkpoint
@@ -426,6 +424,7 @@ contract LibHashingGasTest is Test {
         // Initialize test core state
         testCoreState = IInbox.CoreState({
             nextProposalId: 1001,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 1000,
             lastFinalizedTransitionHash: keccak256("test_finalized_transition"),
             bondInstructionsHash: keccak256("test_bond_instructions")
@@ -492,9 +491,7 @@ contract LibHashingGasTest is Test {
                     blockNumber: 12_345_679,
                     blockHash: keccak256("test_block_hash_2"),
                     stateRoot: keccak256("test_state_root_2")
-                }),
-                designatedProver: address(0x5555555555555555555555555555555555555555),
-                actualProver: address(0x6666666666666666666666666666666666666666)
+                })
             })
         );
         testTransitionsArray.push(
@@ -505,9 +502,7 @@ contract LibHashingGasTest is Test {
                     blockNumber: 12_345_680,
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")
-                }),
-                designatedProver: address(0x7777777777777777777777777777777777777777),
-                actualProver: address(0x8888888888888888888888888888888888888888)
+                })
             })
         );
     }

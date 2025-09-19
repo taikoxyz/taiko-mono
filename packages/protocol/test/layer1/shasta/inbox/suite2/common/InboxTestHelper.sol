@@ -5,10 +5,15 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
+
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests
 contract InboxTestHelper is CommonTest {
+    // InboxHelper instance for hash functions
+    InboxHelper internal helperInstance;
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -26,30 +31,36 @@ contract InboxTestHelper is CommonTest {
     uint64 internal constant INCLUSION_DELAY = 10 minutes;
     uint64 internal constant FEE_IN_GWEI = 100;
 
+    constructor() {
+        helperInstance = new InboxHelper();
+    }
+
     // ---------------------------------------------------------------
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState(Inbox _inbox) internal view returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState(bool _useOptimizedHashing) internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
             bondInstructionsHash: bytes32(0)
         });
     }
 
-    function _getGenesisTransitionHash(Inbox _inbox) internal view returns (bytes32) {
+    function _getGenesisTransitionHash(bool _useOptimizedHashing) internal view returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        return _inbox.hashTransition(transition);
+        return _useOptimizedHashing ? helperInstance.hashTransitionOptimized(transition) : helperInstance.hashTransition(transition);
     }
 
-    function _createGenesisProposal(Inbox _inbox) internal view returns (IInbox.Proposal memory) {
+    function _createGenesisProposal(bool _useOptimizedHashing) internal view returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 2,  // Add missing field
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -60,8 +71,8 @@ contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _inbox.hashCoreState(coreState),
-            derivationHash: _inbox.hashDerivation(derivation)
+            coreStateHash: _useOptimizedHashing ? helperInstance.hashCoreStateOptimized(coreState) : helperInstance.hashCoreState(coreState),
+            derivationHash: _useOptimizedHashing ? helperInstance.hashDerivationOptimized(derivation) : helperInstance.hashDerivation(derivation)
         });
     }
 
@@ -111,7 +122,7 @@ contract InboxTestHelper is CommonTest {
 
 
     function _buildExpectedProposedPayload(
-        Inbox _inbox,
+        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint8 _numBlobs,
         uint24 _offset,
@@ -122,12 +133,12 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         return _buildExpectedProposedPayloadWithStartIndex(
-            _inbox, _proposalId, 0, _numBlobs, _offset, _currentProposer
+            _useOptimizedHashing, _proposalId, 0, _numBlobs, _offset, _currentProposer
         );
     }
 
     function _buildExpectedProposedPayloadWithStartIndex(
-        Inbox _inbox,
+        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint16 _blobStartIndex,
         uint8 _numBlobs,
@@ -139,10 +150,12 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
+        // Line 215 sets nextProposalBlockId to block.number+1
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
+            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -166,8 +179,8 @@ contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
-            coreStateHash: _inbox.hashCoreState(expectedCoreState),
-            derivationHash: _inbox.hashDerivation(expectedDerivation)
+            coreStateHash: _useOptimizedHashing ? helperInstance.hashCoreStateOptimized(expectedCoreState) : helperInstance.hashCoreState(expectedCoreState),
+            derivationHash: _useOptimizedHashing ? helperInstance.hashDerivationOptimized(expectedDerivation) : helperInstance.hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({
@@ -178,7 +191,7 @@ contract InboxTestHelper is CommonTest {
     }
 
     function _buildExpectedForcedInclusionPayload(
-        Inbox _inbox,
+        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint16 _blobStartIndex,
         uint8 _numBlobs,
@@ -191,8 +204,9 @@ contract InboxTestHelper is CommonTest {
     {
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
+            nextProposalBlockId: 0,  // Add missing field for forced inclusion
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -213,8 +227,8 @@ contract InboxTestHelper is CommonTest {
             proposer: address(0), // will be checked in encoded event equality, proposer not used here
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _inbox.hashCoreState(expectedCoreState),
-            derivationHash: _inbox.hashDerivation(expectedDerivation)
+            coreStateHash: _useOptimizedHashing ? helperInstance.hashCoreStateOptimized(expectedCoreState) : helperInstance.hashCoreState(expectedCoreState),
+            derivationHash: _useOptimizedHashing ? helperInstance.hashDerivationOptimized(expectedDerivation) : helperInstance.hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({

@@ -104,17 +104,70 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
+        // Default to address(0) for both provers - for backward compatibility
+        // Create array of zeros for designated provers
+        address[] memory designatedProvers = new address[](_transitions.length);
+        // actualProver is also address(0)
+        return encodeProveInputWithMultipleProvers(
+            _inboxType, _proposals, _transitions, designatedProvers, address(0)
+        );
+    }
+
+    /// @dev Encodes prove input with multiple different prover pairs for each transition
+    /// @param _inboxType The type of Inbox implementation
+    /// @param _proposals The proposals to prove
+    /// @param _transitions The transitions with proof details
+    /// @param _designatedProvers Array of designated prover addresses (one per transition)
+    /// @param _actualProver The actual prover address (same for all transitions)
+    /// @return Encoded prove input
+    function encodeProveInputWithMultipleProvers(
+        TestInboxFactory.InboxType _inboxType,
+        IInbox.Proposal[] memory _proposals,
+        IInbox.Transition[] memory _transitions,
+        address[] memory _designatedProvers,
+        address _actualProver
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        require(_designatedProvers.length == _transitions.length, "Mismatch in prover count");
+
         if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             // InboxOptimized3 uses custom encoding
+            // Create metadata array matching transitions
+            IInbox.TransitionMetadata[] memory metadata =
+                new IInbox.TransitionMetadata[](_transitions.length);
+            for (uint256 i = 0; i < _transitions.length; i++) {
+                metadata[i] = IInbox.TransitionMetadata({
+                    designatedProver: _designatedProvers[i],
+                    actualProver: _actualProver
+                });
+            }
             // Create ProveInput struct
-            IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
+            IInbox.ProveInput memory input = IInbox.ProveInput({
+                proposals: _proposals,
+                transitions: _transitions,
+                metadata: metadata
+            });
             return LibProveInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
+            // Create metadata array matching transitions
+            IInbox.TransitionMetadata[] memory metadata =
+                new IInbox.TransitionMetadata[](_transitions.length);
+            for (uint256 i = 0; i < _transitions.length; i++) {
+                metadata[i] = IInbox.TransitionMetadata({
+                    designatedProver: _designatedProvers[i],
+                    actualProver: _actualProver
+                });
+            }
             // Create ProveInput struct for proper encoding
-            IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
+            IInbox.ProveInput memory input = IInbox.ProveInput({
+                proposals: _proposals,
+                transitions: _transitions,
+                metadata: metadata
+            });
             return abi.encode(input);
         }
     }

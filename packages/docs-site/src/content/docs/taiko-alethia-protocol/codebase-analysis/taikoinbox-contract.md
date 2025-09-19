@@ -18,7 +18,7 @@ description: Taiko Alethia protocol page for "TaikoInbox.sol".
 
 ### `proposeBatch`
 
-Proposes a batch of batchs.
+Proposes a batch of batches.
 
 | Input Parameter | Type    | Description                                                                                    |
 | --------------- | ------- | ---------------------------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ Proves **multiple batches** with a single aggregated proof.
 
 **Returns**:
 
-- `TaikoData.batchMetadataV2[]`: Array of metadata for all proposed batchs.
+- `TaikoData.batchMetadataV2[]`: Array of metadata for all proposed batches.
 
 ---
 
@@ -139,13 +139,15 @@ Emitted when a **batch is verified**.
 ## Design Considerations
 
 1. **Ethereum-Equivalent Execution**
+
    - The contract follows Ethereum’s rollup-centric roadmap, allowing **Ethereum-equivalent execution**.
    - No modifications to **EVM opcodes**, ensuring compatibility.
 
     </br>
 
 2. **Based Rollup Architecture**
-   - Batchess are proposed permissionlessly, following **Ethereum’s L1 sequencing** rules.
+
+   - Batches are proposed permissionlessly, following **Ethereum’s L1 sequencing** rules.
    - No centralized sequencer; TaikoInbox ensures **censorship resistance**.
 
     </br>

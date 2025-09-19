@@ -2778,7 +2778,7 @@ _The following wardens also submitted reports: [0x11singh99](https://github.com/
 |                     [[G-13]](#g-13-avoid-updating-storage-when-the-value-hasnt-changed)                      | Avoid updating storage when the value hasn't changed                                             |    12     |     8,400 |
 |                                  [[G-14]](#g-14-use-of-emit-inside-a-loop)                                   | Use of `emit` inside a loop                                                                      |     4     |     4,104 |
 |              [[G-15]](#g-15-use-uint2561uint2562-instead-of-truefalse-to-save-gas-for-changes)               | Use `uint256(1)/uint256(2)` instead of `true/false` to save gas for changes                      |    10     |   170,000 |
-|                 [[G-16]](#g-16-shortcircuit-rules-can-be-be-used-to-optimize-some-gas-usage)                 | Shortcircuit rules can be used to optimize some gas usage                                     |     1     |     2,100 |
+|                 [[G-16]](#g-16-shortcircuit-rules-can-be-be-used-to-optimize-some-gas-usage)                 | Shortcircuit rules can be used to optimize some gas usage                                        |     1     |     2,100 |
 |                          [[G-17]](#g-17-cache-multiple-accesses-of-a-mappingarray)                           | Cache multiple accesses of a mapping/array                                                       |    13     |       672 |
 |                               [[G-18]](#g-18-redundant-state-variable-getters)                               | Redundant state variable getters                                                                 |     2     |         - |
 |                            [[G-19]](#g-19-using-private-for-constants-saves-gas)                             | Using `private` for constants saves gas                                                          |    14     |   117,684 |
@@ -12964,7 +12964,7 @@ Overall, I'm excited to see where the Taiko project will go, and I'm confident t
 - https://github.com/code-423n4/2024-03-taiko
 - https://docs.taiko.xyz/start-here/getting-started
 - https://taiko.mirror.xyz/oRy3ZZ_4-6IEQcuLCMMlxvdH6E-T3_H7UwYVzGDsgf4
-- https://www.datawallet.com/crypto/what-is-taiko
+- https://blog.thirdweb.com/what-is-taiko
 - https://medium.com/@mustafa.hourani/interview-with-taiko-a-leading-type-1-zkevm-ddf71eb4eabe
 - https://taiko.mirror.xyz/y_47kIOL5kavvBmG0zVujD2TRztMZt-xgM5d4oqp4_Y?ref=bankless.ghost.io
 
