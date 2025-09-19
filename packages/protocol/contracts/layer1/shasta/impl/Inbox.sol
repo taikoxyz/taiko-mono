@@ -487,6 +487,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
+        // Set nextProposalBlockId to 2 to ensure the first proposal happens at block 2 or later.
+        // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
+        // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
+        // ensure proposals never reference the genesis block.
+        coreState.nextProposalBlockId = 2;
         coreState.lastFinalizedTransitionHash = hashTransition(transition);
 
         Proposal memory proposal;

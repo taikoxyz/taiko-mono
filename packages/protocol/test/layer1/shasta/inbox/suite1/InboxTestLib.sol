@@ -873,7 +873,7 @@ library InboxTestLib {
     }
 
     /// @dev Get the expected nextProposalBlockId for a given proposal ID in tests
-    /// @notice Assumes: genesis=0, first proposal can happen at any block >= 0
+    /// @notice Assumes: genesis=2 to prevent blockhash(0) issue, first proposal at block >= 2
     function getExpectedNextProposalBlockId(
         uint48 _proposalId,
         uint256 _baseBlock
@@ -883,9 +883,9 @@ library InboxTestLib {
         returns (uint48)
     {
         if (_proposalId == 0) {
-            return 0; // Genesis value
+            return 2; // Genesis value - prevents blockhash(0) issue
         } else if (_proposalId == 1) {
-            return 0; // Before first proposal is made
+            return 2; // Before first proposal is made
         } else {
             // After proposal N-1, nextProposalBlockId = blockOfProposal(N-1) + 1
             // With 1-block gaps: proposal 1 at _baseBlock, proposal 2 at _baseBlock+1, etc.
@@ -895,7 +895,7 @@ library InboxTestLib {
     }
 
     /// @dev Calculate the block number when a proposal should be submitted
-    /// @notice With 1-block gaps between proposals, first proposal can be at any block >= 0
+    /// @notice With 1-block gaps between proposals, first proposal must be at block >= 2
     function calculateProposalBlock(
         uint48 _proposalId,
         uint256 _baseBlock
@@ -907,9 +907,12 @@ library InboxTestLib {
         if (_proposalId == 0) {
             return 0; // Genesis is at block 0
         } else if (_proposalId == 1) {
-            return _baseBlock; // First proposal at base block (can be any block >= 0)
+            // First proposal at base block (must be >= 2 to avoid blockhash(0))
+            return _baseBlock >= 2 ? _baseBlock : 2;
         } else {
-            return _baseBlock + (_proposalId - 1); // 1-block gaps
+            // Subsequent proposals with 1-block gap from first proposal
+            uint256 firstProposalBlock = _baseBlock >= 2 ? _baseBlock : 2;
+            return firstProposalBlock + (_proposalId - 1);
         }
     }
 }

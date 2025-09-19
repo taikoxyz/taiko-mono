@@ -32,7 +32,7 @@ contract InboxTestHelper is CommonTest {
     function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 0, // Genesis default
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

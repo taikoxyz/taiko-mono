@@ -472,10 +472,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Create and submit proposal
-        // For the first proposal, we can start at any block >= 0
-        // since genesis nextProposalBlockId = 0
-        if (block.number < 1) {
-            vm.roll(1);
+        // For the first proposal, we must be at block >= 2
+        // since genesis nextProposalBlockId = 2 (prevents blockhash(0) issue)
+        if (block.number < 2) {
+            vm.roll(2);
         }
         bytes memory proposeData = _createFirstProposeInput();
 
@@ -498,9 +498,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         // Need to roll 1 block forward from the last proposal
         uint48 expectedNextBlockId;
         if (_parent.id == 0) {
-            expectedNextBlockId = 0; // Genesis value
-            // For first proposal after genesis, roll to block 1
-            vm.roll(1);
+            expectedNextBlockId = 2; // Genesis value - prevents blockhash(0) issue
+            // For first proposal after genesis, roll to block 2
+            vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap
             // Roll forward by 1 block from current position

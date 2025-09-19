@@ -46,7 +46,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         for (uint48 i = 1; i <= numProposals; i++) {
             // Calculate correct block for this proposal
-            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 102); // Base block 102
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2); // Base block 102
             vm.roll(targetBlock);
 
             // Calculate the correct nextProposalBlockId based on the current proposal
@@ -55,7 +55,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 nextBlockId = 0; // Genesis value for first proposal
             } else {
                 // For subsequent proposals, it's previous proposal's block + 1
-                uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 102);
+                uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 2);
                 nextBlockId = uint48(prevProposalBlock + 1);
             }
 
@@ -202,7 +202,7 @@ contract InboxOutOfOrderProving is InboxTest {
         }
 
         // Setup for finalization - calculate correct nextProposalBlockId
-        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(numProposals, 102);
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(numProposals, 2);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
@@ -241,7 +241,7 @@ contract InboxOutOfOrderProving is InboxTest {
         );
 
         // Roll to the next valid proposal block
-        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 102);
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 2);
         vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
@@ -305,7 +305,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Try to finalize - should only finalize proposal 1 because 2 is missing
         // Calculate correct nextProposalBlockId based on the last proposal
-        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(3, 102);
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(3, 2);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
             nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
@@ -364,7 +364,7 @@ contract InboxOutOfOrderProving is InboxTest {
         );
 
         // Roll to the next valid proposal block
-        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(4, 102);
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(4, 2);
         vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);

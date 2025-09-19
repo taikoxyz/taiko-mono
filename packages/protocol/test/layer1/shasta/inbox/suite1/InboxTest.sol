@@ -110,9 +110,9 @@ abstract contract InboxTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        // Start at block 1 since genesis nextProposalBlockId = 0
-        // This ensures proposals can be made after genesis initialization
-        vm.roll(1);
+        // Start at block 2 since genesis nextProposalBlockId = 2
+        // This ensures first proposal can be made without hitting blockhash(0) issue
+        vm.roll(2);
 
         setupMockAddresses();
         deployInbox();
@@ -1085,7 +1085,7 @@ abstract contract InboxTest is CommonTest {
         setupBlobHashes();
 
         // Calculate the correct block for this proposal (accounting for 1-block gaps)
-        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 102); // Base block
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 2); // Base block
             // 102
 
         // Roll to the target block
@@ -1287,7 +1287,7 @@ abstract contract InboxTest is CommonTest {
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
-        genesisCoreState.nextProposalBlockId = 0; // Match contract's genesis initialization
+        genesisCoreState.nextProposalBlockId = 2; // Genesis value - prevents blockhash(0) issue
         genesisCoreState.lastFinalizedProposalId = 0;
 
         // Genesis transition hash from initialization
@@ -1325,18 +1325,18 @@ abstract contract InboxTest is CommonTest {
 
         // Calculate nextProposalBlockId based on what the previous proposal would have set
         if (_proposalId == 1) {
-            // Proposal 1 uses genesis state with nextProposalBlockId = 0
-            coreState.nextProposalBlockId = 0;
+            // Proposal 1 uses genesis state with nextProposalBlockId = 2
+            coreState.nextProposalBlockId = 2;
         } else {
             // Previous proposal set nextProposalBlockId = its block + 1
-            uint256 prevBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 102);
+            uint256 prevBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 2);
             coreState.nextProposalBlockId = uint48(prevBlock + 1);
         }
 
         coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
 
         // Calculate the block number when this proposal was created
-        uint256 proposalBlockNumber = InboxTestLib.calculateProposalBlock(_proposalId, 102);
+        uint256 proposalBlockNumber = InboxTestLib.calculateProposalBlock(_proposalId, 2);
 
         return _reconstructStoredProposalAt(
             _proposalId, Alice, coreState, proposalBlockNumber, block.timestamp
