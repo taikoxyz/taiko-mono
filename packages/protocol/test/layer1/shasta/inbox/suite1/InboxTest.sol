@@ -1106,21 +1106,22 @@ abstract contract InboxTest is CommonTest {
     /// @dev Builds core state for a given proposal ID
     function _buildCoreStateForProposal(uint48 _proposalId)
         internal
-        pure
+        view
         returns (IInbox.CoreState memory coreState)
     {
         coreState = _getGenesisCoreState();
         coreState.nextProposalId = _proposalId;
 
-        // Calculate the correct nextProposalBlockId based on proposal ID
+        // The nextProposalBlockId in the input core state should allow proposing at the current block
+        // For the first proposal, use the genesis value (2)
+        // For subsequent proposals, use the value set by the previous proposal (previous block + 1)
         if (_proposalId == 1) {
-            // First proposal uses genesis value (2 to prevent blockhash(0))
+            // First proposal uses genesis value (allows proposing at block >= 2)
             coreState.nextProposalBlockId = 2;
         } else {
-            // For subsequent proposals, calculate based on when the previous proposal was made
-            // Previous proposal was at block 2 + (proposalId - 2) (1-block gaps)
-            // It set nextProposalBlockId to that block + 1
-            uint256 prevProposalBlock = 2 + (_proposalId - 2);
+            // Previous proposal set nextProposalBlockId to its block + 1
+            // Calculate what the previous proposal would have set
+            uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 2);
             coreState.nextProposalBlockId = uint48(prevProposalBlock + 1);
         }
     }
