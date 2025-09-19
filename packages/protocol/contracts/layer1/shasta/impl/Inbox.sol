@@ -459,7 +459,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
         if (!stored) return;
 
-        _emitProvedEvent(_proposalId, _transition, _metadata, _transitionRecord);
+        bytes memory payload = _encodeProvedEventData(
+            ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
+            })
+        );
+        emit Proved(payload);
     }
 
     /// @dev Persists transition record metadata in storage.
@@ -722,31 +730,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes memory)
     {
         return abi.encode(_payload);
-    }
-
-    /// @dev Emits Proved event with transition record data
-    /// @notice Reusable function to emit consistent Proved events
-    /// @param _proposalId The ID of the proposal being proven
-    /// @param _transition The transition data for the event
-    /// @param _metadata The metadata for the event
-    /// @param _transitionRecord The transition record for the event
-    function _emitProvedEvent(
-        uint48 _proposalId,
-        Transition memory _transition,
-        TransitionMetadata memory _metadata,
-        TransitionRecord memory _transitionRecord
-    )
-        internal
-    {
-        bytes memory payload = _encodeProvedEventData(
-            ProvedEventPayload({
-                proposalId: _proposalId,
-                transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: _metadata
-            })
-        );
-        emit Proved(payload);
     }
 
     // ---------------------------------------------------------------
