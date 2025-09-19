@@ -60,13 +60,13 @@ This guide provides specific instructions for working with Taiko's smart contrac
 - `contracts/layer2/`: L2 contracts
 - `contracts/shared/`: Shared utilities
 - `test/`: Test files (mirror contract structure)
-- `test/layer1/shasta/inbox/suite2`: Test files for the shasta inbox(our main focus at the moment)
+- `test/layer1/shasta/inbox/suite2`: Test files for the shasta inbox (our main focus at the moment)
 
 ### 📍 Key Contract Locations (Shasta)
 
 - `contracts/layer1/shasta/impl/Inbox.sol`: main rollup contract that handles propose, prove and finalization.
 - `contracts/layer1/shasta/iface`: interfaces for protocol contracts, including most data structures.
-- `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for syncrhonizing L1 state into the L2 and also does bond management.
+- `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for synchronizing L1 state into the L2 and also does bond management.
 
 ### Design Patterns
 
