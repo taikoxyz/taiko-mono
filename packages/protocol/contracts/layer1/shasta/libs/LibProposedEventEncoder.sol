@@ -53,6 +53,7 @@ library LibProposedEventEncoder {
 
         // Encode core state
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
+        ptr = P.packUint48(ptr, _payload.coreState.nextProposalBlockId);
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
@@ -102,6 +103,7 @@ library LibProposedEventEncoder {
 
         // Decode core state
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
@@ -116,19 +118,19 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 230 bytes
+            // Fixed size: 236 bytes
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + isForcedInclusion(1) +
             // basefeeSharingPctg(1) = 40
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
-            // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 38 + 40 + 12 + 64 + 76 = 230
+            // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
+            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
+            // Total fixed: 38 + 40 + 12 + 64 + 82 = 236
 
             // Variable size: each blob hash is 32 bytes
-            size_ = 230 + (_blobHashesCount * 32);
+            size_ = 236 + (_blobHashesCount * 32);
         }
     }
 }
