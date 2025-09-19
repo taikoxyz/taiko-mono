@@ -73,15 +73,12 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
-    /// @notice Storage gap for upgrade safety.
-    uint256[43] private __gap1;
-
     /// @dev Storage for checkpoint management
     /// @dev 2 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[50] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
