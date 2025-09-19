@@ -322,7 +322,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            _loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         return (hashAndDeadline.finalizationDeadline, hashAndDeadline.recordHash);
     }
 
@@ -414,21 +414,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
     }
 
-    /// @dev Validates transition consistency with its corresponding proposal
-    /// @notice Ensures the transition references the correct proposal hash
-    /// @param _proposal The proposal being proven
-    /// @param _transition The transition to validate against the proposal
-    function _validateTransition(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-    {
-        bytes32 proposalHash = _checkProposalHash(_proposal);
-        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
-    }
-
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
@@ -501,23 +486,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return true;
     }
 
-    /// @dev Retrieves transition record hash from storage
-    /// @notice Virtual to allow optimization strategies in derived contracts
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash The hash of the parent transition
-    /// @return transitionRecordHash_ The stored transition record hash
-    function _getTransitionRecordHashAndDeadline(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        view
-        virtual
-        returns (TransitionRecordHashAndDeadline memory)
-    {
-        return _loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
-    }
-
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
@@ -533,6 +501,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+    }
+
+    /// @dev Validates transition consistency with its corresponding proposal
+    /// @notice Ensures the transition references the correct proposal hash
+    /// @param _proposal The proposal being proven
+    /// @param _transition The transition to validate against the proposal
+    function _validateTransition(
+        Proposal memory _proposal,
+        Transition memory _transition
+    )
+        internal
+        view
+    {
+        bytes32 proposalHash = _checkProposalHash(_proposal);
+        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
     /// @dev Validates proposal hash against stored value
@@ -936,7 +919,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         // Check if transition record exists in storage
         TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _getTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
+        _loadTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
 
         if (hashAndDeadline.recordHash == 0) return (false, _proposalId);
 
