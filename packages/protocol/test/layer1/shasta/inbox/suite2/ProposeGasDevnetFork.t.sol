@@ -5,6 +5,7 @@ import { Test, Vm } from "forge-std/src/Test.sol";
 import { console } from "forge-std/src/console.sol";
 import { DevnetShastaInbox } from "../../../../../contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
 import { ShastaForkRouter } from "../../../../../contracts/layer1/fork-router/ShastaForkRouter.sol";
+import { CheckpointManager } from "../../../../../contracts/shared/based/impl/CheckpointManager.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title ProposeGasDevnetFork
@@ -16,12 +17,13 @@ contract ProposeGasDevnetFork is Test {
     uint256 constant FORK_BLOCK = 10218;
     address payable constant ROUTER_ADDRESS = payable(0x3b37a799290950fef954dfF547608baC52A12571);
     address payable constant INBOX_ADDRESS = payable(0x8c42D6a0Ff518C99c7215097AD7b1d9DCE20765B);
+    address constant CHECKPOINT_MANAGER = 0xf307b51d2e2dBf72D69a444AEC955b8FD23C22A0;
     address constant PROPOSER = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
     address constant OWNER = 0x4779d18931B35540F84b0cd0e9633855B84df7b8;
     string constant TEST_DATA_PATH = "/test/layer1/shasta/inbox/suite2/testdata/devnet_tx.json";
 
     function setUp() public {
-        vm.createSelectFork(DEVNET_RPC, FORK_BLOCK);
+        vm.createSelectFork(DEVNET_RPC, FORK_BLOCK - 1);
 
         // Verify fork is working
         console.log("Block number:", block.number);
@@ -36,7 +38,7 @@ contract ProposeGasDevnetFork is Test {
     function test_proposeGas_actualDevnetTransaction() public {
         // Deploy DevnetShastaInbox with the provided configuration
         DevnetShastaInbox inbox = new DevnetShastaInbox(
-            0xf307b51d2e2dBf72D69a444AEC955b8FD23C22A0, // _checkpointManager
+            CHECKPOINT_MANAGER, // _checkpointManager
             0x429B4115e773a0Cf0e49c0443685dd290aE426ef, // _proofVerifier
             0xD70B7EeF93B00a3A809228498eE9b458B02308C0, // _proposerChecker
             0xa20182131658295f37C1A1EFdBDc89Eff97D9C58  // _taikoToken (bondToken)
