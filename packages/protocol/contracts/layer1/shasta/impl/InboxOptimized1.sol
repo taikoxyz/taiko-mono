@@ -25,9 +25,9 @@ contract InboxOptimized1 is Inbox {
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Packed to fit in single storage slot (32 + 48 + 208 = 288 bits < 256*2)
     struct ReusableTransitionRecord {
-        uint48 proposalId;                           // 48 bits
-        bytes26 partialParentTransitionHash;         // 208 bits
-        TransitionRecordHashAndDeadline hashAndDeadline; // 32 bytes (separate slot)
+        uint48 proposalId;                         
+        bytes26 partialParentTransitionHash;       
+        TransitionRecordHashAndDeadline hashAndDeadline; 
     }
 
     // ---------------------------------------------------------------
