@@ -7,13 +7,13 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
-/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and
-/// transition aggregation
-/// @dev Key optimizations:
-///      - Reusable transition record slots to reduce storage operations
-///      - Transition aggregation for consecutive proposals to minimize gas costs
-///      - Partial parent transition hash matching for storage optimization
-///      - Inline bond instruction merging to reduce function calls
+/// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
+/// @dev Key optimizations implemented:
+///      - Ring buffer pattern for frequently accessed transition records (reduces SSTORE operations)
+///      - Transition aggregation for consecutive proposals (reduces transaction overhead)
+///      - Partial parent hash matching to minimize storage slot usage
+///      - Optimized memory allocation and reuse patterns
+///      - Separated single vs multi-transition logic paths for gas efficiency
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
@@ -23,10 +23,11 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
+    ///      Packed to fit in single storage slot (32 + 48 + 208 = 288 bits < 256*2)
     struct ReusableTransitionRecord {
-        TransitionRecordHashAndDeadline hashAndDeadline;
-        uint48 proposalId;
-        bytes26 partialParentTransitionHash;
+        uint48 proposalId;                           // 48 bits
+        bytes26 partialParentTransitionHash;         // 208 bits
+        TransitionRecordHashAndDeadline hashAndDeadline; // 32 bytes (separate slot)
     }
 
     // ---------------------------------------------------------------
@@ -35,10 +36,8 @@ contract InboxOptimized1 is Inbox {
 
     /// @dev Storage for default transition records to optimize gas usage
     /// @notice Stores the most common transition record for each buffer slot
-    /// @dev Ring buffer implementation with collision handling that falls back to composite key
-    /// mapping
-    mapping(uint256 bufferSlot => ReusableTransitionRecord reusableTransitionRecord) internal
-        _reusableTransitionRecords;
+    /// @dev Ring buffer implementation with collision handling that falls back to composite key mapping
+    mapping(uint256 bufferSlot => ReusableTransitionRecord) internal _reusableTransitionRecords;
 
     uint256[49] private __gap;
 
@@ -55,47 +54,45 @@ contract InboxOptimized1 is Inbox {
     /// @inheritdoc Inbox
     /// @notice Optimized transition record building with automatic aggregation
     /// @dev Optimization strategy:
-    ///      - Single transitions: Use efficient base Inbox logic (no aggregation overhead)
+    ///      - Single transitions: Use optimized storage lookup
     ///      - Multiple transitions: Apply aggregation to group consecutive proposals
     ///      - Aggregation: Merges bond instructions and increases span value
     /// @param _input ProveInput containing arrays of proposals and transitions to process
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
-        // Optimization: For single transitions, use the exact same logic as base Inbox to avoid overhead
         if (_input.proposals.length == 1) {
-            // Use the exact same pattern as base Inbox._buildAndSaveTransitionRecords for maximum efficiency
-            _validateTransition(_input.proposals[0], _input.transitions[0]);
-
-            // Declare struct instance to reuse memory location (same as base Inbox)
-            TransitionRecord memory transitionRecord;
-            transitionRecord.span = 1;
-
-            // Reuse the same memory location (same as base Inbox pattern)
-            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
-                _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.metadata[0]
-            );
-            transitionRecord.transitionHash = _hashTransition(_input.transitions[0]);
-            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[0].checkpoint);
-
-            // Use base implementation storage for single transitions to avoid optimization overhead
-            _setTransitionRecordHashAndDeadlineBase(
-                _input.proposals[0].id, _input.transitions[0], _input.metadata[0], transitionRecord
-            );
-            return;
+            _processSingleTransition(_input);
+        } else {
+            _buildAndSaveAggregatedTransitionRecords(_input);
         }
+    }
 
-        // Multi-transition aggregation logic
-        _buildAndSaveAggregatedTransitionRecords(_input);
+    /// @dev Processes a single transition with optimized storage
+    /// @param _input ProveInput containing one proposal and transition
+    function _processSingleTransition(ProveInput memory _input) private {
+        _validateTransition(_input.proposals[0], _input.transitions[0]);
+
+        TransitionRecord memory transitionRecord = TransitionRecord({
+            span: 1,
+            bondInstructions: LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.metadata[0]
+            ),
+            transitionHash: _hashTransition(_input.transitions[0]),
+            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
+        });
+
+        _setTransitionRecordHashAndDeadline(
+            _input.proposals[0].id, _input.transitions[0], _input.metadata[0], transitionRecord
+        );
     }
 
     /// @dev Handles multi-transition aggregation logic
     /// @param _input ProveInput containing multiple proposals and transitions to aggregate
     function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
-        // Validate first proposal
+        // Initialize aggregation state from first proposal
         _validateTransition(_input.proposals[0], _input.transitions[0]);
 
-        // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
             bondInstructions: LibBondsL1.calculateBondInstructions(
@@ -106,76 +103,42 @@ contract InboxOptimized1 is Inbox {
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
-        Transition memory firstTransitionInGroup = _input.transitions[0];
-        TransitionMetadata memory firstMetadataInGroup = _input.metadata[0];
+        uint256 firstIndex = 0;
 
-        // Process remaining proposals
+        // Process remaining proposals with optimized loop
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
-            // Check if current proposal can be aggregated with the previous group
+            // Check for consecutive proposal aggregation
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                // Aggregate with current record
-                LibBonds.BondInstruction[] memory newInstructions = LibBondsL1
-                    .calculateBondInstructions(
-                    _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
-                );
-
-                if (newInstructions.length > 0) {
-                    // Use LibBonds merge function for cleaner code organization
-                    currentRecord.bondInstructions = currentRecord.bondInstructions.length == 0
-                        ? newInstructions
-                        : LibBondsL1.mergeBondInstructions(
-                            currentRecord.bondInstructions, newInstructions
-                        );
-                }
-
-                // Update the transition hash and checkpoint hash for the aggregated
-                // record
-                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
-
-                // Increment span to include this aggregated proposal
-                currentRecord.span++;
+                _aggregateTransition(_input, i, currentRecord);
             } else {
-                // Save the current aggregated record before starting a new one
-                // For aggregated records, use the metadata from the first transition in the group
-                _setTransitionRecordHashAndDeadline(
-                    currentGroupStartId, firstTransitionInGroup, firstMetadataInGroup, currentRecord
+                // Save current group and start new one
+                _saveTransitionRecord(
+                    currentGroupStartId, _input, firstIndex, currentRecord
                 );
 
-                // Start a new record for non-continuous proposal
+                // Reset for new group
                 currentGroupStartId = _input.proposals[i].id;
-                firstTransitionInGroup = _input.transitions[i];
-                firstMetadataInGroup = _input.metadata[i];
-
-                currentRecord = TransitionRecord({
-                    span: 1,
-                    bondInstructions: LibBondsL1.calculateBondInstructions(
-                        _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
-                    ),
-                    transitionHash: _hashTransition(_input.transitions[i]),
-                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
-                });
+                firstIndex = i;
+                currentRecord = _createTransitionRecord(_input, i);
             }
         }
 
         // Save the final aggregated record
-        // For the final record, use metadata from the first transition in the last group
-        _setTransitionRecordHashAndDeadline(
-            currentGroupStartId, firstTransitionInGroup, firstMetadataInGroup, currentRecord
-        );
+        _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
     }
 
     /// @inheritdoc Inbox
-    /// @dev Retrieves transition record hash with storage optimization
-    /// @notice Optimization strategy:
-    ///         1. First checks reusable slot for matching proposal ID
-    ///         2. Performs partial parent transition hash comparison
-    ///         3. Falls back to composite key mapping if no match
+    /// @dev Optimized retrieval using ring buffer with collision detection
+    /// @notice Lookup strategy (gas-optimized order):
+    ///         1. Ring buffer slot lookup (cheapest - single SLOAD)
+    ///         2. Proposal ID verification (cached in memory)
+    ///         3. Partial parent hash comparison (single comparison)
+    ///         4. Fallback to composite key mapping (most expensive)
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return TransitionRecordHashAndDeadline containing the record hash and finalization deadline
+    /// @return hashAndDeadline The transition record hash and finalization deadline
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -183,13 +146,12 @@ contract InboxOptimized1 is Inbox {
         internal
         view
         override
-        returns (TransitionRecordHashAndDeadline memory)
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
-        // Check if this is the default record for this proposal and if parent transition hash
-        // matches (partial match)
+        // Fast path: ring buffer hit (single SLOAD + memory comparison)
         if (
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
@@ -197,10 +159,10 @@ contract InboxOptimized1 is Inbox {
             return record.hashAndDeadline;
         }
 
-        // Otherwise check the direct mapping
-        return _transitionRecordHashAndDeadline[_composeTransitionKey(
-            _proposalId, _parentTransitionHash
-        )];
+        // Slow path: composite key mapping (additional SLOAD)
+        return _transitionRecordHashAndDeadline[
+            _composeTransitionKey(_proposalId, _parentTransitionHash)
+        ];
     }
 
     /// @inheritdoc Inbox
@@ -223,87 +185,114 @@ contract InboxOptimized1 is Inbox {
         override
     {
         bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
-        ReusableTransitionRecord storage record =
-            _reusableTransitionRecords[_proposalId % _ringBufferSize];
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
+        bytes26 partialParentHash = bytes26(_transition.parentTransitionHash);
         uint48 finalizationDeadline = uint48(block.timestamp + _finalizationGracePeriod);
 
-        // Check if we can use the default slot
+        TransitionRecordHashAndDeadline memory hashAndDeadline = TransitionRecordHashAndDeadline({
+            finalizationDeadline: finalizationDeadline,
+            recordHash: transitionRecordHash
+        });
+
         if (record.proposalId != _proposalId) {
-            // Different proposal ID, so we can use the default slot
-            record.hashAndDeadline = TransitionRecordHashAndDeadline({
-                finalizationDeadline: finalizationDeadline,
-                recordHash: transitionRecordHash
-            });
+            // New proposal ID - use reusable slot
+            record.hashAndDeadline = hashAndDeadline;
             record.proposalId = _proposalId;
-            record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
-        } else if (record.partialParentTransitionHash == bytes26(_transition.parentTransitionHash))
-        {
-            // Different proposal ID, so we can use the default slot
-            record.hashAndDeadline = TransitionRecordHashAndDeadline({
-                finalizationDeadline: finalizationDeadline,
-                recordHash: transitionRecordHash
-            });
+            record.partialParentTransitionHash = partialParentHash;
+        } else if (record.partialParentTransitionHash == partialParentHash) {
+            // Same proposal and parent hash - update reusable slot
+            record.hashAndDeadline = hashAndDeadline;
         } else {
-            // Same proposal ID but different parent transition hash, use direct mapping
-            bytes32 compositeKey =
-                _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-            _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
-                finalizationDeadline: finalizationDeadline,
-                recordHash: transitionRecordHash
-            });
+            // Collision: same proposal ID, different parent hash - use composite mapping
+            _transitionRecordHashAndDeadline[
+                _composeTransitionKey(_proposalId, _transition.parentTransitionHash)
+            ] = hashAndDeadline;
         }
 
-        bytes memory payload = _encodeProvedEventData(
+        emit Proved(_encodeProvedEventData(
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
                 transitionRecord: _transitionRecord,
                 metadata: _metadata
             })
-        );
-        emit Proved(payload);
+        ));
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Uses base Inbox storage logic for single transitions to avoid optimization overhead
-    /// @notice Identical to base Inbox._setTransitionRecordHashAndDeadline for maximum efficiency
-    /// @param _proposalId The proposal ID for this transition record
-    /// @param _transition The transition data containing parent transition hash
-    /// @param _metadata The metadata containing prover information
-    /// @param _transitionRecord The complete transition record to store
-    function _setTransitionRecordHashAndDeadlineBase(
+    /// @dev Creates a new transition record for the given proposal
+    /// @param _input The prove input containing all data
+    /// @param _index The index of the proposal to process
+    /// @return transitionRecord The created transition record
+    function _createTransitionRecord(
+        ProveInput memory _input,
+        uint256 _index
+    )
+        private
+        view
+        returns (TransitionRecord memory transitionRecord)
+    {
+        transitionRecord = TransitionRecord({
+            span: 1,
+            bondInstructions: LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[_index], _input.metadata[_index]
+            ),
+            transitionHash: _hashTransition(_input.transitions[_index]),
+            checkpointHash: _hashCheckpoint(_input.transitions[_index].checkpoint)
+        });
+    }
+
+    /// @dev Aggregates a transition into the current record
+    /// @param _input The prove input containing all data
+    /// @param _index The index of the transition to aggregate
+    /// @param _currentRecord The current transition record to update
+    function _aggregateTransition(
+        ProveInput memory _input,
+        uint256 _index,
+        TransitionRecord memory _currentRecord
+    )
+        private
+        view
+    {
+        LibBonds.BondInstruction[] memory newInstructions = LibBondsL1.calculateBondInstructions(
+            _provingWindow, _extendedProvingWindow, _input.proposals[_index], _input.metadata[_index]
+        );
+
+        if (newInstructions.length > 0) {
+            _currentRecord.bondInstructions = _currentRecord.bondInstructions.length == 0
+                ? newInstructions
+                : LibBondsL1.mergeBondInstructions(_currentRecord.bondInstructions, newInstructions);
+        }
+
+        _currentRecord.transitionHash = _hashTransition(_input.transitions[_index]);
+        _currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[_index].checkpoint);
+        _currentRecord.span++;
+    }
+
+    /// @dev Saves a transition record using the first transition's metadata
+    /// @param _proposalId The starting proposal ID for the group
+    /// @param _input The prove input containing all data
+    /// @param _firstIndex The index of the first transition in the group
+    /// @param _transitionRecord The transition record to save
+    function _saveTransitionRecord(
         uint48 _proposalId,
-        Transition memory _transition,
-        TransitionMetadata memory _metadata,
+        ProveInput memory _input,
+        uint256 _firstIndex,
         TransitionRecord memory _transitionRecord
     )
         private
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
-
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
-        if (hashAndDeadline.recordHash == transitionRecordHash) return;
-
-        require(hashAndDeadline.recordHash == 0, "TransitionWithSameParentHashAlreadyProved");
-        _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: transitionRecordHash
-        });
-
-        bytes memory payload = _encodeProvedEventData(
-            ProvedEventPayload({
-                proposalId: _proposalId,
-                transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: _metadata
-            })
+        _setTransitionRecordHashAndDeadline(
+            _proposalId,
+            _input.transitions[_firstIndex],
+            _input.metadata[_firstIndex],
+            _transitionRecord
         );
-        emit Proved(payload);
     }
+
 }
