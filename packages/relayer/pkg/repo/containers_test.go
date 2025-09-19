@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -29,7 +31,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
+		WaitingFor: wait.ForListeningPort(nat.Port("3306/tcp")).WithStartupTimeout(30 * time.Second),
 	}
 
 	ctx := context.Background()
