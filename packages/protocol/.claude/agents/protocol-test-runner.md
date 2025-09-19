@@ -46,7 +46,6 @@ Based on the requested scope, use these commands from `packages/protocol/package
 
 ### Special Cases
 
-- For Shasta development (L1): `FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/suite2/*"` and `FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/suite1/*"` (as per project guidelines)
 - Use `--summary` flag to get concise gas usage and test results
 - Use `-v` for minimal verbosity or `-vvvv` for detailed debugging when investigating specific failures
 
