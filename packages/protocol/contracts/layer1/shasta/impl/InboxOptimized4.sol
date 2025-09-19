@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
-import { IInbox } from "../iface/IInbox.sol";
-import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { Inbox } from "./Inbox.sol";
+import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 
 /// @title InboxOptimized4

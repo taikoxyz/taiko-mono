@@ -584,7 +584,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         virtual
