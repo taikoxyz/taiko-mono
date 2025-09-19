@@ -211,6 +211,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         CoreState memory coreState = _finalize(input);
 
+        unchecked {
+            // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the
+            // ring buffer
+            coreState.nextProposalBlockId = uint48(block.number + 1);
+        }
+
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(coreState);
         require(
@@ -352,6 +358,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
+
+        // Set nextProposalBlockId to 2 to ensure the first proposal happens at block 2 or later.
+        // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
+        // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
+        // ensure proposals never reference the genesis block.
+        coreState.nextProposalBlockId = 2;
         coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
@@ -658,6 +670,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
+        require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
         require(
             _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
@@ -749,8 +762,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 blobSlice: _blobSlice
             });
 
+            // Increment nextProposalId (nextProposalBlockId was already set in propose())
+            uint48 proposalId = _coreState.nextProposalId++;
+
             Proposal memory proposal = Proposal({
-                id: _coreState.nextProposalId++,
+                id: proposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
@@ -904,11 +920,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 // Errors
 // ---------------------------------------------------------------
 
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
+error CannotProposeInCurrentBlock();
+error CheckpointMismatch();
 error DeadlineExceeded();
 error EmptyProposals();
-error CheckpointMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
 error InconsistentParams();
@@ -922,12 +937,13 @@ error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
-error ProposalHashMismatchWithTransition();
 error ProposalHashMismatchWithStorage();
+error ProposalHashMismatchWithTransition();
 error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionRecordHashMismatchWithStorage();
+error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
-error Unauthorized();
 error UnprocessedForcedInclusionIsDue();
