@@ -52,6 +52,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
+    // TODO: remove fallback preconfer
     constructor(address _fallbackPreconfer) {
         fallbackPreconfer = _fallbackPreconfer;
     }
@@ -263,6 +264,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     function _removeOperator(address _proposer, uint8 _operatorChangeDelay) internal {
+        require(operatorCount > 1, CannotRemoveLastOperator());
         require(_proposer != address(0), InvalidOperatorAddress());
         OperatorInfo memory info = operators[_proposer];
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
@@ -289,23 +291,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
-        if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
-            return address(0);
-        }
 
-        // Use the beacon block root from `randomnessDelay` epochs ago as the random number.
-        // If the beacon block root is not available (e.g., if the epoch is before genesis),
-        // return address(0) directly.
-        uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRootAtOrAfter(
-                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH * randomnessDelay
-            )
-        );
-
-        if (rand == 0) return address(0);
+        // Get epoch-stable randomness
+        uint256 rand = _getRandomNumber(_epochTimestamp);
 
         uint256 _operatorCount = operatorCount;
-        if (_operatorCount == 0) return address(0);
 
         if (havingPerfectOperators) {
             return operatorMapping[rand % _operatorCount];
@@ -340,4 +330,12 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             mstore(operators_, count)
         }
     }
+
+    function _getRandomNumber(uint32 _epochTimestamp) internal view returns (uint256) {
+        // Get the beacon root at the epoch start - this stays constant throughout the epoch
+        bytes32 beaconRoot = LibPreconfUtils.getBeaconBlockRootAt(_epochTimestamp);
+
+        return uint256(beaconRoot);
+    }
+
 }

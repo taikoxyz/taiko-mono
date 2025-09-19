@@ -6,6 +6,7 @@ import { console } from "forge-std/src/console.sol";
 import { DevnetShastaInbox } from "../../../../../contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
 import { ShastaForkRouter } from "../../../../../contracts/layer1/fork-router/ShastaForkRouter.sol";
 import { CheckpointManager } from "../../../../../contracts/shared/based/impl/CheckpointManager.sol";
+import { PreconfWhitelist } from "../../../../../contracts/layer1/preconf/impl/PreconfWhitelist.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title ProposeGasDevnetFork
@@ -20,6 +21,7 @@ contract ProposeGasDevnetFork is Test {
     address constant CHECKPOINT_MANAGER = 0xf307b51d2e2dBf72D69a444AEC955b8FD23C22A0;
     address constant PROPOSER = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
     address constant OWNER = 0x4779d18931B35540F84b0cd0e9633855B84df7b8;
+    address constant PRECONF_WHITELIST_IMPL = 0x63Ec87f54cCed71B0DC879ce6cEDfA6f3D582670;
     string constant TEST_DATA_PATH = "/test/layer1/shasta/inbox/suite2/testdata/devnet_tx.json";
 
     function setUp() public {
@@ -36,6 +38,7 @@ contract ProposeGasDevnetFork is Test {
     /// @notice Replays the actual propose transaction from devnet to measure gas
     /// forge-config: default.isolate = true
     function test_proposeGas_actualDevnetTransaction() public {
+
         // Deploy DevnetShastaInbox with the provided configuration
         DevnetShastaInbox inbox = new DevnetShastaInbox(
             CHECKPOINT_MANAGER, // _checkpointManager
@@ -43,6 +46,9 @@ contract ProposeGasDevnetFork is Test {
             0xD70B7EeF93B00a3A809228498eE9b458B02308C0, // _proposerChecker
             0xa20182131658295f37C1A1EFdBDc89Eff97D9C58  // _taikoToken (bondToken)
         );
+
+        // Deploy PreconfWhitelist with zero address as fallback operator
+        PreconfWhitelist preconfWhitelist = new PreconfWhitelist(address(0));
 
         // Setup blob hashes
         // NOTE: This is currently failing when using in a  test that runs with isolation
@@ -56,6 +62,10 @@ contract ProposeGasDevnetFork is Test {
         // Replace code at INBOX_ADDRESS with the new inbox
         bytes memory inboxCode = address(inbox).code;
         vm.etch(INBOX_ADDRESS, inboxCode);
+
+        // Replace code at PRECONF_WHITELIST_IMPL with the new preconf whitelist
+        bytes memory actualPreconfCode = address(preconfWhitelist).code;
+        vm.etch(PRECONF_WHITELIST_IMPL, actualPreconfCode);
 
         // Read the actual calldata
         string memory root = vm.projectRoot();
