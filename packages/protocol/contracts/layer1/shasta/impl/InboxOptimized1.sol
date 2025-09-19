@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { LibBondsL1 } from "contracts/layer1/shasta/libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
@@ -79,7 +80,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return hashAndDeadline The transition record hash and finalization deadline
-    function _getTransitionRecordHashAndDeadline(
+    function _loadTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -100,9 +101,7 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return _transitionRecordHashAndDeadline[_composeTransitionKey(
-            _proposalId, _parentTransitionHash
-        )];
+        return super._loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
@@ -112,41 +111,42 @@ contract InboxOptimized1 is Inbox {
     ///         2. Same ID, same parent: Updates reusable slot
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @param _proposalId The proposal ID for this transition record
-    /// @param _transition The transition data containing parent transition hash
-    /// @param _metadata The metadata containing prover information
-    /// @param _transitionRecord The complete transition record to store
-    function _setTransitionRecordHashAndDeadline(
+    /// @param _parentTransitionHash Parent transition hash used as part of the key
+    /// @param _recordHash The keccak hash representing the transition record
+    /// @param _hashAndDeadline The finalization metadata to persist
+    /// @return stored True if the caller should emit the Proved event
+    function _storeTransitionRecord(
         uint48 _proposalId,
-        Transition memory _transition,
-        TransitionMetadata memory _metadata,
-        TransitionRecord memory _transitionRecord
+        bytes32 _parentTransitionHash,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
         override
+        returns (bool stored)
     {
-        (, TransitionRecordHashAndDeadline memory hashAndDeadline) =
-            _computeTransitionRecordHashAndDeadline(_transitionRecord);
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
-
-        bytes26 partialParentHash = bytes26(_transition.parentTransitionHash);
+        bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
         if (record.proposalId != _proposalId) {
             // New proposal ID - use reusable slot
-            record.hashAndDeadline = hashAndDeadline;
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = partialParentHash;
-        } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - update reusable slot
-            record.hashAndDeadline = hashAndDeadline;
-        } else {
-            // Collision: same proposal ID, different parent hash - use composite mapping
-            _transitionRecordHashAndDeadline[_composeTransitionKey(
-                _proposalId, _transition.parentTransitionHash
-            )] = hashAndDeadline;
+            record.hashAndDeadline = _hashAndDeadline;
+            return true;
         }
 
-        _emitProvedEvent(_proposalId, _transition, _metadata, _transitionRecord);
+        if (record.partialParentTransitionHash == partialParentHash) {
+            // Same proposal and parent hash - update reusable slot
+            record.hashAndDeadline = _hashAndDeadline;
+            return true;
+        }
+
+        // Collision: same proposal ID, different parent hash - use composite mapping
+        return super._storeTransitionRecord(
+            _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+        );
     }
 
     // ---------------------------------------------------------------
@@ -157,7 +157,9 @@ contract InboxOptimized1 is Inbox {
     /// @param _input ProveInput containing multiple proposals and transitions to aggregate
     function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
         // Validate all transitions upfront using shared function
-        _validateTransitions(_input.proposals, _input.transitions);
+        for (uint256 i; i < _input.proposals.length; ++i) {
+            _validateTransition(_input.proposals[i], _input.transitions[i]);
+        }
 
         // Initialize aggregation state from first proposal
         TransitionRecord memory currentRecord =
@@ -170,10 +172,29 @@ contract InboxOptimized1 is Inbox {
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
             // Check for consecutive proposal aggregation
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                _aggregateTransition(_input, i, currentRecord);
+                TransitionRecord memory nextRecord = _buildTransitionRecord(
+                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                );
+                if (nextRecord.bondInstructions.length == 0) {
+                    // Keep current instructions unchanged
+                } else if (currentRecord.bondInstructions.length == 0) {
+                    currentRecord.bondInstructions = nextRecord.bondInstructions;
+                } else {
+                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
+                        currentRecord.bondInstructions, nextRecord.bondInstructions
+                    );
+                }
+                currentRecord.transitionHash = nextRecord.transitionHash;
+                currentRecord.checkpointHash = nextRecord.checkpointHash;
+                currentRecord.span++;
             } else {
                 // Save current group and start new one
-                _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
+                _setTransitionRecordHashAndDeadline(
+                    currentGroupStartId,
+                    _input.transitions[firstIndex],
+                    _input.metadata[firstIndex],
+                    currentRecord
+                );
 
                 // Reset for new group
                 currentGroupStartId = _input.proposals[i].id;
@@ -185,46 +206,11 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
-    }
-    /// @dev Aggregates a transition into the current record
-    /// @param _input The prove input containing all data
-    /// @param _index The index of the transition to aggregate
-    /// @param _currentRecord The current transition record to update
-
-    function _aggregateTransition(
-        ProveInput memory _input,
-        uint256 _index,
-        TransitionRecord memory _currentRecord
-    )
-        private
-        view
-    {
-        TransitionRecord memory nextRecord = _buildTransitionRecord(
-            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
-        );
-
-        _aggregateTransitionIntoRecord(_currentRecord, nextRecord);
-    }
-
-    /// @dev Saves a transition record using the first transition's metadata
-    /// @param _proposalId The starting proposal ID for the group
-    /// @param _input The prove input containing all data
-    /// @param _firstIndex The index of the first transition in the group
-    /// @param _transitionRecord The transition record to save
-    function _saveTransitionRecord(
-        uint48 _proposalId,
-        ProveInput memory _input,
-        uint256 _firstIndex,
-        TransitionRecord memory _transitionRecord
-    )
-        private
-    {
         _setTransitionRecordHashAndDeadline(
-            _proposalId,
-            _input.transitions[_firstIndex],
-            _input.metadata[_firstIndex],
-            _transitionRecord
+            currentGroupStartId,
+            _input.transitions[firstIndex],
+            _input.metadata[firstIndex],
+            currentRecord
         );
     }
 }

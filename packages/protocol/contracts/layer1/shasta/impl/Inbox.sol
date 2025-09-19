@@ -414,43 +414,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
     }
 
-    /// @dev Validates multiple transitions in sequence
-    /// @notice Reusable batch validation function
-    /// @param _proposals Array of proposals to validate
-    /// @param _transitions Array of transitions to validate against proposals
-    function _validateTransitions(
-        Proposal[] memory _proposals,
-        Transition[] memory _transitions
-    )
-        internal
-        view
-    {
-        for (uint256 i; i < _proposals.length; ++i) {
-            _validateTransition(_proposals[i], _transitions[i]);
-        }
-    }
-
-    /// @dev Builds transition records for multiple proposals
-    /// @notice Reusable function for batch transition record construction
-    /// @param _proposals Array of proposals
-    /// @param _transitions Array of transitions
-    /// @param _metadata Array of metadata
-    /// @return records Array of built transition records
-    function _buildTransitionRecords(
-        Proposal[] memory _proposals,
-        Transition[] memory _transitions,
-        TransitionMetadata[] memory _metadata
-    )
-        internal
-        view
-        returns (TransitionRecord[] memory records)
-    {
-        records = new TransitionRecord[](_proposals.length);
-        for (uint256 i; i < _proposals.length; ++i) {
-            records[i] = _buildTransitionRecord(_proposals[i], _transitions[i], _metadata[i]);
-        }
-    }
-
     /// @dev Validates transition consistency with its corresponding proposal
     /// @notice Ensures the transition references the correct proposal hash
     /// @param _proposal The proposal being proven
@@ -488,18 +451,46 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        TransitionRecordHashAndDeadline memory storedHashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
-        if (storedHashAndDeadline.recordHash == transitionRecordHash) return;
-
-        require(storedHashAndDeadline.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
-        _transitionRecordHashAndDeadline[compositeKey] = hashAndDeadline;
+        bool stored = _storeTransitionRecord(
+            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+        );
+        if (!stored) return;
 
         _emitProvedEvent(_proposalId, _transition, _metadata, _transitionRecord);
+    }
+
+    /// @dev Persists transition record metadata in storage.
+    /// @notice Returns false when an identical record already exists, avoiding redundant event
+    /// emissions.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
+    /// @param _recordHash The keccak hash representing the transition record.
+    /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @return stored_ True if storage was updated and caller should emit the Proved event.
+    function _storeTransitionRecord(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
+    )
+        internal
+        virtual
+        returns (bool stored_)
+    {
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        TransitionRecordHashAndDeadline storage entry =
+            _transitionRecordHashAndDeadline[compositeKey];
+
+        if (entry.recordHash == _recordHash) return false;
+
+        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
+
+        entry.recordHash = _hashAndDeadline.recordHash;
+        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        return true;
     }
 
     /// @dev Retrieves transition record hash from storage
@@ -516,8 +507,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (TransitionRecordHashAndDeadline memory)
     {
+        return _loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+    }
+
+    /// @dev Loads transition record metadata from storage.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
+    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
+    function _loadTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        view
+        virtual
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+    {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordHashAndDeadline[compositeKey];
+        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value
@@ -740,46 +747,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             })
         );
         emit Proved(payload);
-    }
-
-    /// @dev Aggregates bond instructions from multiple arrays
-    /// @notice Uses LibBondsL1.mergeBondInstructions for gas-optimized merging
-    /// @param _currentInstructions The current bond instructions array
-    /// @param _newInstructions The new bond instructions array to merge
-    /// @return merged_ The merged bond instructions array
-    function _aggregateBondInstructions(
-        LibBonds.BondInstruction[] memory _currentInstructions,
-        LibBonds.BondInstruction[] memory _newInstructions
-    )
-        internal
-        pure
-        returns (LibBonds.BondInstruction[] memory merged_)
-    {
-        if (_newInstructions.length == 0) {
-            return _currentInstructions;
-        }
-        if (_currentInstructions.length == 0) {
-            return _newInstructions;
-        }
-        return LibBondsL1.mergeBondInstructions(_currentInstructions, _newInstructions);
-    }
-
-    /// @dev Aggregates a new transition into an existing transition record
-    /// @notice Updates bond instructions, transition hash, checkpoint hash, and span
-    /// @param _currentRecord The current transition record to update
-    /// @param _newRecord The new transition record to aggregate into the current one
-    function _aggregateTransitionIntoRecord(
-        TransitionRecord memory _currentRecord,
-        TransitionRecord memory _newRecord
-    )
-        internal
-        pure
-    {
-        _currentRecord.bondInstructions =
-            _aggregateBondInstructions(_currentRecord.bondInstructions, _newRecord.bondInstructions);
-        _currentRecord.transitionHash = _newRecord.transitionHash;
-        _currentRecord.checkpointHash = _newRecord.checkpointHash;
-        _currentRecord.span++;
     }
 
     // ---------------------------------------------------------------
