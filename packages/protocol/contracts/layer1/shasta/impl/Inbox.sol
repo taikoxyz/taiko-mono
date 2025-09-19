@@ -322,7 +322,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _loadTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         return (hashAndDeadline.finalizationDeadline, hashAndDeadline.recordHash);
     }
 
@@ -490,7 +490,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
     /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
-    function _loadTransitionRecordHashAndDeadline(
+    function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -919,7 +919,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         // Check if transition record exists in storage
         TransitionRecordHashAndDeadline memory hashAndDeadline =
-        _loadTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
+            _getTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
 
         if (hashAndDeadline.recordHash == 0) return (false, _proposalId);
 
