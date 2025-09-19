@@ -119,6 +119,7 @@ library LibProposedEventEncoder {
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _blobHashesCount Number of blob hashes (max 16777215 due to uint24 encoding)
     /// @return size_ The total byte size needed for encoding
+
     function calculateProposedEventSize(uint256 _blobHashesCount)
         internal
         pure
