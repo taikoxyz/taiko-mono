@@ -407,7 +407,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
 
         _setTransitionRecordHashAndDeadline(
-            _input.proposals[_index].id, _input.transitions[_index], _input.metadata[_index], transitionRecord
+            _input.proposals[_index].id,
+            _input.transitions[_index],
+            _input.metadata[_index],
+            transitionRecord
         );
     }
 
@@ -772,10 +775,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         pure
     {
-        _currentRecord.bondInstructions = _aggregateBondInstructions(
-            _currentRecord.bondInstructions,
-            _newRecord.bondInstructions
-        );
+        _currentRecord.bondInstructions =
+            _aggregateBondInstructions(_currentRecord.bondInstructions, _newRecord.bondInstructions);
         _currentRecord.transitionHash = _newRecord.transitionHash;
         _currentRecord.checkpointHash = _newRecord.checkpointHash;
         _currentRecord.span++;

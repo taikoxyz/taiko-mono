@@ -63,51 +63,10 @@ contract InboxOptimized1 is Inbox {
         if (_input.proposals.length == 0) return;
 
         if (_input.proposals.length == 1) {
-            _processSingleTransition(_input);
+            _processSingleTransitionAtIndex(_input, 0);
         } else {
             _buildAndSaveAggregatedTransitionRecords(_input);
         }
-    }
-
-    /// @dev Processes a single transition with optimized storage
-    /// @param _input ProveInput containing one proposal and transition
-    function _processSingleTransition(ProveInput memory _input) private {
-        _processSingleTransitionAtIndex(_input, 0);
-    }
-
-    /// @dev Handles multi-transition aggregation logic
-    /// @param _input ProveInput containing multiple proposals and transitions to aggregate
-    function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
-        // Validate all transitions upfront using shared function
-        _validateTransitions(_input.proposals, _input.transitions);
-
-        // Initialize aggregation state from first proposal
-        TransitionRecord memory currentRecord =
-            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
-
-        uint48 currentGroupStartId = _input.proposals[0].id;
-        uint256 firstIndex = 0;
-
-        // Process remaining proposals with optimized loop
-        for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            // Check for consecutive proposal aggregation
-            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                _aggregateTransition(_input, i, currentRecord);
-            } else {
-                // Save current group and start new one
-                _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
-
-                // Reset for new group
-                currentGroupStartId = _input.proposals[i].id;
-                firstIndex = i;
-                currentRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
-                );
-            }
-        }
-
-        // Save the final aggregated record
-        _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
     }
 
     /// @inheritdoc Inbox
@@ -194,10 +153,45 @@ contract InboxOptimized1 is Inbox {
     // Private Functions
     // ---------------------------------------------------------------
 
+    /// @dev Handles multi-transition aggregation logic
+    /// @param _input ProveInput containing multiple proposals and transitions to aggregate
+    function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
+        // Validate all transitions upfront using shared function
+        _validateTransitions(_input.proposals, _input.transitions);
+
+        // Initialize aggregation state from first proposal
+        TransitionRecord memory currentRecord =
+            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+
+        uint48 currentGroupStartId = _input.proposals[0].id;
+        uint256 firstIndex = 0;
+
+        // Process remaining proposals with optimized loop
+        for (uint256 i = 1; i < _input.proposals.length; ++i) {
+            // Check for consecutive proposal aggregation
+            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                _aggregateTransition(_input, i, currentRecord);
+            } else {
+                // Save current group and start new one
+                _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
+
+                // Reset for new group
+                currentGroupStartId = _input.proposals[i].id;
+                firstIndex = i;
+                currentRecord = _buildTransitionRecord(
+                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                );
+            }
+        }
+
+        // Save the final aggregated record
+        _saveTransitionRecord(currentGroupStartId, _input, firstIndex, currentRecord);
+    }
     /// @dev Aggregates a transition into the current record
     /// @param _input The prove input containing all data
     /// @param _index The index of the transition to aggregate
     /// @param _currentRecord The current transition record to update
+
     function _aggregateTransition(
         ProveInput memory _input,
         uint256 _index,
