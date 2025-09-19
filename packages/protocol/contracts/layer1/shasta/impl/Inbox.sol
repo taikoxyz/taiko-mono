@@ -496,15 +496,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(storedHashAndDeadline.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordHashAndDeadline[compositeKey] = hashAndDeadline;
 
-        bytes memory payload = _encodeProvedEventData(
-            ProvedEventPayload({
-                proposalId: _proposalId,
-                transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: _metadata
-            })
-        );
-        emit Proved(payload);
+        _emitProvedEvent(_proposalId, _transition, _metadata, _transitionRecord);
     }
 
     /// @dev Retrieves transition record hash from storage
@@ -720,6 +712,73 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes memory)
     {
         return abi.encode(_payload);
+    }
+
+    /// @dev Emits Proved event with transition record data
+    /// @notice Reusable function to emit consistent Proved events
+    /// @param _proposalId The ID of the proposal being proven
+    /// @param _transition The transition data for the event
+    /// @param _metadata The metadata for the event
+    /// @param _transitionRecord The transition record for the event
+    function _emitProvedEvent(
+        uint48 _proposalId,
+        Transition memory _transition,
+        TransitionMetadata memory _metadata,
+        TransitionRecord memory _transitionRecord
+    )
+        internal
+    {
+        bytes memory payload = _encodeProvedEventData(
+            ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
+            })
+        );
+        emit Proved(payload);
+    }
+
+    /// @dev Aggregates bond instructions from multiple arrays
+    /// @notice Uses LibBondsL1.mergeBondInstructions for gas-optimized merging
+    /// @param _currentInstructions The current bond instructions array
+    /// @param _newInstructions The new bond instructions array to merge
+    /// @return merged_ The merged bond instructions array
+    function _aggregateBondInstructions(
+        LibBonds.BondInstruction[] memory _currentInstructions,
+        LibBonds.BondInstruction[] memory _newInstructions
+    )
+        internal
+        pure
+        returns (LibBonds.BondInstruction[] memory merged_)
+    {
+        if (_newInstructions.length == 0) {
+            return _currentInstructions;
+        }
+        if (_currentInstructions.length == 0) {
+            return _newInstructions;
+        }
+        return LibBondsL1.mergeBondInstructions(_currentInstructions, _newInstructions);
+    }
+
+    /// @dev Aggregates a new transition into an existing transition record
+    /// @notice Updates bond instructions, transition hash, checkpoint hash, and span
+    /// @param _currentRecord The current transition record to update
+    /// @param _newRecord The new transition record to aggregate into the current one
+    function _aggregateTransitionIntoRecord(
+        TransitionRecord memory _currentRecord,
+        TransitionRecord memory _newRecord
+    )
+        internal
+        pure
+    {
+        _currentRecord.bondInstructions = _aggregateBondInstructions(
+            _currentRecord.bondInstructions,
+            _newRecord.bondInstructions
+        );
+        _currentRecord.transitionHash = _newRecord.transitionHash;
+        _currentRecord.checkpointHash = _newRecord.checkpointHash;
+        _currentRecord.span++;
     }
 
     // ---------------------------------------------------------------

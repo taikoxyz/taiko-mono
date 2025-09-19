@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
@@ -188,16 +187,7 @@ contract InboxOptimized1 is Inbox {
             )] = hashAndDeadline;
         }
 
-        emit Proved(
-            _encodeProvedEventData(
-                ProvedEventPayload({
-                    proposalId: _proposalId,
-                    transition: _transition,
-                    transitionRecord: _transitionRecord,
-                    metadata: _metadata
-                })
-            )
-        );
+        _emitProvedEvent(_proposalId, _transition, _metadata, _transitionRecord);
     }
 
     // ---------------------------------------------------------------
@@ -220,17 +210,7 @@ contract InboxOptimized1 is Inbox {
             _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
         );
 
-        if (nextRecord.bondInstructions.length > 0) {
-            _currentRecord.bondInstructions = _currentRecord.bondInstructions.length == 0
-                ? nextRecord.bondInstructions
-                : LibBondsL1.mergeBondInstructions(
-                    _currentRecord.bondInstructions, nextRecord.bondInstructions
-                );
-        }
-
-        _currentRecord.transitionHash = nextRecord.transitionHash;
-        _currentRecord.checkpointHash = nextRecord.checkpointHash;
-        _currentRecord.span++;
+        _aggregateTransitionIntoRecord(_currentRecord, nextRecord);
     }
 
     /// @dev Saves a transition record using the first transition's metadata
