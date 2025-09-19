@@ -36,59 +36,7 @@ contract InboxOptimized3 is InboxOptimized2 {
     constructor(IInbox.Config memory _config) InboxOptimized2(_config) { }
 
     // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes ProposeInput using optimized binary format
-    /// @dev Reduces calldata size compared to standard ABI encoding
-    /// @param _input The ProposeInput struct to encode
-    /// @return Compact binary representation
-    function encodeProposeInput(ProposeInput memory _input)
-        external
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProposeInputDecoder.encode(_input);
-    }
-
-    /// @notice Encodes ProveInput using optimized binary format
-    /// @dev Reduces calldata size compared to standard ABI encoding
-    /// @param _input The ProveInput struct to encode
-    /// @return Compact binary representation
-    function encodeProveInput(ProveInput memory _input)
-        external
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProveInputDecoder.encode(_input);
-    }
-
-    /// @notice Encodes ProposedEventPayload for efficient event emission
-    /// @dev Uses LibProposedEventEncoder for compact representation
-    /// @param _payload The ProposedEventPayload to encode
-    function encodeProposedEventPayload(ProposedEventPayload memory _payload)
-        external
-        pure
-        returns (bytes memory)
-    {
-        return LibProposedEventEncoder.encode(_payload);
-    }
-
-    /// @notice Encodes ProvedEventPayload for efficient event emission
-    /// @dev Uses LibProvedEventEncoder for compact representation
-    /// @param _payload The ProvedEventPayload to encode
-    function encodeProvedEventPayload(ProvedEventPayload memory _payload)
-        external
-        pure
-        returns (bytes memory)
-    {
-        return LibProvedEventEncoder.encode(_payload);
-    }
-
-    // ---------------------------------------------------------------
-    // Public Functions - Overrides
+    // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
@@ -96,8 +44,8 @@ contract InboxOptimized3 is InboxOptimized2 {
     /// @dev Overrides base implementation to use LibProposeInputDecoder
     /// @param _data The custom-encoded propose input data
     /// @return _ The decoded ProposeInput struct
-    function decodeProposeInput(bytes calldata _data)
-        public
+    function _decodeProposeInput(bytes calldata _data)
+        internal
         pure
         override
         returns (ProposeInput memory)
@@ -110,8 +58,8 @@ contract InboxOptimized3 is InboxOptimized2 {
     /// @dev Overrides base implementation to use LibProveInputDecoder
     /// @param _data The custom-encoded prove input data
     /// @return The decoded ProveInput struct
-    function decodeProveInput(bytes calldata _data)
-        public
+    function _decodeProveInput(bytes calldata _data)
+        internal
         pure
         override
         returns (ProveInput memory)
