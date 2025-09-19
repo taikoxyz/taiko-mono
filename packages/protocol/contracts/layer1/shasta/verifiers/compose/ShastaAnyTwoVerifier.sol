@@ -7,7 +7,6 @@ import "./ShastaComposeVerifier.sol";
 /// @notice (SGX + RISC0) or (RISC0 + SP1) or (SGX + SP1) verifier
 /// @custom:security-contact security@taiko.xyz
 contract AnyTwoVerifier is ShastaComposeVerifier {
-
     constructor(
         address _sgxRethVerifier,
         address _risc0RethVerifier,

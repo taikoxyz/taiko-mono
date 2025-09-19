@@ -61,7 +61,9 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
         // Check if the block proving program is trusted
         require(isProgramTrusted[blockProvingProgram], SP1_INVALID_PROGRAM_VKEY());
 
-        bytes32 publicInput = LibPublicInput.hashPublicInputs(_transitionsHash, address(this), address(0), taikoChainId);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            _transitionsHash, address(this), address(0), taikoChainId
+        );
 
         // _proof[64:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier.staticcall(

@@ -10,7 +10,6 @@ import "../../iface/IProofVerifier.sol";
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaComposeVerifier is IProofVerifier {
-
     struct SubProof {
         address verifier;
         bytes proof;
@@ -51,12 +50,7 @@ abstract contract ShastaComposeVerifier is IProofVerifier {
     error CV_VERIFIERS_INSUFFICIENT();
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(
-        bytes32 _transitionsHash,
-        bytes calldata _proof
-    )
-        external view
-    {
+    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         address[] memory verifiers = new address[](size);

@@ -14,7 +14,7 @@ library LibPublicInput {
     /// @param _chainId The chain id.
     /// @return The public input hash.
     function hashPublicInputs(
-        bytes32  _transitionsHash,
+        bytes32 _transitionsHash,
         address _verifierContract,
         address _newInstance,
         uint64 _chainId
@@ -24,13 +24,7 @@ library LibPublicInput {
         returns (bytes32)
     {
         return keccak256(
-            abi.encode(
-                "VERIFY_PROOF",
-                _chainId,
-                _verifierContract,
-                _transitionsHash,
-                _newInstance
-            )
+            abi.encode("VERIFY_PROOF", _chainId, _verifierContract, _transitionsHash, _newInstance)
         );
     }
 }

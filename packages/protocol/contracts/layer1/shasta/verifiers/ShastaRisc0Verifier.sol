@@ -63,7 +63,9 @@ contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
         // Check if the block proving program is trusted
         require(isImageTrusted[blockImageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
 
-        bytes32 publicInput = LibPublicInput.hashPublicInputs(_transitionsHash, address(this), address(0), taikoChainId);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            _transitionsHash, address(this), address(0), taikoChainId
+        );
 
         // journalDigest is the sha256 hash of the hashed public input
         bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
