@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
+import { LibTransitionRecords } from "../libs/LibTransitionRecords.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
@@ -56,7 +57,7 @@ contract InboxOptimized1 is Inbox {
     /// @inheritdoc Inbox
     /// @notice Optimized transition record building with automatic aggregation
     /// @dev Optimization strategy:
-    ///      - Single transitions: Use optimized storage lookup
+    ///      - Single transitions: Use inherited base functionality (eliminates code duplication)
     ///      - Multiple transitions: Apply aggregation to group consecutive proposals
     ///      - Aggregation: Merges bond instructions and increases span value
     /// @param _input ProveInput containing arrays of proposals and transitions to process
@@ -64,15 +65,16 @@ contract InboxOptimized1 is Inbox {
         if (_input.proposals.length == 0) return;
 
         if (_input.proposals.length == 1) {
-            _processSingleTransition(_input);
+            // Use inherited single-transition logic to eliminate duplication
+            _processSingleTransitionInherited(_input);
         } else {
             _buildAndSaveAggregatedTransitionRecords(_input);
         }
     }
 
-    /// @dev Processes a single transition with optimized storage
+    /// @dev Processes a single transition using inherited base functionality
     /// @param _input ProveInput containing one proposal and transition
-    function _processSingleTransition(ProveInput memory _input) private {
+    function _processSingleTransitionInherited(ProveInput memory _input) private {
         _validateTransition(_input.proposals[0], _input.transitions[0]);
 
         TransitionRecord memory transitionRecord =
