@@ -890,8 +890,6 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
-	// TODO: fix this test.
-	s.T().Skip()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1089,8 +1087,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
-	// TODO: fix this test.
-	s.T().Skip()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
