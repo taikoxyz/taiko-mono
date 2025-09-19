@@ -329,11 +329,19 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+	var l2HeadNumber *big.Int
+	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get L2 head: %w", err)
+		log.Warn("Failed to get L2 head L1 origin", "error", err)
+		l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get L2 head: %w", err)
+		}
+		l2HeadNumber = l2Head.Number
+	} else {
+		l2HeadNumber = headL1Origin.BlockID
 	}
-	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+	if new(big.Int).Add(l2HeadNumber, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
@@ -341,13 +349,13 @@ func (p *Proposer) ProposeTxLists(
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
 		}
 		// Ensure we are not proposing too many tx lists before Shasta fork.
-		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1) {
+		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1) {
 			log.Warn(
 				"Too many tx lists, trimming to fit before Shasta fork",
 				"txLists", len(txLists),
-				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1,
+				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1,
 			)
-			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1]
+			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1]
 		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {

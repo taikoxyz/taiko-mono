@@ -67,17 +67,17 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	}()
 
 	// RLP encoded empty list
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 	s.ProposeValidBlock(proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 	s.proposeEmptyBlockOp(context.Background(), proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
@@ -159,7 +159,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		s.Equal("replacement transaction underpriced", err.Error())
 	}
 
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
@@ -239,7 +239,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	s.Nil(err)
 	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
 
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
@@ -271,7 +271,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 
 	// Already forked into Shasta.
 	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
-		s.initShastaGenesisProposal()
+		s.InitShastaGenesisProposal()
 		return
 	}
 
@@ -285,7 +285,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
-	s.initShastaGenesisProposal()
+	s.InitShastaGenesisProposal()
 
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
@@ -296,21 +296,28 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	s.GreaterOrEqual(1, len(headBlock.Transactions()))
 }
 
-func (s *ClientTestSuite) initShastaGenesisProposal() {
+func (s *ClientTestSuite) InitShastaGenesisProposal() {
 	var (
 		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
 		inbox = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
 	)
-
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	if head.Number.Uint64()+1 >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	var l2HeadNumber *big.Int
+	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	if err != nil {
+		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
+		l2HeadNumber = l2Head.Number
+	} else {
+		l2HeadNumber = headL1Origin.BlockID
+	}
+	if l2HeadNumber.Uint64()+1 >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
 		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
 		s.Nil(err)
 		if proposalHash != (common.Hash{}) {
 			return
 		}
-		head, err = s.RPCClient.L2.HeaderByNumber(
+
+		head, err := s.RPCClient.L2.HeaderByNumber(
 			context.Background(),
 			new(big.Int).Sub(s.RPCClient.ShastaClients.ForkHeight, common.Big1),
 		)

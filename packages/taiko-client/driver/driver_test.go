@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
@@ -261,6 +262,83 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Nil(err)
 	s.Equal(l2Head3.Number.Uint64(), l2Head2.Number.Uint64()-1)
 	s.Equal(parent.Hash(), l2Head1.Hash())
+}
+
+func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	for i := uint64(0); i < s.d.state.ShastaForkHeight.Uint64()-l2Head1.Number.Uint64()-2; i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	}
+	testnetL1SnapshotID := s.SetL1Snapshot()
+
+	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.d.state.ShastaForkHeight.Uint64()-2, l2Head2.Number.Uint64())
+	s.InitShastaGenesisProposal()
+
+	var m metadata.TaikoProposalMetaData
+	for i := 0; i < 5; i++ {
+		m = s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	}
+
+	s.True(m.IsShasta())
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.d.state.ShastaForkHeight.Uint64()+3, l2Head3.Number.Uint64())
+
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head3.Hash(), headL1Origin.L2BlockHash)
+
+	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
+
+	res, err := s.RPCClient.CheckL1Reorg(
+		context.Background(),
+		m.Shasta().GetProposal().Id,
+		true,
+	)
+	s.Nil(err)
+	s.False(res.IsReorged)
+
+	// Reorg back to l2Head1
+	s.RevertL1Snapshot(testnetL1SnapshotID)
+	s.L1Mine()
+	s.InitProposer()
+
+	l1Head3, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l1Head3.Number.Uint64(), l1Head1.Number.Uint64()+1)
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+
+	s.ProposeValidBlock(s.p)
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+	s.L1Mine()
+
+	s.InitShastaGenesisProposal()
+
+	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head4.Number.Uint64(), s.RPCClient.ShastaClients.ForkHeight.Uint64()-1)
+	s.Equal(l2Head2.Number.Uint64()+1, l2Head4.Number.Uint64())
+
+	s.InitShastaGenesisProposal()
+
+	for i := 0; i < 2; i++ {
+		s.ProposeValidBlock(s.p)
+	}
+	s.L1Mine()
+
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+
+	l2Head5, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head4.Number.Uint64()+2, l2Head5.Number.Uint64())
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
