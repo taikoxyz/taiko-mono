@@ -2,11 +2,12 @@ package repo
 
 import (
 	"context"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"math/big"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -59,7 +60,6 @@ func (r *ERC20BalanceRepository) increaseBalanceInDB(
 
 	b.Amount = new(big.Int).Add(amt, optsAmt).String()
 
-	// update the row to reflect new balance
 	if err := db.Save(b).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}

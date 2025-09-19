@@ -26,12 +26,12 @@ var (
 func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
-		ExposedPorts: []string{"3306/tcp"},
+		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForListeningPort(nat.Port("3306/tcp")).WithStartupTimeout(30 * time.Second),
+		WaitingFor: wait.ForListeningPort(nat.Port("3306/tcp")).WithStartupTimeout(60 * time.Second),
 	}
 
 	ctx := context.Background()
