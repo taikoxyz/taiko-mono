@@ -137,34 +137,6 @@ library LibProvedEventEncoder {
     }
 
     // ---------------------------------------------------------------
-    // Unoptimized Versions (Reference Implementations)
-    // ---------------------------------------------------------------
-
-    /// @notice Unoptimized reference implementation for encoding ProvedEventPayload
-    /// @dev Uses standard abi.encode(...) - kept for comparison and testing
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes using standard ABI encoding
-    function encodeUnoptimized(IInbox.ProvedEventPayload memory _payload)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
-        return abi.encode(_payload);
-    }
-
-    /// @notice Unoptimized reference implementation for decoding ProvedEventPayload
-    /// @dev Uses standard abi.decode(...) - kept for comparison and testing
-    /// @param _data The encoded data to decode
-    /// @return payload_ The decoded payload using standard ABI decoding
-    function decodeUnoptimized(bytes memory _data)
-        internal
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        return abi.decode(_data, (IInbox.ProvedEventPayload));
-    }
-
-    // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
