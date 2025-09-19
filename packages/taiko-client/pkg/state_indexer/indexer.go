@@ -703,10 +703,11 @@ func (s *Indexer) getTransitionsForFinalization(
 			"Checking transition for finalization",
 			"proposalId", lastFinalizedProposalId+i,
 			"lastFinalizedTransitionHash", common.Bytes2Hex(lastFinalizedTransitionHash[:]),
-			"transitionHash", common.Bytes2Hex(transition.Transition.ParentTransitionHash[:]),
+			"parentTransitionHash", common.Bytes2Hex(transition.Transition.ParentTransitionHash[:]),
 		)
 
 		if !ok ||
+			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
 			break
 		}
