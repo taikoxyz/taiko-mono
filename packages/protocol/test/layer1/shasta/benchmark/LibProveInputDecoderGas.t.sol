@@ -194,7 +194,13 @@ contract LibProveInputDecoderGas is Test {
                     blockNumber: uint48(2_000_000 + i * 10),
                     blockHash: keccak256(abi.encodePacked("end_block", i)),
                     stateRoot: keccak256(abi.encodePacked("end_state", i))
-                }),
+                })
+            });
+        }
+
+        input.metadata = new IInbox.TransitionMetadata[](_proposalCount);
+        for (uint256 i = 0; i < _proposalCount; i++) {
+            input.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });

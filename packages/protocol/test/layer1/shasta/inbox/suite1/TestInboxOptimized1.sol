@@ -55,7 +55,10 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
     )
         external
     {
-        _setTransitionRecordHashAndDeadline(_proposalId, _transition, _transitionRecord);
+        // Create dummy metadata for test purposes
+        IInbox.TransitionMetadata memory metadata =
+            IInbox.TransitionMetadata({ designatedProver: address(0), actualProver: address(0) });
+        _setTransitionRecordHashAndDeadline(_proposalId, _transition, metadata, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes

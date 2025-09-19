@@ -107,7 +107,6 @@ interface IPreconfSlasher is ISlasher {
         MissingEOP
     }
 
-    event SlashAmountUpdated(uint256 newAmount);
     event Slashed(
         address indexed committer,
         ViolationType indexed violationType,

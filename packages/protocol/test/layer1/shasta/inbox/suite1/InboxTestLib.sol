@@ -37,7 +37,8 @@ library InboxTestLib {
     // Core State Management
     // ---------------------------------------------------------------
 
-    /// @dev Creates a basic core state
+    /// @dev Creates a basic core state with proper nextProposalBlockId handling
+    /// @notice nextProposalBlockId = block.number + 1 after each proposal
     function createCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId
@@ -48,6 +49,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
+            nextProposalBlockId: 0, // Genesis default
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -67,9 +69,29 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
+            nextProposalBlockId: 0, // Genesis default
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash
+        });
+    }
+
+    /// @dev Creates a core state with explicit nextProposalBlockId
+    function createCoreStateWithBlock(
+        uint48 _nextProposalId,
+        uint48 _nextProposalBlockId,
+        uint48 _lastFinalizedProposalId
+    )
+        internal
+        pure
+        returns (IInbox.CoreState memory)
+    {
+        return IInbox.CoreState({
+            nextProposalId: _nextProposalId,
+            nextProposalBlockId: _nextProposalBlockId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTransitionHash: bytes32(0),
+            bondInstructionsHash: bytes32(0)
         });
     }
 
@@ -227,12 +249,13 @@ library InboxTestLib {
     function createTransition(
         IInbox.Proposal memory _proposal,
         bytes32 _parentTransitionHash,
-        address _actualProver
+        address /* _actualProver */
     )
         internal
         pure
         returns (IInbox.Transition memory)
     {
+        // actualProver parameter is no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
@@ -240,9 +263,7 @@ library InboxTestLib {
                 blockNumber: _proposal.id * 100,
                 blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
-            }),
-            designatedProver: _proposal.proposer,
-            actualProver: _actualProver
+            })
         });
     }
 
@@ -253,13 +274,14 @@ library InboxTestLib {
         uint48 _endBlockNumber,
         bytes32 _endBlockHash,
         bytes32 _endStateRoot,
-        address _designatedProver,
-        address _actualProver
+        address, /* _designatedProver */
+        address /* _actualProver */
     )
         internal
         pure
         returns (IInbox.Transition memory)
     {
+        // designatedProver and actualProver parameters are no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
@@ -267,9 +289,7 @@ library InboxTestLib {
                 blockNumber: _endBlockNumber,
                 blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
-            }),
-            designatedProver: _designatedProver,
-            actualProver: _actualProver
+            })
         });
     }
 
@@ -277,7 +297,7 @@ library InboxTestLib {
     function createTransitionChain(
         IInbox.Proposal[] memory _proposals,
         bytes32 _initialParentHash,
-        address _prover
+        address /* _prover */
     )
         internal
         pure
@@ -287,7 +307,7 @@ library InboxTestLib {
         bytes32 parentHash = _initialParentHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            transitions[i] = createTransition(_proposals[i], parentHash, _prover);
+            transitions[i] = createTransition(_proposals[i], parentHash, address(0));
             parentHash = hashTransition(transitions[i]);
         }
     }
@@ -708,9 +728,7 @@ library InboxTestLib {
                 blockNumber: 0,
                 blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)
-            }),
-            designatedProver: address(0),
-            actualProver: address(0)
+            })
         });
     }
 
@@ -779,7 +797,7 @@ library InboxTestLib {
         bytes32 _parentHash
     )
         internal
-        pure
+        view
         returns (TestContext memory ctx)
     {
         ctx.coreState = createCoreState(_nextProposalId, _lastFinalizedId, _parentHash, bytes32(0));
@@ -795,7 +813,7 @@ library InboxTestLib {
         bytes32 _parentHash
     )
         internal
-        pure
+        view
         returns (TestContext memory)
     {
         return createContext(_nextProposalId, 0, _parentHash);
@@ -838,5 +856,63 @@ library InboxTestLib {
         _ctx.transitions = newTransitions;
         _ctx.currentParentHash = hashTransition(_transition);
         return _ctx;
+    }
+
+    // ---------------------------------------------------------------
+    // NextProposalBlockId Helpers
+    // ---------------------------------------------------------------
+
+    /// @dev Calculate the nextProposalBlockId after a proposal is processed
+    /// @notice Proposal at block N sets nextProposalBlockId to N+1
+    function calculateNextProposalBlockId(uint256 _proposalBlockNumber)
+        internal
+        pure
+        returns (uint48)
+    {
+        return uint48(_proposalBlockNumber + 1);
+    }
+
+    /// @dev Get the expected nextProposalBlockId for a given proposal ID in tests
+    /// @notice Assumes: genesis=2 to prevent blockhash(0) issue, first proposal at block >= 2
+    function getExpectedNextProposalBlockId(
+        uint48 _proposalId,
+        uint256 _baseBlock
+    )
+        internal
+        pure
+        returns (uint48)
+    {
+        if (_proposalId == 0) {
+            return 2; // Genesis value - prevents blockhash(0) issue
+        } else if (_proposalId == 1) {
+            return 2; // Before first proposal is made
+        } else {
+            // After proposal N-1, nextProposalBlockId = blockOfProposal(N-1) + 1
+            // With 1-block gaps: proposal 1 at _baseBlock, proposal 2 at _baseBlock+1, etc.
+            uint256 prevProposalBlock = _baseBlock + (_proposalId - 2);
+            return uint48(prevProposalBlock + 1);
+        }
+    }
+
+    /// @dev Calculate the block number when a proposal should be submitted
+    /// @notice With 1-block gaps between proposals, first proposal must be at block >= 2
+    function calculateProposalBlock(
+        uint48 _proposalId,
+        uint256 _baseBlock
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        if (_proposalId == 0) {
+            return 0; // Genesis is at block 0
+        } else if (_proposalId == 1) {
+            // First proposal at base block (must be >= 2 to avoid blockhash(0))
+            return _baseBlock >= 2 ? _baseBlock : 2;
+        } else {
+            // Subsequent proposals with 1-block gap from first proposal
+            uint256 firstProposalBlock = _baseBlock >= 2 ? _baseBlock : 2;
+            return firstProposalBlock + (_proposalId - 1);
+        }
     }
 }

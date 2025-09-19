@@ -160,8 +160,8 @@ contract LibProvedEventEncoderGas is Test {
             blockHash: keccak256("block"),
             stateRoot: keccak256("state")
         });
-        payload_.transition.designatedProver = address(0x1234567890123456789012345678901234567890);
-        payload_.transition.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        payload_.metadata.designatedProver = address(0x1234567890123456789012345678901234567890);
+        payload_.metadata.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
         payload_.transitionRecord.span = 42;
         payload_.transitionRecord.transitionHash = keccak256("transition");

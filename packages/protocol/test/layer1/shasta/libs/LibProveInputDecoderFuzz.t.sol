@@ -55,13 +55,21 @@ contract LibProveInputDecoderFuzz is Test {
                 blockNumber: endBlockNumber,
                 blockHash: endBlockHash,
                 stateRoot: endStateRoot
-            }),
+            })
+        });
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
             designatedProver: designatedProver,
             actualProver: actualProver
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -88,8 +96,11 @@ contract LibProveInputDecoderFuzz is Test {
         );
         assertEq(decoded.transitions[0].checkpoint.blockHash, transitions[0].checkpoint.blockHash);
         assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
-        assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver);
-        assertEq(decoded.transitions[0].actualProver, transitions[0].actualProver);
+
+        // Verify metadata
+        assertEq(decoded.metadata.length, 1);
+        assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver);
+        assertEq(decoded.metadata[0].actualProver, metadata[0].actualProver);
     }
 
     /// @notice Fuzz test for multiple proposals and transitions
@@ -117,14 +128,24 @@ contract LibProveInputDecoderFuzz is Test {
                     blockNumber: uint48(2_000_000 + i),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))
-                }),
+                })
+            });
+        }
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](count);
+        for (uint256 i = 0; i < count; i++) {
+            metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });
         }
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -201,9 +222,7 @@ contract LibProveInputDecoderFuzz is Test {
                 blockNumber: timestamp1,
                 blockHash: keccak256(abi.encode("block1")),
                 stateRoot: keccak256(abi.encode("state1"))
-            }),
-            designatedProver: proposer1,
-            actualProver: proposer2
+            })
         });
         transitions[1] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id2)),
@@ -212,13 +231,21 @@ contract LibProveInputDecoderFuzz is Test {
                 blockNumber: timestamp2,
                 blockHash: keccak256(abi.encode("block2")),
                 stateRoot: keccak256(abi.encode("state2"))
-            }),
-            designatedProver: proposer2,
-            actualProver: proposer1
+            })
         });
 
-        IInbox.ProveInput memory original =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
+        metadata[0] =
+            IInbox.TransitionMetadata({ designatedProver: proposer1, actualProver: proposer2 });
+        metadata[1] =
+            IInbox.TransitionMetadata({ designatedProver: proposer2, actualProver: proposer1 });
+
+        IInbox.ProveInput memory original = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // First round trip
         bytes memory encoded1 = LibProveInputDecoder.encode(original);
@@ -256,13 +283,21 @@ contract LibProveInputDecoderFuzz is Test {
                 blockNumber: type(uint48).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
-            }),
+            })
+        });
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
             designatedProver: address(type(uint160).max),
             actualProver: address(type(uint160).max)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
@@ -301,7 +336,14 @@ contract LibProveInputDecoderFuzz is Test {
                     blockNumber: uint48(2_000_000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))
-                }),
+                })
+            });
+        }
+
+        // Create metadata array
+        proveInput.metadata = new IInbox.TransitionMetadata[](transitionCount);
+        for (uint256 i = 0; i < transitionCount; i++) {
+            proveInput.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });

@@ -25,17 +25,14 @@ library LibHashing {
     // ---------------------------------------------------------------
 
     /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash all transition fields including checkpoint and prover
-    /// addresses
+    /// @dev Uses EfficientHashLib to hash transition fields
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
             _transition.proposalHash,
             _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint),
-            bytes32(uint256(uint160(_transition.designatedProver))),
-            bytes32(uint256(uint160(_transition.actualProver)))
+            hashCheckpoint(_transition.checkpoint)
         );
     }
 
@@ -60,6 +57,7 @@ library LibHashing {
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
             bytes32(uint256(_coreState.nextProposalId)),
+            bytes32(uint256(_coreState.nextProposalBlockId)),
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
             _coreState.lastFinalizedTransitionHash,
             _coreState.bondInstructionsHash
