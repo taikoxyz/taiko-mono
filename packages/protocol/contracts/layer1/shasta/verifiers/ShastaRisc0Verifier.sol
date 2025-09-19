@@ -66,7 +66,7 @@ contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
         bytes32 publicInput = LibPublicInput.hashPublicInputs(_transitionsHash, address(this), address(0), taikoChainId);
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(publicInput);
+        bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
 
         // call risc0 verifier contract
         (bool success,) = riscoGroth16Verifier.staticcall(

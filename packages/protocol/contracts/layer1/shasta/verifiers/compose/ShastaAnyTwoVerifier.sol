@@ -14,7 +14,7 @@ contract AnyTwoVerifier is ShastaComposeVerifier {
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
-        ComposeVerifier(
+        ShastaComposeVerifier(
             address(0),
             address(0),
             address(0),

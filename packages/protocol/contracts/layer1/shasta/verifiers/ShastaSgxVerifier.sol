@@ -34,7 +34,6 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    ITaikoInbox public immutable taikoInbox;
     address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
@@ -139,7 +138,7 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
         bytes32 _transitionsHash,
         bytes calldata _proof
     )
-        external
+        external view
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
@@ -149,18 +148,13 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
         address newInstance = address(bytes20(_proof[24:44]));
 
         // Collect public inputs
-        uint256 size = _ctxs.length;
-        bytes32[] memory publicInputs = new bytes32[](size + 2);
+        bytes32[] memory publicInputs = new bytes32[](3);
         // First public input is the current instance public key
         publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
         publicInputs[1] = bytes32(uint256(uint160(newInstance)));
 
         // All other inputs are the block program public inputs (a single 32 byte value)
-        for (uint256 i; i < size; ++i) {
-            publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _transitionsHash, address(this), newInstance, taikoChainId
-            );
-        }
+        publicInputs[2] = LibPublicInput.hashPublicInputs(_transitionsHash, address(this), newInstance, taikoChainId);
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
         // Verify the blocks
@@ -169,10 +163,6 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
 
         uint32 id = uint32(bytes4(_proof[:4]));
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
-
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
-        }
     }
 
     function _addInstances(

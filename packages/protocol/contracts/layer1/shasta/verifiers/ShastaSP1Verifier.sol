@@ -49,9 +49,9 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
         emit ProgramTrusted(_programVKey, _trusted);
     }
 
-    /// @inheritdoc IVerifier
-    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
-        require(_ctxs.length != 0 && _proof.length > 64, SP1_INVALID_PARAMS());
+    /// @inheritdoc IProofVerifier
+    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+        require(_transitionsHash != bytes32(0) && _proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof[0:32]);
         bytes32 blockProvingProgram = bytes32(_proof[32:64]);
@@ -67,7 +67,7 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
         (bool success,) = sp1RemoteVerifier.staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (aggregationProgram, publicInput, _proof[64:])
+                (aggregationProgram, abi.encodePacked(publicInput), _proof[64:])
             )
         );
 
