@@ -97,36 +97,48 @@ contract InboxInit is InboxTest {
         assertTrue(actualOwner != address(0), "Owner should not be zero address");
     }
 
-    /// @notice Test initialization with different genesis block hashes
-    /// @dev Validates genesis configuration flexibility
-    function test_init_various_genesis_hashes() public {
-        bytes32[3] memory testHashes = [bytes32(0), bytes32(uint256(1)), keccak256("genesis")];
+    /// @notice Test initialization with zero genesis block hash
+    /// @dev Validates genesis configuration with zero hash
+    function test_init_genesis_hash_zero() public {
+        _testSingleGenesisHash(bytes32(0));
+    }
+    
+    /// @notice Test initialization with non-zero genesis block hash
+    /// @dev Validates genesis configuration with simple hash
+    function test_init_genesis_hash_nonzero() public {
+        _testSingleGenesisHash(bytes32(uint256(1)));
+    }
+    
+    /// @notice Test initialization with keccak256 genesis block hash
+    /// @dev Validates genesis configuration with complex hash
+    function test_init_genesis_hash_keccak() public {
+        _testSingleGenesisHash(keccak256("genesis"));
+    }
 
-        for (uint256 i = 0; i < testHashes.length; i++) {
-            ITestInbox testInbox = _deployFreshInbox(Alice, testHashes[i]);
+    function _testSingleGenesisHash(bytes32 _genesisHash) private {
+        ITestInbox testInbox = _deployFreshInbox(Alice, _genesisHash);
 
-            // Verify successful initialization with each hash
-            assertEq(
-                Ownable(address(testInbox)).owner(),
-                Alice,
-                "Owner should be set for each genesis hash"
-            );
+        // Verify successful initialization with each hash
+        assertEq(
+            Ownable(address(testInbox)).owner(),
+            Alice,
+            "Owner should be set for each genesis hash"
+        );
 
-            // Create expected core state for verification
-            IInbox.Transition memory genesisTransition;
-            genesisTransition.checkpoint.blockHash = testHashes[i];
+        // Create expected core state for verification
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.checkpoint.blockHash = _genesisHash;
 
-            createCoreStateFromConfig(
-                CoreStateConfig({
-                    nextProposalId: 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
-                    bondInstructionsHash: bytes32(0)
-                })
-            );
+        createCoreStateFromConfig(
+            CoreStateConfig({
+                nextProposalId: 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
+                bondInstructionsHash: bytes32(0)
+            })
+        );
 
-            // Verification through successful operations is implicit
-        }
+        // Verification through successful operations is implicit
     }
 
     /// @notice Test that nextProposalId starts at 1

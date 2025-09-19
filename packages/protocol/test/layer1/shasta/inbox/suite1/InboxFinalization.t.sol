@@ -314,10 +314,13 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = proposal1;
 
-        // Expect revert due to mismatched transition record hash
-        vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
+
+        // This should revert due to mismatched transition record hash
         vm.prank(Carol);
-        inbox.propose(
+        
+        try inbox.propose(
             bytes(""),
             InboxTestAdapter.encodeProposeInputWithEndBlock(
                 inboxType,
@@ -328,6 +331,13 @@ contract InboxFinalization is InboxTest {
                 transitionRecords,
                 transition1.checkpoint // Use the actual transition's checkpoint
             )
-        );
+        ) {
+            revert("Expected TransitionRecordHashMismatchWithStorage but propose succeeded");
+        } catch (bytes memory reason) {
+            // Verify we got the expected error
+            bytes4 expectedSelector = TransitionRecordHashMismatchWithStorage.selector;
+            bytes4 actualSelector = bytes4(reason);
+            require(actualSelector == expectedSelector, "Wrong error type");
+        }
     }
 }
