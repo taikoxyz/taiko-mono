@@ -1398,7 +1398,8 @@ abstract contract InboxTest is CommonTest {
             // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
-        // The contract increments nextProposalId and sets nextProposalBlockId BEFORE computing the hash
+        // The contract increments nextProposalId and sets nextProposalBlockId BEFORE computing the
+        // hash
         // In propose(), it sets nextProposalBlockId = block.number + 1 (line 215)
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
