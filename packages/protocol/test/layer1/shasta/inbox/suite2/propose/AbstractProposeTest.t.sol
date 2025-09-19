@@ -363,6 +363,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
             _fillRingBufferTo(uint48(ringBufferSize - 1));
 
+        // Advance to meet the nextProposalBlockId requirement
+        vm.roll(coreState.nextProposalBlockId);
+
         // Try to store 2 forced inclusions when we only have 1 slot left
         _storeForcedInclusions(2, 0);
 
@@ -412,8 +415,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
         
         // Fill the ring buffer to leave only 1 space
-        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) = 
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
             _fillRingBufferTo(uint48(ringBufferSize - 1));
+
+        // Advance to meet the nextProposalBlockId requirement
+        vm.roll(coreState.nextProposalBlockId);
 
         // Store one forced inclusion
         _storeForcedInclusions(1, 0);
@@ -1141,7 +1147,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
             // Update core state for this proposal
             coreState_.nextProposalId = proposalId;
-            coreState_.nextProposalBlockId = uint48(block.number); // Update to match current block
+            // Don't modify nextProposalBlockId here - it will be set after the proposal
 
             // Create proposal input
             bytes memory proposeData = _createProposeInputWithCustomParams(
