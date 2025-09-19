@@ -47,7 +47,7 @@ contract InboxBasicTest is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

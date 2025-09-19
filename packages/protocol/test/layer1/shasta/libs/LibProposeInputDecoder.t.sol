@@ -287,7 +287,7 @@ contract LibProposeInputDecoderTest is Test {
         // Test with various edge cases to ensure correctness
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: bytes32(uint256(0xdead)),
             bondInstructionsHash: bytes32(uint256(0xbeef))

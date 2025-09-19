@@ -486,7 +486,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
-        coreState.nextProposalBlockId = 100; // Set genesis nextProposalBlockId
         coreState.lastFinalizedTransitionHash = hashTransition(transition);
 
         Proposal memory proposal;

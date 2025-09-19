@@ -138,7 +138,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -186,7 +186,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -285,7 +285,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -331,7 +331,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)

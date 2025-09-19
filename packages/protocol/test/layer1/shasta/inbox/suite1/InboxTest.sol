@@ -110,9 +110,9 @@ abstract contract InboxTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        // Advance to block 101 to work with genesis nextProposalBlockId = 100
+        // Start at block 1 since genesis nextProposalBlockId = 0
         // This ensures proposals can be made after genesis initialization
-        vm.roll(101);
+        vm.roll(1);
 
         setupMockAddresses();
         deployInbox();
@@ -1123,7 +1123,7 @@ abstract contract InboxTest is CommonTest {
         // Calculate the correct nextProposalBlockId based on proposal ID
         if (_proposalId == 1) {
             // First proposal uses genesis value
-            coreState.nextProposalBlockId = 100;
+            coreState.nextProposalBlockId = 0;
         } else {
             // For subsequent proposals, calculate based on when the previous proposal was made
             // Previous proposal was at block 102 + (proposalId - 2) (1-block gaps)
@@ -1287,7 +1287,7 @@ abstract contract InboxTest is CommonTest {
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
-        genesisCoreState.nextProposalBlockId = 100; // Match contract's genesis initialization
+        genesisCoreState.nextProposalBlockId = 0; // Match contract's genesis initialization
         genesisCoreState.lastFinalizedProposalId = 0;
 
         // Genesis transition hash from initialization
@@ -1325,8 +1325,8 @@ abstract contract InboxTest is CommonTest {
 
         // Calculate nextProposalBlockId based on what the previous proposal would have set
         if (_proposalId == 1) {
-            // Proposal 1 uses genesis state with nextProposalBlockId = 100
-            coreState.nextProposalBlockId = 100;
+            // Proposal 1 uses genesis state with nextProposalBlockId = 0
+            coreState.nextProposalBlockId = 0;
         } else {
             // Previous proposal set nextProposalBlockId = its block + 1
             uint256 prevBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 102);

@@ -49,7 +49,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: 100, // Use genesis default, caller should set if needed
+            nextProposalBlockId: 0, // Genesis default
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -69,7 +69,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: 100, // Use genesis default, caller should set if needed
+            nextProposalBlockId: 0, // Genesis default
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash
@@ -873,7 +873,7 @@ library InboxTestLib {
     }
 
     /// @dev Get the expected nextProposalBlockId for a given proposal ID in tests
-    /// @notice Assumes: genesis=100, first proposal at 102, then need 1-block gaps
+    /// @notice Assumes: genesis=0, first proposal can happen at any block >= 0
     function getExpectedNextProposalBlockId(
         uint48 _proposalId,
         uint256 _baseBlock
@@ -883,9 +883,9 @@ library InboxTestLib {
         returns (uint48)
     {
         if (_proposalId == 0) {
-            return 100; // Genesis value
+            return 0; // Genesis value
         } else if (_proposalId == 1) {
-            return 100; // Before first proposal is made
+            return 0; // Before first proposal is made
         } else {
             // After proposal N-1, nextProposalBlockId = blockOfProposal(N-1) + 1
             // With 1-block gaps: proposal 1 at _baseBlock, proposal 2 at _baseBlock+1, etc.
@@ -895,7 +895,7 @@ library InboxTestLib {
     }
 
     /// @dev Calculate the block number when a proposal should be submitted
-    /// @notice With 1-block gaps between proposals
+    /// @notice With 1-block gaps between proposals, first proposal can be at any block >= 0
     function calculateProposalBlock(
         uint48 _proposalId,
         uint256 _baseBlock
@@ -904,8 +904,10 @@ library InboxTestLib {
         pure
         returns (uint256)
     {
-        if (_proposalId <= 1) {
-            return _baseBlock; // First proposal at base block
+        if (_proposalId == 0) {
+            return 0; // Genesis is at block 0
+        } else if (_proposalId == 1) {
+            return _baseBlock; // First proposal at base block (can be any block >= 0)
         } else {
             return _baseBlock + (_proposalId - 1); // 1-block gaps
         }

@@ -32,7 +32,7 @@ contract LibProposeInputDecoderFuzz is Test {
         lastFinalizedProposalId = uint48(bound(lastFinalizedProposalId, 0, nextProposalId));
 
         // Use differentiated IDs like the main tests
-        uint48 nextProposalBlockId = nextProposalId == 1 ? uint48(100) : nextProposalId;
+        uint48 nextProposalBlockId = nextProposalId == 1 ? uint48(0) : nextProposalId;
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: deadline,
@@ -193,7 +193,7 @@ contract LibProposeInputDecoderFuzz is Test {
         // Create test data
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
@@ -361,7 +361,7 @@ contract LibProposeInputDecoderFuzz is Test {
 
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 0,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")

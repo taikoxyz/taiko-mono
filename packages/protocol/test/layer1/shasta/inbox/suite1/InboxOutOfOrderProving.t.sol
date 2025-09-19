@@ -52,7 +52,7 @@ contract InboxOutOfOrderProving is InboxTest {
             // Calculate the correct nextProposalBlockId based on the current proposal
             uint48 nextBlockId;
             if (i == 1) {
-                nextBlockId = 100; // Genesis value for first proposal
+                nextBlockId = 0; // Genesis value for first proposal
             } else {
                 // For subsequent proposals, it's previous proposal's block + 1
                 uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 102);
