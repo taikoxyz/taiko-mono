@@ -54,15 +54,44 @@ contract InboxOptimized1 is Inbox {
 
     /// @inheritdoc Inbox
     /// @notice Optimized transition record building with automatic aggregation
-    /// @dev Aggregation strategy:
-    ///      - Groups consecutive proposal IDs into single transition records
-    ///      - Merges bond instructions for aggregated transitions
-    ///      - Updates end block header for each aggregation
-    ///      - Saves aggregated records with increased span value
+    /// @dev Optimization strategy:
+    ///      - Single transitions: Use efficient base Inbox logic (no aggregation overhead)
+    ///      - Multiple transitions: Apply aggregation to group consecutive proposals
+    ///      - Aggregation: Merges bond instructions and increases span value
     /// @param _input ProveInput containing arrays of proposals and transitions to process
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
+        // Optimization: For single transitions, use the exact same logic as base Inbox to avoid overhead
+        if (_input.proposals.length == 1) {
+            // Use the exact same pattern as base Inbox._buildAndSaveTransitionRecords for maximum efficiency
+            _validateTransition(_input.proposals[0], _input.transitions[0]);
+
+            // Declare struct instance to reuse memory location (same as base Inbox)
+            TransitionRecord memory transitionRecord;
+            transitionRecord.span = 1;
+
+            // Reuse the same memory location (same as base Inbox pattern)
+            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.metadata[0]
+            );
+            transitionRecord.transitionHash = _hashTransition(_input.transitions[0]);
+            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[0].checkpoint);
+
+            // Use base implementation storage for single transitions to avoid optimization overhead
+            _setTransitionRecordHashAndDeadlineBase(
+                _input.proposals[0].id, _input.transitions[0], _input.metadata[0], transitionRecord
+            );
+            return;
+        }
+
+        // Multi-transition aggregation logic
+        _buildAndSaveAggregatedTransitionRecords(_input);
+    }
+
+    /// @dev Handles multi-transition aggregation logic
+    /// @param _input ProveInput containing multiple proposals and transitions to aggregate
+    function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
         // Validate first proposal
         _validateTransition(_input.proposals[0], _input.transitions[0]);
 
@@ -239,4 +268,42 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Uses base Inbox storage logic for single transitions to avoid optimization overhead
+    /// @notice Identical to base Inbox._setTransitionRecordHashAndDeadline for maximum efficiency
+    /// @param _proposalId The proposal ID for this transition record
+    /// @param _transition The transition data containing parent transition hash
+    /// @param _metadata The metadata containing prover information
+    /// @param _transitionRecord The complete transition record to store
+    function _setTransitionRecordHashAndDeadlineBase(
+        uint48 _proposalId,
+        Transition memory _transition,
+        TransitionMetadata memory _metadata,
+        TransitionRecord memory _transitionRecord
+    )
+        private
+    {
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
+        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+
+        TransitionRecordHashAndDeadline memory hashAndDeadline =
+            _transitionRecordHashAndDeadline[compositeKey];
+        if (hashAndDeadline.recordHash == transitionRecordHash) return;
+
+        require(hashAndDeadline.recordHash == 0, "TransitionWithSameParentHashAlreadyProved");
+        _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
+            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+            recordHash: transitionRecordHash
+        });
+
+        bytes memory payload = _encodeProvedEventData(
+            ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
+            })
+        );
+        emit Proved(payload);
+    }
 }
