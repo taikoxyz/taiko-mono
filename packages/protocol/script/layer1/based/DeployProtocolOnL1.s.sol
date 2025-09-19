@@ -292,7 +292,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(address(0))),
+            impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
         address proposer = vm.envAddress("PROPOSER_ADDRESS");
@@ -550,7 +550,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         router = deployProxy({
             name: "preconf_router",
             impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
+                new PreconfRouter(taikoWrapper, whitelist)
             ),
             data: abi.encodeCall(PreconfRouter.init, (owner))
         });

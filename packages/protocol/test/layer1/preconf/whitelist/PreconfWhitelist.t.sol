@@ -18,7 +18,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist(makeAddr("fallbackPreconfer"))),
+                impl: address(new PreconfWhitelist()),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
             })
         );
@@ -26,7 +26,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelistNoDelay = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist_nodelay",
-                impl: address(new PreconfWhitelist(makeAddr("fallbackPreconfer"))),
+                impl: address(new PreconfWhitelist()),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
             })
         );
@@ -45,16 +45,21 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
-        vm.prank(whitelistOwner);
+        // Add two operators to ensure we can remove one
+        vm.startPrank(whitelistOwner);
         whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        whitelist.addOperator(Carol, _getSequencerAddress(Carol));
+        vm.stopPrank();
 
-        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Bob);
+        assertEq(whitelist.operatorMapping(1), Carol);
         assertEq(whitelist.havingPerfectOperators(), false);
 
         whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Bob);
+        assertEq(whitelist.operatorMapping(1), Carol);
         assertEq(whitelist.havingPerfectOperators(), false);
 
         (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) =
@@ -260,7 +265,11 @@ contract TestPreconfWhitelist is Layer1Test {
     }
 
     function test_whitelist_removeNonExistingOperatorWillRevert() external {
+        // First add an operator so we have at least one
         vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Now try to remove non-existing operator
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice, false);
         vm.stopPrank();
@@ -514,14 +523,6 @@ contract TestPreconfWhitelist is Layer1Test {
 
         // This should not revert since Bob is the correct operator
         whitelist.checkProposer(Bob);
-    }
-
-    function test_checkProposer_fallbackPreconfer() external view {
-        // When no operator is active, fallback preconfer should be valid
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-
-        // This should not revert since fallback is used when operator is address(0)
-        whitelist.checkProposer(whitelist.fallbackPreconfer());
     }
 
     function test_checkProposer_invalidOperatorWillRevert() external {

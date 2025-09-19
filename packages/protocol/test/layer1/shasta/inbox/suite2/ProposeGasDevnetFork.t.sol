@@ -47,8 +47,8 @@ contract ProposeGasDevnetFork is Test {
             0xa20182131658295f37C1A1EFdBDc89Eff97D9C58  // _taikoToken (bondToken)
         );
 
-        // Deploy PreconfWhitelist with zero address as fallback operator
-        PreconfWhitelist preconfWhitelist = new PreconfWhitelist(address(0));
+        // Deploy PreconfWhitelist
+        PreconfWhitelist preconfWhitelist = new PreconfWhitelist();
 
         // Setup blob hashes
         // NOTE: This is currently failing when using in a  test that runs with isolation

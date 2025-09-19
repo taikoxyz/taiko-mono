@@ -22,9 +22,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     event OperatorChangeDelaySet(uint8 delay);
     event EjecterUpdated(address indexed ejecter, bool isEjecter);
 
-    /// @notice The fallback preconfer address.
-    address public immutable fallbackPreconfer;
-
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
     ///     The proposer address is their main identifier and is used on-chain to identify the
@@ -52,10 +49,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
-    // TODO: remove fallback preconfer
-    constructor(address _fallbackPreconfer) {
-        fallbackPreconfer = _fallbackPreconfer;
-    }
 
     function init(
         address _owner,
@@ -162,9 +155,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
         address operator = getOperatorForCurrentEpoch();
-        if (operator == address(0)) {
-            operator = fallbackPreconfer;
-        }
+        require(operator != address(0), InvalidProposer());
         require(operator == _proposer, InvalidProposer());
         // Slashing is not enabled for whitelisted preconfers, so we return 0
         endOfSubmissionWindowTimestamp_ = 0;

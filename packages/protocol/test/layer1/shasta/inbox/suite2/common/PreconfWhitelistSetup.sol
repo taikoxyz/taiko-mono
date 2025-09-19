@@ -15,8 +15,8 @@ contract PreconfWhitelistSetup is CommonTest {
     // ---------------------------------------------------------------
 
     function _deployPreconfWhitelist(address _owner) public returns (IProposerChecker) {
-        // Deploy PreconfWhitelist with Alice as fallback preconfer
-        address impl = address(new PreconfWhitelist(Alice)); // Alice as fallback
+        // Deploy PreconfWhitelist
+        address impl = address(new PreconfWhitelist());
 
         address proxy = address(
             new ERC1967Proxy(
@@ -102,9 +102,9 @@ contract PreconfWhitelistSetup is CommonTest {
         PreconfWhitelist whitelist = PreconfWhitelist(address(_proposerChecker));
         address selectedProposer = whitelist.getOperatorForCurrentEpoch();
 
-        // If no proposer selected, fall back to the fallback preconfer (Alice)
+        // If no proposer selected, use Bob as default (should not happen with operators added)
         if (selectedProposer == address(0)) {
-            selectedProposer = Alice;
+            selectedProposer = Bob;
         }
 
         return selectedProposer;
