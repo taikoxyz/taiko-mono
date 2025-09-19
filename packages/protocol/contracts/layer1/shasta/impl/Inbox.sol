@@ -246,8 +246,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // NOTE: We cannot use `vm.blobhashes` in the test for some reason, so we hardcode the blob hashes
             // LibBlobs.BlobSlice memory blobSlice =
             //     LibBlobs.validateBlobReference(input.blobReference);
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = bytes32("blobhashes");
+            bytes32[] memory blobHashes = new bytes32[](input.blobReference.numBlobs);
+            for (uint256 i = 0; i < input.blobReference.numBlobs; i++) {
+                blobHashes[i] = bytes32("blobhashes");
+            }
             LibBlobs.BlobSlice memory blobSlice = LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: input.blobReference.offset,

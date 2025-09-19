@@ -54,41 +54,6 @@ contract PreconfWhitelistSetup is CommonTest {
     // Proposer Selection Helper Functions
     // ---------------------------------------------------------------
 
-    function _mockBeaconRootForProposer(address _desiredProposer) internal {
-        // Get current epoch timestamp
-        uint256 epochTimestamp = _getCurrentEpochTimestamp();
-
-        // Use a deterministic beacon root that will reliably select the desired proposer
-        // Now we have 4 operators: Bob, Carol, David, Emma
-        bytes32 deterministicRoot;
-        if (_desiredProposer == Bob) {
-            deterministicRoot = keccak256(abi.encode("select_bob"));
-        } else if (_desiredProposer == Carol) {
-            deterministicRoot = keccak256(abi.encode("select_carol"));
-        } else if (_desiredProposer == David) {
-            deterministicRoot = keccak256(abi.encode("select_david"));
-        } else if (_desiredProposer == Emma) {
-            deterministicRoot = keccak256(abi.encode("select_emma"));
-        } else {
-            deterministicRoot = keccak256(abi.encode(_desiredProposer, "fallback"));
-        }
-
-        // Mock the beacon root call
-        vm.mockCall(
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
-            abi.encode(epochTimestamp),
-            abi.encode(deterministicRoot)
-        );
-    }
-
-    function _getCurrentEpochTimestamp() internal view returns (uint256) {
-        // Simple approach: just return current timestamp aligned to epoch boundary
-        // This avoids issues with genesis timestamp calculations in test environments
-        uint256 epochSeconds = LibPreconfConstants.SECONDS_IN_EPOCH;
-        /// forge-lint: disable-next-line(divide-before-multiply)
-        return (block.timestamp / epochSeconds) * epochSeconds;
-    }
-
     function _selectProposer(
         IProposerChecker _proposerChecker,
         address _proposer
@@ -96,16 +61,23 @@ contract PreconfWhitelistSetup is CommonTest {
         public
         returns (address)
     {
-        // Mock beacon root to select a specific proposer
-        _mockBeaconRootForProposer(_proposer);
-
         PreconfWhitelist whitelist = PreconfWhitelist(address(_proposerChecker));
+
+        // Verify we have operators
+        uint256 opCount = whitelist.operatorCount();
+        require(opCount > 0, "No operators in whitelist");
+
+        // Directly mock the getOperatorForCurrentEpoch function to return the desired proposer
+        vm.mockCall(
+            address(whitelist),
+            abi.encodeWithSelector(PreconfWhitelist.getOperatorForCurrentEpoch.selector),
+            abi.encode(_proposer)
+        );
+
         address selectedProposer = whitelist.getOperatorForCurrentEpoch();
 
-        // If no proposer selected, use Bob as default (should not happen with operators added)
-        if (selectedProposer == address(0)) {
-            selectedProposer = Bob;
-        }
+        // Verify the selection worked as expected
+        require(selectedProposer == _proposer, "Mock failed: proposer mismatch");
 
         return selectedProposer;
     }
