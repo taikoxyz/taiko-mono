@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -176,11 +177,7 @@ func assembleBatchProposedIteratorCallback(
 
 		for iterShasta.Next() {
 			event := iterShasta.Event
-			proposedEventPayload, err := rpc.DecodeShastaProposalData(
-				&bind.CallOpts{Context: ctx, BlockHash: event.Raw.BlockHash},
-				shastaTaikoInbox,
-				event.Data,
-			)
+			proposedEventPayload, err := encoding.DecodeProposedEvent(event.Data)
 			if err != nil {
 				log.Error("Failed to decode proposed event data", "error", err)
 				return err

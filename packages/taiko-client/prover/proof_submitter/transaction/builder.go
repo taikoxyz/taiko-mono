@@ -179,8 +179,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			)
 		}
 
-		inputData, err := a.rpc.EncodeProveInputShasta(
-			&bind.CallOpts{Context: txOpts.Context},
+		inputData, err := encoding.EncodeProveInput(
 			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions, Metadata: metadatas},
 		)
 		if err != nil {
@@ -207,7 +206,6 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 ) (common.Hash, error) {
 	var (
 		parentTransitions = make([]*shastaBindings.IInboxTransition, 0)
-		err               error
 	)
 
 	batchID = new(big.Int).Sub(batchID, common.Big1)
@@ -231,10 +229,6 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", batchID.Uint64(), err)
 		}
-		proposalHash, err := a.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, proposal.Proposal)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch proposal hash: %w", err)
-		}
 
 		checkpointL1Origin, err := a.rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
 		if err != nil {
@@ -246,7 +240,7 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 		}
 
 		localTransition := &shastaBindings.IInboxTransition{
-			ProposalHash:         proposalHash,
+			ProposalHash:         encoding.HashProposalOptimized(*proposal.Proposal),
 			ParentTransitionHash: common.Hash{}, // will be updated after the loop
 			Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
 				BlockNumber: checkpointHeader.Number,
@@ -265,15 +259,12 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 
 	var lastTransition = parentTransitions[0]
 	for i := 1; i < len(parentTransitions); i++ {
-		if parentTransitions[i].ParentTransitionHash, err = a.rpc.HashTransitionShasta(
-			&bind.CallOpts{Context: ctx},
-			lastTransition,
-		); err != nil {
-			return common.Hash{}, fmt.Errorf("failed to hash Shasta transition: %w", err)
-		}
+		parentTransitions[i].ParentTransitionHash = encoding.HashTransitionOptimized(
+			*lastTransition,
+		)
 		lastTransition = parentTransitions[i]
 	}
-	return a.rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, lastTransition)
+	return encoding.HashTransitionOptimized(*lastTransition), nil
 }
 
 // WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
@@ -300,13 +291,7 @@ func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
 			continue
 		}
 
-		hash, err := a.rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, transition.Transition)
-		if err != nil {
-			log.Error("Failed to hash Shasta transition", "batchID", batchID, "error", err)
-			continue
-		}
-
-		return hash, nil
+		return encoding.HashTransitionOptimized(*transition.Transition), nil
 	}
 
 	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, batchID: %d", batchID)
@@ -337,5 +322,5 @@ func (a *ProveBatchesTxBuilder) GetShastaGenesisTransitionHash(ctx context.Conte
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch genesis transition: %w", err)
 	}
-	return a.rpc.ShastaClients.Inbox.HashTransition(&bind.CallOpts{Context: ctx}, *transition)
+	return encoding.HashTransitionOptimized(*transition), nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -143,7 +144,7 @@ func (s *State) eventLoop(ctx context.Context) {
 		case e := <-batchesProvedPacayaCh:
 			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
 		case e := <-provedShastaCh:
-			payload, err := s.rpc.DecodeProvedPayloadShasta(&bind.CallOpts{Context: ctx}, e.Data)
+			payload, err := encoding.DecodeProvedEvent(e.Data)
 			if err != nil {
 				log.Error("Failed to decode proved payload", "err", err)
 				continue
@@ -161,7 +162,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
 		case e := <-proposedShastaCh:
-			payload, err := s.rpc.DecodeProposedPayloadShasta(&bind.CallOpts{Context: ctx}, e.Data)
+			payload, err := encoding.DecodeProposedEvent(e.Data)
 			if err != nil {
 				log.Error("Failed to decode proposed payload", "err", err)
 				continue

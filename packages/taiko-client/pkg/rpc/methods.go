@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -362,8 +363,34 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 	return c.L2.HeaderByHash(ctxWithTimeout, parentHash)
 }
 
+// WaitL1Header keeps waiting for the L1 block header of the given block ID.
+func (c *Client) WaitL1Header(ctx context.Context, blockID *big.Int) (*types.Header, error) {
+	// In test environment, we will keep mining blocks until the block is found.
+	if os.Getenv("RUN_TESTS") == "true" {
+		for {
+			head, err := c.L1.HeaderByNumber(ctx, nil)
+			if err != nil {
+				return nil, err
+			}
+			if head.Number.Cmp(blockID) >= 0 {
+				return head, nil
+			}
+
+			if err := c.L1.CallContext(context.Background(), nil, "evm_mine"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return waitHeader(ctx, c.L1, blockID)
+}
+
 // WaitL2Header keeps waiting for the L2 block header of the given block ID.
 func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Header, error) {
+	return waitHeader(ctx, c.L2, blockID)
+}
+
+// waitHeader keeps waiting for the block header of the given block ID.
+func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Header, error) {
 	var (
 		ctxWithTimeout = ctx
 		cancel         context.CancelFunc
@@ -379,17 +406,17 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 		defer cancel()
 	}
 
-	log.Debug("Start fetching block header from L2 execution engine", "blockID", blockID)
+	log.Debug("Start fetching block header from execution engine", "blockID", blockID)
 
 	for ; true; <-ticker.C {
 		if ctxWithTimeout.Err() != nil {
 			return nil, ctxWithTimeout.Err()
 		}
 
-		header, err = c.L2.HeaderByNumber(ctxWithTimeout, blockID)
+		header, err = ethClient.HeaderByNumber(ctxWithTimeout, blockID)
 		if err != nil {
 			log.Debug(
-				"Fetch block header from L2 execution engine not found, keep retrying",
+				"Fetch block header from execution engine not found, keep retrying",
 				"blockID", blockID,
 				"error", err,
 			)
@@ -1385,71 +1412,6 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.Shast
 	return c.ShastaClients.Anchor.GetState(opts)
 }
 
-// EncodeProposeInputShasta encodes the propose input for Shasta Inbox contract.
-func (c *Client) EncodeProposeInputShasta(
-	opts *bind.CallOpts,
-	input *shastaBindings.IInboxProposeInput,
-) ([]byte, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
-}
-
-// EncodeProveInputShasta encodes the prove input for Shasta Inbox contract.
-func (c *Client) EncodeProveInputShasta(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
-}
-
-// DecodeProvedPayloadShasta decodes the proved payload for Shasta Inbox contract.
-func (c *Client) DecodeProvedPayloadShasta(
-	opts *bind.CallOpts, data []byte,
-) (*shastaBindings.IInboxProvedEventPayload, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.Inbox.DecodeProvedEventData(opts, data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode proved event data: %w", err)
-	}
-
-	return &payload, nil
-}
-
-// DecodeProposedPayloadShasta decodes the proposed payload for Shasta Inbox contract.
-func (c *Client) DecodeProposedPayloadShasta(
-	opts *bind.CallOpts, data []byte,
-) (*shastaBindings.IInboxProposedEventPayload, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.Inbox.DecodeProposedEventData(opts, data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode proposed event data: %w", err)
-	}
-
-	return &payload, nil
-}
-
 // GetShastaInboxConfigs gets the Shasta Inbox contract configurations.
 func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
 	var cancel context.CancelFunc
@@ -1465,34 +1427,4 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 	}
 
 	return &cfg, nil
-}
-
-// HashTransitionShasta hashes the transition for Shasta Inbox contract.
-func (c *Client) HashTransitionShasta(
-	opts *bind.CallOpts,
-	transition *shastaBindings.IInboxTransition,
-) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.Inbox.HashTransition(opts, *transition)
-}
-
-// HashProposalShasta hashes the proposal for Shasta Inbox contract.
-func (c *Client) HashProposalShasta(
-	opts *bind.CallOpts,
-	proposal *shastaBindings.IInboxProposal,
-) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.Inbox.HashProposal(opts, *proposal)
 }

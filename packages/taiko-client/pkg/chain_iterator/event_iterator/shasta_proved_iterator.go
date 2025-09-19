@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -116,11 +117,7 @@ func assembleShastaProvedIteratorCallback(
 			event := iter.Event
 
 			// Decode the Proved event data
-			provedEventPayload, err := rpc.DecodeShastaProvedData(
-				&bind.CallOpts{Context: ctx, BlockHash: event.Raw.BlockHash},
-				shastaTaikoInbox,
-				event.Data,
-			)
+			provedEventPayload, err := encoding.DecodeProvedEvent(event.Data)
 			if err != nil {
 				log.Error("Failed to decode Shasta Proved event data", "error", err)
 				return err

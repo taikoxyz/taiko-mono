@@ -88,9 +88,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataPacaya(event))
 			txHash = event.Raw.TxHash
 		case event := <-sink2:
-			decoded, err := s.RPCClient.ShastaClients.Inbox.DecodeProposedEventData(nil, event.Data)
+			decoded, err := encoding.DecodeProposedEvent(event.Data)
 			s.Nil(err)
-			meta := metadata.NewTaikoProposalMetadataShasta(&decoded, event.Raw)
+			meta := metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
 			metadataList = append(metadataList, meta)
 			txHash = event.Raw.TxHash
 		}
@@ -171,9 +171,9 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
 		txHash = event.Raw.TxHash
 	case event := <-sink2:
-		decoded, err := s.RPCClient.ShastaClients.Inbox.DecodeProposedEventData(nil, event.Data)
+		decoded, err := encoding.DecodeProposedEvent(event.Data)
 		s.Nil(err)
-		meta = metadata.NewTaikoProposalMetadataShasta(&decoded, event.Raw)
+		meta = metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
 		txHash = event.Raw.TxHash
 	}
 

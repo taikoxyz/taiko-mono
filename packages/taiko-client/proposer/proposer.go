@@ -497,6 +497,30 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		)
 	}
 
+	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
+	lastProposal := p.ShastaIndexer().GetLastProposal()
+	if lastProposal == nil {
+		return errors.New("no previous proposal found, cannot propose new batch")
+	}
+
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
+	log.Info(
+		"Last proposal",
+		"id", lastProposal.Proposal.Id,
+		"nextBlockID", lastProposal.CoreState.NextProposalBlockId,
+		"l1Head", l1Head.Number,
+	)
+
+	if lastProposal.CoreState.NextProposalBlockId.Cmp(l1Head.Number) >= 0 {
+		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
+			return fmt.Errorf("failed to wait for next L1 block: %w", err)
+		}
+	}
+
 	// Build the transaction to propose batch.
 	txCandidate, err := p.txBuilder.BuildShasta(
 		ctx,

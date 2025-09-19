@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -80,7 +80,7 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 	ctx context.Context,
 	e *shastaBindings.ShastaInboxClientProved,
 ) error {
-	payload, err := h.rpc.DecodeProvedPayloadShasta(&bind.CallOpts{Context: ctx}, e.Data)
+	payload, err := encoding.DecodeProvedEvent(e.Data)
 	if err != nil {
 		return fmt.Errorf("failed to decode proved payload: %w", err)
 	}
