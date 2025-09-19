@@ -972,5 +972,4 @@ error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
-error Unauthorized();
 error UnprocessedForcedInclusionIsDue();
