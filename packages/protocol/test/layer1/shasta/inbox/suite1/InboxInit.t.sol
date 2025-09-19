@@ -43,7 +43,7 @@ contract InboxInit is InboxTest {
     }
 
     /// @dev Creates expected genesis core state
-    function _createExpectedGenesisCoreState() private pure returns (IInbox.CoreState memory) {
+    function _createExpectedGenesisCoreState() private view returns (IInbox.CoreState memory) {
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
 
@@ -97,41 +97,88 @@ contract InboxInit is InboxTest {
         assertTrue(actualOwner != address(0), "Owner should not be zero address");
     }
 
-    /// @notice Test initialization with different genesis block hashes
-    /// @dev Validates genesis configuration flexibility
-    function test_init_various_genesis_hashes() public {
-        bytes32[3] memory testHashes = [bytes32(0), bytes32(uint256(1)), keccak256("genesis")];
+    /// @notice Test initialization with zero genesis block hash
+    /// @dev Validates genesis configuration with zero hash
+    function test_init_genesis_hash_zero() public {
+        bytes32 testHash = bytes32(0);
+        ITestInbox testInbox = _deployFreshInbox(Alice, testHash);
 
-        for (uint256 i = 0; i < testHashes.length; i++) {
-            ITestInbox testInbox = _deployFreshInbox(Alice, testHashes[i]);
+        // Verify successful initialization
+        assertEq(
+            Ownable(address(testInbox)).owner(), Alice, "Owner should be set for zero genesis hash"
+        );
 
-            // Verify successful initialization with each hash
-            assertEq(
-                Ownable(address(testInbox)).owner(),
-                Alice,
-                "Owner should be set for each genesis hash"
-            );
+        // Create expected core state for verification
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.checkpoint.blockHash = testHash;
 
-            // Create expected core state for verification
-            IInbox.Transition memory genesisTransition;
-            genesisTransition.checkpoint.blockHash = testHashes[i];
+        createCoreStateFromConfig(
+            CoreStateConfig({
+                nextProposalId: 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
+                bondInstructionsHash: bytes32(0)
+            })
+        );
+    }
 
-            createCoreStateFromConfig(
-                CoreStateConfig({
-                    nextProposalId: 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
-                    bondInstructionsHash: bytes32(0)
-                })
-            );
+    /// @notice Test initialization with numeric genesis block hash
+    /// @dev Validates genesis configuration with numeric hash
+    function test_init_genesis_hash_numeric() public {
+        bytes32 testHash = bytes32(uint256(1));
+        ITestInbox testInbox = _deployFreshInbox(Alice, testHash);
 
-            // Verification through successful operations is implicit
-        }
+        // Verify successful initialization
+        assertEq(
+            Ownable(address(testInbox)).owner(),
+            Alice,
+            "Owner should be set for numeric genesis hash"
+        );
+
+        // Create expected core state for verification
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.checkpoint.blockHash = testHash;
+
+        createCoreStateFromConfig(
+            CoreStateConfig({
+                nextProposalId: 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
+                bondInstructionsHash: bytes32(0)
+            })
+        );
+    }
+
+    /// @notice Test initialization with string-based genesis block hash
+    /// @dev Validates genesis configuration with string-based hash
+    function test_init_genesis_hash_string() public {
+        bytes32 testHash = keccak256("genesis");
+        ITestInbox testInbox = _deployFreshInbox(Alice, testHash);
+
+        // Verify successful initialization
+        assertEq(
+            Ownable(address(testInbox)).owner(),
+            Alice,
+            "Owner should be set for string-based genesis hash"
+        );
+
+        // Create expected core state for verification
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.checkpoint.blockHash = testHash;
+
+        createCoreStateFromConfig(
+            CoreStateConfig({
+                nextProposalId: 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
+                bondInstructionsHash: bytes32(0)
+            })
+        );
     }
 
     /// @notice Test that nextProposalId starts at 1
     /// @dev Validates proper ID initialization
-    function test_init_next_proposal_id_starts_at_one() public pure {
+    function test_init_next_proposal_id_starts_at_one() public view {
         // Configuration is now immutable - ring buffer size is set in constructor
         // testInbox already has the standard ring buffer size from constructor
 

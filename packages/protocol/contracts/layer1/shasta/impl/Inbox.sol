@@ -10,11 +10,12 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
+/// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based
 /// rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
@@ -23,6 +24,9 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
+/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir
+///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
+///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
@@ -197,7 +201,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
 
         // Decode and validate input data
-        ProposeInput memory input = decodeProposeInput(_data);
+        ProposeInput memory input = _decodeProposeInput(_data);
 
         _validateProposeInput(input);
 
@@ -206,6 +210,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         CoreState memory coreState = _finalize(input);
+
+        unchecked {
+            // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the
+            // ring buffer
+            coreState.nextProposalBlockId = uint48(block.number + 1);
+        }
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(coreState);
@@ -247,9 +257,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Validates transitions, calculates bond instructions, and verifies proofs
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
-        ProveInput memory input = decodeProveInput(_data);
+        ProveInput memory input = _decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
+        require(input.transitions.length == input.metadata.length, InconsistentParams());
 
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
@@ -334,136 +345,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         });
     }
 
-    /// @notice Decodes proposal input data
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProposeInput struct containing all proposal data
-    function decodeProposeInput(bytes calldata _data)
-        public
-        pure
-        virtual
-        returns (ProposeInput memory input_)
-    {
-        input_ = abi.decode(_data, (ProposeInput));
-    }
-
-    /// @notice Decodes prove input data
-    /// @param _data The encoded data
-    /// @return _ The decoded ProveInput struct containing proposals and transitions
-    function decodeProveInput(bytes calldata _data)
-        public
-        pure
-        virtual
-        returns (ProveInput memory)
-    {
-        return abi.decode(_data, (ProveInput));
-    }
-
-    /// @dev Encodes the proposed event data
-    /// @param _payload The ProposedEventPayload object
-    /// @return The encoded data
-    function encodeProposedEventData(ProposedEventPayload memory _payload)
-        public
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    /// @dev Encodes the proved event data
-    /// @param _payload The ProvedEventPayload object
-    /// @return The encoded data
-    function encodeProvedEventData(ProvedEventPayload memory _payload)
-        public
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    /// @dev Encodes the propose input data
-    /// @param _input The ProposeInput struct
-    /// @return The encoded data
-    function encodeProposeInput(ProposeInput memory _input)
-        external
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
-
-    /// @dev Encodes the prove input data
-    /// @param _input The ProveInput struct
-    /// @return The encoded data
-    function encodeProveInput(ProveInput memory _input)
-        external
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
-
-    /// @notice Hashes a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return _ The hash of the transition.
-    function hashTransition(Transition memory _transition) public pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
-    }
-
-    /// @notice Hashes a Checkpoint struct.
-    /// @param _checkpoint The checkpoint to hash.
-    /// @return _ The hash of the checkpoint.
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        public
-        pure
-        virtual
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_checkpoint));
-    }
-
-    /// @notice Hashes a CoreState struct.
-    /// @param _coreState The core state to hash.
-    /// @return _ The hash of the core state.
-    function hashCoreState(CoreState memory _coreState) public pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_coreState));
-    }
-
-    /// @notice Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function hashTransitionsArray(Transition[] memory _transitions)
-        public
-        pure
-        virtual
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
-    }
-
-    /// @notice Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function hashProposal(Proposal memory _proposal) public pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposal));
-    }
-
-    /// @notice Hashes a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return _ The hash of the derivation.
-    function hashDerivation(Derivation memory _derivation) public pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_derivation));
-    }
-
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -477,18 +358,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
-        coreState.lastFinalizedTransitionHash = hashTransition(transition);
+
+        // Set nextProposalBlockId to 2 to ensure the first proposal happens at block 2 or later.
+        // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
+        // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
+        // ensure proposals never reference the genesis block.
+        coreState.nextProposalBlockId = 2;
+        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
-        proposal.coreStateHash = hashCoreState(coreState);
+        proposal.coreStateHash = _hashCoreState(coreState);
 
         Derivation memory derivation;
-        proposal.derivationHash = hashDerivation(derivation);
+        proposal.derivationHash = _hashDerivation(derivation);
 
-        _setProposalHash(0, hashProposal(proposal));
+        _setProposalHash(0, _hashProposal(proposal));
 
         emit Proposed(
-            encodeProposedEventData(
+            _encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
                     derivation: derivation,
@@ -501,7 +388,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Builds and persists transition records for batch proof submissions
     /// @notice Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
-    /// @param _input The ProveInput containing arrays of proposals and corresponding transitions
+    /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         // Declare struct instance outside the loop to avoid repeated memory allocations
         TransitionRecord memory transitionRecord;
@@ -511,18 +398,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
             // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions =
-                _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
-            transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
-            transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
+            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
+            );
+            transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
+            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
-            // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline which
-            // will
-            // emit
-            // the
-            // event
             _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
             );
         }
     }
@@ -542,63 +425,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-    /// @dev Calculates bond instructions based on proof timing and prover identity
-    /// @notice Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
-    /// designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
-    /// instructions
-    /// cannot be aggregated
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
-    /// prover)
-    function _calculateBondInstructions(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
-
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_transition.designatedProver != _transition.actualProver)
-                : (_proposal.proposer != _transition.actualProver);
-
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
-                receiver: _transition.actualProver
-            });
-        }
-    }
-
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
@@ -610,10 +436,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
+    /// @param _metadata The metadata containing prover information to include in the event
     /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
+        TransitionMetadata memory _metadata,
         TransitionRecord memory _transitionRecord
     )
         internal
@@ -632,11 +460,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             recordHash: transitionRecordHash
         });
 
-        bytes memory payload = encodeProvedEventData(
+        bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
             })
         );
         emit Proved(payload);
@@ -669,7 +498,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = hashProposal(_proposal);
+        proposalHash_ = _hashProposal(_proposal);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
@@ -716,6 +545,109 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
 
+    /// @dev Hashes a Transition struct.
+    /// @param _transition The transition to hash.
+    /// @return _ The hash of the transition.
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transition));
+    }
+
+    /// @dev Hashes a Checkpoint struct.
+    /// @param _checkpoint The checkpoint to hash.
+    /// @return _ The hash of the checkpoint.
+    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_checkpoint));
+    }
+
+    /// @dev Hashes a CoreState struct.
+    /// @param _coreState The core state to hash.
+    /// @return _ The hash of the core state.
+    function _hashCoreState(CoreState memory _coreState) internal pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_coreState));
+    }
+
+    /// @dev Hashes a Proposal struct.
+    /// @param _proposal The proposal to hash.
+    /// @return _ The hash of the proposal.
+    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @dev Hashes a Derivation struct.
+    /// @param _derivation The derivation to hash.
+    /// @return _ The hash of the derivation.
+    function _hashDerivation(Derivation memory _derivation)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_derivation));
+    }
+
+    /// @dev Decodes proposal input data
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProposeInput struct containing all proposal data
+    function _decodeProposeInput(bytes calldata _data)
+        internal
+        pure
+        virtual
+        returns (ProposeInput memory input_)
+    {
+        input_ = abi.decode(_data, (ProposeInput));
+    }
+
+    /// @dev Decodes prove input data
+    /// @param _data The encoded data
+    /// @return _ The decoded ProveInput struct containing proposals and transitions
+    function _decodeProveInput(bytes calldata _data)
+        internal
+        pure
+        virtual
+        returns (ProveInput memory)
+    {
+        return abi.decode(_data, (ProveInput));
+    }
+
+    /// @dev Encodes the proposed event data
+    /// @param _payload The ProposedEventPayload object
+    /// @return The encoded data
+    function _encodeProposedEventData(ProposedEventPayload memory _payload)
+        internal
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_payload);
+    }
+
+    /// @dev Encodes the proved event data
+    /// @param _payload The ProvedEventPayload object
+    /// @return The encoded data
+    function _encodeProvedEventData(ProvedEventPayload memory _payload)
+        internal
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_payload);
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
@@ -738,8 +670,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
+        require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
         require(
-            hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
+            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
         );
     }
@@ -793,7 +726,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(_parentProposals.length == 2, IncorrectProposalCount());
             require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
-                storedNextProposalHash == hashProposal(_parentProposals[1]),
+                storedNextProposalHash == _hashProposal(_parentProposals[1]),
                 NextProposalHashMismatch()
             );
         }
@@ -829,18 +762,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 blobSlice: _blobSlice
             });
 
+            // Increment nextProposalId (nextProposalBlockId was already set in propose())
+            uint48 proposalId = _coreState.nextProposalId++;
+
             Proposal memory proposal = Proposal({
-                id: _coreState.nextProposalId++,
+                id: proposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: hashCoreState(_coreState),
-                derivationHash: hashDerivation(derivation)
+                coreStateHash: _hashCoreState(_coreState),
+                derivationHash: _hashDerivation(derivation)
             });
 
-            _setProposalHash(proposal.id, hashProposal(proposal));
+            _setProposalHash(proposal.id, _hashProposal(proposal));
 
-            bytes memory payload = encodeProposedEventData(
+            bytes memory payload = _encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
                     derivation: derivation,
@@ -873,12 +809,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Try to finalize the current proposal
             bool hasRecord = i < _input.transitionRecords.length;
 
-            TransitionRecord memory transitionrecord =
+            TransitionRecord memory transitionRecord =
                 hasRecord ? _input.transitionRecords[i] : emptyRecord;
 
             bool finalized;
             (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionrecord, hasRecord);
+                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
 
             if (!finalized) break;
 
@@ -889,7 +825,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
+            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
             _checkpointManager.saveCheckpoint(_input.checkpoint);
         }
@@ -984,11 +920,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 // Errors
 // ---------------------------------------------------------------
 
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
+error CannotProposeInCurrentBlock();
+error CheckpointMismatch();
 error DeadlineExceeded();
 error EmptyProposals();
-error CheckpointMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
 error InconsistentParams();
@@ -1002,12 +937,13 @@ error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
-error ProposalHashMismatchWithTransition();
 error ProposalHashMismatchWithStorage();
+error ProposalHashMismatchWithTransition();
 error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionRecordHashMismatchWithStorage();
+error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
-error Unauthorized();
 error UnprocessedForcedInclusionIsDue();

@@ -84,8 +84,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
-        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
-        // The batch's validity proof shall verify the integrity of these two values.
+        // corresponds to the `_anchorBlockHash` in Shasta's `updateState`; for Pacaya `anchorV3`
+        // this equals `blockhash(anchorBlockId)` and is validated as part of public inputs.
         bytes32 anchorBlockHash;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
@@ -128,7 +128,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 anchorBlockId;
         uint24 nextTransitionId;
         uint8 reserved4;
-        // The ID of the transaction that is used to verify this batch. However, if this batch is
+        // The ID of the transition that is used to verify this batch. However, if this batch is
         // not verified as the last one in a transaction, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
     }

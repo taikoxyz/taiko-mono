@@ -19,8 +19,8 @@ contract LibProvedEventEncoderTest is Test {
         original.transition.checkpoint.blockNumber = 999_999;
         original.transition.checkpoint.blockHash = keccak256("block");
         original.transition.checkpoint.stateRoot = keccak256("state");
-        original.transition.designatedProver = address(0x1234567890123456789012345678901234567890);
-        original.transition.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        original.metadata.designatedProver = address(0x1234567890123456789012345678901234567890);
+        original.metadata.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
         original.transitionRecord.span = 42;
         original.transitionRecord.transitionHash = keccak256("transitionHash");
         original.transitionRecord.checkpointHash = keccak256("checkpointHash");
@@ -45,8 +45,8 @@ contract LibProvedEventEncoderTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
@@ -62,8 +62,8 @@ contract LibProvedEventEncoderTest is Test {
         original.transition.checkpoint.blockNumber = 555_555;
         original.transition.checkpoint.blockHash = keccak256("block2");
         original.transition.checkpoint.stateRoot = keccak256("state2");
-        original.transition.designatedProver = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
-        original.transition.actualProver = address(0x1111111111111111111111111111111111111111);
+        original.metadata.designatedProver = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
+        original.metadata.actualProver = address(0x1111111111111111111111111111111111111111);
         original.transitionRecord.span = 100;
         original.transitionRecord.transitionHash = keccak256("transitionHash2");
         original.transitionRecord.checkpointHash = keccak256("checkpointHash2");
@@ -108,8 +108,8 @@ contract LibProvedEventEncoderTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
@@ -145,8 +145,8 @@ contract LibProvedEventEncoderTest is Test {
         original.transition.checkpoint.blockNumber = type(uint48).max;
         original.transition.checkpoint.blockHash = bytes32(type(uint256).max);
         original.transition.checkpoint.stateRoot = bytes32(type(uint256).max);
-        original.transition.designatedProver = address(type(uint160).max);
-        original.transition.actualProver = address(type(uint160).max);
+        original.metadata.designatedProver = address(type(uint160).max);
+        original.metadata.actualProver = address(type(uint160).max);
         original.transitionRecord.span = type(uint8).max;
         original.transitionRecord.transitionHash = bytes32(type(uint256).max);
         original.transitionRecord.checkpointHash = bytes32(type(uint256).max);
@@ -180,8 +180,8 @@ contract LibProvedEventEncoderTest is Test {
         original.transition.checkpoint.blockNumber = 0;
         original.transition.checkpoint.blockHash = bytes32(0);
         original.transition.checkpoint.stateRoot = bytes32(0);
-        original.transition.designatedProver = address(0);
-        original.transition.actualProver = address(0);
+        original.metadata.designatedProver = address(0);
+        original.metadata.actualProver = address(0);
         original.transitionRecord.span = 0;
         original.transitionRecord.transitionHash = bytes32(0);
         original.transitionRecord.checkpointHash = bytes32(0);
@@ -208,8 +208,8 @@ contract LibProvedEventEncoderTest is Test {
         payload.transition.checkpoint.blockNumber = 1_000_000;
         payload.transition.checkpoint.blockHash = keccak256("endBlock");
         payload.transition.checkpoint.stateRoot = keccak256("endState");
-        payload.transition.designatedProver = address(0x1234);
-        payload.transition.actualProver = address(0x5678);
+        payload.metadata.designatedProver = address(0x1234);
+        payload.metadata.actualProver = address(0x5678);
         payload.transitionRecord.span = 5;
         payload.transitionRecord.transitionHash = keccak256("transitionHash");
         payload.transitionRecord.checkpointHash = keccak256("checkpointHash");

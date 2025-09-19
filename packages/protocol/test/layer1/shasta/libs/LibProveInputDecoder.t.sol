@@ -37,14 +37,22 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: 200,
                 blockHash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
-            }),
+            })
+        });
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
             designatedProver: address(0x2),
             actualProver: address(0x3)
         });
 
         // Create ProveInput struct
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Test with standard ABI encoding for baseline
         bytes memory abiEncodedData = abi.encode(proveInput);
@@ -98,13 +106,21 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: 456_789,
                 blockHash: keccak256("end_block_hash"),
                 stateRoot: keccak256("end_state_root")
-            }),
+            })
+        });
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
             designatedProver: address(0x1234),
             actualProver: address(0x5678)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -127,8 +143,10 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.transitions[0].checkpoint.blockNumber, 456_789);
         assertEq(decoded.transitions[0].checkpoint.blockHash, keccak256("end_block_hash"));
         assertEq(decoded.transitions[0].checkpoint.stateRoot, keccak256("end_state_root"));
-        assertEq(decoded.transitions[0].designatedProver, address(0x1234));
-        assertEq(decoded.transitions[0].actualProver, address(0x5678));
+        // Verify metadata
+        assertEq(decoded.metadata.length, 1);
+        assertEq(decoded.metadata[0].designatedProver, address(0x1234));
+        assertEq(decoded.metadata[0].actualProver, address(0x5678));
     }
 
     function test_encode_decode_multiple() public pure {
@@ -155,14 +173,24 @@ contract LibProveInputDecoderTest is Test {
                     blockNumber: uint48(3000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("endBlock", i)),
                     stateRoot: keccak256(abi.encodePacked("endState", i))
-                }),
+                })
+            });
+        }
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });
         }
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode and decode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -194,8 +222,13 @@ contract LibProveInputDecoderTest is Test {
             assertEq(
                 decoded.transitions[i].checkpoint.stateRoot, transitions[i].checkpoint.stateRoot
             );
-            assertEq(decoded.transitions[i].designatedProver, transitions[i].designatedProver);
-            assertEq(decoded.transitions[i].actualProver, transitions[i].actualProver);
+        }
+
+        // Verify all metadata
+        assertEq(decoded.metadata.length, 3);
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(decoded.metadata[i].designatedProver, metadata[i].designatedProver);
+            assertEq(decoded.metadata[i].actualProver, metadata[i].actualProver);
         }
     }
 
@@ -203,7 +236,8 @@ contract LibProveInputDecoderTest is Test {
         // Test with empty arrays
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
-            transitions: new IInbox.Transition[](0)
+            transitions: new IInbox.Transition[](0),
+            metadata: new IInbox.TransitionMetadata[](0)
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -211,6 +245,7 @@ contract LibProveInputDecoderTest is Test {
 
         assertEq(decoded.proposals.length, 0);
         assertEq(decoded.transitions.length, 0);
+        assertEq(decoded.metadata.length, 0);
     }
 
     function test_encode_decode_maxValues() public pure {
@@ -233,13 +268,21 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: type(uint48).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
-            }),
+            })
+        });
+
+        // Create metadata array
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
             designatedProver: address(type(uint160).max),
             actualProver: address(type(uint160).max)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
 import "./InboxMockContracts.sol";
+import "./InboxTestAdapter.sol";
 
 /// @title InboxChainAdvancement
 /// @notice Tests for chain advancement through finalization and state transitions
@@ -125,6 +126,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create core state for this proposal
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(i, 2)),
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
@@ -151,6 +153,9 @@ contract InboxChainAdvancement is InboxTest {
 
             // Submit proposal
             setupBlobHashes();
+            // Roll to correct block for this proposal ID
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2);
+            vm.roll(targetBlock);
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
@@ -161,6 +166,7 @@ contract InboxChainAdvancement is InboxTest {
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
+                        nextProposalBlockId: uint48(block.number + 1),
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
@@ -176,13 +182,12 @@ contract InboxChainAdvancement is InboxTest {
 
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
+                parentTransitionHash: bytes32(0), // Add missing field
                 checkpoint: ICheckpointManager.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
@@ -233,6 +238,9 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.Proposal[] memory validationProposals = new IInbox.Proposal[](1);
         validationProposals[0] = proposals[numProposals - 1];
 
+        // Roll to correct block for next proposal (numProposals + 1)
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
@@ -296,6 +304,7 @@ contract InboxChainAdvancement is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 6,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(6, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -315,6 +324,9 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.Proposal[] memory validationProposals = new IInbox.Proposal[](1);
         validationProposals[0] = proposals[4]; // Last proposal (id=5)
 
+        // Roll to correct block for proposal ID 6
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(6, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
@@ -353,6 +365,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create proposal
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(i, 2)),
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
@@ -370,6 +383,9 @@ contract InboxChainAdvancement is InboxTest {
 
             vm.startPrank(Alice);
             setupBlobHashes();
+            // Roll to correct block for this proposal ID
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2);
+            vm.roll(targetBlock);
             inbox.propose(bytes(""), proposalData);
             vm.stopPrank();
 
@@ -388,9 +404,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             mockProofVerification(true);
@@ -421,6 +435,7 @@ contract InboxChainAdvancement is InboxTest {
         // But we're starting from lastFinalizedProposalId: 0
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -448,6 +463,9 @@ contract InboxChainAdvancement is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
         setupBlobHashes();
+        // Roll to correct block for next proposal (numProposals + 1)
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
@@ -502,6 +520,7 @@ contract InboxChainAdvancement is InboxTest {
         // Act: Try to finalize all at once (should only finalize up to maxFinalizationCount)
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -534,12 +553,16 @@ contract InboxChainAdvancement is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
         setupBlobHashes();
+        // Roll to correct block for next proposal (numProposals + 1)
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
         // Assert: Verify that only maxFinalizationCount proposals were finalized
         IInbox.CoreState({
-            nextProposalId: numProposals + 2,
+            nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: uint48(getMaxFinalizationCount()),
             lastFinalizedTransitionHash: keccak256(
                 abi.encode(transitions[getMaxFinalizationCount() - 1])
@@ -607,6 +630,11 @@ contract InboxChainAdvancement is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
         setupBlobHashes();
+
+        // Roll to correct block for this proposal ID
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(nextProposalId, 2);
+        vm.roll(targetBlock);
+
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
     }
@@ -659,17 +687,24 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i], // Different designated prover for each
-                actualProver: David // Same actual prover for all (late proof)
-             });
+                })
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 proposals together - they will be aggregated
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, transitions);
+
+        // Convert address[3] to dynamic array for the function call
+        address[] memory designatedProversArray = new address[](3);
+        designatedProversArray[0] = designatedProvers[0];
+        designatedProversArray[1] = designatedProvers[1];
+        designatedProversArray[2] = designatedProvers[2];
+
+        bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
+            inboxType, proposals, transitions, designatedProversArray, David
+        );
 
         // Create expected aggregated bond instructions for verification
         LibBonds.BondInstruction[] memory expectedBondInstructions =
@@ -800,6 +835,7 @@ contract InboxChainAdvancement is InboxTest {
         // Setup core state for finalization
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -810,12 +846,13 @@ contract InboxChainAdvancement is InboxTest {
         // may handle sync block saves differently than individual records
 
         // Create next proposal with finalization
-        // Extract header and proposal to avoid stack too deep
-        ICheckpointManager.Checkpoint memory lastEndHeader = transitions[2].checkpoint;
-        IInbox.Proposal memory lastProp = proposals[numProposals - 1];
-        uint48 nextProposalId = 4; // numProposals + 1 = 3 + 1
+        // Direct access to avoid stack too deep
         _finalizeWithTransitionRecords(
-            coreState, lastProp, transitionRecords, lastEndHeader, nextProposalId
+            coreState,
+            proposals[2], // proposals[numProposals - 1]
+            transitionRecords,
+            transitions[2].checkpoint,
+            4 // nextProposalId = numProposals + 1 = 3 + 1
         );
 
         // All 3 proposals are now finalized with just 1 aggregated transition record!
@@ -864,17 +901,24 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i],
-                actualProver: David // Same actual prover (late proof)
-             });
+                })
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 together - Core will NOT aggregate them
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, transitions);
+
+        // Convert address[3] to dynamic array for the function call
+        address[] memory designatedProversArray = new address[](3);
+        designatedProversArray[0] = designatedProvers[0];
+        designatedProversArray[1] = designatedProvers[1];
+        designatedProversArray[2] = designatedProvers[2];
+
+        bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
+            inboxType, proposals, transitions, designatedProversArray, David
+        );
         vm.prank(David);
         inbox.prove(proveData, bytes("proof"));
 
@@ -927,6 +971,7 @@ contract InboxChainAdvancement is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -974,9 +1019,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
@@ -1016,6 +1059,7 @@ contract InboxChainAdvancement is InboxTest {
         // Setup core state for finalization
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 2)),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)

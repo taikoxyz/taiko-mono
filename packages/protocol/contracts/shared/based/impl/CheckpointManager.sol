@@ -131,5 +131,4 @@ contract CheckpointManager is EssentialContract, ICheckpointManager {
     error InvalidMaxStackSize();
     error InvalidCheckpoint();
     error NoCheckpoints();
-    error Unauthorized();
 }

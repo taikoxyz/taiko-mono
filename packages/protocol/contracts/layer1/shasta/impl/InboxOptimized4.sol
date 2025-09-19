@@ -12,8 +12,11 @@ import { LibHashing } from "../libs/LibHashing.sol";
 /// @dev Key optimizations:
 ///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1, InboxOptimized2, and InboxOptimized3
-/// @dev Gas savings: ~15% reduction in hashing operation costs
 /// @custom:security-contact security@taiko.xyz
+/// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
+///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
+///      Example: FOUNDRY_PROFILE=layer1o forge build
+/// contracts/layer1/shasta/impl/InboxOptimized4.sol
 abstract contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------
     // State Variables
@@ -28,21 +31,30 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     constructor(IInbox.Config memory _config) InboxOptimized3(_config) { }
 
     // ---------------------------------------------------------------
-    // Public Functions
+    // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
     /// @notice Optimized transition hashing using LibHashing
     /// @dev Uses LibHashing for efficient transition hashing
-    function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
+    /// @param _transition The transition data to hash
+    /// @return bytes32 The keccak256 hash of the transition struct
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
         return LibHashing.hashTransition(_transition);
     }
 
     /// @inheritdoc Inbox
     /// @notice Optimized checkpoint hashing using LibHashing
     /// @dev Uses LibHashing for efficient checkpoint hashing
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        public
+    /// @param _checkpoint The checkpoint data to hash
+    /// @return bytes32 The keccak256 hash of the checkpoint struct
+    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
         pure
         override
         returns (bytes32)
@@ -53,17 +65,18 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @inheritdoc Inbox
     /// @notice Optimized core state hashing using LibHashing
     /// @dev Uses LibHashing for efficient core state hashing
-    function hashCoreState(CoreState memory _coreState) public pure override returns (bytes32) {
+    /// @param _coreState The core state data to hash
+    /// @return bytes32 The keccak256 hash of the core state struct
+    function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
 
-    // ---------------------------------------------------------------
-    // Internal Functions - Overrides
-    // ---------------------------------------------------------------
-
     /// @inheritdoc Inbox
     /// @dev Optimized implementation using LibHashing
-    /// @notice Saves gas by using efficient hashing
+    /// @notice Uses efficient hashing for composite key generation
+    /// @param _proposalId The proposal ID
+    /// @param _parentTransitionHash The parent transition hash
+    /// @return bytes32 The composite key for storage mapping
     function _composeTransitionKey(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
