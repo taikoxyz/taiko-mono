@@ -51,7 +51,7 @@ contract InboxProveBasic is InboxTest {
             assertTransitionRecordStored(i, parentTransitionHash);
             // Update parent hash for next iteration
             IInbox.Transition memory transition =
-                InboxTestLib.createTransition(proposals[i - 1], parentTransitionHash);
+                InboxTestLib.createTransition(proposals[i - 1], parentTransitionHash, address(0));
             parentTransitionHash = InboxTestLib.hashTransition(transition);
         }
     }
@@ -78,7 +78,7 @@ contract InboxProveBasic is InboxTest {
 
             // Update parent hash for chain progression
             IInbox.Transition memory transition =
-                InboxTestLib.createTransition(proposals[i], parentHash);
+                InboxTestLib.createTransition(proposals[i], parentHash, address(0));
             parentHash = InboxTestLib.hashTransition(transition);
         }
     }
@@ -90,7 +90,7 @@ contract InboxProveBasic is InboxTest {
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
         IInbox.Transition memory transition =
-            InboxTestLib.createTransition(proposal, parentTransitionHash);
+            InboxTestLib.createTransition(proposal, parentTransitionHash, address(0));
 
         bytes memory proof = bytes("test_proof_data");
 
@@ -167,7 +167,7 @@ contract InboxProveBasic is InboxTest {
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
         IInbox.Transition memory transition =
-            InboxTestLib.createTransition(proposal, parentTransitionHash);
+            InboxTestLib.createTransition(proposal, parentTransitionHash, address(0));
 
         // Configure: Set up mock to succeed
         setupProofMocks(true);

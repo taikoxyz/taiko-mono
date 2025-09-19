@@ -704,7 +704,7 @@ library InboxTestLib {
         returns (ProposalChain memory chain)
     {
         chain.proposals = createProposalBatch(_startId, _count, _proposer, _basefeeSharingPctg);
-        chain.transitions = createTransitionChain(chain.proposals, _initialParentHash);
+        chain.transitions = createTransitionChain(chain.proposals, _initialParentHash, address(0));
         chain.initialParentHash = _initialParentHash;
 
         if (_count > 0) {

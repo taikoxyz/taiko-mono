@@ -467,7 +467,7 @@ abstract contract InboxTest is CommonTest {
 
             // Create all transitions first
             for (uint48 i = 0; i < _config.proposalCount; i++) {
-                transitions[i] = InboxTestLib.createTransition(proposals[i], currentParent);
+                transitions[i] = InboxTestLib.createTransition(proposals[i], currentParent, address(0));
                 currentParent = InboxTestLib.hashTransition(transitions[i]);
             }
 
@@ -1410,7 +1410,7 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Transition memory transition)
     {
-        transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash);
+        transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, address(0));
         _submitProof(_proposal, transition, _prover);
         // Store the checkpoint for test purposes
         inbox.storeCheckpoint(_proposal.id, transition.checkpoint);
@@ -1855,7 +1855,7 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.Transition memory)
     {
         IInbox.Proposal memory proposal = createValidProposal(_proposalId);
-        return InboxTestLib.createTransition(proposal, _parentTransitionHash);
+        return InboxTestLib.createTransition(proposal, _parentTransitionHash, address(0));
     }
 
     /// @dev Advances time beyond proving window for testing late proofs

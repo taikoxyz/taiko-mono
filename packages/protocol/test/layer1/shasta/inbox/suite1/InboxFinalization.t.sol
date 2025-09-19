@@ -33,7 +33,7 @@ contract InboxFinalization is InboxTest {
 
         IInbox.Proposal memory proposal = _createStoredProposal(proposalId, coreState);
         IInbox.Transition memory transition =
-            InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash);
+            InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash, address(0));
         IInbox.TransitionRecord memory transitionRecord = _createStoredTransitionRecord(
             proposalId, transition, coreState.lastFinalizedTransitionHash
         );
@@ -139,7 +139,7 @@ contract InboxFinalization is InboxTest {
         bytes32 currentParentHash = genesisHash;
 
         for (uint48 i = 0; i < numProposals; i++) {
-            transitions[i] = InboxTestLib.createTransition(proposals[i], currentParentHash);
+            transitions[i] = InboxTestLib.createTransition(proposals[i], currentParentHash, address(0));
             proveProposal(proposals[i], Bob, currentParentHash);
             currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
@@ -227,7 +227,7 @@ contract InboxFinalization is InboxTest {
         inbox.exposed_setProposalHash(1, keccak256(abi.encode(proposal1)));
 
         IInbox.Transition memory transition1 =
-            InboxTestLib.createTransition(proposal1, parentTransitionHash);
+            InboxTestLib.createTransition(proposal1, parentTransitionHash, address(0));
         IInbox.TransitionRecord memory transitionRecord1 = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
@@ -303,7 +303,7 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory proposal1 = submitProposal(1, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
         IInbox.Transition memory transition1 =
-            InboxTestLib.createTransition(proposal1, parentTransitionHash);
+            InboxTestLib.createTransition(proposal1, parentTransitionHash, address(0));
         proveProposal(proposal1, Bob, parentTransitionHash);
 
         // Now try to finalize with a WRONG transition record
@@ -329,13 +329,16 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = proposal1;
 
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
+
         // Expect revert due to mismatched transition record hash
         vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
         uint256 targetBlock = InboxTestLib.calculateProposalBlock(2, 2);
         vm.roll(targetBlock);
         vm.prank(Carol);
-        
-        try inbox.propose(
+
+        inbox.propose(
             bytes(""),
             InboxTestAdapter.encodeProposeInputWithEndBlock(
                 inboxType,
@@ -346,13 +349,6 @@ contract InboxFinalization is InboxTest {
                 transitionRecords,
                 transition1.checkpoint // Use the actual transition's checkpoint
             )
-        ) {
-            revert("Expected TransitionRecordHashMismatchWithStorage but propose succeeded");
-        } catch (bytes memory reason) {
-            // Verify we got the expected error
-            bytes4 expectedSelector = TransitionRecordHashMismatchWithStorage.selector;
-            bytes4 actualSelector = bytes4(reason);
-            require(actualSelector == expectedSelector, "Wrong error type");
-        }
+        );
     }
 }

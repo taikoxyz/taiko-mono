@@ -1,13 +1,6 @@
 {
-<<<<<<< HEAD
-  "propose_single_empty_ring_buffer_Inbox": "83163",
-  "propose_single_empty_ring_buffer_InboxOptimized1": "83157",
-  "propose_single_empty_ring_buffer_InboxOptimized2": "80101",
-  "propose_single_empty_ring_buffer_InboxOptimized3": "78880"
-=======
-  "propose_single_empty_ring_buffer_Inbox": "125626",
-  "propose_single_empty_ring_buffer_InboxOptimized1": "125605",
-  "propose_single_empty_ring_buffer_InboxOptimized2": "118477",
-  "propose_single_empty_ring_buffer_InboxOptimized3": "117490"
->>>>>>> origin/main
+  "propose_single_empty_ring_buffer_Inbox": "125728",
+  "propose_single_empty_ring_buffer_InboxOptimized1": "125707",
+  "propose_single_empty_ring_buffer_InboxOptimized2": "118690",
+  "propose_single_empty_ring_buffer_InboxOptimized3": "125549"
 }

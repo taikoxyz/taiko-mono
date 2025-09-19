@@ -580,7 +580,7 @@ contract InboxChainAdvancement is InboxTest {
     {
         // Submit and prove proposal
         proposal = submitProposal(proposalId, Alice);
-        transition = InboxTestLib.createTransition(proposal, parentHash);
+        transition = InboxTestLib.createTransition(proposal, parentHash, address(0));
 
         // Prove the proposal
         setupProofMocks(true);
