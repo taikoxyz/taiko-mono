@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
 import "../../iface/IProofVerifier.sol";
 
 /// @title ShastaComposeVerifier
@@ -11,8 +9,7 @@ import "../../iface/IProofVerifier.sol";
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaComposeVerifier is EssentialContract, IProofVerifier {
-    uint256[50] private __gap;
+abstract contract ShastaComposeVerifier is IProofVerifier {
 
     struct SubProof {
         address verifier;
@@ -52,12 +49,6 @@ abstract contract ShastaComposeVerifier is EssentialContract, IProofVerifier {
     error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUB_VERIFIER_ORDER();
     error CV_VERIFIERS_INSUFFICIENT();
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
 
     /// @inheritdoc IProofVerifier
     function verifyProof(

@@ -7,7 +7,6 @@ import "./ShastaComposeVerifier.sol";
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
 contract ShastaAnyVerifier is ShastaComposeVerifier {
-    uint256[50] private __gap;
 
     constructor(
         address _sgxRethVerifier,
