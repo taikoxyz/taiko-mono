@@ -219,7 +219,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             stats2.numBatches += 1;
             require(
-                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
+                config.forkHeights.shasta == 0 || batch.lastBlockId < config.forkHeights.shasta,
                 BeyondCurrentFork()
             );
             stats2.lastProposedIn = uint56(block.number);
