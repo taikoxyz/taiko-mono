@@ -76,7 +76,11 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		t.Fatal(err)
 	}
 
-	sqlDB, _ := gormDB.DB()
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
 		t.Fatal(err)
 	}
