@@ -1085,8 +1085,7 @@ abstract contract InboxTest is CommonTest {
         setupBlobHashes();
 
         // Calculate the correct block for this proposal (accounting for 1-block gaps)
-        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 2); // Base block
-            // 102
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 2); // Base block 2
 
         // Roll to the target block
         vm.prank(_proposer);
@@ -1122,13 +1121,13 @@ abstract contract InboxTest is CommonTest {
 
         // Calculate the correct nextProposalBlockId based on proposal ID
         if (_proposalId == 1) {
-            // First proposal uses genesis value
-            coreState.nextProposalBlockId = 0;
+            // First proposal uses genesis value (2 to prevent blockhash(0))
+            coreState.nextProposalBlockId = 2;
         } else {
             // For subsequent proposals, calculate based on when the previous proposal was made
-            // Previous proposal was at block 102 + (proposalId - 2) (1-block gaps)
+            // Previous proposal was at block 2 + (proposalId - 2) (1-block gaps)
             // It set nextProposalBlockId to that block + 1
-            uint256 prevProposalBlock = 102 + (_proposalId - 2);
+            uint256 prevProposalBlock = 2 + (_proposalId - 2);
             coreState.nextProposalBlockId = uint48(prevProposalBlock + 1);
         }
     }

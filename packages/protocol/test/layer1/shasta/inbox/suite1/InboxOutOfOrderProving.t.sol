@@ -46,13 +46,13 @@ contract InboxOutOfOrderProving is InboxTest {
 
         for (uint48 i = 1; i <= numProposals; i++) {
             // Calculate correct block for this proposal
-            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2); // Base block 102
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 2); // Base block 2
             vm.roll(targetBlock);
 
             // Calculate the correct nextProposalBlockId based on the current proposal
             uint48 nextBlockId;
             if (i == 1) {
-                nextBlockId = 0; // Genesis value for first proposal
+                nextBlockId = 2; // Genesis value for first proposal (prevents blockhash(0))
             } else {
                 // For subsequent proposals, it's previous proposal's block + 1
                 uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 2);

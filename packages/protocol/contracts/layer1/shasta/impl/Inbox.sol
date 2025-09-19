@@ -212,7 +212,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         CoreState memory coreState = _finalize(input);
 
         unchecked {
-            // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the ring buffer
+            // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the
+            // ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
         }
 

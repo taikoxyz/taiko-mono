@@ -38,9 +38,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         // Arrange: Setup core state with genesis transition hash for chain continuity
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Configure mocks and create proposal with valid future deadline
@@ -72,9 +70,7 @@ contract InboxProposeValidation is InboxTest {
         vm.warp(1000); // Set block.timestamp = 1000
 
         // Arrange: Setup core state for proposal submission
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Create proposal with expired deadline (security test)
@@ -103,9 +99,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         // Arrange: Setup core state for proposal submission
-        bytes32 genesisHash = getGenesisTransitionHash();
-        IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         // Core state will be validated by the contract during propose()
 
         // Arrange: Create proposal with no deadline (deadline = 0)
@@ -138,7 +132,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 0,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -186,7 +180,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 0,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -285,7 +279,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 0,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -331,7 +325,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 0,
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
