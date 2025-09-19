@@ -63,6 +63,8 @@ abstract contract InboxTestSetup is InboxTestHelper {
             address(proposerChecker)
         );
 
+        _initializeEncodingHelper(inboxDeployer.getTestContractName());
+
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
@@ -92,6 +94,9 @@ abstract contract InboxTestSetup is InboxTestHelper {
     /// @dev Delegates to the deployer to get the appropriate name
     function getTestContractName() internal view virtual returns (string memory) {
         require(address(inboxDeployer) != address(0), "Deployer not set");
+        if (bytes(inboxContractName).length != 0) {
+            return inboxContractName;
+        }
         return inboxDeployer.getTestContractName();
     }
 }

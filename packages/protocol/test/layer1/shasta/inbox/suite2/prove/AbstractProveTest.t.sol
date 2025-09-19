@@ -3,44 +3,28 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
-import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProveTest
 /// @notice All prove tests for Inbox implementations
-abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
+abstract contract AbstractProveTest is InboxTestSetup {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
-    InboxHelper internal helper;
-
-    // Cache contract name to avoid repeated calls and potential recursion
-    string private contractName;
-    bool private useOptimizedInputEncoding;
-
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
 
     function setUp() public virtual override {
         super.setUp();
-
-        // Initialize the helper for encoding/decoding operations
-        helper = new InboxHelper();
-
-        // Cache contract name and determine encoding types
-        contractName = getTestContractName();
-        useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for creating proposals to prove
         currentProposer = _selectProposer(Bob);
@@ -64,7 +48,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_single_", getTestContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_single_", _getInboxContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -98,7 +82,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_2_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_2_", _getInboxContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -126,7 +110,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_3_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_3_", _getInboxContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -152,7 +136,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_5_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_5_", _getInboxContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -179,7 +163,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_1_", getTestContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_1_", _getInboxContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -207,7 +191,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_2_", getTestContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_2_", _getInboxContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -237,7 +221,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_mixed_groups_", getTestContractName())
+            "shasta-prove", string.concat("prove_mixed_groups_", _getInboxContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -279,7 +263,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_reverse_", getTestContractName()));
+        vm.startSnapshotGas(
+            "shasta-prove", string.concat("prove_reverse_", _getInboxContractName())
+        );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -379,19 +365,6 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
     // Helper functions for prove input creation
     // ---------------------------------------------------------------
-
-    /// @notice Encodes ProveInput using appropriate method based on inbox type
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProveInputOptimized(_input);
-        } else {
-            return helper.encodeProveInput(_input);
-        }
-    }
 
     function _createConsecutiveProposals(uint8 count)
         internal
@@ -636,55 +609,5 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function _createValidProof() internal pure returns (bytes memory) {
         // MockProofVerifier always accepts, so return any non-empty proof
         return abi.encode("valid_proof");
-    }
-
-    // Helper function needed from propose tests
-    function _createProposeInputWithCustomParams(
-        uint48 _deadline,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.Proposal[] memory _parentProposals,
-        IInbox.CoreState memory _coreState
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        IInbox.ProposeInput memory input = IInbox.ProposeInput({
-            deadline: _deadline,
-            coreState: _coreState,
-            parentProposals: _parentProposals,
-            blobReference: _blobRef,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: blockhash(block.number - 1),
-                stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
-        });
-
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProposeInputOptimized(input);
-        } else {
-            return helper.encodeProposeInput(input);
-        }
-    }
-
-    function _createFirstProposeInput() internal view returns (bytes memory) {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
-
-        IInbox.ProposeInput memory input;
-        input.coreState = coreState;
-        input.parentProposals = parentProposals;
-        input.blobReference = blobRef;
-
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProposeInputOptimized(input);
-        } else {
-            return helper.encodeProposeInput(input);
-        }
     }
 }
