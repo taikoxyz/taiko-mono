@@ -39,9 +39,11 @@ func (b *Blocker) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, errors.New("can't find block")
 	}
 
-	return types.NewBlockWithHeader(Header), nil
+    hdr := *Header
+    return types.NewBlockWithHeader(&hdr), nil
 }
 
 func (b *Blocker) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return types.NewBlockWithHeader(Header), nil
+    hdr := *Header
+    return types.NewBlockWithHeader(&hdr), nil
 }
