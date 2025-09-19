@@ -39,10 +39,12 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
         useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedEventEncoding = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized2"))
-            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
 
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
