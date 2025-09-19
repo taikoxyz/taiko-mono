@@ -583,6 +583,8 @@ func (s *Indexer) getTransitionsForFinalization(
 			"proposalId", lastFinalizedProposalId+i,
 			"found", ok,
 			"last", transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash,
+			"lastFinalizedTransitionHash", lastFinalizedTransitionHash,
+			"parentTransitionHash", common.BytesToHash(transition.Transition.ParentTransitionHash[:]),
 			"time", transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()),
 			"rawBlockTimeStamp", transition.RawBlockTimeStamp,
 			"gracePeriod", s.finalizationGracePeriod,
