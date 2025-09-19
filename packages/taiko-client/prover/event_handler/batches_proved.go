@@ -95,12 +95,11 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 		return nil
 	}
 
+	// Otherwise, the proof onchain is invalid, we need to submit a new proof.
 	proposal, err := h.shastaIndexer.GetProposalByID(payload.ProposalId.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to fetch proposal metadata for Shasta: %w", err)
 	}
-
-	// Otherwise, the proof onchain is invalid, we need to submit a new proof.
 	h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
 		Meta: metadata.NewTaikoProposalMetadataShasta(
 			&shastaBindings.IInboxProposedEventPayload{
@@ -108,7 +107,7 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 				Derivation: *proposal.Derivation,
 				CoreState:  *proposal.CoreState,
 			},
-			types.Log{},
+			types.Log{}, // NOTE: we don't use the log in the prover anyway.
 		),
 	}
 

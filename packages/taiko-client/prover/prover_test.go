@@ -229,9 +229,8 @@ func (s *ProverTestSuite) TestOnBatchesVerified() {
 }
 
 func (s *ProverTestSuite) TestProveOp() {
-	// TODO(Gavin): fix this test.
-	s.T().Skip()
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.True(m.IsPacaya())
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
 	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
@@ -242,15 +241,8 @@ func (s *ProverTestSuite) TestProveOp() {
 	}()
 	s.Nil(s.p.proveOp())
 
-	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta))
-		s.True(req.Meta.IsPacaya())
-		if req.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
-			break
-		}
-	}
-
-	s.True(m.IsPacaya())
+	req := <-s.p.proofSubmissionCh
+	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
