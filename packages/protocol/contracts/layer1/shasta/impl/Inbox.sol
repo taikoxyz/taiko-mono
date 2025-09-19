@@ -391,15 +391,60 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
+            _processSingleTransitionAtIndex(_input, i);
+        }
+    }
 
-            TransitionRecord memory transitionRecord = _buildTransitionRecord(
-                _input.proposals[i], _input.transitions[i], _input.metadata[i]
-            );
+    /// @dev Processes a single transition at the specified index
+    /// @notice Reusable function for validating, building, and storing individual transitions
+    /// @param _input The ProveInput containing all transition data
+    /// @param _index The index of the transition to process
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
+        _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
-            _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
-            );
+        TransitionRecord memory transitionRecord = _buildTransitionRecord(
+            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
+        );
+
+        _setTransitionRecordHashAndDeadline(
+            _input.proposals[_index].id, _input.transitions[_index], _input.metadata[_index], transitionRecord
+        );
+    }
+
+    /// @dev Validates multiple transitions in sequence
+    /// @notice Reusable batch validation function
+    /// @param _proposals Array of proposals to validate
+    /// @param _transitions Array of transitions to validate against proposals
+    function _validateTransitions(
+        Proposal[] memory _proposals,
+        Transition[] memory _transitions
+    )
+        internal
+        view
+    {
+        for (uint256 i; i < _proposals.length; ++i) {
+            _validateTransition(_proposals[i], _transitions[i]);
+        }
+    }
+
+    /// @dev Builds transition records for multiple proposals
+    /// @notice Reusable function for batch transition record construction
+    /// @param _proposals Array of proposals
+    /// @param _transitions Array of transitions
+    /// @param _metadata Array of metadata
+    /// @return records Array of built transition records
+    function _buildTransitionRecords(
+        Proposal[] memory _proposals,
+        Transition[] memory _transitions,
+        TransitionMetadata[] memory _metadata
+    )
+        internal
+        view
+        returns (TransitionRecord[] memory records)
+    {
+        records = new TransitionRecord[](_proposals.length);
+        for (uint256 i; i < _proposals.length; ++i) {
+            records[i] = _buildTransitionRecord(_proposals[i], _transitions[i], _metadata[i]);
         }
     }
 

@@ -73,22 +73,16 @@ contract InboxOptimized1 is Inbox {
     /// @dev Processes a single transition with optimized storage
     /// @param _input ProveInput containing one proposal and transition
     function _processSingleTransition(ProveInput memory _input) private {
-        _validateTransition(_input.proposals[0], _input.transitions[0]);
-
-        TransitionRecord memory transitionRecord =
-            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
-
-        _setTransitionRecordHashAndDeadline(
-            _input.proposals[0].id, _input.transitions[0], _input.metadata[0], transitionRecord
-        );
+        _processSingleTransitionAtIndex(_input, 0);
     }
 
     /// @dev Handles multi-transition aggregation logic
     /// @param _input ProveInput containing multiple proposals and transitions to aggregate
     function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
-        // Initialize aggregation state from first proposal
-        _validateTransition(_input.proposals[0], _input.transitions[0]);
+        // Validate all transitions upfront using shared function
+        _validateTransitions(_input.proposals, _input.transitions);
 
+        // Initialize aggregation state from first proposal
         TransitionRecord memory currentRecord =
             _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
 
@@ -97,8 +91,6 @@ contract InboxOptimized1 is Inbox {
 
         // Process remaining proposals with optimized loop
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
-
             // Check for consecutive proposal aggregation
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 _aggregateTransition(_input, i, currentRecord);

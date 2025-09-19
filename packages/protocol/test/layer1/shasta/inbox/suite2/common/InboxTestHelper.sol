@@ -29,7 +29,7 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
             nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
@@ -45,7 +45,7 @@ contract InboxTestHelper is CommonTest {
         return keccak256(abi.encode(transition));
     }
 
-    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
+    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Derivation memory derivation;
