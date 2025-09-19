@@ -486,7 +486,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
-        coreState.nextProposalBlockId = 100;
+        coreState.nextProposalBlockId = 100; // Set genesis nextProposalBlockId
         coreState.lastFinalizedTransitionHash = hashTransition(transition);
 
         Proposal memory proposal;
@@ -782,9 +782,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 blobSlice: _blobSlice
             });
 
-            // Increment both nextProposalId and nextProposalBlockId together
+            // Increment nextProposalId (nextProposalBlockId was already set in propose())
             uint48 proposalId = _coreState.nextProposalId++;
-            _coreState.nextProposalBlockId++;
 
             Proposal memory proposal = Proposal({
                 id: proposalId,

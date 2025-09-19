@@ -103,10 +103,10 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
-        // Due to double increment bug: line 215 sets to block.number+1, line 787 increments again
+        // Line 215 sets nextProposalBlockId to block.number+1
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            nextProposalBlockId: uint48(block.number + 2), // Double increment: block.number + 1, then ++
+            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

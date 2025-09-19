@@ -48,17 +48,17 @@ contract InboxOutOfOrderProving is InboxTest {
             // Calculate correct block for this proposal
             uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 102); // Base block 102
             vm.roll(targetBlock);
-            
+
             // Calculate the correct nextProposalBlockId based on the current proposal
             uint48 nextBlockId;
             if (i == 1) {
                 nextBlockId = 100; // Genesis value for first proposal
             } else {
-                // For subsequent proposals, it's previous proposal's block + 2
+                // For subsequent proposals, it's previous proposal's block + 1
                 uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 102);
-                nextBlockId = uint48(prevProposalBlock + 2);
+                nextBlockId = uint48(prevProposalBlock + 1);
             }
-            
+
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 nextProposalBlockId: nextBlockId,
@@ -125,12 +125,14 @@ contract InboxOutOfOrderProving is InboxTest {
             });
 
             // Store proposal for use in next iteration's validation
-            // The contract increments nextProposalId and sets nextProposalBlockId to block.number + 2
+            // The contract increments nextProposalId and sets nextProposalBlockId to block.number +
+            // 2
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
-                        nextProposalBlockId: uint48(block.number + 2), // Double increment from contract
+                        nextProposalBlockId: uint48(block.number + 1), // Single increment from
+                            // contract
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
@@ -203,7 +205,7 @@ contract InboxOutOfOrderProving is InboxTest {
         uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(numProposals, 102);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
-            nextProposalBlockId: uint48(lastProposalBlock + 2), // Previous proposal's block + 2
+            nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -306,7 +308,7 @@ contract InboxOutOfOrderProving is InboxTest {
         uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(3, 102);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
-            nextProposalBlockId: uint48(lastProposalBlock + 2), // Previous proposal's block + 2
+            nextProposalBlockId: uint48(lastProposalBlock + 1), // Previous proposal's block + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)

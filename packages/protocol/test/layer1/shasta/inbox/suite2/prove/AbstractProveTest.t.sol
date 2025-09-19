@@ -494,21 +494,21 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
-        // Account for double increment bug: each proposal sets nextProposalBlockId = block + 2
-        // Need to roll 2 blocks forward from the last proposal
+        // Each proposal sets nextProposalBlockId = block.number + 1
+        // Need to roll 1 block forward from the last proposal
         uint48 expectedNextBlockId;
         if (_parent.id == 0) {
             expectedNextBlockId = 100; // Genesis value
             // For first proposal after genesis, roll to block 102
             vm.roll(102);
         } else {
-            // For subsequent proposals, need to account for 2-block gap
-            // Roll forward by 2 blocks from current position
-            vm.roll(block.number + 2);
-            // After parent's double increment, nextProposalBlockId should be current block - 2 + 2 = current block
+            // For subsequent proposals, need 1-block gap
+            // Roll forward by 1 block from current position
+            vm.roll(block.number + 1);
+            // nextProposalBlockId should be current block number
             expectedNextBlockId = uint48(block.number);
         }
-        
+
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
             nextProposalBlockId: expectedNextBlockId,

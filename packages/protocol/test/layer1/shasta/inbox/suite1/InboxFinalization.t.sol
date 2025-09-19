@@ -55,7 +55,8 @@ contract InboxFinalization is InboxTest {
     {
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId = _proposalId + 1;
-        updatedCoreState.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(_proposalId + 1, 102));
+        updatedCoreState.nextProposalBlockId =
+            uint48(InboxTestLib.calculateProposalBlock(_proposalId + 1, 102));
 
         proposal = createValidProposal(_proposalId);
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
@@ -183,7 +184,8 @@ contract InboxFinalization is InboxTest {
     {
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(_nextProposalId, 0, getGenesisTransitionHash(), bytes32(0));
-        coreState.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(_nextProposalId, 102));
+        coreState.nextProposalBlockId =
+            uint48(InboxTestLib.calculateProposalBlock(_nextProposalId, 102));
 
         setupProposalMocks(Carol);
         setupBlobHashes();

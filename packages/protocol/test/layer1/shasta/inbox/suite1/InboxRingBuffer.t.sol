@@ -142,7 +142,8 @@ contract InboxRingBuffer is InboxTest {
         uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(2, 102);
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
-        coreState3.nextProposalBlockId = uint48(prevProposalBlock + 2); // Previous proposal's block + 2
+        coreState3.nextProposalBlockId = uint48(prevProposalBlock + 1); // Previous proposal's block
+            // + 1
 
         setupProposalMocks(Alice);
         setupBlobHashes();
@@ -167,7 +168,7 @@ contract InboxRingBuffer is InboxTest {
         // Roll to the correct block for proposal 3
         uint256 targetBlock = InboxTestLib.calculateProposalBlock(3, 102);
         vm.roll(targetBlock);
-        
+
         // Should fail with IncorrectProposalCount
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);

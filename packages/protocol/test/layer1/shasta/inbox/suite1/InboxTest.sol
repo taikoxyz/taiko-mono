@@ -342,7 +342,8 @@ abstract contract InboxTest is CommonTest {
     {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
-            nextProposalBlockId: uint48(block.number), // Current block (proposal submitted in this block)
+            nextProposalBlockId: uint48(block.number), // Current block (proposal submitted in this
+                // block)
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
             lastFinalizedTransitionHash: _config.lastFinalizedTransitionHash,
             bondInstructionsHash: _config.bondInstructionsHash
@@ -1083,9 +1084,10 @@ abstract contract InboxTest is CommonTest {
         setupProposalMocks(_proposer);
         setupBlobHashes();
 
-        // Calculate the correct block for this proposal (accounting for 2-block gaps)
-        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 102); // Base block 102
-        
+        // Calculate the correct block for this proposal (accounting for 1-block gaps)
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 102); // Base block
+            // 102
+
         // Roll to the target block
         vm.prank(_proposer);
         if (block.number < targetBlock) {
@@ -1117,17 +1119,17 @@ abstract contract InboxTest is CommonTest {
     {
         coreState = _getGenesisCoreState();
         coreState.nextProposalId = _proposalId;
-        
+
         // Calculate the correct nextProposalBlockId based on proposal ID
         if (_proposalId == 1) {
             // First proposal uses genesis value
             coreState.nextProposalBlockId = 100;
         } else {
             // For subsequent proposals, calculate based on when the previous proposal was made
-            // Previous proposal was at block 102 + (proposalId - 2) * 2
-            // It set nextProposalBlockId to that block + 2
-            uint256 prevProposalBlock = 102 + (_proposalId - 2) * 2;
-            coreState.nextProposalBlockId = uint48(prevProposalBlock + 2);
+            // Previous proposal was at block 102 + (proposalId - 2) (1-block gaps)
+            // It set nextProposalBlockId to that block + 1
+            uint256 prevProposalBlock = 102 + (_proposalId - 2);
+            coreState.nextProposalBlockId = uint48(prevProposalBlock + 1);
         }
     }
 
@@ -1317,25 +1319,25 @@ abstract contract InboxTest is CommonTest {
         if (_proposalId == 0) {
             return InboxTestLib.createGenesisProposal(coreState);
         }
-        
+
         // For other proposals, the core state shows what was present WHEN that proposal was created
         coreState.nextProposalId = _proposalId;
-        
+
         // Calculate nextProposalBlockId based on what the previous proposal would have set
         if (_proposalId == 1) {
             // Proposal 1 uses genesis state with nextProposalBlockId = 100
             coreState.nextProposalBlockId = 100;
         } else {
-            // Previous proposal set nextProposalBlockId = its block + 2
+            // Previous proposal set nextProposalBlockId = its block + 1
             uint256 prevBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 102);
-            coreState.nextProposalBlockId = uint48(prevBlock + 2);
+            coreState.nextProposalBlockId = uint48(prevBlock + 1);
         }
-        
+
         coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
 
         // Calculate the block number when this proposal was created
         uint256 proposalBlockNumber = InboxTestLib.calculateProposalBlock(_proposalId, 102);
-        
+
         return _reconstructStoredProposalAt(
             _proposalId, Alice, coreState, proposalBlockNumber, block.timestamp
         );
@@ -1396,12 +1398,11 @@ abstract contract InboxTest is CommonTest {
             // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
-        // The contract increments nextProposalId and nextProposalBlockId BEFORE computing the hash
+        // The contract increments nextProposalId and sets nextProposalBlockId BEFORE computing the hash
         // In propose(), it sets nextProposalBlockId = block.number + 1 (line 215)
-        // Then in _propose(), it increments it again (line 787), making it block.number + 2
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
-        updatedCoreState.nextProposalBlockId = uint48(_blockNumber + 2); // block.number + 1, then ++ 
+        updatedCoreState.nextProposalBlockId = uint48(_blockNumber + 1); // block.number + 1
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;

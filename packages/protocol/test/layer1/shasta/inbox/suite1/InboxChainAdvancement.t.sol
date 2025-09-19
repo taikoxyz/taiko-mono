@@ -166,7 +166,7 @@ contract InboxChainAdvancement is InboxTest {
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
-                        nextProposalBlockId: uint48(block.number + 2),
+                        nextProposalBlockId: uint48(block.number + 1),
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
@@ -561,8 +561,8 @@ contract InboxChainAdvancement is InboxTest {
 
         // Assert: Verify that only maxFinalizationCount proposals were finalized
         IInbox.CoreState({
-            nextProposalId: numProposals + 2,
-            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 2, 102)),
+            nextProposalId: numProposals + 1,
+            nextProposalBlockId: uint48(InboxTestLib.calculateProposalBlock(numProposals + 1, 102)),
             lastFinalizedProposalId: uint48(getMaxFinalizationCount()),
             lastFinalizedTransitionHash: keccak256(
                 abi.encode(transitions[getMaxFinalizationCount() - 1])
@@ -630,11 +630,11 @@ contract InboxChainAdvancement is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
         setupBlobHashes();
-        
+
         // Roll to correct block for this proposal ID
         uint256 targetBlock = InboxTestLib.calculateProposalBlock(nextProposalId, 102);
         vm.roll(targetBlock);
-        
+
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
     }
