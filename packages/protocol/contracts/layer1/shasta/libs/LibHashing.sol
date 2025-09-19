@@ -306,11 +306,7 @@ library LibHashing {
     /// @dev Uses standard keccak256(abi.encode(...)) - kept for comparison and testing
     /// @param _transition The transition to hash
     /// @return The hash of the transition
-    function hashTransitionUnoptimized(IInbox.Transition memory _transition)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashTransitionUnoptimized(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         return keccak256(abi.encode(_transition));
     }
 
@@ -330,11 +326,7 @@ library LibHashing {
     /// @dev Uses standard keccak256(abi.encode(...)) - kept for comparison and testing
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
-    function hashCoreStateUnoptimized(IInbox.CoreState memory _coreState)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashCoreStateUnoptimized(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
         return keccak256(abi.encode(_coreState));
     }
 
@@ -342,11 +334,7 @@ library LibHashing {
     /// @dev Uses standard keccak256(abi.encode(...)) - kept for comparison and testing
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
-    function hashProposalUnoptimized(IInbox.Proposal memory _proposal)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashProposalUnoptimized(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
         return keccak256(abi.encode(_proposal));
     }
 

@@ -9,6 +9,7 @@ import { LibInboxValidation } from "./LibInboxValidation.sol";
 /// @notice Library for managing transition records and related operations
 /// @custom:security-contact security@taiko.xyz
 library LibTransitionRecords {
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -109,8 +110,7 @@ library LibTransitionRecords {
         IInbox.Transition memory _transition,
         IInbox.TransitionMetadata memory _metadata,
         IInbox.TransitionRecord memory _transitionRecord,
-        mapping(bytes32 => TransitionRecordHashAndDeadline) storage
-            _transitionRecordHashAndDeadlines,
+        mapping(bytes32 => TransitionRecordHashAndDeadline) storage _transitionRecordHashAndDeadlines,
         uint48 _finalizationGracePeriod
     )
         internal
@@ -122,14 +122,12 @@ library LibTransitionRecords {
         _transitionRecordHashAndDeadlines[key] = hashAndDeadline;
 
         emit IInbox.Proved(
-            encodeProvedEventData(
-                IInbox.ProvedEventPayload({
-                    proposalId: _proposalId,
-                    transition: _transition,
-                    transitionRecord: _transitionRecord,
-                    metadata: _metadata
-                })
-            )
+            encodeProvedEventData(IInbox.ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
+            }))
         );
     }
 
@@ -141,8 +139,7 @@ library LibTransitionRecords {
     function getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        mapping(bytes32 => TransitionRecordHashAndDeadline) storage
-            _transitionRecordHashAndDeadlines
+        mapping(bytes32 => TransitionRecordHashAndDeadline) storage _transitionRecordHashAndDeadlines
     )
         internal
         view

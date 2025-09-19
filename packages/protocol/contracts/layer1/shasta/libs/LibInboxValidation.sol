@@ -79,11 +79,7 @@ library LibInboxValidation {
     /// @dev Hashes a checkpoint.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint) internal pure returns (bytes32) {
         return keccak256(abi.encode(_checkpoint));
     }
 
@@ -104,11 +100,7 @@ library LibInboxValidation {
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
     /// @return _ The hash of the transitions array.
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashTransitionsArray(IInbox.Transition[] memory _transitions) internal pure returns (bytes32) {
         return keccak256(abi.encode(_transitions));
     }
 

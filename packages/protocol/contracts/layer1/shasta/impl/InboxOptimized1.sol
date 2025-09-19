@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
+import { LibTransitionRecords } from "../libs/LibTransitionRecords.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
