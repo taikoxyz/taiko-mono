@@ -572,7 +572,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
     function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
         internal
-        view        
+        view
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         recordHash_ = _hashTransitionRecord(_transitionRecord);
