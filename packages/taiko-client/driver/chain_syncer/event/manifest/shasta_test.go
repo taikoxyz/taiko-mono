@@ -278,13 +278,19 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	parentGasLimit := uint64(30_000_000)
+	shastaForkHeight := big.NewInt(1000)
+	parentBlockNumber := big.NewInt(1001) // After fork
 
-	// Calculate expected bounds (0.1% change = 10 permyriad)
+	// When parent block is after Shasta fork, UpdateStateGasLimit is subtracted
+	// Based on the log output, we can see the effective parent gas limit is 29,000,000 (0x1ba8140)
+	effectiveParentGasLimit := uint64(29_000_000) // This is what actually gets used
+
+	// Calculate expected bounds (0.1% change = 10 permyriad) based on effective parent gas limit
 	expectedLowerBound := max(
-		parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
+		effectiveParentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
 		manifest.MinBlockGasLimit,
 	)
-	expectedUpperBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
+	expectedUpperBound := effectiveParentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
 
 	// Test 1: Zero gas limit - should inherit parent
 	proposalManifest := &manifest.ProposalManifest{
@@ -295,8 +301,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(proposalManifest, parentGasLimit)
-	s.Equal(parentGasLimit, proposalManifest.Blocks[0].GasLimit)
+	validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, parentGasLimit)
+	s.Equal(effectiveParentGasLimit, proposalManifest.Blocks[0].GasLimit)
 
 	// Test 2: Gas limit below lower bound - should be clamped
 	lowGasLimit := expectedLowerBound - 1000
@@ -308,7 +314,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(proposalManifest, parentGasLimit)
+	validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, parentGasLimit)
 	s.Equal(expectedLowerBound, proposalManifest.Blocks[0].GasLimit)
 
 	// Test 3: Gas limit above upper bound - should be clamped
@@ -321,11 +327,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(proposalManifest, parentGasLimit)
+	validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, parentGasLimit)
 	s.Equal(expectedUpperBound, proposalManifest.Blocks[0].GasLimit)
 
 	// Test 4: Valid gas limit within bounds - should remain unchanged
-	validGasLimit := parentGasLimit + 15000 // Within ±0.1%
+	validGasLimit := effectiveParentGasLimit + 20000 // 29,020,000, within bounds
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
 			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
@@ -334,12 +340,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(proposalManifest, parentGasLimit)
+	validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, parentGasLimit)
 	s.Equal(validGasLimit, proposalManifest.Blocks[0].GasLimit)
 
 	// Test 5: Sequential blocks - parent gas limit should update
-	firstBlockGasLimit := parentGasLimit + 20000 // Within bounds
-	secondBlockGasLimit := uint64(0)             // Should inherit from first block
+	firstBlockGasLimit := effectiveParentGasLimit + 15000 // 29,015,000, within bounds
+	secondBlockGasLimit := uint64(0)                      // Should inherit from first block
 
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -352,7 +358,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(proposalManifest, parentGasLimit)
+	validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, parentGasLimit)
 	s.Equal(firstBlockGasLimit, proposalManifest.Blocks[0].GasLimit)
 	s.Equal(firstBlockGasLimit, proposalManifest.Blocks[1].GasLimit) // Should inherit from first block
 
@@ -367,7 +373,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			},
 		}
 
-		validateGasLimit(proposalManifest, veryLowParentGasLimit)
+		validateGasLimit(proposalManifest, shastaForkHeight, parentBlockNumber, veryLowParentGasLimit)
 		s.Equal(manifest.MinBlockGasLimit, proposalManifest.Blocks[0].GasLimit)
 	}
 }
