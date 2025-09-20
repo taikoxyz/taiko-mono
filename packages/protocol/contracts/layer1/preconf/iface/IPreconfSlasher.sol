@@ -96,8 +96,8 @@ interface IPreconfSlasher is ISlasher {
         // Slash amount for missing EOP
         uint256 missingEOP;
         // Slash amount for reorged preconfirmation
-        // While preconfs affcted by L1 reorgs have separately defined slash amount, the violation
-        // is handled under invalid preconirmation itself.
+        // While preconfs affected by L1 reorgs have separately defined slash amount, the violation
+        // is handled under invalid preconfirmation itself.
         uint256 reorgedPreconf;
     }
 
