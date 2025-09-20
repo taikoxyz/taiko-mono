@@ -404,7 +404,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
         );
 
-        _setTransitionRecordHashAndDeadline(
+        _setTransitionRecordHash(
             _input.proposals[_index].id,
             _input.transitions[_index],
             _input.metadata[_index],
@@ -425,7 +425,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _transition The transition data to include in the event
     /// @param _metadata The metadata containing prover information to include in the event
     /// @param _transitionRecord The transition record to hash and store
-    function _setTransitionRecordHashAndDeadline(
+    function _setTransitionRecordHash(
         uint48 _proposalId,
         Transition memory _transition,
         TransitionMetadata memory _metadata,

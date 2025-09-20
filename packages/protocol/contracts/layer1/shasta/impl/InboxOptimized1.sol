@@ -271,7 +271,7 @@ contract InboxOptimized1 is Inbox {
             mstore(instructions, _instructionCount)
         }
 
-        _setTransitionRecordHashAndDeadline(
+        _setTransitionRecordHash(
             _groupStartId, _input.transitions[_firstIndex], _input.metadata[_firstIndex], _record
         );
     }
