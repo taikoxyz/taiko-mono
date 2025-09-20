@@ -59,7 +59,7 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
             nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
