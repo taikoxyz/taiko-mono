@@ -75,12 +75,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             "shasta-propose",
             string.concat("propose_single_empty_ring_buffer_", getTestContractName())
         );
-        vm.roll(block.number + 1);
 
-        // Create proposal input after block roll to match checkpoint values
+        // Create proposal input
         bytes memory proposeData = _createFirstProposeInput();
 
-        // Build expected event data after block roll to match timestamps
+        // Build expected event data
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
 
         // Expect the Proposed event with the correct data
@@ -103,9 +102,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Should succeed with valid future deadline
-        vm.roll(block.number + 1);
-
-        // Create proposal with future deadline after block roll
+        // Create proposal with future deadline
         bytes memory proposeData =
             _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
 
@@ -128,9 +125,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Should succeed with zero deadline
-        vm.roll(block.number + 1);
-
-        // Create proposal input after block roll
+        // Create proposal input
         bytes memory proposeData = _createFirstProposeInput();
 
         // Expect the correct event
@@ -161,7 +156,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Should revert with DeadlineExceeded
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
     }
 
@@ -172,9 +166,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     function test_propose_withSingleBlob() public {
         _setupBlobHashes();
 
-        vm.roll(block.number + 1);
-
-        // Create proposal input after block roll
+        // Create proposal input
         bytes memory proposeData = _createFirstProposeInput();
 
         // Expect the correct event for single blob
@@ -195,12 +187,10 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     function test_propose_withMultipleBlobs() public {
         _setupBlobHashes();
 
-        vm.roll(block.number + 1);
-
-        // Create proposal input with multiple blobs after block roll
+        // Create proposal input with multiple blobs
         bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
 
-        // Build expected event data after block roll to match timestamps
+        // Build expected event data
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayload(useOptimizedHashing, 1, 3, 0, currentProposer);
         vm.expectEmit();
@@ -240,19 +230,16 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Should revert when accessing invalid blob
         vm.expectRevert();
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
     }
 
     function test_propose_withBlobOffset() public {
         _setupBlobHashes();
 
-        vm.roll(block.number + 1);
-
-        // Create proposal input with blob offset after block roll
+        // Create proposal input with blob offset
         bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
 
-        // Build expected event data after block roll to match timestamps
+        // Build expected event data
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayload(useOptimizedHashing, 1, 2, 100, currentProposer);
         vm.expectEmit();
@@ -585,8 +572,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Create a simple scenario where slot is NOT occupied
         // First create proposal 1
-        vm.roll(block.number + 1);
-
         // Build the expected payload for proposal 1 (this captures the current block.timestamp)
         IInbox.ProposedEventPayload memory firstPayload = _buildExpectedProposedPayload(1);
 
@@ -660,12 +645,10 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // First proposal (ID 1)
-        vm.roll(block.number + 1);
-
-        // Create proposal input after block roll
+        // Create proposal input
         bytes memory firstProposeData = _createFirstProposeInput();
 
-        // Build expected event data after block roll to match timestamps
+        // Build expected event data
         IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(firstExpectedPayload));
@@ -705,7 +688,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // No additional roll needed - we already advanced by 1 block above
 
-        // Create second proposal input after block roll
+        // Create second proposal input
         bytes memory secondProposeData = _createProposeInputWithCustomParams(
             0, // no deadline
             _createBlobRef(0, 1, 0),
@@ -750,7 +733,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes memory firstProposeData = _createFirstProposeInput();
 
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), firstProposeData);
 
         // Now try to create a second proposal with a WRONG parent
@@ -774,7 +756,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Should revert because parent proposal hash doesn't match
         vm.expectRevert(); // The specific error will depend on the Inbox implementation
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), wrongProposeData);
     }
 
@@ -809,7 +790,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Should revert because parent proposal doesn't exist
         vm.expectRevert();
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
     }
 
