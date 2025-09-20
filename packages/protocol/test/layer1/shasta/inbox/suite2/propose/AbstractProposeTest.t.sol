@@ -42,7 +42,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Initialize the helper for encoding/decoding operations
         helper = new InboxHelper();
 
-        // Cache contract name and determine encoding types
+        // Cache contract name and determine encoding and hashing types
         contractName = getTestContractName();
         useOptimizedInputEncoding =
             keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
@@ -585,25 +585,30 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Create a simple scenario where slot is NOT occupied
         // First create proposal 1
-        _createAndSubmitProposal(1);
-        
-        // Advance time
+        vm.roll(block.number + 1);
+
+        // Build the expected payload for proposal 1 (this captures the current block.timestamp)
+        IInbox.ProposedEventPayload memory firstPayload = _buildExpectedProposedPayload(1);
+
+        // Now actually create the proposal
+        bytes memory firstProposeData = _createFirstProposeInput();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), firstProposeData);
+
+        // Advance time for next proposal
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
-        
-        // Build proposal 1 reference
-        IInbox.Proposal memory proposal1 = _buildProposal(1, currentProposer, INITIAL_BLOCK_TIMESTAMP);
-        
+
         // Try to provide 2 parent proposals when only 1 is needed (slot 2 is empty)
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
-        parentProposals[0] = proposal1;
+        parentProposals[0] = firstPayload.proposal;  // Use the actual proposal from the payload
         parentProposals[1] = _createGenesisProposal(useOptimizedHashing); // Wrong - slot 2 is empty!
 
         bytes memory proposeData = _createProposeInputWithCustomParams(
             0,
             _createBlobRef(0, 1, 0),
             parentProposals,
-            _buildCoreState(2, 0, _getGenesisTransitionHash(useOptimizedHashing))
+            firstPayload.coreState  // Use the actual core state from the first proposal
         );
 
         // Should revert because we provided 2 parents when slot is empty
