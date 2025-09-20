@@ -82,7 +82,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return finalizationDeadline_ The deadline associated with the cached transition record
     /// @return recordHash_ The transition record hash stored in the cache or fallback mapping
-    function _getTransitionRecordHashAndDeadline(
+    function _getTransitionRecordHash(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -103,7 +103,7 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+        return super._getTransitionRecordHash(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
