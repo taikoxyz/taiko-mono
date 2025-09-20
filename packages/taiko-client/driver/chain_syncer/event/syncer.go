@@ -307,6 +307,7 @@ func (s *Syncer) processShastaProposal(
 	log.Info(
 		"Parent block info for shsata Proposal",
 		"proposalID", meta.GetProposal().Id,
+		"blocks", len(proposalManifest.Blocks),
 		"parentBlockID", proposalManifest.ParentBlock.Number(),
 		"parentHash", proposalManifest.ParentBlock.Hash(),
 		"parentGasLimit", proposalManifest.ParentBlock.GasLimit(),
@@ -319,7 +320,14 @@ func (s *Syncer) processShastaProposal(
 	if err != nil {
 		return err
 	}
-
+	lastAnchorBlockNumber := latestState.AnchorBlockNumber.Uint64()
+	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && proposalManifest.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
+			proposalManifest.ParentBlock.Transactions()[0],
+		); err != nil {
+			return err
+		}
+	}
 	// If the proposal is not a default one, we need to do some extra validations for
 	// the proposer and `isLowBondProposal` flag.
 	if !proposalManifest.Default {
@@ -336,6 +344,7 @@ func (s *Syncer) processShastaProposal(
 		log.Info(
 			"Designated prover info",
 			"proposalID", meta.GetProposal().Id,
+			"blocks", len(proposalManifest.Blocks),
 			"proposer", meta.GetProposal().Proposer,
 			"prover", designatedProverInfo.DesignatedProver,
 			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
@@ -354,7 +363,8 @@ func (s *Syncer) processShastaProposal(
 			meta.GetDerivation().IsForcedInclusion,
 			meta.GetProposal(),
 			meta.GetRawBlockHeight().Uint64(),
-			latestState,
+			latestState.BondInstructionsHash,
+			lastAnchorBlockNumber,
 		); err != nil {
 			return err
 		}
@@ -364,9 +374,9 @@ func (s *Syncer) processShastaProposal(
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
 				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
-					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp TODO: check this.
+					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 					Coinbase:          meta.GetProposal().Proposer,
-					AnchorBlockNumber: latestState.AnchorBlockNumber.Uint64(),
+					AnchorBlockNumber: lastAnchorBlockNumber,
 					GasLimit:          proposalManifest.ParentBlock.GasLimit() - consensus.UpdateStateGasLimit,
 					Transactions:      types.Transactions{},
 				},
@@ -651,5 +661,5 @@ func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
 
 // blocksInserterShasta returns the Shasta blocks inserter.
 func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
-	return s.blocksInserterPacaya.(*blocksInserter.Shasta)
+	return s.blocksInserterShasta.(*blocksInserter.Shasta)
 }

@@ -246,6 +246,12 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		var anchorBlockNumber = uint64(0)
 		if i == 0 {
 			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
+			log.Info(
+				"Set anchor block number for the first block in the batch",
+				"anchorBlockNumber", anchorBlockNumber,
+				"l1Head", l1Head.Number.Uint64(),
+				"anchorMinOffset", manifest.AnchorMinOffset,
+			)
 		}
 
 		proposalManifest.Blocks = append(proposalManifest.Blocks, &manifest.ProtocolBlockManifest{

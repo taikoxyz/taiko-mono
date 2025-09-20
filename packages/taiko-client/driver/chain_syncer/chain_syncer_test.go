@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
@@ -140,6 +141,13 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	l1StateRoot, l1Height, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
+	s.Nil(err)
+	s.NotEqual(common.Hash{}, l1StateRoot)
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head.Coinbase())
+	s.NotZero(l1Height)
+	s.Zero(parentGasUsed)
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
@@ -159,6 +167,19 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Equal(head.NumberU64()+1, head2.NumberU64())
 	s.Equal(1, len(head2.Transactions()))
 	s.Equal(head.GasLimit(), head2.GasLimit())
+	s.Equal(head.Time()+1, head2.Time())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
+	s.Equal(head.Extra(), head2.Extra())
+	basefeeSharingPctg := core.DecodeExtraData(head2.Header().Extra)
+	s.Equal(uint8(75), basefeeSharingPctg)
+
+	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
+	s.Nil(err)
+	s.Nil(err)
+	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotZero(l1Height2)
+	s.Equal(l1Height, l1Height2)
+	s.Zero(parentGasUsed2)
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {

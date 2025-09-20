@@ -908,7 +908,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
+	l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.GetSyncedL1SnippetFromAnchor(
 		block.Transactions()[0],
 	)
 	if err != nil {
@@ -973,8 +973,8 @@ func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*ra
 	return l1Origin, nil
 }
 
-// getSyncedL1SnippetFromAnchor parses the anchor transaction calldata, and returns the synced L1 snippet,
-func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
+// GetSyncedL1SnippetFromAnchor parses the anchor transaction calldata, and returns the synced L1 snippet,
+func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	l1StateRoot common.Hash,
 	l1Height uint64,
 	parentGasUsed uint32,

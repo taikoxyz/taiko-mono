@@ -23,6 +23,7 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -285,10 +286,13 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 
 	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-
 	s.InitShastaGenesisProposal()
 
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{}))
+	for i := 0; i <= manifest.AnchorMinOffset; i++ {
+		s.L1Mine()
+	}
+
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

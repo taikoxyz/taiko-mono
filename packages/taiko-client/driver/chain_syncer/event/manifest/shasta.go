@@ -231,7 +231,8 @@ func ValidateMetadata(
 	isForcedInclusion bool,
 	proposal shastaBindings.IInboxProposal,
 	originBlockNumber uint64,
-	l2State shastaBindings.ShastaAnchorState,
+	bondInstructionsHash common.Hash,
+	parentAnchorBlockNumber uint64,
 ) error {
 	if proposalManifest == nil {
 		return errors.New("empty proposal manifest")
@@ -248,7 +249,7 @@ func ValidateMetadata(
 	if !validateAnchorBlockNumber(
 		proposalManifest,
 		originBlockNumber,
-		l2State.AnchorBlockNumber.Uint64(),
+		parentAnchorBlockNumber,
 		proposal,
 		isForcedInclusion,
 	) {
@@ -271,8 +272,8 @@ func ValidateMetadata(
 	if err := validateBondInstructions(
 		ctx,
 		proposalManifest,
-		l2State.BondInstructionsHash,
-		l2State.AnchorBlockNumber.Uint64(),
+		bondInstructionsHash,
+		parentAnchorBlockNumber,
 		rpc,
 	); err != nil {
 		return fmt.Errorf("failed to validate bond instructions: %w", err)
@@ -374,6 +375,13 @@ func validateAnchorBlockNumber(
 	// parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide
 	// proper L1 anchoring.
 	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
+		log.Info(
+			"Invalid anchor block numbers: no valid anchor numbers greater than parent's",
+			"proposal", proposal.Id,
+			"highestAnchorBlockNumber", highestAnchorNumber,
+			"parentAnchorBlockNumber", originalParentAnchorNumber,
+			"isForcedInclusion", isForcedInclusion,
+		)
 		return false
 	}
 
