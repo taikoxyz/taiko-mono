@@ -79,7 +79,7 @@ contract InboxOptimized1 is Inbox {
     ///         4. Fallback to composite key mapping (most expensive)
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return hashAndDeadline The transition record hash and finalization deadline
+    /// @return hashAndDeadline_ The transition record hash and finalization deadline
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -87,7 +87,7 @@ contract InboxOptimized1 is Inbox {
         internal
         view
         override
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline)
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -114,7 +114,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _recordHash The keccak hash representing the transition record
     /// @param _hashAndDeadline The finalization metadata to persist
-    /// @return stored True if the caller should emit the Proved event
+    /// @return stored_ True if the caller should emit the Proved event
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -123,7 +123,7 @@ contract InboxOptimized1 is Inbox {
     )
         internal
         override
-        returns (bool stored)
+        returns (bool stored_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];

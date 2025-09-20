@@ -568,17 +568,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Computes the hash and finalization deadline for a transition record.
     /// @param _transitionRecord The transition record to hash.
-    /// @return recordHash The keccak hash of the transition record.
-    /// @return hashAndDeadline The struct containing the hash and deadline to persist.
+    /// @return recordHash_ The keccak hash of the transition record.
+    /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
     function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
         internal
-        view
-        returns (bytes26 recordHash, TransitionRecordHashAndDeadline memory hashAndDeadline)
+        view        
+        returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        recordHash = _hashTransitionRecord(_transitionRecord);
-        hashAndDeadline = TransitionRecordHashAndDeadline({
+        recordHash_ = _hashTransitionRecord(_transitionRecord);
+        hashAndDeadline_ = TransitionRecordHashAndDeadline({
             finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: recordHash
+            recordHash: recordHash_
         });
     }
 
