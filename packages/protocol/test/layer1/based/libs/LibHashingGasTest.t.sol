@@ -5,7 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibHashingGasTest
@@ -15,7 +15,7 @@ import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 contract LibHashingGasTest is Test {
     // Test data structures
     IInbox.Transition internal testTransition;
-    ICheckpointManager.Checkpoint internal testCheckpoint;
+    ICheckpointStore.Checkpoint internal testCheckpoint;
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
     IInbox.Derivation internal testDerivation;
@@ -369,7 +369,7 @@ contract LibHashingGasTest is Test {
     /// @dev Ensures that different inputs produce different hash outputs
     function test_hashUniqueness() external view {
         // Create modified test data
-        ICheckpointManager.Checkpoint memory modifiedCheckpoint = testCheckpoint;
+        ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
         modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
@@ -407,7 +407,7 @@ contract LibHashingGasTest is Test {
         testTransition = IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash"),
             parentTransitionHash: keccak256("test_parent_transition_hash"),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
@@ -415,7 +415,7 @@ contract LibHashingGasTest is Test {
         });
 
         // Initialize test checkpoint
-        testCheckpoint = ICheckpointManager.Checkpoint({
+        testCheckpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345_678,
             blockHash: keccak256("test_block_hash"),
             stateRoot: keccak256("test_state_root")
@@ -487,7 +487,7 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_2"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_2"),
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 12_345_679,
                     blockHash: keccak256("test_block_hash_2"),
                     stateRoot: keccak256("test_state_root_2")
@@ -498,7 +498,7 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_3"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_3"),
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 12_345_680,
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")

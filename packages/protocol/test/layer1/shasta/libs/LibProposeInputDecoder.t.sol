@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 contract LibProposeInputDecoderTest is Test {
     function test_baseline_vs_optimized_simple() public {
@@ -60,7 +60,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0,
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -223,7 +223,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 2_000_010,
                 blockHash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
@@ -338,7 +338,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 999_999,
                 blockHash: bytes32(uint256(0xabcdef)),
                 stateRoot: bytes32(uint256(0xfedcba))

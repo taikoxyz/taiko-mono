@@ -15,12 +15,12 @@ interface IForcedInclusionStore {
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
-    event ForcedInclusionStored(ForcedInclusion forcedInclusion);
+    event ForcedInclusionSaved(ForcedInclusion forcedInclusion);
 
-    /// @notice Stores a forced inclusion request
+    /// @notice Saves a forced inclusion request
     /// The priority fee must be paid to the contract
     /// @param _blobReference The blob locator that contains the transaction data
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
+    function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
     /// @notice Checks if the oldest forced inclusion is due
     /// @return True if the oldest forced inclusion is due, false otherwise

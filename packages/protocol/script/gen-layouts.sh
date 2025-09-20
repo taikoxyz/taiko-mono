@@ -25,7 +25,6 @@ contracts_layer1=(
 "contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
-"contracts/layer1/based2/Inbox.sol:Inbox"
 "contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
 "contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"

@@ -9,6 +9,64 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// encoding
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
+    /// @param _data The encoded data
+    /// @return payload_ The decoded payload
+    function decode(bytes memory _data)
+        public
+        pure
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        // Get pointer to data section (skip length prefix)
+        uint256 ptr = P.dataPtr(_data);
+
+        // Decode Proposal
+        (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
+        (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
+
+        // Decode derivation fields
+        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
+
+        uint8 isForcedInclusion;
+        (isForcedInclusion, ptr) = P.unpackUint8(ptr);
+        payload_.derivation.isForcedInclusion = isForcedInclusion != 0;
+
+        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+
+        // Decode blob slice
+        uint24 blobHashesLength;
+        (blobHashesLength, ptr) = P.unpackUint24(ptr);
+
+        payload_.derivation.blobSlice.blobHashes = new bytes32[](blobHashesLength);
+        for (uint256 i; i < blobHashesLength; ++i) {
+            (payload_.derivation.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
+        }
+
+        (payload_.derivation.blobSlice.offset, ptr) = P.unpackUint24(ptr);
+        (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+
+        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
+
+        // Decode core state
+        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+    }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
     /// @param _payload The payload to encode
     /// @return encoded_ The encoded bytes
@@ -58,60 +116,10 @@ library LibProposedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
-
-    /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
-    /// @param _data The encoded data
-    /// @return payload_ The decoded payload
-    function decode(bytes memory _data)
-        internal
-        pure
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        // Get pointer to data section (skip length prefix)
-        uint256 ptr = P.dataPtr(_data);
-
-        // Decode Proposal
-        (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
-        (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
-
-        // Decode derivation fields
-        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
-
-        uint8 isForcedInclusion;
-        (isForcedInclusion, ptr) = P.unpackUint8(ptr);
-        payload_.derivation.isForcedInclusion = isForcedInclusion != 0;
-
-        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
-
-        // Decode blob slice
-        uint24 blobHashesLength;
-        (blobHashesLength, ptr) = P.unpackUint24(ptr);
-
-        payload_.derivation.blobSlice.blobHashes = new bytes32[](blobHashesLength);
-        for (uint256 i; i < blobHashesLength; ++i) {
-            (payload_.derivation.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
-        }
-
-        (payload_.derivation.blobSlice.offset, ptr) = P.unpackUint24(ptr);
-        (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
-
-        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
-
-        // Decode core state
-        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
-    }
-
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _blobHashesCount Number of blob hashes (max 16777215 due to uint24 encoding)
     /// @return size_ The total byte size needed for encoding
+
     function calculateProposedEventSize(uint256 _blobHashesCount)
         internal
         pure

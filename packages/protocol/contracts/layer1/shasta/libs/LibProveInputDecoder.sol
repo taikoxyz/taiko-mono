@@ -9,14 +9,14 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// LibPackUnpack
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputDecoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
+    function encode(IInbox.ProveInput memory _input) public pure returns (bytes memory encoded_) {
         // Calculate total size needed
         uint256 bufferSize =
             _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
@@ -45,6 +45,10 @@ library LibProveInputDecoder {
             ptr = _encodeMetadata(ptr, _input.metadata[i]);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
 
     /// @notice Decodes prove input data using optimized operations with LibPackUnpack
     /// @param _data The encoded data
@@ -76,6 +80,10 @@ library LibProveInputDecoder {
             (input_.metadata[i], ptr) = _decodeMetadata(ptr);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
     function _encodeProposal(
