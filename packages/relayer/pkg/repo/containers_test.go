@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -29,7 +31,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
+		WaitingFor: wait.ForMappedPort(nat.Port("3306/tcp")).WithStartupTimeout(1 * time.Minute),
 	}
 
 	ctx := context.Background()
@@ -50,15 +52,21 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		}
 	}
 
-	host, _ := mysqlC.Host(ctx)
-	p, _ := mysqlC.MappedPort(ctx, "3306/tcp")
-	port := p.Int()
+	host, err := mysqlC.Host(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port, err := mysqlC.MappedPort(ctx, "3306/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-		dbUsername, dbPassword, host, port, dbName)
+		dbUsername, dbPassword, host, port.Int(), dbName)
 
 	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger: logger.Default.LogMode(logger.Error),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +76,11 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		t.Fatal(err)
 	}
 
-	sqlDB, _ := gormDB.DB()
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
 		t.Fatal(err)
 	}
