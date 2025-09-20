@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -259,7 +260,12 @@ func ValidateMetadata(
 	validateCoinbase(proposalManifest, proposal, isForcedInclusion)
 
 	// 4. Ensure each block's gas limit is within valid bounds.
-	validateGasLimit(proposalManifest, proposalManifest.ParentBlock.GasLimit())
+	validateGasLimit(
+		proposalManifest,
+		rpc.ShastaClients.ForkHeight,
+		proposalManifest.ParentBlock.Number(),
+		proposalManifest.ParentBlock.GasLimit(),
+	)
 
 	// 5. Ensure each block's bond instructions and bond instructions hash are valid.
 	if err := validateBondInstructions(
@@ -396,8 +402,15 @@ func validateCoinbase(
 // validateGasLimit ensures each block's gas limit is within valid bounds.
 func validateGasLimit(
 	proposalManifest *manifest.ProposalManifest,
+	shastaForkHeight *big.Int,
+	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) {
+	// NOTE: When inheriting, we need to remove the gas limit of anchor transaction.
+	if parentBlockNumber.Cmp(shastaForkHeight) > 0 {
+		parentGasLimit = parentGasLimit - consensus.UpdateStateGasLimit
+	}
+
 	for i := range proposalManifest.Blocks {
 		lowerGasBound := max(
 			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
@@ -406,8 +419,9 @@ func validateGasLimit(
 		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
 
 		if proposalManifest.Blocks[i].GasLimit == 0 {
-			// Inherit parent value
+			// Inherit parent value.
 			proposalManifest.Blocks[i].GasLimit = parentGasLimit
+			log.Info("Inheriting gas limit from parent", "blockIndex", i, "gasLimit", proposalManifest.Blocks[i].GasLimit)
 		}
 
 		if proposalManifest.Blocks[i].GasLimit < lowerGasBound {

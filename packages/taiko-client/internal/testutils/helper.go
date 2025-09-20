@@ -266,6 +266,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 }
 
 func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyncer) {
+	defer s.L1Mine()
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 

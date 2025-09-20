@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -303,6 +304,15 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	log.Info(
+		"Parent block info for shsata Proposal",
+		"proposalID", meta.GetProposal().Id,
+		"parentBlockID", proposalManifest.ParentBlock.Number(),
+		"parentHash", proposalManifest.ParentBlock.Hash(),
+		"parentGasLimit", proposalManifest.ParentBlock.GasLimit(),
+		"parentTimestamp", proposalManifest.ParentBlock.Time(),
+	)
+
 	latestState, err := s.rpc.GetShastaAnchorState(
 		&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
 	)
@@ -354,10 +364,10 @@ func (s *Syncer) processShastaProposal(
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
 				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
-					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
+					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp TODO: check this.
 					Coinbase:          meta.GetProposal().Proposer,
 					AnchorBlockNumber: latestState.AnchorBlockNumber.Uint64(),
-					GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
+					GasLimit:          proposalManifest.ParentBlock.GasLimit() - consensus.UpdateStateGasLimit,
 					Transactions:      types.Transactions{},
 				},
 			},

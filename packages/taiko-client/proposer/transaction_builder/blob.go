@@ -122,7 +122,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
+	if blobs, err = SplitToBlobs(txListsBytes); err != nil {
 		return nil, err
 	}
 
@@ -264,7 +264,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	// Split the proposal manifest bytes into multiple blobs.
-	if blobs, err = b.splitToBlobs(proposalManifestBytes); err != nil {
+	if blobs, err = SplitToBlobs(proposalManifestBytes); err != nil {
 		return nil, err
 	}
 
@@ -299,8 +299,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}, nil
 }
 
-// splitToBlobs splits the txListBytes into multiple blobs.
-func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
+// SplitToBlobs splits the txListBytes into multiple blobs.
+func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	var blobs []*eth.Blob
 	for start := 0; start < len(txListBytes); start += eth.MaxBlobDataSize {
 		end := min(start+eth.MaxBlobDataSize, len(txListBytes))
