@@ -31,7 +31,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForListeningPort(nat.Port("3306/tcp")).WithStartupTimeout(1 * time.Minute),
+		WaitingFor: wait.ForMappedPort(nat.Port("3306/tcp")).WithStartupTimeout(1 * time.Minute),
 	}
 
 	ctx := context.Background()
