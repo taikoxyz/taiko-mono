@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -25,13 +24,13 @@ var (
 
 func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "mysql:latest",
-		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
+		Image:        "mysql:8.0.36",
+		ExposedPorts: []string{"3306/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForMappedPort(nat.Port("3306/tcp")).WithStartupTimeout(1 * time.Minute),
+		WaitingFor: wait.ForLog("MySQL Community Server - GPL").WithStartupTimeout(1 * time.Minute),
 	}
 
 	ctx := context.Background()
