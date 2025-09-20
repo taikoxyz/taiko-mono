@@ -6,9 +6,9 @@
 /packages/protocol/**           @dantaik @ggonzalez94 @davidtaikocha @smtmfft
 
 # Client services
-/packages/taiko-client/**       @cyberhorsey @davidtaikocha @YoGhurt111
-/packages/eventindexer/**       @cyberhorsey @davidtaikocha @YoGhurt111
-/packages/relayer/**            @cyberhorsey @davidtaikocha @YoGhurt111
+/packages/taiko-client/**       @cyberhorsey @YoGhurt111 @davidtaikocha
+/packages/eventindexer/**       @cyberhorsey @YoGhurt111 @davidtaikocha
+/packages/relayer/**            @cyberhorsey @YoGhurt111 @davidtaikocha
 
 # Frontend applications
 /packages/docs-site/**          @ggonzalez94 @RogerLamTd
