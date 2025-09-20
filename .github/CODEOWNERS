@@ -4,6 +4,7 @@
 
 # Protocol (core smart contracts - highest activity)
 /packages/protocol/**           @dantaik @ggonzalez94 @davidtaikocha @smtmfft
+/packages/protocol/contracts/**/*Verifier*.sol @dantaik @ggonzalez94 @smtmfft
 /packages/protocol/contracts/layer1/preconf/** @dantaik @ggonzalez94 @cyberhorsey @AnshuJalan
 
 # Client services
