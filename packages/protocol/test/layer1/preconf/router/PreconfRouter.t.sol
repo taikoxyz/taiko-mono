@@ -16,11 +16,12 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Setup mock beacon for operator selection
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        // Set current epoch to `RANDOMNESS_DELAY_EPOCHS` epochs after genesis
-        uint256 currentEpoch = epochOneStart
-            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
+        // Wait for operators to become active (2 epochs delay)
+        uint256 activeEpoch = epochOneStart
+            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
+
+        _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
@@ -46,8 +47,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proverAuth: ""
         });
 
-        // Warp to arbitrary slot in current epoch
-        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to when operators are active
+        vm.warp(activeEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
@@ -67,13 +68,13 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Setup mock beacon for operator selection
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        // Current epoch
-        uint256 currentEpoch = epochOneStart
-            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
-        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
+        // Wait for operators to become active (2 epochs delay)
+        uint256 activeEpoch = epochOneStart
+            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
-        // Warp to arbitrary slot in current epoch
-        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to when operators are active
+        vm.warp(activeEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
@@ -91,11 +92,11 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Setup mock beacon for operator selection
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        // Current epoch
-        uint256 currentEpoch = epochOneStart
-            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
+        // Wait for operators to become active (2 epochs delay)
+        uint256 activeEpoch = epochOneStart
+            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
+        _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
@@ -121,8 +122,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proverAuth: ""
         });
 
-        // Warp to arbitrary slot in current epoch
-        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to when operators are active
+        vm.warp(activeEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
@@ -130,11 +131,12 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         router.v4ProposeBatch(abi.encode(params), "", "");
     }
 
-    function _setupMockBeacon(uint256 epochOneStart, MockBeaconBlockRoot mockBeacon) internal {
+    function _setupMockBeacon(uint256 epochTimestamp, MockBeaconBlockRoot mockBeacon) internal {
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
         vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
+        // Set the beacon root for the current epoch timestamp
         MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+            epochTimestamp, mockRoot
         );
     }
 }
