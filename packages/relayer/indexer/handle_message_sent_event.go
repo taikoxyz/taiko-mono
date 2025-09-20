@@ -107,6 +107,8 @@ func (i *Indexer) handleMessageSentEvent(
 			"fee", event.Message.Fee,
 			"minFeeToIndex", i.minFeeToIndex,
 		)
+
+		return nil
 	}
 
 	msg := queue.QueueMessageSentBody{
