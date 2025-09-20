@@ -321,9 +321,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
-        return (hashAndDeadline.finalizationDeadline, hashAndDeadline.recordHash);
+        return _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc IInbox
@@ -436,11 +434,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
-            _computeTransitionRecordHashAndDeadline(_transitionRecord);
+        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        uint48 finalizationDeadline = uint48(block.timestamp + _finalizationGracePeriod);
 
         bool stored = _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+            _proposalId,
+            _transition.parentTransitionHash,
+            transitionRecordHash,
+            finalizationDeadline
         );
         if (!stored) return;
 
@@ -461,13 +462,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
-    /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @param _finalizationDeadline The timestamp when the transition record can be forced.
     /// @return stored_ True if storage was updated and caller should emit the Proved event.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         bytes26 _recordHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        uint48 _finalizationDeadline
     )
         internal
         virtual
@@ -481,15 +482,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
 
-        entry.recordHash = _hashAndDeadline.recordHash;
-        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        entry.recordHash = _recordHash;
+        entry.finalizationDeadline = _finalizationDeadline;
         return true;
     }
 
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
-    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
+    /// @return finalizationDeadline_ Stored deadline for forced finalization.
+    /// @return recordHash_ Stored record hash for the given proposal/parent pair.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -497,10 +499,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+        TransitionRecordHashAndDeadline storage entry =
+            _transitionRecordHashAndDeadline[compositeKey];
+        finalizationDeadline_ = entry.finalizationDeadline;
+        recordHash_ = entry.recordHash;
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
@@ -564,22 +569,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
         record.transitionHash = _hashTransition(_transition);
         record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
-    }
-
-    /// @dev Computes the hash and finalization deadline for a transition record.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return recordHash_ The keccak hash of the transition record.
-    /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
-    function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
-        internal
-        view
-        returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
-    {
-        recordHash_ = _hashTransitionRecord(_transitionRecord);
-        hashAndDeadline_ = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: recordHash_
-        });
     }
 
     /// @dev Hashes an array of Transitions.
@@ -918,17 +907,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
+        (uint48 finalizationDeadline, bytes26 recordHash) =
             _getTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
 
-        if (hashAndDeadline.recordHash == 0) return (false, _proposalId);
+        if (recordHash == 0) return (false, _proposalId);
 
         // If transition record is provided, allow finalization regardless of finalization grace
         // period
         // If not provided, and finalization grace period has passed, revert
         if (!_hasTransitionRecord) {
             // Check if finalization grace period has passed for forcing
-            if (block.timestamp < hashAndDeadline.finalizationDeadline) {
+            if (block.timestamp < finalizationDeadline) {
                 // Cooldown not passed, don't force finalization
                 return (false, _proposalId);
             }
@@ -938,7 +927,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify transition record hash matches
         require(
-            _hashTransitionRecord(_transitionRecord) == hashAndDeadline.recordHash,
+            _hashTransitionRecord(_transitionRecord) == recordHash,
             TransitionRecordHashMismatchWithStorage()
         );
 
