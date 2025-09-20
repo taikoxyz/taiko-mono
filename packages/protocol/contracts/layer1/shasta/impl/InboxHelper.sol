@@ -8,7 +8,6 @@ import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxHelper
 /// @notice Unified helper contract for all Inbox encoder/decoder and hashing library functions
