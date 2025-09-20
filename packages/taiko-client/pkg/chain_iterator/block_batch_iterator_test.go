@@ -3,31 +3,38 @@ package chainiterator
 import (
 	"context"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-type BlockBatchIteratorTestSuite struct {
-	testutils.ClientTestSuite
+func getTestClient(t *testing.T) *rpc.EthClient {
+	endpoint := os.Getenv("L1_WS")
+	require.NotEmpty(t, endpoint)
+
+	client, err := rpc.NewEthClient(context.Background(), endpoint, 30*time.Second)
+	require.NoError(t, err)
+	return client
 }
 
-func (s *BlockBatchIteratorTestSuite) TestIter() {
+func TestBlockBatchIterator_Iter(t *testing.T) {
 	var maxBlocksReadPerEpoch uint64 = 2
+	client := getTestClient(t)
 
-	headHeight, err := s.RPCClient.L1.BlockNumber(context.Background())
-	s.Nil(err)
-	s.Greater(headHeight, uint64(0))
+	headHeight, err := client.BlockNumber(context.Background())
+	require.NoError(t, err)
+	require.Greater(t, headHeight, uint64(0))
 
 	lastEnd := common.Big0
 
 	iter, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:                s.RPCClient.L1,
+		Client:                client,
 		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
 		StartHeight:           common.Big0,
 		EndHeight:             new(big.Int).SetUint64(headHeight),
@@ -37,29 +44,30 @@ func (s *BlockBatchIteratorTestSuite) TestIter() {
 			_ UpdateCurrentFunc,
 			_ EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			return nil
 		},
 	})
 
-	s.Nil(err)
-	s.Nil(iter.Iter())
-	s.Equal(headHeight, lastEnd.Uint64())
+	require.NoError(t, err)
+	require.NoError(t, iter.Iter())
+	require.Equal(t, headHeight, lastEnd.Uint64())
 }
 
-func (s *BlockBatchIteratorTestSuite) TestIterWithoutSpecifiedEndHeight() {
+func TestBlockBatchIterator_IterWithoutSpecifiedEndHeight(t *testing.T) {
 	var maxBlocksReadPerEpoch uint64 = 2
 	var blockConfirmations uint64 = 6
+	client := getTestClient(t)
 
-	headHeight, err := s.RPCClient.L1.BlockNumber(context.Background())
-	s.Nil(err)
-	s.Greater(headHeight, uint64(0))
+	headHeight, err := client.BlockNumber(context.Background())
+	require.NoError(t, err)
+	require.Greater(t, headHeight, uint64(0))
 
 	lastEnd := common.Big0
 
 	iter, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:                s.RPCClient.L1,
+		Client:                client,
 		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
 		StartHeight:           common.Big0,
 		BlockConfirmations:    &blockConfirmations,
@@ -69,30 +77,31 @@ func (s *BlockBatchIteratorTestSuite) TestIterWithoutSpecifiedEndHeight() {
 			_ UpdateCurrentFunc,
 			_ EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			return nil
 		},
 	})
 
-	s.Nil(err)
-	s.Nil(iter.Iter())
-	s.GreaterOrEqual(lastEnd.Uint64(), headHeight-blockConfirmations)
+	require.NoError(t, err)
+	require.NoError(t, iter.Iter())
+	require.GreaterOrEqual(t, lastEnd.Uint64(), headHeight-blockConfirmations)
 }
 
-func (s *BlockBatchIteratorTestSuite) TestIterWithLessThanConfirmations() {
+func TestBlockBatchIterator_IterWithLessThanConfirmations(t *testing.T) {
 	var maxBlocksReadPerEpoch uint64 = 2
+	client := getTestClient(t)
 
-	headHeight, err := s.RPCClient.L1.BlockNumber(context.Background())
-	s.Nil(err)
-	s.Greater(headHeight, uint64(0))
+	headHeight, err := client.BlockNumber(context.Background())
+	require.NoError(t, err)
+	require.Greater(t, headHeight, uint64(0))
 
 	lastEnd := headHeight
 
 	var blockConfirmations = headHeight + 3
 
 	iter, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:                s.RPCClient.L1,
+		Client:                client,
 		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
 		StartHeight:           new(big.Int).SetUint64(headHeight),
 		BlockConfirmations:    &blockConfirmations,
@@ -102,28 +111,29 @@ func (s *BlockBatchIteratorTestSuite) TestIterWithLessThanConfirmations() {
 			_ UpdateCurrentFunc,
 			_ EndIterFunc,
 		) error {
-			s.Equal(lastEnd, start.Number.Uint64())
+			require.Equal(t, lastEnd, start.Number.Uint64())
 			lastEnd = end.Number.Uint64()
 			return nil
 		},
 	})
 
-	s.Nil(err)
-	s.Equal(ErrEOF, iter.iter())
-	s.Equal(headHeight, lastEnd)
+	require.NoError(t, err)
+	require.Equal(t, ErrEOF, iter.iter())
+	require.Equal(t, headHeight, lastEnd)
 }
 
-func (s *BlockBatchIteratorTestSuite) TestIterEndFunc() {
+func TestBlockBatchIterator_IterEndFunc(t *testing.T) {
 	var maxBlocksReadPerEpoch uint64 = 2
+	client := getTestClient(t)
 
-	headHeight, err := s.RPCClient.L1.BlockNumber(context.Background())
-	s.Nil(err)
-	s.Greater(headHeight, maxBlocksReadPerEpoch)
+	headHeight, err := client.BlockNumber(context.Background())
+	require.NoError(t, err)
+	require.Greater(t, headHeight, maxBlocksReadPerEpoch)
 
 	lastEnd := common.Big0
 
 	iter, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:                s.RPCClient.L1,
+		Client:                client,
 		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
 		StartHeight:           common.Big0,
 		EndHeight:             new(big.Int).SetUint64(headHeight),
@@ -133,26 +143,27 @@ func (s *BlockBatchIteratorTestSuite) TestIterEndFunc() {
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
 		},
 	})
 
-	s.Nil(err)
-	s.Nil(iter.Iter())
-	s.Equal(lastEnd.Uint64(), maxBlocksReadPerEpoch)
+	require.NoError(t, err)
+	require.NoError(t, iter.Iter())
+	require.Equal(t, lastEnd.Uint64(), maxBlocksReadPerEpoch)
 }
 
-func (s *BlockBatchIteratorTestSuite) TestIterCtxCancel() {
+func TestBlockBatchIterator_IterCtxCancel(t *testing.T) {
 	lastEnd := common.Big0
-	headHeight, err := s.RPCClient.L1.BlockNumber(context.Background())
-	s.Nil(err)
+	client := getTestClient(t)
+	headHeight, err := client.BlockNumber(context.Background())
+	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	itr, err := NewBlockBatchIterator(ctx, &BlockBatchIteratorConfig{
-		Client:                s.RPCClient.L1,
+		Client:                client,
 		MaxBlocksReadPerEpoch: nil,
 		RetryInterval:         5 * time.Second,
 		StartHeight:           common.Big0,
@@ -163,57 +174,61 @@ func (s *BlockBatchIteratorTestSuite) TestIterCtxCancel() {
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
 		},
 	})
 
-	s.Nil(err)
+	require.NoError(t, err)
 	cancel()
-	s.ErrorContains(itr.Iter(), "context canceled")
+	require.ErrorContains(t, itr.Iter(), "context canceled")
 }
 
-func (s *BlockBatchIteratorTestSuite) TestBlockBatchIteratorConfig() {
+func TestBlockBatchIterator_Config(t *testing.T) {
+	// Test nil client
 	_, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
 		Client: nil,
 	})
-	s.ErrorContains(err, "invalid RPC client")
+	require.ErrorContains(t, err, "invalid RPC client")
 
-	_, err2 := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:   s.RPCClient.L1,
+	// For the rest of the tests, we need a real client
+	client := getTestClient(t)
+
+	_, err = NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		Client:   client,
 		OnBlocks: nil,
 	})
-	s.ErrorContains(err2, "invalid callback")
+	require.ErrorContains(t, err, "invalid callback")
 
 	lastEnd := common.Big0
-	_, err3 := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client: s.RPCClient.L1,
+	_, err = NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		Client: client,
 		OnBlocks: func(
 			_ context.Context,
 			start, end *types.Header,
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
 		},
 		StartHeight: nil,
 	})
-	s.ErrorContains(err3, "invalid start height")
+	require.ErrorContains(t, err, "invalid start height")
 
-	_, err4 := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client: s.RPCClient.L1,
+	_, err = NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		Client: client,
 		OnBlocks: func(
 			_ context.Context,
 			start, end *types.Header,
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
@@ -221,45 +236,41 @@ func (s *BlockBatchIteratorTestSuite) TestBlockBatchIteratorConfig() {
 		StartHeight: common.Big2,
 		EndHeight:   common.Big0,
 	})
-	s.ErrorContains(err4, "start height (2) > end height (0)")
+	require.ErrorContains(t, err, "start height (2) > end height (0)")
 
-	_, err6 := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client: s.RPCClient.L1,
+	_, err = NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		Client: client,
 		OnBlocks: func(
 			_ context.Context,
 			start, end *types.Header,
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
 		},
-		StartHeight: big.NewInt(1000), // use very high number
+		StartHeight: big.NewInt(1000),
 		EndHeight:   big.NewInt(1000),
 	})
-	s.ErrorContains(err6, "failed to get start header")
+	require.ErrorContains(t, err, "failed to get start header")
 
-	_, err7 := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client: s.RPCClient.L1,
+	_, err = NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		Client: client,
 		OnBlocks: func(
 			_ context.Context,
 			start, end *types.Header,
 			_ UpdateCurrentFunc,
 			endIterFunc EndIterFunc,
 		) error {
-			s.Equal(lastEnd.Uint64(), start.Number.Uint64())
+			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
 			lastEnd = end.Number
 			endIterFunc()
 			return nil
 		},
 		StartHeight: common.Big0,
-		EndHeight:   big.NewInt(1000), // use very high number
+		EndHeight:   big.NewInt(1000),
 	})
-	s.ErrorContains(err7, "failed to get end header")
-}
-
-func TestBlockBatchIteratorTestSuite(t *testing.T) {
-	suite.Run(t, new(BlockBatchIteratorTestSuite))
+	require.ErrorContains(t, err, "failed to get end header")
 }

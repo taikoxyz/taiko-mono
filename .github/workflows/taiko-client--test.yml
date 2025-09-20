@@ -75,7 +75,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
-          ref: taiko-alethia-protocol-v2.3.0-devnet
+          ref: taiko-alethia-protocol-v2.3.0-devnet-shasta-test
 
       - name: Install pnpm dependencies for pacaya fork taiko-mono
         working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}

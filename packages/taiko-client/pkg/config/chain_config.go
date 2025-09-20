@@ -15,16 +15,24 @@ type ChainConfig struct {
 	ChainID *big.Int
 	// Ontake switch block (nil = no fork, 0 = already on ontake)
 	OntakeForkHeight *big.Int
-	// Pacaya switch block (nil = no fork, 0 = already on ontake)
+	// Pacaya switch block (nil = no fork, 0 = already on pacaya)
 	PacayaForkHeight *big.Int
+	// Shasta switch block (nil = no fork, 0 = already on shasta)
+	ShastaForkHeight *big.Int
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64, pacayaForkHeight uint64) *ChainConfig {
+func NewChainConfig(
+	chainID *big.Int,
+	ontakeForkHeight uint64,
+	pacayaForkHeight uint64,
+	shastaForkHeight uint64,
+) *ChainConfig {
 	cfg := &ChainConfig{
 		ChainID:          chainID,
 		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),
 		PacayaForkHeight: new(big.Int).SetUint64(pacayaForkHeight),
+		ShastaForkHeight: new(big.Int).SetUint64(shastaForkHeight),
 	}
 
 	log.Info("")
@@ -60,6 +68,7 @@ func (c *ChainConfig) Description() string {
 	banner += "Hard forks (block based):\n"
 	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OntakeForkHeight)
 	banner += fmt.Sprintf(" - Pacaya:                   #%-8v\n", c.PacayaForkHeight)
+	banner += fmt.Sprintf(" - Shasta:                   #%-8v\n", c.ShastaForkHeight)
 	banner += "\n"
 
 	return banner
@@ -73,6 +82,11 @@ func (c *ChainConfig) IsOntake(num *big.Int) bool {
 // IsPacaya returns whether num is either equal to the Pacaya block or greater.
 func (c *ChainConfig) IsPacaya(num *big.Int) bool {
 	return isBlockForked(c.PacayaForkHeight, num)
+}
+
+// IsShasta returns whether num is either equal to the Shasta block or greater.
+func (c *ChainConfig) IsShasta(num *big.Int) bool {
+	return isBlockForked(c.ShastaForkHeight, num)
 }
 
 // isBlockForked returns whether a fork scheduled at block s is active at the

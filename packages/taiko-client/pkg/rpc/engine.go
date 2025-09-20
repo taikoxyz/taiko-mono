@@ -53,7 +53,7 @@ func (c *EngineClient) ForkchoiceUpdate(
 	fc *engine.ForkchoiceStateV1,
 	attributes *engine.PayloadAttributes,
 ) (*engine.ForkChoiceResponse, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
@@ -69,7 +69,7 @@ func (c *EngineClient) NewPayload(
 	ctx context.Context,
 	payload *engine.ExecutableData,
 ) (*engine.PayloadStatusV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
@@ -85,7 +85,7 @@ func (c *EngineClient) GetPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
 ) (*engine.ExecutableData, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
@@ -101,7 +101,7 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	ctx context.Context,
 	cfg *engine.TransitionConfigurationV1,
 ) (*engine.TransitionConfigurationV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
@@ -123,7 +123,7 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	maxTransactionsLists uint64,
 	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 	var result []*miner.PreBuiltTxList
 
@@ -175,6 +175,17 @@ func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*
 	var res *big.Int
 
 	if err := c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// SetBatchToLastBlock sets the batch to block mapping in the execution engine.
+func (c *EngineClient) SetBatchToLastBlock(ctx context.Context, batchID *big.Int, blockID *big.Int) (*big.Int, error) {
+	var res *big.Int
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_setBatchToLastBlock", batchID, blockID); err != nil {
 		return nil, err
 	}
 

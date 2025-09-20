@@ -5,6 +5,7 @@ source scripts/common.sh
 
 # get deployed contract address.
 PACAYA_DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
+DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
 export TAIKO_INBOX=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')

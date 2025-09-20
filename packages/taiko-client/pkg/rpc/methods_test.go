@@ -61,7 +61,7 @@ func TestL2ParentByBlockId(t *testing.T) {
 func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 	client := newTestClient(t)
 
-	progress, err := client.L2ExecutionEngineSyncProgress(context.Background())
+	progress, err := client.L2ExecutionEngineSyncProgress(context.Background(), nil)
 	require.Nil(t, err)
 	require.NotNil(t, progress)
 }
@@ -74,7 +74,7 @@ func TestGetProtocolStateVariables(t *testing.T) {
 
 func TestWaitTillL2ExecutionEngineSyncedNewClient(t *testing.T) {
 	client := newTestClient(t)
-	err := client.WaitTillL2ExecutionEngineSynced(context.Background())
+	err := client.WaitTillL2ExecutionEngineSynced(context.Background(), nil)
 	require.Nil(t, err)
 }
 
@@ -107,7 +107,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	syncedL1StateRoot,
 		syncedL1Height,
 		syncedParentGasUsed,
-		err := client.getSyncedL1SnippetFromAnchor(tx)
+		err := client.GetSyncedL1SnippetFromAnchor(tx)
 	require.Nil(t, err)
 	require.Equal(t, l1StateRoot, syncedL1StateRoot)
 	require.Equal(t, l1Height, syncedL1Height)
@@ -119,7 +119,7 @@ func TestWaitTillL2ExecutionEngineSyncedContextErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := client.WaitTillL2ExecutionEngineSynced(ctx)
+	err := client.WaitTillL2ExecutionEngineSynced(ctx, nil)
 	require.ErrorContains(t, err, "context canceled")
 }
 

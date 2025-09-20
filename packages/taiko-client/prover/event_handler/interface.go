@@ -5,6 +5,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -20,6 +21,7 @@ type BatchProposedHandler interface {
 // BatchesProvedHandler is the interface for handling `TaikoInbox.BatchesProved` events.
 type BatchesProvedHandler interface {
 	HandlePacaya(ctx context.Context, e *pacayaBindings.TaikoInboxClientBatchesProved) error
+	HandleShasta(ctx context.Context, e *shastaBindings.ShastaInboxClientProved) error
 }
 
 // BatchesVerifiedHandler is the interface for handling `TaikoInbox.BatchesVerified` events.

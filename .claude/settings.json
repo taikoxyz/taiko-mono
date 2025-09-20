@@ -23,7 +23,7 @@
       "Bash(forge test:*)",
       "Bash(forge build:*)",
       "Bash(go test:*)",
-      "Bash(./proof_submitter.test:*)"
+      "Bash(go build:*)"
     ],
     "deny": ["Bash(git push --force:*)"]
   }

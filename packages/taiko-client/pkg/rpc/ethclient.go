@@ -72,7 +72,7 @@ type EthClient struct {
 
 // NewEthClient creates a new EthClient instance.
 func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthClient, error) {
-	var timeoutVal = defaultTimeout
+	var timeoutVal = DefaultRpcTimeout
 	if timeout != 0 {
 		timeoutVal = timeout
 	}

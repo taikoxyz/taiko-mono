@@ -80,6 +80,32 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	return nil
 }
 
+// initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initShastaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
+	var (
+		err error
+	)
+	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+		&producer.DummyProofProducer{},
+		p.batchProofGenerationCh,
+		p.proofSubmissionCh,
+		p.shastaIndexer,
+		&proofSubmitter.SenderOptions{
+			RPCClient:        p.rpc,
+			Txmgr:            p.txmgr,
+			PrivateTxmgr:     p.privateTxmgr,
+			ProverSetAddress: p.cfg.ProverSetAddress,
+			GasLimit:         p.cfg.ProveBatchesGasLimit,
+		},
+		txBuilder,
+		p.cfg.ProofPollingInterval,
+	); err != nil {
+		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
+	}
+
+	return nil
+}
+
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
@@ -245,7 +271,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
 		return err
 	}
 
@@ -311,6 +337,7 @@ func (p *Prover) initEventHandlers() error {
 		ProverAddress:          p.ProverAddress(),
 		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
+		Indexer:                p.shastaIndexer,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,
@@ -322,6 +349,7 @@ func (p *Prover) initEventHandlers() error {
 	// ------- BatchesProved -------
 	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(
 		p.rpc,
+		p.shastaIndexer,
 		p.proofSubmissionCh,
 	)
 	// ------- AssignmentExpired -------
