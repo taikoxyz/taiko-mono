@@ -8,7 +8,7 @@ import "../libs/LibFasterReentryLock.sol";
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost. In theory, the contract can also be deployed on Taiko L2 but this is
 /// not well testee nor necessary.
-/// @notice See the documentation in {ER1155Vault}.
+/// @notice See the documentation in {ERC1155Vault}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC1155Vault is ERC1155Vault {
     constructor(address _resolver) ERC1155Vault(_resolver) { }
