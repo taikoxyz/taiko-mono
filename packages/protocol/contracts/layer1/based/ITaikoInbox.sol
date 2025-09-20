@@ -151,7 +151,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
 
     /// @notice Struct holding the fork heights.
-    /// @dev All for heights are block based.
+    /// @dev All fork heights are block based.
     struct ForkHeights {
         uint64 ontake;
         uint64 pacaya;
