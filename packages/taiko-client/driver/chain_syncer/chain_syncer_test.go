@@ -182,6 +182,46 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Zero(parentGasUsed2)
 }
 
+func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l1StateRoot, l1Height, _, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
+	s.Nil(err)
+	s.NotEqual(common.Hash{}, l1StateRoot)
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		[]types.Transactions{{}},
+		nil,
+		common.Big1,
+		common.Address{},
+	)
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head.NumberU64()+1, head2.NumberU64())
+	s.Equal(1, len(head2.Transactions()))
+	s.Equal(head.GasLimit(), head2.GasLimit())
+	s.Less(head.Time(), head2.Time())
+	s.Equal(head.Coinbase(), head2.Coinbase())
+	s.Equal(head.Extra(), head2.Extra())
+	basefeeSharingPctg := core.DecodeExtraData(head2.Header().Extra)
+	s.Equal(uint8(75), basefeeSharingPctg)
+
+	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
+	s.Nil(err)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
+	s.NotZero(l1Height2)
+	s.Less(l1Height, l1Height2)
+	s.Zero(parentGasUsed)
+}
+
 func TestChainSyncerTestSuite(t *testing.T) {
 	suite.Run(t, new(ChainSyncerTestSuite))
 }

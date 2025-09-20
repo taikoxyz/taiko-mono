@@ -371,13 +371,22 @@ func (s *Syncer) processShastaProposal(
 	}
 
 	if proposalManifest.Default {
+		// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
+		// or Shasta anchor transaction gas limit, which always equals to consensus.UpdateStateGasLimit.
+		// Therefore, we need to subtract consensus.UpdateStateGasLimit from the parent gas limit to get
+		// the real gas limit from parent block metadata.
+		gasLimit := proposalManifest.ParentBlock.GasLimit()
+		if proposalManifest.ParentBlock.Number().Cmp(common.Big0) != 0 {
+			gasLimit = gasLimit - consensus.UpdateStateGasLimit
+		}
+
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
 				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
 					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 					Coinbase:          meta.GetProposal().Proposer,
 					AnchorBlockNumber: lastAnchorBlockNumber,
-					GasLimit:          proposalManifest.ParentBlock.GasLimit() - consensus.UpdateStateGasLimit,
+					GasLimit:          gasLimit,
 					Transactions:      types.Transactions{},
 				},
 			},

@@ -263,7 +263,6 @@ func ValidateMetadata(
 	// 4. Ensure each block's gas limit is within valid bounds.
 	validateGasLimit(
 		proposalManifest,
-		rpc.ShastaClients.ForkHeight,
 		proposalManifest.ParentBlock.Number(),
 		proposalManifest.ParentBlock.GasLimit(),
 	)
@@ -410,15 +409,16 @@ func validateCoinbase(
 // validateGasLimit ensures each block's gas limit is within valid bounds.
 func validateGasLimit(
 	proposalManifest *manifest.ProposalManifest,
-	shastaForkHeight *big.Int,
 	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) {
-	// NOTE: When inheriting, we need to remove the gas limit of anchor transaction.
-	if parentBlockNumber.Cmp(shastaForkHeight) > 0 {
+	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
+	// or Shasta anchor transaction gas limit, which always equals to consensus.UpdateStateGasLimit.
+	// Therefore, we need to subtract consensus.UpdateStateGasLimit from the parent gas limit to get
+	// the real gas limit from parent block metadata.
+	if parentBlockNumber.Cmp(common.Big0) != 0 {
 		parentGasLimit = parentGasLimit - consensus.UpdateStateGasLimit
 	}
-
 	for i := range proposalManifest.Blocks {
 		lowerGasBound := max(
 			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
