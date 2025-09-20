@@ -349,10 +349,15 @@ func (s *Syncer) processShastaProposal(
 			"prover", designatedProverInfo.DesignatedProver,
 			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
 			"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
+			"proverAuth", common.Bytes2Hex(proposalManifest.ProverAuthBytes[:]),
 		)
 
 		if designatedProverInfo.IsLowBondProposal {
-			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
+			proposalManifest = &manifest.ProposalManifest{
+				Default:           true,
+				IsLowBondProposal: true,
+				ParentBlock:       proposalManifest.ParentBlock,
+			}
 		}
 
 		// Check block-level metadata and reset some incorrect value.

@@ -177,6 +177,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
+	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
 		to    = &b.taikoInboxAddress
@@ -203,7 +204,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		parentProposals   []shastaBindings.IInboxProposal
 		transitionRecords []shastaBindings.IInboxTransitionRecord
 		checkpoint        = shastaBindings.ICheckpointManagerCheckpoint{BlockNumber: common.Big0}
-		proposalManifest  = &manifest.ProtocolProposalManifest{}
+		proposalManifest  = &manifest.ProtocolProposalManifest{ProverAuthBytes: proverAuth}
 	)
 	for i, p := range proposals {
 		log.Info(
