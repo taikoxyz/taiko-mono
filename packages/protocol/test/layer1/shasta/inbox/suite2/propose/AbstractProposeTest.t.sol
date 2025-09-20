@@ -835,12 +835,10 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     }
 
     // ---------------------------------------------------------------
-    // Helper Utilities
+    // Encoding Helpers
     // ---------------------------------------------------------------
 
-    // Encoding helpers
-
-    /// @notice Encodes ProposeInput using appropriate method based on inbox type
+    ///@dev Encodes ProposeInput using appropriate method based on inbox type
     function _encodeProposeInput(IInbox.ProposeInput memory _input)
         internal
         view
@@ -853,7 +851,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
+    ///@dev Encodes ProposedEventPayload using appropriate method based on inbox type
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
         internal
         view
@@ -866,13 +864,21 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
+    // ---------------------------------------------------------------
+    // Event Helpers
+    // ---------------------------------------------------------------
+
+    ///@dev Expects a Proposed event with the given payload
     function _expectProposedEvent(IInbox.ProposedEventPayload memory _payload) private {
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(_payload));
     }
 
-    // Propose input builders
+    // ---------------------------------------------------------------
+    // Propose Input Builders
+    // ---------------------------------------------------------------
 
+    ///@dev Creates a default checkpoint for testing with current block data
     function _defaultCheckpoint() private view returns (ICheckpointManager.Checkpoint memory) {
         return ICheckpointManager.Checkpoint({
             blockNumber: uint48(block.number),
@@ -881,6 +887,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         });
     }
 
+    ///@dev Core function to build ProposeInput bytes with all parameters
     function _buildProposeInputBytes(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _parentProposals,
@@ -905,6 +912,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         return _encodeProposeInput(input);
     }
 
+    ///@dev Creates propose input with forced inclusions specified
     function _createProposeInputWithForcedInclusions(
         uint48 _deadline,
         LibBlobs.BlobReference memory _blobRef,
@@ -925,6 +933,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
     }
 
+    ///@dev Creates propose input with custom parameters
     function _createProposeInputWithCustomParams(
         uint48 _deadline,
         LibBlobs.BlobReference memory _blobRef,
@@ -938,6 +947,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         return _buildProposeInputBytes(_coreState, _parentProposals, _blobRef, _deadline, 0);
     }
 
+    ///@dev Creates the first proposal input with genesis state
     function _createFirstProposeInput() internal view returns (bytes memory) {
         return _buildProposeInputBytes(
             _getGenesisCoreState(useOptimizedHashing),
@@ -948,6 +958,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
     }
 
+    ///@dev Creates propose input with a specific deadline
     function _createProposeInputWithDeadline(uint48 _deadline)
         internal
         view
@@ -962,6 +973,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
     }
 
+    ///@dev Creates propose input with specified blob configuration
     function _createProposeInputWithBlobs(
         uint8 _numBlobs,
         uint24 _offset
@@ -979,8 +991,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
     }
 
-    // Parent helpers
+    // ---------------------------------------------------------------
+    // Parent Proposal Helpers
+    // ---------------------------------------------------------------
 
+    ///@dev Creates an array containing a single parent proposal
     function _singleParentArray(IInbox.Proposal memory _parent)
         private
         pure
@@ -991,8 +1006,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         return parents;
     }
 
-    // Forced inclusion utilities
+    // ---------------------------------------------------------------
+    // Forced Inclusion Helpers
+    // ---------------------------------------------------------------
 
+    ///@dev Stores multiple forced inclusions on-chain and returns their references
     function _storeForcedInclusions(uint8 _count, uint8 _startBlobIndex)
         private
         returns (LibBlobs.BlobReference[] memory refs_, uint48[] memory timestamps_)
@@ -1013,8 +1031,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    // Assertion helpers
+    // ---------------------------------------------------------------
+    // Assertion Helpers
+    // ---------------------------------------------------------------
 
+    ///@dev Verifies that a range of proposals exist in the inbox
     function _assertProposalsPresent(uint48 _startProposalId, uint48 _count) private view {
         for (uint48 i = 0; i < _count; i++) {
             uint48 proposalId = _startProposalId + i;
@@ -1026,8 +1047,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    // Expected payload builders
+    // ---------------------------------------------------------------
+    // Expected Payload Builders
+    // ---------------------------------------------------------------
 
+    ///@dev Builds expected ProposedEventPayload with default parameters
     function _buildExpectedProposedPayload(uint48 _proposalId)
         internal
         view
@@ -1039,12 +1063,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // Ring Buffer Management Helpers
     // ---------------------------------------------------------------
 
-    /// @notice Fills the ring buffer up to a target proposal ID
-    /// @dev It advances the timestamp by 12 seconds for each proposal
-    /// @dev This is useful for testing edge cases near ring buffer capacity
-    /// @param _targetNextProposalId The proposal ID to fill up to (exclusive)
-    /// @return lastProposal_ The last proposal created
-    /// @return coreState_ The core state after filling
+    ///@dev Fills the ring buffer up to a target proposal ID
     function _fillRingBufferTo(uint48 _targetNextProposalId)
         private
         returns (IInbox.Proposal memory lastProposal_, IInbox.CoreState memory coreState_)
