@@ -22,13 +22,17 @@ contract LibProposedEventEncoderTest is Test {
 
         original.derivation.originBlockNumber = 2000;
         original.derivation.originBlockHash = bytes32(uint256(2000));
-        original.derivation.isForcedInclusion = false;
         original.derivation.basefeeSharingPctg = 50;
-        original.derivation.blobSlice.blobHashes = new bytes32[](0);
-        original.derivation.blobSlice.offset = 100;
-        original.derivation.blobSlice.timestamp = 3000;
+        
+        // Initialize sources array with single source
+        original.derivation.sources = new IInbox.DerivationSource[](1);
+        original.derivation.sources[0].isForcedInclusion = false;
+        original.derivation.sources[0].blobSlice.blobHashes = new bytes32[](0);
+        original.derivation.sources[0].blobSlice.offset = 100;
+        original.derivation.sources[0].blobSlice.timestamp = 3000;
 
         original.coreState.nextProposalId = 2;
+        original.coreState.nextProposalBlockId = 1;
         original.coreState.lastFinalizedProposalId = 0;
         original.coreState.lastFinalizedTransitionHash = keccak256("lastTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructions");
@@ -37,7 +41,7 @@ contract LibProposedEventEncoderTest is Test {
         bytes memory encoded = LibProposedEventEncoder.encode(original);
 
         // Verify size calculation is correct
-        uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(0);
+        uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(1, 0);
         assertEq(encoded.length, expectedSize);
 
         // Decode
@@ -57,14 +61,16 @@ contract LibProposedEventEncoderTest is Test {
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
         assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
-        assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
-        assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
-        assertEq(decoded.derivation.blobSlice.offset, original.derivation.blobSlice.offset);
-        assertEq(decoded.derivation.blobSlice.timestamp, original.derivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.sources.length, 1);
+        assertEq(decoded.derivation.sources[0].isForcedInclusion, original.derivation.sources[0].isForcedInclusion);
+        assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 0);
+        assertEq(decoded.derivation.sources[0].blobSlice.offset, original.derivation.sources[0].blobSlice.offset);
+        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, original.derivation.sources[0].blobSlice.timestamp);
 
         // Verify core state fields
         assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
+        assertEq(decoded.coreState.nextProposalBlockId, original.coreState.nextProposalBlockId);
         assertEq(
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
@@ -88,18 +94,22 @@ contract LibProposedEventEncoderTest is Test {
 
         original.derivation.originBlockNumber = 888_888;
         original.derivation.originBlockHash = bytes32(uint256(888_888));
-        original.derivation.isForcedInclusion = true;
         original.derivation.basefeeSharingPctg = 75;
+        
+        // Initialize sources array with single source
+        original.derivation.sources = new IInbox.DerivationSource[](1);
+        original.derivation.sources[0].isForcedInclusion = true;
 
         // Add 3 blob hashes
-        original.derivation.blobSlice.blobHashes = new bytes32[](3);
-        original.derivation.blobSlice.blobHashes[0] = keccak256("blob1");
-        original.derivation.blobSlice.blobHashes[1] = keccak256("blob2");
-        original.derivation.blobSlice.blobHashes[2] = keccak256("blob3");
-        original.derivation.blobSlice.offset = 65_535; // Max uint24 - 1
-        original.derivation.blobSlice.timestamp = 777_777;
+        original.derivation.sources[0].blobSlice.blobHashes = new bytes32[](3);
+        original.derivation.sources[0].blobSlice.blobHashes[0] = keccak256("blob1");
+        original.derivation.sources[0].blobSlice.blobHashes[1] = keccak256("blob2");
+        original.derivation.sources[0].blobSlice.blobHashes[2] = keccak256("blob3");
+        original.derivation.sources[0].blobSlice.offset = 65_535; // Max uint24 - 1
+        original.derivation.sources[0].blobSlice.timestamp = 777_777;
 
         original.coreState.nextProposalId = 54_321;
+        original.coreState.nextProposalBlockId = 12_345;
         original.coreState.lastFinalizedProposalId = 54_320;
         original.coreState.lastFinalizedTransitionHash = keccak256("finalizedTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructionsHash");
@@ -108,7 +118,7 @@ contract LibProposedEventEncoderTest is Test {
         bytes memory encoded = LibProposedEventEncoder.encode(original);
 
         // Verify size calculation is correct
-        uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(3);
+        uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(1, 3);
         assertEq(encoded.length, expectedSize);
 
         // Decode
@@ -128,23 +138,25 @@ contract LibProposedEventEncoderTest is Test {
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
         assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
-        assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
-        assertEq(decoded.derivation.blobSlice.blobHashes.length, 3);
+        assertEq(decoded.derivation.sources.length, 1);
+        assertEq(decoded.derivation.sources[0].isForcedInclusion, original.derivation.sources[0].isForcedInclusion);
+        assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 3);
         assertEq(
-            decoded.derivation.blobSlice.blobHashes[0], original.derivation.blobSlice.blobHashes[0]
+            decoded.derivation.sources[0].blobSlice.blobHashes[0], original.derivation.sources[0].blobSlice.blobHashes[0]
         );
         assertEq(
-            decoded.derivation.blobSlice.blobHashes[1], original.derivation.blobSlice.blobHashes[1]
+            decoded.derivation.sources[0].blobSlice.blobHashes[1], original.derivation.sources[0].blobSlice.blobHashes[1]
         );
         assertEq(
-            decoded.derivation.blobSlice.blobHashes[2], original.derivation.blobSlice.blobHashes[2]
+            decoded.derivation.sources[0].blobSlice.blobHashes[2], original.derivation.sources[0].blobSlice.blobHashes[2]
         );
-        assertEq(decoded.derivation.blobSlice.offset, original.derivation.blobSlice.offset);
-        assertEq(decoded.derivation.blobSlice.timestamp, original.derivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.sources[0].blobSlice.offset, original.derivation.sources[0].blobSlice.offset);
+        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, original.derivation.sources[0].blobSlice.timestamp);
 
         // Verify core state fields
         assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
+        assertEq(decoded.coreState.nextProposalBlockId, original.coreState.nextProposalBlockId);
         assertEq(
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
@@ -168,16 +180,20 @@ contract LibProposedEventEncoderTest is Test {
 
         original.derivation.originBlockNumber = type(uint48).max;
         original.derivation.originBlockHash = bytes32(type(uint256).max);
-        original.derivation.isForcedInclusion = true;
         original.derivation.basefeeSharingPctg = type(uint8).max;
+        
+        // Initialize sources array with single source
+        original.derivation.sources = new IInbox.DerivationSource[](1);
+        original.derivation.sources[0].isForcedInclusion = true;
 
         // Add blob hashes
-        original.derivation.blobSlice.blobHashes = new bytes32[](1);
-        original.derivation.blobSlice.blobHashes[0] = bytes32(type(uint256).max);
-        original.derivation.blobSlice.offset = type(uint24).max;
-        original.derivation.blobSlice.timestamp = type(uint48).max;
+        original.derivation.sources[0].blobSlice.blobHashes = new bytes32[](1);
+        original.derivation.sources[0].blobSlice.blobHashes[0] = bytes32(type(uint256).max);
+        original.derivation.sources[0].blobSlice.offset = type(uint24).max;
+        original.derivation.sources[0].blobSlice.timestamp = type(uint48).max;
 
         original.coreState.nextProposalId = type(uint48).max;
+        original.coreState.nextProposalBlockId = type(uint48).max;
         original.coreState.lastFinalizedProposalId = type(uint48).max;
         original.coreState.lastFinalizedTransitionHash = bytes32(type(uint256).max);
         original.coreState.bondInstructionsHash = bytes32(type(uint256).max);
@@ -193,12 +209,14 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.endOfSubmissionWindowTimestamp, type(uint48).max);
         assertEq(decoded.proposal.coreStateHash, bytes32(type(uint256).max));
         assertEq(decoded.derivation.originBlockNumber, type(uint48).max);
-        assertEq(decoded.derivation.isForcedInclusion, true);
+        assertEq(decoded.derivation.sources.length, 1);
+        assertEq(decoded.derivation.sources[0].isForcedInclusion, true);
         assertEq(decoded.derivation.basefeeSharingPctg, type(uint8).max);
-        assertEq(decoded.derivation.blobSlice.blobHashes[0], bytes32(type(uint256).max));
-        assertEq(decoded.derivation.blobSlice.offset, type(uint24).max);
-        assertEq(decoded.derivation.blobSlice.timestamp, type(uint48).max);
+        assertEq(decoded.derivation.sources[0].blobSlice.blobHashes[0], bytes32(type(uint256).max));
+        assertEq(decoded.derivation.sources[0].blobSlice.offset, type(uint24).max);
+        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, type(uint48).max);
         assertEq(decoded.coreState.nextProposalId, type(uint48).max);
+        assertEq(decoded.coreState.nextProposalBlockId, type(uint48).max);
         assertEq(decoded.coreState.lastFinalizedProposalId, type(uint48).max);
         assertEq(decoded.coreState.lastFinalizedTransitionHash, bytes32(type(uint256).max));
         assertEq(decoded.coreState.bondInstructionsHash, bytes32(type(uint256).max));
@@ -217,13 +235,17 @@ contract LibProposedEventEncoderTest is Test {
 
         original.derivation.originBlockNumber = 0;
         original.derivation.originBlockHash = bytes32(0);
-        original.derivation.isForcedInclusion = false;
         original.derivation.basefeeSharingPctg = 0;
-        original.derivation.blobSlice.blobHashes = new bytes32[](0);
-        original.derivation.blobSlice.offset = 0;
-        original.derivation.blobSlice.timestamp = 0;
+        
+        // Initialize sources array with single source
+        original.derivation.sources = new IInbox.DerivationSource[](1);
+        original.derivation.sources[0].isForcedInclusion = false;
+        original.derivation.sources[0].blobSlice.blobHashes = new bytes32[](0);
+        original.derivation.sources[0].blobSlice.offset = 0;
+        original.derivation.sources[0].blobSlice.timestamp = 0;
 
         original.coreState.nextProposalId = 0;
+        original.coreState.nextProposalBlockId = 0;
         original.coreState.lastFinalizedProposalId = 0;
         original.coreState.lastFinalizedTransitionHash = bytes32(0);
         original.coreState.bondInstructionsHash = bytes32(0);
@@ -239,12 +261,14 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.endOfSubmissionWindowTimestamp, 0);
         assertEq(decoded.proposal.coreStateHash, bytes32(0));
         assertEq(decoded.derivation.originBlockNumber, 0);
-        assertEq(decoded.derivation.isForcedInclusion, false);
+        assertEq(decoded.derivation.sources.length, 1);
+        assertEq(decoded.derivation.sources[0].isForcedInclusion, false);
         assertEq(decoded.derivation.basefeeSharingPctg, 0);
-        assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
-        assertEq(decoded.derivation.blobSlice.offset, 0);
-        assertEq(decoded.derivation.blobSlice.timestamp, 0);
+        assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 0);
+        assertEq(decoded.derivation.sources[0].blobSlice.offset, 0);
+        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, 0);
         assertEq(decoded.coreState.nextProposalId, 0);
+        assertEq(decoded.coreState.nextProposalBlockId, 0);
         assertEq(decoded.coreState.lastFinalizedProposalId, 0);
         assertEq(decoded.coreState.lastFinalizedTransitionHash, bytes32(0));
         assertEq(decoded.coreState.bondInstructionsHash, bytes32(0));
@@ -263,15 +287,19 @@ contract LibProposedEventEncoderTest is Test {
 
         payload.derivation.originBlockNumber = 5_000_000;
         payload.derivation.originBlockHash = keccak256("origin");
-        payload.derivation.isForcedInclusion = false;
         payload.derivation.basefeeSharingPctg = 50;
-        payload.derivation.blobSlice.blobHashes = new bytes32[](2);
-        payload.derivation.blobSlice.blobHashes[0] = keccak256("blob1");
-        payload.derivation.blobSlice.blobHashes[1] = keccak256("blob2");
-        payload.derivation.blobSlice.offset = 1024;
-        payload.derivation.blobSlice.timestamp = 1_000_001;
+        
+        // Initialize sources array with single source
+        payload.derivation.sources = new IInbox.DerivationSource[](1);
+        payload.derivation.sources[0].isForcedInclusion = false;
+        payload.derivation.sources[0].blobSlice.blobHashes = new bytes32[](2);
+        payload.derivation.sources[0].blobSlice.blobHashes[0] = keccak256("blob1");
+        payload.derivation.sources[0].blobSlice.blobHashes[1] = keccak256("blob2");
+        payload.derivation.sources[0].blobSlice.offset = 1024;
+        payload.derivation.sources[0].blobSlice.timestamp = 1_000_001;
 
         payload.coreState.nextProposalId = 124;
+        payload.coreState.nextProposalBlockId = 100;
         payload.coreState.lastFinalizedProposalId = 120;
         payload.coreState.lastFinalizedTransitionHash = keccak256("finalized");
         payload.coreState.bondInstructionsHash = keccak256("bonds");

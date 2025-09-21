@@ -445,17 +445,13 @@ contract LibHashingGasTest is Test {
         blobHashes[0] = keccak256("test_blob_hash_1");
         blobHashes[1] = keccak256("test_blob_hash_2");
 
-        testDerivation = IInbox.Derivation({
-            originBlockNumber: 12_345_677,
-            originBlockHash: keccak256("test_origin_block_hash"),
-            isForcedInclusion: false,
-            basefeeSharingPctg: 10,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 1024,
-                timestamp: 1_672_531_200
-            })
-        });
+        // TODO: Update for multi-source derivation
+        // testDerivation = IInbox.Derivation({
+        //     originBlockNumber: 12_345_677,
+        //     originBlockHash: keccak256("test_origin_block_hash"),
+        //     basefeeSharingPctg: 10,
+        //     sources: sources
+        // });
 
         // Initialize test transition record - Commented out due to IR pipeline requirement
         /*

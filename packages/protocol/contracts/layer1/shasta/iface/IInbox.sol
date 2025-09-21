@@ -39,20 +39,27 @@ interface IInbox {
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
     }
+    /// @notice Represents a single source of derivation data for a proposal.
+    /// @dev Each source corresponds to a BlobSlice and indicates whether it's from forced inclusion.
+    struct DerivationSource {
+        /// @notice Whether this source is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice Blobs that contain the source's manifest data.
+        LibBlobs.BlobSlice blobSlice;
+    }
+
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-
+    /// @dev Now supports multiple derivation sources per proposal.
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contain the proposal's manifest data.
-        LibBlobs.BlobSlice blobSlice;
+        /// @notice Array of derivation sources that compose this proposal.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.

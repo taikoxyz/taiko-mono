@@ -22,14 +22,22 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
 
         IInbox.Derivation[] memory derivations = new IInbox.Derivation[](1);
+        
+        // Create derivation source with blob slice
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = bytes32(uint256(1));
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 0, timestamp: 1000 })
+        });
+        
         derivations[0] = IInbox.Derivation({
             originBlockNumber: 100,
             originBlockHash: bytes32(uint256(100)),
-            isForcedInclusion: false,
             basefeeSharingPctg: 50,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](1), offset: 0, timestamp: 1000 })
+            sources: sources
         });
-        derivations[0].blobSlice.blobHashes[0] = bytes32(uint256(1));
 
         proposals[0] = IInbox.Proposal({
             id: 10,
@@ -127,19 +135,25 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         IInbox.Derivation[] memory derivations = new IInbox.Derivation[](2);
 
-        derivations[0] = IInbox.Derivation({
-            originBlockNumber: 5_000_000,
-            originBlockHash: bytes32(uint256(5_000_000)),
+        // Create first derivation with multiple blob hashes
+        bytes32[] memory blobHashes0 = new bytes32[](2);
+        blobHashes0[0] = keccak256("blob_hash_1");
+        blobHashes0[1] = keccak256("blob_hash_2");
+        IInbox.DerivationSource[] memory sources0 = new IInbox.DerivationSource[](1);
+        sources0[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 50,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](2),
+                blobHashes: blobHashes0,
                 offset: 1024,
                 timestamp: 1_000_001
             })
         });
-        derivations[0].blobSlice.blobHashes[0] = keccak256("blob_hash_1");
-        derivations[0].blobSlice.blobHashes[1] = keccak256("blob_hash_2");
+        derivations[0] = IInbox.Derivation({
+            originBlockNumber: 5_000_000,
+            originBlockHash: bytes32(uint256(5_000_000)),
+            basefeeSharingPctg: 50,
+            sources: sources0
+        });
 
         proposals[0] = IInbox.Proposal({
             id: 96,
@@ -150,18 +164,24 @@ contract LibProposeInputDecoderTest is Test {
             derivationHash: keccak256(abi.encode(derivations[0]))
         });
 
-        derivations[1] = IInbox.Derivation({
-            originBlockNumber: 5_000_010,
-            originBlockHash: bytes32(uint256(5_000_010)),
+        // Create second derivation with forced inclusion
+        bytes32[] memory blobHashes1 = new bytes32[](1);
+        blobHashes1[0] = keccak256("blob_hash_3");
+        IInbox.DerivationSource[] memory sources1 = new IInbox.DerivationSource[](1);
+        sources1[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](1),
+                blobHashes: blobHashes1,
                 offset: 2048,
                 timestamp: 1_000_011
             })
         });
-        derivations[1].blobSlice.blobHashes[0] = keccak256("blob_hash_3");
+        derivations[1] = IInbox.Derivation({
+            originBlockNumber: 5_000_010,
+            originBlockHash: bytes32(uint256(5_000_010)),
+            basefeeSharingPctg: 75,
+            sources: sources1
+        });
 
         proposals[1] = IInbox.Proposal({
             id: 97,
@@ -296,21 +316,26 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         IInbox.Derivation[] memory derivations = new IInbox.Derivation[](1);
 
-        derivations[0] = IInbox.Derivation({
-            originBlockNumber: 888_888,
-            originBlockHash: bytes32(uint256(888_888)),
+        // Create derivation with max values
+        bytes32[] memory maxBlobHashes = new bytes32[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            maxBlobHashes[i] = bytes32(uint256(i + 1));
+        }
+        IInbox.DerivationSource[] memory maxSources = new IInbox.DerivationSource[](1);
+        maxSources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            basefeeSharingPctg: 100,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](3),
+                blobHashes: maxBlobHashes,
                 offset: 16_777_215, // max uint24
                 timestamp: 281_474_976_710_655 // max uint48
              })
         });
-
-        for (uint256 i = 0; i < 3; i++) {
-            derivations[0].blobSlice.blobHashes[i] = bytes32(uint256(i + 1));
-        }
+        derivations[0] = IInbox.Derivation({
+            originBlockNumber: 888_888,
+            originBlockHash: bytes32(uint256(888_888)),
+            basefeeSharingPctg: 100,
+            sources: maxSources
+        });
 
         proposals[0] = IInbox.Proposal({
             id: 1,

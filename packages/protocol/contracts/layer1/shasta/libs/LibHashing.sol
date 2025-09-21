@@ -84,26 +84,62 @@ library LibHashing {
         );
     }
 
-    /// @notice Optimized hashing for Derivation structs
-    /// @dev Efficiently packs derivation fields before hashing
+    /// @notice Optimized hashing for Derivation structs with multi-source support
+    /// @dev Efficiently packs derivation fields before hashing, supports multiple derivation sources
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
-        // Pack origin block number, forced inclusion flag, and basefee sharing percentage
+        // Pack origin block number and basefee sharing percentage
         bytes32 packedFields = bytes32(
             (uint256(_derivation.originBlockNumber) << 208)
-                | (uint256(_derivation.isForcedInclusion ? 1 : 0) << 200)
-                | (uint256(_derivation.basefeeSharingPctg) << 192)
+                | (uint256(_derivation.basefeeSharingPctg) << 200)
         );
 
+        // Hash all derivation sources
+        bytes32 sourcesHash;
+        if (_derivation.sources.length == 0) {
+            sourcesHash = EMPTY_BYTES_HASH;
+        } else {
+            // Calculate buffer size for sources: 32 bytes for length + 32 bytes per source hash
+            uint256 numSources = _derivation.sources.length;
+            uint256 bufferSize = 32 + (numSources * 32);
+            bytes memory buffer = new bytes(bufferSize);
+
+            assembly {
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), numSources)
+            }
+
+            // Hash each source and write to buffer
+            for (uint256 i; i < numSources; ++i) {
+                bytes32 sourceHash = _hashDerivationSource(_derivation.sources[i]);
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array length + i*32
+                    mstore(add(buffer, offset), sourceHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                sourcesHash := keccak256(add(buffer, 0x20), mload(buffer))
+            }
+        }
+
+        return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
+    }
+
+    /// @notice Hash a single derivation source
+    /// @dev Helper function to hash individual derivation sources
+    /// @param _source The derivation source to hash
+    /// @return The hash of the derivation source
+    function _hashDerivationSource(IInbox.DerivationSource memory _source) private pure returns (bytes32) {
         // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
-        // Explicitly include blobHashes array length to prevent collisions
         bytes32 blobHashesHash;
-        if (_derivation.blobSlice.blobHashes.length == 0) {
+        if (_source.blobSlice.blobHashes.length == 0) {
             blobHashesHash = EMPTY_BYTES_HASH;
         } else {
             // Memory-optimized approach: pre-allocate buffer for length + hashes
-            uint256 arrayLength = _derivation.blobSlice.blobHashes.length;
+            uint256 arrayLength = _source.blobSlice.blobHashes.length;
             uint256 bufferSize = 32 + (arrayLength * 32);
             bytes memory buffer = new bytes(bufferSize);
 
@@ -114,10 +150,9 @@ library LibHashing {
 
             // Write each blob hash directly to buffer
             for (uint256 i; i < arrayLength; ++i) {
-                bytes32 blobHash = _derivation.blobSlice.blobHashes[i];
+                bytes32 blobHash = _source.blobSlice.blobHashes[i];
                 assembly {
-                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
-                        // length + i*32
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array length + i*32
                     mstore(add(buffer, offset), blobHash)
                 }
             }
@@ -130,11 +165,15 @@ library LibHashing {
 
         bytes32 blobSliceHash = EfficientHashLib.hash(
             blobHashesHash,
-            bytes32(uint256(_derivation.blobSlice.offset)),
-            bytes32(uint256(_derivation.blobSlice.timestamp))
+            bytes32(uint256(_source.blobSlice.offset)),
+            bytes32(uint256(_source.blobSlice.timestamp))
         );
 
-        return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, blobSliceHash);
+        // Include isForcedInclusion flag in the hash
+        return EfficientHashLib.hash(
+            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)),
+            blobSliceHash
+        );
     }
 
     // ---------------------------------------------------------------

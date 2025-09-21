@@ -65,6 +65,10 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 evm_version = "prague"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+memory_limit = 8_589_934_592
 
 [profile.layer2]
 src = "contracts/layer2"

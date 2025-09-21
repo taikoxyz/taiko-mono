@@ -183,16 +183,22 @@ contract LibProposedEventEncoderGas is Test {
             derivationHash: keccak256("derivation")
         });
 
-        payload_.derivation = IInbox.Derivation({
-            originBlockNumber: 18_000_000,
-            originBlockHash: bytes32(uint256(18_000_000)),
+        // TODO: Update for multi-source derivation - commented out for now
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 100,
                 timestamp: 1_700_000_100
             })
+        });
+        
+        payload_.derivation = IInbox.Derivation({
+            originBlockNumber: 18_000_000,
+            originBlockHash: bytes32(uint256(18_000_000)),
+            basefeeSharingPctg: 75,
+            sources: sources
         });
 
         payload_.coreState = IInbox.CoreState({

@@ -6,7 +6,7 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProposedEventEncoder
 /// @notice Library for encoding and decoding ProposedEventPayload structures using compact
-/// encoding
+/// encoding with support for multi-source derivations
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
     /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
@@ -18,8 +18,15 @@ library LibProposedEventEncoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize =
-            calculateProposedEventSize(_payload.derivation.blobSlice.blobHashes.length);
+        uint256 totalBlobHashes = 0;
+        for (uint256 i = 0; i < _payload.derivation.sources.length; i++) {
+            totalBlobHashes += _payload.derivation.sources[i].blobSlice.blobHashes.length;
+        }
+        
+        uint256 bufferSize = calculateProposedEventSize(
+            _payload.derivation.sources.length,
+            totalBlobHashes
+        );
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -32,21 +39,31 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
         ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
-        ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
+        
+        // Encode number of derivation sources
+        uint256 numSources = _payload.derivation.sources.length;
+        P.checkArrayLength(numSources);
+        ptr = P.packUint24(ptr, uint24(numSources));
+        
+        // Encode each derivation source
+        for (uint256 i = 0; i < numSources; i++) {
+            // Encode isForcedInclusion flag
+            ptr = P.packUint8(ptr, _payload.derivation.sources[i].isForcedInclusion ? 1 : 0);
+            
+            // Encode blob slice (length + hashes + offset + timestamp)
+            uint256 blobHashesLength = _payload.derivation.sources[i].blobSlice.blobHashes.length;
+            P.checkArrayLength(blobHashesLength);
+            ptr = P.packUint24(ptr, uint24(blobHashesLength));
 
-        // Encode blob slice (length + hashes + offset + timestamp)
-        uint256 blobHashesLength = _payload.derivation.blobSlice.blobHashes.length;
-        P.checkArrayLength(blobHashesLength);
-        ptr = P.packUint24(ptr, uint24(blobHashesLength));
+            // Encode each blob hash
+            for (uint256 j = 0; j < blobHashesLength; j++) {
+                ptr = P.packBytes32(ptr, _payload.derivation.sources[i].blobSlice.blobHashes[j]);
+            }
 
-        // Encode each blob hash
-        for (uint256 i; i < blobHashesLength; ++i) {
-            ptr = P.packBytes32(ptr, _payload.derivation.blobSlice.blobHashes[i]);
+            ptr = P.packUint24(ptr, _payload.derivation.sources[i].blobSlice.offset);
+            ptr = P.packUint48(ptr, _payload.derivation.sources[i].blobSlice.timestamp);
         }
-
-        ptr = P.packUint24(ptr, _payload.derivation.blobSlice.offset);
-        ptr = P.packUint48(ptr, _payload.derivation.blobSlice.timestamp);
 
         ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
         ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
@@ -79,24 +96,32 @@ library LibProposedEventEncoder {
         // Decode derivation fields
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
-
-        uint8 isForcedInclusion;
-        (isForcedInclusion, ptr) = P.unpackUint8(ptr);
-        payload_.derivation.isForcedInclusion = isForcedInclusion != 0;
-
         (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+        
+        // Decode number of derivation sources
+        uint24 numSources;
+        (numSources, ptr) = P.unpackUint24(ptr);
+        
+        // Decode each derivation source
+        payload_.derivation.sources = new IInbox.DerivationSource[](numSources);
+        for (uint256 i = 0; i < numSources; i++) {
+            // Decode isForcedInclusion flag
+            uint8 isForcedInclusion;
+            (isForcedInclusion, ptr) = P.unpackUint8(ptr);
+            payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
+            
+            // Decode blob slice
+            uint24 blobHashesLength;
+            (blobHashesLength, ptr) = P.unpackUint24(ptr);
 
-        // Decode blob slice
-        uint24 blobHashesLength;
-        (blobHashesLength, ptr) = P.unpackUint24(ptr);
+            payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
+            for (uint256 j = 0; j < blobHashesLength; j++) {
+                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) = P.unpackBytes32(ptr);
+            }
 
-        payload_.derivation.blobSlice.blobHashes = new bytes32[](blobHashesLength);
-        for (uint256 i; i < blobHashesLength; ++i) {
-            (payload_.derivation.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
+            (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
+            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
         }
-
-        (payload_.derivation.blobSlice.offset, ptr) = P.unpackUint24(ptr);
-        (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
         (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
@@ -109,28 +134,28 @@ library LibProposedEventEncoder {
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
-    /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
-    /// @param _blobHashesCount Number of blob hashes (max 16777215 due to uint24 encoding)
+    /// @notice Calculate the exact byte size needed for encoding a ProposedEvent with multi-source
+    /// @param _numSources Number of derivation sources
+    /// @param _totalBlobHashes Total number of blob hashes across all sources
     /// @return size_ The total byte size needed for encoding
-    function calculateProposedEventSize(uint256 _blobHashesCount)
+    function calculateProposedEventSize(uint256 _numSources, uint256 _totalBlobHashes)
         internal
         pure
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 236 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
-            // 38
-            // Derivation: originBlockNumber(6) + originBlockHash(32) + isForcedInclusion(1) +
-            // basefeeSharingPctg(1) = 40
-            // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
+            // Fixed size: 235 bytes
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) = 38
+            // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
+            // Sources array length: 3
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
-            // Total fixed: 38 + 40 + 12 + 64 + 82 = 236
+            // Total fixed: 38 + 39 + 3 + 64 + 82 = 226
 
+            // Per source overhead: isForcedInclusion(1) + blobHashesLength(3) + offset(3) + timestamp(6) = 13
             // Variable size: each blob hash is 32 bytes
-            size_ = 236 + (_blobHashesCount * 32);
+            size_ = 226 + (_numSources * 13) + (_totalBlobHashes * 32);
         }
     }
 }

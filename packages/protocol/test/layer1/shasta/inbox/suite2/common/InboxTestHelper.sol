@@ -112,17 +112,22 @@ contract InboxTestHelper is CommonTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        // Build the expected derivation
-        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
+        // Build the expected derivation with single source
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: _getBlobHashesForTest(_numBlobs),
                 offset: _offset,
                 timestamp: uint48(block.timestamp)
             })
+        });
+        
+        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
+            sources: sources
         });
 
         // Build the expected proposal
