@@ -276,6 +276,8 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	log.Info("Fetched Shasta proposal manifest parent", "proposalID", meta.GetProposal().Id, "blocks", len(proposalManifest.Blocks), "parent", proposalManifest.ParentBlock.Number(), "hash", proposalManifest.ParentBlock.Hash())
+
 	latestState, err := s.rpc.ShastaClients.Anchor.GetState(
 		&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
 	)
