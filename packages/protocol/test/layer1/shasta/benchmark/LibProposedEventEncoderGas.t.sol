@@ -193,7 +193,7 @@ contract LibProposedEventEncoderGas is Test {
                 timestamp: 1_700_000_100
             })
         });
-        
+
         payload_.derivation = IInbox.Derivation({
             originBlockNumber: 18_000_000,
             originBlockHash: bytes32(uint256(18_000_000)),

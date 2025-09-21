@@ -22,7 +22,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
 
         IInbox.Derivation[] memory derivations = new IInbox.Derivation[](1);
-        
+
         // Create derivation source with blob slice
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         bytes32[] memory blobHashes = new bytes32[](1);
@@ -31,7 +31,7 @@ contract LibProposeInputDecoderTest is Test {
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 0, timestamp: 1000 })
         });
-        
+
         derivations[0] = IInbox.Derivation({
             originBlockNumber: 100,
             originBlockHash: bytes32(uint256(100)),
@@ -142,11 +142,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.DerivationSource[] memory sources0 = new IInbox.DerivationSource[](1);
         sources0[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes0,
-                offset: 1024,
-                timestamp: 1_000_001
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes0, offset: 1024, timestamp: 1_000_001 })
         });
         derivations[0] = IInbox.Derivation({
             originBlockNumber: 5_000_000,
@@ -170,11 +166,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.DerivationSource[] memory sources1 = new IInbox.DerivationSource[](1);
         sources1[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes1,
-                offset: 2048,
-                timestamp: 1_000_011
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes1, offset: 2048, timestamp: 1_000_011 })
         });
         derivations[1] = IInbox.Derivation({
             originBlockNumber: 5_000_010,

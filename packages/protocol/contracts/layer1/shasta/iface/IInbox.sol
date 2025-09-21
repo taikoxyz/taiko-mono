@@ -40,7 +40,9 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
     }
     /// @notice Represents a single source of derivation data for a proposal.
-    /// @dev Each source corresponds to a BlobSlice and indicates whether it's from forced inclusion.
+    /// @dev Each source corresponds to a BlobSlice and indicates whether it's from forced
+    /// inclusion.
+
     struct DerivationSource {
         /// @notice Whether this source is from a forced inclusion.
         bool isForcedInclusion;

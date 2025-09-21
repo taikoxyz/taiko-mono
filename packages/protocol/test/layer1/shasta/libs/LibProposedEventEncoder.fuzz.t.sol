@@ -43,11 +43,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.derivation.sources = new IInbox.DerivationSource[](1);
         payload.derivation.sources[0] = IInbox.DerivationSource({
             isForcedInclusion: _isForcedInclusion,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](0),
-                offset: 0,
-                timestamp: 0
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 })
         });
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
@@ -67,7 +63,10 @@ contract LibProposedEventEncoderFuzzTest is Test {
         // Verify Derivation fields
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
         assertEq(decoded.derivation.originBlockHash, payload.derivation.originBlockHash);
-        assertEq(decoded.derivation.sources[0].isForcedInclusion, payload.derivation.sources[0].isForcedInclusion);
+        assertEq(
+            decoded.derivation.sources[0].isForcedInclusion,
+            payload.derivation.sources[0].isForcedInclusion
+        );
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
 
         // Verify sources array
@@ -121,12 +120,12 @@ contract LibProposedEventEncoderFuzzTest is Test {
         vm.assume(_blobHashCount <= MAX_BLOB_HASHES);
 
         IInbox.ProposedEventPayload memory payload;
-        
+
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
         }
-        
+
         // Create single source with the blob slice
         payload.derivation.sources = new IInbox.DerivationSource[](1);
         payload.derivation.sources[0] = IInbox.DerivationSource({
@@ -141,8 +140,14 @@ contract LibProposedEventEncoderFuzzTest is Test {
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
         IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
-        assertEq(decoded.derivation.sources[0].blobSlice.offset, payload.derivation.sources[0].blobSlice.offset);
-        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, payload.derivation.sources[0].blobSlice.timestamp);
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.offset,
+            payload.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            payload.derivation.sources[0].blobSlice.timestamp
+        );
         assertEq(decoded.derivation.sources.length, payload.derivation.sources.length);
         assertEq(
             decoded.derivation.sources[0].blobSlice.blobHashes.length,
@@ -192,12 +197,12 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.derivation.originBlockNumber = _originBlockNumber;
         payload.derivation.originBlockHash = _originBlockHash;
         payload.derivation.basefeeSharingPctg = _basefeeSharingPctg;
-        
+
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
         }
-        
+
         // Create single source with blob data
         payload.derivation.sources = new IInbox.DerivationSource[](1);
         payload.derivation.sources[0] = IInbox.DerivationSource({
@@ -230,10 +235,19 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
         assertEq(decoded.derivation.originBlockHash, payload.derivation.originBlockHash);
-        assertEq(decoded.derivation.sources[0].isForcedInclusion, payload.derivation.sources[0].isForcedInclusion);
+        assertEq(
+            decoded.derivation.sources[0].isForcedInclusion,
+            payload.derivation.sources[0].isForcedInclusion
+        );
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
-        assertEq(decoded.derivation.sources[0].blobSlice.offset, payload.derivation.sources[0].blobSlice.offset);
-        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, payload.derivation.sources[0].blobSlice.timestamp);
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.offset,
+            payload.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            payload.derivation.sources[0].blobSlice.timestamp
+        );
 
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
         assertEq(
@@ -275,15 +289,15 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.derivation.originBlockNumber = 18_000_000;
         payload.derivation.originBlockHash = bytes32(uint256(18_000_000));
         payload.derivation.basefeeSharingPctg = 75;
-        
+
         // Create multiple sources to test multi-source encoding
         bytes32[] memory blobHashes1 = new bytes32[](2);
         blobHashes1[0] = keccak256("blob1");
         blobHashes1[1] = keccak256("blob2");
-        
+
         bytes32[] memory blobHashes2 = new bytes32[](1);
         blobHashes2[0] = keccak256("blob3");
-        
+
         payload.derivation.sources = new IInbox.DerivationSource[](2);
         payload.derivation.sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
@@ -315,9 +329,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         // Verify exact values
         assertEq(decoded.proposal.id, 12_345);
-        assertEq(
-            decoded.proposal.proposer, address(0x1234567890123456789012345678901234567890)
-        );
+        assertEq(decoded.proposal.proposer, address(0x1234567890123456789012345678901234567890));
         assertEq(decoded.proposal.timestamp, 1_700_000_000);
         assertEq(decoded.proposal.endOfSubmissionWindowTimestamp, 1_700_000_012);
         assertEq(decoded.proposal.coreStateHash, keccak256("coreState"));
@@ -331,13 +343,13 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.derivation.sources.length, 2);
         assertEq(decoded.derivation.sources[0].isForcedInclusion, false);
         assertEq(decoded.derivation.sources[1].isForcedInclusion, true);
-        
+
         assertEq(decoded.derivation.sources[0].blobSlice.offset, 100);
         assertEq(decoded.derivation.sources[0].blobSlice.timestamp, 1_700_000_100);
         assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 2);
         assertEq(decoded.derivation.sources[0].blobSlice.blobHashes[0], keccak256("blob1"));
         assertEq(decoded.derivation.sources[0].blobSlice.blobHashes[1], keccak256("blob2"));
-        
+
         assertEq(decoded.derivation.sources[1].blobSlice.offset, 200);
         assertEq(decoded.derivation.sources[1].blobSlice.timestamp, 1_700_000_200);
         assertEq(decoded.derivation.sources[1].blobSlice.blobHashes.length, 1);
@@ -365,20 +377,16 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.derivation.originBlockNumber = type(uint48).max;
         payload.derivation.originBlockHash = bytes32(type(uint256).max);
         payload.derivation.basefeeSharingPctg = type(uint8).max;
-        
+
         bytes32[] memory blobHashes = new bytes32[](3);
         for (uint256 i = 0; i < 3; i++) {
             blobHashes[i] = bytes32(type(uint256).max - i);
         }
-        
+
         payload.derivation.sources = new IInbox.DerivationSource[](1);
         payload.derivation.sources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 1024,
-                timestamp: 1_000_001
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001 })
         });
 
         payload.coreState.nextProposalId = type(uint48).max;

@@ -179,7 +179,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    /// @notice Proposes new L2 blocks with multi-source derivation, combining regular and forced inclusions.
+    /// @notice Proposes new L2 blocks with multi-source derivation, combining regular and forced
+    /// inclusions.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
     ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer
@@ -235,9 +236,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
 
         // Create single proposal with multiple sources
-        if (sources.length > 0) {
-            _proposeWithMultipleSources(coreState, sources, endOfSubmissionWindowTimestamp);
-        }
+        _propose(coreState, sources, endOfSubmissionWindowTimestamp);
     }
 
     /// @inheritdoc IInbox
@@ -674,7 +673,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
     /// preconfer can propose.
     /// @return Updated core state with incremented nextProposalId
-    function _proposeWithMultipleSources(
+    function _propose(
         CoreState memory _coreState,
         DerivationSource[] memory _sources,
         uint48 _endOfSubmissionWindowTimestamp
@@ -744,27 +743,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 NextProposalHashMismatch()
             );
         }
-    }
-
-    /// @dev DEPRECATED: Legacy single-source propose function
-    /// @notice This function is kept for compatibility but should not be used
-    /// @dev Use _proposeWithMultipleSources instead for multi-source derivation support
-    function _propose(
-        CoreState memory _coreState,
-        LibBlobs.BlobSlice memory _blobSlice,
-        bool _isForcedInclusion,
-        uint48 _endOfSubmissionWindowTimestamp
-    )
-        private
-        returns (CoreState memory)
-    {
-        // Convert to multi-source format for backward compatibility
-        DerivationSource[] memory sources = new DerivationSource[](1);
-        sources[0] = DerivationSource({
-            isForcedInclusion: _isForcedInclusion,
-            blobSlice: _blobSlice
-        });
-        return _proposeWithMultipleSources(_coreState, sources, _endOfSubmissionWindowTimestamp);
     }
 
     /// @dev Finalizes proven proposals and updates checkpoint
@@ -895,46 +873,47 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Build derivation sources from forced inclusions and regular proposal
     /// @param _input The ProposeInput containing the configuration
-    /// @return sources Array of derivation sources
-    function _buildDerivationSources(ProposeInput memory _input) 
-        private 
-        returns (DerivationSource[] memory sources) 
+    /// @return sources_ Array of derivation sources
+    function _buildDerivationSources(ProposeInput memory _input)
+        private
+        returns (DerivationSource[] memory sources_)
     {
-        uint256 totalSources = 0;
+        uint256 numSources;
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
-        
+
         // Process forced inclusions if any
         if (_input.numForcedInclusions > 0) {
+            numSources = forcedInclusions.length;
             forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
-            totalSources = forcedInclusions.length;
         }
-        
+
         // Check if we have a regular proposal
         bool hasRegularProposal = _input.blobReference.numBlobs > 0;
         if (hasRegularProposal) {
-            totalSources++;
+            numSources++;
         }
-        
+
+        require(numSources > 0, EmptyDerivationSources());
+
         // Allocate sources array
-        sources = new DerivationSource[](totalSources);
-        
+        sources_ = new DerivationSource[](numSources);
+
         // Add forced inclusion sources
-        uint256 index = 0;
-        for (uint256 i = 0; i < forcedInclusions.length; i++) {
-            sources[index++] = DerivationSource({
+        uint256 i;
+        for (; i < forcedInclusions.length; ++i) {
+            sources_[i] = DerivationSource({
                 isForcedInclusion: true,
                 blobSlice: forcedInclusions[i].blobSlice
             });
         }
-        
+
         // Add regular proposal source if present
         if (hasRegularProposal) {
-            LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
-            sources[index] = DerivationSource({
+            sources_[i] = DerivationSource({
                 isForcedInclusion: false,
-                blobSlice: blobSlice
+                blobSlice: LibBlobs.validateBlobReference(_input.blobReference)
             });
         }
     }
@@ -947,6 +926,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 error CannotProposeInCurrentBlock();
 error CheckpointMismatch();
 error DeadlineExceeded();
+error EmptyDerivationSources();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();

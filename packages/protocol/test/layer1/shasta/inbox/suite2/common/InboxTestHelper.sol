@@ -122,7 +122,7 @@ contract InboxTestHelper is CommonTest {
                 timestamp: uint48(block.timestamp)
             })
         });
-        
+
         IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),

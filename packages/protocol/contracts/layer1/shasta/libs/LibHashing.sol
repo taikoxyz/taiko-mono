@@ -85,7 +85,8 @@ library LibHashing {
     }
 
     /// @notice Optimized hashing for Derivation structs with multi-source support
-    /// @dev Efficiently packs derivation fields before hashing, supports multiple derivation sources
+    /// @dev Efficiently packs derivation fields before hashing, supports multiple derivation
+    /// sources
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
@@ -114,7 +115,8 @@ library LibHashing {
             for (uint256 i; i < numSources; ++i) {
                 bytes32 sourceHash = _hashDerivationSource(_derivation.sources[i]);
                 assembly {
-                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array length + i*32
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
                     mstore(add(buffer, offset), sourceHash)
                 }
             }
@@ -132,7 +134,11 @@ library LibHashing {
     /// @dev Helper function to hash individual derivation sources
     /// @param _source The derivation source to hash
     /// @return The hash of the derivation source
-    function _hashDerivationSource(IInbox.DerivationSource memory _source) private pure returns (bytes32) {
+    function _hashDerivationSource(IInbox.DerivationSource memory _source)
+        private
+        pure
+        returns (bytes32)
+    {
         // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
         bytes32 blobHashesHash;
         if (_source.blobSlice.blobHashes.length == 0) {
@@ -152,7 +158,8 @@ library LibHashing {
             for (uint256 i; i < arrayLength; ++i) {
                 bytes32 blobHash = _source.blobSlice.blobHashes[i];
                 assembly {
-                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array length + i*32
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
                     mstore(add(buffer, offset), blobHash)
                 }
             }
@@ -171,8 +178,7 @@ library LibHashing {
 
         // Include isForcedInclusion flag in the hash
         return EfficientHashLib.hash(
-            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)),
-            blobSliceHash
+            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
         );
     }
 

@@ -23,7 +23,7 @@ contract LibProposedEventEncoderTest is Test {
         original.derivation.originBlockNumber = 2000;
         original.derivation.originBlockHash = bytes32(uint256(2000));
         original.derivation.basefeeSharingPctg = 50;
-        
+
         // Initialize sources array with single source
         original.derivation.sources = new IInbox.DerivationSource[](1);
         original.derivation.sources[0].isForcedInclusion = false;
@@ -63,10 +63,19 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.sources.length, 1);
-        assertEq(decoded.derivation.sources[0].isForcedInclusion, original.derivation.sources[0].isForcedInclusion);
+        assertEq(
+            decoded.derivation.sources[0].isForcedInclusion,
+            original.derivation.sources[0].isForcedInclusion
+        );
         assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 0);
-        assertEq(decoded.derivation.sources[0].blobSlice.offset, original.derivation.sources[0].blobSlice.offset);
-        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, original.derivation.sources[0].blobSlice.timestamp);
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.offset,
+            original.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            original.derivation.sources[0].blobSlice.timestamp
+        );
 
         // Verify core state fields
         assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
@@ -95,7 +104,7 @@ contract LibProposedEventEncoderTest is Test {
         original.derivation.originBlockNumber = 888_888;
         original.derivation.originBlockHash = bytes32(uint256(888_888));
         original.derivation.basefeeSharingPctg = 75;
-        
+
         // Initialize sources array with single source
         original.derivation.sources = new IInbox.DerivationSource[](1);
         original.derivation.sources[0].isForcedInclusion = true;
@@ -140,19 +149,31 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.sources.length, 1);
-        assertEq(decoded.derivation.sources[0].isForcedInclusion, original.derivation.sources[0].isForcedInclusion);
+        assertEq(
+            decoded.derivation.sources[0].isForcedInclusion,
+            original.derivation.sources[0].isForcedInclusion
+        );
         assertEq(decoded.derivation.sources[0].blobSlice.blobHashes.length, 3);
         assertEq(
-            decoded.derivation.sources[0].blobSlice.blobHashes[0], original.derivation.sources[0].blobSlice.blobHashes[0]
+            decoded.derivation.sources[0].blobSlice.blobHashes[0],
+            original.derivation.sources[0].blobSlice.blobHashes[0]
         );
         assertEq(
-            decoded.derivation.sources[0].blobSlice.blobHashes[1], original.derivation.sources[0].blobSlice.blobHashes[1]
+            decoded.derivation.sources[0].blobSlice.blobHashes[1],
+            original.derivation.sources[0].blobSlice.blobHashes[1]
         );
         assertEq(
-            decoded.derivation.sources[0].blobSlice.blobHashes[2], original.derivation.sources[0].blobSlice.blobHashes[2]
+            decoded.derivation.sources[0].blobSlice.blobHashes[2],
+            original.derivation.sources[0].blobSlice.blobHashes[2]
         );
-        assertEq(decoded.derivation.sources[0].blobSlice.offset, original.derivation.sources[0].blobSlice.offset);
-        assertEq(decoded.derivation.sources[0].blobSlice.timestamp, original.derivation.sources[0].blobSlice.timestamp);
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.offset,
+            original.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            original.derivation.sources[0].blobSlice.timestamp
+        );
 
         // Verify core state fields
         assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
@@ -181,7 +202,7 @@ contract LibProposedEventEncoderTest is Test {
         original.derivation.originBlockNumber = type(uint48).max;
         original.derivation.originBlockHash = bytes32(type(uint256).max);
         original.derivation.basefeeSharingPctg = type(uint8).max;
-        
+
         // Initialize sources array with single source
         original.derivation.sources = new IInbox.DerivationSource[](1);
         original.derivation.sources[0].isForcedInclusion = true;
@@ -236,7 +257,7 @@ contract LibProposedEventEncoderTest is Test {
         original.derivation.originBlockNumber = 0;
         original.derivation.originBlockHash = bytes32(0);
         original.derivation.basefeeSharingPctg = 0;
-        
+
         // Initialize sources array with single source
         original.derivation.sources = new IInbox.DerivationSource[](1);
         original.derivation.sources[0].isForcedInclusion = false;
@@ -288,7 +309,7 @@ contract LibProposedEventEncoderTest is Test {
         payload.derivation.originBlockNumber = 5_000_000;
         payload.derivation.originBlockHash = keccak256("origin");
         payload.derivation.basefeeSharingPctg = 50;
-        
+
         // Initialize sources array with single source
         payload.derivation.sources = new IInbox.DerivationSource[](1);
         payload.derivation.sources[0].isForcedInclusion = false;

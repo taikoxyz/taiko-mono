@@ -22,11 +22,9 @@ library LibProposedEventEncoder {
         for (uint256 i = 0; i < _payload.derivation.sources.length; i++) {
             totalBlobHashes += _payload.derivation.sources[i].blobSlice.blobHashes.length;
         }
-        
-        uint256 bufferSize = calculateProposedEventSize(
-            _payload.derivation.sources.length,
-            totalBlobHashes
-        );
+
+        uint256 bufferSize =
+            calculateProposedEventSize(_payload.derivation.sources.length, totalBlobHashes);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -40,17 +38,17 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
         ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
-        
+
         // Encode number of derivation sources
         uint256 numSources = _payload.derivation.sources.length;
         P.checkArrayLength(numSources);
         ptr = P.packUint24(ptr, uint24(numSources));
-        
+
         // Encode each derivation source
         for (uint256 i = 0; i < numSources; i++) {
             // Encode isForcedInclusion flag
             ptr = P.packUint8(ptr, _payload.derivation.sources[i].isForcedInclusion ? 1 : 0);
-            
+
             // Encode blob slice (length + hashes + offset + timestamp)
             uint256 blobHashesLength = _payload.derivation.sources[i].blobSlice.blobHashes.length;
             P.checkArrayLength(blobHashesLength);
@@ -97,11 +95,11 @@ library LibProposedEventEncoder {
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
-        
+
         // Decode number of derivation sources
         uint24 numSources;
         (numSources, ptr) = P.unpackUint24(ptr);
-        
+
         // Decode each derivation source
         payload_.derivation.sources = new IInbox.DerivationSource[](numSources);
         for (uint256 i = 0; i < numSources; i++) {
@@ -109,7 +107,7 @@ library LibProposedEventEncoder {
             uint8 isForcedInclusion;
             (isForcedInclusion, ptr) = P.unpackUint8(ptr);
             payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
-            
+
             // Decode blob slice
             uint24 blobHashesLength;
             (blobHashesLength, ptr) = P.unpackUint24(ptr);
@@ -138,14 +136,18 @@ library LibProposedEventEncoder {
     /// @param _numSources Number of derivation sources
     /// @param _totalBlobHashes Total number of blob hashes across all sources
     /// @return size_ The total byte size needed for encoding
-    function calculateProposedEventSize(uint256 _numSources, uint256 _totalBlobHashes)
+    function calculateProposedEventSize(
+        uint256 _numSources,
+        uint256 _totalBlobHashes
+    )
         internal
         pure
         returns (uint256 size_)
     {
         unchecked {
             // Fixed size: 235 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) = 38
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
+            // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 3
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
@@ -153,7 +155,8 @@ library LibProposedEventEncoder {
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
             // Total fixed: 38 + 39 + 3 + 64 + 82 = 226
 
-            // Per source overhead: isForcedInclusion(1) + blobHashesLength(3) + offset(3) + timestamp(6) = 13
+            // Per source overhead: isForcedInclusion(1) + blobHashesLength(3) + offset(3) +
+            // timestamp(6) = 13
             // Variable size: each blob hash is 32 bytes
             size_ = 226 + (_numSources * 13) + (_totalBlobHashes * 32);
         }
