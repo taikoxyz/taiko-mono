@@ -167,7 +167,9 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         } else {
             // URC Operator case
             ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
-            _validateLookaheadPoster(_data.registrationRoot, commitment, _data.commitmentSignature);
+            _validateLookaheadPoster(
+                _nextEpochTimestamp, _data.registrationRoot, commitment, _data.commitmentSignature
+            );
             result.lookaheadHash = _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
         }
         return result;
@@ -339,6 +341,44 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     // --------------------------------------------------------------------------
 
     /// @inheritdoc ILookaheadStore
+    function isLookaheadOperatorValid(
+        uint256 _nextEpochTimestamp,
+        bytes32 _registrationRoot
+    )
+        external
+        view
+        returns (bool)
+    {
+        _validateLookaheadOperator(
+            _nextEpochTimestamp,
+            _registrationRoot,
+            getLookaheadStoreConfig().minCollateralForPreconfing,
+            preconfSlasher
+        );
+
+        return true;
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function isLookaheadPosterValid(
+        uint256 _nextEpochTimestamp,
+        bytes32 _registrationRoot
+    )
+        external
+        view
+        returns (bool)
+    {
+        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+
+        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
+            prevEpochTimestamp,
+            _registrationRoot,
+            getLookaheadStoreConfig().minCollateralForPosting,
+            lookaheadSlasher
+        );
+    }
+
+    /// @inheritdoc ILookaheadStore
     function calculateLookaheadHash(
         uint256 _epochTimestamp,
         LookaheadSlot[] memory _lookaheadSlots
@@ -392,8 +432,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
-            uint256 currentEpochTimestamp =
-                _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
             uint256 minCollateralForPreconfing =
                 getLookaheadStoreConfig().minCollateralForPreconfing;
@@ -418,8 +456,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateLookaheadOperator(
+                    _nextEpochTimestamp,
                     lookaheadSlot.registrationRoot,
-                    currentEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT,
                     minCollateralForPreconfing,
                     preconfSlasher
                 );
@@ -452,8 +490,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     }
 
     function _validateLookaheadOperator(
+        uint256 _nextEpochTimestamp,
         bytes32 _registrationRoot,
-        uint256 _timestamp,
         uint256 _minCollateral,
         address _slasher
     )
@@ -464,26 +502,30 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
+        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+
         // Use the general operator validation first
         (operatorData_, slasherCommitment_) =
-            _validateOperator(_registrationRoot, _timestamp, _minCollateral, _slasher);
+            _validateOperator(prevEpochTimestamp, _registrationRoot, _minCollateral, _slasher);
 
         // Apply lookahead-specific blacklist validation
+
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
-        // The operators within lookahead must not be blacklisted, or may have been blacklisted in
-        // the
-        // current epoch.
-        bool notBlacklisted =
-            blacklistTimestamps.blacklistedAt == 0 || blacklistTimestamps.blacklistedAt > _timestamp;
-        // If unblacklisted, the operators within lookahead must have been unblacklisted at least
-        // two slots in advance from the current epoch.
+        // To make it into the lookahead, either the operator is not blacklisted, or blacklisted
+        // in the previous or the current epoch.
+        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
+            || blacklistTimestamps.blacklistedAt > prevEpochTimestamp;
+        // If unblacklisted, the operator must have been unblacklisted before the start of the
+        // previous epoch
+        // in order to make it into the lookahead.
         bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
-            && blacklistTimestamps.unBlacklistedAt < _timestamp;
+            && blacklistTimestamps.unBlacklistedAt < prevEpochTimestamp;
         require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
     }
 
     function _validateLookaheadPoster(
+        uint256 _nextEpochTimestamp,
         bytes32 _registrationRoot,
         ISlasher.Commitment memory _commitment,
         bytes memory _commitmentSignature
@@ -491,9 +533,11 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         internal
         view
     {
+        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
+            prevEpochTimestamp,
             _registrationRoot,
-            block.timestamp,
             getLookaheadStoreConfig().minCollateralForPosting,
             lookaheadSlasher
         );
@@ -503,12 +547,15 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
     }
 
-    /// @dev Validates if the operator is registered and has not been slashed at the given epoch
-    /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
-    /// validate the registration and slashing status.
+    /// @dev Validates if the operator is allowed to post a lookahead, or be present within a
+    /// lookahead as
+    // a preconfer.
+    // It uses the starting timestamp of the previous epoch as the reference timestamp for checking
+    // the
+    // validity conditions.
     function _validateOperator(
+        uint256 _prevEpochTimestamp,
         bytes32 _registrationRoot,
-        uint256 _timestamp,
         uint256 _minCollateral,
         address _slasher
     )
@@ -520,49 +567,42 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         )
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
-        // The lookahead poster must be registered at least one slot in advanced from posting slot.
-        // The operators within lookahead must be registered at least two slots in advanced from the
-        // current epoch.
+
+        // Operator must be registered before the start of the previous epoch
         require(
-            operatorData_.registeredAt != 0 && operatorData_.registeredAt < _timestamp,
+            operatorData_.registeredAt != 0 && operatorData_.registeredAt < _prevEpochTimestamp,
             OperatorHasNotRegistered()
         );
 
-        // The poster must not have unregistered or been slashed.
-        // The operators within lookahead may have unregistered or been slashed in the
-        // current epoch.
+        // If unregistered, the operator must have unregistered within the previous or current epoch
         require(
             operatorData_.unregisteredAt == type(uint48).max
-                || operatorData_.unregisteredAt > _timestamp,
+                || operatorData_.unregisteredAt > _prevEpochTimestamp,
             OperatorHasUnregistered()
         );
+
+        // If slashed, the operator must have been slashed within the previous or current epoch
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt > _timestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt > _prevEpochTimestamp,
             OperatorHasBeenSlashed()
         );
 
-        // For the poster, we consider the latest collateral value.
-        // For the operators within lookahead, we consider the collateral value at the start of
-        // the current epoch.
-        uint256 collateralWei = _slasher == lookaheadSlasher
-            ? operatorData_.collateralWei
-            : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
+        // Operator must have enough collateral at the beginning of the previous epoch
+        uint256 collateralWei = urc.getHistoricalCollateral(_registrationRoot, _prevEpochTimestamp);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
 
-        // The lookahead poster must have opted in at least one slot in advanced from posting slot.
-        // The operators within lookahead must have opted in at least two slots in advanced from
-        // the current epoch.
+        // Operator must have opted into the slasher before the start of the previous epoch
         require(
-            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt < _timestamp,
+            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt < _prevEpochTimestamp,
             OperatorHasNotOptedIn()
         );
 
-        // The lookahead poster must not have opted out.
-        // The operators within lookahead may have opted out in the current epoch.
+        // If opted out, the operator must have opted out within the previous or current epoch
         require(
-            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt > _timestamp,
+            slasherCommitment_.optedOutAt == 0
+                || slasherCommitment_.optedOutAt > _prevEpochTimestamp,
             OperatorHasNotOptedIn()
         );
     }
