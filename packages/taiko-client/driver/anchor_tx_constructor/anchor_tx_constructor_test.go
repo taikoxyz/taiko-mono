@@ -55,7 +55,7 @@ func TestNewAnchorTransactor(t *testing.T) {
 	head, err := client.L2.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
-	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
+	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Number, head.Hash())
 	require.Nil(t, err)
 	require.True(t, opts.NoSend)
 	require.Equal(t, goldenTouchAddress, opts.From)
@@ -73,7 +73,7 @@ func TestCancelCtxTransactOpts(t *testing.T) {
 	require.Nil(t, err)
 	c, err := New(client)
 	require.Nil(t, err)
-	opts, err := c.transactOpts(ctx, common.Big1, common.Big256, head.Hash())
+	opts, err := c.transactOpts(ctx, common.Big1, common.Big256, head.Number, head.Hash())
 	require.Nil(t, opts)
 	require.ErrorContains(t, err, "context canceled")
 }

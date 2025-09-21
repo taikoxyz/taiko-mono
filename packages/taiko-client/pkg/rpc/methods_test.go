@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -23,7 +24,7 @@ func TestL2AccountNonce(t *testing.T) {
 	header, err := client.L2.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
-	nonce, err := client.L2AccountNonce(context.Background(), testAddress, header.Hash())
+	nonce, err := client.L2AccountNonce(context.Background(), testAddress, rpc.BlockNumberOrHashWithHash(header.Hash(), false))
 
 	require.Nil(t, err)
 	require.Zero(t, nonce)

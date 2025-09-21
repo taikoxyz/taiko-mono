@@ -51,7 +51,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Number, parent.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction options: %w", err)
 	}
