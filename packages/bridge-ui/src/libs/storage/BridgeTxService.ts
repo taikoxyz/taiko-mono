@@ -134,7 +134,7 @@ export class BridgeTxService {
         blockNumber: Number(receipt.blockNumber),
       });
     } catch (error) {
-      //TODO: handle error
+      log(`Error getting bridge message sent for tx ${srcTxHash}: ${error}`);
       console.error('Error getting bridge message sent', error);
 
       return bridgeTx;
