@@ -240,56 +240,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             IRegistry(urc).getOperatorData(registrationProof.registrationRoot);
 
         // This is the same reference timestamp that is used in the lookahead store
-        uint256 referenceTimestamp = _previousEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 referenceTimestamp =
+            _previousEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Verify that this operator was valid at the reference timestamp.
-        require(
-            operatorData.registeredAt != 0 && operatorData.registeredAt < referenceTimestamp,
-            OperatorHasNotRegistered()
+        // This reverts if the operator is not valid at the reference timestamp.
+        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
+            referenceTimestamp, registrationProof.registrationRoot
         );
-        require(
-            operatorData.unregisteredAt == type(uint48).max
-                || operatorData.unregisteredAt > referenceTimestamp,
-            OperatorHasUnregistered()
-        );
-        require(
-            operatorData.slashedAt == 0 || operatorData.slashedAt > referenceTimestamp,
-            OperatorHasBeenSlashed()
-        );
-
-        // Verify that the operator was opted in at the reference timestamp.
-        IRegistry.SlasherCommitment memory slasherCommitment =
-            IRegistry(urc).getSlasherCommitment(registrationProof.registrationRoot, preconfSlasher);
-
-        require(
-            slasherCommitment.optedInAt != 0 && slasherCommitment.optedInAt < referenceTimestamp,
-            OperatorHasNotOptedIn()
-        );
-        require(
-            slasherCommitment.optedOutAt == 0 || slasherCommitment.optedOutAt > referenceTimestamp,
-            OperatorHasNotOptedIn()
-        );
-
-        // Verify that the operator had sufficient collateral at the reference timestamp.
-        uint256 collateral = IRegistry(urc).getHistoricalCollateral(
-            registrationProof.registrationRoot, referenceTimestamp
-        );
-
-        require(
-            collateral
-                > ILookaheadStore(lookaheadStore).getLookaheadStoreConfig().minCollateralForPreconfing,
-            OperatorHasInsufficientCollateral()
-        );
-
-        IBlacklist.BlacklistTimestamps memory blacklistTimestamps =
-            IBlacklist(lookaheadStore).getBlacklist(registrationProof.registrationRoot);
-
-        // Verify that the operator was not blacklisted at the reference timestamp
-        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
-            || blacklistTimestamps.blacklistedAt > referenceTimestamp;
-        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
-            && blacklistTimestamps.unBlacklistedAt < referenceTimestamp;
-        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
     }
 
     // Internal helpers
