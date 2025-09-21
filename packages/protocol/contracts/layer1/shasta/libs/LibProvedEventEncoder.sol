@@ -69,34 +69,54 @@ library LibProvedEventEncoder {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
+        ptr = _decodeBasicPayload(payload_, ptr);
+        _decodeBondInstructions(payload_, ptr);
+    }
 
+    /// @notice Decodes basic payload fields
+    function _decodeBasicPayload(
+        IInbox.ProvedEventPayload memory payload_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
         // Decode proposalId (uint48)
-        (payload_.proposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.proposalId, newPtr_) = P.unpackUint48(ptr);
 
         // Decode Transition struct
-        (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
-        // Decode Checkpoint
-        (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+        (payload_.transition.proposalHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (payload_.transition.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
 
-        // Decode TransitionRecord
-        (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
-        (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
+        // Decode Checkpoint
+        (payload_.transition.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
+        (payload_.transition.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (payload_.transition.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
+
+        // Decode TransitionRecord basic fields
+        (payload_.transitionRecord.span, newPtr_) = P.unpackUint8(newPtr_);
+        (payload_.transitionRecord.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (payload_.transitionRecord.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode TransitionMetadata
-        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
+        (payload_.metadata.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (payload_.metadata.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+    }
 
-        // Decode bond instructions array length (uint16)
+    /// @notice Decodes bond instructions array
+    function _decodeBondInstructions(
+        IInbox.ProvedEventPayload memory payload_,
+        uint256 ptr
+    )
+        private
+        pure
+    {
+        // Decode bond instructions array length
         uint16 arrayLength;
         (arrayLength, ptr) = P.unpackUint16(ptr);
 
-        // Decode bond instructions
         payload_.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i; i < arrayLength; ++i) {
             (payload_.transitionRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);

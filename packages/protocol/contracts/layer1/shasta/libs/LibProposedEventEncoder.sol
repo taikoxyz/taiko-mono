@@ -67,46 +67,74 @@ library LibProposedEventEncoder {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
+        ptr = _decodeProposal(payload_, ptr);
+        ptr = _decodeDerivation(payload_, ptr);
+        _decodeCoreState(payload_, ptr);
+    }
 
-        // Decode Proposal
-        (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
-        (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
+    /// @notice Decodes proposal fields
+    function _decodeProposal(
+        IInbox.ProposedEventPayload memory payload_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        (payload_.proposal.id, newPtr_) = P.unpackUint48(ptr);
+        (payload_.proposal.proposer, newPtr_) = P.unpackAddress(newPtr_);
+        (payload_.proposal.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
+    }
 
-        // Decode derivation fields
-        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
+    /// @notice Decodes derivation fields and blob slice
+    function _decodeDerivation(
+        IInbox.ProposedEventPayload memory payload_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        (payload_.derivation.originBlockNumber, newPtr_) = P.unpackUint48(ptr);
+        (payload_.derivation.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         uint8 isForcedInclusion;
-        (isForcedInclusion, ptr) = P.unpackUint8(ptr);
+        (isForcedInclusion, newPtr_) = P.unpackUint8(newPtr_);
         payload_.derivation.isForcedInclusion = isForcedInclusion != 0;
 
-        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+        (payload_.derivation.basefeeSharingPctg, newPtr_) = P.unpackUint8(newPtr_);
 
         // Decode blob slice
         uint24 blobHashesLength;
-        (blobHashesLength, ptr) = P.unpackUint24(ptr);
+        (blobHashesLength, newPtr_) = P.unpackUint24(newPtr_);
 
         payload_.derivation.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
-            (payload_.derivation.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
+            (payload_.derivation.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
         }
 
-        (payload_.derivation.blobSlice.offset, ptr) = P.unpackUint24(ptr);
-        (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.derivation.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
+        (payload_.derivation.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
 
-        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (payload_.proposal.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
+    }
 
-        // Decode core state
+    /// @notice Decodes core state fields
+    function _decodeCoreState(
+        IInbox.ProposedEventPayload memory payload_,
+        uint256 ptr
+    )
+        private
+        pure
+    {
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.bondInstructionsHash,) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent

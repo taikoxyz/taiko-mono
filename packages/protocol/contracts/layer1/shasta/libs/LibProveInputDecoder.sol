@@ -50,30 +50,53 @@ library LibProveInputDecoder {
     /// @param _data The encoded data
     /// @return input_ The decoded ProveInput
     function decode(bytes memory _data) internal pure returns (IInbox.ProveInput memory input_) {
-        // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
+        ptr = _decodeProposalsArray(input_, ptr);
+        ptr = _decodeTransitionsArray(input_, ptr);
+        _decodeMetadataArray(input_, ptr);
+    }
 
-        // 1. Decode Proposals array
+    /// @notice Decodes proposals array
+    function _decodeProposalsArray(
+        IInbox.ProveInput memory input_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
         uint24 proposalsLength;
-        (proposalsLength, ptr) = P.unpackUint24(ptr);
+        (proposalsLength, newPtr_) = P.unpackUint24(ptr);
         input_.proposals = new IInbox.Proposal[](proposalsLength);
         for (uint256 i; i < proposalsLength; ++i) {
-            (input_.proposals[i], ptr) = _decodeProposal(ptr);
+            (input_.proposals[i], newPtr_) = _decodeProposal(newPtr_);
         }
+    }
 
-        // 2. Decode Transitions array
+    /// @notice Decodes transitions array
+    function _decodeTransitionsArray(
+        IInbox.ProveInput memory input_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
         uint24 transitionsLength;
-        (transitionsLength, ptr) = P.unpackUint24(ptr);
-        require(transitionsLength == proposalsLength, ProposalTransitionLengthMismatch());
+        (transitionsLength, newPtr_) = P.unpackUint24(ptr);
+        require(transitionsLength == input_.proposals.length, ProposalTransitionLengthMismatch());
         input_.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (input_.transitions[i], ptr) = _decodeTransition(ptr);
+            (input_.transitions[i], newPtr_) = _decodeTransition(newPtr_);
         }
+    }
 
-        // 3. Decode Metadata array (reuse transitions length)
-        input_.metadata = new IInbox.TransitionMetadata[](transitionsLength);
-        for (uint256 i; i < transitionsLength; ++i) {
-            (input_.metadata[i], ptr) = _decodeMetadata(ptr);
+    /// @notice Decodes metadata array
+    function _decodeMetadataArray(IInbox.ProveInput memory input_, uint256 ptr) private pure {
+        uint256 newPtr_ = ptr;
+        input_.metadata = new IInbox.TransitionMetadata[](input_.transitions.length);
+        for (uint256 i; i < input_.transitions.length; ++i) {
+            (input_.metadata[i], newPtr_) = _decodeMetadata(newPtr_);
         }
     }
 

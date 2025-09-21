@@ -13,9 +13,6 @@ import { LibHashing } from "../libs/LibHashing.sol";
 ///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1, InboxOptimized2, and InboxOptimized3
 /// @custom:security-contact security@taiko.xyz
-/// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
-///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
-///      Example: FOUNDRY_PROFILE=layer1o forge build
 /// contracts/layer1/shasta/impl/InboxOptimized4.sol
 abstract contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------

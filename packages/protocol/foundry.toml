@@ -65,6 +65,10 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 evm_version = "prague"
+via_ir = false
+yul = true
+optimizer_runs = 200
+memory_limit = 4_294_967_296
 
 [profile.layer2]
 src = "contracts/layer2"
@@ -87,16 +91,3 @@ script = "script/layer2"
 out = "out/genesis"
 evm_version = "shanghai"
 
-# Layer1 Optimized profile: Enables via_ir and yul optimizations for maximum contract size reduction
-# Used for contracts that can handle aggressive IR compilation (e.g., Inbox implementations)  
-# Usage: FOUNDRY_PROFILE=layer1o forge build <contracts> --sizes
-[profile.layer1o]
-src = "contracts/layer1"
-test = "test/layer1"
-script = "script/layer1"
-out = "out/layer1"
-evm_version = "prague"
-via_ir = true
-yul = true
-optimizer_runs = 200
-memory_limit = 4_294_967_296

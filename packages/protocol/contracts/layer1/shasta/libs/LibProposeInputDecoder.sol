@@ -79,55 +79,70 @@ library LibProposeInputDecoder {
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput
     function decode(bytes memory _data) internal pure returns (IInbox.ProposeInput memory input_) {
-        // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
+        // Split into two parts to avoid stack depth issues while maintaining exact order
+        ptr = _decodeFirstHalf(input_, ptr);
+        _decodeSecondHalf(input_, ptr);
+    }
+
+    /// @notice Decodes first half (deadline, coreState, proposals)
+    function _decodeFirstHalf(
+        IInbox.ProposeInput memory input_,
+        uint256 ptr
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
         // 1. Decode deadline
-        (input_.deadline, ptr) = P.unpackUint48(ptr);
+        (input_.deadline, newPtr_) = P.unpackUint48(ptr);
 
         // 2. Decode CoreState
-        (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.nextProposalId, newPtr_) = P.unpackUint48(newPtr_);
+        (input_.coreState.nextProposalBlockId, newPtr_) = P.unpackUint48(newPtr_);
+        (input_.coreState.lastFinalizedProposalId, newPtr_) = P.unpackUint48(newPtr_);
+        (input_.coreState.lastFinalizedTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (input_.coreState.bondInstructionsHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // 3. Decode parent proposals array
         uint24 proposalsLength;
-        (proposalsLength, ptr) = P.unpackUint24(ptr);
+        (proposalsLength, newPtr_) = P.unpackUint24(newPtr_);
         input_.parentProposals = new IInbox.Proposal[](proposalsLength);
         for (uint256 i; i < proposalsLength; ++i) {
-            (input_.parentProposals[i], ptr) = _decodeProposal(ptr);
+            (input_.parentProposals[i], newPtr_) = _decodeProposal(newPtr_);
         }
+    }
+
+    /// @notice Decodes second half (blobReference, transitionRecords, checkpoint)
+    function _decodeSecondHalf(IInbox.ProposeInput memory input_, uint256 ptr) private pure {
+        uint256 newPtr_ = ptr;
 
         // 4. Decode BlobReference
-        (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
-        (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
-        (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
+        (input_.blobReference.blobStartIndex, newPtr_) = P.unpackUint16(newPtr_);
+        (input_.blobReference.numBlobs, newPtr_) = P.unpackUint16(newPtr_);
+        (input_.blobReference.offset, newPtr_) = P.unpackUint24(newPtr_);
 
         // 5. Decode TransitionRecords array
         uint24 transitionRecordsLength;
-        (transitionRecordsLength, ptr) = P.unpackUint24(ptr);
+        (transitionRecordsLength, newPtr_) = P.unpackUint24(newPtr_);
         input_.transitionRecords = new IInbox.TransitionRecord[](transitionRecordsLength);
         for (uint256 i; i < transitionRecordsLength; ++i) {
-            (input_.transitionRecords[i], ptr) = _decodeTransitionRecord(ptr);
+            (input_.transitionRecords[i], newPtr_) = _decodeTransitionRecord(newPtr_);
         }
 
         // 6. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
-        (headerFlag, ptr) = P.unpackUint8(ptr);
+        (headerFlag, newPtr_) = P.unpackUint8(newPtr_);
 
-        // If flag is 0, the header is empty, leave it as default (all zeros)
-        // If flag is 1, decode the full header
         if (headerFlag == 1) {
-            (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-            (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-            (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+            (input_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
+            (input_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+            (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
         }
 
-        // else: checkpoint remains as default (all zeros)
         // 7. Decode numForcedInclusions
-        (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
+        (input_.numForcedInclusions,) = P.unpackUint8(newPtr_);
     }
 
     /// @notice Encode a single Proposal
