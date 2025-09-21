@@ -531,8 +531,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
+	var opts = &bind.CallOpts{Context: ctx, BlockHash: parent.Hash()}
+	if parent.Number.Uint64() == 0 {
+		// For genesis parent block, we need to use the genesis core state.
+		opts = &bind.CallOpts{BlockNumber: common.Big0, Context: ctx}
+	}
 
-	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
+	latestState, err := rpc.ShastaClients.Anchor.GetState(opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
