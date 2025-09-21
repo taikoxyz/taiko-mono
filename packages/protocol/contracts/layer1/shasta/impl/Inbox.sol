@@ -220,10 +220,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify capacity for new proposal (now just 1 proposal with multiple sources)
         uint256 availableCapacity = _getAvailableCapacity(coreState);
-        require(availableCapacity >= 1, ExceedsUnfinalizedProposalCapacity());
-
-        // Collect all derivation sources (forced inclusions + regular proposal)
-        DerivationSource[] memory sources = _buildDerivationSources(input);
+        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
         // none remains in the queue that is due.
@@ -234,6 +231,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 ),
             UnprocessedForcedInclusionIsDue()
         );
+
+        // Collect all derivation sources (forced inclusions + regular proposal)
+        DerivationSource[] memory sources = _buildDerivationSources(input);
 
         // Create single proposal with multiple sources
         _propose(coreState, sources, endOfSubmissionWindowTimestamp);
