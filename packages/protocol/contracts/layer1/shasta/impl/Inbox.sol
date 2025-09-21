@@ -198,45 +198,72 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         external
         nonReentrant
     {
-        // Validate proposer
-        uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
-
-        // Decode and validate input data
-        ProposeInput memory input = _decodeProposeInput(_data);
-
-        _validateProposeInput(input);
-
-        // Verify parentProposals[0] is actually the last proposal stored on-chain.
-        _verifyChainHead(input.parentProposals);
-
-        // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-        CoreState memory coreState = _finalize(input);
-
         unchecked {
+            // Validate proposer
+            uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+
+            // Decode and validate input data
+            ProposeInput memory input = _decodeProposeInput(_data);
+
+            _validateProposeInput(input);
+
+            // Verify parentProposals[0] is actually the last proposal stored on-chain.
+            _verifyChainHead(input.parentProposals);
+
+            // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
+            CoreState memory coreState = _finalize(input);
+
             // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the
             // ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
+
+            // Verify capacity for new proposal (now just 1 proposal with multiple sources)
+            require(_getAvailableCapacity(coreState) > 0, ExceedsUnfinalizedProposalCapacity());
+
+            // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
+            // none remains in the queue that is due.
+            require(
+                input.numForcedInclusions >= _minForcedInclusionCount
+                    || !LibForcedInclusion.isOldestForcedInclusionDue(
+                        _forcedInclusionStorage, _forcedInclusionDelay
+                    ),
+                UnprocessedForcedInclusionIsDue()
+            );
+
+            // use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+
+            // Collect all derivation sources (forced inclusions + regular proposal)
+            DerivationSource[] memory sources = _buildDerivationSources(input);
+
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: sources
+            });
+
+            // Increment nextProposalId (nextProposalBlockId was already set in propose())
+            uint48 proposalId = coreState.nextProposalId++;
+
+            Proposal memory proposal = Proposal({
+                id: proposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                coreStateHash: _hashCoreState(coreState),
+                derivationHash: _hashDerivation(derivation)
+            });
+
+            _setProposalHash(proposal.id, _hashProposal(proposal));
+
+            ProposedEventPayload memory payload = ProposedEventPayload({
+                proposal: proposal,
+                derivation: derivation,
+                coreState: coreState
+            });
+            emit Proposed(_encodeProposedEventData(payload));
         }
-
-        // Verify capacity for new proposal (now just 1 proposal with multiple sources)
-        uint256 availableCapacity = _getAvailableCapacity(coreState);
-        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
-
-        // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
-        // none remains in the queue that is due.
-        require(
-            input.numForcedInclusions >= _minForcedInclusionCount
-                || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, _forcedInclusionDelay
-                ),
-            UnprocessedForcedInclusionIsDue()
-        );
-
-        // Collect all derivation sources (forced inclusions + regular proposal)
-        DerivationSource[] memory sources = _buildDerivationSources(input);
-
-        // Create single proposal with multiple sources
-        _propose(coreState, sources, endOfSubmissionWindowTimestamp);
     }
 
     /// @inheritdoc IInbox
@@ -441,6 +468,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         TransitionRecordHashAndDeadline memory hashAndDeadline =
             _transitionRecordHashAndDeadline[compositeKey];
+
         if (hashAndDeadline.recordHash == transitionRecordHash) return;
 
         require(hashAndDeadline.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
@@ -449,15 +477,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             recordHash: transitionRecordHash
         });
 
-        bytes memory payload = _encodeProvedEventData(
-            ProvedEventPayload({
-                proposalId: _proposalId,
-                transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: _metadata
-            })
-        );
-        emit Proved(payload);
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            proposalId: _proposalId,
+            transition: _transition,
+            transitionRecord: _transitionRecord,
+            metadata: _metadata
+        });
+        emit Proved(_encodeProvedEventData(payload));
     }
 
     /// @dev Retrieves transition record hash from storage
@@ -664,59 +690,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
         );
-    }
-
-    /// @dev Creates and stores a new proposal with multiple derivation sources
-    /// @notice Increments nextProposalId and emits Proposed event
-    /// @param _coreState Current state whose hash is stored in the proposal
-    /// @param _sources Array of derivation sources (forced inclusions and/or regular proposal)
-    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
-    /// preconfer can propose.
-    /// @return Updated core state with incremented nextProposalId
-    function _propose(
-        CoreState memory _coreState,
-        DerivationSource[] memory _sources,
-        uint48 _endOfSubmissionWindowTimestamp
-    )
-        private
-        returns (CoreState memory)
-    {
-        unchecked {
-            // use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
-
-            Derivation memory derivation = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: _sources
-            });
-
-            // Increment nextProposalId (nextProposalBlockId was already set in propose())
-            uint48 proposalId = _coreState.nextProposalId++;
-
-            Proposal memory proposal = Proposal({
-                id: proposalId,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                coreStateHash: _hashCoreState(_coreState),
-                derivationHash: _hashDerivation(derivation)
-            });
-
-            _setProposalHash(proposal.id, _hashProposal(proposal));
-
-            bytes memory payload = _encodeProposedEventData(
-                ProposedEventPayload({
-                    proposal: proposal,
-                    derivation: derivation,
-                    coreState: _coreState
-                })
-            );
-            emit Proposed(payload);
-
-            return _coreState;
-        }
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
