@@ -6,8 +6,6 @@ import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxOptimized3
 /// @notice Third optimization layer focusing on calldata cost reduction
