@@ -11,6 +11,7 @@ import (
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	gethRpc "github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -97,7 +98,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Number, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +139,20 @@ func (c *AnchorTxConstructor) transactOpts(
 	ctx context.Context,
 	l2Height *big.Int,
 	baseFee *big.Int,
+	parentNumber *big.Int,
 	parentHash common.Hash,
 ) (*bind.TransactOpts, error) {
 	var (
 		signer = types.LatestSignerForChainID(c.rpc.L2.ChainID)
 	)
+	var hashOrNumber = gethRpc.BlockNumberOrHashWithHash(parentHash, false)
+	if parentNumber.Uint64() == 0 {
+		// For genesis parent block, we need to use the genesis core state.
+		hashOrNumber = gethRpc.BlockNumberOrHashWithNumber(gethRpc.BlockNumber(0))
+	}
 
 	// Get the nonce of golden touch account at the specified parentHeight.
-	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHash)
+	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, hashOrNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account nonce: %w", err)
 	}

@@ -474,7 +474,7 @@ func (c *Client) GetPoolContent(
 func (c *Client) L2AccountNonce(
 	ctx context.Context,
 	account common.Address,
-	blockHash common.Hash,
+	blockNumberOrHash rpc.BlockNumberOrHash,
 ) (uint64, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -485,7 +485,7 @@ func (c *Client) L2AccountNonce(
 		&result,
 		"eth_getTransactionCount",
 		account,
-		rpc.BlockNumberOrHashWithHash(blockHash, false),
+		blockNumberOrHash,
 	)
 }
 
