@@ -285,6 +285,8 @@ func (s *Syncer) processShastaProposal(
 		return err
 	}
 
+	log.Info("Latest Shasta anchor state", "proposalID", meta.GetProposal().Id, "latestState", latestState)
+
 	if !proposalManifest.Default {
 		// Proposer and `isLowBondProposal` Validation
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
@@ -321,6 +323,8 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	log.Info("123")
+
 	if proposalManifest.Default {
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
@@ -335,6 +339,8 @@ func (s *Syncer) processShastaProposal(
 		}
 		log.Info("Use default Shasta proposal manifest", "proposalID", meta.GetProposal().Id)
 	}
+
+	log.Info("Before insert Shasta blocks", "proposalID", meta.GetProposal().Id, "blocks", len(proposalManifest.Blocks), "parent", proposalManifest.ParentBlock.Number(), "hash", proposalManifest.ParentBlock.Hash())
 
 	// Insert new blocks to L2 EE's chain.
 	return s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalManifest, endIter)
