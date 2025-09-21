@@ -856,10 +856,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Process forced inclusions if any
         if (_input.numForcedInclusions > 0) {
-            numSources = forcedInclusions.length;
             forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
+            numSources = forcedInclusions.length;
         }
 
         // Check if we have a regular proposal
