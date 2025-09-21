@@ -99,7 +99,7 @@ func (s *Indexer) Start() error {
 	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.GetLastProposal())
 	// Fetch historical transition records from the last finalized proposal.
 	if s.proposals.Count() != 0 {
-		lastFinializedProposal, ok := s.proposals.Get(s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64())
+		lastFinializedProposal, ok := s.proposals.Get(s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64() % s.bufferSize)
 		if !ok {
 			return fmt.Errorf("last finalized proposal not found: %d", s.GetLastProposal().CoreState.LastFinalizedProposalId)
 		}
