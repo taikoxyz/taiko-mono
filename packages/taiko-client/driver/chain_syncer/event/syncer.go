@@ -278,9 +278,13 @@ func (s *Syncer) processShastaProposal(
 
 	log.Info("Fetched Shasta proposal manifest parent", "proposalID", meta.GetProposal().Id, "blocks", len(proposalManifest.Blocks), "parent", proposalManifest.ParentBlock.Number(), "hash", proposalManifest.ParentBlock.Hash())
 
-	latestState, err := s.rpc.ShastaClients.Anchor.GetState(
-		&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
-	)
+	opts := &bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx}
+	if proposalManifest.ParentBlock.Number().Uint64() == 0 {
+		// For genesis parent block, we need to use the genesis core state.
+		opts = &bind.CallOpts{BlockNumber: common.Big0, Context: ctx}
+	}
+
+	latestState, err := s.rpc.ShastaClients.Anchor.GetState(opts)
 	if err != nil {
 		return err
 	}
@@ -290,7 +294,7 @@ func (s *Syncer) processShastaProposal(
 	if !proposalManifest.Default {
 		// Proposer and `isLowBondProposal` Validation
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
+			opts,
 			meta.GetProposal().Id,
 			meta.GetProposal().Proposer,
 			proposalManifest.ProverAuthBytes,
