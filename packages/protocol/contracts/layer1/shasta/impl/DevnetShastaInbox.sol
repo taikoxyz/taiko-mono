@@ -8,10 +8,6 @@ import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.so
 /// @title DevnetShastaInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
-/// @dev DEPLOYMENT: CRITICAL - Must use FOUNDRY_PROFILE=layer1o for deployment.
-///      Contract size (26,293 bytes) exceeds 24KB limit without optimization.
-///      Example: FOUNDRY_PROFILE=layer1o forge build
-/// contracts/layer1/shasta/impl/DevnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract DevnetShastaInbox is InboxOptimized1 {
     // ---------------------------------------------------------------
