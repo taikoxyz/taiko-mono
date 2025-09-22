@@ -112,7 +112,7 @@ func setupSharedContainer() error { //nolint:unused
 }
 
 // runMigrations runs the up migrations
-func runMigrations(sqlDB *sql.DB) error { //nolint:unused
+func runMigrations(sqlDB *sql.DB) error {
 	if err := goose.SetDialect("mysql"); err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func runMigrations(sqlDB *sql.DB) error { //nolint:unused
 }
 
 // cleanDatabase truncates all tables to reset data while keeping schema
-func cleanDatabase(sqlDB *sql.DB) error { //nolint:unused
+func cleanDatabase(sqlDB *sql.DB) error {
 	// Disable foreign key checks temporarily
 	if _, err := sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 0"); err != nil {
 		return err

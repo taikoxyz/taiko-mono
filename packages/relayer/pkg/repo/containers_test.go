@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 }
 
 // setupSharedContainer initializes the shared MySQL container once
-func setupSharedContainer() error { //nolint:unused
+func setupSharedContainer() error {
 	var err error
 
 	setupOnce.Do(func() {
@@ -112,7 +112,7 @@ func setupSharedContainer() error { //nolint:unused
 }
 
 // runMigrations runs the up migrations
-func runMigrations(sqlDB *sql.DB) error { //nolint:unused
+func runMigrations(sqlDB *sql.DB) error {
 	if err := goose.SetDialect("mysql"); err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func runMigrations(sqlDB *sql.DB) error { //nolint:unused
 }
 
 // cleanDatabase truncates all tables to reset data while keeping schema
-func cleanDatabase(sqlDB *sql.DB) error { //nolint:unused
+func cleanDatabase(sqlDB *sql.DB) error {
 	// Disable foreign key checks temporarily
 	if _, err := sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 0"); err != nil {
 		return err
@@ -151,7 +151,7 @@ func cleanDatabase(sqlDB *sql.DB) error { //nolint:unused
 }
 
 // testMysql provides a clean database for each test
-func testMysql(t *testing.T) (db.DB, func(), error) { //nolint:unused
+func testMysql(t *testing.T) (db.DB, func(), error) {
 	// Ensure the shared container is set up
 	if err := setupSharedContainer(); err != nil {
 		t.Fatal("Failed to setup shared container:", err)
