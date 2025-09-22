@@ -89,6 +89,7 @@ func setupSharedContainer() error {
 		if err != nil {
 			return
 		}
+
 		mp, err := sharedContainer.MappedPort(ctx, "3306/tcp")
 		if err != nil {
 			return
@@ -102,6 +103,7 @@ func setupSharedContainer() error {
 		// Final sanity ping with context + backoff (usually instant thanks to the wait strategy).
 		backoff := time.Second
 		deadline := time.Now().Add(1 * time.Minute)
+
 		for {
 			var testDB *gorm.DB
 
@@ -126,13 +128,17 @@ func setupSharedContainer() error {
 						break
 					}
 
-					err = pingErr
+					// Store ping error for potential debugging
+					_ = pingErr
 				}
 			}
+
 			if time.Now().After(deadline) {
-				return // leave err set
+				return
 			}
+
 			time.Sleep(backoff)
+
 			if backoff < 5*time.Second {
 				backoff *= 2
 			}
