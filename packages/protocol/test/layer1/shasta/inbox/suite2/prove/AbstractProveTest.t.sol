@@ -167,6 +167,33 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         assertEq(eventCount, expectedEvents, "Unexpected number of Proved events");
     }
 
+    /// @dev Tests proving 10 consecutive proposals - demonstrates benefit of assembly bulk-copy optimization
+    /// @notice At 10 proposals, bond instruction merging uses optimized assembly operations (>8 threshold)
+    /// forge-config: default.isolate = true
+    function test_prove_tenConsecutiveProposals() public {
+        IInbox.Proposal[] memory proposals = _createConsecutiveProposals(10);
+        bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
+        bytes memory proof = _createValidProof();
+
+        // Check expected events based on implementation
+        (uint256 expectedEvents,) = _getExpectedAggregationBehavior(10, true);
+
+        // Record events to verify count later
+        vm.recordLogs();
+
+        vm.prank(currentProver);
+        vm.startSnapshotGas(
+            "shasta-prove", string.concat("prove_consecutive_10_", getTestContractName())
+        );
+        inbox.prove(proveData, proof);
+        vm.stopSnapshotGas();
+
+        // Verify correct number of events were emitted
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 eventCount = _countProvedEvents(logs);
+        assertEq(eventCount, expectedEvents, "Unexpected number of Proved events");
+    }
+
     /// @dev Tests proving non-consecutive proposals with single gap [1,3] - no aggregation possible
     /// forge-config: default.isolate = true
     function test_prove_nonConsecutive_singleGap() public {
