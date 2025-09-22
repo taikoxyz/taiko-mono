@@ -77,6 +77,15 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 
+[profile.layer1o]
+src = "contracts/layer1"
+test = "test/layer1"
+script = "script/layer1"
+out = "out/layer1"
+optimizer = true
+optimizer_runs = 800
+yul = true
+
 [profile.layer2]
 src = "contracts/layer2"
 test = "test/layer2"

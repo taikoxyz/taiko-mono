@@ -23,9 +23,6 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 ///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
-/// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
-///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
-///      Example: FOUNDRY_PROFILE=layer1o forge build
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
