@@ -66,7 +66,8 @@ type preconfBlockChainSyncer interface {
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
 	rpc                           *rpc.Client
-	chainSyncer                   preconfBlockChainSyncer
+	pacayaChainSyncer             preconfBlockChainSyncer
+	shastaChainSyncer             preconfBlockChainSyncer
 	shastaIndexer                 *shastaIndexer.Indexer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
@@ -99,7 +100,8 @@ func New(
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
 	taikoAnchorAddress common.Address,
-	chainSyncer preconfBlockChainSyncer,
+	pacayaChainSyncer preconfBlockChainSyncer,
+	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
@@ -131,7 +133,8 @@ func New(
 	server := &PreconfBlockAPIServer{
 		echo:                          echo.New(),
 		anchorValidator:               anchorValidator,
-		chainSyncer:                   chainSyncer,
+		pacayaChainSyncer:             pacayaChainSyncer,
+		shastaChainSyncer:             shastaChainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
 		shastaIndexer:                 shastaIndexer,
@@ -770,7 +773,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	)
 
 	// If all ancient envelopes are found, try to import them.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
@@ -804,7 +807,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	)
 
 	// Try to import all available child envelopes.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
@@ -1184,7 +1187,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(
 		ctx,
 		[]*preconf.Envelope{
 			{

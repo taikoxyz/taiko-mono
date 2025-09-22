@@ -1,6 +1,7 @@
 package preconfblocks
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
@@ -119,25 +121,50 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
-	parent, err := s.rpc.L2.HeaderByHash(ctx, reqBody.ExecutableData.ParentHash)
+	parent, err := s.rpc.L2.BlockByHash(ctx, reqBody.ExecutableData.ParentHash)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if s.latestSeenProposal != nil && parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
-		log.Warn(
-			"The parent block ID is smaller than the latest block ID seen in event",
-			"parentBlockID", parent.Number.Uint64(),
-			"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
-		)
+	if s.latestSeenProposal != nil {
+		if s.latestSeenProposal.IsShasta() {
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.UpdateStateSelector) &&
+				s.latestSeenProposal.IsShasta() {
+				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
 
-		return s.returnError(c, http.StatusBadRequest,
-			fmt.Errorf(
-				"latestBatchProposalBlockID: %v, parentBlockID: %v",
-				s.latestSeenProposal.Pacaya().GetLastBlockID(),
-				parent.Number.Uint64(),
-			),
-		)
+				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+					log.Warn(
+						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
+						"parentProposalID", parentProposalID,
+						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetProposal().Id,
+					)
+
+					return s.returnError(c, http.StatusBadRequest,
+						fmt.Errorf(
+							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
+							s.latestSeenProposal.Shasta().GetProposal().Id,
+							parentProposalID,
+						),
+					)
+				}
+			}
+		} else {
+			if parent.NumberU64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+				log.Warn(
+					"The parent block ID is smaller than the latest block ID seen in event",
+					"parentBlockID", parent.NumberU64(),
+					"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+				)
+
+				return s.returnError(c, http.StatusBadRequest,
+					fmt.Errorf(
+						"latestBatchProposalBlockID: %v, parentBlockID: %v",
+						s.latestSeenProposal.Pacaya().GetLastBlockID(),
+						parent.NumberU64(),
+					),
+				)
+			}
+		}
 	}
 
 	endOfSequencing := false
@@ -170,10 +197,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
+	var difficulty []byte
+	if reqBody.ExecutableData.Number >= s.rpc.ShastaClients.ForkHeight.Uint64() {
+		if difficulty, err = encoding.CalculateShastaDifficulty(parent.Difficulty(), parent.Number()); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
+	} else {
+		if difficulty, err = encoding.CalculatePacayaDifficulty(
+			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+		); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
 	}
+
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
@@ -196,20 +232,20 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Insert the preconfirmation block.
-	headers, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
-		ctx,
-		[]*preconf.Envelope{
-			{
-				Payload:           executablePayload,
-				Signature:         nil,
-				IsForcedInclusion: isForcedInclusion,
-			},
-		},
-		false,
+	var (
+		headers   []*types.Header
+		envelopes = []*preconf.Envelope{{Payload: executablePayload, Signature: nil, IsForcedInclusion: isForcedInclusion}}
 	)
-	if err != nil {
-		return s.returnError(c, http.StatusInternalServerError, err)
+	if reqBody.ExecutableData.Number >= s.rpc.ShastaClients.ForkHeight.Uint64() {
+		if headers, err = s.shastaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+	} else {
+		if headers, err = s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
 	}
+
 	if len(headers) == 0 {
 		return s.returnError(c, http.StatusInternalServerError, errors.New("no inserted header returned"))
 	}

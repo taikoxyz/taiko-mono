@@ -146,6 +146,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
 			d.rpc,
 			d.shastaIndexer,
 			latestSeenProposalCh,

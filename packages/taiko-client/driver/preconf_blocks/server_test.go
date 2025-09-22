@@ -30,6 +30,7 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		nil,
+		nil,
 		s.RPCClient,
 		s.ShastaStateIndexer,
 		nil,
