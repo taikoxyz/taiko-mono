@@ -9,7 +9,6 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/shasta/impl/Inbox.sol";
-import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
 
 /// @title AbstractProveTest
 /// @notice All prove tests for Inbox implementations

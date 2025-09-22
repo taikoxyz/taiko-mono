@@ -24,16 +24,52 @@ library LibHashing {
     // Core Structure Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash transition fields
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint)
-        );
+    /// @notice Optimized hashing for blob hashes array
+    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
+    /// @param _blobHashes The blob hashes array to hash
+    /// @return The hash of the blob hashes array
+    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+        if (_blobHashes.length == 0) {
+            return EMPTY_BYTES_HASH;
+        }
+
+        // For single blob hash, use direct hashing with length
+        if (_blobHashes.length == 1) {
+            return EfficientHashLib.hash(bytes32(uint256(_blobHashes.length)), _blobHashes[0]);
+        }
+
+        // For two blob hashes
+        if (_blobHashes.length == 2) {
+            return EfficientHashLib.hash(
+                bytes32(uint256(_blobHashes.length)), _blobHashes[0], _blobHashes[1]
+            );
+        }
+
+        // For larger arrays, use memory-optimized approach
+        uint256 arrayLength = _blobHashes.length;
+        uint256 bufferSize = 32 + (arrayLength * 32);
+        bytes memory buffer = new bytes(bufferSize);
+
+        assembly {
+            // Write array length at start of buffer
+            mstore(add(buffer, 0x20), arrayLength)
+        }
+
+        // Write each blob hash directly to buffer
+        for (uint256 i; i < arrayLength; ++i) {
+            bytes32 blobHash = _blobHashes[i];
+            assembly {
+                let offset := add(0x40, mul(i, 0x20))
+                mstore(add(buffer, offset), blobHash)
+            }
+        }
+
+        // Use assembly keccak256 for final optimization
+        bytes32 result;
+        assembly {
+            result := keccak256(add(buffer, 0x20), mload(buffer))
+        }
+        return result;
     }
 
     /// @notice Optimized hashing for Checkpoint structs
@@ -61,26 +97,6 @@ library LibHashing {
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
             _coreState.lastFinalizedTransitionHash,
             _coreState.bondInstructionsHash
-        );
-    }
-
-    /// @notice Optimized hashing for Proposal structs
-    /// @dev Uses efficient multi-field hashing for all proposal fields
-    /// @param _proposal The proposal to hash
-    /// @return The hash of the proposal
-    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        // Use separate field packing to avoid address truncation
-        // Pack numeric fields together
-        bytes32 packedFields = bytes32(
-            (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
-        );
-
-        return EfficientHashLib.hash(
-            packedFields,
-            bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
-            _proposal.coreStateHash,
-            _proposal.derivationHash
         );
     }
 
@@ -129,56 +145,93 @@ library LibHashing {
         return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
     }
 
-    // ---------------------------------------------------------------
-    // Array and Complex Structure Hashing Functions
-    // ---------------------------------------------------------------
+    /// @notice Optimized hashing for Proposal structs
+    /// @dev Uses efficient multi-field hashing for all proposal fields
+    /// @param _proposal The proposal to hash
+    /// @return The hash of the proposal
+    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
+        // Use separate field packing to avoid address truncation
+        // Pack numeric fields together
+        bytes32 packedFields = bytes32(
+            (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
+                | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
+        );
 
-    /// @notice Optimized hashing for blob hashes array
-    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        if (_blobHashes.length == 0) {
-            return EMPTY_BYTES_HASH;
-        }
+        return EfficientHashLib.hash(
+            packedFields,
+            bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
+            _proposal.coreStateHash,
+            _proposal.derivationHash
+        );
+    }
 
-        // For single blob hash, use direct hashing with length
-        if (_blobHashes.length == 1) {
-            return EfficientHashLib.hash(bytes32(uint256(_blobHashes.length)), _blobHashes[0]);
-        }
+    /// @notice Optimized hashing for Transition structs
+    /// @dev Uses EfficientHashLib to hash transition fields
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
+        return EfficientHashLib.hash(
+            _transition.proposalHash,
+            _transition.parentTransitionHash,
+            hashCheckpoint(_transition.checkpoint)
+        );
+    }
 
-        // For two blob hashes
-        if (_blobHashes.length == 2) {
-            return EfficientHashLib.hash(
-                bytes32(uint256(_blobHashes.length)), _blobHashes[0], _blobHashes[1]
+    /// @notice Optimized hashing for TransitionRecord structs
+    /// @dev Efficiently hashes transition records with variable-length bond instructions
+    /// @param _transitionRecord The transition record to hash
+    /// @return The hash truncated to bytes26 for storage optimization
+    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
+        internal
+        pure
+        returns (bytes26)
+    {
+        // Hash bond instructions efficiently with explicit length inclusion
+        bytes32 bondInstructionsHash;
+        if (_transitionRecord.bondInstructions.length == 0) {
+            bondInstructionsHash = EMPTY_BYTES_HASH;
+        } else if (_transitionRecord.bondInstructions.length == 1) {
+            bondInstructionsHash = EfficientHashLib.hash(
+                bytes32(uint256(_transitionRecord.bondInstructions.length)),
+                _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
             );
-        }
+        } else {
+            // Memory-optimized approach for multiple instructions
+            // Pre-allocate buffer: 32 bytes for length + 32 bytes per instruction hash
+            uint256 arrayLength = _transitionRecord.bondInstructions.length;
+            uint256 bufferSize = 32 + (arrayLength * 32);
+            bytes memory buffer = new bytes(bufferSize);
 
-        // For larger arrays, use memory-optimized approach
-        uint256 arrayLength = _blobHashes.length;
-        uint256 bufferSize = 32 + (arrayLength * 32);
-        bytes memory buffer = new bytes(bufferSize);
-
-        assembly {
-            // Write array length at start of buffer
-            mstore(add(buffer, 0x20), arrayLength)
-        }
-
-        // Write each blob hash directly to buffer
-        for (uint256 i; i < arrayLength; ++i) {
-            bytes32 blobHash = _blobHashes[i];
             assembly {
-                let offset := add(0x40, mul(i, 0x20))
-                mstore(add(buffer, offset), blobHash)
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), arrayLength)
+            }
+
+            // Write each bond instruction hash directly to buffer
+            for (uint256 i; i < arrayLength; ++i) {
+                bytes32 instructionHash =
+                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[i]);
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
+                    mstore(add(buffer, offset), instructionHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                bondInstructionsHash := keccak256(add(buffer, 0x20), mload(buffer))
             }
         }
 
-        // Use assembly keccak256 for final optimization
-        bytes32 result;
-        assembly {
-            result := keccak256(add(buffer, 0x20), mload(buffer))
-        }
-        return result;
+        bytes32 fullHash = EfficientHashLib.hash(
+            bytes32(uint256(_transitionRecord.span)),
+            bondInstructionsHash,
+            _transitionRecord.transitionHash,
+            _transitionRecord.checkpointHash
+        );
+
+        return bytes26(fullHash);
     }
 
     /// @notice Memory-optimized hashing for arrays of Transitions
@@ -237,63 +290,6 @@ library LibHashing {
             result := keccak256(add(buffer, 0x20), mload(buffer))
         }
         return result;
-    }
-
-    /// @notice Optimized hashing for TransitionRecord structs
-    /// @dev Efficiently hashes transition records with variable-length bond instructions
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        // Hash bond instructions efficiently with explicit length inclusion
-        bytes32 bondInstructionsHash;
-        if (_transitionRecord.bondInstructions.length == 0) {
-            bondInstructionsHash = EMPTY_BYTES_HASH;
-        } else if (_transitionRecord.bondInstructions.length == 1) {
-            bondInstructionsHash = EfficientHashLib.hash(
-                bytes32(uint256(_transitionRecord.bondInstructions.length)),
-                _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
-            );
-        } else {
-            // Memory-optimized approach for multiple instructions
-            // Pre-allocate buffer: 32 bytes for length + 32 bytes per instruction hash
-            uint256 arrayLength = _transitionRecord.bondInstructions.length;
-            uint256 bufferSize = 32 + (arrayLength * 32);
-            bytes memory buffer = new bytes(bufferSize);
-
-            assembly {
-                // Write array length at start of buffer
-                mstore(add(buffer, 0x20), arrayLength)
-            }
-
-            // Write each bond instruction hash directly to buffer
-            for (uint256 i; i < arrayLength; ++i) {
-                bytes32 instructionHash =
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[i]);
-                assembly {
-                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
-                        // length + i*32
-                    mstore(add(buffer, offset), instructionHash)
-                }
-            }
-
-            // Use assembly keccak256
-            assembly {
-                bondInstructionsHash := keccak256(add(buffer, 0x20), mload(buffer))
-            }
-        }
-
-        bytes32 fullHash = EfficientHashLib.hash(
-            bytes32(uint256(_transitionRecord.span)),
-            bondInstructionsHash,
-            _transitionRecord.transitionHash,
-            _transitionRecord.checkpointHash
-        );
-
-        return bytes26(fullHash);
     }
 
     // ---------------------------------------------------------------

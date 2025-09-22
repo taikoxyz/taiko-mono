@@ -3,9 +3,7 @@ pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
 import { InboxOptimized3Deployer } from "../deployers/InboxOptimized3Deployer.sol";
-import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 // Import errors from Inbox implementation
 import "src/layer1/shasta/impl/Inbox.sol";
 
