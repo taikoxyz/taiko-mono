@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -46,7 +45,7 @@ func TestMain(m *testing.M) {
 }
 
 // setupSharedContainer initializes the shared MySQL container once
-func setupSharedContainer() error { //nolint:unused
+func setupSharedContainer() error {
 	var err error
 
 	setupOnce.Do(func() {
@@ -57,7 +56,7 @@ func setupSharedContainer() error { //nolint:unused
 				"MYSQL_ROOT_PASSWORD": dbPassword,
 				"MYSQL_DATABASE":      dbName,
 			},
-			WaitingFor: wait.ForMappedPort(nat.Port("3306/tcp")).WithStartupTimeout(2 * time.Minute),
+			WaitingFor: wait.ForMappedPort("3306/tcp"),
 		}
 
 		ctx := context.Background()
@@ -85,26 +84,32 @@ func setupSharedContainer() error { //nolint:unused
 			dbUsername, dbPassword, host, port.Int(), dbName)
 
 		// Wait a bit more for MySQL to be fully ready
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
-		// Test the connection with retries
+		// Test the connection with more retries and better error handling
 		var testDB *gorm.DB
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 30; i++ {
 			testDB, err = gorm.Open(mysql.Open(sharedDSN), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
 			if err == nil {
-				sqlDB, _ := testDB.DB()
-				if sqlDB != nil {
+				sqlDB, sqlErr := testDB.DB()
+				if sqlErr == nil && sqlDB != nil {
+					// Configure connection pool for better reliability
+					sqlDB.SetMaxOpenConns(1)
+					sqlDB.SetMaxIdleConns(1)
+					sqlDB.SetConnMaxLifetime(time.Minute * 3)
+
 					err = sqlDB.Ping()
 					if err == nil {
 						sqlDB.Close()
 						break
 					}
+					sqlDB.Close()
 				}
 			}
 
-			time.Sleep(2 * time.Second)
+			time.Sleep(3 * time.Second)
 		}
 	})
 
@@ -127,23 +132,24 @@ func cleanDatabase(sqlDB *sql.DB) error {
 		return err
 	}
 
-	// List of tables to truncate (excluding goose_db_version)
+	// List of tables to clean (excluding goose_db_version)
+	// Order matters for foreign key constraints - child tables first
 	tables := []string{
-		"events",
+		"erc20_balances", // Child table first
+		"erc20_metadata", // Parent table second
 		"nft_balances",
+		"events",
 		"transactions",
 		"time_series_data",
 		"accounts",
-		"erc20_metadata",
-		"erc20_balances",
 	}
 
-	// Truncate each table
+	// Clean each table (use DELETE to handle foreign keys gracefully)
 	for _, table := range tables {
-		if _, err := sqlDB.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)); err != nil {
-			// Re-enable foreign key checks even if truncate fails
+		if _, err := sqlDB.Exec(fmt.Sprintf("DELETE FROM %s", table)); err != nil {
+			// Re-enable foreign key checks even if delete fails
 			_, _ = sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 1")
-			return fmt.Errorf("failed to truncate table %s: %w", table, err)
+			return fmt.Errorf("failed to clean table %s: %w", table, err)
 		}
 	}
 
@@ -171,15 +177,27 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	var err error
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 15; i++ {
 		gormDB, err = gorm.Open(mysql.Open(sharedDSN), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Error),
 		})
 		if err == nil {
-			break
+			// Test the connection immediately
+			sqlDBTest, sqlErr := gormDB.DB()
+			if sqlErr == nil {
+				// Configure connection settings
+				sqlDBTest.SetMaxOpenConns(1)
+				sqlDBTest.SetMaxIdleConns(0)
+				sqlDBTest.SetConnMaxLifetime(time.Minute)
+
+				pingErr := sqlDBTest.Ping()
+				if pingErr == nil {
+					break
+				}
+			}
 		}
 
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 	}
 
 	if err != nil {
