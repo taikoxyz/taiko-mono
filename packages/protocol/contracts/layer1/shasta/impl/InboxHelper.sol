@@ -29,17 +29,6 @@ contract InboxHelper {
         return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @notice Encodes a ProposedEventPayload using standard ABI encoding
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes
-    function encodeProposedEventStandard(IInbox.ProposedEventPayload memory _payload)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return abi.encode(_payload);
-    }
-
     /// @notice Decodes bytes into a ProposedEventPayload using optimized encoding
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
@@ -81,17 +70,6 @@ contract InboxHelper {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using standard ABI encoding
-    /// @param _input The ProposeInput to encode
-    /// @return encoded_ The encoded data
-    function encodeProposeInputStandard(IInbox.ProposeInput memory _input)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return abi.encode(_input);
-    }
-
     /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
@@ -117,17 +95,6 @@ contract InboxHelper {
     // ---------------------------------------------------------------
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
-
-    /// @notice Encodes prove input data using standard ABI encoding
-    /// @param _input The ProveInput to encode
-    /// @return encoded_ The encoded data
-    function encodeProveInputStandard(IInbox.ProveInput memory _input)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return abi.encode(_input);
-    }
 
     /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
     /// @param _input The ProveInput to encode
@@ -155,13 +122,6 @@ contract InboxHelper {
     // LibHashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for Transition structs
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
-        return LibHashing.hashTransition(_transition);
-    }
-
     /// @notice Optimized hashing for Checkpoint structs
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
@@ -180,13 +140,6 @@ contract InboxHelper {
         return LibHashing.hashCoreState(_coreState);
     }
 
-    /// @notice Optimized hashing for Proposal structs
-    /// @param _proposal The proposal to hash
-    /// @return The hash of the proposal
-    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
-        return LibHashing.hashProposal(_proposal);
-    }
-
     /// @notice Optimized hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
@@ -194,15 +147,18 @@ contract InboxHelper {
         return LibHashing.hashDerivation(_derivation);
     }
 
-    /// @notice Optimized hashing for arrays of Transitions
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashing.hashTransitionsArray(_transitions);
+    /// @notice Optimized hashing for Proposal structs
+    /// @param _proposal The proposal to hash
+    /// @return The hash of the proposal
+    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+        return LibHashing.hashProposal(_proposal);
+    }
+
+    /// @notice Optimized hashing for Transition structs
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
+        return LibHashing.hashTransition(_transition);
     }
 
     /// @notice Optimized hashing for TransitionRecord structs
@@ -216,18 +172,14 @@ contract InboxHelper {
         return LibHashing.hashTransitionRecord(_transitionRecord);
     }
 
-    /// @notice Creates a transition key by combining proposal ID and parent transition hash
-    /// @param _proposalId The proposal ID
-    /// @param _parentTransitionHash The parent transition hash
-    /// @return The composed transition key
-    function composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    /// @notice Optimized hashing for arrays of Transitions
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
         external
         pure
         returns (bytes32)
     {
-        return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashing.hashTransitionsArray(_transitions);
     }
 }

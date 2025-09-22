@@ -205,7 +205,7 @@ contract InboxTestHelper is CommonTest {
         if (useOptimizedProposeInputEncoding) {
             return inboxHelper.encodeProposeInput(_input);
         }
-        return inboxHelper.encodeProposeInputStandard(_input);
+        return abi.encode(_input);
     }
 
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
@@ -216,7 +216,7 @@ contract InboxTestHelper is CommonTest {
         if (useOptimizedProposedEventEncoding) {
             return inboxHelper.encodeProposedEvent(_payload);
         }
-        return inboxHelper.encodeProposedEventStandard(_payload);
+        return abi.encode(_payload);
     }
 
     function _encodeProveInput(IInbox.ProveInput memory _input)
@@ -227,7 +227,7 @@ contract InboxTestHelper is CommonTest {
         if (useOptimizedProveInputEncoding) {
             return inboxHelper.encodeProveInput(_input);
         }
-        return inboxHelper.encodeProveInputStandard(_input);
+        return abi.encode(_input);
     }
 
     function _createProposeInputWithCustomParams(
