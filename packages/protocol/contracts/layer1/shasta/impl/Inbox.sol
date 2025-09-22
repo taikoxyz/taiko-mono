@@ -413,39 +413,28 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
-        // Declare struct instance outside the loop to avoid repeated memory allocations
-        TransitionRecord memory transitionRecord;
-        transitionRecord.span = 1;
-
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
-
-            // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
-                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
-            );
-            transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
-            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
-
-            _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
-            );
+            _processSingleTransitionAtIndex(_input, i);
         }
     }
 
-    /// @dev Validates transition consistency with its corresponding proposal
-    /// @notice Ensures the transition references the correct proposal hash
-    /// @param _proposal The proposal being proven
-    /// @param _transition The transition to validate against the proposal
-    function _validateTransition(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-    {
-        bytes32 proposalHash = _checkProposalHash(_proposal);
-        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
+    /// @dev Processes a single transition at the specified index
+    /// @notice Reusable function for validating, building, and storing individual transitions
+    /// @param _input The ProveInput containing all transition data
+    /// @param _index The index of the transition to process
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
+        _validateTransition(_input.proposals[_index], _input.transitions[_index]);
+
+        TransitionRecord memory transitionRecord = _buildTransitionRecord(
+            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
+        );
+
+        _setTransitionRecordHashAndDeadline(
+            _input.proposals[_index].id,
+            _input.transitions[_index],
+            _input.metadata[_index],
+            transitionRecord
+        );
     }
 
     /// @dev Stores a proposal hash in the ring buffer
@@ -470,18 +459,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
+            _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
-        if (hashAndDeadline.recordHash == transitionRecordHash) return;
-
-        require(hashAndDeadline.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
-        _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: transitionRecordHash
-        });
+        bool stored = _storeTransitionRecord(
+            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+        );
+        if (!stored) return;
 
         bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
@@ -494,11 +478,41 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         emit Proved(payload);
     }
 
-    /// @dev Retrieves transition record hash from storage
-    /// @notice Virtual to allow optimization strategies in derived contracts
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash The hash of the parent transition
-    /// @return transitionRecordHash_ The stored transition record hash
+    /// @dev Persists transition record metadata in storage.
+    /// @notice Returns false when an identical record already exists, avoiding redundant event
+    /// emissions.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
+    /// @param _recordHash The keccak hash representing the transition record.
+    /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @return stored_ True if storage was updated and caller should emit the Proved event.
+    function _storeTransitionRecord(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
+    )
+        internal
+        virtual
+        returns (bool stored_)
+    {
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        TransitionRecordHashAndDeadline storage entry =
+            _transitionRecordHashAndDeadline[compositeKey];
+
+        if (entry.recordHash == _recordHash) return false;
+
+        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
+
+        entry.recordHash = _hashAndDeadline.recordHash;
+        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        return true;
+    }
+
+    /// @dev Loads transition record metadata from storage.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
+    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -506,10 +520,25 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         internal
         view
         virtual
-        returns (TransitionRecordHashAndDeadline memory)
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordHashAndDeadline[compositeKey];
+        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+    }
+
+    /// @dev Validates transition consistency with its corresponding proposal
+    /// @notice Ensures the transition references the correct proposal hash
+    /// @param _proposal The proposal being proven
+    /// @param _transition The transition to validate against the proposal
+    function _validateTransition(
+        Proposal memory _proposal,
+        Transition memory _transition
+    )
+        internal
+        view
+    {
+        bytes32 proposalHash = _checkProposalHash(_proposal);
+        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
     /// @dev Validates proposal hash against stored value
@@ -536,6 +565,44 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return bytes26(keccak256(abi.encode(_transitionRecord)));
+    }
+
+    /// @dev Builds a transition record for a proposal, transition, and metadata tuple.
+    /// @param _proposal The proposal the transition is proving.
+    /// @param _transition The transition associated with the proposal.
+    /// @param _metadata The metadata describing the prover and additional context.
+    /// @return record The constructed transition record with span set to one.
+    function _buildTransitionRecord(
+        Proposal memory _proposal,
+        Transition memory _transition,
+        TransitionMetadata memory _metadata
+    )
+        internal
+        view
+        returns (TransitionRecord memory record)
+    {
+        record.span = 1;
+        record.bondInstructions = LibBondsL1.calculateBondInstructions(
+            _provingWindow, _extendedProvingWindow, _proposal, _metadata
+        );
+        record.transitionHash = _hashTransition(_transition);
+        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+    }
+
+    /// @dev Computes the hash and finalization deadline for a transition record.
+    /// @param _transitionRecord The transition record to hash.
+    /// @return recordHash_ The keccak hash of the transition record.
+    /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
+    function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
+        internal
+        view
+        returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
+    {
+        recordHash_ = _hashTransitionRecord(_transitionRecord);
+        hashAndDeadline_ = TransitionRecordHashAndDeadline({
+            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+            recordHash: recordHash_
+        });
     }
 
     /// @dev Hashes an array of Transitions.

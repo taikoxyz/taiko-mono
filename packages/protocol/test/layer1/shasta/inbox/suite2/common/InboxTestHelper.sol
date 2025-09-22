@@ -75,7 +75,7 @@ contract InboxTestHelper is CommonTest {
         return keccak256(abi.encode(transition));
     }
 
-    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
+    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Derivation memory derivation;
