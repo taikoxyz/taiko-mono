@@ -203,8 +203,7 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposeInputEncoding) {
-            // Optimized encoding disabled - fallback to standard
-            // return inboxHelper.encodeProposeInputOptimized(_input);
+            return inboxHelper.encodeProposeInputOptimized(_input);
         }
         return inboxHelper.encodeProposeInput(_input);
     }
@@ -227,8 +226,7 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProveInputEncoding) {
-            // Optimized encoding disabled - fallback to standard
-            // return inboxHelper.encodeProveInputOptimized(_input);
+            return inboxHelper.encodeProveInputOptimized(_input);
         }
         return inboxHelper.encodeProveInput(_input);
     }
