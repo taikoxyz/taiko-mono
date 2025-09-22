@@ -34,7 +34,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            keccak256(abi.encode(firstExpectedPayload.proposal)),
+            _hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -79,7 +79,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            keccak256(abi.encode(secondExpectedPayload.proposal)),
+            _hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 

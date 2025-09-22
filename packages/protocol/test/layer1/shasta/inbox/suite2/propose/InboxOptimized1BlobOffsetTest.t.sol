@@ -31,7 +31,7 @@ contract InboxOptimized1BlobOffsetTest is AbstractProposeTest {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 }

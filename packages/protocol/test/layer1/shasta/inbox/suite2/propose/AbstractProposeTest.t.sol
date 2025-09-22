@@ -88,7 +88,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -110,7 +110,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -152,7 +152,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and blob configuration
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
@@ -174,7 +174,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 
@@ -224,7 +224,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 
@@ -253,7 +253,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            keccak256(abi.encode(firstExpectedPayload.proposal)),
+            _hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -298,7 +298,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            keccak256(abi.encode(secondExpectedPayload.proposal)),
+            _hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 
