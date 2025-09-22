@@ -150,17 +150,22 @@ contract InboxTestHelper is CommonTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        // Build the expected derivation
-        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
+        // Build the expected derivation with multi-source format
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: _getBlobHashesForTest(_numBlobs),
                 offset: _offset,
                 timestamp: uint48(block.timestamp)
             })
+        });
+
+        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
+            sources: sources
         });
 
         // Build the expected proposal
@@ -191,7 +196,8 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposeInputEncoding) {
-            return inboxHelper.encodeProposeInputOptimized(_input);
+            // Optimized encoding disabled - fallback to standard
+            // return inboxHelper.encodeProposeInputOptimized(_input);
         }
         return inboxHelper.encodeProposeInput(_input);
     }
@@ -202,7 +208,8 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposedEventEncoding) {
-            return inboxHelper.encodeProposedEventOptimized(_payload);
+            // Optimized encoding disabled - fallback to standard
+            // return inboxHelper.encodeProposedEventOptimized(_payload);
         }
         return inboxHelper.encodeProposedEvent(_payload);
     }
@@ -213,7 +220,8 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProveInputEncoding) {
-            return inboxHelper.encodeProveInputOptimized(_input);
+            // Optimized encoding disabled - fallback to standard
+            // return inboxHelper.encodeProveInputOptimized(_input);
         }
         return inboxHelper.encodeProveInput(_input);
     }

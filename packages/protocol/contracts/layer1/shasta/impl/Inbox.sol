@@ -24,9 +24,6 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
-/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir
-///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
-///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
@@ -280,12 +277,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
 
-            ProposedEventPayload memory payload = ProposedEventPayload({
-                proposal: proposal,
-                derivation: derivation,
-                coreState: coreState
-            });
-            emit Proposed(_encodeProposedEventData(payload));
+            // Create payload and emit event with stack-optimized approach
+            _emitProposedEvent(proposal, derivation, coreState);
         }
     }
 
@@ -722,8 +715,38 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
+        // Optimize stack usage by encoding fixed fields with abi.encodePacked
+        // and handling dynamic sources array separately
+        bytes memory fixedData = abi.encodePacked(
+            _derivation.originBlockNumber,
+            _derivation.originBlockHash,
+            _derivation.basefeeSharingPctg
+        );
+
+        // Hash each source individually and combine
+        bytes32 sourcesHash;
+        for (uint256 i = 0; i < _derivation.sources.length; ++i) {
+            bytes32 sourceHash = keccak256(
+                abi.encodePacked(
+                    _derivation.sources[i].isForcedInclusion,
+                    _derivation.sources[i].blobSlice.offset,
+                    _derivation.sources[i].blobSlice.timestamp
+                )
+            );
+
+            // Hash the blobHashes array for this source with optimized approach
+            bytes32 blobHashesHash =
+                _hashBlobHashesArray(_derivation.sources[i].blobSlice.blobHashes);
+
+            // Combine source data
+            sourceHash = keccak256(abi.encodePacked(sourceHash, blobHashesHash));
+
+            // Chain the source hashes
+            sourcesHash = keccak256(abi.encodePacked(sourcesHash, sourceHash));
+        }
+
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_derivation));
+        return keccak256(abi.encodePacked(fixedData, sourcesHash));
     }
 
     /// @dev Decodes proposal input data
@@ -759,7 +782,77 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes memory)
     {
-        return abi.encode(_payload);
+        // Optimize stack usage by encoding components separately
+        // Encode the proposal (fixed size struct)
+        bytes memory proposalData = abi.encode(_payload.proposal);
+
+        // Encode the core state (fixed size struct)
+        bytes memory coreStateData = abi.encode(_payload.coreState);
+
+        // Encode derivation with optimized approach
+        bytes memory derivationData = _encodeDerivationOptimized(_payload.derivation);
+
+        // Combine all components
+        return abi.encode(proposalData, derivationData, coreStateData);
+    }
+
+    /// @dev Optimized encoding for Derivation struct to reduce stack depth
+    /// @param _derivation The derivation to encode
+    /// @return The encoded derivation data
+    function _encodeDerivationOptimized(Derivation memory _derivation)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Encode fixed fields
+        bytes memory fixedData = abi.encodePacked(
+            _derivation.originBlockNumber,
+            _derivation.originBlockHash,
+            _derivation.basefeeSharingPctg,
+            uint256(_derivation.sources.length)
+        );
+
+        // Encode sources array separately to avoid deep stack
+        bytes memory sourcesData;
+        for (uint256 i = 0; i < _derivation.sources.length; ++i) {
+            bytes memory sourceData = abi.encode(
+                _derivation.sources[i].isForcedInclusion, _derivation.sources[i].blobSlice
+            );
+            sourcesData = abi.encodePacked(sourcesData, sourceData);
+        }
+
+        return abi.encodePacked(fixedData, sourcesData);
+    }
+
+    /// @dev Optimized hashing for blob hashes array to reduce stack depth
+    /// @param _blobHashes The blob hashes array to hash
+    /// @return The hash of the blob hashes array
+    function _hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+        // Use abi.encodePacked in a loop to avoid deep stack from abi.encode on large arrays
+        bytes memory packed;
+        for (uint256 i = 0; i < _blobHashes.length; ++i) {
+            packed = abi.encodePacked(packed, _blobHashes[i]);
+        }
+        return keccak256(packed);
+    }
+
+    /// @dev Emits the Proposed event with stack-optimized approach
+    /// @param _proposal The proposal data
+    /// @param _derivation The derivation data
+    /// @param _coreState The core state data
+    function _emitProposedEvent(
+        Proposal memory _proposal,
+        Derivation memory _derivation,
+        CoreState memory _coreState
+    )
+        private
+    {
+        ProposedEventPayload memory payload = ProposedEventPayload({
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState
+        });
+        emit Proposed(_encodeProposedEventData(payload));
     }
 
     /// @dev Encodes the proved event data
