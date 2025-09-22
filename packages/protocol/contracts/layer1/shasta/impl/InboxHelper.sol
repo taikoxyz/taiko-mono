@@ -70,7 +70,7 @@ contract InboxHelper {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
+    /// @notice Encodes propose input data using optimized encoding (for InboxOptimized2+)
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
     function encodeProposeInput(IInbox.ProposeInput memory _input)
@@ -96,7 +96,7 @@ contract InboxHelper {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
+    /// @notice Encodes prove input data using optimized encoding (for InboxOptimized2+)
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
     function encodeProveInput(IInbox.ProveInput memory _input)
