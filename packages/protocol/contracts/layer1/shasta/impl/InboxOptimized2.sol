@@ -45,6 +45,7 @@ contract InboxOptimized2 is InboxOptimized1 {
 
     constructor(IInbox.Config memory _config, address _helper) InboxOptimized1(_config) {
         require(_helper != address(0), "Invalid helper address");
+        require(_helper.code.length > 0, "Helper must be a contract");
         helper = _helper;
     }
 

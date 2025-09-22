@@ -105,10 +105,7 @@ library LibProvedEventEncoder {
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
         // Encode bond instructions array length (uint16)
-        require(
-            _payload.transitionRecord.bondInstructions.length <= type(uint16).max,
-            BondInstructionsLengthExceeded()
-        );
+        P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
         ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
 
         // Encode each bond instruction
@@ -148,6 +145,5 @@ library LibProvedEventEncoder {
     // Errors
     // ---------------------------------------------------------------
 
-    error BondInstructionsLengthExceeded();
     error InvalidBondType();
 }

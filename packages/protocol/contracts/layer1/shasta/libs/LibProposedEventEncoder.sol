@@ -36,8 +36,8 @@ library LibProposedEventEncoder {
         (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
         // Decode sources array length
-        uint24 sourcesLength;
-        (sourcesLength, ptr) = P.unpackUint24(ptr);
+        uint16 sourcesLength;
+        (sourcesLength, ptr) = P.unpackUint16(ptr);
 
         payload_.derivation.sources = new IInbox.DerivationSource[](sourcesLength);
         for (uint256 i; i < sourcesLength; ++i) {
@@ -46,8 +46,8 @@ library LibProposedEventEncoder {
             payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
 
             // Decode blob slice for this source
-            uint24 blobHashesLength;
-            (blobHashesLength, ptr) = P.unpackUint24(ptr);
+            uint16 blobHashesLength;
+            (blobHashesLength, ptr) = P.unpackUint16(ptr);
 
             payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
             for (uint256 j; j < blobHashesLength; ++j) {
@@ -100,7 +100,7 @@ library LibProposedEventEncoder {
         // Encode sources array length
         uint256 sourcesLength = _payload.derivation.sources.length;
         P.checkArrayLength(sourcesLength);
-        ptr = P.packUint24(ptr, uint24(sourcesLength));
+        ptr = P.packUint16(ptr, uint16(sourcesLength));
 
         // Encode each source
         for (uint256 i; i < sourcesLength; ++i) {
@@ -109,7 +109,7 @@ library LibProposedEventEncoder {
             // Encode blob slice for this source
             uint256 blobHashesLength = _payload.derivation.sources[i].blobSlice.blobHashes.length;
             P.checkArrayLength(blobHashesLength);
-            ptr = P.packUint24(ptr, uint24(blobHashesLength));
+            ptr = P.packUint16(ptr, uint16(blobHashesLength));
 
             // Encode each blob hash
             for (uint256 j; j < blobHashesLength; ++j) {
@@ -140,24 +140,24 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 235 bytes (without blob data)
+            // Fixed size: 224 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
-            // Sources array length: 3
+            // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
-            // Total fixed: 38 + 39 + 3 + 64 + 82 = 226
+            // Total fixed: 38 + 39 + 2 + 64 + 82 = 225
 
-            size_ = 226;
+            size_ = 225;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {
-                // Per source: isForcedInclusion(1) + blobHashesLength(3) + offset(3) + timestamp(6)
-                // = 13
+                // Per source: isForcedInclusion(1) + blobHashesLength(2) + offset(3) + timestamp(6)
+                // = 12
                 // Plus each blob hash: 32 bytes each
-                size_ += 13 + (_sources[i].blobSlice.blobHashes.length * 32);
+                size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);
             }
         }
     }
