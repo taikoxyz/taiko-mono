@@ -614,30 +614,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         });
     }
 
-    /// @dev Hashes a TransitionRecord struct.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
-    }
-
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
-        internal
-        pure
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
-    }
-
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
     /// @param _proposalId The ID of the proposal
@@ -655,6 +631,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
+
+    // ---------------------------------------------------------------
+    // Encoder Functions (alphabetically sorted)
+    // ---------------------------------------------------------------
 
     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
@@ -680,6 +660,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return abi.encode(_payload);
     }
 
+    // ---------------------------------------------------------------
+    // Decoder Functions (alphabetically sorted)
+    // ---------------------------------------------------------------
+
     /// @dev Decodes proposal input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput struct containing all proposal data
@@ -704,24 +688,15 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return abi.decode(_data, (ProveInput));
     }
 
+    // ---------------------------------------------------------------
+    // Hashing Functions (alphabetically sorted)
+    // ---------------------------------------------------------------
+
     /// @dev Optimized hashing for blob hashes array to reduce stack depth
     /// @param _blobHashes The blob hashes array to hash
     /// @return The hash of the blob hashes array
     function _hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
         return keccak256(abi.encode(_blobHashes));
-    }
-
-    /// @dev Hashes a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
     }
 
     /// @dev Hashes a Checkpoint struct.
@@ -745,14 +720,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return keccak256(abi.encode(_coreState));
     }
 
-    /// @dev Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposal));
-    }
-
     /// @dev Hashes a Derivation struct.
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
@@ -763,6 +730,51 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         returns (bytes32)
     {
         return keccak256(abi.encode(_derivation));
+    }
+
+    /// @dev Hashes a Proposal struct.
+    /// @param _proposal The proposal to hash.
+    /// @return _ The hash of the proposal.
+    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @dev Hashes a Transition struct.
+    /// @param _transition The transition to hash.
+    /// @return _ The hash of the transition.
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transition));
+    }
+
+    /// @dev Hashes a TransitionRecord struct.
+    /// @param _transitionRecord The transition record to hash.
+    /// @return _ The hash of the transition record.
+    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
+        internal
+        pure
+        returns (bytes26)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return bytes26(keccak256(abi.encode(_transitionRecord)));
+    }
+
+    /// @dev Hashes an array of Transitions.
+    /// @param _transitions The transitions array to hash.
+    /// @return _ The hash of the transitions array.
+    function _hashTransitionsArray(Transition[] memory _transitions)
+        internal
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transitions));
     }
 
     // ---------------------------------------------------------------
