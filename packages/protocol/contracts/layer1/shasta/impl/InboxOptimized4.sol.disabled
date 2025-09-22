@@ -16,7 +16,7 @@ import { LibHashing } from "../libs/LibHashing.sol";
 /// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
 ///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
 ///      Example: FOUNDRY_PROFILE=layer1o forge build
-/// contracts/layer1/shasta/impl/InboxOptimized4.sol
+///      contracts/layer1/shasta/impl/InboxOptimized4.sol
 abstract contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------
     // State Variables

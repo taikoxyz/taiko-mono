@@ -18,7 +18,7 @@ import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 /// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
 ///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
 ///      Example: FOUNDRY_PROFILE=layer1o forge build
-/// contracts/layer1/shasta/impl/InboxOptimized3.sol
+///      contracts/layer1/shasta/impl/InboxOptimized3.sol
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
