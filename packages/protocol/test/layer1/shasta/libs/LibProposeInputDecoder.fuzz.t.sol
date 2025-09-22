@@ -8,10 +8,10 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
-/// @title LibProposeInputDecoderFuzz
+/// @title LibProposeInputDecoderFuzzTest
 /// @notice Fuzzy tests for LibProposeInputDecoder to ensure encode/decode correctness
 /// @custom:security-contact security@taiko.xyz
-contract LibProposeInputDecoderFuzz is Test {
+contract LibProposeInputDecoderFuzzTest is Test {
     /// @notice Fuzz test for basic encode/decode with simple types
     function testFuzz_encodeDecodeBasicTypes(
         uint48 deadline,

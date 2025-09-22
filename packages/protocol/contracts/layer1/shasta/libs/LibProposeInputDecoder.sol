@@ -43,7 +43,7 @@ library LibProposeInputDecoder {
 
         // 3. Encode parent proposals array
         P.checkArrayLength(_input.parentProposals.length);
-        ptr = P.packUint24(ptr, uint24(_input.parentProposals.length));
+        ptr = P.packUint16(ptr, uint16(_input.parentProposals.length));
         for (uint256 i; i < _input.parentProposals.length; ++i) {
             ptr = _encodeProposal(ptr, _input.parentProposals[i]);
         }
@@ -55,7 +55,7 @@ library LibProposeInputDecoder {
 
         // 5. Encode TransitionRecords array
         P.checkArrayLength(_input.transitionRecords.length);
-        ptr = P.packUint24(ptr, uint24(_input.transitionRecords.length));
+        ptr = P.packUint16(ptr, uint16(_input.transitionRecords.length));
         for (uint256 i; i < _input.transitionRecords.length; ++i) {
             ptr = _encodeTransitionRecord(ptr, _input.transitionRecords[i]);
         }
@@ -101,8 +101,8 @@ library LibProposeInputDecoder {
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode parent proposals array
-        uint24 proposalsLength;
-        (proposalsLength, ptr) = P.unpackUint24(ptr);
+        uint16 proposalsLength;
+        (proposalsLength, ptr) = P.unpackUint16(ptr);
         input_.parentProposals = new IInbox.Proposal[](proposalsLength);
         for (uint256 i; i < proposalsLength; ++i) {
             (input_.parentProposals[i], ptr) = _decodeProposal(ptr);
@@ -114,8 +114,8 @@ library LibProposeInputDecoder {
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
 
         // 5. Decode TransitionRecords array
-        uint24 transitionRecordsLength;
-        (transitionRecordsLength, ptr) = P.unpackUint24(ptr);
+        uint16 transitionRecordsLength;
+        (transitionRecordsLength, ptr) = P.unpackUint16(ptr);
         input_.transitionRecords = new IInbox.TransitionRecord[](transitionRecordsLength);
         for (uint256 i; i < transitionRecordsLength; ++i) {
             (input_.transitionRecords[i], ptr) = _decodeTransitionRecord(ptr);
@@ -173,7 +173,7 @@ library LibProposeInputDecoder {
 
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
-        newPtr_ = P.packUint24(newPtr_, uint24(_transitionRecord.bondInstructions.length));
+        newPtr_ = P.packUint16(newPtr_, uint16(_transitionRecord.bondInstructions.length));
         for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _transitionRecord.bondInstructions[i]);
         }
@@ -224,8 +224,8 @@ library LibProposeInputDecoder {
         (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
         // Decode BondInstructions array
-        uint24 bondInstructionsLength;
-        (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
+        uint16 bondInstructionsLength;
+        (bondInstructionsLength, newPtr_) = P.unpackUint16(newPtr_);
         transitionRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
         for (uint256 i; i < bondInstructionsLength; ++i) {
             (transitionRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
@@ -269,10 +269,10 @@ library LibProposeInputDecoder {
             // deadline: 6 bytes (uint48)
             // CoreState: 6 + 6 + 6 + 32 + 32 = 82 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
-            // Arrays lengths: 3 + 3 = 6 bytes
+            // Arrays lengths: 2 + 2 = 4 bytes
             // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
-            size_ = 103;
+            size_ = 101;
 
             // Add Checkpoint size if not empty
             bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
@@ -290,10 +290,10 @@ library LibProposeInputDecoder {
             size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + array length(3) + transitionHash(32) +
-            // checkpointHash(32) = 68
+            // Fixed: span(1) + array length(2) + transitionHash(32) +
+            // checkpointHash(32) = 67
             for (uint256 i; i < _transitionRecords.length; ++i) {
-                size_ += 68 + (_transitionRecords[i].bondInstructions.length * 47);
+                size_ += 67 + (_transitionRecords[i].bondInstructions.length * 47);
             }
         }
     }

@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
 /// @title DevnetShastaInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
-/// @dev DEPLOYMENT: CRITICAL - Must use FOUNDRY_PROFILE=layer1o for deployment.
-///      Contract size (26,293 bytes) exceeds 24KB limit without optimization.
-///      Example: FOUNDRY_PROFILE=layer1o forge build
-/// contracts/layer1/shasta/impl/DevnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract DevnetShastaInbox is InboxOptimized4 {
+contract DevnetShastaInbox is InboxOptimized1 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -38,7 +34,7 @@ contract DevnetShastaInbox is InboxOptimized4 {
         address _proposerChecker,
         address _taikoToken
     )
-        InboxOptimized4(
+        InboxOptimized1(
             IInbox.Config({
                 bondToken: _taikoToken,
                 proofVerifier: _proofVerifier,

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "contracts/shared/shasta/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
 /// @notice Library for encoding and decoding ProvedEventPayload structures using compact encoding
@@ -105,10 +105,7 @@ library LibProvedEventEncoder {
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
         // Encode bond instructions array length (uint16)
-        require(
-            _payload.transitionRecord.bondInstructions.length <= type(uint16).max,
-            BondInstructionsLengthExceeded()
-        );
+        P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
         ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
 
         // Encode each bond instruction
@@ -148,6 +145,5 @@ library LibProvedEventEncoder {
     // Errors
     // ---------------------------------------------------------------
 
-    error BondInstructionsLengthExceeded();
     error InvalidBondType();
 }

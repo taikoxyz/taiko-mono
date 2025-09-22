@@ -18,13 +18,39 @@ contract LibHashingGasTest is Test {
     ICheckpointStore.Checkpoint internal testCheckpoint;
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
-    IInbox.Derivation internal testDerivation;
+    // IInbox.Derivation internal testDerivation; // Removed due to IR pipeline requirement for
+    // dynamic arrays
     // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline
     // requirement
     IInbox.Transition[] internal testTransitionsArray;
 
     function setUp() public {
         _initializeTestData();
+    }
+
+    /// @notice Helper function to create test derivation
+    /// @return derivation Test derivation with sample data
+    function _createTestDerivation() internal pure returns (IInbox.Derivation memory derivation) {
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = keccak256("test_blob_hash_1");
+        blobHashes[1] = keccak256("test_blob_hash_2");
+
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 1024,
+                timestamp: 1_672_531_200
+            })
+        });
+
+        return IInbox.Derivation({
+            originBlockNumber: 12_345_677,
+            originBlockHash: keccak256("test_origin_block_hash"),
+            basefeeSharingPctg: 10,
+            sources: sources
+        });
     }
 
     /// @notice Test gas comparison for hashTransition function
@@ -144,21 +170,30 @@ contract LibHashingGasTest is Test {
 
         // Measure standard implementation
         gasBefore = gasleft();
-        keccak256(abi.encode(testDerivation));
+        keccak256(abi.encode(_createTestDerivation()));
         gasAfter = gasleft();
         standardGas = gasBefore - gasAfter;
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashDerivation(testDerivation);
+        LibHashing.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
         console2.log("=== hashDerivation Gas Comparison ===");
         console2.log("Standard Gas:      ", standardGas);
         console2.log("Optimized Gas:     ", optimizedGas);
-        console2.log("Gas Saved:         ", standardGas - optimizedGas);
-        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        if (standardGas > optimizedGas) {
+            console2.log("Gas Saved:         ", standardGas - optimizedGas);
+            console2.log(
+                "Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%"
+            );
+        } else {
+            console2.log("Gas Overhead:      ", optimizedGas - standardGas);
+            console2.log(
+                "Overhead:          ", ((optimizedGas - standardGas) * 100) / standardGas, "%"
+            );
+        }
         console2.log("");
     }
 
@@ -245,12 +280,12 @@ contract LibHashingGasTest is Test {
 
         // hashDerivation
         gasBefore = gasleft();
-        keccak256(abi.encode(testDerivation));
+        keccak256(abi.encode(_createTestDerivation()));
         gasAfter = gasleft();
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashDerivation(testDerivation);
+        LibHashing.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -301,8 +336,8 @@ contract LibHashingGasTest is Test {
         assertEq(hash1, hash2, "hashProposal should be deterministic");
 
         // Test hashDerivation consistency
-        hash1 = LibHashing.hashDerivation(testDerivation);
-        hash2 = LibHashing.hashDerivation(testDerivation);
+        hash1 = LibHashing.hashDerivation(_createTestDerivation());
+        hash2 = LibHashing.hashDerivation(_createTestDerivation());
         assertEq(hash1, hash2, "hashDerivation should be deterministic");
 
         // Test hashTransitionsArray consistency
@@ -445,17 +480,7 @@ contract LibHashingGasTest is Test {
         blobHashes[0] = keccak256("test_blob_hash_1");
         blobHashes[1] = keccak256("test_blob_hash_2");
 
-        testDerivation = IInbox.Derivation({
-            originBlockNumber: 12_345_677,
-            originBlockHash: keccak256("test_origin_block_hash"),
-            isForcedInclusion: false,
-            basefeeSharingPctg: 10,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 1024,
-                timestamp: 1_672_531_200
-            })
-        });
+        // testDerivation initialization removed due to IR pipeline requirement
 
         // Initialize test transition record - Commented out due to IR pipeline requirement
         /*
