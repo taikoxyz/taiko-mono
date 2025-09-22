@@ -83,7 +83,7 @@ contract ShastaSgxVerifier is IProofVerifier, Ownable {
     constructor(uint64 _taikoChainId, address _owner) {
         require(_taikoChainId != 0, "Invalid chain id");
         taikoChainId = _taikoChainId;
-        
+
         _transferOwnership(_owner);
     }
 

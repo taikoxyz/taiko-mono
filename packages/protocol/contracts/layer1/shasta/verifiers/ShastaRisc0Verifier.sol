@@ -36,7 +36,7 @@ contract ShastaRisc0Verifier is IProofVerifier, Ownable {
         require(_riscoGroth16Verifier != address(0), "Invalid risc0 groth16 verifier");
         taikoChainId = _taikoChainId;
         riscoGroth16Verifier = _riscoGroth16Verifier;
-        
+
         _transferOwnership(_owner);
     }
 
