@@ -700,7 +700,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev Optimized hashing for blob hashes array to reduce stack depth
     /// @param _blobHashes The blob hashes array to hash
     /// @return The hash of the blob hashes array
-    function _hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+    function _hashBlobHashesArray(bytes32[] memory _blobHashes)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_blobHashes));
     }
 
@@ -764,6 +769,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
         internal
         pure
+        virtual
         returns (bytes26)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
@@ -776,6 +782,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     function _hashTransitionsArray(Transition[] memory _transitions)
         internal
         pure
+        virtual
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)

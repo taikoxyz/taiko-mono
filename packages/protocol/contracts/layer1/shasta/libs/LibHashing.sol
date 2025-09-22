@@ -133,6 +133,54 @@ library LibHashing {
     // Array and Complex Structure Hashing Functions
     // ---------------------------------------------------------------
 
+    /// @notice Optimized hashing for blob hashes array
+    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
+    /// @param _blobHashes The blob hashes array to hash
+    /// @return The hash of the blob hashes array
+    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+        if (_blobHashes.length == 0) {
+            return EMPTY_BYTES_HASH;
+        }
+
+        // For single blob hash, use direct hashing with length
+        if (_blobHashes.length == 1) {
+            return EfficientHashLib.hash(bytes32(uint256(_blobHashes.length)), _blobHashes[0]);
+        }
+
+        // For two blob hashes
+        if (_blobHashes.length == 2) {
+            return EfficientHashLib.hash(
+                bytes32(uint256(_blobHashes.length)), _blobHashes[0], _blobHashes[1]
+            );
+        }
+
+        // For larger arrays, use memory-optimized approach
+        uint256 arrayLength = _blobHashes.length;
+        uint256 bufferSize = 32 + (arrayLength * 32);
+        bytes memory buffer = new bytes(bufferSize);
+
+        assembly {
+            // Write array length at start of buffer
+            mstore(add(buffer, 0x20), arrayLength)
+        }
+
+        // Write each blob hash directly to buffer
+        for (uint256 i; i < arrayLength; ++i) {
+            bytes32 blobHash = _blobHashes[i];
+            assembly {
+                let offset := add(0x40, mul(i, 0x20))
+                mstore(add(buffer, offset), blobHash)
+            }
+        }
+
+        // Use assembly keccak256 for final optimization
+        bytes32 result;
+        assembly {
+            result := keccak256(add(buffer, 0x20), mload(buffer))
+        }
+        return result;
+    }
+
     /// @notice Memory-optimized hashing for arrays of Transitions
     /// @dev Pre-allocates buffer to avoid reallocations and uses assembly for efficiency
     /// @dev Explicitly includes array length to prevent hash collisions
