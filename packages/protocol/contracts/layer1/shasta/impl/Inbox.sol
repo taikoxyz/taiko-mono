@@ -82,6 +82,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
+    /// @notice The address responsible for calling `activate` on the inbox.
+    address internal immutable _shastaInitializer;
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -141,7 +144,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config) {
+    constructor(IInbox.Config memory _config, address shastaInitializer) {
         _bondToken = IERC20(_config.bondToken);
         _checkpointManager = ICheckpointManager(_config.checkpointManager);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -155,23 +158,23 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _shastaInitializer = shastaInitializer;
     }
 
-    /// @notice Initializes the Inbox contract with genesis block
-    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
-    /// as existing inbox proxies(i.e. mainnet)
+    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the `shastaInitializer` later in order to start accepting proposals.
     /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
     /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The hash of the genesis block
-    function initV3(address _owner, bytes32 _genesisBlockHash) external reinitializer(3) {
-        address owner = owner();
-        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
 
-        if (owner == address(0)) {
-            __Essential_init(_owner);
-        }
-        _initializeInbox(_genesisBlockHash);
+    /// @notice Activates the inbox so that it can start accepting proposals.
+    /// @dev Only the `shastaInitializer` or the owner can call this function.
+    /// @param _genesisBlockHash The hash of the genesis block
+    function activate(bytes32 _genesisBlockHash) external {
+        require(msg.sender == _shastaInitializer || msg.sender == owner(), ACCESS_DENIED());
+        _activateInbox(_genesisBlockHash);
     }
 
     // ---------------------------------------------------------------
@@ -341,7 +344,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
         });
     }
 
@@ -349,10 +352,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Initializes the inbox with genesis state
+    /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
     /// @notice Sets up the initial proposal and core state with genesis block
     /// @param _genesisBlockHash The hash of the genesis block
-    function _initializeInbox(bytes32 _genesisBlockHash) internal {
+    function _activateInbox(bytes32 _genesisBlockHash) internal {
         Transition memory transition;
         transition.checkpoint.blockHash = _genesisBlockHash;
 
