@@ -217,15 +217,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            uint256 sourceCount = 1;
-
             // Add forced inclusions as derivation sources
+            uint256 sourceCount = 1;
             IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
             if (input.numForcedInclusions > 0) {
                 forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
                     _forcedInclusionStorage, msg.sender, input.numForcedInclusions
                 );
-                sourceCount = forcedInclusions.length;
+                sourceCount += forcedInclusions.length;
             }
 
             require(sourceCount > 0, EmptyDerivationSources());
@@ -255,6 +254,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Add normal proposal source
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
+
             sources[i] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
             // Create single proposal with multi-source derivation - inline implementation
@@ -269,10 +269,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             });
 
             // Increment nextProposalId (nextProposalBlockId was already set in propose())
-            uint48 proposalId = coreState.nextProposalId++;
-
             Proposal memory proposal = Proposal({
-                id: proposalId,
+                id: coreState.nextProposalId++,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
