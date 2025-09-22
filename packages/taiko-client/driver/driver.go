@@ -194,13 +194,13 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 // Start starts the driver instance.
 func (d *Driver) Start() error {
-	go d.eventLoop()
-	go d.reportProtocolStatus()
-	go d.exchangeTransitionConfigLoop()
-
 	if err := d.shastaIndexer.Start(); err != nil {
 		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
+
+	go d.eventLoop()
+	go d.reportProtocolStatus()
+	go d.exchangeTransitionConfigLoop()
 
 	// Start the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
