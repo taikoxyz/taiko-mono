@@ -51,7 +51,7 @@ contract DevnetShastaInbox is InboxOptimized4 {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 100,
+                forcedInclusionDelay: 12 seconds,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
              })
         )

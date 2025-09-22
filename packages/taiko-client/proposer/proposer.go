@@ -467,8 +467,7 @@ func (p *Proposer) ProposeTxListPacaya(
 // ProposeTxListShasta proposes the given transactions lists to Shasta Inbox smart contract.
 func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Transactions) error {
 	var (
-		proposerAddress = p.proposerAddress
-		txs             uint64
+		txs uint64
 	)
 
 	// Make sure the tx list is not bigger than the proposalMaxBlocks.
@@ -481,28 +480,9 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		txs += uint64(len(txList))
 	}
 
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proposerAddress = p.Config.ClientConfig.ProverSetAddress
-	}
-
-	// Check forced inclusion.
-	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	config, err := p.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
-	}
-	if forcedInclusion == nil {
-		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
-	} else {
-		log.Info(
-			"Forced inclusion",
-			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
-			"feeInGwei", forcedInclusion.FeeInGwei,
-			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
-			"blobByteOffset", forcedInclusion.BlobByteOffset,
-			"blobByteSize", forcedInclusion.BlobByteSize,
-			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
-		)
+		return fmt.Errorf("failed to get Shasta Inbox configs: %w", err)
 	}
 
 	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
@@ -533,8 +513,7 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	txCandidate, err := p.txBuilder.BuildShasta(
 		ctx,
 		txBatch,
-		forcedInclusion,
-		minTxsPerForcedInclusion,
+		config.MinForcedInclusionCount,
 		p.preconfRouterAddress,
 	)
 	if err != nil {

@@ -190,14 +190,12 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	return b.blobTransactionBuilder.BuildShasta(
 		ctx,
 		txBatch,
-		forcedInclusion,
 		minTxsPerForcedInclusion,
 		preconfRouterAddress,
 		[]byte{},

@@ -14,9 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -154,7 +156,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		nil,
 		common.Big1,
 		common.Address{},
 		[]byte{},
@@ -201,7 +202,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		nil,
 		common.Big1,
 		common.Address{},
 		[]byte{},
@@ -276,7 +276,6 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		nil,
 		common.Big1,
 		common.Address{},
 		encodedAuth,
@@ -304,6 +303,61 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
+}
+
+func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+	b, err := builder.SplitToBlobs([]byte{0x1})
+	s.Nil(err)
+	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	s.Nil(err)
+	data, err := encoding.ShastaInboxABI.Pack("storeForcedInclusion", shastaBindings.LibBlobsBlobReference{
+		BlobStartIndex: 0,
+		NumBlobs:       1,
+		Offset:         common.Big0,
+	})
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{
+		To:     &inbox,
+		TxData: data,
+		Blobs:  b,
+		Value: new(big.Int).Mul(
+			new(big.Int).SetUint64(config.ForcedInclusionFeeInGwei), new(big.Int).SetUint64(params.GWei)),
+	}))
+
+	time.Sleep(time.Duration(config.ForcedInclusionDelay*2) * time.Second)
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+		[]byte{},
+	)
+	s.Nil(err)
+	txCandidate.GasLimit = 0
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head.NumberU64()+2, head2.NumberU64())
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+
+	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
+		context.Background(),
+		new(big.Int).SetUint64(head.NumberU64()+1),
+	)
+	s.Nil(err)
+	s.Equal(head2.NumberU64()-1, forcedIncludedHeader.NumberU64())
+	s.Equal(1, len(forcedIncludedHeader.Transactions()))
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
+	s.Equal(head2.Header().Time-1, forcedIncludedHeader.Header().Time)
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {

@@ -174,7 +174,6 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 func (b *BlobTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 	proverAuth []byte,
@@ -288,6 +287,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 				NumBlobs:       uint16(len(blobs)),
 				Offset:         common.Big0,
 			},
+			NumForcedInclusions: uint8(minTxsPerForcedInclusion.Uint64()),
 		},
 	)
 	if err != nil {
