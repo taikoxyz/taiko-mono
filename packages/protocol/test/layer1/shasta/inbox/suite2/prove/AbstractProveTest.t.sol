@@ -2,13 +2,13 @@
 /// @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
-import "contracts/layer1/shasta/impl/Inbox.sol";
+import "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProveTest
 /// @notice All prove tests for Inbox implementations

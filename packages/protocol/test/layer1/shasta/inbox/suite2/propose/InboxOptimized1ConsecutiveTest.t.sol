@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title InboxOptimized1ConsecutiveTest
 /// @notice Isolated test for consecutive proposals functionality on Optimized1 Inbox

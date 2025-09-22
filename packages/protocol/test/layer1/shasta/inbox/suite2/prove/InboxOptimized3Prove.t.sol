@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
 import { InboxOptimized3Deployer } from "../deployers/InboxOptimized3Deployer.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
 
 /// @title InboxOptimized3Prove
 /// @notice Test suite for prove functionality on InboxOptimized3 implementation
@@ -27,7 +27,7 @@ contract InboxOptimized3Prove is AbstractProveTest {
         // InboxOptimized3 uses LibProveInputDecoder which throws ProposalTransitionLengthMismatch()
         // during encoding itself, not during prove()
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
-        inboxHelper.encodeProveInputOptimized(input);
+        inboxHelper.encodeProveInput(input);
     }
 
     function _getExpectedAggregationBehavior(

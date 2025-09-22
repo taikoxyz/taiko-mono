@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "./InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
+import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";

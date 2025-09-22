@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title InboxTestHelper
@@ -203,9 +203,9 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposeInputEncoding) {
-            return inboxHelper.encodeProposeInputOptimized(_input);
+            return inboxHelper.encodeProposeInput(_input);
         }
-        return inboxHelper.encodeProposeInput(_input);
+        return inboxHelper.encodeProposeInputStandard(_input);
     }
 
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
@@ -213,11 +213,10 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes memory)
     {
-        // if (useOptimizedProposedEventEncoding) {
-        // Optimized encoding disabled - fallback to standard
-        // return inboxHelper.encodeProposedEventOptimized(_payload);
-        // }
-        return inboxHelper.encodeProposedEvent(_payload);
+        if (useOptimizedProposedEventEncoding) {
+            return inboxHelper.encodeProposedEvent(_payload);
+        }
+        return inboxHelper.encodeProposedEventStandard(_payload);
     }
 
     function _encodeProveInput(IInbox.ProveInput memory _input)
@@ -226,9 +225,9 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProveInputEncoding) {
-            return inboxHelper.encodeProveInputOptimized(_input);
+            return inboxHelper.encodeProveInput(_input);
         }
-        return inboxHelper.encodeProveInput(_input);
+        return inboxHelper.encodeProveInputStandard(_input);
     }
 
     function _createProposeInputWithCustomParams(

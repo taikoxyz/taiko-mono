@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 
 // Import errors from Inbox implementation
-import "contracts/layer1/shasta/impl/Inbox.sol";
+import "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProposeTest
 /// @notice All propose tests for Inbox implementations
