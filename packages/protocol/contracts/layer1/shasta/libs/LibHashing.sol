@@ -112,11 +112,8 @@ library LibHashing {
             bytes32[] memory buffer = EfficientHashLib.malloc(sourcesLength + 1);
             EfficientHashLib.set(buffer, 0, bytes32(sourcesLength));
 
-            for (uint256 i; i < sourcesLength;) {
+            for (uint256 i; i < sourcesLength; ++i) {
                 EfficientHashLib.set(buffer, i + 1, _hashDerivationSource(_derivation.sources[i]));
-                unchecked {
-                    ++i;
-                }
             }
 
             sourcesHash = EfficientHashLib.hash(buffer);
@@ -187,13 +184,10 @@ library LibHashing {
             bytes32[] memory buffer = EfficientHashLib.malloc(instructionsLength + 1);
             EfficientHashLib.set(buffer, 0, bytes32(instructionsLength));
 
-            for (uint256 i; i < instructionsLength;) {
+            for (uint256 i; i < instructionsLength; ++i) {
                 EfficientHashLib.set(
                     buffer, i + 1, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
                 );
-                unchecked {
-                    ++i;
-                }
             }
 
             bondInstructionsHash = EfficientHashLib.hash(buffer);
