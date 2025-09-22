@@ -82,13 +82,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
-    /// @notice The address responsible for calling `activate` on the inbox.
-    address internal immutable _shastaInitializer;
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
+    /// @dev The address responsible for calling `activate` on the inbox.
+    address internal _shastaInitializer;
+    
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -107,7 +107,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///  Two slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -129,23 +129,27 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
-        _shastaInitializer = shastaInitializer;
     }
 
     /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the `shastaInitializer` later in order to start accepting proposals.
     /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
     /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
-    function init(address _owner) external initializer {
+    function init(address _owner, address shastaInitializer) external initializer {
         __Essential_init(_owner);
+        _shastaInitializer = shastaInitializer;
     }
 
     /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Only the `shastaInitializer` or the owner can call this function.
+    ///         This function can only be called once.
+    /// @dev Only the `shastaInitializer` can call this function.
     /// @param _genesisBlockHash The hash of the genesis block
     function activate(bytes32 _genesisBlockHash) external {
-        require(msg.sender == _shastaInitializer || msg.sender == owner(), ACCESS_DENIED());
+        require(msg.sender == _shastaInitializer, ACCESS_DENIED());
         _activateInbox(_genesisBlockHash);
+
+        // Set the shastaInitializer to zero to prevent further calls to `activate`
+        _shastaInitializer = address(0);
     }
 
     // ---------------------------------------------------------------
