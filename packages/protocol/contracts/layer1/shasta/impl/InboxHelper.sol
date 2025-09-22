@@ -25,7 +25,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_payload);
+        // return abi.encode(_payload);
     }
 
     /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding
@@ -47,7 +47,7 @@ contract InboxHelper {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return abi.decode(_data, (IInbox.ProposedEventPayload));
+        // return abi.decode(_data, (IInbox.ProposedEventPayload));
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using optimized encoding
@@ -73,7 +73,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_payload);
+        // return abi.encode(_payload);
     }
 
     /// @notice Encodes a ProvedEventPayload into bytes using optimized encoding
@@ -95,7 +95,7 @@ contract InboxHelper {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return abi.decode(_data, (IInbox.ProvedEventPayload));
+        // return abi.decode(_data, (IInbox.ProvedEventPayload));
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using optimized encoding
@@ -122,7 +122,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_input);
+        // return abi.encode(_input);
     }
 
     /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
@@ -144,7 +144,7 @@ contract InboxHelper {
         pure
         returns (IInbox.ProposeInput memory input_)
     {
-        return abi.decode(_data, (IInbox.ProposeInput));
+        // return abi.decode(_data, (IInbox.ProposeInput));
     }
 
     /// @notice Decodes propose data using optimized operations
@@ -171,7 +171,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_input);
+        // return abi.encode(_input);
     }
 
     /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
@@ -193,7 +193,7 @@ contract InboxHelper {
         pure
         returns (IInbox.ProveInput memory input_)
     {
-        return abi.decode(_data, (IInbox.ProveInput));
+        // return abi.decode(_data, (IInbox.ProveInput));
     }
 
     /// @notice Decodes prove input data using optimized operations
@@ -215,7 +215,7 @@ contract InboxHelper {
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
-        return keccak256(abi.encode(_transition));
+        // return keccak256(abi.encode(_transition));
     }
 
     /// @notice Optimized hashing for Transition structs
@@ -237,7 +237,7 @@ contract InboxHelper {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_checkpoint));
+        // return keccak256(abi.encode(_checkpoint));
     }
 
     /// @notice Optimized hashing for Checkpoint structs
@@ -255,7 +255,7 @@ contract InboxHelper {
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
     function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
-        return keccak256(abi.encode(_coreState));
+        // return keccak256(abi.encode(_coreState));
     }
 
     /// @notice Optimized hashing for CoreState structs
@@ -313,7 +313,7 @@ contract InboxHelper {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_transitions));
+        // return keccak256(abi.encode(_transitions));
     }
 
     /// @notice Optimized hashing for arrays of Transitions
@@ -335,7 +335,7 @@ contract InboxHelper {
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        // return bytes26(keccak256(abi.encode(_transitionRecord)));
     }
 
     /// @notice Optimized hashing for TransitionRecord structs

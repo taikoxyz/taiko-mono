@@ -756,9 +756,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         internal
         pure
         virtual
-        returns (ProposeInput memory input_)
+        returns (ProposeInput memory)
     {
-        input_ = abi.decode(_data, (ProposeInput));
+        return abi.decode(_data, (ProposeInput));
     }
 
     /// @dev Decodes prove input data
@@ -814,7 +814,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         // Encode sources array separately to avoid deep stack
         bytes memory sourcesData;
-        for (uint256 i = 0; i < _derivation.sources.length; ++i) {
+        for (uint256 i; i < _derivation.sources.length; ++i) {
             bytes memory sourceData = abi.encode(
                 _derivation.sources[i].isForcedInclusion, _derivation.sources[i].blobSlice
             );
@@ -828,12 +828,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _blobHashes The blob hashes array to hash
     /// @return The hash of the blob hashes array
     function _hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        // Use abi.encodePacked in a loop to avoid deep stack from abi.encode on large arrays
-        bytes memory packed;
-        for (uint256 i = 0; i < _blobHashes.length; ++i) {
-            packed = abi.encodePacked(packed, _blobHashes[i]);
-        }
-        return keccak256(packed);
+        return keccak256(abi.encode(_blobHashes));
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
@@ -921,68 +916,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             );
         }
     }
-
-    // /// @dev Creates and stores a new proposal
-    // /// @notice Increments nextProposalId and emits Proposed event
-    // /// @param _coreState Current state whose hash is stored in the proposal
-    // /// @param _blobSlice Blob data slice containing L2 transactions
-    // /// @param _isForcedInclusion True if this is a forced inclusion proposal
-    // /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
-    // /// preconfer
-    // /// can propose.
-    // /// @return Updated core state with incremented nextProposalId
-    // function _propose(
-    //     CoreState memory _coreState,
-    //     LibBlobs.BlobSlice memory _blobSlice,
-    //     bool _isForcedInclusion,
-    //     uint48 _endOfSubmissionWindowTimestamp
-    // )
-    //     private
-    //     returns (CoreState memory)
-    // {
-    //     unchecked {
-    //         // use previous block as the origin for the proposal to be able to call `blockhash`
-    //         uint256 parentBlockNumber = block.number - 1;
-
-    //         // Create a single derivation source for backward compatibility
-    //         DerivationSource[] memory sources = new DerivationSource[](1);
-    //         sources[0] =
-    //             DerivationSource({ isForcedInclusion: _isForcedInclusion, blobSlice: _blobSlice
-    // });
-
-    //         Derivation memory derivation = Derivation({
-    //             originBlockNumber: uint48(parentBlockNumber),
-    //             originBlockHash: blockhash(parentBlockNumber),
-    //             basefeeSharingPctg: _basefeeSharingPctg,
-    //             sources: sources
-    //         });
-
-    //         // Increment nextProposalId (nextProposalBlockId was already set in propose())
-    //         uint48 proposalId = _coreState.nextProposalId++;
-
-    //         Proposal memory proposal = Proposal({
-    //             id: proposalId,
-    //             timestamp: uint48(block.timestamp),
-    //             endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
-    //             proposer: msg.sender,
-    //             coreStateHash: _hashCoreState(_coreState),
-    //             derivationHash: _hashDerivation(derivation)
-    //         });
-
-    //         _setProposalHash(proposal.id, _hashProposal(proposal));
-
-    //         bytes memory payload = _encodeProposedEventData(
-    //             ProposedEventPayload({
-    //                 proposal: proposal,
-    //                 derivation: derivation,
-    //                 coreState: _coreState
-    //             })
-    //         );
-    //         emit Proposed(payload);
-
-    //         return _coreState;
-    //     }
-    // }
 
     /// @dev Finalizes proven proposals and updates checkpoint
     /// @dev Performs up to `maxFinalizationCount` finalization iterations.
