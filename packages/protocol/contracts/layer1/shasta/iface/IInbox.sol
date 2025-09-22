@@ -51,7 +51,7 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
+        /// @notice Blobs that contain the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
     }
 
@@ -110,6 +110,8 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
+        /// @notice The next proposal block ID to be assigned.
+        uint48 nextProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized transition.

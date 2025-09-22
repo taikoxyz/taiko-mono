@@ -31,7 +31,7 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     constructor(IInbox.Config memory _config) InboxOptimized3(_config) { }
 
     // ---------------------------------------------------------------
-    // Public Functions
+    // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
@@ -39,7 +39,12 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @dev Uses LibHashing for efficient transition hashing
     /// @param _transition The transition data to hash
     /// @return bytes32 The keccak256 hash of the transition struct
-    function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
         return LibHashing.hashTransition(_transition);
     }
 
@@ -48,8 +53,8 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @dev Uses LibHashing for efficient checkpoint hashing
     /// @param _checkpoint The checkpoint data to hash
     /// @return bytes32 The keccak256 hash of the checkpoint struct
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        public
+    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
         pure
         override
         returns (bytes32)
@@ -62,13 +67,9 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @dev Uses LibHashing for efficient core state hashing
     /// @param _coreState The core state data to hash
     /// @return bytes32 The keccak256 hash of the core state struct
-    function hashCoreState(CoreState memory _coreState) public pure override returns (bytes32) {
+    function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
-
-    // ---------------------------------------------------------------
-    // Internal Functions - Overrides
-    // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
     /// @dev Optimized implementation using LibHashing

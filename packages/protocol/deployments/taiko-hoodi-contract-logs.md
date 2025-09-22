@@ -1,8 +1,8 @@
-# Taiko Tolba network Contract Logs
+# Taiko Hoodi network Contract Logs
 
 ## Notes
 
-1. Code used on Tolba must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+1. Code used on Taiko Hoodi must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
 
 ## L1 Contracts
 
@@ -137,10 +137,11 @@
 ### proof_verifier
 
 - proxy : `0xdF712d14E40b99448048Dbf9E7FC5488CCdde991`
-- impl : `0xBEDFe2f1E05dBE287F6fd251DeE7D6EC62860944`
+- impl : `0x5E652dC4033C6860b27d6860164369D15b421A42`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - updated on Sep 18, 2025 at commit `1852eb5`
 
 ### sgx_reth_verifier
 
@@ -153,18 +154,20 @@
 ### risc0_reth_verifier
 
 - proxy : `0xD1359ba7297e207b9B2519B0E1e15b0E0c8b790e`
-- impl : `0xb1C5F04E3171E5973B333f9595bDC8BF264f2c18`
+- impl : `0xCB9ec35c63E7A3d6976dc3b80B5b39731E82Ed1f`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - upgraded on Sep 22, 2025 at commit `6be61d3`
 
 ### sp1_reth_verifier
 
 - proxy : `0x81d64E57E24AFae7E941976AB5A2976b390eAcD8`
-- impl : `0xC7e3d620Cee0d99D8b2b04Bca96e995DA519e788`
+- impl : `0xDf5c2a3f9B67515Bd3dBa8BaAA8EfF9C75f96183`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - upgraded on Sep 22, 2025 at commit `6be61d3`
 
 ### sgx_geth_verifier
 
