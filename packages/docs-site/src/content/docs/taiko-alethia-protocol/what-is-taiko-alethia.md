@@ -76,7 +76,7 @@ These services are open-source, meaning anyone can replicate or improve them.
 | Feature                        | Traditional Rollups                  | Taiko Alethia                          |
 | ------------------------------ | ------------------------------------ | -------------------------------------- |
 | **Sequencing**                 | Centralized (single sequencer)       | Decentralized (L1 validators sequence) |
-| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE +ZK)    |
+| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE + ZK)   |
 | **Censorship Resistance**      | Operator can censor transactions     | Permissionless transaction inclusion   |
 | **Smart Contract Equivalence** | Modified Ethereum (Geth changes)     | 100% Ethereum-equivalent               |
 | **Decentralization**           | Relies on multisig governance        | DAO-controlled with open participation |
