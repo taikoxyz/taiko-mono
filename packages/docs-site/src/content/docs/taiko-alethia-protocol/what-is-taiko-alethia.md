@@ -66,7 +66,7 @@ These services are open-source, meaning anyone can replicate or improve them.
 
 - [Event Indexer](/api-reference/event-indexer) → Tracks rollup transactions & events.
 - [Bridge Relayer](/api-reference/bridge-relayer) → Facilitates trust-minimized bridging.
-- [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.16.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
+- [Taiko Alethia, Taiko Hekla & Taiko Hoodi P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.20.0) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
 - [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/contract-addresses)
 
 ---
