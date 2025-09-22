@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -20,15 +21,15 @@ import (
 )
 
 var (
-	dbName     = "indexer"
-	dbUsername = "root"
-	dbPassword = "password"
+	dbName     = "indexer"  //nolint:deadcode,unused
+	dbUsername = "root"     //nolint:deadcode,unused
+	dbPassword = "password" //nolint:deadcode,unused
 
 	// Package-level variables for container reuse
-	sharedContainer testcontainers.Container
-	sharedDSN       string
-	containerMutex  sync.Mutex
-	setupOnce       sync.Once
+	sharedContainer testcontainers.Container //nolint:unused
+	sharedDSN       string                   //nolint:unused
+	containerMutex  sync.Mutex               //nolint:unused
+	setupOnce       sync.Once                //nolint:unused
 )
 
 // TestMain sets up and tears down the shared container
@@ -45,8 +46,9 @@ func TestMain(m *testing.M) {
 }
 
 // setupSharedContainer initializes the shared MySQL container once
-func setupSharedContainer() error {
+func setupSharedContainer() error { //nolint:unused
 	var err error
+
 	setupOnce.Do(func() {
 		req := testcontainers.ContainerRequest{
 			Image:        "mysql:8.0.36",
@@ -55,10 +57,7 @@ func setupSharedContainer() error {
 				"MYSQL_ROOT_PASSWORD": dbPassword,
 				"MYSQL_DATABASE":      dbName,
 			},
-			WaitingFor: wait.ForAll(
-				wait.ForLog("MySQL Community Server - GPL"),
-				wait.ForLog("ready for connections"),
-			).WithStartupTimeout(2 * time.Minute),
+			WaitingFor: wait.ForMappedPort(nat.Port("3306/tcp")).WithStartupTimeout(2 * time.Minute),
 		}
 
 		ctx := context.Background()
@@ -104,22 +103,25 @@ func setupSharedContainer() error {
 					}
 				}
 			}
+
 			time.Sleep(2 * time.Second)
 		}
 	})
+
 	return err
 }
 
 // runMigrations runs the up migrations
-func runMigrations(sqlDB *sql.DB) error {
+func runMigrations(sqlDB *sql.DB) error { //nolint:unused
 	if err := goose.SetDialect("mysql"); err != nil {
 		return err
 	}
+
 	return goose.Up(sqlDB, "../../migrations")
 }
 
 // cleanDatabase truncates all tables to reset data while keeping schema
-func cleanDatabase(sqlDB *sql.DB) error {
+func cleanDatabase(sqlDB *sql.DB) error { //nolint:unused
 	// Disable foreign key checks temporarily
 	if _, err := sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 0"); err != nil {
 		return err
@@ -140,7 +142,7 @@ func cleanDatabase(sqlDB *sql.DB) error {
 	for _, table := range tables {
 		if _, err := sqlDB.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)); err != nil {
 			// Re-enable foreign key checks even if truncate fails
-			sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 1")
+			_, _ = sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 1")
 			return fmt.Errorf("failed to truncate table %s: %w", table, err)
 		}
 	}
@@ -166,7 +168,9 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	// Try to connect with retries
 	var gormDB *gorm.DB
+
 	var err error
+
 	for i := 0; i < 5; i++ {
 		gormDB, err = gorm.Open(mysql.Open(sharedDSN), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Error),
@@ -174,6 +178,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		if err == nil {
 			break
 		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -188,8 +193,9 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	// Check if we need to run migrations (first test only)
 	var version int64
+
 	row := sqlDB.QueryRow("SELECT MAX(version_id) FROM goose_db_version")
-	row.Scan(&version)
+	_ = row.Scan(&version)
 
 	if version == 0 {
 		// First test - run migrations to set up schema
