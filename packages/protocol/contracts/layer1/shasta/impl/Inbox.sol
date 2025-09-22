@@ -86,41 +86,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     address internal immutable _shastaInitializer;
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    /// @notice Emitted when bond is withdrawn from the contract
-    /// @param user The user whose bond was withdrawn
-    /// @param amount The amount of bond withdrawn
-    event BondWithdrawn(address indexed user, uint256 amount);
-
-    // ---------------------------------------------------------------
-    // State Variables for compatibility with Pacaya inbox.
-    // ---------------------------------------------------------------
-
-    /// @dev Deprecated slots used by Pacaya inbox that contains:
-    /// - `batches`
-    /// - `transitionIds`
-    /// - `transitions`
-    /// - `__reserve1`
-    /// - `stats1`
-    /// - `stats2`
-    uint256[6] private __slotsUsedByPacaya;
-
-    /// @notice Bond balance for each account used in Pacaya inbox.
-    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
-    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
-    mapping(address account => uint256 bond) public bondBalance;
-
-    // ---------------------------------------------------------------
-    // State Variables for Shasta inbox.
+    // State Variables
     // ---------------------------------------------------------------
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
-    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap
-    /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev Simple mapping for storing transition record hashes
@@ -136,7 +107,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///  Two slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
-    uint256[39] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -270,20 +241,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify the proof
         _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
-    }
-
-    /// @notice Withdraws bond balance to specified address
-    /// @dev Legacy function for withdrawing bonds from Pacaya fork
-    /// @dev Bonds are now managed on L2 by the BondManager contract
-    /// @param _address The recipient address for the bond withdrawal
-    function withdrawBond(address _address) external nonReentrant {
-        uint256 amount = bondBalance[_address];
-        require(amount > 0, NoBondToWithdraw());
-        // Clear balance before transfer (checks-effects-interactions)
-        bondBalance[_address] = 0;
-        // Transfer the bond
-        _bondToken.safeTransfer(_address, amount);
-        emit BondWithdrawn(_address, amount);
     }
 
     /// @inheritdoc IForcedInclusionStore
