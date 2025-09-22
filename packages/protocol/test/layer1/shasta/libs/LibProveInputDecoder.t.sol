@@ -9,7 +9,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @title LibProveInputDecoderTest
 /// @notice Tests for LibProveInputDecoder
 contract LibProveInputDecoderTest is Test {
-    function test_encode_decode_simple() public {
+    function test_encode_decode_simple() public pure {
         // Create simple prove input with one proposal and one transition
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
@@ -81,7 +81,7 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.metadata[0].actualProver, address(0x9ABC), "Actual prover mismatch");
     }
 
-    function test_encode_decode_multiple() public {
+    function test_encode_decode_multiple() public pure {
         // Test with multiple proposals, transitions, and metadata
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = IInbox.Proposal({
@@ -161,7 +161,7 @@ contract LibProveInputDecoderTest is Test {
         );
     }
 
-    function test_encode_decode_empty_arrays() public {
+    function test_encode_decode_empty_arrays() public pure {
         // Test with empty arrays
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
@@ -177,7 +177,7 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.metadata.length, 0, "Empty metadata array mismatch");
     }
 
-    function test_encoding_size_optimization() public {
+    function test_encoding_size_optimization() public pure {
         // Test that encoded size is reasonable
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({

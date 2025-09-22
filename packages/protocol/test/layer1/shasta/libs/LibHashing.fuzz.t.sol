@@ -213,6 +213,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 blobHash
     )
         public
+        pure
     {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = blobHash;
@@ -368,6 +369,7 @@ contract LibHashingFuzzTest is Test {
         address receiver
     )
         public
+        pure
     {
         // Bound bondType to valid enum range (3 types: 0-2: NONE, PROVABILITY, LIVENESS)
         LibBonds.BondType bondType = LibBonds.BondType(bound(bondTypeRaw, 0, 2));
@@ -506,6 +508,7 @@ contract LibHashingFuzzTest is Test {
         uint48 timestamp
     )
         public
+        pure
     {
         // Test with maximum reasonable number of blob hashes (bounded for gas)
         uint256 numBlobs = bound(timestamp, 1, 20); // Use timestamp as seed, bound to reasonable

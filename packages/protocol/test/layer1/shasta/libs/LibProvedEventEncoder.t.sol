@@ -10,7 +10,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @title LibProvedEventEncoderTest
 /// @notice Tests for LibProvedEventEncoder
 contract LibProvedEventEncoderTest is Test {
-    function test_encode_decode_simple() public {
+    function test_encode_decode_simple() public pure {
         // Create transition
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: bytes32(uint256(123)),
@@ -130,7 +130,7 @@ contract LibProvedEventEncoderTest is Test {
         );
     }
 
-    function test_encode_decode_multiple_bond_instructions() public {
+    function test_encode_decode_multiple_bond_instructions() public pure {
         // Create multiple bond instructions
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](3);
         bondInstructions[0] = LibBonds.BondInstruction({
@@ -214,7 +214,7 @@ contract LibProvedEventEncoderTest is Test {
         );
     }
 
-    function test_encode_decode_empty_bond_instructions() public {
+    function test_encode_decode_empty_bond_instructions() public pure {
         // Test with empty bond instructions array
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             proposalId: 30,
@@ -251,7 +251,7 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(decoded.transitionRecord.span, 1, "Span should match");
     }
 
-    function test_encode_decode_large_span() public {
+    function test_encode_decode_large_span() public pure {
         // Test with larger span value
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             proposalId: 100,
@@ -285,7 +285,7 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(decoded.proposalId, 100, "Proposal ID should match");
     }
 
-    function test_encoding_determinism() public {
+    function test_encoding_determinism() public pure {
         // Test that encoding is deterministic
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             proposalId: 42,

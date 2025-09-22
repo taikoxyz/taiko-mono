@@ -9,7 +9,7 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 /// @title LibProposedEventEncoderTest
 /// @notice Tests for LibProposedEventEncoder
 contract LibProposedEventEncoderTest is Test {
-    function test_encode_decode_simple() public {
+    function test_encode_decode_simple() public pure {
         // Create proposal
         IInbox.Proposal memory proposal = IInbox.Proposal({
             id: 1,
@@ -126,7 +126,7 @@ contract LibProposedEventEncoderTest is Test {
         );
     }
 
-    function test_encode_decode_empty_sources() public {
+    function test_encode_decode_empty_sources() public pure {
         // Test with empty sources array
         IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
             proposal: IInbox.Proposal({
@@ -160,7 +160,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.coreState.nextProposalId, 11, "Core state should match");
     }
 
-    function test_encode_decode_multiple_sources() public {
+    function test_encode_decode_multiple_sources() public pure {
         // Test with multiple sources
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
 
@@ -233,7 +233,7 @@ contract LibProposedEventEncoderTest is Test {
         );
     }
 
-    function test_encoding_determinism() public {
+    function test_encoding_determinism() public pure {
         // Test that encoding is deterministic
         IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
             proposal: IInbox.Proposal({

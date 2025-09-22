@@ -9,7 +9,7 @@ import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDe
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 contract LibProposeInputDecoderTest is Test {
-    function test_encode_decode_simple() public {
+    function test_encode_decode_simple() public pure {
         // Setup simple test case with new structure
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
@@ -120,7 +120,7 @@ contract LibProposeInputDecoderTest is Test {
         );
     }
 
-    function test_encode_decode_with_proposals() public {
+    function test_encode_decode_with_proposals() public pure {
         // Test with some parent proposals
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
 
@@ -192,7 +192,7 @@ contract LibProposeInputDecoderTest is Test {
         assertEq(decoded.blobReference.offset, 100, "Blob offset mismatch");
     }
 
-    function test_encode_decode_with_transition_records() public {
+    function test_encode_decode_with_transition_records() public pure {
         // Test with transition records containing bond instructions
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
         bondInstructions[0] = LibBonds.BondInstruction({
@@ -270,7 +270,7 @@ contract LibProposeInputDecoderTest is Test {
         );
     }
 
-    function test_encode_decode_empty_checkpoint() public {
+    function test_encode_decode_empty_checkpoint() public pure {
         // Test with empty checkpoint (should be optimized)
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 12_345,
