@@ -242,7 +242,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
             uint256 index;
             // Add forced inclusion sources first
-            for(; index < forcedInclusions.length; ++index) {
+            for (; index < forcedInclusions.length; ++index) {
                 sources[index] = DerivationSource({
                     isForcedInclusion: true,
                     blobSlice: forcedInclusions[index].blobSlice
@@ -770,8 +770,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // Private Functions
     // ---------------------------------------------------------------
 
-    function _propose(CoreState memory _coreState, DerivationSource[] memory _derivationSources, uint48 _endOfSubmissionWindowTimestamp) internal {
-        
+    function _propose(
+        CoreState memory _coreState,
+        DerivationSource[] memory _derivationSources,
+        uint48 _endOfSubmissionWindowTimestamp
+    )
+        internal
+    {
         // use previous block as the origin for the proposal to be able to call `blockhash`
         uint256 parentBlockNumber = block.number - 1;
 
@@ -797,7 +802,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Create payload and emit event with stack-optimized approach
         _emitProposedEvent(proposal, derivation, _coreState);
     }
-    
+
     /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data
     /// @param _derivation The derivation data
