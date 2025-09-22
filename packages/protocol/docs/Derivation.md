@@ -366,7 +366,7 @@ The following block header fields are also set before transaction execution but 
 | Header Field | Value                                                                                           |
 | ------------ | ----------------------------------------------------------------------------------------------- |
 | `parentHash` | Hash of the previous L2 block                                                                   |
-| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                      |
+| `mixHash`    | Set to `prevRandao` as per EIP-4399                                                             |
 | `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
