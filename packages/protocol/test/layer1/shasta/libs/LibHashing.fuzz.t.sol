@@ -8,9 +8,9 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingFuzz
+/// @title LibHashingFuzzTest
 /// @notice Comprehensive fuzz testing for LibHashing library functions
-contract LibHashingFuzz is Test {
+contract LibHashingFuzzTest is Test {
     // ---------------------------------------------------------------
     // Fuzz Test: hashCheckpoint
     // ---------------------------------------------------------------
