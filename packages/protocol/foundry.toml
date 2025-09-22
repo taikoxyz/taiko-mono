@@ -5,11 +5,10 @@ gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
 yul = true
-ffi = true
-via_ir = true
 fuzz_runs = 200
 fuzz_runs_show_logs = false
-memory_limit = 4_294_967_296
+ffi = true
+memory_limit = 2_073_741_824
 solc_version = "0.8.30"
 remappings = [
   "openzeppelin/=node_modules/@openzeppelin/",
@@ -87,3 +86,17 @@ test = "test/genesis"
 script = "script/layer2"
 out = "out/genesis"
 evm_version = "shanghai"
+
+# Layer1 Optimized profile: Enables via_ir and yul optimizations for maximum contract size reduction
+# Used for contracts that can handle aggressive IR compilation (e.g., Inbox implementations)  
+# Usage: FOUNDRY_PROFILE=layer1o forge build <contracts> --sizes
+[profile.layer1o]
+src = "contracts/layer1"
+test = "test/layer1"
+script = "script/layer1"
+out = "out/layer1"
+evm_version = "prague"
+via_ir = true
+yul = true
+optimizer_runs = 200
+memory_limit = 4_294_967_296

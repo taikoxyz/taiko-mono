@@ -15,6 +15,10 @@ import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 ///      - Reduced transaction costs through efficient data packing
 ///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
+/// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
+///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
+///      Example: FOUNDRY_PROFILE=layer1o forge build
+/// contracts/layer1/shasta/impl/InboxOptimized3.sol
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------

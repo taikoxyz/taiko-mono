@@ -30,7 +30,7 @@ forge script ./script/layer1/based/DeployTaikoToken.s.sol:DeployTaikoToken \
     --private-key $PRIVATE_KEY \
     --block-gas-limit 200000000
 
-FOUNDRY_PROFILE="layer1" \
+FOUNDRY_PROFILE="layer1o" \
 forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
