@@ -10,61 +10,6 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProvedEventEncoder {
     // ---------------------------------------------------------------
-    // Public Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
-    function decode(bytes memory _data)
-        public
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        // Get pointer to data section (skip length prefix)
-        uint256 ptr = P.dataPtr(_data);
-
-        // Decode proposalId (uint48)
-        (payload_.proposalId, ptr) = P.unpackUint48(ptr);
-
-        // Decode Transition struct
-        (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
-        // Decode Checkpoint
-        (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
-
-        // Decode TransitionRecord
-        (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
-        (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
-
-        // Decode TransitionMetadata
-        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
-
-        // Decode bond instructions array length (uint16)
-        uint16 arrayLength;
-        (arrayLength, ptr) = P.unpackUint16(ptr);
-
-        // Decode bond instructions
-        payload_.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
-        for (uint256 i; i < arrayLength; ++i) {
-            (payload_.transitionRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
-
-            uint8 bondTypeValue;
-            (bondTypeValue, ptr) = P.unpackUint8(ptr);
-            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
-            payload_.transitionRecord.bondInstructions[i].bondType =
-                LibBonds.BondType(bondTypeValue);
-
-            (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
-            (payload_.transitionRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
-        }
-    }
-
-    // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
@@ -114,6 +59,57 @@ library LibProvedEventEncoder {
             ptr = P.packUint8(ptr, uint8(_payload.transitionRecord.bondInstructions[i].bondType));
             ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
             ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].receiver);
+        }
+    }
+
+    /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
+    /// @param _data The bytes to decode
+    /// @return payload_ The decoded ProvedEventPayload
+    function decode(bytes memory _data)
+        internal
+        pure
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        // Get pointer to data section (skip length prefix)
+        uint256 ptr = P.dataPtr(_data);
+
+        // Decode proposalId (uint48)
+        (payload_.proposalId, ptr) = P.unpackUint48(ptr);
+
+        // Decode Transition struct
+        (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
+        // Decode Checkpoint
+        (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+
+        // Decode TransitionRecord
+        (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
+        (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
+
+        // Decode TransitionMetadata
+        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
+        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
+
+        // Decode bond instructions array length (uint16)
+        uint16 arrayLength;
+        (arrayLength, ptr) = P.unpackUint16(ptr);
+
+        // Decode bond instructions
+        payload_.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
+        for (uint256 i; i < arrayLength; ++i) {
+            (payload_.transitionRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
+
+            uint8 bondTypeValue;
+            (bondTypeValue, ptr) = P.unpackUint8(ptr);
+            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
+            payload_.transitionRecord.bondInstructions[i].bondType =
+                LibBonds.BondType(bondTypeValue);
+
+            (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
+            (payload_.transitionRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
         }
     }
 

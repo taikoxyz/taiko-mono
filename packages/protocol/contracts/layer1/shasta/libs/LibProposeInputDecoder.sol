@@ -11,14 +11,14 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProposeInputDecoder {
     // ---------------------------------------------------------------
-    // Public Functions
+    // Internal Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes propose data using compact encoding
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
     function encode(IInbox.ProposeInput memory _input)
-        public
+        internal
         pure
         returns (bytes memory encoded_)
     {
@@ -78,10 +78,6 @@ library LibProposeInputDecoder {
         // 7. Encode numForcedInclusions
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
     /// @param _data The encoded data

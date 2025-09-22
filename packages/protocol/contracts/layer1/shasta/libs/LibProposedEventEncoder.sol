@@ -10,66 +10,6 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
     // ---------------------------------------------------------------
-    // Public Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
-    /// @param _data The encoded data
-    /// @return payload_ The decoded payload
-    function decode(bytes memory _data)
-        public
-        pure
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        // Get pointer to data section (skip length prefix)
-        uint256 ptr = P.dataPtr(_data);
-
-        // Decode Proposal
-        (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
-        (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
-
-        // Decode derivation fields
-        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
-
-        // Decode sources array length
-        uint16 sourcesLength;
-        (sourcesLength, ptr) = P.unpackUint16(ptr);
-
-        payload_.derivation.sources = new IInbox.DerivationSource[](sourcesLength);
-        for (uint256 i; i < sourcesLength; ++i) {
-            uint8 isForcedInclusion;
-            (isForcedInclusion, ptr) = P.unpackUint8(ptr);
-            payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
-
-            // Decode blob slice for this source
-            uint16 blobHashesLength;
-            (blobHashesLength, ptr) = P.unpackUint16(ptr);
-
-            payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
-            for (uint256 j; j < blobHashesLength; ++j) {
-                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) = P.unpackBytes32(ptr);
-            }
-
-            (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
-            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
-        }
-
-        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
-
-        // Decode core state
-        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
-    }
-
-    // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
@@ -130,10 +70,66 @@ library LibProposedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
+
+    /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
+    /// @param _data The encoded data
+    /// @return payload_ The decoded payload
+    function decode(bytes memory _data)
+        internal
+        pure
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        // Get pointer to data section (skip length prefix)
+        uint256 ptr = P.dataPtr(_data);
+
+        // Decode Proposal
+        (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
+        (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
+
+        // Decode derivation fields
+        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+
+        // Decode sources array length
+        uint16 sourcesLength;
+        (sourcesLength, ptr) = P.unpackUint16(ptr);
+
+        payload_.derivation.sources = new IInbox.DerivationSource[](sourcesLength);
+        for (uint256 i; i < sourcesLength; ++i) {
+            uint8 isForcedInclusion;
+            (isForcedInclusion, ptr) = P.unpackUint8(ptr);
+            payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
+
+            // Decode blob slice for this source
+            uint16 blobHashesLength;
+            (blobHashesLength, ptr) = P.unpackUint16(ptr);
+
+            payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
+            for (uint256 j; j < blobHashesLength; ++j) {
+                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) = P.unpackBytes32(ptr);
+            }
+
+            (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
+            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+        }
+
+        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
+
+        // Decode core state
+        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+    }
+
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _sources Array of derivation sources
     /// @return size_ The total byte size needed for encoding
-
     function calculateProposedEventSize(IInbox.DerivationSource[] memory _sources)
         internal
         pure
