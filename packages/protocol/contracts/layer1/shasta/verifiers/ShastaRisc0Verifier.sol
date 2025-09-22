@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
-import "src/shared/common/EssentialContract.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
 /// @title ShastaRisc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
+contract ShastaRisc0Verifier is IProofVerifier, Ownable {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
@@ -31,17 +31,13 @@ contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId, address _riscoGroth16Verifier) {
+    constructor(uint64 _taikoChainId, address _riscoGroth16Verifier, address _owner) {
         require(_taikoChainId != 0, "Invalid chain id");
         require(_riscoGroth16Verifier != address(0), "Invalid risc0 groth16 verifier");
         taikoChainId = _taikoChainId;
         riscoGroth16Verifier = _riscoGroth16Verifier;
-    }
-
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _owner The address of the owner.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+        
+        _transferOwnership(_owner);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity

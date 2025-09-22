@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
@@ -16,7 +16,7 @@ import "../iface/IProofVerifier.sol";
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
+contract ShastaSgxVerifier is IProofVerifier, Ownable {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -80,15 +80,11 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId) {
+    constructor(uint64 _taikoChainId, address _owner) {
         require(_taikoChainId != 0, "Invalid chain id");
         taikoChainId = _taikoChainId;
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+        
+        _transferOwnership(_owner);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
