@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
@@ -14,7 +14,7 @@ import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 ///      Example: FOUNDRY_PROFILE=layer1o forge build
 /// contracts/layer1/shasta/impl/MainnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized4 {
+contract MainnetShastaInbox is InboxOptimized1 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -39,7 +39,7 @@ contract MainnetShastaInbox is InboxOptimized4 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized4(
+        InboxOptimized1(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 proofVerifier: _proofVerifier,
