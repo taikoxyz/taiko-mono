@@ -1,3 +1,5 @@
 {
-  "propose_single_empty_ring_buffer_InboxOptimized1": "135520"
+  "propose_single_empty_ring_buffer_Inbox": "135552",
+  "propose_single_empty_ring_buffer_InboxOptimized1": "135520",
+  "propose_single_empty_ring_buffer_InboxOptimized2": "144148"
 }
