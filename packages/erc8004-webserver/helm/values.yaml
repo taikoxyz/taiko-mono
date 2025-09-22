@@ -1,0 +1,208 @@
+# Default values for erc8004-webserver
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 3
+
+image:
+  repository: erc8004-server
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: agent.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: erc8004-tls
+      hosts:
+        - agent.example.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - erc8004-webserver
+        topologyKey: kubernetes.io/hostname
+
+# Application Configuration
+config:
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    domain: "agent.example.com"
+    environment: "production"
+  
+  blockchain:
+    web3Provider: "https://rpc.taiko.xyz"
+    chainId: 167000
+    contractAddress: ""
+  
+  cache:
+    agentCardTTL: 300
+    feedbackListTTL: 60
+    reputationTTL: 30
+  
+  rateLimit:
+    enabled: true
+    public: "100/minute"
+    authenticated: "1000/minute"
+  
+  storage:
+    dataPath: "/data/agent_data"
+    ipfsGateway: "https://ipfs.io/ipfs/"
+    maxUploadSize: 10485760
+  
+  monitoring:
+    enabled: true
+    logLevel: "INFO"
+
+# PostgreSQL Configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgres_admin_pass"
+    username: "agent_user"
+    password: "agent_pass"
+    database: "agent_db"
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    initdb:
+      scripts:
+        01-init.sql: |
+          -- Database initialization script
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+  metrics:
+    enabled: true
+
+# Redis Configuration  
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "redis_pass"
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+  metrics:
+    enabled: true
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+
+# Network Policy
+networkPolicy:
+  enabled: true
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Monitoring and Metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+
+# Secrets (should be overridden in production)
+secrets:
+  secretKey: "change-this-in-production"
+  databaseUrl: "postgresql+asyncpg://agent_user:agent_pass@erc8004-webserver-postgresql:5432/agent_db"
+  redisUrl: "redis://:redis_pass@erc8004-webserver-redis-master:6379"

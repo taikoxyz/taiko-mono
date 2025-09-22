@@ -1,0 +1,78 @@
+# Development values for erc8004-webserver
+replicaCount: 1
+
+image:
+  repository: erc8004-server
+  tag: "dev"
+  pullPolicy: Never
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+config:
+  server:
+    domain: "localhost"
+    environment: "development"
+  
+  blockchain:
+    web3Provider: "https://rpc.test.taiko.xyz"
+    chainId: 167001
+  
+  monitoring:
+    logLevel: "DEBUG"
+
+postgresql:
+  auth:
+    postgresPassword: "dev_postgres_pass"
+    username: "dev_user"
+    password: "dev_pass"
+    database: "dev_agent_db"
+  primary:
+    persistence:
+      enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+redis:
+  auth:
+    password: "dev_redis_pass"
+  master:
+    persistence:
+      enabled: false
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+persistence:
+  enabled: false
+
+ingress:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+secrets:
+  secretKey: "dev-secret-key"
+  databaseUrl: "postgresql+asyncpg://dev_user:dev_pass@erc8004-webserver-postgresql:5432/dev_agent_db"
+  redisUrl: "redis://:dev_redis_pass@erc8004-webserver-redis-master:6379"

@@ -1,0 +1,28 @@
+{
+  "name": "@taiko/erc8004-webserver",
+  "version": "1.0.0",
+  "description": "ERC-8004 Off-Chain Storage Server for Taiko",
+  "author": "Taiko Labs",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000",
+    "test": "pytest tests/ -v --cov=app --cov-report=html",
+    "test:watch": "pytest-watch",
+    "lint": "flake8 app tests",
+    "format": "black app tests",
+    "type-check": "mypy app",
+    "migrate": "alembic upgrade head",
+    "migrate:create": "alembic revision --autogenerate",
+    "docker:build": "docker build -t erc8004-server .",
+    "docker:run": "docker-compose up -d",
+    "helm:install": "helm install erc8004 ./helm",
+    "helm:upgrade": "helm upgrade erc8004 ./helm"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "python": ">=3.11"
+  }
+}

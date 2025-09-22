@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: agent_db
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user -d agent_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erc8004-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass redis_pass
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erc8004-network
+
+  # ERC-8004 Server Application
+  erc8004-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Server Configuration
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8000
+      AGENT_DOMAIN: localhost
+      ENVIRONMENT: development
+      
+      # Database Configuration
+      DATABASE_URL: postgresql+asyncpg://agent_user:agent_pass@postgres:5432/agent_db
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MAX_OVERFLOW: 20
+      
+      # Redis Configuration
+      REDIS_URL: redis://:redis_pass@redis:6379
+      REDIS_POOL_SIZE: 5
+      
+      # Blockchain Configuration
+      WEB3_PROVIDER: https://rpc.taiko.xyz
+      CHAIN_ID: 167000
+      
+      # Security
+      SECRET_KEY: dev-secret-key-change-in-production
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:8080"
+      RATE_LIMIT_ENABLED: true
+      
+      # Storage
+      DATA_PATH: /data/agent_data
+      IPFS_GATEWAY: https://ipfs.io/ipfs/
+      MAX_UPLOAD_SIZE: 10485760
+      
+      # Monitoring
+      METRICS_ENABLED: true
+      LOG_LEVEL: DEBUG
+    ports:
+      - "8000:8000"
+    volumes:
+      - agent_data:/data/agent_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - erc8004-network
+
+  # Nginx Reverse Proxy (Optional for local testing)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - erc8004-server
+    networks:
+      - erc8004-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  agent_data:
+    driver: local
+
+networks:
+  erc8004-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
