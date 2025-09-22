@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -51,12 +52,27 @@ func setupSharedContainer() error {
 	setupOnce.Do(func() {
 		req := testcontainers.ContainerRequest{
 			Image:        "mysql:8.0.36",
-			ExposedPorts: []string{"3306/tcp", "33060/tcp"},
+			ExposedPorts: []string{"3306/tcp"},
 			Env: map[string]string{
 				"MYSQL_ROOT_PASSWORD": dbPassword,
 				"MYSQL_DATABASE":      dbName,
 			},
-			WaitingFor: wait.ForMappedPort("3306/tcp"),
+			Cmd: []string{
+				"--default-authentication-plugin=mysql_native_password",
+				"--max_connections=50",
+			},
+			WaitingFor: wait.ForAll(
+				// MySQL typically prints "ready for connections" twice during startup
+				wait.ForLog("ready for connections").WithOccurrence(2),
+				// Also actively probe SQL readiness from inside the container network
+				wait.ForSQL("3306/tcp", "mysql", func(host string, port nat.Port) string {
+					// Important: DSN used by the wait strategy should target the container-host
+					// given by testcontainers, not 127.0.0.1. No db name is fine here.
+					return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true&tls=false"+
+						"&timeout=15s&readTimeout=30s&writeTimeout=30s",
+						dbUsername, dbPassword, host, port.Port(), dbName)
+				}).WithPollInterval(2*time.Second),
+			).WithDeadline(3 * time.Minute),
 		}
 
 		ctx := context.Background()
@@ -65,7 +81,6 @@ func setupSharedContainer() error {
 			ContainerRequest: req,
 			Started:          true,
 		})
-
 		if err != nil {
 			return
 		}
@@ -74,43 +89,54 @@ func setupSharedContainer() error {
 		if err != nil {
 			return
 		}
-
-		port, err := sharedContainer.MappedPort(ctx, "3306/tcp")
+		mp, err := sharedContainer.MappedPort(ctx, "3306/tcp")
 		if err != nil {
 			return
 		}
 
-		sharedDSN = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-			dbUsername, dbPassword, host, port.Int(), dbName)
+		// DSN used by the tests (to connect from the host side)
+		sharedDSN = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=true&tls=false"+
+			"&timeout=15s&readTimeout=30s&writeTimeout=30s",
+			dbUsername, dbPassword, host, mp.Int(), dbName)
 
-		// Wait a bit more for MySQL to be fully ready
-		time.Sleep(10 * time.Second)
+		// Final sanity ping with context + backoff (usually instant thanks to the wait strategy).
+		backoff := time.Second
+		deadline := time.Now().Add(1 * time.Minute)
+		for {
+			var testDB *gorm.DB
 
-		// Test the connection with more retries and better error handling
-		var testDB *gorm.DB
-		for i := 0; i < 30; i++ {
 			testDB, err = gorm.Open(mysql.Open(sharedDSN), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
+
 			if err == nil {
-				sqlDB, sqlErr := testDB.DB()
-				if sqlErr == nil && sqlDB != nil {
-					// Configure connection pool for better reliability
+				if sqlDB, sqlErr := testDB.DB(); sqlErr == nil && sqlDB != nil {
 					sqlDB.SetMaxOpenConns(1)
 					sqlDB.SetMaxIdleConns(1)
-					sqlDB.SetConnMaxLifetime(time.Minute * 3)
+					sqlDB.SetConnMaxLifetime(3 * time.Minute)
 
-					err = sqlDB.Ping()
-					if err == nil {
-						sqlDB.Close()
+					ctxPing, cancel := context.WithTimeout(ctx, 5*time.Second)
+					pingErr := sqlDB.PingContext(ctxPing)
+
+					cancel()
+
+					_ = sqlDB.Close()
+
+					if pingErr == nil {
 						break
 					}
 
-					sqlDB.Close()
+					err = pingErr
 				}
 			}
+			if time.Now().After(deadline) {
+				return
+			}
+			time.Sleep(backoff)
 
-			time.Sleep(3 * time.Second)
+			if backoff < 5*time.Second {
+				backoff *= 2
+			}
 		}
 	})
 
