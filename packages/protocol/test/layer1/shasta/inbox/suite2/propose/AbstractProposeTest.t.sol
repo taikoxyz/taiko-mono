@@ -156,7 +156,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
-    function test_propose_withMultipleBlobs() public {
+    function test_propose_withMultipleBlobs() public virtual {
         _setupBlobHashes();
 
         vm.roll(block.number + 1);
@@ -206,7 +206,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         inbox.propose(bytes(""), proposeData);
     }
 
-    function test_propose_withBlobOffset() public {
+    function test_propose_withBlobOffset() public virtual {
         _setupBlobHashes();
 
         vm.roll(block.number + 1);
@@ -232,7 +232,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
     // Multiple Proposal Tests
     // ---------------------------------------------------------------
 
-    function test_propose_twoConsecutiveProposals() public {
+    function test_propose_twoConsecutiveProposals() public virtual {
         _setupBlobHashes();
 
         // First proposal (ID 1)
