@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "script/BaseScript.sol";

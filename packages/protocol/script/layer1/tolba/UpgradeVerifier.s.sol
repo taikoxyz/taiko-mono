@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import { TolbaVerifier } from "../../../contracts/layer1/tolba/verifiers/TolbaVerifier.sol";
-import {OpVerifier} from "../../../contracts/layer1/devnet/verifiers/OpVerifier.sol";
+import { OpVerifier } from "../../../contracts/layer1/devnet/verifiers/OpVerifier.sol";
 
 contract UpgradeVerifier is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -25,8 +25,12 @@ contract UpgradeVerifier is DeployCapability {
         address sgxGethVerifier = 0xA75c8FCB2609eB66E0DAdd4ECA438870F4f22FE8;
         address sgxRethVerifier = 0x237506C97895771Ae3177dF31FC40D27c99fD382;
 
-    UUPSUpgradeable(proofVerifier).upgradeTo(
-            address(new TolbaVerifier(taikoInbox, sgxGethVerifier, sgxRethVerifier, r0Verifier, sp1Verifier))
+        UUPSUpgradeable(proofVerifier).upgradeTo(
+            address(
+                new TolbaVerifier(
+                    taikoInbox, sgxGethVerifier, sgxRethVerifier, r0Verifier, sp1Verifier
+                )
+            )
         );
     }
 }
