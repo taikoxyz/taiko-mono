@@ -1,24 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { Inbox } from "./Inbox.sol";
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibHashing } from "../libs/LibHashing.sol";
 
 /// @title InboxOptimized3
-/// @notice Third optimization layer focusing on calldata cost reduction
+/// @notice Third optimization layer focusing on efficient hashing operations
 /// @dev Key optimizations:
-///      - Custom calldata encoding for propose and prove inputs
-///      - Compact binary representation using LibProposeInputDecoder and LibProveInputDecoder
-///      - Reduced transaction costs through efficient data packing
+///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
-/// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
-/// @dev DEPLOYMENT: REQUIRED to use FOUNDRY_PROFILE=layer1o for deployment. Contract exceeds
-///      24KB limit without via_ir optimization. Regular compilation will fail deployment.
-///      Example: FOUNDRY_PROFILE=layer1o forge build
-/// contracts/layer1/shasta/impl/InboxOptimized3.sol
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
@@ -38,30 +31,57 @@ contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @notice Decodes custom-encoded proposal input data
-    /// @dev Overrides base implementation to use LibProposeInputDecoder
-    /// @param _data The custom-encoded propose input data
-    /// @return _ The decoded ProposeInput struct
-    function _decodeProposeInput(bytes calldata _data)
+    /// @notice Optimized transition hashing using LibHashing
+    /// @dev Uses LibHashing for efficient transition hashing
+    /// @param _transition The transition data to hash
+    /// @return bytes32 The keccak256 hash of the transition struct
+    function _hashTransition(Transition memory _transition)
         internal
         pure
         override
-        returns (ProposeInput memory)
+        returns (bytes32)
     {
-        return LibProposeInputDecoder.decode(_data);
+        return LibHashing.hashTransition(_transition);
     }
 
     /// @inheritdoc Inbox
-    /// @notice Decodes custom-encoded prove input data
-    /// @dev Overrides base implementation to use LibProveInputDecoder
-    /// @param _data The custom-encoded prove input data
-    /// @return The decoded ProveInput struct
-    function _decodeProveInput(bytes calldata _data)
+    /// @notice Optimized checkpoint hashing using LibHashing
+    /// @dev Uses LibHashing for efficient checkpoint hashing
+    /// @param _checkpoint The checkpoint data to hash
+    /// @return bytes32 The keccak256 hash of the checkpoint struct
+    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         override
-        returns (ProveInput memory)
+        returns (bytes32)
     {
-        return LibProveInputDecoder.decode(_data);
+        return LibHashing.hashCheckpoint(_checkpoint);
+    }
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized core state hashing using LibHashing
+    /// @dev Uses LibHashing for efficient core state hashing
+    /// @param _coreState The core state data to hash
+    /// @return bytes32 The keccak256 hash of the core state struct
+    function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
+        return LibHashing.hashCoreState(_coreState);
+    }
+
+    /// @inheritdoc Inbox
+    /// @dev Optimized implementation using LibHashing
+    /// @notice Uses efficient hashing for composite key generation
+    /// @param _proposalId The proposal ID
+    /// @param _parentTransitionHash The parent transition hash
+    /// @return bytes32 The composite key for storage mapping
+    function _composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
+        return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 }

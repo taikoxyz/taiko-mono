@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
@@ -10,7 +10,7 @@ import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation and efficient hashing.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized4 {
+contract MainnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -35,7 +35,7 @@ contract MainnetShastaInbox is InboxOptimized4 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized4(
+        InboxOptimized3(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 proofVerifier: _proofVerifier,

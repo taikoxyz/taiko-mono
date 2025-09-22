@@ -46,8 +46,8 @@ contract InboxTestHelper is CommonTest {
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
         bytes32 optimized3 = keccak256(bytes("InboxOptimized3"));
 
-        useOptimizedProposeInputEncoding = nameHash == optimized3;
-        useOptimizedProveInputEncoding = nameHash == optimized3;
+        useOptimizedProposeInputEncoding = nameHash == optimized2 || nameHash == optimized3;
+        useOptimizedProveInputEncoding = nameHash == optimized2 || nameHash == optimized3;
         useOptimizedProposedEventEncoding = nameHash == optimized2 || nameHash == optimized3;
     }
 
