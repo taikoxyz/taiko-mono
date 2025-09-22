@@ -95,14 +95,35 @@ library LibHashing {
                 | (uint256(_derivation.basefeeSharingPctg) << 192)
         );
 
-        // Hash derivation sources
+        // Hash the sources array - each source contains isForcedInclusion flag and blobSlice
         bytes32 sourcesHash;
         if (_derivation.sources.length == 0) {
             sourcesHash = EMPTY_BYTES_HASH;
         } else {
-            // For now, use simple abi.encode for sources array
-            // This can be optimized later with custom encoding
-            sourcesHash = keccak256(abi.encode(_derivation.sources));
+            // Pre-allocate buffer for sources array length + source hashes
+            uint256 arrayLength = _derivation.sources.length;
+            uint256 bufferSize = 32 + (arrayLength * 32);
+            bytes memory buffer = new bytes(bufferSize);
+
+            assembly {
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), arrayLength)
+            }
+
+            // Write each source hash directly to buffer
+            for (uint256 i; i < arrayLength; ++i) {
+                bytes32 sourceHash = _hashDerivationSource(_derivation.sources[i]);
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
+                    mstore(add(buffer, offset), sourceHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                sourcesHash := keccak256(add(buffer, 0x20), mload(buffer))
+            }
         }
 
         return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
@@ -250,6 +271,57 @@ library LibHashing {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @notice Hashes a single derivation source efficiently
+    /// @dev Internal helper to hash DerivationSource struct with BlobSlice
+    /// @param _source The derivation source to hash
+    /// @return The hash of the derivation source
+    function _hashDerivationSource(IInbox.DerivationSource memory _source)
+        private
+        pure
+        returns (bytes32)
+    {
+        // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
+        bytes32 blobHashesHash;
+        if (_source.blobSlice.blobHashes.length == 0) {
+            blobHashesHash = EMPTY_BYTES_HASH;
+        } else {
+            // Memory-optimized approach: pre-allocate buffer for length + hashes
+            uint256 arrayLength = _source.blobSlice.blobHashes.length;
+            uint256 bufferSize = 32 + (arrayLength * 32);
+            bytes memory buffer = new bytes(bufferSize);
+
+            assembly {
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), arrayLength)
+            }
+
+            // Write each blob hash directly to buffer
+            for (uint256 i; i < arrayLength; ++i) {
+                bytes32 blobHash = _source.blobSlice.blobHashes[i];
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
+                    mstore(add(buffer, offset), blobHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                blobHashesHash := keccak256(add(buffer, 0x20), mload(buffer))
+            }
+        }
+
+        bytes32 blobSliceHash = EfficientHashLib.hash(
+            blobHashesHash,
+            bytes32(uint256(_source.blobSlice.offset)),
+            bytes32(uint256(_source.blobSlice.timestamp))
+        );
+
+        return EfficientHashLib.hash(
+            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+        );
+    }
 
     /// @notice Safely hashes a single bond instruction to avoid collisions
     /// @dev Internal helper to avoid code duplication and prevent hash collisions
