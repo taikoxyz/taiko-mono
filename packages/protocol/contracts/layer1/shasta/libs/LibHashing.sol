@@ -46,7 +46,9 @@ library LibHashing {
         EfficientHashLib.set(buffer, 0, bytes32(length));
 
         for (uint256 i; i < length; ++i) {
-            EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
+            unchecked {
+                EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
+            }
         }
 
         bytes32 result = EfficientHashLib.hash(buffer);
@@ -63,9 +65,13 @@ library LibHashing {
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
-        );
+        unchecked {
+            return EfficientHashLib.hash(
+                bytes32(uint256(_checkpoint.blockNumber)),
+                _checkpoint.blockHash,
+                _checkpoint.stateRoot
+            );
+        }
     }
 
     /// @notice Optimized hashing for CoreState structs
@@ -73,13 +79,15 @@ library LibHashing {
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.nextProposalBlockId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
-        );
+        unchecked {
+            return EfficientHashLib.hash(
+                bytes32(uint256(_coreState.nextProposalId)),
+                bytes32(uint256(_coreState.nextProposalBlockId)),
+                bytes32(uint256(_coreState.lastFinalizedProposalId)),
+                _coreState.lastFinalizedTransitionHash,
+                _coreState.bondInstructionsHash
+            );
+        }
     }
 
     /// @notice Optimized hashing for Derivation structs
@@ -88,10 +96,13 @@ library LibHashing {
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
         // Pack origin block number and basefee sharing percentage
-        bytes32 packedFields = bytes32(
-            (uint256(_derivation.originBlockNumber) << 208)
-                | (uint256(_derivation.basefeeSharingPctg) << 192)
-        );
+        bytes32 packedFields;
+        unchecked {
+            packedFields = bytes32(
+                (uint256(_derivation.originBlockNumber) << 208)
+                    | (uint256(_derivation.basefeeSharingPctg) << 192)
+            );
+        }
 
         // Hash the sources array - each source contains isForcedInclusion flag and blobSlice
         bytes32 sourcesHash;
@@ -113,7 +124,11 @@ library LibHashing {
             EfficientHashLib.set(buffer, 0, bytes32(sourcesLength));
 
             for (uint256 i; i < sourcesLength; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _hashDerivationSource(_derivation.sources[i]));
+                unchecked {
+                    EfficientHashLib.set(
+                        buffer, i + 1, _hashDerivationSource(_derivation.sources[i])
+                    );
+                }
             }
 
             sourcesHash = EfficientHashLib.hash(buffer);
@@ -130,10 +145,13 @@ library LibHashing {
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
         // Use separate field packing to avoid address truncation
         // Pack numeric fields together
-        bytes32 packedFields = bytes32(
-            (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
-        );
+        bytes32 packedFields;
+        unchecked {
+            packedFields = bytes32(
+                (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
+                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
+            );
+        }
 
         return EfficientHashLib.hash(
             packedFields,
@@ -148,11 +166,13 @@ library LibHashing {
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint)
-        );
+        unchecked {
+            return EfficientHashLib.hash(
+                _transition.proposalHash,
+                _transition.parentTransitionHash,
+                hashCheckpoint(_transition.checkpoint)
+            );
+        }
     }
 
     /// @notice Optimized hashing for TransitionRecord structs
@@ -185,23 +205,29 @@ library LibHashing {
             EfficientHashLib.set(buffer, 0, bytes32(instructionsLength));
 
             for (uint256 i; i < instructionsLength; ++i) {
-                EfficientHashLib.set(
-                    buffer, i + 1, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
-                );
+                unchecked {
+                    EfficientHashLib.set(
+                        buffer,
+                        i + 1,
+                        _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
+                    );
+                }
             }
 
             bondInstructionsHash = EfficientHashLib.hash(buffer);
             EfficientHashLib.free(buffer);
         }
 
-        bytes32 fullHash = EfficientHashLib.hash(
-            bytes32(uint256(_transitionRecord.span)),
-            bondInstructionsHash,
-            _transitionRecord.transitionHash,
-            _transitionRecord.checkpointHash
-        );
+        unchecked {
+            bytes32 fullHash = EfficientHashLib.hash(
+                bytes32(uint256(_transitionRecord.span)),
+                bondInstructionsHash,
+                _transitionRecord.transitionHash,
+                _transitionRecord.checkpointHash
+            );
 
-        return bytes26(fullHash);
+            return bytes26(fullHash);
+        }
     }
 
     /// @notice Memory-optimized hashing for arrays of Transitions
@@ -231,10 +257,9 @@ library LibHashing {
         bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
         EfficientHashLib.set(buffer, 0, bytes32(length));
 
-        for (uint256 i; i < length;) {
-            EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
+        for (uint256 i; i < length; ++i) {
             unchecked {
-                ++i;
+                EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
             }
         }
 
@@ -260,7 +285,9 @@ library LibHashing {
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), _parentTransitionHash);
+        unchecked {
+            return EfficientHashLib.hash(bytes32(uint256(_proposalId)), _parentTransitionHash);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -279,15 +306,17 @@ library LibHashing {
         // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
         bytes32 blobHashesHash = hashBlobHashesArray(_source.blobSlice.blobHashes);
 
-        bytes32 blobSliceHash = EfficientHashLib.hash(
-            blobHashesHash,
-            bytes32(uint256(_source.blobSlice.offset)),
-            bytes32(uint256(_source.blobSlice.timestamp))
-        );
+        unchecked {
+            bytes32 blobSliceHash = EfficientHashLib.hash(
+                blobHashesHash,
+                bytes32(uint256(_source.blobSlice.offset)),
+                bytes32(uint256(_source.blobSlice.timestamp))
+            );
 
-        return EfficientHashLib.hash(
-            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-        );
+            return EfficientHashLib.hash(
+                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+            );
+        }
     }
 
     /// @notice Safely hashes a single bond instruction to avoid collisions
@@ -300,11 +329,13 @@ library LibHashing {
         returns (bytes32)
     {
         // Use EfficientHashLib to safely hash all fields without collision risk
-        return EfficientHashLib.hash(
-            bytes32(uint256(_instruction.proposalId)),
-            bytes32(uint256(uint8(_instruction.bondType))),
-            bytes32(uint256(uint160(_instruction.payer))),
-            bytes32(uint256(uint160(_instruction.receiver)))
-        );
+        unchecked {
+            return EfficientHashLib.hash(
+                bytes32(uint256(_instruction.proposalId)),
+                bytes32(uint256(uint8(_instruction.bondType))),
+                bytes32(uint256(uint160(_instruction.payer))),
+                bytes32(uint256(uint160(_instruction.receiver)))
+            );
+        }
     }
 }
