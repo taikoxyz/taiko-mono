@@ -13,7 +13,7 @@ import { LibHashing } from "../libs/LibHashing.sol";
 ///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1, InboxOptimized2, and InboxOptimized3
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized4 is InboxOptimized3 {
+contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
