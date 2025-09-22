@@ -45,11 +45,8 @@ library LibHashing {
         bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
         EfficientHashLib.set(buffer, 0, bytes32(length));
 
-        for (uint256 i; i < length;) {
+        for (uint256 i; i < length; ++i) {
             EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         bytes32 result = EfficientHashLib.hash(buffer);
