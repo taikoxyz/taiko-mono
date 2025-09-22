@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -311,9 +312,39 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
-	b, err := builder.SplitToBlobs([]byte{0x1})
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
+
+	testTx, err := testutils.AssembleAndSendTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce,
+		&s.TestAddr,
+		common.Big1,
+		nil,
+	)
+	s.Nil(err)
+
+	manifest := &manifest.ProtocolProposalManifest{
+		ProverAuthBytes: []byte{},
+		Blocks: []*manifest.ProtocolBlockManifest{
+			{
+				Timestamp:         0,
+				Coinbase:          s.TestAddr,
+				AnchorBlockNumber: head.NumberU64(),
+				GasLimit:          head.GasLimit(),
+				Transactions:      types.Transactions{testTx},
+			},
+		},
+	}
+
+	proposalManifestBytes, err := builder.EncodeProposalManifestShasta(manifest)
+	s.Nil(err)
+
+	b, err := builder.SplitToBlobs(proposalManifestBytes)
+	s.Nil(err)
+
+	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("storeForcedInclusion", shastaBindings.LibBlobsBlobReference{
@@ -355,9 +386,11 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	)
 	s.Nil(err)
 	s.Equal(head2.NumberU64()-1, forcedIncludedHeader.NumberU64())
-	s.Equal(1, len(forcedIncludedHeader.Transactions()))
+	s.Equal(2, len(forcedIncludedHeader.Transactions()))
+	s.Equal(testTx.Hash(), forcedIncludedHeader.Transactions()[1].Hash())
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
-	s.Equal(head2.Header().Time-1, forcedIncludedHeader.Header().Time)
+	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
+	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {
