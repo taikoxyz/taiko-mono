@@ -151,11 +151,18 @@ contract InboxTestHelper is CommonTest {
         });
 
         // Build the expected derivation with multi-source format
+        // Extract the correct subset of blob hashes from the full set setup by _setupBlobHashes
+        bytes32[] memory fullBlobHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
+        bytes32[] memory selectedBlobHashes = new bytes32[](_numBlobs);
+        for (uint256 i = 0; i < _numBlobs; i++) {
+            selectedBlobHashes[i] = fullBlobHashes[i]; // Start from index 0 as per _createBlobRef
+        }
+
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: _getBlobHashesForTest(_numBlobs),
+                blobHashes: selectedBlobHashes,
                 offset: _offset,
                 timestamp: uint48(block.timestamp)
             })

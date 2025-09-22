@@ -25,7 +25,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        // return abi.encode(_payload);
+        return abi.encode(_payload);
     }
 
     /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding
@@ -122,7 +122,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        // return abi.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
@@ -171,7 +171,7 @@ contract InboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        // return abi.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
