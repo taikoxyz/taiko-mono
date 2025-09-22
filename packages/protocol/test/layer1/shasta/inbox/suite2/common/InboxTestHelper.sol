@@ -214,10 +214,10 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes memory)
     {
-        if (useOptimizedProposedEventEncoding) {
-            // Optimized encoding disabled - fallback to standard
-            // return inboxHelper.encodeProposedEventOptimized(_payload);
-        }
+        // if (useOptimizedProposedEventEncoding) {
+        // Optimized encoding disabled - fallback to standard
+        // return inboxHelper.encodeProposedEventOptimized(_payload);
+        // }
         return inboxHelper.encodeProposedEvent(_payload);
     }
 

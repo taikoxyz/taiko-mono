@@ -28,17 +28,6 @@ contract InboxHelper {
         return abi.encode(_payload);
     }
 
-    /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes
-    // function encodeProposedEventOptimized(IInbox.ProposedEventPayload memory _payload)
-    //     external
-    //     pure
-    //     returns (bytes memory encoded_)
-    // {
-    //     return LibProposedEventEncoder.encode(_payload);
-    // }
-
     /// @notice Decodes bytes into a ProposedEventPayload using standard ABI decoding
     /// @param _data The encoded data
     /// @return payload_ The decoded payload

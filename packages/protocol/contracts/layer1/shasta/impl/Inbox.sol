@@ -18,7 +18,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based rollup architecture.
-/// @dev This abstract contract implements the fundamental inbox logic including:
+/// @dev This contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
 ///      - Ring buffer storage for efficient state management
@@ -29,7 +29,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
-    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    /// @dev Stores transition record hash and finalization deadline
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
         uint48 finalizationDeadline;
@@ -54,7 +54,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The extended proving window in seconds.
     uint48 internal immutable _extendedProvingWindow;
 
-    /// @notice The maximum number of finalized proposals in one block.
+    /// @notice The maximum number of proposals that can be finalized in one finalization call.
     uint256 internal immutable _maxFinalizationCount;
 
     /// @notice The finalization grace period in seconds.
@@ -122,7 +122,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// from it
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
-    /// - except: The struct contains the finalization deadline and the hash of the TransitionRecord
+    /// - value: The struct contains the finalization deadline and the hash of the TransitionRecord
     mapping(bytes32 compositeKey => TransitionRecordHashAndDeadline hashAndDeadline) internal
         _transitionRecordHashAndDeadline;
 
@@ -207,7 +207,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
 
-            // Enforce one propose call per Ethereum block to prevent spam attacks to deplete the
+            // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // deplete the
             // ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
 
@@ -240,7 +241,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             DerivationSource[] memory sources = new DerivationSource[](sourceCount);
             uint256 i;
 
-            // Add forced inclusion sources
+            // Add forced inclusion sources first
             for (; i < forcedInclusions.length; ++i) {
                 sources[i] = DerivationSource({
                     isForcedInclusion: true,
@@ -248,7 +249,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 });
             }
 
-            // Add normal proposal source
+            // Add normal proposal source last
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
 
@@ -613,6 +614,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             recordHash: recordHash_
         });
     }
+
+    // ---------------------------------------------------------------
+    // Internal Pure Functions
+    // ---------------------------------------------------------------
 
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
