@@ -105,6 +105,7 @@ func setupSharedContainer() error {
 						sqlDB.Close()
 						break
 					}
+
 					sqlDB.Close()
 				}
 			}

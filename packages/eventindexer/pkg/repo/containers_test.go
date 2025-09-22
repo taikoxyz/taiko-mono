@@ -105,6 +105,7 @@ func setupSharedContainer() error {
 						sqlDB.Close()
 						break
 					}
+
 					sqlDB.Close()
 				}
 			}
@@ -149,6 +150,7 @@ func cleanDatabase(sqlDB *sql.DB) error {
 		if _, err := sqlDB.Exec(fmt.Sprintf("DELETE FROM %s", table)); err != nil {
 			// Re-enable foreign key checks even if delete fails
 			_, _ = sqlDB.Exec("SET FOREIGN_KEY_CHECKS = 1")
+
 			return fmt.Errorf("failed to clean table %s: %w", table, err)
 		}
 	}
