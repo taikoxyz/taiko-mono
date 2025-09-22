@@ -21,15 +21,15 @@ import (
 )
 
 var (
-	dbName     = "indexer"  //nolint:deadcode,unused
-	dbUsername = "root"     //nolint:deadcode,unused
-	dbPassword = "password" //nolint:deadcode,unused
+	dbName     = "indexer"
+	dbUsername = "root"
+	dbPassword = "password"
 
 	// Package-level variables for container reuse
-	sharedContainer testcontainers.Container //nolint:unused
-	sharedDSN       string                   //nolint:unused
-	containerMutex  sync.Mutex               //nolint:unused
-	setupOnce       sync.Once                //nolint:unused
+	sharedContainer testcontainers.Container
+	sharedDSN       string
+	containerMutex  sync.Mutex
+	setupOnce       sync.Once
 )
 
 // TestMain sets up and tears down the shared container
