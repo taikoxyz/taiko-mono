@@ -221,32 +221,58 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             availableCapacity >= input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
         );
 
-        if (input.numForcedInclusions > 0) {
-            // Process forced inclusion if required
-            uint256 numForcedInclusionsProcessed;
-            (coreState, numForcedInclusionsProcessed) = _processForcedInclusions(
-                coreState, input.numForcedInclusions, endOfSubmissionWindowTimestamp
-            );
+        // Collect all derivation sources (forced inclusions + normal proposal) into a single
+        // proposal
+        DerivationSource[] memory sources;
+        uint256 sourceCount = 0;
 
-            availableCapacity -= numForcedInclusionsProcessed;
+        // Add forced inclusions as derivation sources
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+        if (input.numForcedInclusions > 0) {
+            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage, msg.sender, input.numForcedInclusions
+            );
+            sourceCount += forcedInclusions.length;
+        }
+
+        // Add normal proposal as derivation source if there's capacity
+        bool hasNormalProposal = availableCapacity > sourceCount;
+        if (hasNormalProposal) {
+            sourceCount++;
         }
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
         // none remains in the queue that is due.
         require(
-            input.numForcedInclusions >= _minForcedInclusionCount
+            (forcedInclusions.length >= _minForcedInclusionCount)
                 || !LibForcedInclusion.isOldestForcedInclusionDue(
                     _forcedInclusionStorage, _forcedInclusionDelay
                 ),
             UnprocessedForcedInclusionIsDue()
         );
 
-        // Propose the normal proposal after the potential forced inclusions if there is capacity
-        // available
-        if (availableCapacity > 0) {
+        // Create sources array and populate it
+        sources = new DerivationSource[](sourceCount);
+        uint256 index = 0;
+
+        // Add forced inclusion sources
+        for (uint256 i = 0; i < forcedInclusions.length; ++i) {
+            sources[index++] = DerivationSource({
+                isForcedInclusion: true,
+                blobSlice: forcedInclusions[i].blobSlice
+            });
+        }
+
+        // Add normal proposal source
+        if (hasNormalProposal) {
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
-            _propose(coreState, blobSlice, false, endOfSubmissionWindowTimestamp);
+            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+        }
+
+        // Create single proposal with multi-source derivation
+        if (sourceCount > 0) {
+            coreState = _proposeMultiSource(coreState, sources, endOfSubmissionWindowTimestamp);
         }
     }
 
@@ -766,34 +792,35 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         );
     }
 
-    /// @dev Processes multiple forced inclusions from the ForcedInclusionStore
-    /// @notice Consumes up to _numForcedInclusions from the queue and proposes them sequentially
-    /// @param _coreState Current core state to update with each inclusion processed
-    /// @param _numForcedInclusions Maximum number of forced inclusions to process
-    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
-    /// preconfer
-    /// can propose.
-    /// @return _ Updated core state after processing all consumed forced inclusions
-    /// @return _ Number of forced inclusions processed
-    function _processForcedInclusions(
-        CoreState memory _coreState,
-        uint8 _numForcedInclusions,
-        uint48 _endOfSubmissionWindowTimestamp
-    )
-        private
-        returns (CoreState memory, uint256)
-    {
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
-            .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
+    // NOTE: Old _processForcedInclusions function disabled for multi-source implementation
+    // /// @dev Processes multiple forced inclusions from the ForcedInclusionStore
+    // /// @notice Consumes up to _numForcedInclusions from the queue and proposes them sequentially
+    // /// @param _coreState Current core state to update with each inclusion processed
+    // /// @param _numForcedInclusions Maximum number of forced inclusions to process
+    // /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    // /// preconfer
+    // /// can propose.
+    // /// @return _ Updated core state after processing all consumed forced inclusions
+    // /// @return _ Number of forced inclusions processed
+    // function _processForcedInclusions(
+    //     CoreState memory _coreState,
+    //     uint8 _numForcedInclusions,
+    //     uint48 _endOfSubmissionWindowTimestamp
+    // )
+    //     private
+    //     returns (CoreState memory, uint256)
+    // {
+    //     IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
+    //         .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
-        for (uint256 i; i < forcedInclusions.length; ++i) {
-            _coreState = _propose(
-                _coreState, forcedInclusions[i].blobSlice, true, _endOfSubmissionWindowTimestamp
-            );
-        }
+    //     for (uint256 i; i < forcedInclusions.length; ++i) {
+    //         _coreState = _propose(
+    //             _coreState, forcedInclusions[i].blobSlice, true, _endOfSubmissionWindowTimestamp
+    //         );
+    //     }
 
-        return (_coreState, forcedInclusions.length);
-    }
+    //     return (_coreState, forcedInclusions.length);
+    // }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
@@ -843,12 +870,70 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
 
+            // Create a single derivation source for backward compatibility
+            DerivationSource[] memory sources = new DerivationSource[](1);
+            sources[0] =
+                DerivationSource({ isForcedInclusion: _isForcedInclusion, blobSlice: _blobSlice });
+
             Derivation memory derivation = Derivation({
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
-                isForcedInclusion: _isForcedInclusion,
                 basefeeSharingPctg: _basefeeSharingPctg,
-                blobSlice: _blobSlice
+                sources: sources
+            });
+
+            // Increment nextProposalId (nextProposalBlockId was already set in propose())
+            uint48 proposalId = _coreState.nextProposalId++;
+
+            Proposal memory proposal = Proposal({
+                id: proposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                coreStateHash: _hashCoreState(_coreState),
+                derivationHash: _hashDerivation(derivation)
+            });
+
+            _setProposalHash(proposal.id, _hashProposal(proposal));
+
+            bytes memory payload = _encodeProposedEventData(
+                ProposedEventPayload({
+                    proposal: proposal,
+                    derivation: derivation,
+                    coreState: _coreState
+                })
+            );
+            emit Proposed(payload);
+
+            return _coreState;
+        }
+    }
+
+    /// @dev Creates and stores a new proposal with multiple derivation sources
+    /// @param _coreState Current state whose hash is stored in the proposal
+    /// @param _sources Array of derivation sources combining forced inclusions and normal proposals
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// preconfer can propose
+    /// @return Updated core state with incremented nextProposalId
+    function _proposeMultiSource(
+        CoreState memory _coreState,
+        DerivationSource[] memory _sources,
+        uint48 _endOfSubmissionWindowTimestamp
+    )
+        private
+        returns (CoreState memory)
+    {
+        unchecked {
+            require(_sources.length > 0, "EmptyDerivationSources");
+
+            // use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: _sources
             });
 
             // Increment nextProposalId (nextProposalBlockId was already set in propose())
