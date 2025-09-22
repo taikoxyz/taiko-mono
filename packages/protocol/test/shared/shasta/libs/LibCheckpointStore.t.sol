@@ -242,12 +242,10 @@ contract LibCheckpointStoreTest is CommonTest {
         wrapper.saveCheckpoint(checkpoint, 0);
     }
 
-    function test_revert_getCheckpoint_noCheckpoints() public {
+    function test_revert_getCheckpoint_indexOutOfBounds() public {
         vm.expectRevert(LibCheckpointStore.IndexOutOfBounds.selector);
         storage_.getCheckpoint(0, MAX_HISTORY);
-    }
 
-    function test_revert_getCheckpoint_indexOutOfBounds() public {
         // Save one checkpoint
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 100,

@@ -17,8 +17,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
-/// Taiko's based
-/// rollup architecture.
+/// Taiko's based rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
