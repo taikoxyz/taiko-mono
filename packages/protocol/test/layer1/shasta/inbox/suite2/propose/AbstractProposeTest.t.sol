@@ -70,11 +70,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         vm.startPrank(currentProposer);
-        // Act: Submit the proposal
-        vm.startSnapshotGas(
-            "shasta-propose",
-            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
-        );
 
         // Create proposal input
         (bytes memory proposeData, IInbox.ProposeInput memory input) = _createFirstProposeInput();
@@ -86,6 +81,10 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
+        vm.startSnapshotGas(
+            "shasta-propose",
+            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
+        );
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
 
