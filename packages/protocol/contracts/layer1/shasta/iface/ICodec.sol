@@ -6,6 +6,16 @@ import { IInbox } from "./IInbox.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
+/// @dev Input validation assumptions:
+/// - All decode functions may revert on malformed input data
+/// - Array inputs should be bounded to prevent excessive gas usage
+/// - Struct fields are not validated for business logic constraints
+/// - Hash functions assume well-formed input structures
+/// @dev Compatibility warning:
+/// - Different codec implementations (SimpleCodec vs OptimizedCodec) produce
+///   INCOMPATIBLE encoded outputs and hashes for the same inputs
+/// - Codec implementations cannot be used interchangeably
+/// - System upgrades between codec types require careful migration planning
 /// @custom:security-contact security@taiko.xyz
 interface ICodec {
     // ---------------------------------------------------------------
@@ -23,6 +33,7 @@ interface ICodec {
     /// @notice Decodes bytes into a ProposedEventPayload
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
+    /// @dev Reverts on malformed or truncated input data
     function decodeProposedEvent(bytes calldata _data)
         external
         pure
@@ -43,6 +54,7 @@ interface ICodec {
     /// @notice Decodes bytes into a ProvedEventPayload
     /// @param _data The bytes to decode
     /// @return payload_ The decoded ProvedEventPayload
+    /// @dev Reverts on malformed or truncated input data
     function decodeProvedEvent(bytes calldata _data)
         external
         pure
@@ -63,6 +75,7 @@ interface ICodec {
     /// @notice Decodes propose data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput
+    /// @dev Reverts on malformed or truncated input data
     function decodeProposeInput(bytes calldata _data)
         external
         pure
@@ -83,6 +96,7 @@ interface ICodec {
     /// @notice Decodes prove input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProveInput
+    /// @dev Reverts on malformed or truncated input data
     function decodeProveInput(bytes calldata _data)
         external
         pure
@@ -129,6 +143,7 @@ interface ICodec {
     /// @notice Hashing for TransitionRecord structs
     /// @param _transitionRecord The transition record to hash
     /// @return The hash truncated to bytes26 for storage optimization
+    /// @dev Truncation to bytes26 reduces collision resistance compared to full bytes32
     function hashTransitionRecord(IInbox.TransitionRecord calldata _transitionRecord)
         external
         pure
@@ -137,6 +152,7 @@ interface ICodec {
     /// @notice Hashing for arrays of Transitions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
+    /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
     function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
         external
         pure
