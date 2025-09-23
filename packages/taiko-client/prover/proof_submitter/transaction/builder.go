@@ -266,40 +266,58 @@ func BuildParentTransitionHash(
 	batchID *big.Int,
 ) (common.Hash, error) {
 	type transitionEntry struct {
-		transition    *shastaBindings.IInboxTransition
-		canonicalHash *common.Hash
+		transition *shastaBindings.IInboxTransition
 	}
 
-	var parentTransitions []transitionEntry
+	targetBatchID := new(big.Int).Set(batchID)
+	var (
+		parentTransitions []transitionEntry
+		cursor            = new(big.Int).Sub(new(big.Int).Set(batchID), common.Big1)
+	)
 
-	batchID = new(big.Int).Sub(batchID, common.Big1)
 	for {
-		if batchID.Cmp(common.Big0) == 0 {
+		if cursor.Cmp(common.Big0) == 0 {
 			transition, err := GetShastaGenesisTransition(ctx, rpc)
 			if err != nil {
 				return common.Hash{}, err
 			}
-			hash := encoding.HashTransitionOptimized(*transition)
 			parentTransitions = append(
-				[]transitionEntry{{transition: transition, canonicalHash: &hash}},
+				[]transitionEntry{{transition: transition}},
 				parentTransitions...,
 			)
 			break
 		}
 
-		transition := indexer.GetTransitionRecordByProposalID(batchID.Uint64())
-		if transition != nil {
-			hash := common.BytesToHash(transition.TransitionRecord.TransitionHash[:])
+		if transition := indexer.GetTransitionRecordByProposalID(cursor.Uint64()); transition != nil {
+			log.Debug(
+				"Using cached Shasta transition record",
+				"proposalId", transition.ProposalId,
+				"hash", common.BytesToHash(transition.TransitionRecord.TransitionHash[:]),
+			)
+			var blockNumber *big.Int
+			if transition.Transition.Checkpoint.BlockNumber != nil {
+				blockNumber = new(big.Int).Set(transition.Transition.Checkpoint.BlockNumber)
+			}
+			transitionCopy := &shastaBindings.IInboxTransition{
+				ProposalHash:         transition.Transition.ProposalHash,
+				ParentTransitionHash: common.Hash{},
+				Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
+					BlockNumber: blockNumber,
+					BlockHash:   transition.Transition.Checkpoint.BlockHash,
+					StateRoot:   transition.Transition.Checkpoint.StateRoot,
+				},
+			}
 			parentTransitions = append(
-				[]transitionEntry{{transition: transition.Transition, canonicalHash: &hash}},
+				[]transitionEntry{{transition: transitionCopy}},
 				parentTransitions...,
 			)
-			break
+			cursor.Sub(cursor, common.Big1)
+			continue
 		}
 
-		proposal, err := indexer.GetProposalByID(batchID.Uint64())
+		proposal, err := indexer.GetProposalByID(cursor.Uint64())
 		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", batchID.Uint64(), err)
+			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", cursor.Uint64(), err)
 		}
 
 		checkpointL1Origin, err := rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
@@ -313,7 +331,7 @@ func BuildParentTransitionHash(
 
 		localTransition := &shastaBindings.IInboxTransition{
 			ProposalHash:         encoding.HashProposalOptimized(*proposal.Proposal),
-			ParentTransitionHash: common.Hash{}, // will be updated after the loop
+			ParentTransitionHash: common.Hash{},
 			Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
 				BlockNumber: checkpointHeader.Number,
 				BlockHash:   checkpointHeader.Hash(),
@@ -325,27 +343,18 @@ func BuildParentTransitionHash(
 			[]transitionEntry{{transition: localTransition}},
 			parentTransitions...,
 		)
-		batchID = new(big.Int).Sub(batchID, common.Big1)
+		cursor.Sub(cursor, common.Big1)
 	}
 
 	if len(parentTransitions) == 0 {
-		return common.Hash{}, fmt.Errorf("no parent transition found for batchID %d", batchID)
+		return common.Hash{}, fmt.Errorf("no parent transition found for batchID %s", targetBatchID)
 	}
 
-	currentHash := common.Hash{}
-	if parentTransitions[0].canonicalHash != nil {
-		currentHash = *parentTransitions[0].canonicalHash
-	} else {
-		currentHash = encoding.HashTransitionOptimized(*parentTransitions[0].transition)
-	}
-
+	currentHash := encoding.HashTransitionOptimized(*parentTransitions[0].transition)
 	for i := 1; i < len(parentTransitions); i++ {
 		parentTransitions[i].transition.ParentTransitionHash = currentHash
-		if parentTransitions[i].canonicalHash != nil {
-			currentHash = *parentTransitions[i].canonicalHash
-		} else {
-			currentHash = encoding.HashTransitionOptimized(*parentTransitions[i].transition)
-		}
+		currentHash = encoding.HashTransitionOptimized(*parentTransitions[i].transition)
 	}
+
 	return currentHash, nil
 }

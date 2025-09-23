@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -102,6 +103,10 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		// the proof submission.
 		record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
 
+		proposalHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, meta.Shasta().GetProposal().Id)
+		if err != nil {
+			return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
+		}
 		parentTransitionHash, err := transaction.BuildParentTransitionHash(
 			ctx,
 			s.rpc,
@@ -113,7 +118,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 		if record != nil &&
 			record.Transition.Checkpoint.BlockHash == header.Hash() &&
-			record.Transition.ParentTransitionHash == parentTransitionHash {
+			record.Transition.ParentTransitionHash == parentTransitionHash &&
+			record.Transition.ProposalHash == proposalHash {
 			log.Info(
 				"A valid proof has been submitted, skip requesting proof",
 				"batchID", meta.Shasta().GetProposal().Id,

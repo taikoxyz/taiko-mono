@@ -269,6 +269,7 @@ func (s *Indexer) onProvedEvent(
 		"proposalId", meta.ProposalId,
 		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
 		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
+		"checkpoint", transition.Checkpoint,
 		"timeStamp", header.Time,
 	)
 

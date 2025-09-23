@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -130,22 +131,35 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			return fmt.Errorf("failed to get L2 header by number: %w", err)
 		}
 
+		proposalHash, err := h.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, batchID)
+		if err != nil {
+			return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
+		}
 		parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, h.rpc, h.indexer, batchID)
 		if err != nil {
 			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
 		}
 
 		if record.Transition.Checkpoint.BlockHash == header.Hash() &&
-			record.Transition.ParentTransitionHash == parentTransitionHash {
+			record.Transition.ParentTransitionHash == parentTransitionHash &&
+			record.Transition.ProposalHash == proposalHash {
 			log.Info(
 				"A valid proof has been submitted, skip proving",
 				"batchID", batchID,
 				"parentBlockHash", header.ParentHash,
 				"parentTransitionHash", parentTransitionHash,
+				"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
 			)
 			return nil
 		}
 
+		log.Warn(
+			"Invalid Shasta proof onchain, submitting a new proof",
+			"batchID", batchID,
+			"parentBlockHash", header.ParentHash,
+			"parentTransitionHash", parentTransitionHash,
+			"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+		)
 		// We need to submit a valid proof.
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 		return nil
