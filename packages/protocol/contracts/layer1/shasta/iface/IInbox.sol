@@ -38,6 +38,8 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
+        /// @notice The helper contract address
+        address helper;
     }
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
@@ -236,4 +238,8 @@ interface IInbox {
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
+
+    /// @notice Returns the address of the helper contract
+    /// @return helper_ The address of the InboxHelper contract
+    function helper() external view returns (address helper_);
 }

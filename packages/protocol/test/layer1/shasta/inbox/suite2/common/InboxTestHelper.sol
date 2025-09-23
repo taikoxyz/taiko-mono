@@ -4,13 +4,15 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { InboxOptimized2Helper } from "src/layer1/shasta/impl/InboxOptimized2Helper.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests
-contract InboxTestHelper is CommonTest {
+abstract contract InboxTestHelper is CommonTest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -33,7 +35,7 @@ contract InboxTestHelper is CommonTest {
     // Encoding helpers
     // ---------------------------------------------------------------
 
-    InboxHelper internal inboxHelper;
+    IInboxHelper internal inboxHelper;
     string internal inboxContractName;
     bool internal useOptimizedProposeInputEncoding;
     bool internal useOptimizedProveInputEncoding;
@@ -42,10 +44,16 @@ contract InboxTestHelper is CommonTest {
 
     function _initializeEncodingHelper(string memory _contractName) internal {
         inboxContractName = _contractName;
-        inboxHelper = new InboxHelper();
 
         bytes32 nameHash = keccak256(bytes(_contractName));
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
+
+        // Use the appropriate helper based on the contract name
+        if (nameHash == optimized2) {
+            inboxHelper = new InboxOptimized2Helper();
+        } else {
+            inboxHelper = new InboxHelper();
+        }
 
         useOptimizedProposeInputEncoding = nameHash == optimized2;
         useOptimizedProveInputEncoding = nameHash == optimized2;

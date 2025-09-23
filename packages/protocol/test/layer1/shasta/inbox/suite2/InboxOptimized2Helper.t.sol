@@ -3,16 +3,17 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { InboxOptimized2 } from "src/layer1/shasta/impl/InboxOptimized2.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { InboxOptimized2Helper } from "src/layer1/shasta/impl/InboxOptimized2Helper.sol";
+import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 contract InboxOptimized2HelperTest is Test {
     InboxOptimized2 inbox;
-    InboxHelper helper;
+    IInboxHelper helper;
 
     function setUp() public {
-        // Deploy the helper first
-        helper = new InboxHelper();
+        // Deploy helper first
+        InboxOptimized2Helper inboxHelper = new InboxOptimized2Helper();
 
         IInbox.Config memory config = IInbox.Config({
             bondToken: address(0),
@@ -27,30 +28,32 @@ contract InboxOptimized2HelperTest is Test {
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
             forcedInclusionFeeInGwei: 100,
-            maxCheckpointHistory: 10
+            maxCheckpointHistory: 10,
+            helper: address(inboxHelper)
         });
 
-        inbox = new InboxOptimized2(config, address(helper));
+        inbox = new InboxOptimized2(config);
+
+        // Get the helper from the inbox
+        helper = IInboxHelper(inbox.helper());
     }
 
     function test_helperAddressIsSet() public view {
         address helperAddr = inbox.helper();
         assertNotEq(helperAddr, address(0), "Helper address should not be zero");
 
-        // Verify the helper is a valid InboxHelper contract by checking it has code
+        // Verify the helper is a valid IInboxHelper contract by checking it has code
         uint256 codeSize;
         assembly {
             codeSize := extcodesize(helperAddr)
         }
         assertGt(codeSize, 0, "Helper should be a deployed contract");
 
-        // Verify it's the same helper we passed in
-        assertEq(helperAddr, address(helper), "Helper should be the one we passed in");
+        // Verify it's the same helper we retrieved
+        assertEq(helperAddr, address(helper), "Helper should be the one from inbox");
     }
 
     function test_helperFunctionsWork() public view {
-        address helperAddr = inbox.helper();
-        InboxHelper helperContract = InboxHelper(helperAddr);
 
         // Test that we can call a function on the helper
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -61,7 +64,7 @@ contract InboxOptimized2HelperTest is Test {
             bondInstructionsHash: bytes32(0)
         });
 
-        bytes32 hash = helperContract.hashCoreState(coreState);
+        bytes32 hash = helper.hashCoreState(coreState);
         assertNotEq(hash, bytes32(0), "Hash should not be zero");
     }
 }

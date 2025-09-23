@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { InboxOptimized2 } from "src/layer1/shasta/impl/InboxOptimized2.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { InboxOptimized2Helper } from "src/layer1/shasta/impl/InboxOptimized2Helper.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title TestInboxOptimized2
@@ -28,9 +28,9 @@ contract TestInboxOptimized2 is InboxOptimized2 {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             }),
-            address(new InboxHelper())
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                helper: address(new InboxOptimized2Helper())
+             })
         )
     { }
 }

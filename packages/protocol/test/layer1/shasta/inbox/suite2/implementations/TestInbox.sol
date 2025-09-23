@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title TestInbox
@@ -27,7 +28,8 @@ contract TestInbox is Inbox {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                helper: address(new InboxHelper())
              })
         )
     { }

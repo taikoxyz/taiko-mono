@@ -32,7 +32,8 @@ contract DevnetShastaInbox is InboxOptimized1 {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _taikoToken
+        address _taikoToken,
+        address _helper
     )
         InboxOptimized1(
             IInbox.Config({
@@ -48,7 +49,8 @@ contract DevnetShastaInbox is InboxOptimized1 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
-                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
+                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
+                helper: _helper
             })
         )
     { }
