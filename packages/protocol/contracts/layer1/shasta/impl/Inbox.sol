@@ -212,6 +212,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
 
+            // Verify capacity for new proposals
+            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+
             // Add forced inclusions as derivation sources
             uint256 sourceCount = 1;
             IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
@@ -232,13 +235,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 UnprocessedForcedInclusionIsDue()
             );
 
-            // Verify capacity for new proposals (single proposal regardless of forced inclusions)
-            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
-
             // Create sources array and populate it
             DerivationSource[] memory sources = new DerivationSource[](sourceCount);
 
             uint256 index;
+            // Add forced inclusion sources first
             for (; index < forcedInclusions.length; ++index) {
                 sources[index] = DerivationSource({
                     isForcedInclusion: true,
@@ -249,8 +250,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Add normal proposal source last
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
+
             sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
+            // Create single proposal with multi-source derivation
             _propose(coreState, sources, endOfSubmissionWindowTimestamp);
         }
     }
@@ -795,9 +798,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _setProposalHash(proposal.id, _hashProposal(proposal));
         _emitProposedEvent(proposal, derivation, _coreState);
     }
-
-    /// @dev Produces a deep copy of a blob slice to ensure ABI encoding uses canonical memory
-    /// layout.
 
     /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data

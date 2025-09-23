@@ -25,7 +25,6 @@ abstract contract AbstractProveTest is InboxTestSetup {
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
     bool private useOptimizedInputEncoding;
-    bool private useOptimizedHashing;
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -43,7 +42,6 @@ abstract contract AbstractProveTest is InboxTestSetup {
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
 
         useOptimizedInputEncoding = nameHash == optimized2;
-        useOptimizedHashing = useLibHashing;
 
         // Select a proposer for creating proposals to prove
         currentProposer = _selectProposer(Bob);
@@ -73,7 +71,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         // Verify transition record is stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(useOptimizedHashing));
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
 
         // Verify exactly one Proved event was emitted
@@ -404,7 +402,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         // Verify transition record was stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(useOptimizedHashing));
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
     }
 
@@ -461,7 +459,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         // Build transitions with proper parent hash chaining
         // For consecutive proposals, chain the transition hashes
         // For non-consecutive, each starts from genesis (or their actual parent in real scenarios)
-        bytes32 parentHash = _getGenesisTransitionHash(useOptimizedHashing);
+        bytes32 parentHash = _getGenesisTransitionHash();
 
         for (uint256 i = 0; i < proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(proposals[i]);
@@ -476,7 +474,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             } else {
                 // For non-consecutive, each transition starts from genesis
                 // This is simplified - in reality each would have its proper parent
-                parentHash = _getGenesisTransitionHash(useOptimizedHashing);
+                parentHash = _getGenesisTransitionHash();
             }
         }
 
@@ -530,7 +528,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         // Build and return the expected proposal
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(useOptimizedHashing, 1, 1, 0, currentProposer);
+            _buildExpectedProposedPayload(1, 1, 0, currentProposer);
 
         return expectedPayload.proposal;
     }
@@ -559,7 +557,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             nextProposalId: _parent.id + 1,
             nextProposalBlockId: expectedNextBlockId,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -578,7 +576,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         // Build and return the expected proposal
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(useOptimizedHashing, _parent.id + 1, 1, 0, currentProposer);
+            _buildExpectedProposedPayload(_parent.id + 1, 1, 0, currentProposer);
 
         return expectedPayload.proposal;
     }
@@ -602,7 +600,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         IInbox.TransitionMetadata[] memory metadata =
             new IInbox.TransitionMetadata[](_proposals.length);
 
-        bytes32 parentTransitionHash = _getGenesisTransitionHash(useOptimizedHashing);
+        bytes32 parentTransitionHash = _getGenesisTransitionHash();
 
         for (uint256 i = 0; i < _proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(_proposals[i]);
@@ -701,9 +699,9 @@ abstract contract AbstractProveTest is InboxTestSetup {
     }
 
     function _composeFirstProposeInputForProve() internal view returns (bytes memory) {
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal(useOptimizedHashing);
+        parentProposals[0] = _createGenesisProposal();
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({

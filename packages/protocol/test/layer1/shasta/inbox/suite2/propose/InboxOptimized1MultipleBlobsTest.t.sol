@@ -23,7 +23,7 @@ contract InboxOptimized1MultipleBlobsTest is AbstractProposeTest {
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(useLibHashing, 1, 3, 0, currentProposer);
+            _buildExpectedProposedPayload(1, 3, 0, currentProposer);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 

@@ -71,7 +71,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload =
-            _buildExpectedProposedPayload(useLibHashing, 2, 1, 0, currentProposer);
+            _buildExpectedProposedPayload(2, 1, 0, currentProposer);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
 

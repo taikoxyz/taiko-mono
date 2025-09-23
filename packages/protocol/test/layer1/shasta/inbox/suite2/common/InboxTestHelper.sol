@@ -63,18 +63,14 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState(bool _useOptimizedHashing) internal view returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
             nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
-    }
-
-    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
-        return _getGenesisCoreState(useLibHashing);
     }
 
     function _getGenesisTransitionHash() internal view returns (bytes32) {
@@ -83,18 +79,8 @@ contract InboxTestHelper is CommonTest {
         return _hashTransition(transition);
     }
 
-    function _getGenesisTransitionHash(bool) internal view returns (bytes32) {
-        return _getGenesisTransitionHash();
-    }
-
-    function _createGenesisProposal(bool _useOptimizedHashing) internal view returns (IInbox.Proposal memory) {
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 1,
-            nextProposalBlockId: 2,  // Add missing field
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
-            bondInstructionsHash: bytes32(0)
-        });
+    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Derivation memory derivation;
 
@@ -106,10 +92,6 @@ contract InboxTestHelper is CommonTest {
             coreStateHash: _hashCoreState(coreState),
             derivationHash: _hashDerivation(derivation)
         });
-    }
-
-    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
-        return _createGenesisProposal(useLibHashing);
     }
 
     // ---------------------------------------------------------------
@@ -166,7 +148,6 @@ contract InboxTestHelper is CommonTest {
 
 
     function _buildExpectedProposedPayload(
-        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint8 _numBlobs,
         uint24 _offset,
@@ -177,12 +158,11 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         return _buildExpectedProposedPayloadWithStartIndex(
-            _useOptimizedHashing, _proposalId, 0, _numBlobs, _offset, _currentProposer
+            _proposalId, 0, _numBlobs, _offset, _currentProposer
         );
     }
 
     function _buildExpectedProposedPayloadWithStartIndex(
-        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint16 _blobStartIndex,
         uint8 _numBlobs,
@@ -199,7 +179,7 @@ contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId + 1,
             nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -247,7 +227,6 @@ contract InboxTestHelper is CommonTest {
     }
 
     function _buildExpectedForcedInclusionPayload(
-        bool _useOptimizedHashing,
         uint48 _proposalId,
         uint16 _blobStartIndex,
         uint8 _numBlobs,
@@ -262,7 +241,7 @@ contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId + 1,
             nextProposalBlockId: uint48(block.number + 1),  // Set to block.number + 1 as per propose() logic
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(_useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 

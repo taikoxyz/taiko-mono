@@ -29,7 +29,6 @@ abstract contract AbstractProposeTest is InboxTestSetup {
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
     bool private useOptimizedInputEncoding;
-    bool private useOptimizedHashing;
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -47,7 +46,6 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
 
         useOptimizedInputEncoding = nameHash == optimized2;
-        useOptimizedHashing = useLibHashing;
 
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
@@ -195,9 +193,9 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         _setupBlobHashes(); // Sets up 9 blob hashes
 
         // Create proposal with out-of-range blob index using custom params
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal(useOptimizedHashing);
+        parentProposals[0] = _createGenesisProposal();
 
         LibBlobs.BlobReference memory blobRef = _createBlobRef(
             10, // Out of range (we only have 9 blobs)
@@ -246,9 +244,9 @@ abstract contract AbstractProposeTest is InboxTestSetup {
 
         _storeForcedInclusions(1, 0);
 
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals =
-            _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+            _singleParentArray(_createGenesisProposal());
 
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
             0,
@@ -281,9 +279,9 @@ abstract contract AbstractProposeTest is InboxTestSetup {
 
         _storeForcedInclusions(3, 0);
 
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals =
-            _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+            _singleParentArray(_createGenesisProposal());
 
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
             0,
@@ -356,8 +354,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         uint64 forcedInclusionDelay = inbox.getConfig().forcedInclusionDelay;
         vm.warp(block.timestamp + forcedInclusionDelay + 1);
 
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parentProposals = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parentProposals = _singleParentArray(_createGenesisProposal());
 
         uint256 minForcedInclusionCount = inbox.getConfig().minForcedInclusionCount;
 
@@ -431,7 +429,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         });
 
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal(useOptimizedHashing);
+        parentProposals[0] = _createGenesisProposal();
 
         (bytes memory proposeData, ) = _composeProposeInputWithCustomParams(
             0, // no deadline
@@ -448,7 +446,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
     function test_propose_RevertWhen_EmptyParentProposals() public {
         _setupBlobHashes();
 
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory emptyParentProposals = new IInbox.Proposal[](0);
 
         (bytes memory proposeData, ) = _composeProposeInputWithCustomParams(
@@ -506,7 +504,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         // For wrapped ring buffer, we need 2 parent proposals
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
         parentProposals[0] = lastProposal; // proposal 100
-        parentProposals[1] = _createGenesisProposal(useOptimizedHashing); // proposal 0 in slot 0
+        parentProposals[1] = _createGenesisProposal(); // proposal 0 in slot 0
 
         (bytes memory proposeData, ) = _composeProposeInputWithCustomParams(
             0,
@@ -549,7 +547,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         // Try to provide 2 parent proposals when only 1 is needed (slot 2 is empty)
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
         parentProposals[0] = firstPayload.proposal;  // Use the actual proposal from the payload
-        parentProposals[1] = _createGenesisProposal(useOptimizedHashing); // Wrong - slot 2 is empty!
+        parentProposals[1] = _createGenesisProposal(); // Wrong - slot 2 is empty!
 
         (bytes memory proposeData, ) = _composeProposeInputWithCustomParams(
             0,
@@ -578,7 +576,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.warp(block.timestamp + 12);
 
         // Create an INVALID second parent (wrong hash for the occupied slot)
-        IInbox.Proposal memory wrongSecondParent = _createGenesisProposal(useOptimizedHashing);
+        IInbox.Proposal memory wrongSecondParent = _createGenesisProposal();
         wrongSecondParent.coreStateHash = keccak256("wrong_hash"); // Modify to make hash wrong
 
         // Try with 2 parents where second parent has wrong hash
@@ -635,7 +633,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
                 // this)
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -653,7 +651,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         );
 
         // Build expected payload for second proposal
-        IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(useOptimizedHashing, 2, 1, 0, currentProposer);
+        IInbox.ProposedEventPayload memory secondExpectedPayload =
+            _buildExpectedProposedPayload(2, 1, 0, currentProposer);
 
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
@@ -691,13 +690,13 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             nextProposalId: 2,
             nextProposalBlockId: 2,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
         // Using genesis as parent instead of the first proposal - this is wrong!
         IInbox.Proposal[] memory wrongParentProposals = new IInbox.Proposal[](1);
-        wrongParentProposals[0] = _createGenesisProposal(useOptimizedHashing);
+        wrongParentProposals[0] = _createGenesisProposal();
 
         (bytes memory wrongProposeData, ) = _composeProposeInputWithCustomParams(
             0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
@@ -726,7 +725,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             nextProposalId: 100,
             nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -814,8 +813,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         view
         returns (bytes memory proposeBytes_, IInbox.ProposeInput memory input_)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal());
         return _composeProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), parents, coreState);
     }
 
@@ -824,8 +823,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         view
         returns (bytes memory proposeBytes_, IInbox.ProposeInput memory input_)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal());
         return _composeProposeInputWithCustomParams(_deadline, _createBlobRef(0, 1, 0), parents, coreState);
     }
 
@@ -834,8 +833,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         view
         returns (bytes memory proposeBytes_, IInbox.ProposeInput memory input_)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parents = _singleParentArray(_createGenesisProposal());
         return _composeProposeInputWithCustomParams(0, _createBlobRef(0, _numBlobs, _offset), parents, coreState);
     }
 
@@ -977,8 +976,8 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         private
         returns (IInbox.Proposal memory lastProposal_, IInbox.CoreState memory coreState_)
     {
-        lastProposal_ = _createGenesisProposal(useOptimizedHashing);
-        coreState_ = _getGenesisCoreState(useOptimizedHashing);
+        lastProposal_ = _createGenesisProposal();
+        coreState_ = _getGenesisCoreState();
 
         if (_targetNextProposalId <= coreState_.nextProposalId) {
             return (lastProposal_, coreState_);

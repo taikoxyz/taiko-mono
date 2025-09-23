@@ -23,7 +23,6 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
     // Cache contract name to avoid repeated calls
     string private contractName;
     bool private useOptimizedInputEncoding;
-    bool private useOptimizedHashing;
     bool private supportsAggregatedFinalization;
 
     // Store per-test checkpoint and transition data for each proved proposal
@@ -47,11 +46,10 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
 
         useOptimizedInputEncoding = nameHash == optimized2;
-        useOptimizedHashing = useLibHashing;
         supportsAggregatedFinalization = nameHash != keccak256(bytes("Inbox"));
 
         // Reset transition lineage for this run
-        lastProvedTransitionHash = _getGenesisTransitionHash(useOptimizedHashing);
+        lastProvedTransitionHash = _getGenesisTransitionHash();
 
         // Select a proposer for creating proposals
         currentProposer = _selectProposer(Bob);
@@ -300,7 +298,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
             nextProposalId: 2,
             nextProposalBlockId: uint48(block.number + 1),
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -547,7 +545,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
             nextProposalId: 2,
             nextProposalBlockId: uint48(block.number + 1),
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -564,8 +562,8 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
         _setupBlobHashes();
 
         // Start from genesis
-        IInbox.Proposal memory lastProposal = _createGenesisProposal(useOptimizedHashing);
-        coreState_ = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.Proposal memory lastProposal = _createGenesisProposal();
+        coreState_ = _getGenesisCoreState();
 
         for (uint256 i = 0; i < _count; i++) {
             // Advance time
@@ -600,8 +598,8 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
         proposals_ = new IInbox.Proposal[](_count);
         _setupBlobHashes();
 
-        IInbox.Proposal memory lastProposal = _createGenesisProposal(useOptimizedHashing);
-        coreState_ = _getGenesisCoreState(useOptimizedHashing);
+        IInbox.Proposal memory lastProposal = _createGenesisProposal();
+        coreState_ = _getGenesisCoreState();
 
         for (uint256 i = 0; i < _count; i++) {
             vm.roll(block.number + 1);
@@ -952,8 +950,8 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
     {
         input_ = IInbox.ProposeInput({
             deadline: 0,
-            coreState: _getGenesisCoreState(useOptimizedHashing),
-            parentProposals: _singleParentArray(_createGenesisProposal(useOptimizedHashing)),
+            coreState: _getGenesisCoreState(),
+            parentProposals: _singleParentArray(_createGenesisProposal()),
             blobReference: _createBlobRef(0, 1, 0),
             checkpoint: _createCheckpoint(),
             transitionRecords: new IInbox.TransitionRecord[](0),
@@ -995,7 +993,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposalHash: _hashProposal(_proposal),
-            parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            parentTransitionHash: _getGenesisTransitionHash(),
             checkpoint: _createCheckpoint()
         });
 
@@ -1069,7 +1067,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposalHash: _hashProposal(_proposal),
-            parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            parentTransitionHash: _getGenesisTransitionHash(),
             checkpoint: _checkpoint
         });
 
