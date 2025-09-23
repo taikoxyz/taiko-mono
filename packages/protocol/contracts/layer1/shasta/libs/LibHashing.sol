@@ -248,12 +248,12 @@ library LibHashing {
     function _encodeAndHashBytes32Array(bytes32[] memory _array) private pure returns (bytes32) {
         unchecked {
             uint256 arrayLength = _array.length;
-            
+
             // For empty arrays, return the standard empty bytes hash
             if (arrayLength == 0) {
                 return EMPTY_BYTES_HASH;
             }
-            
+
             // Calculate size: 2 bytes for uint16 + 32 bytes per element
             uint256 bufferSize = 2 + (arrayLength * 32);
             bytes memory buffer = new bytes(bufferSize);
