@@ -41,13 +41,18 @@ jobs:
         continue-on-error: true
         run: sudo apt-get update && sudo apt-get install -y git wget
 
+      - name: Fetch owner/repo of pull request
+        uses: alessbell/pull-request-comment-branch@v2.1.0
+        id: comment-branch
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          # account for forked repos case
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          # Fetch more history for better git operations
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
@@ -58,6 +63,7 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Clean up and fmt
+        if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
         run: pnpm clean && forge fmt
 
@@ -84,7 +90,7 @@ jobs:
           fi
 
       - name: Commit contract layout table
-        if: env.changes == 'true'
+        if: env.changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "forge fmt & update contract layout tables"
@@ -93,9 +99,9 @@ jobs:
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        timeout-minutes: 2
+        timeout-minutes: 4
         run: |
-          anvil --hardfork cancun &
+          anvil &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done

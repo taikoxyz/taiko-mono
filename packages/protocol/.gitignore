@@ -14,6 +14,8 @@ package-lock.json
 npm-debug.log*
 typechain-types
 test/genesis/generate/data
+settings.local.json
+
 
 # Hardhat files
 cache

@@ -11,7 +11,7 @@ import "src/shared/token/TaikoTokenBase.sol";
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     address public immutable erc20Vault;
 
-    constructor(address _erc20Vault) TaikoTokenBase() {
+    constructor(address _erc20Vault) {
         erc20Vault = _erc20Vault;
     }
 
@@ -52,7 +52,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     /// @return The canonical token's chain ID.
     function canonical() public pure returns (address, uint256) {
         // 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 is the TKO's mainnet address,
-        // 1 is the Ethereum's network id.
+        // 1 is the Ethereum's chain id.
         return (0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 1);
     }
 

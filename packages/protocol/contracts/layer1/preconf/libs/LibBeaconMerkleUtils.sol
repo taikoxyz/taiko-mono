@@ -30,6 +30,7 @@ library LibBeaconMerkleUtils {
         bytes32 h = chunk;
         uint256 j = 0;
         while (true) {
+            /// forge-lint: disable-next-line(incorrect-shift)
             if (index & 1 << j == 0) {
                 break;
             } else {

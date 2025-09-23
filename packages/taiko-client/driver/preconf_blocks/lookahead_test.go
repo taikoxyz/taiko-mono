@@ -34,14 +34,14 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplit() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
-	w := NewOpWindow(handoverSlots, slotsPerEpoch)
+	w := NewOpWindow(slotsPerEpoch)
 	addr := common.HexToAddress("0xabc")
 	other := common.HexToAddress("0xdef")
 	w.Push(0, addr, other) // addr is curr at epoch 0
 	w.Push(1, other, addr) // addr is next at epoch 1
 
-	currRanges := w.SequencingWindowSplit(addr, true)
-	nextRanges := w.SequencingWindowSplit(addr, false)
+	currRanges := w.SequencingWindowSplit(addr, true, handoverSlots)
+	nextRanges := w.SequencingWindowSplit(addr, false, handoverSlots)
 
 	s.True(reflect.DeepEqual(currRanges,
 		[]SlotRange{
@@ -54,15 +54,15 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDu
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
-	w := NewOpWindow(handoverSlots, slotsPerEpoch)
+	w := NewOpWindow(slotsPerEpoch)
 	addr := common.HexToAddress("0xabc")
 	other := common.HexToAddress("0xdef")
 	w.Push(0, addr, other) // addr is curr at epoch 0
 	w.Push(1, other, addr) // addr is next at epoch 1
 	w.Push(2, addr, other) // addr is curr again at epoch 2
 
-	currRanges := w.SequencingWindowSplit(addr, true)
-	nextRanges := w.SequencingWindowSplit(addr, false)
+	currRanges := w.SequencingWindowSplit(addr, true, handoverSlots)
+	nextRanges := w.SequencingWindowSplit(addr, false, handoverSlots)
 
 	s.True(reflect.DeepEqual(currRanges, []SlotRange{
 		{Start: 0, End: 28},
@@ -73,8 +73,8 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDu
 		{Start: 60, End: 64},
 	}), "nextRanges addr = %v", nextRanges)
 
-	currRanges = w.SequencingWindowSplit(other, true)
-	nextRanges = w.SequencingWindowSplit(other, false)
+	currRanges = w.SequencingWindowSplit(other, true, handoverSlots)
+	nextRanges = w.SequencingWindowSplit(other, false, handoverSlots)
 
 	s.True(reflect.DeepEqual(currRanges, []SlotRange{
 		{Start: 32, End: 60},
@@ -90,13 +90,13 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitCurrRa
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
-	w := NewOpWindow(handoverSlots, slotsPerEpoch)
+	w := NewOpWindow(slotsPerEpoch)
 	addr := common.HexToAddress("0xabc")
 	w.Push(0, addr, addr)
 	w.Push(1, addr, common.Address{})
 
-	currRanges := w.SequencingWindowSplit(addr, true)
-	nextRanges := w.SequencingWindowSplit(addr, false)
+	currRanges := w.SequencingWindowSplit(addr, true, handoverSlots)
+	nextRanges := w.SequencingWindowSplit(addr, false, handoverSlots)
 
 	s.True(reflect.DeepEqual(currRanges, []SlotRange{
 		{Start: 0, End: 28},

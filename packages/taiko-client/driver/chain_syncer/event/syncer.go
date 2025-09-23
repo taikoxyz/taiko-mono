@@ -57,7 +57,7 @@ func NewSyncer(
 
 	protocolConfigs, err := client.GetProtocolConfigs(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get protocol configs: %w", err)
 	}
 	blobDataSource := rpc.NewBlobDataSource(
 		ctx,
@@ -98,7 +98,7 @@ func NewSyncer(
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 	for {
 		if err := s.processL1Blocks(ctx); err != nil {
-			return err
+			return fmt.Errorf("failed to process L1 blocks: %w", err)
 		}
 
 		// If the L1 chain has been reorged, we process the new L1 blocks again with
@@ -123,7 +123,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	if startL1Current.Number.Uint64() >= l1End.Number.Uint64() && startL1Current.Hash() != l1End.Hash() {
 		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).Sub(l1End.Number, common.Big1))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to fetch L1 header during reorg detection: %w", err)
 		}
 
 		log.Info(
@@ -147,11 +147,11 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		OnBatchProposedEvent: s.onBatchProposed,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create event iterator: %w", err)
 	}
 
 	if err := iter.Iter(); err != nil {
-		return err
+		return fmt.Errorf("failed to iterate through events: %w", err)
 	}
 
 	// If there is a L1 reorg, we don't update the L1Current cursor.
@@ -184,7 +184,7 @@ func (s *Syncer) onBatchProposed(
 	if !s.progressTracker.Triggered() {
 		reorgCheckResult, err := s.checkReorg(ctx, meta.Pacaya().GetBatchID())
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to check for reorg: %w", err)
 		}
 
 		if reorgCheckResult.IsReorged {
@@ -238,7 +238,7 @@ func (s *Syncer) onBatchProposed(
 		"blocks", len(meta.Pacaya().GetBlocks()),
 	)
 	if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, endIter); err != nil {
-		return err
+		return fmt.Errorf("failed to insert Pacaya blocks: %w", err)
 	}
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
@@ -257,7 +257,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 	// Fetch the latest verified block hash.
 	ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get last verified transition: %w", err)
 	}
 
 	var (

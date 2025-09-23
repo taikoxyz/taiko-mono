@@ -25,7 +25,7 @@ type AnchorTxValidator struct {
 func New(taikoAnchorAddress common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
 	goldenTouchAddress, err := rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get golden touch address: %w", err)
 	}
 
 	return &AnchorTxValidator{taikoAnchorAddress, goldenTouchAddress, chainID, rpc}, nil

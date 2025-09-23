@@ -147,7 +147,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 }
 
 // filterGenesisBlockVerifiedV2 fetches the genesis block verified
-// event from the lagacy TaikoL1 `BlockVerifiedV2` events.
+// event from the legacy TaikoL1 `BlockVerifiedV2` events.
 func (c *Client) filterGenesisBlockVerifiedV2(
 	ctx context.Context,
 	ops *bind.FilterOpts,
@@ -174,7 +174,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 }
 
 // filterGenesisBlockVerified fetches the genesis block verified
-// event from the lagacy TaikoL1 `BlockVerified` events.
+// event from the legacy TaikoL1 `BlockVerified` events.
 func (c *Client) filterGenesisBlockVerified(
 	ctx context.Context,
 	ops *bind.FilterOpts,
@@ -182,7 +182,7 @@ func (c *Client) filterGenesisBlockVerified(
 ) (common.Hash, error) {
 	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create lagacy TaikoL1 client: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
 	}
 
 	// Fetch the genesis `BlockVerified` event.
@@ -931,7 +931,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
-		return common.Address{}, errors.New("prpreconfirmationeconf whitelist contract is not set")
+		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
 	var cancel context.CancelFunc
@@ -952,6 +952,37 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	}
 
 	return opInfo.SequencerAddress, nil
+}
+
+// GetAllPreconfOperators fetch all possible preconfirmation operators added to the whitelist contract,
+// regardless of whether they are active or not, or eligible for the current or next epoch.
+func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
+	}
+
+	var operators []common.Address
+	for i := uint8(0); i < count; i++ {
+		operator, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, err)
+		}
+		operators = append(operators, operator)
+	}
+
+	return operators, nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
@@ -1062,6 +1093,34 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 	}
 
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+}
+
+// GetPreconfRouterConfig returns the PreconfRouter config.
+func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IPreconfRouterConfig, error) {
+	if c.PacayaClients.PreconfRouter == nil {
+		preconfRouterAddr, err := c.GetPreconfRouterPacaya(opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
+		}
+
+		c.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, c.L1)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create preconfirmation router: %w", err)
+		}
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
+	}
+	return &routerConfig, nil
 }
 
 // getImmutableAddressPacaya resolves the Pacaya contract address.

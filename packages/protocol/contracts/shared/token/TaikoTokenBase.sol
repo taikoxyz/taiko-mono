@@ -12,8 +12,6 @@ import "../libs/LibNames.sol";
 abstract contract TaikoTokenBase0 is EssentialContract {
     // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
-
-    constructor() EssentialContract() { }
 }
 
 /// @title TaikoTokenBase
@@ -21,8 +19,6 @@ abstract contract TaikoTokenBase0 is EssentialContract {
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
     uint256[50] private __gap;
-
-    constructor() TaikoTokenBase0() { }
 
     function clock() public view override returns (uint48) {
         return SafeCastUpgradeable.toUint48(block.timestamp);

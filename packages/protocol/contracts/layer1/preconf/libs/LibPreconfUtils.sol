@@ -81,8 +81,10 @@ library LibPreconfUtils {
     function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint48) {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = block.timestamp - genesisTimestamp;
+        /// forge-lint: disable-start(divide-before-multiply)
         uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
+        /// forge-lint: disable-end
 
         return (
             genesisTimestamp + timePassedUptoCurrentEpoch

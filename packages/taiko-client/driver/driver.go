@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,9 +29,10 @@ import (
 )
 
 const (
-	protocolStatusReportInterval     = 30 * time.Second
-	exchangeTransitionConfigInterval = 1 * time.Minute
-	peerLoopReportInterval           = 30 * time.Second
+	protocolStatusReportInterval            = 30 * time.Second
+	exchangeTransitionConfigInterval        = 1 * time.Minute
+	peerLoopReportInterval                  = 30 * time.Second
+	defaultHandoverSkipSlots         uint64 = 4
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -52,6 +54,11 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
+	// Handover config read from the preconf router
+	handoverSkipSlots uint64
+	// Last epoch when the handover config was reloaded
+	lastConfigReloadEpoch uint64
+
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -60,7 +67,7 @@ type Driver struct {
 func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create config from CLI context: %w", err)
 	}
 
 	return d.InitFromConfig(ctx, cfg)
@@ -72,17 +79,21 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.ctx = ctx
 	d.Config = cfg
 
+	// Initialize handover config caching
+	d.handoverSkipSlots = defaultHandoverSkipSlots
+	d.lastConfigReloadEpoch = 0
+
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
-		return err
+		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
-		return err
+		return fmt.Errorf("failed to create driver state: %w", err)
 	}
 
 	peers, err := d.rpc.L2.PeerCount(d.ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 peer count: %w", err)
 	}
 
 	if cfg.P2PSync && peers == 0 {
@@ -99,7 +110,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.BlobServerEndpoint,
 		latestSeenProposalCh,
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to create L2 chain syncer: %w", err)
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
@@ -110,7 +121,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
-		return err
+		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
 
 	config.ReportProtocolConfigs(d.protocolConfig)
@@ -126,7 +137,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.rpc,
 			latestSeenProposalCh,
 		); err != nil {
-			return err
+			return fmt.Errorf("failed to create preconf block server: %w", err)
 		}
 		log.Info("Preconf Operator Address", "PreconfOperatorAddress", d.PreconfOperatorAddress)
 
@@ -146,14 +157,14 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				metrics.P2PNodeMetrics,
 				false,
 			); err != nil {
-				return err
+				return fmt.Errorf("failed to create P2P node: %w", err)
 			}
 
 			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
-					return err
+					return fmt.Errorf("failed to setup P2P signer: %w", err)
 				}
 			}
 
@@ -224,8 +235,8 @@ func (d *Driver) eventLoop() {
 	defer d.wg.Done()
 
 	syncNotify := make(chan struct{}, 1)
-	// reqSync requests performing a synchronising operation, won't block
-	// if we are already synchronising.
+	// reqSync requests performing a synchronizing operation, won't block
+	// if we are already synchronizing.
 	reqSync := func() {
 		select {
 		case syncNotify <- struct{}{}:
@@ -233,7 +244,7 @@ func (d *Driver) eventLoop() {
 		}
 	}
 
-	// doSyncWithBackoff performs a synchronising operation with a backoff strategy.
+	// doSyncWithBackoff performs a synchronizing operation with a backoff strategy.
 	doSyncWithBackoff := func() {
 		if err := backoff.Retry(
 			d.doSync,
@@ -270,7 +281,7 @@ func (d *Driver) doSync() error {
 
 	if err := d.l2ChainSyncer.Sync(); err != nil {
 		log.Error("Process new L1 blocks error", "error", err)
-		return err
+		return fmt.Errorf("failed to sync L2 chain: %w", err)
 	}
 
 	return nil
@@ -371,7 +382,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(d.PreconfHandoverSkipSlots, d.rpc.L1Beacon.SlotsPerEpoch)
+		opWin                  = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
 		wasSequencer           = false
 	)
 
@@ -389,7 +400,11 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("Lookahead requesting end of sequencing for epoch", "epoch", epoch, "slot", slot)
+				log.Info("Lookahead requesting end of sequencing for epoch",
+					"epoch", epoch,
+					"slot", slot,
+				)
+
 				if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
 					context.Background(),
 					epoch,
@@ -416,11 +431,37 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
 
+		// Only read and update handover config at epoch transitions to avoid race conditions
+		// where different nodes might read different configs during mid-epoch upgrades
+		if currentEpoch > d.lastConfigReloadEpoch {
+			log.Info("Epoch transition detected, reloading handover config",
+				"epoch", currentEpoch, "lastConfigReloadEpoch",
+				d.lastConfigReloadEpoch,
+			)
+
+			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
+			if err != nil {
+				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
+					"error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+			} else {
+				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
+				if newHandoverSkipSlots != d.handoverSkipSlots {
+					log.Info("Updated handover config for new epoch", "epoch", currentEpoch,
+						"oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					d.handoverSkipSlots = newHandoverSkipSlots
+				}
+			}
+
+			d.lastConfigReloadEpoch = currentEpoch
+
+			log.Info("Handover config reload complete", "lastConfigReloadEpoch", d.lastConfigReloadEpoch)
+		}
+
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 		if err != nil {
 			log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
 
-			return err
+			return fmt.Errorf("failed to fetch L1 head for lookahead: %w", err)
 		}
 
 		if latestSeenBlockNumber == seenBlockNumber {
@@ -446,14 +487,14 @@ func (d *Driver) cacheLookaheadLoop() {
 		if err != nil {
 			log.Warn("Could not fetch current operator", "err", err)
 
-			return err
+			return fmt.Errorf("failed to fetch current operator: %w", err)
 		}
 
 		nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 		if err != nil {
 			log.Warn("Could not fetch next operator", "err", err)
 
-			return err
+			return fmt.Errorf("failed to fetch next operator: %w", err)
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()
@@ -513,9 +554,10 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 			)
+
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator:     currOp,
 				NextOperator:     nextOp,
@@ -542,8 +584,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 		// Otherwise, just log out lookahead information.
 		var (
-			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 		)
 
 		log.Info(

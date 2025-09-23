@@ -60,7 +60,7 @@ type preconfBlockChainSyncer interface {
 // @contact.email info@taiko.xyz
 
 // @license.name MIT
-// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
@@ -103,26 +103,26 @@ func New(
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize anchor validator: %w", err)
 	}
 
 	// Initialize caches.
 	blockRequestsCache, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create block requests cache: %w", err)
 	}
 	endOfSequencingCache, err := lru.New[uint64, common.Hash](maxTrackedPayloads)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create end of sequencing cache: %w", err)
 	}
 	responseSeenCache, err := lru.New[common.Hash, time.Time](maxTrackedPayloads)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create response seen cache: %w", err)
 	}
 
 	head, err := cli.L2.BlockByNumber(context.Background(), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get L2 head block: %w", err)
 	}
 
 	server := &PreconfBlockAPIServer{
@@ -221,9 +221,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
@@ -277,7 +277,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 	}
 
 	if progress.IsSyncing() {
@@ -288,13 +288,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check message block number: %w", err)
 	}
 
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
 	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to try importing payload: %w", err)
 	}
 	if cached {
 		return nil
@@ -320,9 +320,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// add responses seen to cache.
@@ -393,12 +393,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check message block number: %w", err)
 	}
 
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
 	if _, err := s.TryImportingPayload(ctx, headL1Origin, msg, from); err != nil {
-		return err
+		return fmt.Errorf("failed to try importing payload: %w", err)
 	}
 
 	return nil
@@ -415,9 +415,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node.
@@ -438,13 +438,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn(
+		log.Debug(
 			"Failed to fetch preconfirmation request block by hash",
 			"peer", from,
 			"hash", hash.Hex(),
 			"error", err,
 		)
-		return err
+		return fmt.Errorf("failed to fetch preconfirmation request block by hash: %w", err)
 	}
 
 	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
@@ -468,7 +468,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"hash", block.Hash().Hex(),
 			"error", err,
 		)
-		return err
+		return fmt.Errorf("failed to fetch L1 origin for the block: %w", err)
 	}
 
 	log.Info("Fetched L1 Origin",
@@ -555,9 +555,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node.
@@ -593,7 +593,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 			"hash", hash.Hex(),
 			"error", err,
 		)
-		return err
+		return fmt.Errorf("failed to fetch the end of sequencing block by hash: %w", err)
 	}
 
 	l1Origin, err := s.rpc.L2.L1OriginByID(ctx, block.Number())
@@ -605,7 +605,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 			"hash", block.Hash().Hex(),
 			"error", err,
 		)
-		return err
+		return fmt.Errorf("failed to fetch L1 origin for the block: %w", err)
 	}
 
 	sig := l1Origin.Signature
@@ -677,7 +677,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
 				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 				}
 
 				if progress.IsSyncing() {
@@ -875,7 +875,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
-	latestPayload := s.envelopesCache.getLatestPayload()
+	latestPayload := s.envelopesCache.getLatestEnvelope()
 	if latestPayload == nil {
 		log.Info("No envelopes in cache, skip importing from cache")
 		return nil
@@ -899,11 +899,11 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
 	if err != nil || operatorAddress == (common.Address{}) {
-		log.Warn("Failed to get current preconfirmation whitelist operator address", "error", err)
+		log.Debug("Failed to get current preconfirmation whitelist operator address", "error", err)
 		return common.Address{}
 	}
 
-	log.Info("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
+	log.Debug("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
 
 	return operatorAddress
 }
@@ -1277,7 +1277,7 @@ func (s *webSocketSever) handleWebSocket(c echo.Context) error {
 	// record the client connection for later publication.
 	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to upgrade WebSocket connection: %w", err)
 	}
 	s.recordClient(conn)
 

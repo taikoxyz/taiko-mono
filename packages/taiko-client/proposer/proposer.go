@@ -503,7 +503,7 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		p.preconfRouterAddress = rpc.ZeroAddress
 	} else {
 		p.preconfRouterAddress = preconfRouterAddr
-		// if we havent set the preconfRouter, do so now.
+		// if we haven't set the preconfRouter, do so now.
 		if p.rpc.PacayaClients.PreconfRouter == nil {
 			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
 			if err != nil {
@@ -534,7 +534,7 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
 			log.Info("Fallback timeout not reached, skip proposing",
 				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-				"l2HeadUpdate", p.l2HeadUpdate.blockID,
+				"blockID", p.l2HeadUpdate.blockID,
 				"now", time.Now().UTC(),
 				"fallbackTimeout", p.FallbackTimeout,
 			)

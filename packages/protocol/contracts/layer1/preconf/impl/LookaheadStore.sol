@@ -335,7 +335,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     }
 
     // View and Pure functions
-    // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadOperatorValid(
@@ -417,7 +417,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     }
 
     // Internal functions
-    // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,

@@ -62,7 +62,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     )
         nonZeroAddr(_inbox)
         nonZeroAddr(_forcedInclusionStore)
-        EssentialContract()
     {
         inbox = IProposeBatch(_inbox);
         forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
@@ -126,10 +125,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blocks.length == 1, InvalidBlockSize());
         require(p.isForcedInclusion, ITaikoInbox.InvalidForcedInclusion());
 
-        // Ensure that msg.sender does not throttle transactions in the inclusion by setting a small
-        // `numTransactions` parameter value. The `numTransactions` is set to its maximum possible
-        // value, allowing the actual number of transactions in the block to be determined by the
-        // gas used and the transactions contained within the blobs.
+        // Ensure the proposer uses a bounded `numTransactions` value to prevent unbounded blocks
+        // and throttling games. Setting it to `uint16.max` is disallowed; the proposer must supply
+        // an appropriate cap per policy.
         require(p.blocks[0].numTransactions != type(uint16).max, InvalidBlockTxs());
 
         require(p.blocks[0].timeShift == 0, InvalidTimeShift());

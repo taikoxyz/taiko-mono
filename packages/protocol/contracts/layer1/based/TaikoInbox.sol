@@ -50,7 +50,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
-        EssentialContract()
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
@@ -146,11 +145,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-                params,
-                config.maxAnchorHeightOffset,
-                config.maxSignalsToReceive,
-                config.maxBlocksPerBatch,
-                lastBatch
+                params, config.maxAnchorHeightOffset, config.maxBlocksPerBatch, lastBatch
             );
 
             // This section constructs the metadata for the proposed batch, which is crucial for
@@ -670,7 +665,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
     function _validateBatchParams(
         BatchParams memory _params,
         uint64 _maxAnchorHeightOffset,
-        uint8 _maxSignalsToReceive,
         uint16 _maxBlocksPerBatch,
         Batch memory _lastBatch
     )
@@ -712,13 +706,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
                 totalShift += blockParams.timeShift;
 
                 uint256 numSignals = blockParams.signalSlots.length;
-                if (numSignals == 0) continue;
-
-                require(numSignals <= _maxSignalsToReceive, TooManySignals());
-
-                for (uint256 j; j < numSignals; ++j) {
-                    require(signalService.isSignalSent(blockParams.signalSlots[j]), SignalNotSent());
-                }
+                require(numSignals == 0, TooManySignals());
             }
 
             require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());

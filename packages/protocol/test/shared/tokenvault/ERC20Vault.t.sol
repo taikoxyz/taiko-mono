@@ -64,10 +64,10 @@ contract TestERC20Vault is CommonTest {
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
-        vm.expectRevert(ERC20Vault.VAULT_INSUFFICIENT_ETHER.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 1, address(eERC20Token1), 1_000_000, 1 wei, 0
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, 0
             )
         );
     }
@@ -83,7 +83,7 @@ contract TestERC20Vault is CommonTest {
 
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
 
@@ -103,14 +103,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert();
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId,
-                address(0),
-                Bob,
-                amount - 1,
-                address(eERC20Token1),
-                1_000_000,
-                amount,
-                0
+                taikoChainId, address(0), Bob, amount - 1, address(eERC20Token1), 1_000_000, amount
             )
         );
     }
@@ -132,8 +125,7 @@ contract TestERC20Vault is CommonTest {
                 amount - 1,
                 address(eERC20Token1),
                 1_000_000,
-                amount - 1, // value: (msg.value - fee)
-                0
+                amount - 1 // value: (msg.value - fee)
             )
         );
 
@@ -152,7 +144,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
     }
@@ -162,10 +154,10 @@ contract TestERC20Vault is CommonTest {
 
         uint64 amount = 1;
 
-        vm.expectRevert(ERC20Vault.VAULT_INSUFFICIENT_ETHER.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(0), 1_000_000, amount, 0
+                taikoChainId, address(0), Bob, 0, address(0), 1_000_000, amount
             )
         );
     }
@@ -366,7 +358,7 @@ contract TestERC20Vault is CommonTest {
 
         IBridge.Message memory _messageToSimulateFail = eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
 
@@ -505,10 +497,12 @@ contract TestERC20Vault is CommonTest {
     function test_20Vault_to_string() public {
         vm.startPrank(Alice);
 
-        (, bytes memory symbolData) =
+        (bool success1, bytes memory symbolData) =
             address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
-        (, bytes memory nameData) =
+        require(success1, "Symbol call failed");
+        (bool success2, bytes memory nameData) =
             address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.name, ()));
+        require(success2, "Name call failed");
 
         string memory decodedSymbol = LibBytesInternal.toString(symbolData);
         string memory decodedName = LibBytesInternal.toString(nameData);
@@ -587,10 +581,7 @@ contract TestERC20Vault is CommonTest {
 
         // Define the amounts
         uint256 amount = 1e18;
-        uint256 solverFee = 2e18;
-
-        uint256 totalAmount = amount + solverFee;
-        BridgedERC20(bridgedTokenAddr).approve(address(eVault), totalAmount);
+        BridgedERC20(bridgedTokenAddr).approve(address(eVault), amount);
 
         // Execute the bridge transfer
         eVault.sendToken(
@@ -601,8 +592,7 @@ contract TestERC20Vault is CommonTest {
                 0, // No processing fee
                 bridgedTokenAddr,
                 1_000_000,
-                uint256(amount),
-                uint256(solverFee)
+                uint256(amount)
             )
         );
 
@@ -613,70 +603,10 @@ contract TestERC20Vault is CommonTest {
         //     "Alice amount before - Alice amount after = %s", aliceBalanceBefore -
         // aliceBalanceAfter
         // );
-        // console.log("amount + solverFee = %s", totalAmount);
 
         // Ensure that only the approved amount was deducted
-        assertEq(aliceBalanceBefore - aliceBalanceAfter, totalAmount);
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
         vm.stopPrank();
-    }
-
-    /// forge-config: default.allow_internal_expect_revert = true
-    function test_20Vault_Halborn_solver_vulnerability() public {
-        vm.chainId(taikoChainId);
-
-        // Deploy the malicious contract.
-        MaliciousReceiver maliciousReceiver = new MaliciousReceiver();
-
-        // Mint some tokens to the vault.
-        eERC20Token1.mint(address(eVault));
-
-        uint64 amount = 1;
-        uint64 solverFee = 2;
-        address to = address(maliciousReceiver); // Use the malicious contract as the receiver.
-        address solver = David; // The solver.
-        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
-
-        // Mint tokens to the solver so they can solve the bridging resolver.
-        eERC20Token1.mint(solver);
-
-        vm.startPrank(solver);
-
-        // Set up L2 batch for solve verification.
-        uint64 blockId = 1;
-        bytes32 blockMetaHash = bytes32("metahash");
-        ITaikoInbox.Batch memory batch;
-        batch.metaHash = blockMetaHash;
-        taikoInbox.setBatch(batch);
-
-        // Solver approves tokens and solves the transaction.
-        eERC20Token1.approve(address(eVault), amount);
-        eVault.solve(
-            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
-        );
-
-        vm.stopPrank();
-
-        // Verify the solver is registered as the solver for the condition.
-        assertEq(eVault.solverConditionToSolver(solverCondition), solver);
-
-        ERC20Vault.CanonicalERC20 memory ctoken = erc20ToCanonicalERC20(taikoChainId);
-        address from = Alice;
-        uint256 etherAmount = 0.1 ether; // Include some ether to bridge.
-
-        bytes memory messageData = abi.encode(
-            ctoken,
-            from,
-            to, // The malicious contract that will revert the ETH.
-            amount,
-            solverFee,
-            solverCondition
-        );
-
-        // We will need to mock the bridge context.
-        vm.prank(address(eBridge));
-
-        vm.expectRevert();
-        eVault.onMessageInvocation{ value: etherAmount }(messageData);
     }
 }
 

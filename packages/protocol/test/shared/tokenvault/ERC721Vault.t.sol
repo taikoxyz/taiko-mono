@@ -465,7 +465,10 @@ contract TestERC721Vault is CommonTest {
         // Transfer the asset to Bob, and Bob can receive it back on canonical
         // chain
         vm.prank(Alice);
-        ERC721(deployedContract).transferFrom(Alice, Bob, 1);
+        try ERC721(deployedContract).transferFrom(Alice, Bob, 1) { }
+        catch {
+            revert("Transfer failed");
+        }
 
         assertEq(ERC721(deployedContract).ownerOf(1), Bob);
 
@@ -559,7 +562,10 @@ contract TestERC721Vault is CommonTest {
         // Transfer the asset to Bob, and Bob can receive it back on canonical
         // chain
         vm.prank(Alice);
-        ERC721(deployedContract).transferFrom(Alice, Bob, 1);
+        try ERC721(deployedContract).transferFrom(Alice, Bob, 1) { }
+        catch {
+            revert("Transfer failed");
+        }
 
         assertEq(ERC721(deployedContract).ownerOf(1), Bob);
 

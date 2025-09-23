@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,15 @@ import (
 // ref: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md
 type EngineClient struct {
 	*rpc.Client
+	rpcURL string
+}
+
+// CallContext wraps the underlying RPC client's CallContext with metrics tracking.
+func (c *EngineClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	start := time.Now()
+	err := c.Client.CallContext(ctx, result, method, args...)
+	recordRPCMetrics(method, c.rpcURL, start, err)
+	return err
 }
 
 // NewJWTEngineClient creates a new EngineClient with JWT authentication.
@@ -33,6 +43,7 @@ func NewJWTEngineClient(url, jwtSecret string) (*EngineClient, error) {
 
 	return &EngineClient{
 		Client: authClient,
+		rpcURL: url,
 	}, nil
 }
 
@@ -46,7 +57,7 @@ func (c *EngineClient) ForkchoiceUpdate(
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +73,7 @@ func (c *EngineClient) NewPayload(
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +89,7 @@ func (c *EngineClient) GetPayload(
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +105,7 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
 		return nil, err
 	}
 

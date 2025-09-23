@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.31.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.30.0...docs-site-v1.31.0) (2025-09-03)
+
+
+### Features
+
+* **protocol:** design and implement Shasta upgrade ([#19882](https://github.com/taikoxyz/taiko-mono/issues/19882)) ([2bc26e7](https://github.com/taikoxyz/taiko-mono/commit/2bc26e7478d91556ed6923e55ed9d112288d885c))
+
+
+### Bug Fixes
+
+* **docs-site:** modify image links for GitHub rendering ([#19997](https://github.com/taikoxyz/taiko-mono/issues/19997)) ([7bfd5fb](https://github.com/taikoxyz/taiko-mono/commit/7bfd5fb8dc0717b3600048000dd73ef3fda23757))
+
+
+### Chores
+
+* **docs-site:** image link consistency ([#20018](https://github.com/taikoxyz/taiko-mono/issues/20018)) ([9355653](https://github.com/taikoxyz/taiko-mono/commit/9355653d52f5696e05e74809f391feeae1eae92a))
+* **repo:** fix broken and dead links across the repository ([#19986](https://github.com/taikoxyz/taiko-mono/issues/19986)) ([e8e0814](https://github.com/taikoxyz/taiko-mono/commit/e8e0814601cdbcdeb45350afc144d55cd15bf37e))
+
 ## [1.30.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.6...docs-site-v1.30.0) (2025-08-13)
 
 

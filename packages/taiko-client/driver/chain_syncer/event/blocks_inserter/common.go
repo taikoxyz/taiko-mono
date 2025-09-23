@@ -45,7 +45,7 @@ func createPayloadAndSetHead(
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
 		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to encode transaction list for block %d: %w", meta.BlockID, err)
 	}
 
 	// Increase the gas limit for the anchor block.
@@ -103,7 +103,7 @@ func createExecutionPayloadsAndSetHead(
 	// Update the fork choice.
 	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to update fork choice: %w", err)
 	}
 	if fcRes.PayloadStatus.Status != engine.VALID {
 		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
@@ -428,7 +428,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}
 	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
 	log.Info(
