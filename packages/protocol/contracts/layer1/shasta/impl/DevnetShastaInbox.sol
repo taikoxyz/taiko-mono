@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized1 } from "./InboxOptimized1.sol";
+import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
@@ -9,7 +9,7 @@ import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.so
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetShastaInbox is InboxOptimized1 {
+contract DevnetShastaInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -32,9 +32,10 @@ contract DevnetShastaInbox is InboxOptimized1 {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _taikoToken
+        address _taikoToken,
+        address _helper
     )
-        InboxOptimized1(
+        InboxOptimized2(
             IInbox.Config({
                 bondToken: _taikoToken,
                 proofVerifier: _proofVerifier,
@@ -49,7 +50,8 @@ contract DevnetShastaInbox is InboxOptimized1 {
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
-            })
+            }),
+            _helper
         )
     { }
 
