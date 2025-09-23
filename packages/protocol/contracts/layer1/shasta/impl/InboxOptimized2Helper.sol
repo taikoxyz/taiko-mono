@@ -4,13 +4,17 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IInboxHelper } from "../iface/IInboxHelper.sol";
+import { LibHashing } from "../libs/LibHashing.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxHelper
-/// @notice Helper contract for standard Inbox with abi.encode/decode and keccak256 hashing
+/// @title InboxOptimized2Helper
+/// @notice Helper contract for InboxOptimized2 with optimized encoder/decoder and hashing library
 /// functions
-/// @dev This implementation matches the encoding/decoding/hashing methods used in Inbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract InboxHelper is IInboxHelper {
+contract InboxOptimized2Helper is IInboxHelper {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
@@ -21,7 +25,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_payload);
+        return LibProposedEventEncoder.encode(_payload);
     }
 
     /// @inheritdoc IInboxHelper
@@ -30,7 +34,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return abi.decode(_data, (IInbox.ProposedEventPayload));
+        return LibProposedEventEncoder.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -43,7 +47,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_payload);
+        return LibProvedEventEncoder.encode(_payload);
     }
 
     /// @inheritdoc IInboxHelper
@@ -52,7 +56,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return abi.decode(_data, (IInbox.ProvedEventPayload));
+        return LibProvedEventEncoder.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -65,7 +69,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_input);
+        return LibProposeInputDecoder.encode(_input);
     }
 
     /// @inheritdoc IInboxHelper
@@ -74,7 +78,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (IInbox.ProposeInput memory input_)
     {
-        return abi.decode(_data, (IInbox.ProposeInput));
+        return LibProposeInputDecoder.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -87,7 +91,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_input);
+        return LibProveInputDecoder.encode(_input);
     }
 
     /// @inheritdoc IInboxHelper
@@ -96,11 +100,11 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (IInbox.ProveInput memory input_)
     {
-        return abi.decode(_data, (IInbox.ProveInput));
+        return LibProveInputDecoder.decode(_data);
     }
 
     // ---------------------------------------------------------------
-    // Hashing Functions
+    // LibHashing Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInboxHelper
@@ -109,27 +113,27 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_checkpoint));
+        return LibHashing.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc IInboxHelper
     function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
-        return keccak256(abi.encode(_coreState));
+        return LibHashing.hashCoreState(_coreState);
     }
 
     /// @inheritdoc IInboxHelper
     function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
-        return keccak256(abi.encode(_derivation));
+        return LibHashing.hashDerivation(_derivation);
     }
 
     /// @inheritdoc IInboxHelper
     function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
-        return keccak256(abi.encode(_proposal));
+        return LibHashing.hashProposal(_proposal);
     }
 
     /// @inheritdoc IInboxHelper
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
-        return keccak256(abi.encode(_transition));
+        return LibHashing.hashTransition(_transition);
     }
 
     /// @inheritdoc IInboxHelper
@@ -138,7 +142,7 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        return LibHashing.hashTransitionRecord(_transitionRecord);
     }
 
     /// @inheritdoc IInboxHelper
@@ -147,6 +151,6 @@ contract InboxHelper is IInboxHelper {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_transitions));
+        return LibHashing.hashTransitionsArray(_transitions);
     }
 }

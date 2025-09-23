@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInbox } from "../implementations/TestInbox.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxDeployer
@@ -36,5 +38,10 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         );
 
         return inbox;
+    }
+
+    /// @inheritdoc IInboxDeployer
+    function deployHelper() external returns (IInboxHelper) {
+        return new InboxHelper();
     }
 }

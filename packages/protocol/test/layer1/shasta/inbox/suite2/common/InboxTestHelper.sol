@@ -4,9 +4,8 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests
@@ -30,33 +29,10 @@ contract InboxTestHelper is CommonTest {
     uint64 internal constant FEE_IN_GWEI = 100;
 
     // ---------------------------------------------------------------
-    // Encoding helpers
+    // Helper Interface
     // ---------------------------------------------------------------
 
-    InboxHelper internal inboxHelper;
-    string internal inboxContractName;
-    bool internal useOptimizedProposeInputEncoding;
-    bool internal useOptimizedProveInputEncoding;
-    bool internal useOptimizedProposedEventEncoding;
-    bool internal useLibHashing;
-
-    function _initializeEncodingHelper(string memory _contractName) internal {
-        inboxContractName = _contractName;
-        inboxHelper = new InboxHelper();
-
-        bytes32 nameHash = keccak256(bytes(_contractName));
-        bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
-
-        useOptimizedProposeInputEncoding = nameHash == optimized2;
-        useOptimizedProveInputEncoding = nameHash == optimized2;
-        useOptimizedProposedEventEncoding = nameHash == optimized2;
-        // InboxOptimized2 now uses LibHashing (merged from InboxOptimized3)
-        useLibHashing = nameHash == optimized2;
-    }
-
-    function _getInboxContractName() internal view returns (string memory) {
-        return inboxContractName;
-    }
+    IInboxHelper internal inboxHelper;
 
     // ---------------------------------------------------------------
     // Genesis State Builders
@@ -73,8 +49,15 @@ contract InboxTestHelper is CommonTest {
     }
 
     function _getGenesisTransitionHash() internal view returns (bytes32) {
-        IInbox.Transition memory transition;
-        transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: bytes32(0),
+            parentTransitionHash: bytes32(0),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: GENESIS_BLOCK_HASH,
+                stateRoot: bytes32(0)
+            })
+        });
         return _hashTransition(transition);
     }
 
@@ -145,9 +128,14 @@ contract InboxTestHelper is CommonTest {
     {
         // Build the expected core state after proposal
         // Line 215 sets nextProposalBlockId to block.number+1
+        // WORKAROUND: There seems to be a weird issue where block.number + 1 evaluates incorrectly
+        // Use an intermediate variable to work around this
+        uint256 currentBlock = block.number;
+        uint48 nextBlock = uint48(currentBlock) + 1;
+
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
+            nextProposalBlockId: nextBlock,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -205,10 +193,7 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes memory)
     {
-        if (useOptimizedProposeInputEncoding) {
-            return inboxHelper.encodeProposeInput(_input);
-        }
-        return abi.encode(_input);
+        return inboxHelper.encodeProposeInput(_input);
     }
 
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
@@ -216,10 +201,7 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes memory)
     {
-        if (useOptimizedProposedEventEncoding) {
-            return inboxHelper.encodeProposedEvent(_payload);
-        }
-        return abi.encode(_payload);
+        return inboxHelper.encodeProposedEvent(_payload);
     }
 
     function _encodeProveInput(IInbox.ProveInput memory _input)
@@ -227,10 +209,7 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes memory)
     {
-        if (useOptimizedProveInputEncoding) {
-            return inboxHelper.encodeProveInput(_input);
-        }
-        return abi.encode(_input);
+        return inboxHelper.encodeProveInput(_input);
     }
 
     function _createProposeInputWithCustomParams(
@@ -316,17 +295,11 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes32)
     {
-        if (useLibHashing) {
-            return LibHashing.hashTransition(_transition);
-        }
-        return keccak256(abi.encode(_transition));
+        return inboxHelper.hashTransition(_transition);
     }
 
     function _hashCoreState(IInbox.CoreState memory _coreState) internal view returns (bytes32) {
-        if (useLibHashing) {
-            return LibHashing.hashCoreState(_coreState);
-        }
-        return keccak256(abi.encode(_coreState));
+        return inboxHelper.hashCoreState(_coreState);
     }
 
     function _hashDerivation(IInbox.Derivation memory _derivation)
@@ -334,10 +307,7 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes32)
     {
-        if (useLibHashing) {
-            return LibHashing.hashDerivation(_derivation);
-        }
-        return keccak256(abi.encode(_derivation));
+        return inboxHelper.hashDerivation(_derivation);
     }
 
     function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
@@ -345,16 +315,10 @@ contract InboxTestHelper is CommonTest {
         view
         returns (bytes32)
     {
-        if (useLibHashing) {
-            return LibHashing.hashCheckpoint(_checkpoint);
-        }
-        return keccak256(abi.encode(_checkpoint));
+        return inboxHelper.hashCheckpoint(_checkpoint);
     }
 
     function _hashProposal(IInbox.Proposal memory _proposal) internal view returns (bytes32) {
-        if (useLibHashing) {
-            return LibHashing.hashProposal(_proposal);
-        }
-        return keccak256(abi.encode(_proposal));
+        return inboxHelper.hashProposal(_proposal);
     }
 }

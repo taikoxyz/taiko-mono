@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
 
 /// @title IInboxDeployer
 /// @notice Interface for deploying different Inbox implementations
@@ -20,6 +21,10 @@ interface IInboxDeployer {
     )
         external
         returns (Inbox);
+
+    /// @notice Deploy a helper instance for the Inbox implementation
+    /// @return The deployed IInboxHelper instance
+    function deployHelper() external returns (IInboxHelper);
 
     /// @notice Get the name of the test contract for snapshot identification
     /// @return The test contract name
