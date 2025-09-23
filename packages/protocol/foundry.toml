@@ -58,7 +58,6 @@ number_underscore = "thousands"
 wrap_comments = true
 
 [lint]
-# ... rest of lint config ...
 exclude_lints = [
     "asm-keccak256",
     "unaliased-plain-import",
@@ -68,8 +67,6 @@ exclude_lints = [
     "screaming-snake-case-immutable",
     "pascal-case-struct"
 ]
-
-
 
 [profile.layer1]
 src = "contracts/layer1"
@@ -82,9 +79,7 @@ src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
-optimizer = true
-optimizer_runs = 800
-yul = true
+via_ir = true
 
 [profile.layer2]
 src = "contracts/layer2"
