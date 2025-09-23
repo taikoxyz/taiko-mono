@@ -61,11 +61,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         __Essential_init(_owner);
     }
 
-    modifier onlyOwnerOrOverseer() {
-        require(msg.sender == owner() || overseers[msg.sender], NotOwnerOrOverseer());
-        _;
-    }
-
     /// @inheritdoc ILookaheadStore
     function checkProposer(
         address _proposer,
@@ -315,7 +310,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     // --------------------------------------------------------------------------
 
     /// @inheritdoc IBlacklist
-    function addOverseers(address[] calldata _overseers) external override onlyOwnerOrOverseer {
+    function addOverseers(address[] calldata _overseers) external override onlyOwner {
         for (uint256 i = 0; i < _overseers.length; ++i) {
             address overseer = _overseers[i];
             require(!overseers[overseer], OverseerAlreadyExists());
@@ -325,7 +320,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     }
 
     /// @inheritdoc IBlacklist
-    function removeOverseers(address[] calldata _overseers) external override onlyOwnerOrOverseer {
+    function removeOverseers(address[] calldata _overseers) external override onlyOwner {
         for (uint256 i = 0; i < _overseers.length; ++i) {
             address overseer = _overseers[i];
             require(overseers[overseer], OverseerDoesNotExist());
