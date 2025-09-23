@@ -225,8 +225,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 sourceCount += forcedInclusions.length;
             }
 
-            require(sourceCount > 0, EmptyDerivationSources());
-
             // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
             // none remains in the queue that is due.
             require(
@@ -615,7 +613,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // Encoder Functions (alphabetically sorted)
+    // Encoder Functions
     // ---------------------------------------------------------------
 
     /// @dev Encodes the proposed event data
@@ -643,7 +641,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // Decoder Functions (alphabetically sorted)
+    // Decoder Functions
     // ---------------------------------------------------------------
 
     /// @dev Decodes proposal input data
@@ -671,7 +669,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // Hashing Functions (alphabetically sorted)
+    // Hashing Functions
     // ---------------------------------------------------------------
 
     /// @dev Optimized hashing for blob hashes array to reduce stack depth
@@ -798,8 +796,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         });
 
         _setProposalHash(proposal.id, _hashProposal(proposal));
-
-        // Create payload and emit event with stack-optimized approach
         _emitProposedEvent(proposal, derivation, _coreState);
     }
 
@@ -1009,7 +1005,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 error CannotProposeInCurrentBlock();
 error CheckpointMismatch();
 error DeadlineExceeded();
-error EmptyDerivationSources();
 error EmptyProposals();
 error ForkNotActive();
 error InconsistentParams();
