@@ -20,6 +20,8 @@ contract SignalService is EssentialResolverContract, ISignalService {
     /// @dev Slot 2.
     mapping(address addr => bool authorized) public isAuthorized;
 
+    mapping(bytes32 signalSlot => bool received) private __deprecated_receivedSignals;
+
     uint256[47] private __gap;
 
     struct CacheAction {
