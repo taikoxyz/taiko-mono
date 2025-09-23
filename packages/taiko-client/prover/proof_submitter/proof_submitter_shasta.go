@@ -101,7 +101,19 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		// Check if there is a need to generate proof, if the proof is already submitted and valid, skip
 		// the proof submission.
 		record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
-		if record != nil && record.Transition.Checkpoint.BlockHash == header.Hash() {
+
+		parentTransitionHash, err := transaction.BuildParentTransitionHash(
+			ctx,
+			s.rpc,
+			s.indexer,
+			meta.Shasta().GetProposal().Id,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
+		}
+		if record != nil &&
+			record.Transition.Checkpoint.BlockHash == header.Hash() &&
+			record.Transition.ParentTransitionHash == parentTransitionHash {
 			log.Info(
 				"A valid proof has been submitted, skip requesting proof",
 				"batchID", meta.Shasta().GetProposal().Id,

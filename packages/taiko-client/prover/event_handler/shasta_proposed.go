@@ -15,6 +15,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 // HandleShasta handles the Shasta protocol Proposed event.
@@ -129,11 +130,18 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			return fmt.Errorf("failed to get L2 header by number: %w", err)
 		}
 
-		if record.Transition.Checkpoint.BlockHash == header.Hash() {
+		parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, h.rpc, h.indexer, batchID)
+		if err != nil {
+			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
+		}
+
+		if record.Transition.Checkpoint.BlockHash == header.Hash() &&
+			record.Transition.ParentTransitionHash == parentTransitionHash {
 			log.Info(
 				"A valid proof has been submitted, skip proving",
 				"batchID", batchID,
-				"parent", header.ParentHash,
+				"parentBlockHash", header.ParentHash,
+				"parentTransitionHash", parentTransitionHash,
 			)
 			return nil
 		}

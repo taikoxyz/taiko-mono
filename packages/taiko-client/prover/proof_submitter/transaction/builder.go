@@ -136,7 +136,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			if err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
-			parentTransitionHash, err := a.BuildParentTransitionHash(txOpts.Context, proposals[i].Id)
+			parentTransitionHash, err := BuildParentTransitionHash(txOpts.Context, a.rpc, a.indexer, proposals[i].Id)
 			if err != nil {
 				log.Info(
 					"Failed to build parent Shasta transition hash locally, start waiting for the event",
@@ -199,9 +199,70 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 	}
 }
 
-// BuildParentTransitionHash builds the parent transition hash for the given batchID.
-func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
+// WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
+func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
 	ctx context.Context,
+	batchID *big.Int,
+) (common.Hash, error) {
+	ticker := time.NewTicker(rpcPollingInterval)
+	defer ticker.Stop()
+
+	if batchID.Cmp(common.Big1) == 0 {
+		return GetShastaGenesisTransitionHash(ctx, a.rpc)
+	}
+	log.Debug("Start fetching block header from L2 execution engine", "batchID", batchID)
+
+	for ; true; <-ticker.C {
+		if ctx.Err() != nil {
+			return common.Hash{}, ctx.Err()
+		}
+
+		transition := a.indexer.GetTransitionRecordByProposalID(batchID.Uint64() - 1)
+		if transition == nil {
+			log.Debug("Transition record not found, keep retrying", "batchID", batchID)
+			continue
+		}
+
+		return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
+	}
+
+	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, batchID: %d", batchID)
+}
+
+// GetShastaGenesisTransition fetches the genesis transition of Shasta.
+func GetShastaGenesisTransition(
+	ctx context.Context,
+	rpc *rpc.Client,
+) (*shastaBindings.IInboxTransition, error) {
+	header, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(rpc.ShastaClients.ForkHeight, common.Big1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch genesis block header: %w", err)
+	}
+	return &shastaBindings.IInboxTransition{
+		ProposalHash:         common.Hash{},
+		ParentTransitionHash: common.Hash{},
+		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: common.Big0,
+			BlockHash:   header.Hash(),
+			StateRoot:   common.Hash{},
+		},
+	}, nil
+}
+
+// GetShastaGenesisTransitionHash fetches the genesis transition hash of Shasta.
+func GetShastaGenesisTransitionHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
+	transition, err := GetShastaGenesisTransition(ctx, rpc)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to fetch genesis transition: %w", err)
+	}
+	return encoding.HashTransitionOptimized(*transition), nil
+}
+
+// BuildParentTransitionHash builds the parent transition hash for the given batchID.
+func BuildParentTransitionHash(
+	ctx context.Context,
+	rpc *rpc.Client,
+	indexer *shastaIndexer.Indexer,
 	batchID *big.Int,
 ) (common.Hash, error) {
 	type transitionEntry struct {
@@ -214,7 +275,7 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 	batchID = new(big.Int).Sub(batchID, common.Big1)
 	for {
 		if batchID.Cmp(common.Big0) == 0 {
-			transition, err := a.GetShastaGenesisTransition(ctx)
+			transition, err := GetShastaGenesisTransition(ctx, rpc)
 			if err != nil {
 				return common.Hash{}, err
 			}
@@ -226,7 +287,7 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 			break
 		}
 
-		transition := a.indexer.GetTransitionRecordByProposalID(batchID.Uint64())
+		transition := indexer.GetTransitionRecordByProposalID(batchID.Uint64())
 		if transition != nil {
 			hash := common.BytesToHash(transition.TransitionRecord.TransitionHash[:])
 			parentTransitions = append(
@@ -236,16 +297,16 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 			break
 		}
 
-		proposal, err := a.indexer.GetProposalByID(batchID.Uint64())
+		proposal, err := indexer.GetProposalByID(batchID.Uint64())
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", batchID.Uint64(), err)
 		}
 
-		checkpointL1Origin, err := a.rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
+		checkpointL1Origin, err := rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch last L1 origin: %w", err)
 		}
-		checkpointHeader, err := a.rpc.L2.HeaderByNumber(ctx, checkpointL1Origin.BlockID)
+		checkpointHeader, err := rpc.L2.HeaderByNumber(ctx, checkpointL1Origin.BlockID)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch checkpoint header: %w", err)
 		}
@@ -287,62 +348,4 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 		}
 	}
 	return currentHash, nil
-}
-
-// WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
-func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
-	ctx context.Context,
-	batchID *big.Int,
-) (common.Hash, error) {
-	ticker := time.NewTicker(rpcPollingInterval)
-	defer ticker.Stop()
-
-	if batchID.Cmp(common.Big1) == 0 {
-		return a.GetShastaGenesisTransitionHash(ctx)
-	}
-	log.Debug("Start fetching block header from L2 execution engine", "batchID", batchID)
-
-	for ; true; <-ticker.C {
-		if ctx.Err() != nil {
-			return common.Hash{}, ctx.Err()
-		}
-
-		transition := a.indexer.GetTransitionRecordByProposalID(batchID.Uint64() - 1)
-		if transition == nil {
-			log.Debug("Transition record not found, keep retrying", "batchID", batchID)
-			continue
-		}
-
-		return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
-	}
-
-	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, batchID: %d", batchID)
-}
-
-// GetShastaGenesisTransition fetches the genesis transition of Shasta.
-func (a *ProveBatchesTxBuilder) GetShastaGenesisTransition(
-	ctx context.Context,
-) (*shastaBindings.IInboxTransition, error) {
-	header, err := a.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(a.rpc.ShastaClients.ForkHeight, common.Big1))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch genesis block header: %w", err)
-	}
-	return &shastaBindings.IInboxTransition{
-		ProposalHash:         common.Hash{},
-		ParentTransitionHash: common.Hash{},
-		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-			BlockNumber: common.Big0,
-			BlockHash:   header.Hash(),
-			StateRoot:   common.Hash{},
-		},
-	}, nil
-}
-
-// GetShastaGenesisTransitionHash fetches the genesis transition hash of Shasta.
-func (a *ProveBatchesTxBuilder) GetShastaGenesisTransitionHash(ctx context.Context) (common.Hash, error) {
-	transition, err := a.GetShastaGenesisTransition(ctx)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to fetch genesis transition: %w", err)
-	}
-	return encoding.HashTransitionOptimized(*transition), nil
 }
