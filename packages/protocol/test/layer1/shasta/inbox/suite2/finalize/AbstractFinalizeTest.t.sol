@@ -28,17 +28,14 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     string private contractName;
     bool private useOptimizedInputEncoding;
     bool private useOptimizedHashing;
+    bool private supportsAggregatedFinalization;
 
     // Store per-test checkpoint and transition data for each proved proposal
-    mapping(uint256 runId => mapping(uint48 proposalId => ICheckpointManager.Checkpoint checkpoint))
-        private storedCheckpoints;
-    mapping(uint256 runId => mapping(uint48 proposalId => bytes32 transitionHash))
-        private storedTransitionHashes;
-    mapping(uint256 runId => mapping(uint48 proposalId => bytes32 parentTransitionHash))
-        private storedParentTransitionHashes;
+    mapping(uint48 proposalId => ICheckpointManager.Checkpoint checkpoint) private storedCheckpoints;
+    mapping(uint48 proposalId => bytes32 transitionHash) private storedTransitionHashes;
+    mapping(uint48 proposalId => bytes32 parentTransitionHash) private storedParentTransitionHashes;
 
-    // Track current test run and last proved transition for parent linkage
-    uint256 private runId;
+    // Track last proved transition for parent linkage
     bytes32 private lastProvedTransitionHash;
 
     // ---------------------------------------------------------------
@@ -47,9 +44,6 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
-
-        // Increment test run identifier to isolate stored data between tests
-        runId += 1;
 
         // Initialize the helper for encoding/decoding operations
         helper = new InboxHelper();
@@ -61,6 +55,8 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedHashing = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized4"));
+        supportsAggregatedFinalization = keccak256(bytes(contractName))
+            != keccak256(bytes("Inbox"));
 
         // Reset transition lineage for this run
         lastProvedTransitionHash = _getGenesisTransitionHash(useOptimizedHashing);
@@ -371,18 +367,15 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
 
-        bool supportsAggregation = keccak256(bytes(contractName))
-            != keccak256(bytes("Inbox"));
-
         (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
             proposals[2],
             coreState,
             records,
             proposals[0],
-            supportsAggregation
+            supportsAggregatedFinalization
         );
 
-        if (!supportsAggregation) {
+        if (!supportsAggregatedFinalization) {
             vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
             vm.prank(currentProposer);
             inbox.propose(bytes(""), finalizeData);
@@ -639,7 +632,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     {
         // Create and store the checkpoint that will be used for this proposal
         ICheckpointManager.Checkpoint memory checkpoint = _createCheckpoint();
-        storedCheckpoints[runId][_proposal.id] = checkpoint;
+        storedCheckpoints[_proposal.id] = checkpoint;
 
         // Build transition linking to the last proved transition hash
         IInbox.Transition memory transition = IInbox.Transition({
@@ -650,7 +643,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             checkpoint: checkpoint
         });
 
-        storedParentTransitionHashes[runId][_proposal.id] = transition.parentTransitionHash;
+        storedParentTransitionHashes[_proposal.id] = transition.parentTransitionHash;
 
         // Create prove input using the constructed transition
         bytes memory proveData = _createProveInputWithTransitionAndMetadata(
@@ -667,7 +660,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         bytes32 transitionHash = useOptimizedHashing
             ? helper.hashTransitionOptimized(transition)
             : helper.hashTransition(transition);
-        storedTransitionHashes[runId][_proposal.id] = transitionHash;
+        storedTransitionHashes[_proposal.id] = transitionHash;
         lastProvedTransitionHash = transitionHash;
     }
 
@@ -693,7 +686,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             vm.warp(block.timestamp + 12);
 
             checkpoint = _createCheckpoint();
-            storedCheckpoints[runId][_proposals[i].id] = checkpoint;
+            storedCheckpoints[_proposals[i].id] = checkpoint;
 
             transitions[i] = IInbox.Transition({
                 proposalHash: useOptimizedHashing
@@ -708,19 +701,19 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
                 actualProver: currentProver
             });
 
-            storedParentTransitionHashes[runId][_proposals[i].id] = parentHash;
+            storedParentTransitionHashes[_proposals[i].id] = parentHash;
 
             transitionHash = useOptimizedHashing
                 ? helper.hashTransitionOptimized(transitions[i])
                 : helper.hashTransition(transitions[i]);
 
-            storedTransitionHashes[runId][_proposals[i].id] = transitionHash;
+            storedTransitionHashes[_proposals[i].id] = transitionHash;
             parentHash = transitionHash;
         }
 
         // Cache the aggregated transition hash and checkpoint on the first proposal ID
-        storedTransitionHashes[runId][_proposals[0].id] = transitionHash;
-        storedCheckpoints[runId][_proposals[0].id] = transitions[count - 1].checkpoint;
+        storedTransitionHashes[_proposals[0].id] = transitionHash;
+        storedCheckpoints[_proposals[0].id] = transitions[count - 1].checkpoint;
 
         lastProvedTransitionHash = transitionHash;
 
@@ -813,31 +806,21 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         ICheckpointManager.Checkpoint memory checkpoint;
 
         if (_records.length > 0) {
-            checkpoint = storedCheckpoints[runId][_finalizedProposal.id];
+            checkpoint = storedCheckpoints[_finalizedProposal.id];
             require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
-            bytes32 expectedTransitionHash = storedTransitionHashes[runId][_finalizedProposal.id];
+            bytes32 expectedTransitionHash = storedTransitionHashes[_finalizedProposal.id];
             require(
                 expectedTransitionHash != bytes32(0),
                 "Transition hash not cached for proposal"
             );
 
-            bytes32 expectedCheckpointHash = _hashCheckpoint(checkpoint);
-            bool matched;
-            for (uint256 i; i < _records.length; i++) {
-                if (_records[i].transitionHash == expectedTransitionHash) {
-                    if (_strictMatching) {
-                        require(
-                            _records[i].checkpointHash == expectedCheckpointHash,
-                            "Checkpoint hash mismatch"
-                        );
-                    }
-                    matched = true;
-                    break;
-                }
-            }
             if (_strictMatching) {
-                require(matched, "Transition record not found in input");
+                _requireTransitionRecordMatch(
+                    _records,
+                    expectedTransitionHash,
+                    _hashCheckpoint(checkpoint)
+                );
             }
         } else {
             // No records provided; create a fresh checkpoint since finalization will revert earlier
@@ -879,15 +862,15 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.TransitionRecord memory)
     {
         // Retrieve the stored record hash to understand what was actually stored during prove
-        bytes32 parentTransitionHash = storedParentTransitionHashes[runId][_proposal.id];
+        bytes32 parentTransitionHash = storedParentTransitionHashes[_proposal.id];
         (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, parentTransitionHash);
         require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[runId][_proposal.id];
+        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
-        bytes32 transitionHash = storedTransitionHashes[runId][_proposal.id];
+        bytes32 transitionHash = storedTransitionHashes[_proposal.id];
         require(transitionHash != bytes32(0), "Transition hash not found for proposal");
 
         return IInbox.TransitionRecord({
@@ -909,15 +892,15 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.TransitionRecord memory)
     {
         // Retrieve the stored record hash to understand what was actually stored during prove
-        bytes32 parentTransitionHash = storedParentTransitionHashes[runId][_proposal.id];
+        bytes32 parentTransitionHash = storedParentTransitionHashes[_proposal.id];
         (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, parentTransitionHash);
         require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[runId][_proposal.id];
+        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
-        bytes32 transitionHash = storedTransitionHashes[runId][_proposal.id];
+        bytes32 transitionHash = storedTransitionHashes[_proposal.id];
         require(transitionHash != bytes32(0), "Transition hash not found for proposal");
 
         return IInbox.TransitionRecord({
@@ -944,6 +927,28 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         returns (bytes32)
     {
         return keccak256(abi.encode(_checkpoint));
+    }
+
+    /// @dev Ensures a transition record exists with expected hashes
+    function _requireTransitionRecordMatch(
+        IInbox.TransitionRecord[] memory _records,
+        bytes32 _expectedTransitionHash,
+        bytes32 _expectedCheckpointHash
+    )
+        internal
+        pure
+    {
+        for (uint256 i; i < _records.length; ++i) {
+            if (_records[i].transitionHash == _expectedTransitionHash) {
+                require(
+                    _records[i].checkpointHash == _expectedCheckpointHash,
+                    "Checkpoint hash mismatch"
+                );
+                return;
+            }
+        }
+
+        revert("Transition record not found in input");
     }
 
     /// @dev Creates the first proposal input
