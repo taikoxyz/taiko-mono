@@ -56,8 +56,11 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // (EvidenceLookahead, EvidenceBeaconValidator, EvidenceInvalidOperator ||
         // EvidenceMissingOperator)
-        (bytes calldata evidenceX, bytes calldata evidenceY, bytes calldata evidenceZ) =
-            _decodeEvidenceTuple(_evidence);
+        (
+            bytes calldata evidenceLookahead,
+            bytes calldata evidenceBeaconValidator,
+            bytes calldata evidenceInvalidOrMissingOperator
+        ) = _decodeEvidenceTuple(_evidence);
 
         (
             // Timestamp of the epoch preceding the one containing the problematic slot
@@ -66,21 +69,24 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             uint256 slotTimestamp,
             // Problematic slot
             ILookaheadStore.LookaheadSlot memory lookaheadSlot
-        ) = _validateLookaheadEvidence(evidenceX, lookaheadSlots);
+        ) = _validateLookaheadEvidence(evidenceLookahead, lookaheadSlots);
 
-        BLS.G1Point calldata beaconLookaheadValPubKey =
-            _validateBeaconValidatorEvidence(previousEpochTimestamp, slotTimestamp, evidenceY);
+        BLS.G1Point calldata beaconLookaheadValPubKey = _validateBeaconValidatorEvidence(
+            previousEpochTimestamp, slotTimestamp, evidenceBeaconValidator
+        );
 
         if (lookaheadSlots.length != 0 && lookaheadSlot.timestamp == slotTimestamp) {
             // This condition is executed when the problematic slot is a dedicated slot of an
             // operator, but is assigned to the wrong operator i.e the beacon validator is
             // not registered to the operator in the URC.
-            _validateInvalidOperatorEvidence(lookaheadSlot, beaconLookaheadValPubKey, evidenceZ);
+            _validateInvalidOperatorEvidence(
+                lookaheadSlot, beaconLookaheadValPubKey, evidenceInvalidOrMissingOperator
+            );
         } else {
             // This condition is executed when the problematic slot has no assigned operator i.e
             // when it is an advanced proposal slot, or when the lookahead is empty.
             _validateMissingOperatorEvidence(
-                previousEpochTimestamp, beaconLookaheadValPubKey, evidenceZ
+                previousEpochTimestamp, beaconLookaheadValPubKey, evidenceInvalidOrMissingOperator
             );
         }
 
@@ -235,9 +241,6 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         );
 
         IRegistry(urc).verifyMerkleProof(registrationProof);
-
-        IRegistry.OperatorData memory operatorData =
-            IRegistry(urc).getOperatorData(registrationProof.registrationRoot);
 
         // This is the same reference timestamp that is used in the lookahead store
         uint256 referenceTimestamp =

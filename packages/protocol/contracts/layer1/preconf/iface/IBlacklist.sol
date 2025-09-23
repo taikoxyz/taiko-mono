@@ -10,7 +10,12 @@ interface IBlacklist {
         uint48 unBlacklistedAt;
     }
 
-    /// @dev These delays prevent the lookahead from being messed up mid-epoch
+    /// @dev These delays prevent lookahead state from changing mid-epoch.
+    /// We do not store historical blacklist data. If an operator is blacklisted,
+    /// then unblacklisted, and blacklisted again within a single lookahead window,
+    /// we cannot determine when the first blacklist occurred (without storing full
+    /// history). Therefore, we cannot slash a lookahead poster for failing to include
+    /// a non-blacklisted preconfer.
     struct BlacklistConfig {
         // Delay after which a formerly unblacklisted operator can be blacklisted again
         uint256 blacklistDelay;

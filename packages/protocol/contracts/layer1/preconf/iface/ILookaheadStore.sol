@@ -67,7 +67,7 @@ interface ILookaheadStore {
     error LookaheadNotRequired();
     error NotInbox();
     error NotProtectorOrPreconfRouter();
-    error NotWhitelistedOrFallbackPreconfer();
+    error NotWhitelistedPreconfer();
     error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();

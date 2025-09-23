@@ -32,7 +32,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     address public immutable preconfSlasher;
     address public immutable inbox;
     address public immutable preconfWhitelist;
-    address public immutable fallbackPreconfer;
 
     // Lookahead buffer that stores the hashed lookahead entries for an epoch
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
@@ -46,7 +45,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         address _preconfSlasher,
         address _inbox,
         address _preconfWhitelist,
-        address _fallbackPreconfer,
         address[] memory _overseers
     )
         Blacklist(_overseers)
@@ -57,7 +55,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         preconfSlasher = _preconfSlasher;
         inbox = _inbox;
         preconfWhitelist = _preconfWhitelist;
-        fallbackPreconfer = _fallbackPreconfer;
     }
 
     function init(address _owner) external initializer {
@@ -372,12 +369,14 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     {
         uint256 referenceTimestamp = _epochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
+        _validateOperator(
             referenceTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPosting,
             lookaheadSlasher
         );
+
+        return true;
     }
 
     /// @inheritdoc ILookaheadStore
@@ -619,9 +618,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
     function _validateWhitelistPreconfer(address _proposer) internal view {
         require(
-            _proposer == fallbackPreconfer
-                || _proposer == IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch(),
-            NotWhitelistedOrFallbackPreconfer()
+            _proposer == IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch(),
+            NotWhitelistedPreconfer()
         );
     }
 
