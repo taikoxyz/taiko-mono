@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { Inbox } from "./Inbox.sol";
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 
 /// @title InboxOptimized4
@@ -53,7 +53,7 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @dev Uses LibHashing for efficient checkpoint hashing
     /// @param _checkpoint The checkpoint data to hash
     /// @return bytes32 The keccak256 hash of the checkpoint struct
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         override

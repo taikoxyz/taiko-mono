@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibHashing } from "../libs/LibHashing.sol";
+import { ICheckpointStore } from "contracts/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibHashing } from "../libs/LibHashing.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxHelper
 /// @notice Unified helper contract for all Inbox encoder/decoder and hashing library functions
@@ -232,7 +232,7 @@ contract InboxHelper {
     /// @notice Standard hashing for Checkpoint structs using keccak256(abi.encode())
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         external
         pure
         returns (bytes32)
@@ -243,7 +243,7 @@ contract InboxHelper {
     /// @notice Optimized hashing for Checkpoint structs
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpointOptimized(ICheckpointManager.Checkpoint memory _checkpoint)
+    function hashCheckpointOptimized(ICheckpointStore.Checkpoint memory _checkpoint)
         external
         pure
         returns (bytes32)

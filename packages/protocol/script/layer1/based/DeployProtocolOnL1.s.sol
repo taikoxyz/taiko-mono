@@ -36,7 +36,6 @@ import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
-import "src/shared/based/impl/CheckpointManager.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -317,27 +316,14 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address tempFork =
-            address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
+        address tempFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address checkPointManager = deployProxy({
-            name: "checkpoint_manager",
-            impl: address(
-                new CheckpointManager(
-                    taikoInboxAddr,
-                    2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
-                )
-            ),
-            data: abi.encodeCall(CheckpointManager.init, (address(0)))
-        });
-
-        address newFork =
-            address(new DevnetShastaInbox(checkPointManager, proofVerifier, whitelist, bondToken));
+        address newFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

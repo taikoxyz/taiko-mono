@@ -25,6 +25,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev Storage for the forced inclusion queue. This struct uses 2 slots.
+    /// @dev 2 slots used
     struct Storage {
         mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue;
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
@@ -42,7 +43,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev See `IInbox.storeForcedInclusion`
-    function storeForcedInclusion(
+    function saveForcedInclusion(
         Storage storage $,
         uint64, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
@@ -59,7 +60,7 @@ library LibForcedInclusion {
 
         $.queue[$.tail++] = inclusion;
 
-        emit IForcedInclusionStore.ForcedInclusionStored(inclusion);
+        emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
     /// @dev Internal implementation of consuming forced inclusions
@@ -73,7 +74,7 @@ library LibForcedInclusion {
         address _feeRecipient,
         uint256 _count
     )
-        internal
+        public
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
@@ -102,7 +103,6 @@ library LibForcedInclusion {
             }
 
             // Update head and lastProcessedAt after all processing
-
             ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
 
             // Send all fees in one transfer

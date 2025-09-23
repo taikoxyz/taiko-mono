@@ -4,7 +4,6 @@
 set -e
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-export OLD_FORK_TAIKO_INBOX=0x0000000000000000000000000000000000000000
 export TAIKO_TOKEN=0x0000000000000000000000000000000000000000
 export TAIKO_ANCHOR_ADDRESS=0x1000777700000000000000000000000000000001
 export L2_SIGNAL_SERVICE=0x1000777700000000000000000000000000000007
@@ -27,6 +26,8 @@ export CONTRACT_OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 export DUMMY_VERIFIERS=true 
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc \
 
+
+FOUNDRY_PROFILE="layer1" \
 forge script ./script/layer1/based/DeployTaikoToken.s.sol:DeployTaikoToken \
     --fork-url http://localhost:8545 \
     --broadcast \
@@ -35,11 +36,11 @@ forge script ./script/layer1/based/DeployTaikoToken.s.sol:DeployTaikoToken \
     --private-key $PRIVATE_KEY \
     --block-gas-limit 200000000
 
-forge script script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+FOUNDRY_PROFILE="layer1o" \
+forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
     -vvvv \
-    --disable-code-size-limit \
     --private-key $PRIVATE_KEY \
     --block-gas-limit 200000000
