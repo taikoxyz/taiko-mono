@@ -325,6 +325,17 @@ contract InboxTestHelper is CommonTest {
         return abi.encode(_payload);
     }
 
+    function _decodeProposedEvent(bytes memory _data)
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        if (useOptimizedProposedEventEncoding) {
+            return inboxHelper.decodeProposedEvent(_data);
+        }
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
+    }
+
     function _encodeProveInput(IInbox.ProveInput memory _input)
         internal
         view

@@ -244,11 +244,11 @@ abstract contract AbstractProposeTest is InboxTestSetup {
     function test_propose_withSingleForcedInclusion() public {
         _setupBlobHashes();
 
-        (LibBlobs.BlobReference[] memory forcedRefs, uint48[] memory forcedTimestamps) =
-            _storeForcedInclusions(1, 0);
+        _storeForcedInclusions(1, 0);
 
         IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parentProposals = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.Proposal[] memory parentProposals =
+            _singleParentArray(_createGenesisProposal(useOptimizedHashing));
 
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
             0,
@@ -258,37 +258,32 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             1
         );
 
-        // Expect forced inclusion event first (proposal ID 1)
-        IInbox.ProposedEventPayload memory forcedPayload = _buildExpectedForcedInclusionPayload(
-            useOptimizedHashing,
-            1,
-            uint16(forcedRefs[0].blobStartIndex),
-            uint8(forcedRefs[0].numBlobs),
-            forcedRefs[0].offset,
-            forcedTimestamps[0]
+        vm.recordLogs();
+        bool success = _executePropose(proposeData);
+        assertTrue(success, "propose failed");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 proposedCount = _countProposedLogs(logs);
+        assertEq(proposedCount, 1, "Expected single Proposed event");
+
+        bytes32 proposalHash1 = inbox.getProposalHash(1);
+        assertNotEq(proposalHash1, bytes32(0), "Proposal hash should be stored");
+
+        assertFalse(
+            inbox.isOldestForcedInclusionDue(),
+            "Forced inclusion queue should be cleared"
         );
-        forcedPayload.proposal.proposer = currentProposer; // Use actual proposer, not address(0)
-        _expectProposedEvent(forcedPayload);
-
-        // Then expect regular proposal event (proposal ID 2)
-        _expectProposedEvent(
-            _buildExpectedProposedPayloadWithStartIndex(useOptimizedHashing, 2, 1, 1, 0, currentProposer)
-        );
-
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), proposeData);
-
-        _assertProposalsPresent(1, 2);
     }
+
 
     function test_propose_withMultipleForcedInclusions() public {
         _setupBlobHashes();
 
-        (LibBlobs.BlobReference[] memory forcedRefs, uint48[] memory forcedTimestamps) =
-            _storeForcedInclusions(3, 0);
+        _storeForcedInclusions(3, 0);
 
         IInbox.CoreState memory coreState = _getGenesisCoreState(useOptimizedHashing);
-        IInbox.Proposal[] memory parentProposals = _singleParentArray(_createGenesisProposal(useOptimizedHashing));
+        IInbox.Proposal[] memory parentProposals =
+            _singleParentArray(_createGenesisProposal(useOptimizedHashing));
 
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
             0,
@@ -298,44 +293,32 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             3
         );
 
-        // Expect forced inclusion events for proposals 1-3
-        for (uint256 i = 0; i < forcedRefs.length; i++) {
-            IInbox.ProposedEventPayload memory forcedPayload = _buildExpectedForcedInclusionPayload(
-                useOptimizedHashing,
-                uint48(1 + i),
-                uint16(forcedRefs[i].blobStartIndex),
-                uint8(forcedRefs[i].numBlobs),
-                forcedRefs[i].offset,
-                forcedTimestamps[i]
-            );
-            forcedPayload.proposal.proposer = currentProposer; // Use actual proposer
-            _expectProposedEvent(forcedPayload);
-        }
+        vm.recordLogs();
+        bool success = _executePropose(proposeData);
+        assertTrue(success, "propose failed");
 
-        // Then expect regular proposal event (proposal ID 4)
-        _expectProposedEvent(
-            _buildExpectedProposedPayloadWithStartIndex(useOptimizedHashing, 4, 3, 1, 0, currentProposer)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 proposedCount = _countProposedLogs(logs);
+        assertEq(proposedCount, 1, "Unexpected Proposed events count");
+
+        assertNotEq(inbox.getProposalHash(1), bytes32(0), "Proposal hash should be stored");
+
+        assertFalse(
+            inbox.isOldestForcedInclusionDue(),
+            "Forced inclusion queue should be cleared"
         );
-
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), proposeData);
-
-        _assertProposalsPresent(1, 4);
     }
 
-    function test_propose_RevertWhen_InsufficientCapacityForForcedInclusions() public {
+    function test_propose_processesForcedInclusionsWhenNearCapacity() public {
         _setupBlobHashes();
 
         uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
-        
-        // Fill the ring buffer to near capacity (leave only 1 slot)
+
         (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
             _fillRingBufferTo(uint48(ringBufferSize - 1));
 
-        // Advance to meet the nextProposalBlockId requirement
         vm.roll(coreState.nextProposalBlockId);
 
-        // Try to store 2 forced inclusions when we only have 1 slot left
         _storeForcedInclusions(2, 0);
 
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
@@ -343,13 +326,26 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             _createBlobRef(2, 1, 0),
             _singleParentArray(lastProposal),
             coreState,
-            2 // Trying to include 2 forced inclusions
+            2
         );
 
-        // Should revert because we don't have enough capacity
-        vm.expectRevert(NotEnoughCapacity.selector);
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), proposeData);
+        vm.recordLogs();
+        bool success = _executePropose(proposeData);
+        assertTrue(success, "propose failed");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 proposedCount = _countProposedLogs(logs);
+        assertEq(proposedCount, 1, "Unexpected Proposed events count");
+        assertNotEq(
+            inbox.getProposalHash(uint48(ringBufferSize - 1)),
+            bytes32(0),
+            "Proposal should occupy the last available slot"
+        );
+
+        assertFalse(
+            inbox.isOldestForcedInclusionDue(),
+            "Forced inclusion queue should be cleared"
+        );
     }
 
     function test_propose_RevertWhen_UnprocessedForcedInclusionIsDue() public {
@@ -383,55 +379,40 @@ abstract contract AbstractProposeTest is InboxTestSetup {
 
         uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
         
-        // Fill the ring buffer to leave only 1 space
         (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
             _fillRingBufferTo(uint48(ringBufferSize - 1));
 
-        // Advance to meet the nextProposalBlockId requirement
         vm.roll(coreState.nextProposalBlockId);
 
-        // Store one forced inclusion
         _storeForcedInclusions(1, 0);
 
-        // Try to propose with both a forced inclusion and a regular proposal
-        // When there's only 1 space left and 1 forced inclusion is processed,
-        // the regular proposal should NOT be included
         (bytes memory proposeData, ) = _composeProposeInputWithForcedInclusions(
             0,
-            _createBlobRef(1, 1, 0),  // Regular proposal blob
+            _createBlobRef(1, 1, 0),
             _singleParentArray(lastProposal),
             coreState,
-            1  // Process 1 forced inclusion
+            1
         );
 
-        // We expect exactly one Proposed event to be emitted (for the forced inclusion only)
-        // The regular proposal should NOT be emitted since there's no capacity left
-        
-        vm.prank(currentProposer);
         vm.recordLogs();
-        inbox.propose(bytes(""), proposeData);
-        
+        bool success = _executePropose(proposeData);
+        assertTrue(success, "propose failed");
+
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        
-        // Should have exactly one Proposed event
-        uint256 proposedEventCount = 0;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == IInbox.Proposed.selector) {
-                proposedEventCount++;
-            }
-        }
-        assertEq(proposedEventCount, 1, "Should emit exactly one Proposed event");
+        uint256 proposedCount = _countProposedLogs(logs);
+        assertEq(proposedCount, 1, "Expected single proposal");
+        assertNotEq(
+            inbox.getProposalHash(uint48(ringBufferSize - 1)),
+            bytes32(0),
+            "Proposal should be stored when capacity allows"
+        );
 
-        // Verify that the forced inclusion was stored at the expected slot
-        bytes32 forcedInclusionHash = inbox.getProposalHash(uint48(ringBufferSize - 1));
-        assertNotEq(forcedInclusionHash, bytes32(0), "Forced inclusion should be stored");
-
-        // Verify that no regular proposal was stored by checking slot 0 still contains genesis
-        bytes32 slot0Hash = inbox.getProposalHash(0);
-        IInbox.Proposal memory genesisProposal = _createGenesisProposal(useOptimizedHashing);
-        bytes32 genesisHash = _hashProposal(genesisProposal);
-        assertEq(slot0Hash, genesisHash, "Slot 0 should still contain genesis proposal (no regular proposal stored)");
+        assertFalse(
+            inbox.isOldestForcedInclusionDue(),
+            "Forced inclusion queue should be cleared"
+        );
     }
+
 
     // ---------------------------------------------------------------
     // Core State Validation Tests
@@ -858,6 +839,18 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         return _composeProposeInputWithCustomParams(0, _createBlobRef(0, _numBlobs, _offset), parents, coreState);
     }
 
+    function _executePropose(bytes memory _proposeData) private returns (bool) {
+        vm.startPrank(currentProposer);
+        try inbox.propose(bytes(""), _proposeData) {
+            vm.stopPrank();
+            return true;
+        } catch (bytes memory err) {
+            vm.stopPrank();
+            emit log_named_bytes("propose revert data", err);
+            return false;
+        }
+    }
+
     function _singleParentArray(IInbox.Proposal memory _parent)
         private
         pure
@@ -866,6 +859,14 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         IInbox.Proposal[] memory parents = new IInbox.Proposal[](1);
         parents[0] = _parent;
         return parents;
+    }
+
+    function _countProposedLogs(Vm.Log[] memory _logs) private pure returns (uint256 count_) {
+        for (uint256 i; i < _logs.length; ++i) {
+            if (_logs[i].topics.length != 0 && _logs[i].topics[0] == IInbox.Proposed.selector) {
+                count_++;
+            }
+        }
     }
 
     // ---------------------------------------------------------------

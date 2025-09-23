@@ -9,8 +9,6 @@ contract ProverSet is ProverSetBase, IProposeBatch {
 
     IProposeBatch public immutable iProposeBatch;
 
-    error ForcedInclusionParamsNotAllowed();
-
     constructor(
         address _inbox,
         address _bondToken,
