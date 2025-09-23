@@ -39,8 +39,6 @@ interface IInbox {
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
     }
-    /// @notice Contains derivation data for a proposal that is not needed during proving.
-    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
 
     /// @notice Represents a source of derivation data within a Derivation
     struct DerivationSource {
@@ -50,6 +48,8 @@ interface IInbox {
         LibBlobs.BlobSlice blobSlice;
     }
 
+    /// @notice Contains derivation data for a proposal that is not needed during proving.
+    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
