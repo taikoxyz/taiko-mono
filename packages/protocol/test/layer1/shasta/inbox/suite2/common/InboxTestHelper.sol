@@ -5,6 +5,7 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
+import { InboxCodec } from "src/layer1/shasta/impl/InboxCodec.sol";
 import { InboxOptimized2Codec } from "src/layer1/shasta/impl/InboxOptimized2Codec.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
@@ -43,16 +44,24 @@ contract InboxTestHelper is CommonTest {
 
     function _initializeEncodingHelper(string memory _contractName) internal {
         inboxContractName = _contractName;
-        inboxCodec = new InboxOptimized2Codec();
 
         bytes32 nameHash = keccak256(bytes(_contractName));
+        bytes32 optimized1 = keccak256(bytes("InboxOptimized1"));
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
 
+        // InboxOptimized1 uses standard encoding and standard hashing
+        // InboxOptimized2 uses optimized encoding and LibHashing
         useOptimizedProposeInputEncoding = nameHash == optimized2;
         useOptimizedProveInputEncoding = nameHash == optimized2;
         useOptimizedProposedEventEncoding = nameHash == optimized2;
-        // InboxOptimized2 now uses LibHashing (merged from InboxOptimized3)
         useLibHashing = nameHash == optimized2;
+
+        // Use appropriate codec based on contract type
+        if (nameHash == optimized2) {
+            inboxCodec = new InboxOptimized2Codec();
+        } else {
+            inboxCodec = new InboxCodec();
+        }
     }
 
     function _getInboxContractName() internal view returns (string memory) {
