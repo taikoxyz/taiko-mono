@@ -3,11 +3,9 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "contracts/shared/shasta/libs/LibBonds.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
-import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
-import { ICheckpointManager } from "contracts/shared/based/iface/ICheckpointManager.sol";
+import { ICheckpointStore } from "contracts/shared/shasta/iface/ICheckpointStore.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
@@ -15,15 +13,13 @@ import "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractFinalizeTest
 /// @notice All finalization tests for Inbox implementations
-abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
+abstract contract AbstractFinalizeTest is InboxTestSetup {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
-    InboxHelper internal helper;
-
     // Cache contract name to avoid repeated calls
     string private contractName;
     bool private useOptimizedInputEncoding;
@@ -31,7 +27,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     bool private supportsAggregatedFinalization;
 
     // Store per-test checkpoint and transition data for each proved proposal
-    mapping(uint48 proposalId => ICheckpointManager.Checkpoint checkpoint) private storedCheckpoints;
+    mapping(uint48 proposalId => ICheckpointStore.Checkpoint checkpoint) private storedCheckpoints;
     mapping(uint48 proposalId => bytes32 transitionHash) private storedTransitionHashes;
     mapping(uint48 proposalId => bytes32 parentTransitionHash) private storedParentTransitionHashes;
 
@@ -45,18 +41,14 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     function setUp() public virtual override {
         super.setUp();
 
-        // Initialize the helper for encoding/decoding operations
-        helper = new InboxHelper();
-
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
-        useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"))
-            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
-        useOptimizedHashing = keccak256(bytes(contractName))
-            == keccak256(bytes("InboxOptimized4"));
-        supportsAggregatedFinalization = keccak256(bytes(contractName))
-            != keccak256(bytes("Inbox"));
+        bytes32 nameHash = keccak256(bytes(contractName));
+        bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
+
+        useOptimizedInputEncoding = nameHash == optimized2;
+        useOptimizedHashing = useLibHashing;
+        supportsAggregatedFinalization = nameHash != keccak256(bytes("Inbox"));
 
         // Reset transition lineage for this run
         lastProvedTransitionHash = _getGenesisTransitionHash(useOptimizedHashing);
@@ -272,7 +264,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         records[0] = record;
 
         // Create wrong checkpoint that doesn't match the record
-        ICheckpointManager.Checkpoint memory wrongCheckpoint = ICheckpointManager.Checkpoint({
+        ICheckpointStore.Checkpoint memory wrongCheckpoint = ICheckpointStore.Checkpoint({
             blockNumber: uint48(block.number),
             blockHash: blockhash(block.number - 1),
             stateRoot: bytes32(uint256(999))
@@ -299,7 +291,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         // Manually set up and prove a proposal that triggers bond instructions
         _setupBlobHashes();
 
-        (bytes memory proposeData, IInbox.ProposeInput memory input) = _createFirstProposeInput();
+        (bytes memory proposeData, IInbox.ProposeInput memory input) = _composeFirstFinalizeProposeInput();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
@@ -542,7 +534,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Create and submit first proposal
-        (bytes memory proposeData, IInbox.ProposeInput memory input) = _createFirstProposeInput();
+        (bytes memory proposeData, IInbox.ProposeInput memory input) = _composeFirstFinalizeProposeInput();
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -649,14 +641,12 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         internal
     {
         // Create and store the checkpoint that will be used for this proposal
-        ICheckpointManager.Checkpoint memory checkpoint = _createCheckpoint();
+        ICheckpointStore.Checkpoint memory checkpoint = _createCheckpoint();
         storedCheckpoints[_proposal.id] = checkpoint;
 
         // Build transition linking to the last proved transition hash
         IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: useOptimizedHashing
-                ? helper.hashProposalOptimized(_proposal)
-                : helper.hashProposal(_proposal),
+            proposalHash: _hashProposal(_proposal),
             parentTransitionHash: lastProvedTransitionHash,
             checkpoint: checkpoint
         });
@@ -675,9 +665,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         inbox.prove(proveData, proof);
 
         // Cache transition hash for later finalization input reconstruction
-        bytes32 transitionHash = useOptimizedHashing
-            ? helper.hashTransitionOptimized(transition)
-            : helper.hashTransition(transition);
+        bytes32 transitionHash = _hashTransition(transition);
         storedTransitionHashes[_proposal.id] = transitionHash;
         lastProvedTransitionHash = transitionHash;
     }
@@ -697,7 +685,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
         bytes32 parentHash = lastProvedTransitionHash;
         bytes32 transitionHash;
-        ICheckpointManager.Checkpoint memory checkpoint;
+        ICheckpointStore.Checkpoint memory checkpoint;
 
         for (uint256 i; i < count; i++) {
             vm.roll(block.number + 1);
@@ -707,9 +695,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             storedCheckpoints[_proposals[i].id] = checkpoint;
 
             transitions[i] = IInbox.Transition({
-                proposalHash: useOptimizedHashing
-                    ? helper.hashProposalOptimized(_proposals[i])
-                    : helper.hashProposal(_proposals[i]),
+                proposalHash: _hashProposal(_proposals[i]),
                 parentTransitionHash: parentHash,
                 checkpoint: checkpoint
             });
@@ -721,9 +707,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
             storedParentTransitionHashes[_proposals[i].id] = parentHash;
 
-            transitionHash = useOptimizedHashing
-                ? helper.hashTransitionOptimized(transitions[i])
-                : helper.hashTransition(transitions[i]);
+            transitionHash = _hashTransition(transitions[i]);
 
             storedTransitionHashes[_proposals[i].id] = transitionHash;
             parentHash = transitionHash;
@@ -821,7 +805,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (bytes memory finalizeData_, IInbox.ProposeInput memory input_)
     {
-        ICheckpointManager.Checkpoint memory checkpoint;
+        ICheckpointStore.Checkpoint memory checkpoint;
 
         if (_records.length > 0) {
             checkpoint = storedCheckpoints[_finalizedProposal.id];
@@ -853,7 +837,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal memory _proposal,
         IInbox.CoreState memory _coreState,
         IInbox.TransitionRecord[] memory _records,
-        ICheckpointManager.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         internal
         view
@@ -885,7 +869,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
+        ICheckpointStore.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
         bytes32 transitionHash = storedTransitionHashes[_proposal.id];
@@ -915,7 +899,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
+        ICheckpointStore.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
         bytes32 transitionHash = storedTransitionHashes[_proposal.id];
@@ -930,21 +914,12 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     }
 
     /// @dev Creates a checkpoint for finalization
-    function _createCheckpoint() internal view returns (ICheckpointManager.Checkpoint memory) {
-        return ICheckpointManager.Checkpoint({
+    function _createCheckpoint() internal view returns (ICheckpointStore.Checkpoint memory) {
+        return ICheckpointStore.Checkpoint({
             blockNumber: uint48(block.number),
             blockHash: blockhash(block.number - 1),
             stateRoot: bytes32(uint256(100))
         });
-    }
-
-    /// @dev Hashes a checkpoint
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_checkpoint));
     }
 
     /// @dev Ensures a transition record exists with expected hashes
@@ -970,7 +945,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     }
 
     /// @dev Creates the first proposal input
-    function _createFirstProposeInput()
+    function _composeFirstFinalizeProposeInput()
         internal
         view
         returns (bytes memory proposeBytes_, IInbox.ProposeInput memory input_)
@@ -1019,9 +994,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposalHash: useOptimizedHashing
-                ? helper.hashProposalOptimized(_proposal)
-                : helper.hashProposal(_proposal),
+            proposalHash: _hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
             checkpoint: _createCheckpoint()
         });
@@ -1084,7 +1057,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     /// @dev Creates prove input for a proposal with a specific checkpoint
     function _createProveInputWithCheckpoint(
         IInbox.Proposal memory _proposal,
-        ICheckpointManager.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         internal
         view
@@ -1095,9 +1068,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposalHash: useOptimizedHashing
-                ? helper.hashProposalOptimized(_proposal)
-                : helper.hashProposal(_proposal),
+            proposalHash: _hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
             checkpoint: _checkpoint
         });
@@ -1121,31 +1092,6 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
 
     /// @dev Encodes ProposeInput using appropriate method based on inbox type
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProposeInputOptimized(_input);
-        } else {
-            return helper.encodeProposeInput(_input);
-        }
-    }
-
-    /// @dev Encodes ProveInput using appropriate method
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProveInputOptimized(_input);
-        } else {
-            return helper.encodeProveInput(_input);
-        }
-    }
-
     // ---------------------------------------------------------------
     // Helper Functions - Utilities
     // ---------------------------------------------------------------
@@ -1183,11 +1129,9 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             bondInstructionsHash: _input.coreState.bondInstructionsHash
         });
 
-        IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 0,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: _getBlobHashesForTest(1),
                 offset: 0,
@@ -1195,17 +1139,20 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             })
         });
 
+        IInbox.Derivation memory derivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: 0,
+            sources: sources
+        });
+
         return IInbox.Proposal({
             id: _proposalId,
             proposer: currentProposer,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: useOptimizedHashing
-                ? helper.hashCoreStateOptimized(coreState)
-                : helper.hashCoreState(coreState),
-            derivationHash: useOptimizedHashing
-                ? helper.hashDerivationOptimized(derivation)
-                : helper.hashDerivation(derivation)
+            coreStateHash: _hashCoreState(coreState),
+            derivationHash: _hashDerivation(derivation)
         });
     }
 
