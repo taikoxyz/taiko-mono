@@ -9,15 +9,15 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
-/// Taiko's based
-/// rollup architecture.
+/// Taiko's based rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
@@ -28,7 +28,7 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
 ///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
@@ -44,9 +44,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The token used for bonds.
     IERC20 internal immutable _bondToken;
-
-    /// @notice The checkpoint manager contract.
-    ICheckpointManager internal immutable _checkpointManager;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -81,6 +78,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
+
+    /// @notice The maximum number of checkpoints to store in ring buffer.
+    uint16 internal immutable _maxCheckpointHistory;
 
     // ---------------------------------------------------------------
     // Events
@@ -130,10 +130,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _transitionRecordHashAndDeadline;
 
     /// @dev Storage for forced inclusion requests
-    ///  Two slots used
-    LibForcedInclusion.Storage internal _forcedInclusionStorage;
+    /// @dev 2 slots used
+    LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[39] private __gap;
+    /// @dev Storage for checkpoint management
+    /// @dev 2 slots used
+    LibCheckpointStore.Storage private _checkpointStorage;
+
+    uint256[37] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -142,8 +146,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
+        require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
         _bondToken = IERC20(_config.bondToken);
-        _checkpointManager = ICheckpointManager(_config.checkpointManager);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _provingWindow = _config.provingWindow;
@@ -155,7 +159,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _maxCheckpointHistory = _config.maxCheckpointHistory;
     }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
@@ -174,10 +183,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _initializeInbox(_genesisBlockHash);
     }
 
-    // ---------------------------------------------------------------
-    // External & Public Functions
-    // ---------------------------------------------------------------
-
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -189,14 +194,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(
-        bytes calldata,
-        /*_lookahead*/
-        bytes calldata _data
-    )
-        external
-        nonReentrant
-    {
+    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         // Validate proposer
         uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
 
@@ -265,8 +263,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        // Verify the proof
-        _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        // Verify the proof using staticcall
+        (bool success,) = address(_proofVerifier).staticcall(
+            abi.encodeCall(
+                IProofVerifier.verifyProof, (_hashTransitionsArray(input.transitions), _proof)
+            )
+        );
+        require(success, ProofVerificationFailed());
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -284,14 +287,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        LibForcedInclusion.storeForcedInclusion(
+    function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        LibForcedInclusion.saveForcedInclusion(
             _forcedInclusionStorage,
             _forcedInclusionDelay,
             _forcedInclusionFeeInGwei,
             _blobReference
         );
     }
+
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
@@ -330,7 +337,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
             bondToken: address(_bondToken),
-            checkpointManager: address(_checkpointManager),
+            maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -343,6 +350,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
         });
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
+        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getLatestCheckpointBlockNumber() external view returns (uint48) {
+        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getNumberOfCheckpoints() external view returns (uint48) {
+        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------
@@ -390,39 +412,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
-        // Declare struct instance outside the loop to avoid repeated memory allocations
-        TransitionRecord memory transitionRecord;
-        transitionRecord.span = 1;
-
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
-
-            // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
-                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
-            );
-            transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
-            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
-
-            _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
-            );
+            _processSingleTransitionAtIndex(_input, i);
         }
     }
 
-    /// @dev Validates transition consistency with its corresponding proposal
-    /// @notice Ensures the transition references the correct proposal hash
-    /// @param _proposal The proposal being proven
-    /// @param _transition The transition to validate against the proposal
-    function _validateTransition(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-    {
-        bytes32 proposalHash = _checkProposalHash(_proposal);
-        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
+    /// @dev Processes a single transition at the specified index
+    /// @notice Reusable function for validating, building, and storing individual transitions
+    /// @param _input The ProveInput containing all transition data
+    /// @param _index The index of the transition to process
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
+        _validateTransition(_input.proposals[_index], _input.transitions[_index]);
+
+        TransitionRecord memory transitionRecord = _buildTransitionRecord(
+            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
+        );
+
+        _setTransitionRecordHashAndDeadline(
+            _input.proposals[_index].id,
+            _input.transitions[_index],
+            _input.metadata[_index],
+            transitionRecord
+        );
     }
 
     /// @dev Stores a proposal hash in the ring buffer
@@ -447,18 +458,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
+            _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
-        if (hashAndDeadline.recordHash == transitionRecordHash) return;
-
-        require(hashAndDeadline.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
-        _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: transitionRecordHash
-        });
+        bool stored = _storeTransitionRecord(
+            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+        );
+        if (!stored) return;
 
         bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
@@ -471,11 +477,41 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proved(payload);
     }
 
-    /// @dev Retrieves transition record hash from storage
-    /// @notice Virtual to allow optimization strategies in derived contracts
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash The hash of the parent transition
-    /// @return transitionRecordHash_ The stored transition record hash
+    /// @dev Persists transition record metadata in storage.
+    /// @notice Returns false when an identical record already exists, avoiding redundant event
+    /// emissions.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
+    /// @param _recordHash The keccak hash representing the transition record.
+    /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @return stored_ True if storage was updated and caller should emit the Proved event.
+    function _storeTransitionRecord(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
+    )
+        internal
+        virtual
+        returns (bool stored_)
+    {
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        TransitionRecordHashAndDeadline storage entry =
+            _transitionRecordHashAndDeadline[compositeKey];
+
+        if (entry.recordHash == _recordHash) return false;
+
+        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
+
+        entry.recordHash = _hashAndDeadline.recordHash;
+        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        return true;
+    }
+
+    /// @dev Loads transition record metadata from storage.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
+    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -483,10 +519,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionRecordHashAndDeadline memory)
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordHashAndDeadline[compositeKey];
+        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+    }
+
+    /// @dev Validates transition consistency with its corresponding proposal
+    /// @notice Ensures the transition references the correct proposal hash
+    /// @param _proposal The proposal being proven
+    /// @param _transition The transition to validate against the proposal
+    function _validateTransition(
+        Proposal memory _proposal,
+        Transition memory _transition
+    )
+        internal
+        view
+    {
+        bytes32 proposalHash = _checkProposalHash(_proposal);
+        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
     /// @dev Validates proposal hash against stored value
@@ -513,6 +564,44 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return bytes26(keccak256(abi.encode(_transitionRecord)));
+    }
+
+    /// @dev Builds a transition record for a proposal, transition, and metadata tuple.
+    /// @param _proposal The proposal the transition is proving.
+    /// @param _transition The transition associated with the proposal.
+    /// @param _metadata The metadata describing the prover and additional context.
+    /// @return record The constructed transition record with span set to one.
+    function _buildTransitionRecord(
+        Proposal memory _proposal,
+        Transition memory _transition,
+        TransitionMetadata memory _metadata
+    )
+        internal
+        view
+        returns (TransitionRecord memory record)
+    {
+        record.span = 1;
+        record.bondInstructions = LibBondsL1.calculateBondInstructions(
+            _provingWindow, _extendedProvingWindow, _proposal, _metadata
+        );
+        record.transitionHash = _hashTransition(_transition);
+        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+    }
+
+    /// @dev Computes the hash and finalization deadline for a transition record.
+    /// @param _transitionRecord The transition record to hash.
+    /// @return recordHash_ The keccak hash of the transition record.
+    /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
+    function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
+        internal
+        view
+        returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
+    {
+        recordHash_ = _hashTransitionRecord(_transitionRecord);
+        hashAndDeadline_ = TransitionRecordHashAndDeadline({
+            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+            recordHash: recordHash_
+        });
     }
 
     /// @dev Hashes an array of Transitions.
@@ -561,7 +650,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         virtual
@@ -827,7 +916,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            _checkpointManager.saveCheckpoint(_input.checkpoint);
+            LibCheckpointStore.saveCheckpoint(
+                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+            );
         }
 
         return coreState;
@@ -936,6 +1027,7 @@ error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NoBondToWithdraw();
+error ProofVerificationFailed();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();
