@@ -25,7 +25,7 @@ library LibHashing {
     // ---------------------------------------------------------------
 
     /// @notice Optimized hashing for blob hashes array
-    /// @dev Uses shared helper for consistent uint16 encoding
+    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
     /// @param _blobHashes The blob hashes array to hash
     /// @return The hash of the blob hashes array
     function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
@@ -66,6 +66,44 @@ library LibHashing {
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
         // Pack origin block number and basefee sharing percentage
+<<<<<<< HEAD
+        bytes32 packedFields = bytes32(
+            (uint256(_derivation.originBlockNumber) << 208)
+                | (uint256(_derivation.basefeeSharingPctg) << 192)
+        );
+
+        // Hash the sources array - each source contains isForcedInclusion flag and blobSlice
+        bytes32 sourcesHash;
+        uint256 sourcesLength = _derivation.sources.length;
+        if (sourcesLength == 0) {
+            sourcesHash = EMPTY_BYTES_HASH;
+        } else if (sourcesLength == 1) {
+            sourcesHash = EfficientHashLib.hash(
+                bytes32(sourcesLength), _hashDerivationSource(_derivation.sources[0])
+            );
+        } else if (sourcesLength == 2) {
+            sourcesHash = EfficientHashLib.hash(
+                bytes32(sourcesLength),
+                _hashDerivationSource(_derivation.sources[0]),
+                _hashDerivationSource(_derivation.sources[1])
+            );
+        } else {
+            bytes32[] memory buffer = EfficientHashLib.malloc(sourcesLength + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(sourcesLength));
+
+            for (uint256 i; i < sourcesLength;) {
+                EfficientHashLib.set(buffer, i + 1, _hashDerivationSource(_derivation.sources[i]));
+                unchecked {
+                    ++i;
+                }
+            }
+
+            sourcesHash = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+        }
+
+        return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
+=======
         unchecked {
             bytes32 packedFields = bytes32(
                 (uint256(_derivation.originBlockNumber) << 208)
@@ -103,6 +141,7 @@ library LibHashing {
 
             return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
         }
+>>>>>>> origin/multi-source
     }
 
     /// @notice Optimized hashing for Proposal structs
@@ -139,6 +178,21 @@ library LibHashing {
         );
     }
 
+<<<<<<< HEAD
+    /// @notice Optimized hashing for Transition structs
+    /// @dev Uses EfficientHashLib to hash transition fields
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
+        return EfficientHashLib.hash(
+            _transition.proposalHash,
+            _transition.parentTransitionHash,
+            hashCheckpoint(_transition.checkpoint)
+        );
+    }
+
+=======
+>>>>>>> origin/multi-source
     /// @notice Optimized hashing for TransitionRecord structs
     /// @dev Efficiently hashes transition records with variable-length bond instructions
     /// @param _transitionRecord The transition record to hash
@@ -148,6 +202,34 @@ library LibHashing {
         pure
         returns (bytes26)
     {
+<<<<<<< HEAD
+        // Hash bond instructions with explicit length prefix to avoid collisions
+        bytes32 bondInstructionsHash;
+        uint256 instructionsLength = _transitionRecord.bondInstructions.length;
+        if (instructionsLength == 0) {
+            bondInstructionsHash = EMPTY_BYTES_HASH;
+        } else if (instructionsLength == 1) {
+            bondInstructionsHash = EfficientHashLib.hash(
+                bytes32(instructionsLength),
+                _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
+            );
+        } else if (instructionsLength == 2) {
+            bondInstructionsHash = EfficientHashLib.hash(
+                bytes32(instructionsLength),
+                _hashSingleBondInstruction(_transitionRecord.bondInstructions[0]),
+                _hashSingleBondInstruction(_transitionRecord.bondInstructions[1])
+            );
+        } else {
+            bytes32[] memory buffer = EfficientHashLib.malloc(instructionsLength + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(instructionsLength));
+
+            for (uint256 i; i < instructionsLength;) {
+                EfficientHashLib.set(
+                    buffer, i + 1, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
+                );
+                unchecked {
+                    ++i;
+=======
         unchecked {
             // Hash bond instructions with explicit length prefix to avoid collisions
             bytes32 bondInstructionsHash;
@@ -175,12 +257,17 @@ library LibHashing {
                         i + 1,
                         _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
                     );
+>>>>>>> origin/multi-source
                 }
 
                 bondInstructionsHash = EfficientHashLib.hash(buffer);
                 EfficientHashLib.free(buffer);
             }
 
+<<<<<<< HEAD
+            bondInstructionsHash = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+=======
             bytes32 fullHash = EfficientHashLib.hash(
                 bytes32(uint256(_transitionRecord.span)),
                 bondInstructionsHash,
@@ -189,11 +276,12 @@ library LibHashing {
             );
 
             return bytes26(fullHash);
+>>>>>>> origin/multi-source
         }
     }
 
     /// @notice Memory-optimized hashing for arrays of Transitions
-    /// @dev Hashes each transition and uses shared helper for uint16 encoding
+    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
     function hashTransitionsArray(IInbox.Transition[] memory _transitions)
@@ -207,15 +295,68 @@ library LibHashing {
                 return EMPTY_BYTES_HASH;
             }
 
-            // Hash each transition into a bytes32 array
-            bytes32[] memory hashedTransitions = new bytes32[](length);
-            for (uint256 i; i < length; ++i) {
-                hashedTransitions[i] = hashTransition(_transitions[i]);
+            if (length == 1) {
+                return EfficientHashLib.hash(bytes32(length), hashTransition(_transitions[0]));
             }
 
-            // Use the shared helper for consistent uint16 encoding
-            return _encodeAndHashBytes32Array(hashedTransitions);
+            if (length == 2) {
+                return EfficientHashLib.hash(
+                    bytes32(length),
+                    hashTransition(_transitions[0]),
+                    hashTransition(_transitions[1])
+                );
+            }
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(length));
+
+            for (uint256 i; i < length; ++i) {
+                EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
         }
+    }
+
+    /// @notice Memory-optimized hashing for arrays of Transitions
+    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+        internal
+        pure
+        returns (bytes32)
+    {
+        uint256 length = _transitions.length;
+        if (length == 0) {
+            return EMPTY_BYTES_HASH;
+        }
+
+        if (length == 1) {
+            return EfficientHashLib.hash(bytes32(length), hashTransition(_transitions[0]));
+        }
+
+        if (length == 2) {
+            return EfficientHashLib.hash(
+                bytes32(length), hashTransition(_transitions[0]), hashTransition(_transitions[1])
+            );
+        }
+
+        bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
+        EfficientHashLib.set(buffer, 0, bytes32(length));
+
+        for (uint256 i; i < length;) {
+            EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
+            unchecked {
+                ++i;
+            }
+        }
+
+        bytes32 result = EfficientHashLib.hash(buffer);
+        EfficientHashLib.free(buffer);
+        return result;
     }
 
     // ---------------------------------------------------------------
@@ -241,42 +382,6 @@ library LibHashing {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @notice Shared helper function to encode and hash a bytes32 array with uint16 length prefix
-    /// @param _array The bytes32 array to encode and hash
-    /// @return The hash of the encoded array
-    function _encodeAndHashBytes32Array(bytes32[] memory _array) private pure returns (bytes32) {
-        unchecked {
-            uint256 arrayLength = _array.length;
-            
-            // For empty arrays, return the standard empty bytes hash
-            if (arrayLength == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-            
-            // Calculate size: 2 bytes for uint16 + 32 bytes per element
-            uint256 bufferSize = 2 + (arrayLength * 32);
-            bytes memory buffer = new bytes(bufferSize);
-
-            // Encode array length as uint16 using assembly
-            assembly {
-                let lengthBytes := and(arrayLength, 0xFFFF)
-                mstore8(add(buffer, 0x20), shr(8, lengthBytes))
-                mstore8(add(buffer, 0x21), lengthBytes)
-            }
-
-            // Copy array elements
-            for (uint256 i; i < arrayLength; ++i) {
-                uint256 destOffset = 2 + (i * 32);
-                bytes32 element = _array[i];
-                assembly {
-                    mstore(add(add(buffer, 0x20), destOffset), element)
-                }
-            }
-
-            return keccak256(buffer);
-        }
-    }
 
     /// @notice Hashes a single derivation source efficiently
     /// @dev Internal helper to hash DerivationSource struct with BlobSlice

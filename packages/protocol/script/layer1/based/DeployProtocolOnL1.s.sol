@@ -19,7 +19,7 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ShastaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import { ForcedInclusionStore } from "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import { ForcedInclusionStore } from "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -34,8 +34,8 @@ import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { DevnetShastaInbox } from "src/layer1/shasta/impl/DevnetShastaInbox.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -277,7 +277,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -292,7 +291,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(proposer)),
+            impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
 
@@ -534,9 +533,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         router = deployProxy({
             name: "preconf_router",
-            impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
-            ),
+            impl: address(new PreconfRouter(taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner))
         });
 

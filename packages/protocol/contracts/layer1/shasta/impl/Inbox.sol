@@ -239,13 +239,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
             // Create sources array and populate it
             DerivationSource[] memory sources = new DerivationSource[](sourceCount);
-            uint256 i;
 
+            uint256 index;
             // Add forced inclusion sources first
-            for (; i < forcedInclusions.length; ++i) {
-                sources[i] = DerivationSource({
+            for (; index < forcedInclusions.length; ++index) {
+                sources[index] = DerivationSource({
                     isForcedInclusion: true,
-                    blobSlice: forcedInclusions[i].blobSlice
+                    blobSlice: forcedInclusions[index].blobSlice
                 });
             }
 
@@ -253,33 +253,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
 
-            sources[i] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
-            // Create single proposal with multi-source derivation - inline implementation
-            // use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
-
-            Derivation memory derivation = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: sources
-            });
-
-            // Increment nextProposalId (nextProposalBlockId was already set in propose())
-            Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                coreStateHash: _hashCoreState(coreState),
-                derivationHash: _hashDerivation(derivation)
-            });
-
-            _setProposalHash(proposal.id, _hashProposal(proposal));
-
-            // Create payload and emit event with stack-optimized approach
-            _emitProposedEvent(proposal, derivation, coreState);
+            // Create single proposal with multi-source derivation
+            _propose(coreState, sources, endOfSubmissionWindowTimestamp);
         }
     }
 
@@ -792,6 +769,39 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    function _propose(
+        CoreState memory _coreState,
+        DerivationSource[] memory _derivationSources,
+        uint48 _endOfSubmissionWindowTimestamp
+    )
+        internal
+    {
+        // use previous block as the origin for the proposal to be able to call `blockhash`
+        uint256 parentBlockNumber = block.number - 1;
+
+        Derivation memory derivation = Derivation({
+            originBlockNumber: uint48(parentBlockNumber),
+            originBlockHash: blockhash(parentBlockNumber),
+            basefeeSharingPctg: _basefeeSharingPctg,
+            sources: _derivationSources
+        });
+
+        // Increment nextProposalId (nextProposalBlockId was already set in propose())
+        Proposal memory proposal = Proposal({
+            id: _coreState.nextProposalId++,
+            timestamp: uint48(block.timestamp),
+            endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
+            proposer: msg.sender,
+            coreStateHash: _hashCoreState(_coreState),
+            derivationHash: _hashDerivation(derivation)
+        });
+
+        _setProposalHash(proposal.id, _hashProposal(proposal));
+
+        // Create payload and emit event with stack-optimized approach
+        _emitProposedEvent(proposal, derivation, _coreState);
+    }
 
     /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data
