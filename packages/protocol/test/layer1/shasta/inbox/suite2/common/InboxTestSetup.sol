@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "./InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
+import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { MockERC20, MockCheckpointManager, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
 /// @title InboxTestSetup
@@ -23,7 +23,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     // Mock contracts
     IERC20 internal bondToken;
-    ICheckpointManager internal checkpointManager;
+    ICheckpointStore internal checkpointManager;
     IProofVerifier internal proofVerifier;
     IProposerChecker internal proposerChecker;
 
@@ -58,10 +58,12 @@ abstract contract InboxTestSetup is InboxTestHelper {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            address(checkpointManager),
+            100, // maxCheckpointHistory
             address(proofVerifier),
             address(proposerChecker)
         );
+
+        _initializeEncodingHelper(inboxDeployer.getTestContractName());
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -73,7 +75,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
     /// behavior(e.g. ERC20) or that are not implemented yet
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        checkpointManager = new MockCheckpointManager();
+        checkpointManager = new MockCheckpointProvider();
         proofVerifier = new MockProofVerifier();
     }
 
@@ -92,6 +94,9 @@ abstract contract InboxTestSetup is InboxTestHelper {
     /// @dev Delegates to the deployer to get the appropriate name
     function getTestContractName() internal view virtual returns (string memory) {
         require(address(inboxDeployer) != address(0), "Deployer not set");
+        if (bytes(inboxContractName).length != 0) {
+            return inboxContractName;
+        }
         return inboxDeployer.getTestContractName();
     }
 }

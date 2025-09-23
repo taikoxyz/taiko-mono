@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -13,8 +13,6 @@ interface IInbox {
     struct Config {
         /// @notice The token used for bonds
         address bondToken;
-        /// @notice The checkpoint manager contract
-        address checkpointManager;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -38,21 +36,29 @@ interface IInbox {
         uint64 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
+        /// @notice The maximum number of checkpoints to store in ring buffer
+        uint16 maxCheckpointHistory;
     }
+
+    /// @notice Represents a source of derivation data within a Derivation
+    struct DerivationSource {
+        /// @notice Whether this source is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice Blobs that contain the source's manifest data.
+        LibBlobs.BlobSlice blobSlice;
+    }
+
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
-        LibBlobs.BlobSlice blobSlice;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -82,7 +88,7 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        ICheckpointManager.Checkpoint checkpoint;
+        ICheckpointStore.Checkpoint checkpoint;
     }
 
     /// @notice Metadata about the proving of a transition
@@ -133,7 +139,7 @@ interface IInbox {
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
         /// @notice The checkpoint for finalization.
-        ICheckpointManager.Checkpoint checkpoint;
+        ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
