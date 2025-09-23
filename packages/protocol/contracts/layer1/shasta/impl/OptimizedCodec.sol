@@ -3,24 +3,24 @@ pragma solidity ^0.8.24;
 
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IInboxCodec } from "../iface/IInboxCodec.sol";
+import { ICodec } from "../iface/ICodec.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxOptimized2Codec
+/// @title OptimizedCodec
 /// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
 /// functions
 /// @custom:security-contact security@taiko.xyz
-contract InboxOptimized2Codec is IInboxCodec {
+contract OptimizedCodec is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
+    /// @inheritdoc ICodec
+    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -28,7 +28,7 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProposedEvent(bytes calldata _data)
         external
         pure
@@ -41,8 +41,8 @@ contract InboxOptimized2Codec is IInboxCodec {
     // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
+    /// @inheritdoc ICodec
+    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -50,7 +50,7 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibProvedEventEncoder.encode(_payload);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProvedEvent(bytes calldata _data)
         external
         pure
@@ -63,8 +63,8 @@ contract InboxOptimized2Codec is IInboxCodec {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProposeInput(IInbox.ProposeInput memory _input)
+    /// @inheritdoc ICodec
+    function encodeProposeInput(IInbox.ProposeInput calldata _input)
         external
         pure
         returns (bytes memory encoded_)
@@ -72,7 +72,7 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibProposeInputDecoder.encode(_input);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProposeInput(bytes calldata _data)
         external
         pure
@@ -85,8 +85,8 @@ contract InboxOptimized2Codec is IInboxCodec {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProveInput(IInbox.ProveInput memory _input)
+    /// @inheritdoc ICodec
+    function encodeProveInput(IInbox.ProveInput calldata _input)
         external
         pure
         returns (bytes memory encoded_)
@@ -94,7 +94,7 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibProveInputDecoder.encode(_input);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProveInput(bytes calldata _data)
         external
         pure
@@ -107,8 +107,8 @@ contract InboxOptimized2Codec is IInboxCodec {
     // LibHashing Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    /// @inheritdoc ICodec
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         pure
         returns (bytes32)
@@ -116,28 +116,36 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibHashing.hashCheckpoint(_checkpoint);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashDerivation(IInbox.Derivation calldata _derivation)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashDerivation(_derivation);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashing.hashProposal(_proposal);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashTransition(IInbox.Transition calldata _transition)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashTransition(_transition);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
+    /// @inheritdoc ICodec
+    function hashTransitionRecord(IInbox.TransitionRecord calldata _transitionRecord)
         external
         pure
         returns (bytes26)
@@ -145,8 +153,8 @@ contract InboxOptimized2Codec is IInboxCodec {
         return LibHashing.hashTransitionRecord(_transitionRecord);
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+    /// @inheritdoc ICodec
+    function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32)

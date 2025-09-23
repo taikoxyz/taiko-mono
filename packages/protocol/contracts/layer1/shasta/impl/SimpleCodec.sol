@@ -3,19 +3,19 @@ pragma solidity ^0.8.24;
 
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IInboxCodec } from "../iface/IInboxCodec.sol";
+import { ICodec } from "../iface/ICodec.sol";
 
-/// @title InboxCodec
+/// @title SimpleCodec
 /// @notice Codec contract for standard Inbox with abi.encode/decode and keccak256 hashing
 /// functions
 /// @custom:security-contact security@taiko.xyz
-contract InboxCodec is IInboxCodec {
+contract SimpleCodec is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
+    /// @inheritdoc ICodec
+    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -23,7 +23,7 @@ contract InboxCodec is IInboxCodec {
         return abi.encode(_payload);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProposedEvent(bytes calldata _data)
         external
         pure
@@ -36,8 +36,8 @@ contract InboxCodec is IInboxCodec {
     // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
+    /// @inheritdoc ICodec
+    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -45,7 +45,7 @@ contract InboxCodec is IInboxCodec {
         return abi.encode(_payload);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProvedEvent(bytes calldata _data)
         external
         pure
@@ -58,8 +58,8 @@ contract InboxCodec is IInboxCodec {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProposeInput(IInbox.ProposeInput memory _input)
+    /// @inheritdoc ICodec
+    function encodeProposeInput(IInbox.ProposeInput calldata _input)
         external
         pure
         returns (bytes memory encoded_)
@@ -67,7 +67,7 @@ contract InboxCodec is IInboxCodec {
         return abi.encode(_input);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProposeInput(bytes calldata _data)
         external
         pure
@@ -80,8 +80,8 @@ contract InboxCodec is IInboxCodec {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function encodeProveInput(IInbox.ProveInput memory _input)
+    /// @inheritdoc ICodec
+    function encodeProveInput(IInbox.ProveInput calldata _input)
         external
         pure
         returns (bytes memory encoded_)
@@ -89,7 +89,7 @@ contract InboxCodec is IInboxCodec {
         return abi.encode(_input);
     }
 
-    /// @inheritdoc IInboxCodec
+    /// @inheritdoc ICodec
     function decodeProveInput(bytes calldata _data)
         external
         pure
@@ -102,8 +102,8 @@ contract InboxCodec is IInboxCodec {
     // Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxCodec
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    /// @inheritdoc ICodec
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         pure
         returns (bytes32)
@@ -111,28 +111,36 @@ contract InboxCodec is IInboxCodec {
         return keccak256(abi.encode(_checkpoint));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
         return keccak256(abi.encode(_coreState));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashDerivation(IInbox.Derivation calldata _derivation)
+        external
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_derivation));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return keccak256(abi.encode(_proposal));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
+    /// @inheritdoc ICodec
+    function hashTransition(IInbox.Transition calldata _transition)
+        external
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_transition));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
+    /// @inheritdoc ICodec
+    function hashTransitionRecord(IInbox.TransitionRecord calldata _transitionRecord)
         external
         pure
         returns (bytes26)
@@ -140,8 +148,8 @@ contract InboxCodec is IInboxCodec {
         return bytes26(keccak256(abi.encode(_transitionRecord)));
     }
 
-    /// @inheritdoc IInboxCodec
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+    /// @inheritdoc ICodec
+    function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32)

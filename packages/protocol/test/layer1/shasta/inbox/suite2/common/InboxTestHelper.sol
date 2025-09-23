@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
-import { InboxCodec } from "src/layer1/shasta/impl/InboxCodec.sol";
-import { InboxOptimized2Codec } from "src/layer1/shasta/impl/InboxOptimized2Codec.sol";
+import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
+import { SimpleCodec } from "src/layer1/shasta/impl/SimpleCodec.sol";
+import { OptimizedCodec } from "src/layer1/shasta/impl/OptimizedCodec.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
 
@@ -35,7 +35,7 @@ contract InboxTestHelper is CommonTest {
     // Encoding helpers
     // ---------------------------------------------------------------
 
-    IInboxCodec internal inboxCodec;
+    ICodec internal inboxCodec;
     string internal inboxContractName;
     bool internal useOptimizedProposeInputEncoding;
     bool internal useOptimizedProveInputEncoding;
@@ -54,9 +54,9 @@ contract InboxTestHelper is CommonTest {
         useLibHashing = nameHash == optimized2;
 
         if (nameHash == optimized2) {
-            inboxCodec = new InboxOptimized2Codec();
+            inboxCodec = new OptimizedCodec();
         } else {
-            inboxCodec = new InboxCodec();
+            inboxCodec = new SimpleCodec();
         }
     }
 
