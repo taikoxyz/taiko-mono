@@ -84,6 +84,7 @@ var (
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
 	BondInstructionComponentsType, _      = abi.NewType("tuple", "LibBonds.BondInstruction", BondInstructionComponents)
+	BondInstructionComponentsArgs         = abi.Arguments{{Name: "LibBonds.BondInstruction", Type: BondInstructionComponentsType}}
 	SubProofsComponentsArrayArgs          = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
@@ -106,10 +107,6 @@ var (
 	batchParamsWithForcedInclusionArgs = abi.Arguments{
 		{Name: "bytesX", Type: bytesType},
 		{Name: "bytesY", Type: bytesType},
-	}
-	AggregateBondInstructionHashArgs = abi.Arguments{
-		{Name: "_bondInstructionsHash", Type: bytes32Type},
-		{Name: "_bondInstruction", Type: BondInstructionComponentsType},
 	}
 	ProverAuthType, _ = abi.NewType("tuple", "ProverAuth", ProverAuthComponents)
 	ProverAuthArgs    = abi.Arguments{{Name: "ProverAuth", Type: ProverAuthType}}
@@ -368,12 +365,16 @@ func CalculateBondInstructionHash(
 	if bondInstruction.ProposalId.Cmp(common.Big0) == 0 || bondInstruction.BondType == 0 {
 		return previousBondInstructionHash, nil
 	}
-	packed, err := AggregateBondInstructionHashArgs.Pack(previousBondInstructionHash, bondInstruction)
+	instructionBytes, err := BondInstructionComponentsArgs.Pack(bondInstruction)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to abi.encode bondInstruction, %w", err)
 	}
 
-	return common.BytesToHash(crypto.Keccak256(packed)), nil
+	data := make([]byte, 32+len(instructionBytes))
+	copy(data, previousBondInstructionHash[:])
+	copy(data[32:], instructionBytes)
+
+	return common.BytesToHash(crypto.Keccak256(data)), nil
 }
 
 // EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
