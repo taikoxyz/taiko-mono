@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
 /// @title ShastaSP1Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaSP1Verifier is IProofVerifier, Ownable {
+contract ShastaSP1Verifier is IProofVerifier, Ownable2Step {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;

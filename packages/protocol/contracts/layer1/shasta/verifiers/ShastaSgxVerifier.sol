@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
@@ -16,7 +16,7 @@ import "../iface/IProofVerifier.sol";
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-contract ShastaSgxVerifier is IProofVerifier, Ownable {
+contract ShastaSgxVerifier is IProofVerifier, Ownable2Step {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of

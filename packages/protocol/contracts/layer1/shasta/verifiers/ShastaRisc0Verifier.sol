@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
 /// @title ShastaRisc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaRisc0Verifier is IProofVerifier, Ownable {
+contract ShastaRisc0Verifier is IProofVerifier, Ownable2Step {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
