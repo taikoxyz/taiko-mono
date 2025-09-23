@@ -36,8 +36,8 @@ contract UpgradeShastaL1 is DeployCapability {
 
         address whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(proposer)),
-            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2))
+            impl: address(new PreconfWhitelist()),
+            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 0, 0))
         });
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
