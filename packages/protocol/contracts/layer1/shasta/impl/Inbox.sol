@@ -115,7 +115,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config, address shastaInitializer) {
+    constructor(IInbox.Config memory _config) {
         _bondToken = IERC20(_config.bondToken);
         _checkpointManager = ICheckpointManager(_config.checkpointManager);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
