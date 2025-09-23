@@ -25,7 +25,6 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized2 is InboxOptimized1 {
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
