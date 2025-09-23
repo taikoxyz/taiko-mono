@@ -823,10 +823,37 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
 
         // Use Alice as the proposer (fallback after crossing epochs)
+        vm.prank(Alice);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    /// forge-config: default.isolate = true
+    function test_propose_ringBufferFull_gasBench() public {
+        _setupBlobHashes();
+
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
+
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
+            _fillRingBufferTo(uint48(ringBufferSize));
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 12);
+
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
+        parentProposals[0] = lastProposal;
+        parentProposals[1] = _createGenesisProposal(useOptimizedHashing);
+
+        (bytes memory proposeData, ) = _createProposeInputWithCustomParams(
+            0,
+            _createBlobRef(0, 1, 0),
+            parentProposals,
+            coreState
+        );
+
         vm.startPrank(Alice);
         vm.startSnapshotGas(
             "shasta-propose",
-            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
+            string.concat("propose_ring_buffer_full_", getTestContractName())
         );
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
