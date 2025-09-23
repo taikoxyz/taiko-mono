@@ -1,14 +1,135 @@
 package encoding
 
 import (
+	"encoding/binary"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
+
+func abiHash(value interface{}) common.Hash {
+	return common.BytesToHash(crypto.Keccak256(encodeABI(value)))
+}
+
+func abiHash26(record shasta.IInboxTransitionRecord) [26]byte {
+	hash := crypto.Keccak256(encodeABI(record))
+	var out [26]byte
+	copy(out[:], hash[:26])
+	return out
+}
+
+func expectedHashCheckpointOptimized(checkpoint shasta.ICheckpointStoreCheckpoint) common.Hash {
+	blockNumberBytes := padBigIntBytes(checkpoint.BlockNumber)
+	return efficientHash3(common.BytesToHash(blockNumberBytes), checkpoint.BlockHash, checkpoint.StateRoot)
+}
+
+func expectedHashTransitionOptimized(transition shasta.IInboxTransition) common.Hash {
+	checkpointHash := expectedHashCheckpointOptimized(transition.Checkpoint)
+	return efficientHash3(transition.ProposalHash, transition.ParentTransitionHash, checkpointHash)
+}
+
+func expectedHashCoreStateOptimized(coreState shasta.IInboxCoreState) common.Hash {
+	nextProposalIdBytes := padBigIntBytes(coreState.NextProposalId)
+	nextProposalBlockIdBytes := padBigIntBytes(coreState.NextProposalBlockId)
+	lastFinalizedProposalIdBytes := padBigIntBytes(coreState.LastFinalizedProposalId)
+
+	return efficientHash5(
+		common.BytesToHash(nextProposalIdBytes),
+		common.BytesToHash(nextProposalBlockIdBytes),
+		common.BytesToHash(lastFinalizedProposalIdBytes),
+		coreState.LastFinalizedTransitionHash,
+		coreState.BondInstructionsHash,
+	)
+}
+
+func expectedHashProposalOptimized(proposal shasta.IInboxProposal) common.Hash {
+	id := uint64FromBig(proposal.Id)
+	timestamp := uint64FromBig(proposal.Timestamp)
+	endTime := uint64FromBig(proposal.EndOfSubmissionWindowTimestamp)
+
+	packed := new(big.Int).Lsh(new(big.Int).SetUint64(id), 208)
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(timestamp), 160))
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(endTime), 112))
+
+	packedBytes := packed.FillBytes(make([]byte, 32))
+	proposerBytes := common.LeftPadBytes(proposal.Proposer.Bytes(), 32)
+
+	return efficientHash4(
+		common.BytesToHash(packedBytes),
+		common.BytesToHash(proposerBytes),
+		proposal.CoreStateHash,
+		proposal.DerivationHash,
+	)
+}
+
+func expectedHashDerivationOptimized(derivation shasta.IInboxDerivation) common.Hash {
+	origin := new(big.Int)
+	if derivation.OriginBlockNumber != nil {
+		origin.Set(derivation.OriginBlockNumber)
+	}
+	packed := new(big.Int).Lsh(origin, 208)
+	if derivation.IsForcedInclusion {
+		packed.Or(packed, new(big.Int).Lsh(big.NewInt(1), 200))
+	}
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(uint64(derivation.BasefeeSharingPctg)), 192))
+
+	packedHash := common.BytesToHash(packed.FillBytes(make([]byte, 32)))
+	blobSliceHash := hashBlobSlice(derivation.BlobSlice)
+	return efficientHash3(packedHash, derivation.OriginBlockHash, blobSliceHash)
+}
+
+func expectedHashTransitionsArrayOptimized(transitions []shasta.IInboxTransition) common.Hash {
+	if len(transitions) == 0 {
+		return emptyBytesHash
+	}
+
+	if len(transitions) == 1 {
+		lengthBytes := common.LeftPadBytes(big.NewInt(int64(len(transitions))).Bytes(), 32)
+		return efficientHash2(common.BytesToHash(lengthBytes), expectedHashTransitionOptimized(transitions[0]))
+	}
+
+	if len(transitions) == 2 {
+		lengthBytes := common.LeftPadBytes(big.NewInt(int64(len(transitions))).Bytes(), 32)
+		return efficientHash3(
+			common.BytesToHash(lengthBytes),
+			expectedHashTransitionOptimized(transitions[0]),
+			expectedHashTransitionOptimized(transitions[1]),
+		)
+	}
+
+	arrayLength := len(transitions)
+	bufferSize := 32 + (arrayLength * 32)
+	buffer := make([]byte, bufferSize)
+	binary.BigEndian.PutUint64(buffer[24:32], uint64(arrayLength))
+	for i, transition := range transitions {
+		hash := expectedHashTransitionOptimized(transition)
+		offset := 32 + i*32
+		copy(buffer[offset:offset+32], hash[:])
+	}
+	return common.BytesToHash(crypto.Keccak256(buffer))
+}
+
+func expectedHashTransitionRecordOptimized(record shasta.IInboxTransitionRecord) [26]byte {
+	fullHash := efficientHash4(
+		common.BytesToHash(common.LeftPadBytes(big.NewInt(int64(record.Span)).Bytes(), 32)),
+		hashBondInstructionsArray(record.BondInstructions),
+		record.TransitionHash,
+		record.CheckpointHash,
+	)
+	var out [26]byte
+	copy(out[:], fullHash[:26])
+	return out
+}
+
+func expectedComposeTransitionKey(proposalId uint64, parentHash common.Hash) common.Hash {
+	proposalIdBytes := common.LeftPadBytes(big.NewInt(int64(proposalId)).Bytes(), 32)
+	return efficientHash2(common.BytesToHash(proposalIdBytes), parentHash)
+}
 
 func TestPackUnpack(t *testing.T) {
 	pack := NewPackUnpack(100)
@@ -198,6 +319,38 @@ func TestProvedEventEncodeDecode(t *testing.T) {
 
 	assert.Equal(t, payload.Metadata.DesignatedProver, decoded.Metadata.DesignatedProver)
 	assert.Equal(t, payload.Metadata.ActualProver, decoded.Metadata.ActualProver)
+}
+
+func TestDecodeProvedEventInvalidBondType(t *testing.T) {
+	payload := &shasta.IInboxProvedEventPayload{
+		ProposalId: big.NewInt(1),
+		Transition: shasta.IInboxTransition{
+			ProposalHash:         common.Hash{},
+			ParentTransitionHash: common.Hash{},
+			Checkpoint: shasta.ICheckpointStoreCheckpoint{
+				BlockNumber: big.NewInt(1),
+				BlockHash:   common.Hash{},
+				StateRoot:   common.Hash{},
+			},
+		},
+		TransitionRecord: shasta.IInboxTransitionRecord{
+			BondInstructions: []shasta.LibBondsBondInstruction{
+				{
+					ProposalId: big.NewInt(1),
+					BondType:   3,
+					Payer:      common.Address{},
+					Receiver:   common.Address{},
+				},
+			},
+		},
+	}
+
+	encoded, err := EncodeProvedEvent(payload)
+	require.NoError(t, err)
+
+	_, err = DecodeProvedEvent(encoded)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid bond type")
 }
 
 func TestProposeInputEncodeDecode(t *testing.T) {
@@ -606,86 +759,94 @@ func TestHashFunctions(t *testing.T) {
 		CheckpointHash:   common.HexToHash("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
 	}
 
-	// Test individual hash functions - Optimized versions
-	t.Run("HashCheckpointOptimized", func(t *testing.T) {
-		hash := HashCheckpointOptimized(checkpoint)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashCheckpointOptimized: %x", hash)
-	})
-
-	t.Run("HashTransitionOptimized", func(t *testing.T) {
-		hash := HashTransitionOptimized(transition)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashTransitionOptimized: %x", hash)
-	})
-
-	t.Run("HashProposalOptimized", func(t *testing.T) {
-		hash := HashProposalOptimized(proposal)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashProposalOptimized: %x", hash)
-	})
-
-	t.Run("HashCoreStateOptimized", func(t *testing.T) {
-		hash := HashCoreStateOptimized(coreState)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashCoreStateOptimized: %x", hash)
-	})
-
-	t.Run("HashDerivationOptimized", func(t *testing.T) {
-		hash := HashDerivationOptimized(derivation)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashDerivationOptimized: %x", hash)
-	})
-
-	t.Run("HashTransitionsArrayOptimized", func(t *testing.T) {
-		transitions := []shasta.IInboxTransition{transition}
-		hash := HashTransitionsArrayOptimized(transitions)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashTransitionsArrayOptimized: %x", hash)
-
-		// Test empty array
-		emptyHash := HashTransitionsArrayOptimized([]shasta.IInboxTransition{})
-		require.Equal(t, emptyBytesHash, emptyHash)
-
-		// Test multiple transitions
-		transitions = append(transitions, transition)
-		hashMultiple := HashTransitionsArrayOptimized(transitions)
-		require.NotEqual(t, hash, hashMultiple) // Should be different
-		t.Logf("HashTransitionsArrayOptimized (multiple): %x", hashMultiple)
-	})
-
-	t.Run("HashTransitionRecordOptimized", func(t *testing.T) {
-		hash := HashTransitionRecordOptimized(transitionRecord)
-		require.NotEqual(t, [26]byte{}, hash)
-		t.Logf("HashTransitionRecordOptimized: %x", hash)
-	})
-
-	t.Run("ComposeTransitionKey", func(t *testing.T) {
-		key := ComposeTransitionKey(456, common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"))
-		require.NotEqual(t, common.Hash{}, key)
-		t.Logf("ComposeTransitionKey: %x", key)
-	})
-
-	// Test standard versions (these use placeholder implementation)
+	// Standard hashing functions (abi.encode)
 	t.Run("HashCheckpointStandard", func(t *testing.T) {
-		hash := HashCheckpoint(checkpoint)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashCheckpoint (standard): %x", hash)
+		expected := abiHash(checkpoint)
+		require.Equal(t, expected, HashCheckpoint(checkpoint))
 	})
 
 	t.Run("HashTransitionStandard", func(t *testing.T) {
-		hash := HashTransition(transition)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("HashTransition (standard): %x", hash)
+		expected := abiHash(transition)
+		require.Equal(t, expected, HashTransition(transition))
 	})
 
-	// Verify that optimized and standard versions produce different results
-	// (since optimized uses LibHashing and standard uses abi.encode)
-	t.Run("OptimizedVsStandardDifferent", func(t *testing.T) {
-		optimizedHash := HashCheckpointOptimized(checkpoint)
-		standardHash := HashCheckpoint(checkpoint)
-		// They should be different since they use different algorithms
-		require.NotEqual(t, optimizedHash, standardHash)
+	t.Run("HashProposalStandard", func(t *testing.T) {
+		expected := abiHash(proposal)
+		require.Equal(t, expected, HashProposal(proposal))
+	})
+
+	t.Run("HashCoreStateStandard", func(t *testing.T) {
+		expected := abiHash(coreState)
+		require.Equal(t, expected, HashCoreState(coreState))
+	})
+
+	t.Run("HashDerivationStandard", func(t *testing.T) {
+		expected := abiHash(derivation)
+		require.Equal(t, expected, HashDerivation(derivation))
+	})
+
+	t.Run("HashTransitionsArrayStandard", func(t *testing.T) {
+		single := []shasta.IInboxTransition{transition}
+		require.Equal(t, abiHash(single), HashTransitionsArray(single))
+
+		empty := []shasta.IInboxTransition{}
+		require.Equal(t, abiHash(empty), HashTransitionsArray(empty))
+
+		double := append([]shasta.IInboxTransition{transition}, transition)
+		require.Equal(t, abiHash(double), HashTransitionsArray(double))
+	})
+
+	t.Run("HashTransitionRecordStandard", func(t *testing.T) {
+		expected := abiHash26(transitionRecord)
+		require.Equal(t, expected, HashTransitionRecord(transitionRecord))
+	})
+
+	// Optimized hashing functions (LibHashing equivalents)
+	t.Run("HashCheckpointOptimized", func(t *testing.T) {
+		expected := expectedHashCheckpointOptimized(checkpoint)
+		require.Equal(t, expected, HashCheckpointOptimized(checkpoint))
+	})
+
+	t.Run("HashTransitionOptimized", func(t *testing.T) {
+		expected := expectedHashTransitionOptimized(transition)
+		require.Equal(t, expected, HashTransitionOptimized(transition))
+	})
+
+	t.Run("HashProposalOptimized", func(t *testing.T) {
+		expected := expectedHashProposalOptimized(proposal)
+		require.Equal(t, expected, HashProposalOptimized(proposal))
+	})
+
+	t.Run("HashCoreStateOptimized", func(t *testing.T) {
+		expected := expectedHashCoreStateOptimized(coreState)
+		require.Equal(t, expected, HashCoreStateOptimized(coreState))
+	})
+
+	t.Run("HashDerivationOptimized", func(t *testing.T) {
+		expected := expectedHashDerivationOptimized(derivation)
+		require.Equal(t, expected, HashDerivationOptimized(derivation))
+	})
+
+	t.Run("HashTransitionsArrayOptimized", func(t *testing.T) {
+		single := []shasta.IInboxTransition{transition}
+		require.Equal(t, expectedHashTransitionsArrayOptimized(single), HashTransitionsArrayOptimized(single))
+
+		empty := []shasta.IInboxTransition{}
+		require.Equal(t, expectedHashTransitionsArrayOptimized(empty), HashTransitionsArrayOptimized(empty))
+
+		double := append([]shasta.IInboxTransition{transition}, transition)
+		require.Equal(t, expectedHashTransitionsArrayOptimized(double), HashTransitionsArrayOptimized(double))
+	})
+
+	t.Run("HashTransitionRecordOptimized", func(t *testing.T) {
+		expected := expectedHashTransitionRecordOptimized(transitionRecord)
+		require.Equal(t, expected, HashTransitionRecordOptimized(transitionRecord))
+	})
+
+	t.Run("ComposeTransitionKey", func(t *testing.T) {
+		parent := common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234")
+		expected := expectedComposeTransitionKey(456, parent)
+		require.Equal(t, expected, ComposeTransitionKey(456, parent))
 	})
 }
 
@@ -699,9 +860,8 @@ func TestHashFunctionsEdgeCases(t *testing.T) {
 	}
 
 	t.Run("EmptyCheckpointHash", func(t *testing.T) {
-		hash := HashCheckpointOptimized(emptyCheckpoint)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("Empty checkpoint hash: %x", hash)
+		require.Equal(t, expectedHashCheckpointOptimized(emptyCheckpoint), HashCheckpointOptimized(emptyCheckpoint))
+		require.Equal(t, abiHash(emptyCheckpoint), HashCheckpoint(emptyCheckpoint))
 	})
 
 	// Test with large arrays
@@ -722,9 +882,8 @@ func TestHashFunctionsEdgeCases(t *testing.T) {
 			transitions[i] = transition
 		}
 
-		hash := HashTransitionsArrayOptimized(transitions)
-		require.NotEqual(t, common.Hash{}, hash)
-		t.Logf("Large transitions array hash: %x", hash)
+		require.Equal(t, expectedHashTransitionsArrayOptimized(transitions), HashTransitionsArrayOptimized(transitions))
+		require.Equal(t, abiHash(transitions), HashTransitionsArray(transitions))
 	})
 
 	// Test transition record with no bond instructions
@@ -736,9 +895,8 @@ func TestHashFunctionsEdgeCases(t *testing.T) {
 			CheckpointHash:   common.HexToHash("0x6666666666666666666666666666666666666666666666666666666666666666"),
 		}
 
-		hash := HashTransitionRecordOptimized(record)
-		require.NotEqual(t, [26]byte{}, hash)
-		t.Logf("Transition record (no bonds) hash: %x", hash)
+		require.Equal(t, expectedHashTransitionRecordOptimized(record), HashTransitionRecordOptimized(record))
+		require.Equal(t, abiHash26(record), HashTransitionRecord(record))
 	})
 
 	// Test with multiple bond instructions
@@ -765,8 +923,7 @@ func TestHashFunctionsEdgeCases(t *testing.T) {
 			CheckpointHash:   common.HexToHash("0x8888888888888888888888888888888888888888888888888888888888888888"),
 		}
 
-		hash := HashTransitionRecordOptimized(record)
-		require.NotEqual(t, [26]byte{}, hash)
-		t.Logf("Transition record (multiple bonds) hash: %x", hash)
+		require.Equal(t, expectedHashTransitionRecordOptimized(record), HashTransitionRecordOptimized(record))
+		require.Equal(t, abiHash26(record), HashTransitionRecord(record))
 	})
 }

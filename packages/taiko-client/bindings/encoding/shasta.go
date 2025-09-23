@@ -5,10 +5,128 @@ import (
 	"fmt"
 	"math/big"
 
+	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
+
+const maxBondType = uint8(2) // mirrors LibBonds.BondType.LIVENESS
+
+var (
+	checkpointABIArgs       ethabi.Arguments
+	transitionABIArgs       ethabi.Arguments
+	transitionsArrayABIArgs ethabi.Arguments
+	coreStateABIArgs        ethabi.Arguments
+	proposalABIArgs         ethabi.Arguments
+	derivationABIArgs       ethabi.Arguments
+	transitionRecordABIArgs ethabi.Arguments
+)
+
+func init() {
+	checkpointComponents := []ethabi.ArgumentMarshaling{
+		{Name: "blockNumber", Type: "uint48"},
+		{Name: "blockHash", Type: "bytes32"},
+		{Name: "stateRoot", Type: "bytes32"},
+	}
+
+	blobSliceComponents := []ethabi.ArgumentMarshaling{
+		{Name: "blobHashes", Type: "bytes32[]"},
+		{Name: "offset", Type: "uint24"},
+		{Name: "timestamp", Type: "uint48"},
+	}
+
+	bondInstructionComponents := []ethabi.ArgumentMarshaling{
+		{Name: "proposalId", Type: "uint48"},
+		{Name: "bondType", Type: "uint8"},
+		{Name: "payer", Type: "address"},
+		{Name: "receiver", Type: "address"},
+	}
+
+	transitionComponents := []ethabi.ArgumentMarshaling{
+		{Name: "proposalHash", Type: "bytes32"},
+		{Name: "parentTransitionHash", Type: "bytes32"},
+		{Name: "checkpoint", Type: "tuple", Components: checkpointComponents},
+	}
+
+	coreStateComponents := []ethabi.ArgumentMarshaling{
+		{Name: "nextProposalId", Type: "uint48"},
+		{Name: "nextProposalBlockId", Type: "uint48"},
+		{Name: "lastFinalizedProposalId", Type: "uint48"},
+		{Name: "lastFinalizedTransitionHash", Type: "bytes32"},
+		{Name: "bondInstructionsHash", Type: "bytes32"},
+	}
+
+	proposalComponents := []ethabi.ArgumentMarshaling{
+		{Name: "id", Type: "uint48"},
+		{Name: "timestamp", Type: "uint48"},
+		{Name: "endOfSubmissionWindowTimestamp", Type: "uint48"},
+		{Name: "proposer", Type: "address"},
+		{Name: "coreStateHash", Type: "bytes32"},
+		{Name: "derivationHash", Type: "bytes32"},
+	}
+
+	derivationComponents := []ethabi.ArgumentMarshaling{
+		{Name: "originBlockNumber", Type: "uint48"},
+		{Name: "originBlockHash", Type: "bytes32"},
+		{Name: "isForcedInclusion", Type: "bool"},
+		{Name: "basefeeSharingPctg", Type: "uint8"},
+		{Name: "blobSlice", Type: "tuple", Components: blobSliceComponents},
+	}
+
+	transitionRecordComponents := []ethabi.ArgumentMarshaling{
+		{Name: "span", Type: "uint8"},
+		{Name: "bondInstructions", Type: "tuple[]", Components: bondInstructionComponents},
+		{Name: "transitionHash", Type: "bytes32"},
+		{Name: "checkpointHash", Type: "bytes32"},
+	}
+
+	checkpointType := mustNewType("tuple", checkpointComponents)
+	transitionType := mustNewType("tuple", transitionComponents)
+	transitionArrayType := mustNewType("tuple[]", transitionComponents)
+	coreStateType := mustNewType("tuple", coreStateComponents)
+	proposalType := mustNewType("tuple", proposalComponents)
+	derivationType := mustNewType("tuple", derivationComponents)
+	transitionRecordType := mustNewType("tuple", transitionRecordComponents)
+
+	checkpointABIArgs = ethabi.Arguments{{Type: checkpointType}}
+	transitionABIArgs = ethabi.Arguments{{Type: transitionType}}
+	transitionsArrayABIArgs = ethabi.Arguments{{Type: transitionArrayType}}
+	coreStateABIArgs = ethabi.Arguments{{Type: coreStateType}}
+	proposalABIArgs = ethabi.Arguments{{Type: proposalType}}
+	derivationABIArgs = ethabi.Arguments{{Type: derivationType}}
+	transitionRecordABIArgs = ethabi.Arguments{{Type: transitionRecordType}}
+}
+
+func mustNewType(typeName string, components []ethabi.ArgumentMarshaling) ethabi.Type {
+	typ, err := ethabi.NewType(typeName, "", components)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create ABI type %s: %v", typeName, err))
+	}
+	return typ
+}
+
+func mustPack(args ethabi.Arguments, value interface{}) []byte {
+	data, err := args.Pack(value)
+	if err != nil {
+		panic(fmt.Sprintf("failed to abi encode %T: %v", value, err))
+	}
+	return data
+}
+
+func padBigIntBytes(v *big.Int) []byte {
+	if v == nil {
+		return make([]byte, 32)
+	}
+	return common.LeftPadBytes(v.Bytes(), 32)
+}
+
+func uint64FromBig(v *big.Int) uint64 {
+	if v == nil {
+		return 0
+	}
+	return v.Uint64()
+}
 
 // Go implementations of Shasta encoding/decoding libraries
 // that are fully aligned with the Solidity contracts:
@@ -298,6 +416,9 @@ func DecodeProvedEvent(data []byte) (*shasta.IInboxProvedEventPayload, error) {
 	for i := uint16(0); i < arrayLength; i++ {
 		proposalId := pack.UnpackUint48()
 		bondType := pack.UnpackUint8()
+		if bondType > maxBondType {
+			return nil, fmt.Errorf("invalid bond type: %d", bondType)
+		}
 		payer := pack.UnpackAddress()
 		receiver := pack.UnpackAddress()
 
@@ -734,11 +855,28 @@ func HashTransitionRecord(record shasta.IInboxTransitionRecord) [26]byte {
 }
 
 // encodeABI simulates Solidity's abi.encode functionality
-func encodeABI(any) []byte {
-	// This is a simplified implementation - in practice, you'd use
-	// proper ABI encoding that matches Solidity's abi.encode exactly
-	// For now, return a placeholder that would need proper implementation
-	return []byte("abi_encode_placeholder")
+func encodeABI(value interface{}) []byte {
+	switch v := value.(type) {
+	case shasta.ICheckpointStoreCheckpoint:
+		return mustPack(checkpointABIArgs, v)
+	case shasta.IInboxTransition:
+		return mustPack(transitionABIArgs, v)
+	case []shasta.IInboxTransition:
+		if v == nil {
+			v = []shasta.IInboxTransition{}
+		}
+		return mustPack(transitionsArrayABIArgs, v)
+	case shasta.IInboxCoreState:
+		return mustPack(coreStateABIArgs, v)
+	case shasta.IInboxProposal:
+		return mustPack(proposalABIArgs, v)
+	case shasta.IInboxDerivation:
+		return mustPack(derivationABIArgs, v)
+	case shasta.IInboxTransitionRecord:
+		return mustPack(transitionRecordABIArgs, v)
+	default:
+		panic(fmt.Sprintf("unsupported type for abi encoding: %T", v))
+	}
 }
 
 // Optimized versions using LibHashing.sol methods
@@ -751,15 +889,15 @@ func HashTransitionOptimized(transition shasta.IInboxTransition) common.Hash {
 
 // HashCheckpointOptimized hashes a Checkpoint struct aligned with LibHashing
 func HashCheckpointOptimized(checkpoint shasta.ICheckpointStoreCheckpoint) common.Hash {
-	blockNumberBytes := common.LeftPadBytes(checkpoint.BlockNumber.Bytes(), 32)
+	blockNumberBytes := padBigIntBytes(checkpoint.BlockNumber)
 	return efficientHash3(common.BytesToHash(blockNumberBytes), checkpoint.BlockHash, checkpoint.StateRoot)
 }
 
 // HashCoreStateOptimized hashes a CoreState struct aligned with LibHashing
 func HashCoreStateOptimized(coreState shasta.IInboxCoreState) common.Hash {
-	nextProposalIdBytes := common.LeftPadBytes(coreState.NextProposalId.Bytes(), 32)
-	nextProposalBlockIdBytes := common.LeftPadBytes(coreState.NextProposalBlockId.Bytes(), 32)
-	lastFinalizedProposalIdBytes := common.LeftPadBytes(coreState.LastFinalizedProposalId.Bytes(), 32)
+	nextProposalIdBytes := padBigIntBytes(coreState.NextProposalId)
+	nextProposalBlockIdBytes := padBigIntBytes(coreState.NextProposalBlockId)
+	lastFinalizedProposalIdBytes := padBigIntBytes(coreState.LastFinalizedProposalId)
 
 	return efficientHash5(
 		common.BytesToHash(nextProposalIdBytes),
@@ -772,24 +910,19 @@ func HashCoreStateOptimized(coreState shasta.IInboxCoreState) common.Hash {
 
 // HashProposalOptimized hashes a Proposal struct aligned with LibHashing
 func HashProposalOptimized(proposal shasta.IInboxProposal) common.Hash {
-	// Pack numeric fields: id(48) + timestamp(48) + endOfSubmissionWindowTimestamp(48)
-	// Shift positions: id << 208, timestamp << 160, endOfSubmissionWindow << 112
-	var packed [32]byte
+	id := uint64FromBig(proposal.Id)
+	timestamp := uint64FromBig(proposal.Timestamp)
+	endTime := uint64FromBig(proposal.EndOfSubmissionWindowTimestamp)
 
-	id := proposal.Id.Uint64()
-	timestamp := proposal.Timestamp.Uint64()
-	endTime := proposal.EndOfSubmissionWindowTimestamp.Uint64()
+	packed := new(big.Int).Lsh(new(big.Int).SetUint64(id), 208)
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(timestamp), 160))
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(endTime), 112))
 
-	// Pack into first 18 bytes (48+48+48 bits = 144 bits = 18 bytes)
-	binary.BigEndian.PutUint64(packed[2:10], id)         // 48 bits at bit 208
-	binary.BigEndian.PutUint64(packed[10:18], timestamp) // 48 bits at bit 160
-	binary.BigEndian.PutUint64(packed[18:26], endTime)   // 48 bits at bit 112
-
-	packedHash := common.BytesToHash(packed[:])
+	packedBytes := packed.FillBytes(make([]byte, 32))
 	proposerBytes := common.LeftPadBytes(proposal.Proposer.Bytes(), 32)
 
 	return efficientHash4(
-		packedHash,
+		common.BytesToHash(packedBytes),
 		common.BytesToHash(proposerBytes),
 		proposal.CoreStateHash,
 		proposal.DerivationHash,
@@ -798,21 +931,18 @@ func HashProposalOptimized(proposal shasta.IInboxProposal) common.Hash {
 
 // HashDerivationOptimized hashes a Derivation struct aligned with LibHashing
 func HashDerivationOptimized(derivation shasta.IInboxDerivation) common.Hash {
-	// Pack fields: originBlockNumber(48) + isForcedInclusion(8) + basefeeSharingPctg(8)
-	var packed [32]byte
-
-	originBlockNum := derivation.OriginBlockNumber.Uint64()
-	var forcedFlag uint64
-	if derivation.IsForcedInclusion {
-		forcedFlag = 1
+	origin := new(big.Int)
+	if derivation.OriginBlockNumber != nil {
+		origin.Set(derivation.OriginBlockNumber)
 	}
-	basefeePctg := uint64(derivation.BasefeeSharingPctg)
+	packed := new(big.Int).Lsh(origin, 208)
 
-	// Pack into first 8 bytes (48+8+8 = 64 bits)
-	binary.BigEndian.PutUint64(packed[0:8],
-		(originBlockNum<<16)|(forcedFlag<<8)|basefeePctg)
+	if derivation.IsForcedInclusion {
+		packed.Or(packed, new(big.Int).Lsh(big.NewInt(1), 200))
+	}
+	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(uint64(derivation.BasefeeSharingPctg)), 192))
 
-	packedHash := common.BytesToHash(packed[:])
+	packedHash := common.BytesToHash(packed.FillBytes(make([]byte, 32)))
 
 	// Hash blob slice
 	blobSliceHash := hashBlobSlice(derivation.BlobSlice)
@@ -923,8 +1053,8 @@ func hashBlobSlice(blobSlice shasta.LibBlobsBlobSlice) common.Hash {
 		blobHashesHash = common.BytesToHash(crypto.Keccak256(buffer))
 	}
 
-	offsetBytes := common.LeftPadBytes(blobSlice.Offset.Bytes(), 32)
-	timestampBytes := common.LeftPadBytes(blobSlice.Timestamp.Bytes(), 32)
+	offsetBytes := padBigIntBytes(blobSlice.Offset)
+	timestampBytes := padBigIntBytes(blobSlice.Timestamp)
 
 	return efficientHash3(
 		blobHashesHash,
@@ -962,7 +1092,7 @@ func hashBondInstructionsArray(instructions []shasta.LibBondsBondInstruction) co
 }
 
 func hashSingleBondInstruction(instruction shasta.LibBondsBondInstruction) common.Hash {
-	proposalIdBytes := common.LeftPadBytes(instruction.ProposalId.Bytes(), 32)
+	proposalIdBytes := padBigIntBytes(instruction.ProposalId)
 	bondTypeBytes := common.LeftPadBytes(big.NewInt(int64(instruction.BondType)).Bytes(), 32)
 	payerBytes := common.LeftPadBytes(instruction.Payer.Bytes(), 32)
 	receiverBytes := common.LeftPadBytes(instruction.Receiver.Bytes(), 32)

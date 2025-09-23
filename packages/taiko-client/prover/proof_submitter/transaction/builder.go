@@ -204,9 +204,12 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 	ctx context.Context,
 	batchID *big.Int,
 ) (common.Hash, error) {
-	var (
-		parentTransitions = make([]*shastaBindings.IInboxTransition, 0)
-	)
+	type transitionEntry struct {
+		transition    *shastaBindings.IInboxTransition
+		canonicalHash *common.Hash
+	}
+
+	var parentTransitions []transitionEntry
 
 	batchID = new(big.Int).Sub(batchID, common.Big1)
 	for {
@@ -215,13 +218,21 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 			if err != nil {
 				return common.Hash{}, err
 			}
-			parentTransitions = append([]*shastaBindings.IInboxTransition{transition}, parentTransitions...)
+			hash := encoding.HashTransitionOptimized(*transition)
+			parentTransitions = append(
+				[]transitionEntry{{transition: transition, canonicalHash: &hash}},
+				parentTransitions...,
+			)
 			break
 		}
 
 		transition := a.indexer.GetTransitionRecordByProposalID(batchID.Uint64())
 		if transition != nil {
-			parentTransitions = append([]*shastaBindings.IInboxTransition{transition.Transition}, parentTransitions...)
+			hash := common.BytesToHash(transition.TransitionRecord.TransitionHash[:])
+			parentTransitions = append(
+				[]transitionEntry{{transition: transition.Transition, canonicalHash: &hash}},
+				parentTransitions...,
+			)
 			break
 		}
 
@@ -249,7 +260,10 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 			},
 		}
 
-		parentTransitions = append([]*shastaBindings.IInboxTransition{localTransition}, parentTransitions...)
+		parentTransitions = append(
+			[]transitionEntry{{transition: localTransition}},
+			parentTransitions...,
+		)
 		batchID = new(big.Int).Sub(batchID, common.Big1)
 	}
 
@@ -257,14 +271,22 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 		return common.Hash{}, fmt.Errorf("no parent transition found for batchID %d", batchID)
 	}
 
-	var lastTransition = parentTransitions[0]
-	for i := 1; i < len(parentTransitions); i++ {
-		parentTransitions[i].ParentTransitionHash = encoding.HashTransitionOptimized(
-			*lastTransition,
-		)
-		lastTransition = parentTransitions[i]
+	currentHash := common.Hash{}
+	if parentTransitions[0].canonicalHash != nil {
+		currentHash = *parentTransitions[0].canonicalHash
+	} else {
+		currentHash = encoding.HashTransitionOptimized(*parentTransitions[0].transition)
 	}
-	return encoding.HashTransitionOptimized(*lastTransition), nil
+
+	for i := 1; i < len(parentTransitions); i++ {
+		parentTransitions[i].transition.ParentTransitionHash = currentHash
+		if parentTransitions[i].canonicalHash != nil {
+			currentHash = *parentTransitions[i].canonicalHash
+		} else {
+			currentHash = encoding.HashTransitionOptimized(*parentTransitions[i].transition)
+		}
+	}
+	return currentHash, nil
 }
 
 // WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
@@ -291,7 +313,7 @@ func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
 			continue
 		}
 
-		return encoding.HashTransitionOptimized(*transition.Transition), nil
+		return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
 	}
 
 	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, batchID: %d", batchID)
