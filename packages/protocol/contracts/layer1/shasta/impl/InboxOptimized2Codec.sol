@@ -3,24 +3,23 @@ pragma solidity ^0.8.24;
 
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { IInboxCodec } from "../iface/IInboxCodec.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxHelper
-/// @notice Unified helper contract for all Inbox encoder/decoder and hashing library functions
+/// @title InboxOptimized2Codec
+/// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
+/// functions
 /// @custom:security-contact security@taiko.xyz
-contract InboxHelper {
+contract InboxOptimized2Codec is IInboxCodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding (for
-    /// InboxOptimized2+)
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes
+    /// @inheritdoc IInboxCodec
     function encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
         external
         pure
@@ -29,10 +28,8 @@ contract InboxHelper {
         return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProposedEventPayload using optimized encoding
-    /// @param _data The encoded data
-    /// @return payload_ The decoded payload
-    function decodeProposedEvent(bytes memory _data)
+    /// @inheritdoc IInboxCodec
+    function decodeProposedEvent(bytes calldata _data)
         external
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
@@ -44,9 +41,7 @@ contract InboxHelper {
     // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProvedEventPayload into bytes using optimized encoding
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return encoded_ The encoded bytes
+    /// @inheritdoc IInboxCodec
     function encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
         external
         pure
@@ -55,10 +50,8 @@ contract InboxHelper {
         return LibProvedEventEncoder.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProvedEventPayload using optimized encoding
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
-    function decodeProvedEvent(bytes memory _data)
+    /// @inheritdoc IInboxCodec
+    function decodeProvedEvent(bytes calldata _data)
         external
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
@@ -70,9 +63,7 @@ contract InboxHelper {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using optimized encoding (for InboxOptimized2+)
-    /// @param _input The ProposeInput to encode
-    /// @return encoded_ The encoded data
+    /// @inheritdoc IInboxCodec
     function encodeProposeInput(IInbox.ProposeInput memory _input)
         external
         pure
@@ -81,10 +72,8 @@ contract InboxHelper {
         return LibProposeInputDecoder.encode(_input);
     }
 
-    /// @notice Decodes propose data using optimized operations
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProposeInput
-    function decodeProposeInput(bytes memory _data)
+    /// @inheritdoc IInboxCodec
+    function decodeProposeInput(bytes calldata _data)
         external
         pure
         returns (IInbox.ProposeInput memory input_)
@@ -96,9 +85,7 @@ contract InboxHelper {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes prove input data using optimized encoding (for InboxOptimized2+)
-    /// @param _input The ProveInput to encode
-    /// @return encoded_ The encoded data
+    /// @inheritdoc IInboxCodec
     function encodeProveInput(IInbox.ProveInput memory _input)
         external
         pure
@@ -107,10 +94,8 @@ contract InboxHelper {
         return LibProveInputDecoder.encode(_input);
     }
 
-    /// @notice Decodes prove input data using optimized operations
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProveInput
-    function decodeProveInput(bytes memory _data)
+    /// @inheritdoc IInboxCodec
+    function decodeProveInput(bytes calldata _data)
         external
         pure
         returns (IInbox.ProveInput memory input_)
@@ -122,9 +107,7 @@ contract InboxHelper {
     // LibHashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for Checkpoint structs
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
+    /// @inheritdoc IInboxCodec
     function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         external
         pure
@@ -133,37 +116,27 @@ contract InboxHelper {
         return LibHashing.hashCheckpoint(_checkpoint);
     }
 
-    /// @notice Optimized hashing for CoreState structs
-    /// @param _coreState The core state to hash
-    /// @return The hash of the core state
+    /// @inheritdoc IInboxCodec
     function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
 
-    /// @notice Optimized hashing for Derivation structs
-    /// @param _derivation The derivation to hash
-    /// @return The hash of the derivation
+    /// @inheritdoc IInboxCodec
     function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
         return LibHashing.hashDerivation(_derivation);
     }
 
-    /// @notice Optimized hashing for Proposal structs
-    /// @param _proposal The proposal to hash
-    /// @return The hash of the proposal
+    /// @inheritdoc IInboxCodec
     function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
         return LibHashing.hashProposal(_proposal);
     }
 
-    /// @notice Optimized hashing for Transition structs
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
+    /// @inheritdoc IInboxCodec
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
         return LibHashing.hashTransition(_transition);
     }
 
-    /// @notice Optimized hashing for TransitionRecord structs
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
+    /// @inheritdoc IInboxCodec
     function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
         external
         pure
@@ -172,9 +145,7 @@ contract InboxHelper {
         return LibHashing.hashTransitionRecord(_transitionRecord);
     }
 
-    /// @notice Optimized hashing for arrays of Transitions
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
+    /// @inheritdoc IInboxCodec
     function hashTransitionsArray(IInbox.Transition[] memory _transitions)
         external
         pure
