@@ -83,41 +83,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
     // ---------------------------------------------------------------
-    // Events
+    // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when bond is withdrawn from the contract
-    /// @param user The user whose bond was withdrawn
-    /// @param amount The amount of bond withdrawn
-    event BondWithdrawn(address indexed user, uint256 amount);
-
-    // ---------------------------------------------------------------
-    // State Variables for compatibility with Pacaya inbox.
-    // ---------------------------------------------------------------
-
-    /// @dev Deprecated slots used by Pacaya inbox that contains:
-    /// - `batches`
-    /// - `transitionIds`
-    /// - `transitions`
-    /// - `__reserve1`
-    /// - `stats1`
-    /// - `stats2`
-    uint256[6] private __slotsUsedByPacaya;
-
-    /// @notice Bond balance for each account used in Pacaya inbox.
-    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
-    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
-    mapping(address account => uint256 bond) public bondBalance;
-
-    // ---------------------------------------------------------------
-    // State Variables for Shasta inbox.
-    // ---------------------------------------------------------------
-
+    /// @dev The address responsible for calling `activate` on the inbox.
+    address internal _shastaInitializer;
+    
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
-    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap
-    /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev Simple mapping for storing transition record hashes
@@ -133,7 +107,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///  Two slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
-    uint256[39] private __gap;
+    uint256[45] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -141,7 +115,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config) {
+    constructor(IInbox.Config memory _config, address shastaInitializer) {
         _bondToken = IERC20(_config.bondToken);
         _checkpointManager = ICheckpointManager(_config.checkpointManager);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -157,21 +131,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
     }
 
-    /// @notice Initializes the Inbox contract with genesis block
-    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
-    /// as existing inbox proxies(i.e. mainnet)
+    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the `shastaInitializer` later in order to start accepting proposals.
     /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
     /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The hash of the genesis block
-    function initV3(address _owner, bytes32 _genesisBlockHash) external reinitializer(3) {
-        address owner = owner();
-        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
+    function init(address _owner, address shastaInitializer) external initializer {
+        __Essential_init(_owner);
+        _shastaInitializer = shastaInitializer;
+    }
 
-        if (owner == address(0)) {
-            __Essential_init(_owner);
-        }
-        _initializeInbox(_genesisBlockHash);
+    /// @notice Activates the inbox so that it can start accepting proposals.
+    ///         This function can only be called once.
+    /// @dev Only the `shastaInitializer` can call this function.
+    /// @param _genesisBlockHash The hash of the genesis block
+    function activate(bytes32 _genesisBlockHash) external {
+        require(msg.sender == _shastaInitializer, ACCESS_DENIED());
+        _activateInbox(_genesisBlockHash);
+
+        // Set the shastaInitializer to zero to prevent further calls to `activate`
+        _shastaInitializer = address(0);
     }
 
     // ---------------------------------------------------------------
@@ -269,20 +247,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
     }
 
-    /// @notice Withdraws bond balance to specified address
-    /// @dev Legacy function for withdrawing bonds from Pacaya fork
-    /// @dev Bonds are now managed on L2 by the BondManager contract
-    /// @param _address The recipient address for the bond withdrawal
-    function withdrawBond(address _address) external nonReentrant {
-        uint256 amount = bondBalance[_address];
-        require(amount > 0, NoBondToWithdraw());
-        // Clear balance before transfer (checks-effects-interactions)
-        bondBalance[_address] = 0;
-        // Transfer the bond
-        _bondToken.safeTransfer(_address, amount);
-        emit BondWithdrawn(_address, amount);
-    }
-
     /// @inheritdoc IForcedInclusionStore
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.storeForcedInclusion(
@@ -341,7 +305,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
         });
     }
 
@@ -349,10 +313,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Initializes the inbox with genesis state
+    /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
     /// @notice Sets up the initial proposal and core state with genesis block
     /// @param _genesisBlockHash The hash of the genesis block
-    function _initializeInbox(bytes32 _genesisBlockHash) internal {
+    function _activateInbox(bytes32 _genesisBlockHash) internal {
         Transition memory transition;
         transition.checkpoint.blockHash = _genesisBlockHash;
 
