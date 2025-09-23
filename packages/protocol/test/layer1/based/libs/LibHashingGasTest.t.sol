@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibHashingGasTest
 /// @notice Gas comparison tests for LibHashing optimizations vs standard keccak256(abi.encode)
