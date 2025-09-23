@@ -130,11 +130,11 @@ interface ILookaheadStore {
 
     /// @notice Checks if a lookahead operator is valid for the next epoch.
     /// @dev Reverts if the operator is not valid
-    /// @param _nextEpochTimestamp The timestamp of the next epoch.
+    /// @param _epochTimestamp The timestamp of the epoch for which the lookahead is posted.
     /// @param _registrationRoot The URC registration root of the operator.
     /// @return True if the operator is valid
     function isLookaheadOperatorValid(
-        uint256 _nextEpochTimestamp,
+        uint256 _epochTimestamp,
         bytes32 _registrationRoot
     )
         external
@@ -143,11 +143,11 @@ interface ILookaheadStore {
 
     /// @notice Checks if a lookahead poster is valid for the next epoch.
     /// @dev Reverts if the operator is not valid
-    /// @param _nextEpochTimestamp The timestamp of the next epoch.
+    /// @param _epochTimestamp The timestamp of the next epoch.
     /// @param _registrationRoot The URC registration root of the poster.
     /// @return True if the poster is valid
     function isLookaheadPosterValid(
-        uint256 _nextEpochTimestamp,
+        uint256 _epochTimestamp,
         bytes32 _registrationRoot
     )
         external

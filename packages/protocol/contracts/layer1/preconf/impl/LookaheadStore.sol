@@ -342,15 +342,17 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadOperatorValid(
-        uint256 _nextEpochTimestamp,
+        uint256 _epochTimestamp,
         bytes32 _registrationRoot
     )
         external
         view
         returns (bool)
     {
+        uint256 referenceTimestamp = _epochTimestamp;
+
         _validateLookaheadOperator(
-            _nextEpochTimestamp,
+            referenceTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPreconfing,
             preconfSlasher
@@ -361,17 +363,17 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadPosterValid(
-        uint256 _nextEpochTimestamp,
+        uint256 _epochTimestamp,
         bytes32 _registrationRoot
     )
         external
         view
         returns (bool)
     {
-        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 referenceTimestamp = _epochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            prevEpochTimestamp,
+            referenceTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPosting,
             lookaheadSlasher
