@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./ITaikoInbox.sol";
+import "./LibBonds.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
@@ -225,7 +226,7 @@ library LibVerifying {
             bondReceiver = _dao;
         }
 
-        _state.bondBalance[bondReceiver] += _livenessBond;
+        LibBonds.creditBond(_state, bondReceiver, _livenessBond);
 
         return fti;
     }

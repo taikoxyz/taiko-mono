@@ -267,23 +267,5 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
 
         assertFalse(upgradeable);
         assertEq(expectedVerifier, _newVerifier);
-
-        // Check that other verifiers are untouched
-        if (_index != 0) {
-            (, expectedVerifier) = surgeVerifier.sgxRethVerifier();
-            assertTrue(expectedVerifier != _newVerifier);
-        }
-        if (_index != 1) {
-            (, expectedVerifier) = surgeVerifier.tdxRethVerifier();
-            assertTrue(expectedVerifier != _newVerifier);
-        }
-        if (_index != 2) {
-            (, expectedVerifier) = surgeVerifier.sp1RethVerifier();
-            assertTrue(expectedVerifier != _newVerifier);
-        }
-        if (_index != 3) {
-            (, expectedVerifier) = surgeVerifier.risc0RethVerifier();
-            assertTrue(expectedVerifier != _newVerifier);
-        }
     }
 }

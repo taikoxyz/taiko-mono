@@ -14,7 +14,11 @@ import "src/layer1/surge/verifiers/ISurgeVerifier.sol";
 import "src/layer1/surge/verifiers/LibProofType.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+// Surge: import new libraries
 import "./LibVerifying.sol";
+import "./LibProposing.sol";
+import "./LibProving.sol";
+import "./LibBonds.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -81,10 +85,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         BatchParams memory params = abi.decode(_params, (BatchParams));
         Stats2 memory stats2;
-        Config memory config;
+        Config memory config = pacayaConfig();
 
-        // Surge: Extract proposing logic into a private function
-        (info_, meta_, stats2, config) = _proposeBatches(params, _txList);
+        // Surge: Extract proposing logic into LibProposing
+        LibProposing.LibProposeBatchParams memory proposeBatchParams = LibProposing
+            .LibProposeBatchParams({
+            config: config,
+            params: params,
+            bondToken: bondToken,
+            signalService: signalService,
+            inboxWrapper: inboxWrapper
+        });
+
+        (info_, meta_, stats2) = LibProposing.proposeBatches(state, proposeBatchParams, _txList);
         LibVerifying.verifyBatches(state, config, stats2, 1, dao, verifier, signalService);
     }
 
@@ -96,13 +109,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         = abi.decode(_params, (LibProofType.ProofType, BatchMetadata[], Transition[]));
 
         Stats2 memory stats2;
-        Config memory config;
+        Config memory config = pacayaConfig();
 
-        ProveBatchesParams memory proveParams =
-            ProveBatchesParams({ proofType: proofType, metas: metas, trans: trans });
+        LibProving.ProveBatchesParams memory proveParams =
+            LibProving.ProveBatchesParams({ proofType: proofType, metas: metas, trans: trans });
 
-        // Surge: Extract proving logic into a private function
-        (stats2, config) = _proveBatches(proveParams, _proof);
+        // Surge: Extract proving logic into LibProving
+        stats2 = LibProving.proveBatches(state, config, proveParams, _proof, verifier);
         LibVerifying.verifyBatches(
             state, config, stats2, metas.length, dao, verifier, signalService
         );
@@ -119,28 +132,42 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
-        // Decode propose params
-        BatchParams memory proposeParams = abi.decode(_proposeParams, (BatchParams));
-
-        // Decode prove params
-        (LibProofType.ProofType proofType,, Transition[] memory trans) =
-            abi.decode(_proveParams, (LibProofType.ProofType, BatchMetadata[], Transition[]));
-        require(trans.length == 1, InvalidParams());
-
-        // Propose the batch
         Stats2 memory stats2;
-        Config memory config;
-        (info_, meta_, stats2, config) = _proposeBatches(proposeParams, _txList);
+        Config memory config = pacayaConfig();
+
+        {
+            // Decode propose params
+            BatchParams memory proposeParams = abi.decode(_proposeParams, (BatchParams));
+
+            LibProposing.LibProposeBatchParams memory proposeBatchParams = LibProposing
+                .LibProposeBatchParams({
+                config: config,
+                params: proposeParams,
+                bondToken: bondToken,
+                signalService: signalService,
+                inboxWrapper: inboxWrapper
+            });
+
+            // Propose the batch
+            (info_, meta_, stats2) = LibProposing.proposeBatches(state, proposeBatchParams, _txList);
+        }
 
         // Ensure we're proving the same batch that was just proposed
         BatchMetadata[] memory metas = new BatchMetadata[](1);
         metas[0] = meta_;
 
-        // Prove the batch
-        ProveBatchesParams memory proveParams =
-            ProveBatchesParams({ proofType: proofType, metas: metas, trans: trans });
+        {
+            // Decode prove params
+            (LibProofType.ProofType proofType,, Transition[] memory trans) =
+                abi.decode(_proveParams, (LibProofType.ProofType, BatchMetadata[], Transition[]));
+            require(trans.length == 1, InvalidParams());
 
-        (stats2, config) = _proveBatches(proveParams, _proof);
+            // Prove the batch
+            LibProving.ProveBatchesParams memory proveParams =
+                LibProving.ProveBatchesParams({ proofType: proofType, metas: metas, trans: trans });
+
+            stats2 = LibProving.proveBatches(state, config, proveParams, _proof, verifier);
+        }
 
         // Single verification call for both propose and prove
         LibVerifying.verifyBatches(state, config, stats2, 1, dao, verifier, signalService);
@@ -158,7 +185,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function depositBond(uint256 _amount) external payable {
-        state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
+        state.bondBalance[msg.sender] += LibBonds.handleDeposit(msg.sender, _amount, bondToken);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -166,15 +193,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
 
-        emit BondWithdrawn(msg.sender, _amount);
-
         state.bondBalance[msg.sender] -= _amount;
-
-        if (bondToken != address(0)) {
-            IERC20(bondToken).safeTransfer(msg.sender, _amount);
-        } else {
-            LibAddress.sendEtherAndVerify(msg.sender, _amount);
-        }
+        LibBonds.handleWithdrawal(msg.sender, _amount, bondToken);
     }
 
     // Surge: enables permissionless rolling back of incase of a prover bug.
@@ -411,518 +431,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         emit BatchesVerified(0, _genesisBlockHash);
     }
 
-    function _calculateTxsHash(
-        bytes32 _txListHash,
-        BlobParams memory _blobParams
-    )
-        internal
-        view
-        virtual
-        returns (bytes32 hash_, bytes32[] memory blobHashes_)
-    {
-        if (_blobParams.blobHashes.length != 0) {
-            blobHashes_ = _blobParams.blobHashes;
-        } else {
-            uint256 numBlobs = _blobParams.numBlobs;
-            blobHashes_ = new bytes32[](numBlobs);
-            for (uint256 i; i < numBlobs; ++i) {
-                unchecked {
-                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
-                }
-            }
-        }
-
-        uint256 bloblHashesLength = blobHashes_.length;
-        for (uint256 i; i < bloblHashesLength; ++i) {
-            require(blobHashes_[i] != 0, BlobNotFound());
-        }
-        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
-    }
-
     // Private functions -----------------------------------------------------------------------
 
     // Surge: _verifyBatches has been extracted away to LibVerifying.sol in order to reduce the
     // code size of TaikoInbox.sol
-
-    // Surge: Proposing logic has been extracted to this function
-    function _proposeBatches(
-        BatchParams memory params,
-        bytes calldata _txList
-    )
-        private
-        returns (
-            BatchInfo memory info_,
-            BatchMetadata memory meta_,
-            Stats2 memory stats2,
-            Config memory config
-        )
-    {
-        stats2 = state.stats2;
-        config = pacayaConfig();
-        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
-
-        unchecked {
-            require(
-                stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
-                TooManyBatches()
-            );
-
-            {
-                if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
-                    params.proposer = msg.sender;
-
-                    // blob hashes are only accepted if the caller is trusted.
-                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                    require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                } else {
-                    require(params.proposer != address(0), CustomProposerMissing());
-                    require(msg.sender == inboxWrapper, NotInboxWrapper());
-                }
-
-                // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
-                // preconfer address. This will allow us to implement preconfirmation features in L2
-                // anchor transactions.
-                if (params.coinbase == address(0)) {
-                    params.coinbase = params.proposer;
-                }
-
-                if (params.revertIfNotFirstProposal) {
-                    require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
-                }
-            }
-
-            bool calldataUsed = _txList.length != 0;
-
-            if (calldataUsed) {
-                // calldata is used for data availability
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (params.blobParams.blobHashes.length == 0) {
-                // this is a normal batch, blobs are created and used in the current batches.
-                // firstBlobIndex can be non-zero.
-                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                params.blobParams.createdIn = uint64(block.number);
-            } else {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
-                require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-            }
-
-            // Keep track of last batch's information.
-            Batch storage lastBatch =
-                state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-
-            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-                params,
-                config.maxAnchorHeightOffset,
-                config.maxSignalsToReceive,
-                config.maxBlocksPerBatch,
-                lastBatch
-            );
-
-            // This section constructs the metadata for the proposed batch, which is crucial for
-            // nodes/clients to process the batch. The metadata itself is not stored on-chain;
-            // instead, only its hash is kept.
-            // The metadata must be supplied as calldata prior to proving the batch, enabling the
-            // computation and verification of its integrity through the comparison of the metahash.
-            //
-            // Note that `difficulty` has been removed from the metadata. The client and prover must
-            // use
-            // the following approach to calculate a block's difficulty:
-            //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-            info_ = BatchInfo({
-                txsHash: bytes32(0), // to be initialised later
-                //
-                // Data to build L2 blocks
-                blocks: params.blocks,
-                blobHashes: new bytes32[](0), // to be initialised later
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: params.coinbase,
-                proposedIn: uint64(block.number),
-                blobCreatedIn: params.blobParams.createdIn,
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
-                gasLimit: config.blockMaxGasLimit,
-                // Surge: custom L2 basefee set by the proposer
-                baseFee: params.baseFee,
-                lastBlockId: 0, // to be initialised later
-                lastBlockTimestamp: lastBlockTimestamp,
-                //
-                // Data for the L2 anchor transaction, shared by all blocks in the batch
-                anchorBlockId: anchorBlockId,
-                anchorBlockHash: blockhash(anchorBlockId),
-                baseFeeConfig: config.baseFeeConfig
-            });
-
-            require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-
-            info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + uint64(params.blocks.length) - 1
-                : lastBatch.lastBlockId + uint64(params.blocks.length);
-
-            (info_.txsHash, info_.blobHashes) =
-                _calculateTxsHash(keccak256(_txList), params.blobParams);
-
-            meta_ = BatchMetadata({
-                infoHash: keccak256(abi.encode(info_)),
-                proposer: params.proposer,
-                batchId: stats2.numBatches,
-                proposedAt: uint64(block.timestamp)
-            });
-
-            Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
-
-            // SSTORE #1
-            batch.metaHash = keccak256(abi.encode(meta_));
-
-            // SSTORE #2 {{
-            batch.batchId = stats2.numBatches;
-            batch.lastBlockTimestamp = lastBlockTimestamp;
-            batch.anchorBlockId = anchorBlockId;
-            batch.nextTransitionId = 1;
-            batch.verifiedTransitionId = 0;
-            batch.finalisingTransitionIndex = 0;
-            // SSTORE }}
-
-            _debitBond(params.proposer, config.livenessBondBase);
-
-            // SSTORE #3 {{
-            batch.lastBlockId = info_.lastBlockId;
-            batch.reserved3 = 0;
-            batch.livenessBond = config.livenessBondBase;
-            // SSTORE }}
-
-            stats2.numBatches += 1;
-            require(
-                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
-            stats2.lastProposedIn = uint56(block.number);
-
-            emit BatchProposed(info_, meta_, _txList);
-        } // end-of-unchecked
-    }
-
-    // Surge: proving logic has been extracted to this function
-    function _proveBatches(
-        ProveBatchesParams memory params,
-        bytes calldata _proof
-    )
-        private
-        returns (Stats2 memory stats2, Config memory config)
-    {
-        require(params.metas.length != 0, NoBlocksToProve());
-        require(params.metas.length == params.trans.length, ArraySizesMismatch());
-
-        stats2 = state.stats2;
-        config = pacayaConfig();
-        IVerifier.Context[] memory ctxs = new IVerifier.Context[](params.metas.length);
-
-        // Surge: Remove `hasConflictingProof` variable
-
-        for (uint256 i; i < params.metas.length; ++i) {
-            BatchMetadata memory meta = params.metas[i];
-
-            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
-            require(
-                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
-
-            require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
-            if (!stats2.proposeWithProofMode) {
-                require(meta.batchId < stats2.numBatches, BatchNotFound());
-            }
-
-            Transition memory tran = params.trans[i];
-            require(tran.parentHash != 0, InvalidTransitionParentHash());
-            require(tran.blockHash != 0, InvalidTransitionBlockHash());
-            require(tran.stateRoot != 0, InvalidTransitionStateRoot());
-
-            ctxs[i].batchId = meta.batchId;
-            ctxs[i].metaHash = keccak256(abi.encode(meta));
-            ctxs[i].transition = tran;
-
-            // Verify the batch's metadata.
-            uint256 slot = meta.batchId % config.batchRingBufferSize;
-            Batch storage batch = state.batches[slot];
-            require(ctxs[i].metaHash == batch.metaHash, MetaHashMismatch());
-
-            // Finds out if this transition is overwriting an existing one (with the same parent
-            // hash) or is a new one.
-            uint24 tid;
-
-            // Surge: block to avoid stack too deep
-            {
-                uint24 nextTransitionId = batch.nextTransitionId;
-                if (nextTransitionId > 1) {
-                    // This batch has at least one transition.
-                    // Surge: get the first transition
-                    if (state.transitions[slot][1][0].parentHash == tran.parentHash) {
-                        // Overwrite the first transition.
-                        tid = 1;
-                    } else if (nextTransitionId > 2) {
-                        // Retrieve the transition ID using the parent hash from the mapping. If the
-                        // ID
-                        // is 0, it indicates a new transition; otherwise, it's an overwrite of an
-                        // existing transition.
-                        tid = state.transitionIds[meta.batchId][tran.parentHash];
-                    }
-                }
-            }
-
-            if (tid == 0) {
-                // This transition is new, we need to use the next available ID.
-                unchecked {
-                    tid = batch.nextTransitionId++;
-                }
-            } else {
-                TransitionState[] storage transitions = state.transitions[slot][tid];
-
-                // Surge: `mti` is the matching transition index
-                uint256 mti = type(uint256).max;
-                {
-                    // Surge: Try to find a matching transition
-                    uint256 numTransitions = transitions.length;
-                    for (uint256 j; j < numTransitions; ++j) {
-                        bytes32 _blockHash = transitions[j].blockHash;
-                        bytes32 _stateRoot = transitions[j].stateRoot;
-                        if (
-                            _blockHash == tran.blockHash
-                                && (_stateRoot == 0 || _stateRoot == tran.stateRoot)
-                        ) {
-                            mti = j;
-                            break;
-                        }
-                    }
-                }
-
-                // Surge: Remove the notion of reusing invalidated transitions since we no longer
-                // invalidate on conflicting proofs
-
-                // Surge: Modify the logic of checking for matching transitions based on the
-                // new finality gadget
-
-                // A matching transition was found
-                if (mti != type(uint256).max) {
-                    // Existing proof type of the matching transition
-                    LibProofType.ProofType _proofType = transitions[mti].proofType;
-
-                    // Take action depending upon existing proof type
-                    if (
-                        _proofType.isZkTeeProof()
-                            || (_proofType.isZkProof() && params.proofType.isZkProof())
-                            || (_proofType.isTeeProof() && params.proofType.isTeeProof())
-                    ) {
-                        // We skip the transition if the existing proof type is ZK + TEE or if the
-                        // existing proof type is same as the newly submitted proof type
-                        continue;
-                    }
-
-                    // At this point, the transition would be both ZK + TEE proven
-                    transitions[mti].proofType = _proofType.combine(params.proofType);
-                    // The sender of the latest set of proofs becomes the bond receiver
-                    transitions[mti].bondReceiver = msg.sender;
-                } else {
-                    TransitionState memory _ts;
-
-                    // Add the conflicting transition
-                    _ts.blockHash = tran.blockHash;
-                    _ts.stateRoot = meta.batchId % config.stateRootSyncInternal == 0
-                        ? tran.stateRoot
-                        : bytes32(0);
-                    _ts.proofType = params.proofType;
-
-                    // If the conflicting transition is finalising, the sender of the proof becomes
-                    // the bond receiver
-                    if (params.proofType.isZkTeeProof()) {
-                        _ts.bondReceiver = msg.sender;
-                    }
-
-                    // _ts.createdAt may not be set since it is irrelevant for conflicting
-                    // transitions
-
-                    transitions.push(_ts);
-
-                    emit ConflictingProof(meta.batchId, _ts, tran);
-                }
-
-                // Surge: remove transition state and shift it to the conditionals above
-
-                // Proceed with other transitions.
-                continue;
-            }
-
-            // Surge: prepare the transition state in memory instead of storage
-            TransitionState memory __ts;
-
-            if (tid == 1) {
-                __ts.parentHash = tran.parentHash;
-            } else {
-                state.transitionIds[meta.batchId][tran.parentHash] = tid;
-            }
-
-            __ts.blockHash = tran.blockHash;
-            __ts.stateRoot =
-                meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-            __ts.proofType = params.proofType;
-
-            bool inProvingWindow;
-            unchecked {
-                inProvingWindow = block.timestamp <= uint256(meta.proposedAt) + config.provingWindow;
-            }
-
-            // Surge: Set the bond receiver based on the proving window and received proof type
-            if (params.proofType.isZkTeeProof()) {
-                __ts.bondReceiver = inProvingWindow ? meta.proposer : msg.sender;
-            }
-
-            // Surge: Remove initialising `ts.provingWindow` and `ts.prover`
-
-            __ts.createdAt = uint48(block.timestamp);
-
-            // Surge: add the transition to the transitions array in storage
-            state.transitions[slot][tid].push(__ts);
-        }
-
-        // Surge: We use the ISurgeVerifier interface
-        LibProofType.ProofType __proofType = ISurgeVerifier(verifier).verifyProof(ctxs, _proof);
-        // Surge: check that proof type sent in the parameters matches the
-        // proof type returned by the verifier
-        require(__proofType.equals(params.proofType), InvalidProofType());
-
-        // Emit the event
-        {
-            uint64[] memory batchIds = new uint64[](params.metas.length);
-            for (uint256 i; i < params.metas.length; ++i) {
-                batchIds[i] = params.metas[i].batchId;
-            }
-
-            emit BatchesProved(verifier, batchIds, params.trans);
-        }
-    }
-
-    function _debitBond(address _user, uint256 _amount) private {
-        if (_amount == 0) return;
-
-        uint256 balance = state.bondBalance[_user];
-        if (balance >= _amount) {
-            unchecked {
-                state.bondBalance[_user] = balance - _amount;
-            }
-        } else if (bondToken != address(0)) {
-            uint256 amountDeposited = _handleDeposit(_user, _amount);
-            require(amountDeposited == _amount, InsufficientBond());
-        } else {
-            // Ether as bond must be deposited before proposing a batch
-            revert InsufficientBond();
-        }
-        emit BondDebited(_user, _amount);
-    }
-
-    // Surge: remove _creditBond since it is directly handled in the finality gadget library
-
-    function _handleDeposit(
-        address _user,
-        uint256 _amount
-    )
-        private
-        returns (uint256 amountDeposited_)
-    {
-        if (bondToken != address(0)) {
-            require(msg.value == 0, MsgValueNotZero());
-
-            uint256 balance = IERC20(bondToken).balanceOf(address(this));
-            IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(bondToken).balanceOf(address(this)) - balance;
-        } else {
-            require(msg.value == _amount, EtherNotPaidAsBond());
-            amountDeposited_ = _amount;
-        }
-        emit BondDeposited(_user, amountDeposited_);
-    }
-
-    function _validateBatchParams(
-        BatchParams memory _params,
-        uint64 _maxAnchorHeightOffset,
-        uint8 _maxSignalsToReceive,
-        uint16 _maxBlocksPerBatch,
-        Batch memory _lastBatch
-    )
-        private
-        view
-        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
-    {
-        uint256 blocksLength = _params.blocks.length;
-        require(blocksLength != 0, BlockNotFound());
-        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
-
-        unchecked {
-            if (_params.anchorBlockId == 0) {
-                anchorBlockId_ = uint64(block.number - 1);
-            } else {
-                require(
-                    _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
-                    AnchorBlockIdTooSmall()
-                );
-                require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
-                require(
-                    _params.anchorBlockId >= _lastBatch.anchorBlockId,
-                    AnchorBlockIdSmallerThanParent()
-                );
-                anchorBlockId_ = _params.anchorBlockId;
-            }
-
-            lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
-                ? uint64(block.timestamp)
-                : _params.lastBlockTimestamp;
-
-            require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
-            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
-
-            uint64 totalShift;
-
-            for (uint256 i; i < blocksLength; ++i) {
-                totalShift += _params.blocks[i].timeShift;
-
-                uint256 numSignals = _params.blocks[i].signalSlots.length;
-                if (numSignals == 0) continue;
-
-                require(numSignals <= _maxSignalsToReceive, TooManySignals());
-
-                for (uint256 j; j < numSignals; ++j) {
-                    require(
-                        signalService.isSignalSent(_params.blocks[i].signalSlots[j]),
-                        SignalNotSent()
-                    );
-                }
-            }
-
-            require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
-
-            uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
-
-            require(
-                firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                TimestampTooSmall()
-            );
-
-            require(
-                firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
-            );
-
-            // make sure the batch builds on the expected latest chain state.
-            require(
-                _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
-                ParentMetaHashMismatch()
-            );
-        }
-    }
+    // Surge: _proposeBatches has been extracted away to LibProposing.sol
+    // Surge: _proveBatches has been extracted away to LibProving.sol
+
+    // Surge: _debitBond and _handleDeposit have been moved to LibBonds.sol
+    // Surge: _validateBatchParams has been moved to LibProposing.sol
 }

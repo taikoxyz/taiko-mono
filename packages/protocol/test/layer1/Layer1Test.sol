@@ -43,18 +43,6 @@ contract ConfigurableInbox is TaikoInbox {
     function pacayaConfig() public view override returns (ITaikoInbox.Config memory) {
         return __config;
     }
-
-    function _calculateTxsHash(
-        bytes32 _txListHash,
-        BlobParams memory _blobParams
-    )
-        internal
-        pure
-        override
-        returns (bytes32, bytes32[] memory)
-    {
-        return (_txListHash, new bytes32[](_blobParams.numBlobs));
-    }
 }
 
 abstract contract Layer1Test is CommonTest {

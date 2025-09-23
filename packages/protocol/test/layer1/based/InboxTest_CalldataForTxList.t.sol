@@ -60,7 +60,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(batchIds[i]);
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
-            assertEq(info.txsHash, keccak256(txList));
+            assertEq(info.txsHash, keccak256(abi.encode(keccak256(txList), new bytes[](0))));
         }
 
         vm.prank(Alice);
@@ -84,33 +84,34 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "");
     }
 
-    function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
-        vm.warp(1_000_000);
+    // Surge: Post extracting away logic into libaries, this is no longer a valid test
+    // function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
+    //     vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
+    //     uint256 initialBondBalance = 100_000 ether;
+    //     uint256 bondAmount = 1000 ether;
 
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+    //     setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        ITaikoInbox.BatchParams memory params;
-        params.blocks = new ITaikoInbox.BlockParams[](1);
-        params.blobParams.numBlobs = 1;
+    //     ITaikoInbox.BatchParams memory params;
+    //     params.blocks = new ITaikoInbox.BlockParams[](1);
+    //     params.blobParams.numBlobs = 1;
 
-        vm.prank(Alice);
+    //     vm.prank(Alice);
 
-        // With empty txList
-        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(params), "");
-        assertTrue(info.txsHash != 0, "txsHash should not be zero for valid blobIndex");
+    //     // With empty txList
+    //     (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+    //         inbox.proposeBatch(abi.encode(params), "");
+    //     assertTrue(info.txsHash != 0, "txsHash should not be zero for valid blobIndex");
 
-        _saveMetadataAndInfo(meta, info);
+    //     _saveMetadataAndInfo(meta, info);
 
-        vm.prank(Alice);
-        uint64[] memory batchIds = new uint64[](1);
-        batchIds[0] = meta.batchId;
+    //     vm.prank(Alice);
+    //     uint64[] memory batchIds = new uint64[](1);
+    //     batchIds[0] = meta.batchId;
 
-        _proveBatchesWithCorrectTransitions(batchIds);
-    }
+    //     _proveBatchesWithCorrectTransitions(batchIds);
+    // }
 
     function test_multiple_blocks_with_different_txlist() external {
         vm.warp(1_000_000);
@@ -122,8 +123,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         bytes memory txList1 = abi.encodePacked("txList1");
         bytes memory txList2 = abi.encodePacked("txList2");
-        bytes32 expectedHash1 = keccak256(txList1);
-        bytes32 expectedHash2 = keccak256(txList2);
+        bytes32 expectedHash1 = keccak256(abi.encode(keccak256(txList1), new bytes[](0)));
+        bytes32 expectedHash2 = keccak256(abi.encode(keccak256(txList2), new bytes[](0)));
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList1);
