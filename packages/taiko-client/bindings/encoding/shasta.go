@@ -13,7 +13,7 @@ import (
 // Go implementations of Shasta encoding/decoding libraries
 // that are fully aligned with the Solidity contracts:
 // - LibProposedEventEncoder
-// - LibProposeInputDecoder  
+// - LibProposeInputDecoder
 // - LibProvedEventEncoder
 // - LibProveInputDecoder
 
@@ -139,7 +139,7 @@ func EncodeProposedEvent(payload *shasta.IInboxProposedEventPayload) ([]byte, er
 	pack.PackUint48(payload.Proposal.EndOfSubmissionWindowTimestamp.Uint64())
 	pack.PackUint48(payload.Derivation.OriginBlockNumber.Uint64())
 	pack.PackBytes32(payload.Derivation.OriginBlockHash)
-	
+
 	if payload.Derivation.IsForcedInclusion {
 		pack.PackUint8(1)
 	} else {
@@ -441,7 +441,7 @@ func EncodeProveInput(input *shasta.IInboxProveInput) ([]byte, error) {
 	if len(input.Metadata) != len(input.Transitions) {
 		return nil, fmt.Errorf("metadata length mismatch: %d != %d", len(input.Metadata), len(input.Transitions))
 	}
-	
+
 	size := calculateProveDataSize(input.Proposals, input.Transitions, input.Metadata)
 	pack := NewPackUnpack(size)
 
@@ -517,12 +517,12 @@ func encodeProposalForProposeInput(pack *PackUnpack, proposal *shasta.IInboxProp
 
 func decodeProposalForProposeInput(pack *PackUnpack) shasta.IInboxProposal {
 	return shasta.IInboxProposal{
-		Id:                              new(big.Int).SetUint64(pack.UnpackUint48()),
-		Timestamp:                       new(big.Int).SetUint64(pack.UnpackUint48()),
-		EndOfSubmissionWindowTimestamp:  new(big.Int).SetUint64(pack.UnpackUint48()),
-		Proposer:                        pack.UnpackAddress(),
-		CoreStateHash:                   pack.UnpackBytes32(),
-		DerivationHash:                  pack.UnpackBytes32(),
+		Id:                             new(big.Int).SetUint64(pack.UnpackUint48()),
+		Timestamp:                      new(big.Int).SetUint64(pack.UnpackUint48()),
+		EndOfSubmissionWindowTimestamp: new(big.Int).SetUint64(pack.UnpackUint48()),
+		Proposer:                       pack.UnpackAddress(),
+		CoreStateHash:                  pack.UnpackBytes32(),
+		DerivationHash:                 pack.UnpackBytes32(),
 	}
 }
 
@@ -538,12 +538,12 @@ func encodeProposalForProveInput(pack *PackUnpack, proposal *shasta.IInboxPropos
 
 func decodeProposalForProveInput(pack *PackUnpack) shasta.IInboxProposal {
 	return shasta.IInboxProposal{
-		Id:                              new(big.Int).SetUint64(pack.UnpackUint48()),
-		Proposer:                        pack.UnpackAddress(),
-		Timestamp:                       new(big.Int).SetUint64(pack.UnpackUint48()),
-		EndOfSubmissionWindowTimestamp:  new(big.Int).SetUint64(pack.UnpackUint48()),
-		CoreStateHash:                   pack.UnpackBytes32(),
-		DerivationHash:                  pack.UnpackBytes32(),
+		Id:                             new(big.Int).SetUint64(pack.UnpackUint48()),
+		Proposer:                       pack.UnpackAddress(),
+		Timestamp:                      new(big.Int).SetUint64(pack.UnpackUint48()),
+		EndOfSubmissionWindowTimestamp: new(big.Int).SetUint64(pack.UnpackUint48()),
+		CoreStateHash:                  pack.UnpackBytes32(),
+		DerivationHash:                 pack.UnpackBytes32(),
 	}
 }
 
@@ -622,9 +622,9 @@ func encodeTransition(pack *PackUnpack, transition *shasta.IInboxTransition) {
 
 func decodeTransition(pack *PackUnpack) shasta.IInboxTransition {
 	return shasta.IInboxTransition{
-		ProposalHash:          pack.UnpackBytes32(),
-		ParentTransitionHash:  pack.UnpackBytes32(),
-		Checkpoint: shasta.ICheckpointManagerCheckpoint{
+		ProposalHash:         pack.UnpackBytes32(),
+		ParentTransitionHash: pack.UnpackBytes32(),
+		Checkpoint: shasta.ICheckpointStoreCheckpoint{
 			BlockNumber: new(big.Int).SetUint64(pack.UnpackUint48()),
 			BlockHash:   pack.UnpackBytes32(),
 			StateRoot:   pack.UnpackBytes32(),
@@ -646,9 +646,9 @@ func decodeMetadata(pack *PackUnpack) shasta.IInboxTransitionMetadata {
 
 // Size calculation functions - aligned with Solidity implementations
 
-func calculateProposeDataSize(proposals []shasta.IInboxProposal, transitionRecords []shasta.IInboxTransitionRecord, checkpoint *shasta.ICheckpointManagerCheckpoint) int {
+func calculateProposeDataSize(proposals []shasta.IInboxProposal, transitionRecords []shasta.IInboxTransitionRecord, checkpoint *shasta.ICheckpointStoreCheckpoint) int {
 	// Fixed sizes (from Solidity comment):
-	// deadline: 6 bytes + CoreState: 82 bytes + BlobReference: 7 bytes + 
+	// deadline: 6 bytes + CoreState: 82 bytes + BlobReference: 7 bytes +
 	// Arrays lengths: 6 bytes + Checkpoint flag: 1 byte + numForcedInclusions: 1 byte = 103
 	size := 103
 
@@ -689,7 +689,7 @@ func HashTransition(transition shasta.IInboxTransition) common.Hash {
 }
 
 // HashCheckpoint hashes a Checkpoint struct using standard abi.encode method
-func HashCheckpoint(checkpoint shasta.ICheckpointManagerCheckpoint) common.Hash {
+func HashCheckpoint(checkpoint shasta.ICheckpointStoreCheckpoint) common.Hash {
 	// Equivalent to keccak256(abi.encode(_checkpoint)) in Solidity
 	data := encodeABI(checkpoint)
 	return common.BytesToHash(crypto.Keccak256(data))
@@ -749,8 +749,8 @@ func HashTransitionOptimized(transition shasta.IInboxTransition) common.Hash {
 	return efficientHash3(transition.ProposalHash, transition.ParentTransitionHash, checkpointHash)
 }
 
-// HashCheckpointOptimized hashes a Checkpoint struct aligned with LibHashing  
-func HashCheckpointOptimized(checkpoint shasta.ICheckpointManagerCheckpoint) common.Hash {
+// HashCheckpointOptimized hashes a Checkpoint struct aligned with LibHashing
+func HashCheckpointOptimized(checkpoint shasta.ICheckpointStoreCheckpoint) common.Hash {
 	blockNumberBytes := common.LeftPadBytes(checkpoint.BlockNumber.Bytes(), 32)
 	return efficientHash3(common.BytesToHash(blockNumberBytes), checkpoint.BlockHash, checkpoint.StateRoot)
 }
@@ -760,10 +760,10 @@ func HashCoreStateOptimized(coreState shasta.IInboxCoreState) common.Hash {
 	nextProposalIdBytes := common.LeftPadBytes(coreState.NextProposalId.Bytes(), 32)
 	nextProposalBlockIdBytes := common.LeftPadBytes(coreState.NextProposalBlockId.Bytes(), 32)
 	lastFinalizedProposalIdBytes := common.LeftPadBytes(coreState.LastFinalizedProposalId.Bytes(), 32)
-	
+
 	return efficientHash5(
 		common.BytesToHash(nextProposalIdBytes),
-		common.BytesToHash(nextProposalBlockIdBytes), 
+		common.BytesToHash(nextProposalBlockIdBytes),
 		common.BytesToHash(lastFinalizedProposalIdBytes),
 		coreState.LastFinalizedTransitionHash,
 		coreState.BondInstructionsHash,
@@ -772,22 +772,22 @@ func HashCoreStateOptimized(coreState shasta.IInboxCoreState) common.Hash {
 
 // HashProposalOptimized hashes a Proposal struct aligned with LibHashing
 func HashProposalOptimized(proposal shasta.IInboxProposal) common.Hash {
-	// Pack numeric fields: id(48) + timestamp(48) + endOfSubmissionWindowTimestamp(48) 
+	// Pack numeric fields: id(48) + timestamp(48) + endOfSubmissionWindowTimestamp(48)
 	// Shift positions: id << 208, timestamp << 160, endOfSubmissionWindow << 112
 	var packed [32]byte
-	
+
 	id := proposal.Id.Uint64()
 	timestamp := proposal.Timestamp.Uint64()
 	endTime := proposal.EndOfSubmissionWindowTimestamp.Uint64()
-	
+
 	// Pack into first 18 bytes (48+48+48 bits = 144 bits = 18 bytes)
 	binary.BigEndian.PutUint64(packed[2:10], id)         // 48 bits at bit 208
-	binary.BigEndian.PutUint64(packed[10:18], timestamp) // 48 bits at bit 160  
+	binary.BigEndian.PutUint64(packed[10:18], timestamp) // 48 bits at bit 160
 	binary.BigEndian.PutUint64(packed[18:26], endTime)   // 48 bits at bit 112
-	
+
 	packedHash := common.BytesToHash(packed[:])
 	proposerBytes := common.LeftPadBytes(proposal.Proposer.Bytes(), 32)
-	
+
 	return efficientHash4(
 		packedHash,
 		common.BytesToHash(proposerBytes),
@@ -800,37 +800,37 @@ func HashProposalOptimized(proposal shasta.IInboxProposal) common.Hash {
 func HashDerivationOptimized(derivation shasta.IInboxDerivation) common.Hash {
 	// Pack fields: originBlockNumber(48) + isForcedInclusion(8) + basefeeSharingPctg(8)
 	var packed [32]byte
-	
+
 	originBlockNum := derivation.OriginBlockNumber.Uint64()
 	var forcedFlag uint64
 	if derivation.IsForcedInclusion {
 		forcedFlag = 1
 	}
 	basefeePctg := uint64(derivation.BasefeeSharingPctg)
-	
+
 	// Pack into first 8 bytes (48+8+8 = 64 bits)
-	binary.BigEndian.PutUint64(packed[0:8], 
-		(originBlockNum << 16) | (forcedFlag << 8) | basefeePctg)
-		
+	binary.BigEndian.PutUint64(packed[0:8],
+		(originBlockNum<<16)|(forcedFlag<<8)|basefeePctg)
+
 	packedHash := common.BytesToHash(packed[:])
-	
+
 	// Hash blob slice
 	blobSliceHash := hashBlobSlice(derivation.BlobSlice)
-	
+
 	return efficientHash3(packedHash, derivation.OriginBlockHash, blobSliceHash)
 }
 
-// HashTransitionsArrayOptimized hashes an array of Transitions aligned with LibHashing  
+// HashTransitionsArrayOptimized hashes an array of Transitions aligned with LibHashing
 func HashTransitionsArrayOptimized(transitions []shasta.IInboxTransition) common.Hash {
 	if len(transitions) == 0 {
 		return emptyBytesHash
 	}
-	
+
 	if len(transitions) == 1 {
 		lengthBytes := common.LeftPadBytes(big.NewInt(int64(len(transitions))).Bytes(), 32)
 		return efficientHash2(common.BytesToHash(lengthBytes), HashTransitionOptimized(transitions[0]))
 	}
-	
+
 	if len(transitions) == 2 {
 		lengthBytes := common.LeftPadBytes(big.NewInt(int64(len(transitions))).Bytes(), 32)
 		return efficientHash3(
@@ -839,38 +839,38 @@ func HashTransitionsArrayOptimized(transitions []shasta.IInboxTransition) common
 			HashTransitionOptimized(transitions[1]),
 		)
 	}
-	
+
 	// For larger arrays, build buffer with length + hashes
 	arrayLength := len(transitions)
 	bufferSize := 32 + (arrayLength * 32) // length + hashes
 	buffer := make([]byte, bufferSize)
-	
+
 	// Write array length
 	binary.BigEndian.PutUint64(buffer[24:32], uint64(arrayLength))
-	
+
 	// Write each transition hash
 	for i, transition := range transitions {
 		hash := HashTransitionOptimized(transition)
 		offset := 32 + (i * 32)
 		copy(buffer[offset:offset+32], hash[:])
 	}
-	
+
 	return common.BytesToHash(crypto.Keccak256(buffer))
 }
 
 // HashTransitionRecordOptimized hashes a TransitionRecord aligned with LibHashing
 func HashTransitionRecordOptimized(record shasta.IInboxTransitionRecord) [26]byte {
 	bondInstructionsHash := hashBondInstructionsArray(record.BondInstructions)
-	
+
 	spanBytes := common.LeftPadBytes(big.NewInt(int64(record.Span)).Bytes(), 32)
-	
+
 	fullHash := efficientHash4(
 		common.BytesToHash(spanBytes),
 		bondInstructionsHash,
 		record.TransitionHash,
 		record.CheckpointHash,
 	)
-	
+
 	var result [26]byte
 	copy(result[:], fullHash[:26])
 	return result
@@ -902,7 +902,7 @@ func efficientHash5(a, b, c, d, e common.Hash) common.Hash {
 
 func hashBlobSlice(blobSlice shasta.LibBlobsBlobSlice) common.Hash {
 	var blobHashesHash common.Hash
-	
+
 	if len(blobSlice.BlobHashes) == 0 {
 		blobHashesHash = emptyBytesHash
 	} else {
@@ -910,22 +910,22 @@ func hashBlobSlice(blobSlice shasta.LibBlobsBlobSlice) common.Hash {
 		arrayLength := len(blobSlice.BlobHashes)
 		bufferSize := 32 + (arrayLength * 32)
 		buffer := make([]byte, bufferSize)
-		
+
 		// Write array length
 		binary.BigEndian.PutUint64(buffer[24:32], uint64(arrayLength))
-		
+
 		// Write each blob hash
 		for i, blobHash := range blobSlice.BlobHashes {
 			offset := 32 + (i * 32)
 			copy(buffer[offset:offset+32], blobHash[:])
 		}
-		
+
 		blobHashesHash = common.BytesToHash(crypto.Keccak256(buffer))
 	}
-	
+
 	offsetBytes := common.LeftPadBytes(blobSlice.Offset.Bytes(), 32)
 	timestampBytes := common.LeftPadBytes(blobSlice.Timestamp.Bytes(), 32)
-	
+
 	return efficientHash3(
 		blobHashesHash,
 		common.BytesToHash(offsetBytes),
@@ -937,27 +937,27 @@ func hashBondInstructionsArray(instructions []shasta.LibBondsBondInstruction) co
 	if len(instructions) == 0 {
 		return emptyBytesHash
 	}
-	
+
 	if len(instructions) == 1 {
 		lengthBytes := common.LeftPadBytes(big.NewInt(int64(len(instructions))).Bytes(), 32)
 		return efficientHash2(common.BytesToHash(lengthBytes), hashSingleBondInstruction(instructions[0]))
 	}
-	
+
 	// For multiple instructions
 	arrayLength := len(instructions)
 	bufferSize := 32 + (arrayLength * 32)
 	buffer := make([]byte, bufferSize)
-	
+
 	// Write array length
 	binary.BigEndian.PutUint64(buffer[24:32], uint64(arrayLength))
-	
+
 	// Write each instruction hash
 	for i, instruction := range instructions {
 		hash := hashSingleBondInstruction(instruction)
 		offset := 32 + (i * 32)
 		copy(buffer[offset:offset+32], hash[:])
 	}
-	
+
 	return common.BytesToHash(crypto.Keccak256(buffer))
 }
 
@@ -966,7 +966,7 @@ func hashSingleBondInstruction(instruction shasta.LibBondsBondInstruction) commo
 	bondTypeBytes := common.LeftPadBytes(big.NewInt(int64(instruction.BondType)).Bytes(), 32)
 	payerBytes := common.LeftPadBytes(instruction.Payer.Bytes(), 32)
 	receiverBytes := common.LeftPadBytes(instruction.Receiver.Bytes(), 32)
-	
+
 	return efficientHash4(
 		common.BytesToHash(proposalIdBytes),
 		common.BytesToHash(bondTypeBytes),

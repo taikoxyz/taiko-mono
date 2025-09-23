@@ -307,7 +307,6 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
-	s.T().Skip()
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
@@ -348,7 +347,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
-	data, err := encoding.ShastaInboxABI.Pack("storeForcedInclusion", shastaBindings.LibBlobsBlobReference{
+	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
 		BlobStartIndex: 0,
 		NumBlobs:       1,
 		Offset:         common.Big0,

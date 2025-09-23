@@ -14,6 +14,7 @@ import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import "forge-std/src/console2.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -195,6 +196,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+        console2.log("DevnetShastaInbox.propose");
         // Validate proposer
         uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
 
@@ -222,11 +224,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         );
 
         if (input.numForcedInclusions > 0) {
+            console2.log("_processForcedInclusions1");
             // Process forced inclusion if required
             uint256 numForcedInclusionsProcessed;
             (coreState, numForcedInclusionsProcessed) = _processForcedInclusions(
                 coreState, input.numForcedInclusions, endOfSubmissionWindowTimestamp
             );
+            console2.log("_processForcedInclusions2");
 
             availableCapacity -= numForcedInclusionsProcessed;
         }

@@ -156,7 +156,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			transitions[i] = shastaBindings.IInboxTransition{
 				ProposalHash:         proposalHash,
 				ParentTransitionHash: parentTransitionHash,
-				Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
+				Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
 					BlockNumber: lastHeader.Number,
 					BlockHash:   lastHeader.Hash(),
 					StateRoot:   lastHeader.Root,
@@ -242,7 +242,7 @@ func (a *ProveBatchesTxBuilder) BuildParentTransitionHash(
 		localTransition := &shastaBindings.IInboxTransition{
 			ProposalHash:         encoding.HashProposalOptimized(*proposal.Proposal),
 			ParentTransitionHash: common.Hash{}, // will be updated after the loop
-			Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
+			Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
 				BlockNumber: checkpointHeader.Number,
 				BlockHash:   checkpointHeader.Hash(),
 				StateRoot:   checkpointHeader.Root,
@@ -308,7 +308,7 @@ func (a *ProveBatchesTxBuilder) GetShastaGenesisTransition(
 	return &shastaBindings.IInboxTransition{
 		ProposalHash:         common.Hash{},
 		ParentTransitionHash: common.Hash{},
-		Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
+		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
 			BlockNumber: common.Big0,
 			BlockHash:   header.Hash(),
 			StateRoot:   common.Hash{},

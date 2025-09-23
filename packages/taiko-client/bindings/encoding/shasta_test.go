@@ -132,7 +132,7 @@ func TestProvedEventEncodeDecode(t *testing.T) {
 		Transition: shasta.IInboxTransition{
 			ProposalHash:         common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111"),
 			ParentTransitionHash: common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222"),
-			Checkpoint: shasta.ICheckpointManagerCheckpoint{
+			Checkpoint: shasta.ICheckpointStoreCheckpoint{
 				BlockNumber: big.NewInt(456),
 				BlockHash:   common.HexToHash("0x3333333333333333333333333333333333333333333333333333333333333333"),
 				StateRoot:   common.HexToHash("0x4444444444444444444444444444444444444444444444444444444444444444"),
@@ -241,7 +241,7 @@ func TestProposeInputEncodeDecode(t *testing.T) {
 				},
 			},
 		},
-		Checkpoint: shasta.ICheckpointManagerCheckpoint{
+		Checkpoint: shasta.ICheckpointStoreCheckpoint{
 			BlockNumber: big.NewInt(456),
 			BlockHash:   common.HexToHash("0x7777777777777777777777777777777777777777777777777777777777777777"),
 			StateRoot:   common.HexToHash("0x8888888888888888888888888888888888888888888888888888888888888888"),
@@ -320,7 +320,7 @@ func TestProposeInputEncodeDecodeEmptyCheckpoint(t *testing.T) {
 			Offset:         big.NewInt(0),
 		},
 		TransitionRecords: []shasta.IInboxTransitionRecord{},
-		Checkpoint: shasta.ICheckpointManagerCheckpoint{
+		Checkpoint: shasta.ICheckpointStoreCheckpoint{
 			BlockNumber: big.NewInt(0),
 			BlockHash:   common.Hash{},
 			StateRoot:   common.Hash{},
@@ -360,7 +360,7 @@ func TestProveInputEncodeDecode(t *testing.T) {
 			{
 				ProposalHash:         common.HexToHash("0x3333333333333333333333333333333333333333333333333333333333333333"),
 				ParentTransitionHash: common.HexToHash("0x4444444444444444444444444444444444444444444444444444444444444444"),
-				Checkpoint: shasta.ICheckpointManagerCheckpoint{
+				Checkpoint: shasta.ICheckpointStoreCheckpoint{
 					BlockNumber: big.NewInt(456),
 					BlockHash:   common.HexToHash("0x5555555555555555555555555555555555555555555555555555555555555555"),
 					StateRoot:   common.HexToHash("0x6666666666666666666666666666666666666666666666666666666666666666"),
@@ -488,7 +488,7 @@ func TestErrorHandling(t *testing.T) {
 	provedPayload := &shasta.IInboxProvedEventPayload{
 		ProposalId: big.NewInt(1),
 		Transition: shasta.IInboxTransition{
-			Checkpoint: shasta.ICheckpointManagerCheckpoint{
+			Checkpoint: shasta.ICheckpointStoreCheckpoint{
 				BlockNumber: big.NewInt(1),
 			},
 		},
@@ -548,7 +548,7 @@ func TestBigEndianEncoding(t *testing.T) {
 // Test hash functions
 func TestHashFunctions(t *testing.T) {
 	// Test data setup
-	checkpoint := shasta.ICheckpointManagerCheckpoint{
+	checkpoint := shasta.ICheckpointStoreCheckpoint{
 		BlockNumber: big.NewInt(123),
 		BlockHash:   common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
 		StateRoot:   common.HexToHash("0x9876543210987654321098765432109876543210987654321098765432109876"),
@@ -692,7 +692,7 @@ func TestHashFunctions(t *testing.T) {
 // Test edge cases for hash functions
 func TestHashFunctionsEdgeCases(t *testing.T) {
 	// Test with zero values
-	emptyCheckpoint := shasta.ICheckpointManagerCheckpoint{
+	emptyCheckpoint := shasta.ICheckpointStoreCheckpoint{
 		BlockNumber: big.NewInt(0),
 		BlockHash:   common.Hash{},
 		StateRoot:   common.Hash{},
@@ -709,7 +709,7 @@ func TestHashFunctionsEdgeCases(t *testing.T) {
 		transition := shasta.IInboxTransition{
 			ProposalHash:         common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111"),
 			ParentTransitionHash: common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222"),
-			Checkpoint: shasta.ICheckpointManagerCheckpoint{
+			Checkpoint: shasta.ICheckpointStoreCheckpoint{
 				BlockNumber: big.NewInt(123),
 				BlockHash:   common.HexToHash("0x3333333333333333333333333333333333333333333333333333333333333333"),
 				StateRoot:   common.HexToHash("0x4444444444444444444444444444444444444444444444444444444444444444"),

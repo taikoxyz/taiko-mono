@@ -202,7 +202,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	var (
 		parentProposals   []shastaBindings.IInboxProposal
 		transitionRecords []shastaBindings.IInboxTransitionRecord
-		checkpoint        = shastaBindings.ICheckpointManagerCheckpoint{BlockNumber: common.Big0}
+		checkpoint        = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
 		proposalManifest  = &manifest.ProtocolProposalManifest{ProverAuthBytes: proverAuth}
 	)
 	for i, p := range proposals {
