@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -495,7 +494,7 @@ func (c *Client) CalculateBaseFee(
 				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
 			}
 			baseFee = misc.CalcEIP4396BaseFee(
-				core.TaikoGenesisBlock(c.L2.ChainID.Uint64()).Config,
+				&params.ChainConfig{ShastaBlock: c.ShastaClients.ForkHeight},
 				l2Head,
 				l2Head.Time-grandParentBlock.Time,
 			)
