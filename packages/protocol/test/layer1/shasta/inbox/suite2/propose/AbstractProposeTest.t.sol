@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { InboxTestSetup } from "../common/InboxTestSetup.sol";
+import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProposeTest
 /// @notice All propose tests for Inbox implementations
-abstract contract AbstractProposeTest is InboxTestSetup {
+abstract contract AbstractProposeTest is InboxTestHelper {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -42,20 +42,19 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.startPrank(currentProposer);
         // Act: Submit the proposal
         vm.startSnapshotGas(
-            "shasta-propose",
-            string.concat("propose_single_empty_ring_buffer_", _getInboxContractName())
+            "shasta-propose", string.concat("propose_single_empty_ring_buffer_", inboxContractName)
         );
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll to match checkpoint values
-        bytes memory proposeData = _createFirstProposeInput();
+        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
 
         // Expect the Proposed event with the correct data
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
@@ -76,19 +75,20 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal with future deadline after block roll
-        bytes memory proposeData =
-            _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
+        bytes memory proposeData = codec.encodeProposeInput(
+            _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours))
+        );
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = codec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -99,18 +99,18 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll
-        bytes memory proposeData = _createFirstProposeInput();
+        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = codec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -121,8 +121,9 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.warp(block.timestamp + 2 hours);
 
         // Create proposal with expired deadline
-        bytes memory proposeData =
-            _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
+        bytes memory proposeData = codec.encodeProposeInput(
+            _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours))
+        );
 
         // Should revert with DeadlineExceeded
         vm.expectRevert(DeadlineExceeded.selector);
@@ -141,18 +142,18 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll
-        bytes memory proposeData = _createFirstProposeInput();
+        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and blob configuration
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = codec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
@@ -162,19 +163,19 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal input with multiple blobs after block roll
-        bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
+        bytes memory proposeData = codec.encodeProposeInput(_createProposeInputWithBlobs(3, 0));
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = codec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 
@@ -192,11 +193,13 @@ abstract contract AbstractProposeTest is InboxTestSetup {
             0 // offset
         );
 
-        bytes memory proposeData = _createProposeInputWithCustomParams(
-            0, // no deadline
-            blobRef,
-            parentProposals,
-            coreState
+        bytes memory proposeData = codec.encodeProposeInput(
+            _createProposeInputWithCustomParams(
+                0, // no deadline
+                blobRef,
+                parentProposals,
+                coreState
+            )
         );
 
         // Should revert when accessing invalid blob
@@ -212,19 +215,19 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal input with blob offset after block roll
-        bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
+        bytes memory proposeData = codec.encodeProposeInput(_createProposeInputWithBlobs(2, 100));
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = codec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 
@@ -239,12 +242,12 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll
-        bytes memory firstProposeData = _createFirstProposeInput();
+        bytes memory firstProposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(firstExpectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(firstExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), firstProposeData);
@@ -253,7 +256,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            _hashProposal(firstExpectedPayload.proposal),
+            codec.hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -279,17 +282,19 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         // No additional roll needed - we already advanced by 1 block above
 
         // Create second proposal input after block roll
-        bytes memory secondProposeData = _createProposeInputWithCustomParams(
-            0, // no deadline
-            _createBlobRef(0, 1, 0),
-            secondParentProposals,
-            secondCoreState
+        bytes memory secondProposeData = codec.encodeProposeInput(
+            _createProposeInputWithCustomParams(
+                0, // no deadline
+                _createBlobRef(0, 1, 0),
+                secondParentProposals,
+                secondCoreState
+            )
         );
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
+        emit IInbox.Proposed(codec.encodeProposedEvent(secondExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), secondProposeData);
@@ -298,7 +303,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            _hashProposal(secondExpectedPayload.proposal),
+            codec.hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 
@@ -316,7 +321,7 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         _setupBlobHashes();
 
         // First, create the first proposal successfully
-        bytes memory firstProposeData = _createFirstProposeInput();
+        bytes memory firstProposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         vm.prank(currentProposer);
         vm.roll(block.number + 1);
@@ -336,8 +341,10 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         IInbox.Proposal[] memory wrongParentProposals = new IInbox.Proposal[](1);
         wrongParentProposals[0] = _createGenesisProposal();
 
-        bytes memory wrongProposeData = _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
+        bytes memory wrongProposeData = codec.encodeProposeInput(
+            _createProposeInputWithCustomParams(
+                0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
+            )
         );
 
         // Should revert because parent proposal hash doesn't match
@@ -371,8 +378,10 @@ abstract contract AbstractProposeTest is InboxTestSetup {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = fakeParent;
 
-        bytes memory proposeData = _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), parentProposals, coreState
+        bytes memory proposeData = codec.encodeProposeInput(
+            _createProposeInputWithCustomParams(
+                0, _createBlobRef(0, 1, 0), parentProposals, coreState
+            )
         );
 
         // Should revert because parent proposal doesn't exist

@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { InboxTestSetup } from "../common/InboxTestSetup.sol";
+import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
@@ -12,7 +12,7 @@ import "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProveTest
 /// @notice All prove tests for Inbox implementations
-abstract contract AbstractProveTest is InboxTestSetup {
+abstract contract AbstractProveTest is InboxTestHelper {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -48,7 +48,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_single_", _getInboxContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_single_", inboxContractName));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -82,7 +82,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_2_", _getInboxContractName())
+            "shasta-prove", string.concat("prove_consecutive_2_", inboxContractName)
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -110,7 +110,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_3_", _getInboxContractName())
+            "shasta-prove", string.concat("prove_consecutive_3_", inboxContractName)
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -136,7 +136,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_consecutive_5_", _getInboxContractName())
+            "shasta-prove", string.concat("prove_consecutive_5_", inboxContractName)
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -163,7 +163,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_1_", _getInboxContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_1_", inboxContractName));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -191,7 +191,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_2_", _getInboxContractName()));
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_2_", inboxContractName));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -220,9 +220,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_mixed_groups_", _getInboxContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_mixed_groups_", inboxContractName));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -263,9 +261,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.recordLogs();
 
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove", string.concat("prove_reverse_", _getInboxContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_reverse_", inboxContractName));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
@@ -282,7 +278,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
     function test_prove_RevertWhen_EmptyProposals() public {
         // Create empty ProveInput
         IInbox.ProveInput memory input;
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = codec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with EmptyProposals
@@ -297,7 +293,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
 
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = codec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with InconsistentParams
@@ -349,7 +345,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             metadata: metadata
         });
 
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = codec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should succeed with any designated prover
@@ -440,7 +436,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             metadata: metadata
         });
 
-        return _encodeProveInput(input);
+        return codec.encodeProveInput(input);
     }
 
     function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
@@ -477,7 +473,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         if (block.number < 2) {
             vm.roll(2);
         }
-        bytes memory proposeData = _createFirstProposeInput();
+        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -520,11 +516,13 @@ abstract contract AbstractProveTest is InboxTestSetup {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _createProposeInputWithCustomParams(
-            0, // no deadline
-            _createBlobRef(0, 1, 0),
-            parentProposals,
-            coreState
+        bytes memory proposeData = codec.encodeProposeInput(
+            _createProposeInputWithCustomParams(
+                0, // no deadline
+                _createBlobRef(0, 1, 0),
+                parentProposals,
+                coreState
+            )
         );
 
         vm.prank(currentProposer);
@@ -573,7 +571,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             metadata: metadata
         });
 
-        return _encodeProveInput(input);
+        return codec.encodeProveInput(input);
     }
 
     function _createTransitionForProposal(IInbox.Proposal memory _proposal)
@@ -582,7 +580,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposalHash: _hashProposal(_proposal),
+            proposalHash: codec.hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(),
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),
