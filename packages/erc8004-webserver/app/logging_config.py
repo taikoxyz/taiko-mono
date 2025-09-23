@@ -2,7 +2,7 @@ import structlog
 import logging
 import sys
 from typing import Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from .config import settings
 
 
@@ -52,7 +52,7 @@ def add_request_context(logger, method_name: str, event_dict: Dict[str, Any]) ->
     
     # Add timestamp if not present
     if 'timestamp' not in event_dict:
-        event_dict['timestamp'] = datetime.utcnow().isoformat()
+        event_dict['timestamp'] = datetime.now(timezone.utc).isoformat()
     
     # Add service information
     event_dict['service'] = 'erc8004-webserver'
@@ -83,7 +83,7 @@ def log_security_event(
         "security_event": True,
         "event_type": event_type,
         "severity": severity,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         **details
     }
     
@@ -113,7 +113,7 @@ def log_performance_event(
         "performance_event": True,
         "operation": operation,
         "duration_seconds": duration,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "slow_operation": duration > threshold
     }
     
@@ -173,7 +173,7 @@ def log_error_with_context(
         "error_event": True,
         "error_type": type(error).__name__,
         "error_message": str(error),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         **context
     }
     

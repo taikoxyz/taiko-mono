@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, Dict, Any
 import structlog
 import time
@@ -14,7 +16,7 @@ import math
 
 from .config import settings
 from .database import get_session, init_database, close_database
-from .cache import cache
+from .cache import cache, invalidate_feedback_cache, invalidate_agent_cache
 from .models import Agent, Feedback, ValidationRequest, ValidationResponse
 from .schemas import (
     AgentCardSchema, AgentCreateSchema, AgentResponseSchema,
@@ -194,7 +196,7 @@ async def health_check(db: AsyncSession = Depends(get_session)):
     
     return HealthCheckSchema(
         status=status,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         services=services
     )
 
@@ -233,7 +235,7 @@ async def get_agent_card(db: AsyncSession = Depends(get_session)):
     })
     
     # Cache the result
-    await cache.set(f"agent_card:{settings.agent_domain}", agent_card, settings.agent_card_cache_ttl)
+    await cache.set(f"agent_card:{settings.agent_domain}", agent_card, settings.agent_card_cache_ttl, tags=["agent_card"])
     
     return agent_card
 
@@ -321,8 +323,11 @@ async def list_feedback(
     if cached_result:
         return cached_result
     
-    # Build query
-    query = select(Feedback)
+    # Build query with eager loading to prevent N+1 queries
+    query = select(Feedback).options(
+        selectinload(Feedback.client_agent),
+        selectinload(Feedback.server_agent)
+    )
     conditions = []
     
     if agent_server_id:
@@ -380,8 +385,8 @@ async def list_feedback(
         total_pages=total_pages
     )
     
-    # Cache the result
-    await cache.set(cache_key, response_data.model_dump(), settings.feedback_list_cache_ttl)
+    # Cache the result with tag
+    await cache.set(cache_key, response_data.model_dump(), settings.feedback_list_cache_ttl, tags=["feedback"])
     
     return response_data
 
@@ -431,7 +436,7 @@ async def submit_feedback(
     ipfs_hash = web3_service.generate_ipfs_hash({
         "feedback": feedback_data.model_dump(),
         "signature": signature,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     })
     
     # Create feedback record
@@ -450,11 +455,20 @@ async def submit_feedback(
     )
     
     db.add(feedback)
-    await db.commit()
-    await db.refresh(feedback)
+    try:
+        await db.commit()
+        await db.refresh(feedback)
+    except IntegrityError as e:
+        await db.rollback()
+        if "uq_feedback_client_task" in str(e) or "uq_feedback_client_server_skill_context" in str(e):
+            raise HTTPException(
+                status_code=409, 
+                detail="Duplicate feedback: You have already provided feedback for this task/context"
+            )
+        raise HTTPException(status_code=400, detail="Database constraint violation")
     
     # Invalidate related caches
-    await cache.delete(f"feedback_list:*")
+    await invalidate_feedback_cache()
     if server_agent:
         await cache.delete(f"reputation:{server_agent.agent_address}")
     
@@ -591,7 +605,10 @@ async def list_validation_responses(
     client_ip = extract_client_ip(request)
     await apply_rate_limit(client_ip, None, "validation_responses", False)
     
-    query = select(ValidationResponse)
+    query = select(ValidationResponse).options(
+        selectinload(ValidationResponse.validator_agent),
+        selectinload(ValidationResponse.request)
+    )
     if data_hash:
         query = query.where(ValidationResponse.data_hash == data_hash)
     
@@ -666,7 +683,7 @@ async def submit_validation_response(
     ipfs_hash = web3_service.generate_ipfs_hash({
         "validation_response": response_data.model_dump(),
         "signature": signature,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     })
     
     # Create validation response
@@ -746,11 +763,11 @@ async def get_reputation_score(
         reputation_score=reputation_score,
         feedback_count=feedback_count,
         average_rating=average_rating,
-        calculated_at=datetime.utcnow()
+        calculated_at=datetime.now(timezone.utc)
     )
     
     # Cache the result
-    await cache.set(f"reputation:{agent_address}", reputation_data.model_dump(), settings.reputation_cache_ttl)
+    await cache.set(f"reputation:{agent_address}", reputation_data.model_dump(), settings.reputation_cache_ttl, tags=["reputation"])
     
     return reputation_data
 
@@ -791,7 +808,7 @@ async def verify_agent(
         "valid": True,
         "registered": agent is not None,
         "agent_domain": agent.agent_domain if agent else None,
-        "verified_at": datetime.utcnow().isoformat()
+        "verified_at": datetime.now(timezone.utc).isoformat()
     }
 
 # Metrics endpoints

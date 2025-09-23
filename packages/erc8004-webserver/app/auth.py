@@ -2,9 +2,10 @@ from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, Dict, Any
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import time
+import secrets
 
 from .web3_service import web3_service
 from .cache import cache
@@ -27,7 +28,8 @@ class AuthorizationError(HTTPException):
 async def verify_signature_auth(
     authorization: HTTPAuthorizationCredentials = Security(security),
     agent_address: str = None,
-    signature: str = None
+    signature: str = None,
+    nonce: str = None
 ) -> Dict[str, Any]:
     """
     Verify Ethereum signature authentication
@@ -36,6 +38,7 @@ async def verify_signature_auth(
     - Authorization: Bearer <message_to_be_signed>
     - Agent-Address: <CAIP-10_address>  
     - Signature: <ethereum_signature>
+    - X-Nonce: <unique_nonce> (optional but recommended)
     """
     if not authorization:
         raise AuthenticationError("Missing authorization header")
@@ -53,12 +56,23 @@ async def verify_signature_auth(
     if not parsed_address:
         raise AuthenticationError("Invalid agent address format")
     
+    # Validate message timestamp if present (should be within 5 minutes)
+    current_time = int(time.time())
+    if message.isdigit():
+        message_time = int(message)
+        if abs(current_time - message_time) > 300:  # 5 minutes
+            raise AuthenticationError("Message timestamp too old or too far in future")
+    
     # Verify signature
     if not web3_service.verify_signature(message, signature, parsed_address):
         raise AuthenticationError("Invalid signature")
     
-    # Check for signature replay attacks
-    signature_hash = hashlib.sha256(f"{signature}{message}{parsed_address}".encode()).hexdigest()
+    # Enhanced replay protection with nonce
+    replay_components = [signature, message, parsed_address]
+    if nonce:
+        replay_components.append(nonce)
+    
+    signature_hash = hashlib.sha256("".join(replay_components).encode()).hexdigest()
     replay_key = f"signature_replay:{signature_hash}"
     
     if await cache.exists(replay_key):
@@ -73,7 +87,8 @@ async def verify_signature_auth(
         "chain_id": chain_id,
         "message": message,
         "signature": signature,
-        "authenticated_at": datetime.utcnow()
+        "nonce": nonce,
+        "authenticated_at": datetime.now(timezone.utc)
     }
 
 
@@ -81,7 +96,8 @@ async def verify_eip712_auth(
     structured_data: Dict[str, Any],
     authorization: HTTPAuthorizationCredentials = Security(security),
     agent_address: str = None,
-    signature: str = None
+    signature: str = None,
+    nonce: str = None
 ) -> Dict[str, Any]:
     """Verify EIP-712 structured data signature"""
     
@@ -99,18 +115,29 @@ async def verify_eip712_auth(
     if not parsed_address:
         raise AuthenticationError("Invalid agent address format")
     
+    # Validate timestamp in structured data if present
+    if 'message' in structured_data and 'timestamp' in structured_data['message']:
+        message_timestamp = structured_data['message']['timestamp']
+        current_time = int(time.time())
+        if abs(current_time - message_timestamp) > 300:  # 5 minutes
+            raise AuthenticationError("Message timestamp too old or too far in future")
+    
     # Verify EIP-712 signature
     if not web3_service.verify_eip712_signature(structured_data, signature, parsed_address):
         raise AuthenticationError("Invalid EIP-712 signature")
     
-    # Check for signature replay attacks
-    signature_hash = hashlib.sha256(f"{signature}{str(structured_data)}{parsed_address}".encode()).hexdigest()
+    # Enhanced replay protection with nonce
+    replay_components = [signature, str(structured_data), parsed_address]
+    if nonce:
+        replay_components.append(nonce)
+    
+    signature_hash = hashlib.sha256("".join(replay_components).encode()).hexdigest()
     replay_key = f"eip712_replay:{signature_hash}"
     
     if await cache.exists(replay_key):
         raise AuthenticationError("Signature already used (replay attack prevention)")
     
-    # Store signature hash for replay prevention (expire in 1 hour)
+    # Store signature hash for replay prevention (expire in 1 hour)  
     await cache.set(replay_key, True, ttl=3600)
     
     return {
@@ -119,7 +146,8 @@ async def verify_eip712_auth(
         "chain_id": chain_id,
         "structured_data": structured_data,
         "signature": signature,
-        "authenticated_at": datetime.utcnow()
+        "nonce": nonce,
+        "authenticated_at": datetime.now(timezone.utc)
     }
 
 

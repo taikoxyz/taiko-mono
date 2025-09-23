@@ -3,7 +3,7 @@ from fastapi import Response
 from typing import Dict, Any
 import time
 import psutil
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from .models import Agent, Feedback, ValidationRequest, ValidationResponse
@@ -196,7 +196,7 @@ async def get_application_metrics(db: AsyncSession) -> Dict[str, Any]:
         "total_validation_responses": total_validation_responses,
         "average_reputation": float(avg_rating),
         "uptime_seconds": metrics_collector.get_uptime(),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "system": {
             "memory": {
                 "used": psutil.virtual_memory().used,

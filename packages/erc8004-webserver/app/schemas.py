@@ -85,7 +85,7 @@ class FeedbackResponseSchema(BaseModel):
 
 class ValidationRequestCreateSchema(BaseModel):
     data_hash: str = Field(..., pattern=r"^[a-fA-F0-9]{64}$")
-    agent_validator_id: int = Field(..., gt=0)
+    agent_validator_id: Optional[int] = Field(None, gt=0, description="Specific validator ID (null for public requests)")
     data_uri: str = Field(..., description="URI to validation data")
     validation_data: Dict[str, Any] = Field(..., description="Validation request data")
     expires_at: datetime = Field(..., description="Expiration timestamp")
@@ -94,7 +94,7 @@ class ValidationRequestCreateSchema(BaseModel):
 class ValidationRequestResponseSchema(BaseModel):
     id: int
     data_hash: str
-    agent_validator_id: int
+    agent_validator_id: Optional[int]  # Can be null for public requests
     agent_server_id: int
     data_uri: str
     validation_data: Dict[str, Any]

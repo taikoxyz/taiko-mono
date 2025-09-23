@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Text, Boolean, DateTime, JSON, CheckConstraint, Index, ForeignKey
+from sqlalchemy import Integer, String, Text, Boolean, DateTime, JSON, CheckConstraint, Index, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 from typing import Optional, Any, Dict, List
@@ -95,12 +95,26 @@ class Feedback(Base):
     )
     
     __table_args__ = (
+        # Prevent duplicate feedback per task from the same client
+        UniqueConstraint(
+            'agent_client_id', 'task_id', 
+            name='uq_feedback_client_task'
+        ),
+        # Prevent duplicate feedback for the same agent skill per client
+        UniqueConstraint(
+            'agent_client_id', 'agent_server_id', 'agent_skill_id', 'context_id',
+            name='uq_feedback_client_server_skill_context'
+        ),
+        # Indexes for performance
         Index('idx_feedback_auth_id', 'feedback_auth_id'),
         Index('idx_feedback_server_id', 'agent_server_id'),
         Index('idx_feedback_client_id', 'agent_client_id'),
         Index('idx_feedback_skill_id', 'agent_skill_id'),
         Index('idx_feedback_task_id', 'task_id'),
         Index('idx_feedback_created_at', 'created_at'),
+        # Composite index for common query patterns
+        Index('idx_feedback_server_skill', 'agent_server_id', 'agent_skill_id'),
+        Index('idx_feedback_client_server', 'agent_client_id', 'agent_server_id'),
     )
 
 
@@ -109,10 +123,10 @@ class ValidationRequest(Base):
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     data_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    agent_validator_id: Mapped[int] = mapped_column(
+    agent_validator_id: Mapped[Optional[int]] = mapped_column(
         Integer, 
         ForeignKey("agents.agent_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=True  # Allow null for public validation requests
     )
     agent_server_id: Mapped[int] = mapped_column(
         Integer, 
@@ -128,7 +142,7 @@ class ValidationRequest(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     
     # Relationships
-    validator_agent: Mapped["Agent"] = relationship(
+    validator_agent: Mapped[Optional["Agent"]] = relationship(
         "Agent", 
         foreign_keys=[agent_validator_id]
     )

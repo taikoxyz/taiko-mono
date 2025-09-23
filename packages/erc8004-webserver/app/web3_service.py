@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, Tuple
 import structlog
 import hashlib
 import re
+import time
 from .config import settings
 
 logger = structlog.get_logger()
@@ -77,7 +78,7 @@ class Web3Service:
                 "agentAddress": agent_address,
                 "agentDomain": agent_domain,
                 "agentCardHash": self.hash_agent_card(agent_card),
-                "timestamp": int(hashlib.sha256(str(agent_card).encode()).hexdigest()[:8], 16)
+                "timestamp": int(time.time())
             }
         }
     
