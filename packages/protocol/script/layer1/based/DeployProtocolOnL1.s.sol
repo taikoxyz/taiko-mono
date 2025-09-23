@@ -19,7 +19,7 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ShastaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import { ForcedInclusionStore } from "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import { ForcedInclusionStore } from "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -34,8 +34,9 @@ import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { DevnetShastaInbox } from "src/layer1/shasta/impl/DevnetShastaInbox.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -313,14 +314,17 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address tempFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
+        address helper = address(new InboxHelper());
+        address tempFork =
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address newFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
+        address newFork =
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

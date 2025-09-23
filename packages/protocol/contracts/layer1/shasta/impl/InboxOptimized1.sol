@@ -23,7 +23,7 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
-    ///      Packed to fit in single storage slot (32 + 48 + 208 = 288 bits < 256*2)
+    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
     struct ReusableTransitionRecord {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
@@ -35,9 +35,9 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @dev Storage for default transition records to optimize gas usage
-    /// @notice Stores the most common transition record for each buffer slot
-    /// @dev Ring buffer implementation with collision handling that falls back to composite key
-    /// mapping
+    /// @notice Stores one transition record per buffer slot for gas optimization
+    /// @dev Ring buffer implementation with collision handling that falls back to the composite key
+    /// mapping from the parent contract
     mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal
         _reusableTransitionRecords;
 
@@ -51,6 +51,10 @@ contract InboxOptimized1 is Inbox {
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
+    // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // Internal Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
@@ -68,40 +72,6 @@ contract InboxOptimized1 is Inbox {
         } else {
             _buildAndSaveAggregatedTransitionRecords(_input);
         }
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Optimized retrieval using ring buffer with collision detection
-    /// @notice Lookup strategy (gas-optimized order):
-    ///         1. Ring buffer slot lookup (cheapest - single SLOAD)
-    ///         2. Proposal ID verification (cached in memory)
-    ///         3. Partial parent hash comparison (single comparison)
-    ///         4. Fallback to composite key mapping (most expensive)
-    /// @param _proposalId The proposal ID to look up
-    /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return hashAndDeadline_ The transition record hash and finalization deadline
-    function _getTransitionRecordHashAndDeadline(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        view
-        override
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
-    {
-        uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
-
-        // Fast path: ring buffer hit (single SLOAD + memory comparison)
-        if (
-            record.proposalId == _proposalId
-                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
-        ) {
-            return record.hashAndDeadline;
-        }
-
-        // Slow path: composite key mapping (additional SLOAD)
-        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
@@ -147,6 +117,44 @@ contract InboxOptimized1 is Inbox {
         return super._storeTransitionRecord(
             _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Internal View Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc Inbox
+    /// @dev Optimized retrieval using ring buffer with collision detection
+    /// @notice Lookup strategy (gas-optimized order):
+    ///         1. Ring buffer slot lookup (cheapest - single SLOAD)
+    ///         2. Proposal ID verification (cached in memory)
+    ///         3. Partial parent hash comparison (single comparison)
+    ///         4. Fallback to composite key mapping (most expensive)
+    /// @param _proposalId The proposal ID to look up
+    /// @param _parentTransitionHash Parent transition hash for verification
+    /// @return hashAndDeadline_ The transition record hash and finalization deadline
+    function _getTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        view
+        override
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+    {
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+
+        // Fast path: ring buffer hit (single SLOAD + memory comparison)
+        if (
+            record.proposalId == _proposalId
+                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
+        ) {
+            return record.hashAndDeadline;
+        }
+
+        // Slow path: composite key mapping (additional SLOAD)
+        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
