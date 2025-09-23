@@ -94,6 +94,7 @@ var (
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
 	bytesType, _              = abi.NewType("bytes", "", nil)
+	bytes32Type, _            = abi.NewType("bytes32", "", nil)
 	PacayaDifficultyInputArgs = abi.Arguments{
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
 		{Name: "block.number", Type: uint256Type},
@@ -107,7 +108,7 @@ var (
 		{Name: "bytesY", Type: bytesType},
 	}
 	AggregateBondInstructionHashArgs = abi.Arguments{
-		{Name: "_bondInstructionsHash", Type: bytesType},
+		{Name: "_bondInstructionsHash", Type: bytes32Type},
 		{Name: "_bondInstruction", Type: BondInstructionComponentsType},
 	}
 	ProverAuthType, _ = abi.NewType("tuple", "ProverAuth", ProverAuthComponents)
