@@ -9,7 +9,6 @@ import { BlobTestUtils } from "../common/BlobTestUtils.sol";
 import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 import { ICheckpointManager } from "contracts/shared/based/iface/ICheckpointManager.sol";
 import { Vm } from "forge-std/src/Vm.sol";
-import { console } from "forge-std/src/console.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";
@@ -30,8 +29,17 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     bool private useOptimizedInputEncoding;
     bool private useOptimizedHashing;
 
-    // Store the checkpoint used during prove for each proposal
-    mapping(uint48 proposalId => ICheckpointManager.Checkpoint checkpoint) private storedCheckpoints;
+    // Store per-test checkpoint and transition data for each proved proposal
+    mapping(uint256 runId => mapping(uint48 proposalId => ICheckpointManager.Checkpoint checkpoint))
+        private storedCheckpoints;
+    mapping(uint256 runId => mapping(uint48 proposalId => bytes32 transitionHash))
+        private storedTransitionHashes;
+    mapping(uint256 runId => mapping(uint48 proposalId => bytes32 parentTransitionHash))
+        private storedParentTransitionHashes;
+
+    // Track current test run and last proved transition for parent linkage
+    uint256 private runId;
+    bytes32 private lastProvedTransitionHash;
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -39,6 +47,9 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
+
+        // Increment test run identifier to isolate stored data between tests
+        runId += 1;
 
         // Initialize the helper for encoding/decoding operations
         helper = new InboxHelper();
@@ -50,6 +61,9 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized4"));
         useOptimizedHashing = keccak256(bytes(contractName))
             == keccak256(bytes("InboxOptimized4"));
+
+        // Reset transition lineage for this run
+        lastProvedTransitionHash = _getGenesisTransitionHash(useOptimizedHashing);
 
         // Select a proposer for creating proposals
         currentProposer = _selectProposer(Bob);
@@ -74,8 +88,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         vm.warp(block.timestamp + 12);
 
         // Create finalization input (propose with transition records)
-        (bytes memory finalizeData, ) =
-            _createFinalizeInput(proposal, coreState);
+        (bytes memory finalizeData, ) = _createFinalizeInput(proposal, coreState);
 
         // Gas measurement for propose + finalize
         vm.startPrank(currentProposer);
@@ -130,14 +143,27 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         // Advance to next proposal block
         _advanceToNextProposalBlock(coreState);
 
-        // Try to finalize all proposals
-        (bytes memory finalizeData, ) = _createMultipleFinalizeInput(proposals, coreState);
+        // Prepare transition records for all proposals
+        IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](proposalCount);
+        for (uint256 i = 0; i < proposalCount; i++) {
+            records[i] = _createTransitionRecord(proposals[i], 1);
+        }
+
+        uint256 maxCount = inbox.getConfig().maxFinalizationCount;
+        IInbox.Proposal memory lastFinalizedProposal = proposals[maxCount - 1];
+
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
+            proposals[proposalCount - 1],
+            coreState,
+            records,
+            lastFinalizedProposal,
+            true
+        );
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), finalizeData);
 
         // Only maxFinalizationCount proposals should be finalized
-        uint256 maxCount = inbox.getConfig().maxFinalizationCount;
         for (uint256 i = 0; i < maxCount; i++) {
             _assertProposalFinalized(proposals[i].id);
         }
@@ -201,9 +227,8 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         // Advance to next proposal block
         _advanceToNextProposalBlock(coreState);
 
-        // Create finalization input with only the second proposal's transition record
-        IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
-        records[0] = _createTransitionRecord(proposals[1], 1);
+        // Create finalization input without providing any transition records
+        IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](0);
 
         (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
             proposals[1],
@@ -234,8 +259,6 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
         // Create a valid transition record first
         IInbox.TransitionRecord memory record = _createTransitionRecord(proposal, 1);
-        // Keep the transition hash valid but change checkpoint hash
-        record.checkpointHash = keccak256("wrong_checkpoint");
 
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
@@ -265,39 +288,53 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
     /// @dev Tests that bond instructions are processed during finalization
     function test_finalize_withBondInstructions() public {
-        (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) = _setupProvenProposal();
+        // Manually set up and prove a proposal that triggers bond instructions
+        _setupBlobHashes();
 
-        // Advance to next proposal block
+        (bytes memory proposeData, IInbox.ProposeInput memory input) = _createFirstProposeInput();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        IInbox.Proposal memory proposal = _buildProposalFromInput(input, 1);
+        IInbox.CoreState memory coreState = IInbox.CoreState({
+            nextProposalId: 2,
+            nextProposalBlockId: uint48(block.number + 1),
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        // Fast-forward beyond the extended proving window to trigger provability bond
+        IInbox.Config memory config = inbox.getConfig();
+        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
+
+        IInbox.TransitionMetadata memory metadata = IInbox.TransitionMetadata({
+            designatedProver: currentProver,
+            actualProver: currentProver
+        });
+
+        _proveProposalWithMetadata(proposal, coreState, metadata);
+
+        // Advance to next proposal block for finalization
         _advanceToNextProposalBlock(coreState);
 
-        // Create transition record with bond instructions
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
+        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](1);
         bondInstructions[0] = LibBonds.BondInstruction({
             proposalId: proposal.id,
             bondType: LibBonds.BondType.PROVABILITY,
-            payer: currentProposer,
-            receiver: Alice
+            payer: proposal.proposer,
+            receiver: currentProver
         });
-        bondInstructions[1] = LibBonds.BondInstruction({
-            proposalId: proposal.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: currentProposer,
-            receiver: Bob
-        });
-
-        IInbox.TransitionRecord memory record = _createTransitionRecordWithBonds(
-            proposal,
-            1,
-            bondInstructions
-        );
 
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
-        records[0] = record;
+        records[0] = _createTransitionRecordWithBonds(proposal, 1, bondInstructions);
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
             proposal,
             coreState,
-            records
+            records,
+            proposal,
+            true
         );
 
         // Record logs to verify BondInstructed event
@@ -319,9 +356,11 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
 
     /// @dev Tests finalization with span > 1 (skipping intermediate proposals)
     function test_finalize_withSpanGreaterThanOne() public {
-        // Create and prove 3 proposals
+        // Create 3 proposals and prove them in a single aggregated proof
         (IInbox.Proposal[] memory proposals, IInbox.CoreState memory coreState) =
-            _setupMultipleProvenProposals(3);
+            _createMultipleProposals(3);
+
+        _proveAggregatedProposals(proposals, coreState);
 
         // Advance to next proposal block
         _advanceToNextProposalBlock(coreState);
@@ -332,11 +371,23 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
-            proposals[0],
+        bool supportsAggregation = keccak256(bytes(contractName))
+            != keccak256(bytes("Inbox"));
+
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
+            proposals[2],
             coreState,
-            records
+            records,
+            proposals[0],
+            supportsAggregation
         );
+
+        if (!supportsAggregation) {
+            vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
+            vm.prank(currentProposer);
+            inbox.propose(bytes(""), finalizeData);
+            return;
+        }
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), finalizeData);
@@ -347,7 +398,7 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         _assertProposalFinalized(proposals[2].id);
     }
 
-    /// @dev Tests that span cannot exceed available proposals
+    /// @dev Tests that providing a mutated span causes record hash mismatch
     function test_finalize_RevertWhen_spanOutOfBounds() public {
         (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) = _setupProvenProposal();
 
@@ -361,18 +412,20 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
             proposal,
             coreState,
-            records
+            records,
+            proposal,
+            false
         );
 
-        vm.expectRevert(SpanOutOfBounds.selector);
+        vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), finalizeData);
     }
 
-    /// @dev Tests that span must be at least 1
+    /// @dev Tests that providing a zero span causes record hash mismatch
     function test_finalize_RevertWhen_invalidSpan() public {
         (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) = _setupProvenProposal();
 
@@ -386,13 +439,15 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
             proposal,
             coreState,
-            records
+            records,
+            proposal,
+            false
         );
 
-        vm.expectRevert(InvalidSpan.selector);
+        vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), finalizeData);
     }
@@ -415,10 +470,12 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
         records[0] = record;
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
             proposal,
             coreState,
-            records
+            records,
+            proposal,
+            false
         );
 
         vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
@@ -445,10 +502,12 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         records[0] = _createTransitionRecord(proposals[0], 1);
         records[1] = _createTransitionRecord(proposals[2], 1);
 
-        (bytes memory finalizeData, ) = _createFinalizeInputWithRecords(
-            proposals[0],
+        (bytes memory finalizeData, ) = _createFinalizeInputWithRecordsForProposal(
+            proposals[2],
             coreState,
-            records
+            records,
+            proposals[0],
+            true
         );
 
         vm.prank(currentProposer);
@@ -559,16 +618,119 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    /// @dev Proves a proposal by submitting a valid proof
-    function _proveProposal(IInbox.Proposal memory _proposal, IInbox.CoreState memory)
+    /// @dev Proves a proposal by submitting a valid proof with default metadata
+    function _proveProposal(IInbox.Proposal memory _proposal, IInbox.CoreState memory _coreState)
+        internal
+    {
+        IInbox.TransitionMetadata memory metadata = IInbox.TransitionMetadata({
+            designatedProver: currentProver,
+            actualProver: currentProver
+        });
+        _proveProposalWithMetadata(_proposal, _coreState, metadata);
+    }
+
+    /// @dev Proves a proposal by submitting a valid proof with custom metadata
+    function _proveProposalWithMetadata(
+        IInbox.Proposal memory _proposal,
+        IInbox.CoreState memory,
+        IInbox.TransitionMetadata memory _metadata
+    )
         internal
     {
         // Create and store the checkpoint that will be used for this proposal
         ICheckpointManager.Checkpoint memory checkpoint = _createCheckpoint();
-        storedCheckpoints[_proposal.id] = checkpoint;
+        storedCheckpoints[runId][_proposal.id] = checkpoint;
 
-        // Create prove input using the stored checkpoint
-        bytes memory proveData = _createProveInputWithCheckpoint(_proposal, checkpoint);
+        // Build transition linking to the last proved transition hash
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: useOptimizedHashing
+                ? helper.hashProposalOptimized(_proposal)
+                : helper.hashProposal(_proposal),
+            parentTransitionHash: lastProvedTransitionHash,
+            checkpoint: checkpoint
+        });
+
+        storedParentTransitionHashes[runId][_proposal.id] = transition.parentTransitionHash;
+
+        // Create prove input using the constructed transition
+        bytes memory proveData = _createProveInputWithTransitionAndMetadata(
+            _proposal,
+            transition,
+            _metadata
+        );
+        bytes memory proof = _createValidProof();
+
+        vm.prank(currentProver);
+        inbox.prove(proveData, proof);
+
+        // Cache transition hash for later finalization input reconstruction
+        bytes32 transitionHash = useOptimizedHashing
+            ? helper.hashTransitionOptimized(transition)
+            : helper.hashTransition(transition);
+        storedTransitionHashes[runId][_proposal.id] = transitionHash;
+        lastProvedTransitionHash = transitionHash;
+    }
+
+    /// @dev Proves multiple proposals in a single call, producing an aggregated transition record
+    function _proveAggregatedProposals(
+        IInbox.Proposal[] memory _proposals,
+        IInbox.CoreState memory
+    )
+        internal
+    {
+        uint256 count = _proposals.length;
+        require(count > 1, "Aggregation requires multiple proposals");
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](count);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](count);
+
+        bytes32 parentHash = lastProvedTransitionHash;
+        bytes32 transitionHash;
+        ICheckpointManager.Checkpoint memory checkpoint;
+
+        for (uint256 i; i < count; i++) {
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 12);
+
+            checkpoint = _createCheckpoint();
+            storedCheckpoints[runId][_proposals[i].id] = checkpoint;
+
+            transitions[i] = IInbox.Transition({
+                proposalHash: useOptimizedHashing
+                    ? helper.hashProposalOptimized(_proposals[i])
+                    : helper.hashProposal(_proposals[i]),
+                parentTransitionHash: parentHash,
+                checkpoint: checkpoint
+            });
+
+            metadata[i] = IInbox.TransitionMetadata({
+                designatedProver: currentProver,
+                actualProver: currentProver
+            });
+
+            storedParentTransitionHashes[runId][_proposals[i].id] = parentHash;
+
+            transitionHash = useOptimizedHashing
+                ? helper.hashTransitionOptimized(transitions[i])
+                : helper.hashTransition(transitions[i]);
+
+            storedTransitionHashes[runId][_proposals[i].id] = transitionHash;
+            parentHash = transitionHash;
+        }
+
+        // Cache the aggregated transition hash and checkpoint on the first proposal ID
+        storedTransitionHashes[runId][_proposals[0].id] = transitionHash;
+        storedCheckpoints[runId][_proposals[0].id] = transitions[count - 1].checkpoint;
+
+        lastProvedTransitionHash = transitionHash;
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: _proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
+
+        bytes memory proveData = _encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         vm.prank(currentProver);
@@ -627,8 +789,61 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (bytes memory finalizeData_, IInbox.ProposeInput memory input_)
     {
-        // For finalization, we create a new checkpoint for the finalization proposal
-        ICheckpointManager.Checkpoint memory checkpoint = _createCheckpoint();
+        return _createFinalizeInputWithRecordsForProposal(
+            _proposal,
+            _coreState,
+            _records,
+            _proposal,
+            true
+        );
+    }
+
+    /// @dev Creates finalization input using the checkpoint for a specific proposal in the record set
+    function _createFinalizeInputWithRecordsForProposal(
+        IInbox.Proposal memory _proposal,
+        IInbox.CoreState memory _coreState,
+        IInbox.TransitionRecord[] memory _records,
+        IInbox.Proposal memory _finalizedProposal,
+        bool _strictMatching
+    )
+        internal
+        view
+        returns (bytes memory finalizeData_, IInbox.ProposeInput memory input_)
+    {
+        ICheckpointManager.Checkpoint memory checkpoint;
+
+        if (_records.length > 0) {
+            checkpoint = storedCheckpoints[runId][_finalizedProposal.id];
+            require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
+
+            bytes32 expectedTransitionHash = storedTransitionHashes[runId][_finalizedProposal.id];
+            require(
+                expectedTransitionHash != bytes32(0),
+                "Transition hash not cached for proposal"
+            );
+
+            bytes32 expectedCheckpointHash = _hashCheckpoint(checkpoint);
+            bool matched;
+            for (uint256 i; i < _records.length; i++) {
+                if (_records[i].transitionHash == expectedTransitionHash) {
+                    if (_strictMatching) {
+                        require(
+                            _records[i].checkpointHash == expectedCheckpointHash,
+                            "Checkpoint hash mismatch"
+                        );
+                    }
+                    matched = true;
+                    break;
+                }
+            }
+            if (_strictMatching) {
+                require(matched, "Transition record not found in input");
+            }
+        } else {
+            // No records provided; create a fresh checkpoint since finalization will revert earlier
+            checkpoint = _createCheckpoint();
+        }
+
         return _createFinalizeInputWithCheckpoint(_proposal, _coreState, _records, checkpoint);
     }
 
@@ -664,26 +879,16 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.TransitionRecord memory)
     {
         // Retrieve the stored record hash to understand what was actually stored during prove
-        (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, _getGenesisTransitionHash(useOptimizedHashing));
-        require(storedRecordHash != bytes32(0), "Transition record not found for proposal");
+        bytes32 parentTransitionHash = storedParentTransitionHashes[runId][_proposal.id];
+        (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, parentTransitionHash);
+        require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
+        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[runId][_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
-        // Recreate the transition that was used during prove using the same checkpoint
-        IInbox.Transition memory originalTransition = IInbox.Transition({
-            proposalHash: useOptimizedHashing
-                ? helper.hashProposalOptimized(_proposal)
-                : helper.hashProposal(_proposal),
-            parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
-            checkpoint: checkpoint
-        });
-
-        // Calculate the transition hash using the same method as during prove
-        bytes32 transitionHash = useOptimizedHashing
-            ? helper.hashTransitionOptimized(originalTransition)
-            : helper.hashTransition(originalTransition);
+        bytes32 transitionHash = storedTransitionHashes[runId][_proposal.id];
+        require(transitionHash != bytes32(0), "Transition hash not found for proposal");
 
         return IInbox.TransitionRecord({
             span: _span,
@@ -704,26 +909,16 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.TransitionRecord memory)
     {
         // Retrieve the stored record hash to understand what was actually stored during prove
-        (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, _getGenesisTransitionHash(useOptimizedHashing));
-        require(storedRecordHash != bytes32(0), "Transition record not found for proposal");
+        bytes32 parentTransitionHash = storedParentTransitionHashes[runId][_proposal.id];
+        (, bytes26 storedRecordHash) = inbox.getTransitionRecordHash(_proposal.id, parentTransitionHash);
+        require(storedRecordHash != bytes26(0), "Transition record not found for proposal");
 
         // Use the same checkpoint that was used during prove
-        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[_proposal.id];
+        ICheckpointManager.Checkpoint memory checkpoint = storedCheckpoints[runId][_proposal.id];
         require(checkpoint.blockNumber != 0, "Checkpoint not found for proposal");
 
-        // Recreate the transition that was used during prove using the same checkpoint
-        IInbox.Transition memory originalTransition = IInbox.Transition({
-            proposalHash: useOptimizedHashing
-                ? helper.hashProposalOptimized(_proposal)
-                : helper.hashProposal(_proposal),
-            parentTransitionHash: _getGenesisTransitionHash(useOptimizedHashing),
-            checkpoint: checkpoint
-        });
-
-        // Calculate the transition hash using the same method as during prove
-        bytes32 transitionHash = useOptimizedHashing
-            ? helper.hashTransitionOptimized(originalTransition)
-            : helper.hashTransition(originalTransition);
+        bytes32 transitionHash = storedTransitionHashes[runId][_proposal.id];
+        require(transitionHash != bytes32(0), "Transition hash not found for proposal");
 
         return IInbox.TransitionRecord({
             span: _span,
@@ -826,16 +1021,38 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (bytes memory)
     {
+        return _createProveInputWithTransitionAndMetadata(
+            _proposal,
+            _transition,
+            IInbox.TransitionMetadata({
+                designatedProver: currentProver,
+                actualProver: currentProver
+            })
+        );
+    }
+
+    function _createProveInputWithTransitionAndMetadata(
+        IInbox.Proposal memory _proposal,
+        IInbox.Transition memory _transition,
+        IInbox.TransitionMetadata memory _metadata
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _proposal;
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = _transition;
 
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = _metadata;
+
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadata: new IInbox.TransitionMetadata[](1)
+            metadata: metadata
         });
 
         return _encodeProveInput(input);
@@ -1000,15 +1217,26 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
     function _assertBondInstructedEventEmitted(
         Vm.Log[] memory _logs,
         LibBonds.BondInstruction[] memory _expectedInstructions
-    ) internal pure {
-        bool found = false;
+    ) internal {
         for (uint256 i = 0; i < _logs.length; i++) {
             if (_logs[i].topics[0] == IInbox.BondInstructed.selector) {
-                found = true;
-                // Could decode and verify the instructions match, but for simplicity we just check emission
-                break;
+                LibBonds.BondInstruction[] memory decoded = abi.decode(
+                    _logs[i].data,
+                    (LibBonds.BondInstruction[])
+                );
+
+                assertEq(decoded.length, _expectedInstructions.length, "Unexpected bond instructions length");
+                for (uint256 j = 0; j < decoded.length; j++) {
+                    assertEq(decoded[j].proposalId, _expectedInstructions[j].proposalId, "Bond instruction proposal mismatch");
+                    assertEq(uint8(decoded[j].bondType), uint8(_expectedInstructions[j].bondType), "Bond instruction type mismatch");
+                    assertEq(decoded[j].payer, _expectedInstructions[j].payer, "Bond instruction payer mismatch");
+                    assertEq(decoded[j].receiver, _expectedInstructions[j].receiver, "Bond instruction receiver mismatch");
+                }
+                return;
             }
         }
-        assertTrue(found, "BondInstructed event should be emitted");
+
+        emit log("BondInstructed event should be emitted");
+        fail();
     }
 }
