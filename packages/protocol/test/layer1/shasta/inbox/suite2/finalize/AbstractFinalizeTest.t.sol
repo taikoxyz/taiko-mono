@@ -119,8 +119,14 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
         (bytes memory finalizeData, ) = _createMultipleFinalizeInput(proposals, coreState);
 
         // Finalize all proposals at once
-        vm.prank(currentProposer);
+        vm.startPrank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-finalize",
+            string.concat("propose_and_finalize_multiple_consecutive_", getTestContractName())
+        );
         inbox.propose(bytes(""), finalizeData);
+        vm.stopSnapshotGas();
+        vm.stopPrank();
 
         // Verify all proposals were finalized
         for (uint256 i = 0; i < proposalCount; i++) {
@@ -156,8 +162,14 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             true
         );
 
-        vm.prank(currentProposer);
+        vm.startPrank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-finalize",
+            string.concat("propose_and_finalize_partial_max_count_", getTestContractName())
+        );
         inbox.propose(bytes(""), finalizeData);
+        vm.stopSnapshotGas();
+        vm.stopPrank();
 
         // Only maxFinalizationCount proposals should be finalized
         for (uint256 i = 0; i < maxCount; i++) {
@@ -382,8 +394,14 @@ abstract contract AbstractFinalizeTest is InboxTestSetup, BlobTestUtils {
             return;
         }
 
-        vm.prank(currentProposer);
+        vm.startPrank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-finalize",
+            string.concat("propose_and_finalize_span_three_", getTestContractName())
+        );
         inbox.propose(bytes(""), finalizeData);
+        vm.stopSnapshotGas();
+        vm.stopPrank();
 
         // All 3 proposals should be considered finalized
         _assertProposalFinalized(proposals[0].id);

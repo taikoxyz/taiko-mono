@@ -1,0 +1,21 @@
+{
+  "propose_and_finalize_multiple_consecutive_Inbox": "164681",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized1": "165410",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized2": "161674",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized3": "160084",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized4": "160398",
+  "propose_and_finalize_partial_max_count_Inbox": "195265",
+  "propose_and_finalize_partial_max_count_InboxOptimized1": "199112",
+  "propose_and_finalize_partial_max_count_InboxOptimized2": "194779",
+  "propose_and_finalize_partial_max_count_InboxOptimized3": "188575",
+  "propose_and_finalize_partial_max_count_InboxOptimized4": "188840",
+  "propose_and_finalize_single_Inbox": "156826",
+  "propose_and_finalize_single_InboxOptimized1": "157066",
+  "propose_and_finalize_single_InboxOptimized2": "153421",
+  "propose_and_finalize_single_InboxOptimized3": "152265",
+  "propose_and_finalize_single_InboxOptimized4": "152586",
+  "propose_and_finalize_span_three_InboxOptimized1": "161075",
+  "propose_and_finalize_span_three_InboxOptimized2": "157430",
+  "propose_and_finalize_span_three_InboxOptimized3": "156249",
+  "propose_and_finalize_span_three_InboxOptimized4": "156570"
+}
