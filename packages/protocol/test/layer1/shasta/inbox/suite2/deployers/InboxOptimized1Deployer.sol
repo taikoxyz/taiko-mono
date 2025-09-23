@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized1 } from "../implementations/TestInboxOptimized1.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxOptimized1Deployer
@@ -17,7 +17,7 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
-        address checkpointManager,
+        uint16 maxCheckpointHistory,
         address proofVerifier,
         address proposerChecker
     )
@@ -25,7 +25,7 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address impl = address(
-            new TestInboxOptimized1(bondToken, checkpointManager, proofVerifier, proposerChecker)
+            new TestInboxOptimized1(bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
         );
 
         TestInboxOptimized1 inbox = TestInboxOptimized1(
