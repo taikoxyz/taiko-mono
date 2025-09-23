@@ -826,8 +826,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         unchecked {
             uint256 numUnfinalizedProposals =
                 _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            if (numUnfinalizedProposals >= _ringBufferSize) return 0;
-            return _ringBufferSize - numUnfinalizedProposals;
+            return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
 
