@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
+import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title InboxTestHelper
@@ -29,10 +29,10 @@ contract InboxTestHelper is CommonTest {
     uint64 internal constant FEE_IN_GWEI = 100;
 
     // ---------------------------------------------------------------
-    // Helper Interface
+    // Codec Interface
     // ---------------------------------------------------------------
 
-    IInboxHelper internal inboxHelper;
+    IInboxCodec internal inboxCodec;
 
     // ---------------------------------------------------------------
     // Genesis State Builders
@@ -58,7 +58,7 @@ contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(0)
             })
         });
-        return _hashTransition(transition);
+        return inboxCodec.hashTransition(transition);
     }
 
     function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
@@ -71,8 +71,8 @@ contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _hashCoreState(coreState),
-            derivationHash: _hashDerivation(derivation)
+            coreStateHash: inboxCodec.hashCoreState(coreState),
+            derivationHash: inboxCodec.hashDerivation(derivation)
         });
     }
 
@@ -173,8 +173,8 @@ contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
-            coreStateHash: _hashCoreState(expectedCoreState),
-            derivationHash: _hashDerivation(expectedDerivation)
+            coreStateHash: inboxCodec.hashCoreState(expectedCoreState),
+            derivationHash: inboxCodec.hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({
@@ -187,30 +187,6 @@ contract InboxTestHelper is CommonTest {
     // ---------------------------------------------------------------
     // Input Builders
     // ---------------------------------------------------------------
-
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        return inboxHelper.encodeProposeInput(_input);
-    }
-
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
-        internal
-        view
-        returns (bytes memory)
-    {
-        return inboxHelper.encodeProposedEvent(_payload);
-    }
-
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        return inboxHelper.encodeProveInput(_input);
-    }
 
     function _createProposeInputWithCustomParams(
         uint48 _deadline,
@@ -236,7 +212,7 @@ contract InboxTestHelper is CommonTest {
             numForcedInclusions: 0
         });
 
-        return _encodeProposeInput(input);
+        return inboxCodec.encodeProposeInput(input);
     }
 
     function _createFirstProposeInput() internal view returns (bytes memory) {
@@ -252,7 +228,7 @@ contract InboxTestHelper is CommonTest {
         input.parentProposals = parentProposals;
         input.blobReference = blobRef;
 
-        return _encodeProposeInput(input);
+        return inboxCodec.encodeProposeInput(input);
     }
 
     function _createProposeInputWithDeadline(uint48 _deadline)
@@ -284,41 +260,5 @@ contract InboxTestHelper is CommonTest {
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
 
         return _createProposeInputWithCustomParams(0, blobRef, parentProposals, coreState);
-    }
-
-    // ---------------------------------------------------------------
-    // Conditional Hashing Functions
-    // ---------------------------------------------------------------
-
-    function _hashTransition(IInbox.Transition memory _transition)
-        internal
-        view
-        returns (bytes32)
-    {
-        return inboxHelper.hashTransition(_transition);
-    }
-
-    function _hashCoreState(IInbox.CoreState memory _coreState) internal view returns (bytes32) {
-        return inboxHelper.hashCoreState(_coreState);
-    }
-
-    function _hashDerivation(IInbox.Derivation memory _derivation)
-        internal
-        view
-        returns (bytes32)
-    {
-        return inboxHelper.hashDerivation(_derivation);
-    }
-
-    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        internal
-        view
-        returns (bytes32)
-    {
-        return inboxHelper.hashCheckpoint(_checkpoint);
-    }
-
-    function _hashProposal(IInbox.Proposal memory _proposal) internal view returns (bytes32) {
-        return inboxHelper.hashProposal(_proposal);
     }
 }

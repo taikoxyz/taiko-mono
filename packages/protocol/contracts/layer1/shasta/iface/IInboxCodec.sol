@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "./IInbox.sol";
 
-/// @title IInboxHelper
-/// @notice Interface for Inbox encoder/decoder and hashing helper functions
+/// @title IInboxCodec
+/// @notice Interface for Inbox encoder/decoder and hashing functions
 /// @custom:security-contact security@taiko.xyz
-interface IInboxHelper {
+interface IInboxCodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------

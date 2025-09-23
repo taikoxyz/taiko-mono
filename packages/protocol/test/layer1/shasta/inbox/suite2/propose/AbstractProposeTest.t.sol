@@ -76,7 +76,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         );
 
         // Deploy helper - no initialization needed
-        inboxHelper = inboxDeployer.deployHelper();
+        inboxCodec = inboxDeployer.deployCodec();
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -145,7 +145,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         // Expect the Proposed event with the correct data
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
@@ -172,13 +172,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = inboxCodec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -194,13 +194,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = inboxCodec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -236,13 +236,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and blob configuration
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = inboxCodec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
@@ -258,13 +258,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = inboxCodec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 
@@ -308,13 +308,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = inboxCodec.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 
@@ -334,7 +334,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(firstExpectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(firstExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), firstProposeData);
@@ -343,7 +343,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            _hashProposal(firstExpectedPayload.proposal),
+            inboxCodec.hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -379,7 +379,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
+        emit IInbox.Proposed(inboxCodec.encodeProposedEvent(secondExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), secondProposeData);
@@ -388,7 +388,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            _hashProposal(secondExpectedPayload.proposal),
+            inboxCodec.hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 

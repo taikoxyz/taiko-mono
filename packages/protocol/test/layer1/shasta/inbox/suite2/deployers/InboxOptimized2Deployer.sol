@@ -5,7 +5,7 @@ import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized2 } from "../implementations/TestInboxOptimized2.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { InboxOptimized2Helper } from "src/layer1/shasta/impl/InboxOptimized2Helper.sol";
-import { IInboxHelper } from "src/layer1/shasta/iface/IInboxHelper.sol";
+import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxOptimized2Deployer
@@ -42,7 +42,7 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
     }
 
     /// @inheritdoc IInboxDeployer
-    function deployHelper() external returns (IInboxHelper) {
+    function deployCodec() external returns (IInboxCodec) {
         // InboxOptimized2 uses optimized encoding/hashing
         return new InboxOptimized2Helper();
     }

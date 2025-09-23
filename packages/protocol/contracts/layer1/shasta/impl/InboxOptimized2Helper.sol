@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IInboxHelper } from "../iface/IInboxHelper.sol";
+import { IInboxCodec } from "../iface/IInboxCodec.sol";
 import { LibHashing } from "../libs/LibHashing.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
@@ -11,15 +11,15 @@ import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxOptimized2Helper
-/// @notice Helper contract for InboxOptimized2 with optimized encoder/decoder and hashing library
+/// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
 /// functions
 /// @custom:security-contact security@taiko.xyz
-contract InboxOptimized2Helper is IInboxHelper {
+contract InboxOptimized2Helper is IInboxCodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
         external
         pure
@@ -28,7 +28,7 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function decodeProposedEvent(bytes memory _data)
         external
         pure
@@ -41,7 +41,7 @@ contract InboxOptimized2Helper is IInboxHelper {
     // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
         external
         pure
@@ -50,7 +50,7 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibProvedEventEncoder.encode(_payload);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function decodeProvedEvent(bytes memory _data)
         external
         pure
@@ -63,7 +63,7 @@ contract InboxOptimized2Helper is IInboxHelper {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function encodeProposeInput(IInbox.ProposeInput memory _input)
         external
         pure
@@ -72,7 +72,7 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibProposeInputDecoder.encode(_input);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function decodeProposeInput(bytes memory _data)
         external
         pure
@@ -85,7 +85,7 @@ contract InboxOptimized2Helper is IInboxHelper {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function encodeProveInput(IInbox.ProveInput memory _input)
         external
         pure
@@ -94,7 +94,7 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibProveInputDecoder.encode(_input);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function decodeProveInput(bytes memory _data)
         external
         pure
@@ -107,7 +107,7 @@ contract InboxOptimized2Helper is IInboxHelper {
     // LibHashing Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         external
         pure
@@ -116,27 +116,27 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibHashing.hashCheckpoint(_checkpoint);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
         return LibHashing.hashDerivation(_derivation);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
         return LibHashing.hashProposal(_proposal);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
         return LibHashing.hashTransition(_transition);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
         external
         pure
@@ -145,7 +145,7 @@ contract InboxOptimized2Helper is IInboxHelper {
         return LibHashing.hashTransitionRecord(_transitionRecord);
     }
 
-    /// @inheritdoc IInboxHelper
+    /// @inheritdoc IInboxCodec
     function hashTransitionsArray(IInbox.Transition[] memory _transitions)
         external
         pure

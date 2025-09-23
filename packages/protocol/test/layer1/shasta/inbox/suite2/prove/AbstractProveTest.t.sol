@@ -77,7 +77,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         );
 
         // Deploy helper - no initialization needed
-        inboxHelper = inboxDeployer.deployHelper();
+        inboxCodec = inboxDeployer.deployCodec();
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -371,7 +371,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
     function test_prove_RevertWhen_EmptyProposals() public {
         // Create empty ProveInput
         IInbox.ProveInput memory input;
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = inboxCodec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with EmptyProposals
@@ -386,7 +386,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
 
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = inboxCodec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with InconsistentParams
@@ -438,7 +438,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        bytes memory proveData = _encodeProveInput(input);
+        bytes memory proveData = inboxCodec.encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should succeed with any designated prover
@@ -529,7 +529,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        return _encodeProveInput(input);
+        return inboxCodec.encodeProveInput(input);
     }
 
     function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
@@ -662,7 +662,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        return _encodeProveInput(input);
+        return inboxCodec.encodeProveInput(input);
     }
 
     function _createTransitionForProposal(IInbox.Proposal memory _proposal)
@@ -671,7 +671,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposalHash: _hashProposal(_proposal),
+            proposalHash: inboxCodec.hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(),
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),
