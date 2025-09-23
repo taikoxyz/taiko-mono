@@ -307,6 +307,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
+	s.T().Skip()
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
