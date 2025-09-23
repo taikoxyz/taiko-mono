@@ -4,17 +4,13 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IInboxCodec } from "../iface/IInboxCodec.sol";
-import { LibHashing } from "../libs/LibHashing.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxOptimized2Helper
-/// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
+/// @title InboxCodec
+/// @notice Codec contract for standard Inbox with abi.encode/decode and keccak256 hashing
 /// functions
+/// @dev This implementation matches the encoding/decoding/hashing methods used in Inbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract InboxOptimized2Helper is IInboxCodec {
+contract InboxCodec is IInboxCodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
@@ -25,7 +21,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposedEventEncoder.encode(_payload);
+        return abi.encode(_payload);
     }
 
     /// @inheritdoc IInboxCodec
@@ -34,7 +30,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return LibProposedEventEncoder.decode(_data);
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
     }
 
     // ---------------------------------------------------------------
@@ -47,7 +43,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProvedEventEncoder.encode(_payload);
+        return abi.encode(_payload);
     }
 
     /// @inheritdoc IInboxCodec
@@ -56,7 +52,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return LibProvedEventEncoder.decode(_data);
+        return abi.decode(_data, (IInbox.ProvedEventPayload));
     }
 
     // ---------------------------------------------------------------
@@ -69,7 +65,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposeInputDecoder.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @inheritdoc IInboxCodec
@@ -78,7 +74,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (IInbox.ProposeInput memory input_)
     {
-        return LibProposeInputDecoder.decode(_data);
+        return abi.decode(_data, (IInbox.ProposeInput));
     }
 
     // ---------------------------------------------------------------
@@ -91,7 +87,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProveInputDecoder.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @inheritdoc IInboxCodec
@@ -100,11 +96,11 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (IInbox.ProveInput memory input_)
     {
-        return LibProveInputDecoder.decode(_data);
+        return abi.decode(_data, (IInbox.ProveInput));
     }
 
     // ---------------------------------------------------------------
-    // LibHashing Functions
+    // Hashing Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInboxCodec
@@ -113,27 +109,27 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes32)
     {
-        return LibHashing.hashCheckpoint(_checkpoint);
+        return keccak256(abi.encode(_checkpoint));
     }
 
     /// @inheritdoc IInboxCodec
     function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
-        return LibHashing.hashCoreState(_coreState);
+        return keccak256(abi.encode(_coreState));
     }
 
     /// @inheritdoc IInboxCodec
     function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
-        return LibHashing.hashDerivation(_derivation);
+        return keccak256(abi.encode(_derivation));
     }
 
     /// @inheritdoc IInboxCodec
     function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
-        return LibHashing.hashProposal(_proposal);
+        return keccak256(abi.encode(_proposal));
     }
 
     /// @inheritdoc IInboxCodec
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
-        return LibHashing.hashTransition(_transition);
+        return keccak256(abi.encode(_transition));
     }
 
     /// @inheritdoc IInboxCodec
@@ -142,7 +138,7 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes26)
     {
-        return LibHashing.hashTransitionRecord(_transitionRecord);
+        return bytes26(keccak256(abi.encode(_transitionRecord)));
     }
 
     /// @inheritdoc IInboxCodec
@@ -151,6 +147,6 @@ contract InboxOptimized2Helper is IInboxCodec {
         pure
         returns (bytes32)
     {
-        return LibHashing.hashTransitionsArray(_transitions);
+        return keccak256(abi.encode(_transitions));
     }
 }

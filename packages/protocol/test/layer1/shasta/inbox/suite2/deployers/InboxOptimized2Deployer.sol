@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized2 } from "../implementations/TestInboxOptimized2.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { InboxOptimized2Helper } from "src/layer1/shasta/impl/InboxOptimized2Helper.sol";
+import { InboxOptimized2Codec } from "src/layer1/shasta/impl/InboxOptimized2Codec.sol";
 import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
@@ -44,6 +44,6 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployCodec() external returns (IInboxCodec) {
         // InboxOptimized2 uses optimized encoding/hashing
-        return new InboxOptimized2Helper();
+        return new InboxOptimized2Codec();
     }
 }

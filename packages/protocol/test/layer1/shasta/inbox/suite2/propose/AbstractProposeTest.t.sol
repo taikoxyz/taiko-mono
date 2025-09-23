@@ -75,7 +75,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             address(proposerChecker)
         );
 
-        // Deploy helper - no initialization needed
+        // Deploy codec - no initialization needed
         inboxCodec = inboxDeployer.deployCodec();
 
         // Advance block to ensure we have block history
