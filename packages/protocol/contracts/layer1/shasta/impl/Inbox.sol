@@ -266,7 +266,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _buildAndSaveTransitionRecords(input);
 
         // Verify the proof
-        _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        // Question: Can we extract the actualProver from the array of TransitionMetadata?
+        // Is it possible that different transition has different actualProver in one prove call
+        _proofVerifier.verifyProof(
+            _hashTransitionsArray(input.transitions), input.metadata[0].actualProver, _proof
+        );
     }
 
     /// @notice Withdraws bond balance to specified address

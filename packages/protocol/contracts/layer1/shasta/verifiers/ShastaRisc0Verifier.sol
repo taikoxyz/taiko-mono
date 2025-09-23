@@ -53,7 +53,14 @@ contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _transitionsHash,
+        address calldata prover,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
             abi.decode(_proof, (bytes, bytes32, bytes32));
@@ -64,7 +71,7 @@ contract ShastaRisc0Verifier is EssentialContract, IProofVerifier {
         require(isImageTrusted[blockImageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
 
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            _transitionsHash, address(this), address(0), taikoChainId
+            _transitionsHash, address(this), address(0), prover, taikoChainId
         );
 
         // journalDigest is the sha256 hash of the hashed public input

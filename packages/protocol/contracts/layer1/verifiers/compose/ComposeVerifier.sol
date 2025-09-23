@@ -64,6 +64,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context[] calldata _ctxs,
+        address calldata prover,
         bytes calldata _proof
     )
         external
@@ -80,7 +81,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
 
             verifier = subProofs[i].verifier;
-            IVerifier(verifier).verifyProof(_ctxs, subProofs[i].proof);
+            IVerifier(verifier).verifyProof(_ctxs, prover, subProofs[i].proof);
 
             verifiers[i] = verifier;
         }

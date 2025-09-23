@@ -50,7 +50,14 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _transitionsHash,
+        address calldata prover,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         require(_transitionsHash != bytes32(0) && _proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof[0:32]);
@@ -62,7 +69,7 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
         require(isProgramTrusted[blockProvingProgram], SP1_INVALID_PROGRAM_VKEY());
 
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            _transitionsHash, address(this), address(0), taikoChainId
+            _transitionsHash, address(this), address(0), prover, taikoChainId
         );
 
         // _proof[64:] is the succinct's proof position

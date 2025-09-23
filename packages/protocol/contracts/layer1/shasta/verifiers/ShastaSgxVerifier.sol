@@ -134,7 +134,14 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _transitionsHash,
+        address calldata prover,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
@@ -150,7 +157,7 @@ contract ShastaSgxVerifier is EssentialContract, IProofVerifier {
 
         // All other inputs are the block program public inputs (a single 32 byte value)
         publicInputs[2] = LibPublicInput.hashPublicInputs(
-            _transitionsHash, address(this), newInstance, taikoChainId
+            _transitionsHash, address(this), newInstance, prover, taikoChainId
         );
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));

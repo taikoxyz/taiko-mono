@@ -17,6 +17,7 @@ library LibPublicInput {
         bytes32 _transitionsHash,
         address _verifierContract,
         address _newInstance,
+        address prover,
         uint64 _chainId
     )
         internal
@@ -24,7 +25,9 @@ library LibPublicInput {
         returns (bytes32)
     {
         return keccak256(
-            abi.encode("VERIFY_PROOF", _chainId, _verifierContract, _transitionsHash, _newInstance)
+            abi.encode(
+                "VERIFY_PROOF", _chainId, _verifierContract, _transitionsHash, prover, _newInstance
+            )
         );
     }
 }
