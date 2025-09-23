@@ -5,11 +5,11 @@ import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
-/// @title DevnetShastaInbox
+/// @title ShastaDevnetInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetShastaInbox is InboxOptimized2 {
+contract ShastaDevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
