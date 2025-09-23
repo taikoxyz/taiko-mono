@@ -7,7 +7,6 @@ import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
-import "src/shared/based/impl/CheckpointManager.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "test/layer1/shasta/inbox/suite2/mocks/MockContracts.sol";
@@ -46,26 +45,13 @@ contract UpgradeShastaL1 is DeployCapability {
         );
 
         address oldFork = PacayaForkRouter(inbox).newFork();
-        address tempFork =
-            address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
+        address tempFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
 
         UUPSUpgradeable(inbox).upgradeTo({
             newImplementation: address(new ShastaForkRouter(oldFork, tempFork))
         });
 
-        address checkPointManager = deployProxy({
-            name: "checkpoint_manager",
-            impl: address(
-                new CheckpointManager(
-                    inbox,
-                    2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
-                )
-            ),
-            data: abi.encodeCall(CheckpointManager.init, (address(0)))
-        });
-
-        address newFork =
-            address(new DevnetShastaInbox(checkPointManager, proofVerifier, whitelist, bondToken));
+        address newFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
