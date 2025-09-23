@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
-import "src/shared/common/EssentialContract.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
 /// @title ShastaSP1Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
+contract ShastaSP1Verifier is IProofVerifier, Ownable2Step {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;
@@ -30,15 +30,11 @@ contract ShastaSP1Verifier is EssentialContract, IProofVerifier {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) {
+    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier, address _owner) {
         taikoChainId = _taikoChainId;
         sp1RemoteVerifier = _sp1RemoteVerifier;
-    }
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _owner The address of the owner.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+        _transferOwnership(_owner);
     }
 
     /// @notice Sets/unsets an the program's verification key as trusted entity
