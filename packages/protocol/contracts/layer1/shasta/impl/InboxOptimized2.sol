@@ -25,13 +25,6 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized2 is InboxOptimized1 {
-    // ---------------------------------------------------------------
-    // Public Immutable Variables
-    // ---------------------------------------------------------------
-
-    /// @notice The InboxHelper contract address for utility functions
-    /// @dev This helper provides external access to encoding/decoding and hashing functions
-    address public immutable helper;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -43,9 +36,7 @@ contract InboxOptimized2 is InboxOptimized1 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(IInbox.Config memory _config, address _helper) InboxOptimized1(_config) {
-        helper = _helper;
-    }
+    constructor(IInbox.Config memory _config) InboxOptimized1(_config) { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides

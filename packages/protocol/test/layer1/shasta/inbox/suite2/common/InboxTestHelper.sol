@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { IInboxCodec } from "src/layer1/shasta/iface/IInboxCodec.sol";
+import { InboxOptimized2Codec } from "src/layer1/shasta/impl/InboxOptimized2Codec.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
 
@@ -33,7 +34,7 @@ contract InboxTestHelper is CommonTest {
     // Encoding helpers
     // ---------------------------------------------------------------
 
-    InboxHelper internal inboxHelper;
+    IInboxCodec internal inboxCodec;
     string internal inboxContractName;
     bool internal useOptimizedProposeInputEncoding;
     bool internal useOptimizedProveInputEncoding;
@@ -42,7 +43,7 @@ contract InboxTestHelper is CommonTest {
 
     function _initializeEncodingHelper(string memory _contractName) internal {
         inboxContractName = _contractName;
-        inboxHelper = new InboxHelper();
+        inboxCodec = new InboxOptimized2Codec();
 
         bytes32 nameHash = keccak256(bytes(_contractName));
         bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
@@ -206,7 +207,7 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposeInputEncoding) {
-            return inboxHelper.encodeProposeInput(_input);
+            return inboxCodec.encodeProposeInput(_input);
         }
         return abi.encode(_input);
     }
@@ -217,7 +218,7 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProposedEventEncoding) {
-            return inboxHelper.encodeProposedEvent(_payload);
+            return inboxCodec.encodeProposedEvent(_payload);
         }
         return abi.encode(_payload);
     }
@@ -228,7 +229,7 @@ contract InboxTestHelper is CommonTest {
         returns (bytes memory)
     {
         if (useOptimizedProveInputEncoding) {
-            return inboxHelper.encodeProveInput(_input);
+            return inboxCodec.encodeProveInput(_input);
         }
         return abi.encode(_input);
     }
