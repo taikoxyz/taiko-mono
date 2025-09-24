@@ -246,14 +246,14 @@ contract LibHashingFuzzTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // Fuzz Test: hashTransitionsArray
+    // Fuzz Test: hashTransitions
     // ---------------------------------------------------------------
 
-    function testFuzz_hashTransitionsArray_empty() public pure {
+    function testFuzz_hashTransitions_empty() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash1 = LibHashing.hashTransitions(transitions);
+        bytes32 hash2 = LibHashing.hashTransitions(transitions);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -262,7 +262,7 @@ contract LibHashingFuzzTest is Test {
         assertEq(hash1, keccak256(""), "Empty array should hash to empty bytes hash");
     }
 
-    function testFuzz_hashTransitionsArray_single(
+    function testFuzz_hashTransitions_single(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
         uint48 blockNumber,
@@ -283,8 +283,8 @@ contract LibHashingFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash1 = LibHashing.hashTransitions(transitions);
+        bytes32 hash2 = LibHashing.hashTransitions(transitions);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -293,7 +293,7 @@ contract LibHashingFuzzTest is Test {
         assertTrue(hash1 != bytes32(0), "Hash should not be zero");
     }
 
-    function testFuzz_hashTransitionsArray_lengthMatters(
+    function testFuzz_hashTransitions_lengthMatters(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
         uint48 blockNumber,
@@ -323,8 +323,8 @@ contract LibHashingFuzzTest is Test {
         doubleArray[0] = transition;
         doubleArray[1] = transition;
 
-        bytes32 singleHash = LibHashing.hashTransitionsArray(singleArray);
-        bytes32 doubleHash = LibHashing.hashTransitionsArray(doubleArray);
+        bytes32 singleHash = LibHashing.hashTransitions(singleArray);
+        bytes32 doubleHash = LibHashing.hashTransitions(doubleArray);
 
         // Different array lengths should produce different hashes even with same elements
         assertTrue(singleHash != doubleHash, "Array length should affect hash");
@@ -574,7 +574,7 @@ contract LibHashingFuzzTest is Test {
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
     }
 
-    function testFuzz_hashTransitionsArray_Single(
+    function testFuzz_hashTransitions_Single(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
         uint48 blockNumber,
@@ -595,8 +595,8 @@ contract LibHashingFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash1 = LibHashing.hashTransitions(transitions);
+        bytes32 hash2 = LibHashing.hashTransitions(transitions);
 
         assertEq(hash1, hash2, "Transitions array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");

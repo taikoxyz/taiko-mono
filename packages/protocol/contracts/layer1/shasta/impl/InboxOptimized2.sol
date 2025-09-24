@@ -214,12 +214,12 @@ contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Uses LibHashing for efficient array hashing
     /// @param _transitions The transitions array to hash
     /// @return bytes32 The keccak256 hash of the transitions array
-    function _hashTransitionsArray(Transition[] memory _transitions)
+    function _hashTransitions(Transition[] memory _transitions)
         internal
         pure
         override
         returns (bytes32)
     {
-        return LibHashing.hashTransitionsArray(_transitions);
+        return LibHashing.hashTransitions(_transitions);
     }
 }

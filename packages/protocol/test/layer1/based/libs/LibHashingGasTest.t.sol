@@ -197,8 +197,8 @@ contract LibHashingGasTest is Test {
         console2.log("");
     }
 
-    /// @notice Test gas comparison for hashTransitionsArray function
-    function test_gasComparison_hashTransitionsArray() external view {
+    /// @notice Test gas comparison for hashTransitions function
+    function test_gasComparison_hashTransitions() external view {
         uint256 gasBefore;
         uint256 gasAfter;
         uint256 standardGas;
@@ -212,11 +212,11 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashTransitionsArray(testTransitionsArray);
+        LibHashing.hashTransitions(testTransitionsArray);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
-        console2.log("=== hashTransitionsArray Gas Comparison ===");
+        console2.log("=== hashTransitions Gas Comparison ===");
         console2.log("Standard Gas:      ", standardGas);
         console2.log("Optimized Gas:     ", optimizedGas);
         console2.log("Gas Saved:         ", standardGas - optimizedGas);
@@ -289,14 +289,14 @@ contract LibHashingGasTest is Test {
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
-        // hashTransitionsArray
+        // hashTransitions
         gasBefore = gasleft();
         keccak256(abi.encode(testTransitionsArray));
         gasAfter = gasleft();
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashTransitionsArray(testTransitionsArray);
+        LibHashing.hashTransitions(testTransitionsArray);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -340,10 +340,10 @@ contract LibHashingGasTest is Test {
         hash2 = LibHashing.hashDerivation(_createTestDerivation());
         assertEq(hash1, hash2, "hashDerivation should be deterministic");
 
-        // Test hashTransitionsArray consistency
-        hash1 = LibHashing.hashTransitionsArray(testTransitionsArray);
-        hash2 = LibHashing.hashTransitionsArray(testTransitionsArray);
-        assertEq(hash1, hash2, "hashTransitionsArray should be deterministic");
+        // Test hashTransitions consistency
+        hash1 = LibHashing.hashTransitions(testTransitionsArray);
+        hash2 = LibHashing.hashTransitions(testTransitionsArray);
+        assertEq(hash1, hash2, "hashTransitions should be deterministic");
     }
 
     /// @notice Test hash behavior comparison between standard and optimized implementations

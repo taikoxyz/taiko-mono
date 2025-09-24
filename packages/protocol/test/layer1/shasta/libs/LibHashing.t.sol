@@ -174,7 +174,7 @@ contract LibHashingTest is Test {
         assertNotEq(hash, bytes32(0), "Two blob hashes array should not be zero");
     }
 
-    function test_hashTransitionsArray() public pure {
+    function test_hashTransitions() public pure {
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -204,21 +204,21 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint2
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash = LibHashing.hashTransitions(transitions);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash2 = LibHashing.hashTransitions(transitions);
         assertEq(hash, hash2, "Transitions array hash should be deterministic");
     }
 
-    function test_hashTransitionsArray_Empty() public pure {
+    function test_hashTransitions_Empty() public pure {
         IInbox.Transition[] memory emptyArray = new IInbox.Transition[](0);
-        bytes32 hash = LibHashing.hashTransitionsArray(emptyArray);
+        bytes32 hash = LibHashing.hashTransitions(emptyArray);
         assertEq(hash, keccak256(""), "Empty transitions array should hash to empty bytes hash");
     }
 
-    function test_hashTransitionsArray_Single() public pure {
+    function test_hashTransitions_Single() public pure {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -232,11 +232,11 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(singleArray);
+        bytes32 hash = LibHashing.hashTransitions(singleArray);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
-    function test_hashTransitionsArray_Two() public pure {
+    function test_hashTransitions_Two() public pure {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -255,7 +255,7 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(twoArray);
+        bytes32 hash = LibHashing.hashTransitions(twoArray);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
     }
 

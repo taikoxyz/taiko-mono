@@ -220,7 +220,7 @@ library LibHashing {
     /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+    function hashTransitions(IInbox.Transition[] memory _transitions)
         internal
         pure
         returns (bytes32)

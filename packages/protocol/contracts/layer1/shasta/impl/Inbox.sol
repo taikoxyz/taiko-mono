@@ -279,7 +279,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Verify the proof using staticcall
         (bool success,) = address(_proofVerifier).staticcall(
             abi.encodeCall(
-                IProofVerifier.verifyProof, (_hashTransitionsArray(input.transitions), _proof)
+                IProofVerifier.verifyProof, (_hashTransitions(input.transitions), _proof)
             )
         );
         require(success, ProofVerificationFailed());
@@ -760,7 +760,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
+    function _hashTransitions(Transition[] memory _transitions)
         internal
         pure
         virtual
