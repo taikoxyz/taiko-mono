@@ -178,12 +178,24 @@ abstract contract AbstractCodecTest is Test {
             checkpoint: checkpoint2
         });
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 hash = codec.hashTransitionsWithMetadata(transitions, emptyMetadata);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](3);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+        metadata[2] = IInbox.TransitionMetadata({
+            designatedProver: address(0x3333),
+            actualProver: address(0x3333)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(transitions, metadata);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, emptyMetadata);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, metadata);
         assertEq(hash, hash2, "Transitions array hash should be deterministic");
     }
 
@@ -214,8 +226,12 @@ abstract contract AbstractCodecTest is Test {
             checkpoint: checkpoint
         });
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 hash = codec.hashTransitionsWithMetadata(singleArray, emptyMetadata);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(singleArray, metadata);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
@@ -238,8 +254,16 @@ abstract contract AbstractCodecTest is Test {
             checkpoint: checkpoint
         });
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 hash = codec.hashTransitionsWithMetadata(twoArray, emptyMetadata);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(twoArray, metadata);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
     }
 
@@ -341,9 +365,24 @@ abstract contract AbstractCodecTest is Test {
             checkpoint: checkpoint
         });
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 hash1 = codec.hashTransitionsWithMetadata(array1, emptyMetadata);
-        bytes32 hash2 = codec.hashTransitionsWithMetadata(array2, emptyMetadata);
+        IInbox.TransitionMetadata[] memory metadata1 = new IInbox.TransitionMetadata[](1);
+        metadata1[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+
+        IInbox.TransitionMetadata[] memory metadata2 = new IInbox.TransitionMetadata[](2);
+        metadata2[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata2[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+
+        bytes32 hash1 = codec.hashTransitionsWithMetadata(array1, metadata1);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(array2, metadata2);
 
         assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
     }

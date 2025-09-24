@@ -280,9 +280,13 @@ abstract contract AbstractCodecFuzzTest is Test {
             })
         });
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 hash1 = codec.hashTransitionsWithMetadata(transitions, emptyMetadata);
-        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, emptyMetadata);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+        bytes32 hash1 = codec.hashTransitionsWithMetadata(transitions, metadata);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, metadata);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -321,9 +325,24 @@ abstract contract AbstractCodecFuzzTest is Test {
         doubleArray[0] = transition;
         doubleArray[1] = transition;
 
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        bytes32 singleHash = codec.hashTransitionsWithMetadata(singleArray, emptyMetadata);
-        bytes32 doubleHash = codec.hashTransitionsWithMetadata(doubleArray, emptyMetadata);
+        IInbox.TransitionMetadata[] memory singleMetadata = new IInbox.TransitionMetadata[](1);
+        singleMetadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+
+        IInbox.TransitionMetadata[] memory doubleMetadata = new IInbox.TransitionMetadata[](2);
+        doubleMetadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+        doubleMetadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(blockHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(stateRoot) % type(uint160).max))
+        });
+
+        bytes32 singleHash = codec.hashTransitionsWithMetadata(singleArray, singleMetadata);
+        bytes32 doubleHash = codec.hashTransitionsWithMetadata(doubleArray, doubleMetadata);
 
         // Different array lengths should produce different hashes even with same elements
         assertTrue(singleHash != doubleHash, "Array length should affect hash");

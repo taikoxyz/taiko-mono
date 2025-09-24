@@ -89,7 +89,6 @@ library LibHashSimple {
     /// @param _transitions The transitions array to hash
     /// @param _metadatas The metadata array to hash
     /// @return The hash of the transitions array
-    // TODO(dantaik): hash _metadatas
     function hashTransitionsWithMetadata(
         IInbox.Transition[] memory _transitions,
         IInbox.TransitionMetadata[] memory _metadatas
@@ -99,7 +98,19 @@ library LibHashSimple {
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
+        require(_transitions.length == _metadatas.length, InconsistentLengths());
+        bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
+
+        for (uint256 i; i < _transitions.length; ++i) {
+            transitionHashes[i] = keccak256(
+                abi.encodePacked(
+                    hashTransition(_transitions[i]),
+                    _metadatas[i].designatedProver,
+                    _metadatas[i].actualProver
+                )
+            );
+        }
+        return keccak256(abi.encode(transitionHashes));
     }
 
     // ---------------------------------------------------------------
@@ -122,4 +133,10 @@ library LibHashSimple {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InconsistentLengths();
 }
