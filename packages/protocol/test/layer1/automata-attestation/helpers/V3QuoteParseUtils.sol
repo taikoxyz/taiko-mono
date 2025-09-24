@@ -5,9 +5,9 @@ import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
 import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "solady/src/utils/Base64.sol";
-import "solady/src/utils/JSONParserLib.sol";
-import "solady/src/utils/LibString.sol";
+import "solady/utils/Base64.sol";
+import "solady/utils/JSONParserLib.sol";
+import "solady/utils/LibString.sol";
 
 contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;

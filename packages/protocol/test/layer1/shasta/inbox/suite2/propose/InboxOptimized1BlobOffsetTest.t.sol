@@ -19,20 +19,19 @@ contract InboxOptimized1BlobOffsetTest is AbstractProposeTest {
         vm.roll(block.number + 1);
 
         // Create proposal input with blob offset after block roll
-        bytes memory proposeData =
-            inbox.codec().encodeProposeInput(_createProposeInputWithBlobs(2, 100));
+        bytes memory proposeData = _codec().encodeProposeInput(_createProposeInputWithBlobs(2, 100));
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.codec().encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(_codec().encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = inbox.codec().hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = _codec().hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -75,6 +76,12 @@ abstract contract InboxTestHelper is CommonTest {
         inboxContractName = _contractName;
     }
 
+    /// @notice Helper function to get codec from inbox configuration
+    /// @return codec_ The ICodec instance from inbox config
+    function _codec() internal view returns (ICodec codec_) {
+        return ICodec(inbox.getConfig().codec);
+    }
+
     // ---------------------------------------------------------------
     // Genesis State Builders
     // ---------------------------------------------------------------
@@ -96,7 +103,7 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisTransitionHash() internal view returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        return inbox.codec().hashTransition(transition);
+        return _codec().hashTransition(transition);
     }
 
     /// @notice Create the genesis proposal for testing
@@ -110,8 +117,8 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: inbox.codec().hashCoreState(coreState),
-            derivationHash: inbox.codec().hashDerivation(derivation)
+            coreStateHash: _codec().hashCoreState(coreState),
+            derivationHash: _codec().hashDerivation(derivation)
         });
     }
 
@@ -218,8 +225,8 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
-            coreStateHash: inbox.codec().hashCoreState(expectedCoreState),
-            derivationHash: inbox.codec().hashDerivation(expectedDerivation)
+            coreStateHash: _codec().hashCoreState(expectedCoreState),
+            derivationHash: _codec().hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({
