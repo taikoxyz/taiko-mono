@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { ICodec } from "./ICodec.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -239,8 +238,4 @@ interface IInbox {
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
-
-    /// @notice Returns the codec instance used for encoding and hashing
-    /// @return codec_ The ICodec instance
-    function codec() external view returns (ICodec codec_);
 }

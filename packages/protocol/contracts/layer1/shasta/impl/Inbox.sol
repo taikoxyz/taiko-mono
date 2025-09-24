@@ -5,7 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
@@ -40,7 +39,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // Immutable Variables
     // ---------------------------------------------------------------
     /// @notice The codec used for encoding and hashing.
-    ICodec public immutable codec;
+    address private immutable _codec;
 
     /// @notice The token used for bonds.
     IERC20 internal immutable _bondToken;
@@ -147,7 +146,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
         require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
-        codec = ICodec(_config.codec);
+        _codec = _config.codec;
 
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -349,7 +348,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IInbox
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
-            codec: address(codec),
+            codec: _codec,
             bondToken: address(_bondToken),
             maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
