@@ -34,7 +34,6 @@ contract ShastaSgxVerifier is IProofVerifier, Ownable2Step {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
@@ -80,9 +79,10 @@ contract ShastaSgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId, address _owner) {
+    constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
         require(_taikoChainId != 0, "Invalid chain id");
         taikoChainId = _taikoChainId;
+        automataDcapAttestation = _automataDcapAttestation;
 
         _transferOwnership(_owner);
     }
