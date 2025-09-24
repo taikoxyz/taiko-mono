@@ -11,8 +11,7 @@ import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title CodecOptimized
-/// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
-/// functions
+/// @notice Codec contract wrapping LibHashOptimized for optimized hashing
 /// @custom:security-contact security@taiko.xyz
 contract CodecOptimized is ICodec {
     // ---------------------------------------------------------------
@@ -104,7 +103,7 @@ contract CodecOptimized is ICodec {
     }
 
     // ---------------------------------------------------------------
-    // LibHash Functions
+    // Hashing Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -154,14 +153,14 @@ contract CodecOptimized is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashTransitionsWithMetadata(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] calldata _transitions,
+        IInbox.TransitionMetadata[] calldata _metadatas
+    )
         external
         pure
         returns (bytes32)
     {
-        // Note: ICodec interface doesn't include metadata parameter, but LibHashOptimized does
-        // We pass an empty metadata array for compatibility
-        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
-        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, emptyMetadata);
+        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

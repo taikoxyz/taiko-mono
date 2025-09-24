@@ -280,10 +280,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         (bool success,) = address(_proofVerifier).staticcall(
             abi.encodeCall(
                 IProofVerifier.verifyProof,
-                (
-                    LibHashSimple.hashTransitionsWithMetadata(input.transitions, input.metadatas),
-                    _proof
-                )
+                (_hashTransitionsWithMetadata(input.transitions, input.metadatas), _proof)
             )
         );
         require(success, ProofVerificationFailed());
@@ -404,15 +401,15 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.nextProposalBlockId = 2;
-        coreState.lastFinalizedTransitionHash = LibHashSimple.hashTransition(transition);
+        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
-        proposal.coreStateHash = LibHashSimple.hashCoreState(coreState);
+        proposal.coreStateHash = _hashCoreState(coreState);
 
         Derivation memory derivation;
-        proposal.derivationHash = LibHashSimple.hashDerivation(derivation);
+        proposal.derivationHash = _hashDerivation(derivation);
 
-        _setProposalHash(0, LibHashSimple.hashProposal(proposal));
+        _setProposalHash(0, _hashProposal(proposal));
 
         _emitProposedEvent(proposal, derivation, coreState);
     }
@@ -503,8 +500,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bool stored_)
     {
-        bytes32 compositeKey =
-            LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
 
@@ -530,8 +526,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        bytes32 compositeKey =
-            LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
     }
 
@@ -559,7 +554,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = LibHashSimple.hashProposal(_proposal);
+        proposalHash_ = _hashProposal(_proposal);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
@@ -582,8 +577,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         record.bondInstructions = LibBondsL1.calculateBondInstructions(
             _provingWindow, _extendedProvingWindow, _proposal, _metadata
         );
-        record.transitionHash = LibHashSimple.hashTransition(_transition);
-        record.checkpointHash = LibHashSimple.hashCheckpoint(_transition.checkpoint);
+        record.transitionHash = _hashTransition(_transition);
+        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
     }
 
     /// @dev Computes the hash and finalization deadline for a transition record.
@@ -595,7 +590,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        recordHash_ = LibHashSimple.hashTransitionRecord(_transitionRecord);
+        recordHash_ = _hashTransitionRecord(_transitionRecord);
         hashAndDeadline_ = TransitionRecordHashAndDeadline({
             finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
             recordHash: recordHash_
@@ -800,11 +795,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
             proposer: msg.sender,
-            coreStateHash: LibHashSimple.hashCoreState(_coreState),
-            derivationHash: LibHashSimple.hashDerivation(derivation)
+            coreStateHash: _hashCoreState(_coreState),
+            derivationHash: _hashDerivation(derivation)
         });
 
-        _setProposalHash(proposal.id, LibHashSimple.hashProposal(proposal));
+        _setProposalHash(proposal.id, _hashProposal(proposal));
         _emitProposedEvent(proposal, derivation, _coreState);
     }
 
@@ -847,7 +842,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(_input.parentProposals.length > 0, EmptyProposals());
         require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
         require(
-            LibHashSimple.hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
+            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
         );
     }
@@ -872,7 +867,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             require(_parentProposals.length == 2, IncorrectProposalCount());
             require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
-                storedNextProposalHash == LibHashSimple.hashProposal(_parentProposals[1]),
+                storedNextProposalHash == _hashProposal(_parentProposals[1]),
                 NextProposalHashMismatch()
             );
         }
@@ -914,7 +909,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 checkpointHash = LibHashSimple.hashCheckpoint(_input.checkpoint);
+            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
             LibCheckpointStore.saveCheckpoint(
                 _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
@@ -962,7 +957,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         // Verify transition record hash matches
         require(
-            LibHashSimple.hashTransitionRecord(_transitionRecord) == hashAndDeadline.recordHash,
+            _hashTransitionRecord(_transitionRecord) == hashAndDeadline.recordHash,
             TransitionRecordHashMismatchWithStorage()
         );
 
