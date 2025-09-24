@@ -24,8 +24,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         address _lookaheadStore,
         address _preconfSlasher,
         uint256 _slashAmount
-    )
-    {
+    ) {
         urc = _urc;
         lookaheadStore = _lookaheadStore;
         preconfSlasher = _preconfSlasher;
