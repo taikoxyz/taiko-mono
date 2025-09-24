@@ -325,7 +325,7 @@ library LibHashOptimized {
             bytes32(uint256(_instruction.proposalId)),
             bytes32(uint256(uint8(_instruction.bondType))),
             bytes32(uint256(uint160(_instruction.payer))),
-            bytes32(uint256(uint160(_instruction.receiver)))
+            bytes32(uint256(uint160(_instruction.payee)))
         );
     }
 

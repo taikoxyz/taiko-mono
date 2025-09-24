@@ -339,7 +339,7 @@ LibProveInputDecoderFuzzTest:testFuzz_encodeDecodeSingleProposal(uint48,address,
 LibProveInputDecoderFuzzTest:testFuzz_invalidData(bytes) (runs: 256, μ: 41679629, ~: 66250625)
 LibProveInputDecoderFuzzTest:testFuzz_maxValues() (gas: 9411)
 LibProveInputDecoderFuzzTest:testFuzz_roundTripCorrectness(uint48,uint48,address,address,uint48,uint48) (runs: 256, μ: 24678, ~: 24678)
-LibProveInputDecoderFuzzTest:testFuzz_sizeEfficiency(uint8,uint8) (runs: 256, μ: 30563, ~: 28529)
+LibProveInputDecoderFuzzTest:testFuzz_sizeEfficiency(uint8,uint8) (runs: 256, μ: 30488, ~: 28529)
 LibProveInputDecoderGas:test_gas_comparison_decoding() (gas: 2371183)
 LibProveInputDecoderGas:test_gas_snapshots() (gas: 77366)
 LibProveInputDecoderTest:test_encode_decode_empty_arrays() (gas: 6464)

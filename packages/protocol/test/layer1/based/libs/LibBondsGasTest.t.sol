@@ -67,7 +67,7 @@ contract LibBondsGasTest is Test {
             proposalId: proposalId,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1234567890123456789012345678901234567890),
-            receiver: address(0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD)
+            payee: address(0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD)
         });
     }
 
@@ -187,7 +187,7 @@ contract LibBondsGasTest is Test {
                 "Bond types should match"
             );
             assertEq(optimized[i].payer, legacy[i].payer, "Payers should match");
-            assertEq(optimized[i].receiver, legacy[i].receiver, "Receivers should match");
+            assertEq(optimized[i].payee, legacy[i].payee, "Payees should match");
         }
     }
 
