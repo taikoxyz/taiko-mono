@@ -493,6 +493,7 @@ func (c *Client) CalculateBaseFee(
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
 			}
+			config := &params.ChainConfig{ShastaBlock: c.ShastaClients.ForkHeight}
 			log.Info(
 				"Fetched params for Shasta base fee calculation",
 				"parentBlockNumber", l2Head.Number,
@@ -500,9 +501,12 @@ func (c *Client) CalculateBaseFee(
 				"parentGasUsed", l2Head.GasUsed,
 				"parentBaseFee", l2Head.BaseFee,
 				"parentTime", l2Head.Time-grandParentBlock.Time,
+				"elasticityMultiplier", config.ElasticityMultiplier(),
+				"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
+				"shastaForkHeight", config.ShastaBlock,
 			)
 			baseFee = misc.CalcEIP4396BaseFee(
-				&params.ChainConfig{ShastaBlock: c.ShastaClients.ForkHeight},
+				config,
 				l2Head,
 				l2Head.Time-grandParentBlock.Time,
 			)
