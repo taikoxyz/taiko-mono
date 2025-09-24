@@ -30,6 +30,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
+        address _codec,
         address _proofVerifier,
         address _proposerChecker,
         address _taikoToken
@@ -37,6 +38,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
         InboxOptimized2(
             IInbox.Config({
                 bondToken: _taikoToken,
+                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

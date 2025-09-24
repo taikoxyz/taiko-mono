@@ -2,17 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
+import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { OptimizedCodec } from "src/layer1/shasta/impl/OptimizedCodec.sol";
-import { SimpleCodec } from "src/layer1/shasta/impl/SimpleCodec.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
@@ -40,9 +37,6 @@ abstract contract InboxTestHelper is CommonTest {
     // ---------------------------------------------------------------
     // Core Test Infrastructure
     // ---------------------------------------------------------------
-
-    /// @notice The codec instance used for encoding/decoding operations
-    ICodec public codec;
 
     /// @notice Name of the current inbox contract being tested
     string public inboxContractName;
@@ -75,20 +69,10 @@ abstract contract InboxTestHelper is CommonTest {
     /// @notice Helper for proposer whitelist setup
     PreconfWhitelistSetup internal proposerHelper;
 
-    /// @notice Initialize the appropriate codec based on contract name
+    /// @notice Initialize the contract name for testing
     /// @param _contractName Name of the inbox contract being tested
-    function _initializeCodec(string memory _contractName) internal {
+    function _initializeContractName(string memory _contractName) internal {
         inboxContractName = _contractName;
-
-        bytes32 nameHash = keccak256(bytes(_contractName));
-        bytes32 optimized2Hash = keccak256(bytes("InboxOptimized2"));
-
-        // Use optimized codec for InboxOptimized2, simple codec for others
-        if (nameHash == optimized2Hash) {
-            codec = new OptimizedCodec();
-        } else {
-            codec = new SimpleCodec();
-        }
     }
 
     // ---------------------------------------------------------------
@@ -112,7 +96,7 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisTransitionHash() internal view returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        return codec.hashTransition(transition);
+        return inbox.codec().hashTransition(transition);
     }
 
     /// @notice Create the genesis proposal for testing
@@ -126,8 +110,8 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: codec.hashCoreState(coreState),
-            derivationHash: codec.hashDerivation(derivation)
+            coreStateHash: inbox.codec().hashCoreState(coreState),
+            derivationHash: inbox.codec().hashDerivation(derivation)
         });
     }
 
@@ -234,8 +218,8 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
-            coreStateHash: codec.hashCoreState(expectedCoreState),
-            derivationHash: codec.hashDerivation(expectedDerivation)
+            coreStateHash: inbox.codec().hashCoreState(expectedCoreState),
+            derivationHash: inbox.codec().hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({
@@ -365,7 +349,7 @@ abstract contract InboxTestHelper is CommonTest {
             address(proposerChecker)
         );
 
-        _initializeCodec(inboxDeployer.getTestContractName());
+        _initializeContractName(inboxDeployer.getTestContractName());
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);

@@ -278,7 +278,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
     function test_prove_RevertWhen_EmptyProposals() public {
         // Create empty ProveInput
         IInbox.ProveInput memory input;
-        bytes memory proveData = codec.encodeProveInput(input);
+        bytes memory proveData = inbox.codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with EmptyProposals
@@ -293,7 +293,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
 
-        bytes memory proveData = codec.encodeProveInput(input);
+        bytes memory proveData = inbox.codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should revert with InconsistentParams
@@ -345,7 +345,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        bytes memory proveData = codec.encodeProveInput(input);
+        bytes memory proveData = inbox.codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Should succeed with any designated prover
@@ -436,7 +436,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        return codec.encodeProveInput(input);
+        return inbox.codec().encodeProveInput(input);
     }
 
     function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
@@ -473,7 +473,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         if (block.number < 2) {
             vm.roll(2);
         }
-        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
+        bytes memory proposeData = inbox.codec().encodeProposeInput(_createFirstProposeInput());
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -516,7 +516,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = codec.encodeProposeInput(
+        bytes memory proposeData = inbox.codec().encodeProposeInput(
             _createProposeInputWithCustomParams(
                 0, // no deadline
                 _createBlobRef(0, 1, 0),
@@ -571,7 +571,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata: metadata
         });
 
-        return codec.encodeProveInput(input);
+        return inbox.codec().encodeProveInput(input);
     }
 
     function _createTransitionForProposal(IInbox.Proposal memory _proposal)
@@ -580,7 +580,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposalHash: codec.hashProposal(_proposal),
+            proposalHash: inbox.codec().hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(),
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),

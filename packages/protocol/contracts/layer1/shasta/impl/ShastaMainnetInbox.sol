@@ -32,12 +32,14 @@ contract ShastaMainnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
+        address _codec,
         address _proofVerifier,
         address _proposerChecker
     )
         InboxOptimized2(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
+                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

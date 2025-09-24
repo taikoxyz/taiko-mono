@@ -20,12 +20,12 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll
-        bytes memory firstProposeData = codec.encodeProposeInput(_createFirstProposeInput());
+        bytes memory firstProposeData = inbox.codec().encodeProposeInput(_createFirstProposeInput());
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(codec.encodeProposedEvent(firstExpectedPayload));
+        emit IInbox.Proposed(inbox.codec().encodeProposedEvent(firstExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), firstProposeData);
@@ -34,7 +34,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            codec.hashProposal(firstExpectedPayload.proposal),
+            inbox.codec().hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -60,7 +60,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         // No additional roll needed - we already advanced by 1 block above
 
         // Create second proposal input after block roll
-        bytes memory secondProposeData = codec.encodeProposeInput(
+        bytes memory secondProposeData = inbox.codec().encodeProposeInput(
             _createProposeInputWithCustomParams(
                 0, // no deadline
                 _createBlobRef(0, 1, 0),
@@ -72,7 +72,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
         vm.expectEmit();
-        emit IInbox.Proposed(codec.encodeProposedEvent(secondExpectedPayload));
+        emit IInbox.Proposed(inbox.codec().encodeProposedEvent(secondExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), secondProposeData);
@@ -81,7 +81,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            codec.hashProposal(secondExpectedPayload.proposal),
+            inbox.codec().hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 

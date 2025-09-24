@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized1 } from "../implementations/TestInboxOptimized1.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { SimpleCodec } from "src/layer1/shasta/impl/SimpleCodec.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxOptimized1Deployer
@@ -24,8 +25,11 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
         external
         returns (Inbox)
     {
+        address simpleCodec = address(new SimpleCodec());
         address impl = address(
-            new TestInboxOptimized1(bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
+            new TestInboxOptimized1(
+                simpleCodec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker
+            )
         );
 
         TestInboxOptimized1 inbox = TestInboxOptimized1(
