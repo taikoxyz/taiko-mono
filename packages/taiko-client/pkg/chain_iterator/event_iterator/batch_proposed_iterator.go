@@ -11,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -37,19 +35,20 @@ type BatchProposedIterator struct {
 
 // BatchProposedIteratorConfig represents the configs of a BatchProposed event iterator.
 type BatchProposedIteratorConfig struct {
-	Client                 *rpc.EthClient
-	PacayaTaikoInbox       *pacayaBindings.TaikoInboxClient
-	ShastaTaikoInbox       *shastaBindings.ShastaInboxClient
-	ShastaTaikoInboxHelper *shastaBindings.InboxHelperClient
-	MaxBlocksReadPerEpoch  *uint64
-	StartHeight            *big.Int
-	EndHeight              *big.Int
-	OnBatchProposedEvent   OnBatchProposedEvent
-	BlockConfirmations     *uint64
+	RpcClient             *rpc.Client
+	MaxBlocksReadPerEpoch *uint64
+	StartHeight           *big.Int
+	EndHeight             *big.Int
+	OnBatchProposedEvent  OnBatchProposedEvent
+	BlockConfirmations    *uint64
 }
 
 // NewBatchProposedIterator creates a new instance of BatchProposed event iterator.
 func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorConfig) (*BatchProposedIterator, error) {
+	if cfg.RpcClient == nil || cfg.RpcClient.L1 == nil {
+		return nil, errors.New("invalid RPC client")
+	}
+
 	if cfg.OnBatchProposedEvent == nil {
 		return nil, errors.New("invalid callback")
 	}
@@ -58,16 +57,13 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
-		Client:                cfg.Client,
+		Client:                cfg.RpcClient.L1,
 		MaxBlocksReadPerEpoch: cfg.MaxBlocksReadPerEpoch,
 		StartHeight:           cfg.StartHeight,
 		EndHeight:             cfg.EndHeight,
 		BlockConfirmations:    cfg.BlockConfirmations,
 		OnBlocks: assembleBatchProposedIteratorCallback(
-			cfg.Client,
-			cfg.PacayaTaikoInbox,
-			cfg.ShastaTaikoInbox,
-			cfg.ShastaTaikoInboxHelper,
+			cfg.RpcClient,
 			cfg.OnBatchProposedEvent,
 			iterator,
 		),
@@ -95,10 +91,7 @@ func (i *BatchProposedIterator) end() {
 // assembleBatchProposedIteratorCallback assembles the callback which will be used
 // by a event iterator's inner block iterator.
 func assembleBatchProposedIteratorCallback(
-	client *rpc.EthClient,
-	pacayaTaikoInbox *pacayaBindings.TaikoInboxClient,
-	shastaTaikoInbox *shastaBindings.ShastaInboxClient,
-	shastaTaikoInboxHelper *shastaBindings.InboxHelperClient,
+	rpcClient *rpc.Client,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -115,7 +108,7 @@ func assembleBatchProposedIteratorCallback(
 		)
 
 		// Iterate the BatchProposed events.
-		iterPacaya, err := pacayaTaikoInbox.FilterBatchProposed(
+		iterPacaya, err := rpcClient.PacayaClients.TaikoInbox.FilterBatchProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 		)
 		if err != nil {
@@ -123,7 +116,7 @@ func assembleBatchProposedIteratorCallback(
 		}
 		defer iterPacaya.Close()
 
-		iterShasta, err := shastaTaikoInbox.FilterProposed(
+		iterShasta, err := rpcClient.ShastaClients.Inbox.FilterProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 		)
 		if err != nil {
@@ -160,7 +153,7 @@ func assembleBatchProposedIteratorCallback(
 				return nil
 			}
 
-			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			current, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
 			if err != nil {
 				return err
 			}
@@ -180,10 +173,13 @@ func assembleBatchProposedIteratorCallback(
 		for iterShasta.Next() {
 			event := iterShasta.Event
 
-			proposedEventPayload, err := shastaTaikoInboxHelper.DecodeProposedEvent(&bind.CallOpts{Context: ctx}, event.Data)
+			proposedEventPayload, err := rpcClient.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
 			if err != nil {
 				log.Error("Failed to decode proposed event data", "error", err)
 				return err
+			}
+			if proposedEventPayload == nil {
+				return errors.New("decoded proposed event payload is nil")
 			}
 
 			proposalID := proposedEventPayload.Proposal.Id.Uint64()
@@ -205,7 +201,7 @@ func assembleBatchProposedIteratorCallback(
 
 			if err := callback(
 				ctx,
-				metadata.NewTaikoProposalMetadataShasta(&proposedEventPayload, event.Raw),
+				metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, event.Raw),
 				eventIter.end,
 			); err != nil {
 				log.Warn("Error while processing Proposed events, keep retrying", "error", err)
@@ -218,7 +214,7 @@ func assembleBatchProposedIteratorCallback(
 				return nil
 			}
 
-			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			current, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
 			if err != nil {
 				return err
 			}

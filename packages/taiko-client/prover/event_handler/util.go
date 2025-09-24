@@ -68,13 +68,10 @@ func getMetadataFromBatchPacaya(
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
-		Client:                 rpc.L1,
-		PacayaTaikoInbox:       rpc.PacayaClients.TaikoInbox,
-		ShastaTaikoInbox:       rpc.ShastaClients.Inbox,
-		ShastaTaikoInboxHelper: rpc.ShastaClients.InboxHelper,
-		StartHeight:            new(big.Int).SetUint64(batch.AnchorBlockId),
-		EndHeight:              endHeight,
-		OnBatchProposedEvent:   callback,
+		RpcClient:            rpc,
+		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
+		EndHeight:            endHeight,
+		OnBatchProposedEvent: callback,
 	})
 	if err != nil {
 		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)

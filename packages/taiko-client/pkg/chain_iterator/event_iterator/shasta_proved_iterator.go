@@ -36,14 +36,12 @@ type ShastaProvedIterator struct {
 
 // ShastaProvedIteratorConfig represents the configs of a Shasta Proved event iterator.
 type ShastaProvedIteratorConfig struct {
-	Client                 *rpc.EthClient
-	ShastaTaikoInbox       *shastaBindings.ShastaInboxClient
-	ShastaTaikoInboxHelper *shastaBindings.InboxHelperClient
-	MaxBlocksReadPerEpoch  *uint64
-	StartHeight            *big.Int
-	EndHeight              *big.Int
-	OnShastaProvedEvent    OnShastaProvedEvent
-	BlockConfirmations     *uint64
+	RpcClient             *rpc.Client
+	MaxBlocksReadPerEpoch *uint64
+	StartHeight           *big.Int
+	EndHeight             *big.Int
+	OnShastaProvedEvent   OnShastaProvedEvent
+	BlockConfirmations    *uint64
 }
 
 // NewShastaProvedIterator creates a new instance of Shasta Proved event iterator.
@@ -56,15 +54,13 @@ func NewShastaProvedIterator(ctx context.Context, cfg *ShastaProvedIteratorConfi
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
-		Client:                cfg.Client,
+		Client:                cfg.RpcClient.L1,
 		MaxBlocksReadPerEpoch: cfg.MaxBlocksReadPerEpoch,
 		StartHeight:           cfg.StartHeight,
 		EndHeight:             cfg.EndHeight,
 		BlockConfirmations:    cfg.BlockConfirmations,
 		OnBlocks: assembleShastaProvedIteratorCallback(
-			cfg.Client,
-			cfg.ShastaTaikoInbox,
-			cfg.ShastaTaikoInboxHelper,
+			cfg.RpcClient,
 			cfg.OnShastaProvedEvent,
 			iterator,
 		),
@@ -92,9 +88,7 @@ func (i *ShastaProvedIterator) end() {
 // assembleShastaProvedIteratorCallback assembles the callback which will be used
 // by an event iterator's inner block iterator.
 func assembleShastaProvedIteratorCallback(
-	client *rpc.EthClient,
-	shastaTaikoInbox *shastaBindings.ShastaInboxClient,
-	shastaTaikoInboxHelper *shastaBindings.InboxHelperClient,
+	rpcClient *rpc.Client,
 	callback OnShastaProvedEvent,
 	eventIter *ShastaProvedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -107,7 +101,7 @@ func assembleShastaProvedIteratorCallback(
 		endHeight := end.Number.Uint64()
 
 		// Iterate the Shasta Proved events.
-		iter, err := shastaTaikoInbox.FilterProved(
+		iter, err := rpcClient.ShastaClients.Inbox.FilterProved(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 		)
 		if err != nil {
@@ -119,7 +113,7 @@ func assembleShastaProvedIteratorCallback(
 			event := iter.Event
 
 			// Decode the Proved event data
-			provedEventPayload, err := shastaTaikoInboxHelper.DecodeProvedEvent(&bind.CallOpts{Context: ctx}, event.Data)
+			provedEventPayload, err := rpcClient.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
 			if err != nil {
 				log.Error("Failed to decode Shasta Proved event data", "error", err)
 				return err
@@ -128,7 +122,7 @@ func assembleShastaProvedIteratorCallback(
 			proposalID := provedEventPayload.ProposalId.Uint64()
 			log.Debug("Processing Shasta Proved event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if err := callback(ctx, &provedEventPayload, &event.Raw, eventIter.end); err != nil {
+			if err := callback(ctx, provedEventPayload, &event.Raw, eventIter.end); err != nil {
 				log.Warn("Error while processing Shasta Proved events, keep retrying", "error", err)
 				return err
 			}
@@ -139,7 +133,7 @@ func assembleShastaProvedIteratorCallback(
 				return nil
 			}
 
-			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			current, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
 			if err != nil {
 				return err
 			}

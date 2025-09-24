@@ -145,13 +145,10 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
-		Client:                 s.rpc.L1,
-		PacayaTaikoInbox:       s.rpc.PacayaClients.TaikoInbox,
-		ShastaTaikoInbox:       s.rpc.ShastaClients.Inbox,
-		ShastaTaikoInboxHelper: s.rpc.ShastaClients.InboxHelper,
-		StartHeight:            s.state.GetL1Current().Number,
-		EndHeight:              l1End.Number,
-		OnBatchProposedEvent:   s.onBatchProposed,
+		RpcClient:            s.rpc,
+		StartHeight:          s.state.GetL1Current().Number,
+		EndHeight:            l1End.Number,
+		OnBatchProposedEvent: s.onBatchProposed,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create event iterator: %w", err)
