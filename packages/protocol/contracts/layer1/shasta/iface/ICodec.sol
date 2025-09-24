@@ -153,7 +153,7 @@ interface ICodec {
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
     /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32);

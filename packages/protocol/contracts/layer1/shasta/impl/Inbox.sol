@@ -271,7 +271,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         ProveInput memory input = _decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
-        require(input.transitions.length == input.metadata.length, InconsistentParams());
+        require(input.transitions.length == input.metadatas.length, InconsistentParams());
 
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
@@ -279,7 +279,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Verify the proof using staticcall
         (bool success,) = address(_proofVerifier).staticcall(
             abi.encodeCall(
-                IProofVerifier.verifyProof, (_hashTransitions(input.transitions), _proof)
+                IProofVerifier.verifyProof, (_hashTransitionsWithMetadata(input.transitions, input.metadatas), _proof)
             )
         );
         require(success, ProofVerificationFailed());
@@ -431,13 +431,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
-            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
+            _input.proposals[_index], _input.transitions[_index], _input.metadatas[_index]
         );
 
         _setTransitionRecordHashAndDeadline(
             _input.proposals[_index].id,
             _input.transitions[_index],
-            _input.metadata[_index],
+            _input.metadatas[_index],
             transitionRecord
         );
     }
@@ -759,8 +759,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
+    /// @param _metadatas The metadata array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitions(Transition[] memory _transitions)
+    function _hashTransitionsWithMetadata(Transition[] memory _transitions, TransitionMetadata[] memory _metadatas)
         internal
         pure
         virtual

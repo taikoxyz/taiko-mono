@@ -42,10 +42,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @notice Encodes proposed event data using optimized format
-    /// @dev Overrides base implementation to use custom encoding
-    /// @param _payload The ProposedEventPayload to encode
-    /// @return Custom-encoded bytes with reduced size
     function _encodeProposedEventData(ProposedEventPayload memory _payload)
         internal
         pure
@@ -57,10 +53,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Encodes proved event data using optimized format
-    /// @dev Overrides base implementation to use custom encoding
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return Custom-encoded bytes with reduced size
     function _encodeProvedEventData(ProvedEventPayload memory _payload)
         internal
         pure
@@ -72,10 +64,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Decodes custom-encoded proposal input data
-    /// @dev Overrides base implementation to use LibProposeInputDecoder
-    /// @param _data The custom-encoded propose input data
-    /// @return _ The decoded ProposeInput struct
     function _decodeProposeInput(bytes calldata _data)
         internal
         pure
@@ -86,10 +74,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Decodes custom-encoded prove input data
-    /// @dev Overrides base implementation to use LibProveInputDecoder
-    /// @param _data The custom-encoded prove input data
-    /// @return The decoded ProveInput struct
     function _decodeProveInput(bytes calldata _data)
         internal
         pure
@@ -104,10 +88,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @dev Optimized implementation using LibHashing
-    /// @notice Uses efficient hashing for composite key generation
-    /// @param _proposalId The proposal ID
-    /// @param _parentTransitionHash The parent transition hash
     /// @return bytes32 The composite key for storage mapping
     function _composeTransitionKey(
         uint48 _proposalId,
@@ -122,10 +102,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized blob hashes array hashing using LibHashing
-    /// @dev Uses LibHashing for efficient blob hashes array hashing
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return bytes32 The keccak256 hash of the blob hashes array
     function _hashBlobHashesArray(bytes32[] memory _blobHashes)
         internal
         pure
@@ -136,10 +112,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized checkpoint hashing using LibHashing
-    /// @dev Uses LibHashing for efficient checkpoint hashing
-    /// @param _checkpoint The checkpoint data to hash
-    /// @return bytes32 The keccak256 hash of the checkpoint struct
     function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
@@ -150,19 +122,11 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized core state hashing using LibHashing
-    /// @dev Uses LibHashing for efficient core state hashing
-    /// @param _coreState The core state data to hash
-    /// @return bytes32 The keccak256 hash of the core state struct
     function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized derivation hashing using LibHashing
-    /// @dev Uses LibHashing for efficient derivation hashing
-    /// @param _derivation The derivation data to hash
-    /// @return bytes32 The keccak256 hash of the derivation struct
     function _hashDerivation(Derivation memory _derivation)
         internal
         pure
@@ -173,19 +137,11 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized proposal hashing using LibHashing
-    /// @dev Uses LibHashing for efficient proposal hashing
-    /// @param _proposal The proposal data to hash
-    /// @return bytes32 The keccak256 hash of the proposal struct
     function _hashProposal(Proposal memory _proposal) internal pure override returns (bytes32) {
         return LibHashing.hashProposal(_proposal);
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized transition hashing using LibHashing
-    /// @dev Uses LibHashing for efficient transition hashing
-    /// @param _transition The transition data to hash
-    /// @return bytes32 The keccak256 hash of the transition struct
     function _hashTransition(Transition memory _transition)
         internal
         pure
@@ -196,10 +152,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized transition record hashing using LibHashing
-    /// @dev Uses LibHashing for efficient transition record hashing
-    /// @param _transitionRecord The transition record to hash
-    /// @return bytes26 The truncated keccak256 hash of the transition record
     function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
         internal
         pure
@@ -210,16 +162,12 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @notice Optimized transitions array hashing using LibHashing
-    /// @dev Uses LibHashing for efficient array hashing
-    /// @param _transitions The transitions array to hash
-    /// @return bytes32 The keccak256 hash of the transitions array
-    function _hashTransitions(Transition[] memory _transitions)
+    function _hashTransitionsWithMetadata(Transition[] memory _transitions, TransitionMetadata[] memory _metadatas)
         internal
         pure
         override
         returns (bytes32)
     {
-        return LibHashing.hashTransitions(_transitions);
+        return LibHashing.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

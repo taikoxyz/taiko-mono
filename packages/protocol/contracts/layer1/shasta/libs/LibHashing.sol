@@ -219,6 +219,47 @@ library LibHashing {
     /// @notice Memory-optimized hashing for arrays of Transitions
     /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
+    /// @param _metadata The metadata array to hash
+    /// @return The hash of the transitions array
+    function hashTransitionsWithMetadata(IInbox.Transition[] memory _transitions, IInbox.TransitionMetadata[] memory _metadata)
+        internal
+        pure
+        returns (bytes32)
+    {
+        unchecked {
+            uint256 length = _transitions.length;
+            if (length == 0) {
+                return EMPTY_BYTES_HASH;
+            }
+
+            if (length == 1) {
+                return EfficientHashLib.hash(bytes32(length), hashTransition(_transitions[0]));
+            }
+
+            if (length == 2) {
+                return EfficientHashLib.hash(
+                    bytes32(length),
+                    hashTransition(_transitions[0]),
+                    hashTransition(_transitions[1])
+                );
+            }
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(length));
+
+            for (uint256 i; i < length; ++i) {
+                EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
+    }
+
+    /// @notice Memory-optimized hashing for arrays of Transitions (without metadata)
+    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
+    /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
     function hashTransitions(IInbox.Transition[] memory _transitions)
         internal

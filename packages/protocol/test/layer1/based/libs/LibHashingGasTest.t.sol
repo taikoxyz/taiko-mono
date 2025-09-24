@@ -23,6 +23,7 @@ contract LibHashingGasTest is Test {
     // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline
     // requirement
     IInbox.Transition[] internal testTransitionsArray;
+    IInbox.TransitionMetadata[] internal testMetadataArray;
 
     function setUp() public {
         _initializeTestData();
@@ -212,7 +213,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashTransitions(testTransitionsArray);
+        LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -289,14 +290,14 @@ contract LibHashingGasTest is Test {
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
-        // hashTransitions
+        // hashTransitionsWithMetadata
         gasBefore = gasleft();
         keccak256(abi.encode(testTransitionsArray));
         gasAfter = gasleft();
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashTransitions(testTransitionsArray);
+        LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -340,10 +341,10 @@ contract LibHashingGasTest is Test {
         hash2 = LibHashing.hashDerivation(_createTestDerivation());
         assertEq(hash1, hash2, "hashDerivation should be deterministic");
 
-        // Test hashTransitions consistency
-        hash1 = LibHashing.hashTransitions(testTransitionsArray);
-        hash2 = LibHashing.hashTransitions(testTransitionsArray);
-        assertEq(hash1, hash2, "hashTransitions should be deterministic");
+        // Test hashTransitionsWithMetadata consistency
+        hash1 = LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        hash2 = LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        assertEq(hash1, hash2, "hashTransitionsWithMetadata should be deterministic");
     }
 
     /// @notice Test hash behavior comparison between standard and optimized implementations
@@ -528,6 +529,26 @@ contract LibHashingGasTest is Test {
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")
                 })
+            })
+        );
+
+        // Initialize test metadata array with corresponding metadata for each transition
+        testMetadataArray.push(
+            IInbox.TransitionMetadata({
+                designatedProver: address(0x1111111111111111111111111111111111111111),
+                actualProver: address(0x1111111111111111111111111111111111111111)
+            })
+        );
+        testMetadataArray.push(
+            IInbox.TransitionMetadata({
+                designatedProver: address(0x2222222222222222222222222222222222222222),
+                actualProver: address(0x2222222222222222222222222222222222222222)
+            })
+        );
+        testMetadataArray.push(
+            IInbox.TransitionMetadata({
+                designatedProver: address(0x3333333333333333333333333333333333333333),
+                actualProver: address(0x3333333333333333333333333333333333333333)
             })
         );
     }

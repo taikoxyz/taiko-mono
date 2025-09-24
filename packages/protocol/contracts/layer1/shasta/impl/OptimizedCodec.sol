@@ -154,7 +154,7 @@ contract OptimizedCodec is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32)

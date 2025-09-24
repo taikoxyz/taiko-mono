@@ -149,21 +149,11 @@ contract SimpleCodec is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32)
     {
-        // return keccak256(abi.encode(_transitions));
-
-        /// forge-lint: disable-next-line(asm-keccak256)
-        // assert(_transitions.length == _metadatas.length);
-        // bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
-        // for (uint256 i; i < _transitions.length; ++i) {
-        //     bytes32 transitionHash = _hashTransition(_transitions[i]);
-        //     transitionHashes[i] = keccak256(abi.encodePacked(transitionHash,
-        // _metadatas[i].designatedProver, _metadatas[i].actualProver));
-        // }
-        // return keccak256(abi.encode(transitionHashes));
+        return keccak256(abi.encode(_transitions));
     }
 }
