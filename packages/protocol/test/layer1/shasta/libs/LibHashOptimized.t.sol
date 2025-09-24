@@ -2,15 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibHashingOptimized } from "src/layer1/shasta/libs/LibHashingOptimized.sol";
+import { LibHashOptimized } from "src/layer1/shasta/libs/LibHashOptimized.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingOptimizedTest
-/// @notice Comprehensive test suite for LibHashingOptimized library
-contract LibHashingOptimizedTest is Test {
+/// @title LibHashOptimizedTest
+/// @notice Comprehensive test suite for LibHashOptimized library
+contract LibHashOptimizedTest is Test {
     function setUp() public { }
 
     // ---------------------------------------------------------------
@@ -30,11 +30,11 @@ contract LibHashingOptimizedTest is Test {
             checkpoint: testCheckpoint
         });
 
-        bytes32 hash = LibHashingOptimized.hashTransition(testTransition);
+        bytes32 hash = LibHashOptimized.hashTransition(testTransition);
         assertNotEq(hash, bytes32(0), "Transition hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashTransition(testTransition);
+        bytes32 hash2 = LibHashOptimized.hashTransition(testTransition);
         assertEq(hash, hash2, "Transition hash should be deterministic");
     }
 
@@ -45,11 +45,11 @@ contract LibHashingOptimizedTest is Test {
             stateRoot: bytes32(uint256(0xdead))
         });
 
-        bytes32 hash = LibHashingOptimized.hashCheckpoint(testCheckpoint);
+        bytes32 hash = LibHashOptimized.hashCheckpoint(testCheckpoint);
         assertNotEq(hash, bytes32(0), "Checkpoint hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashCheckpoint(testCheckpoint);
+        bytes32 hash2 = LibHashOptimized.hashCheckpoint(testCheckpoint);
         assertEq(hash, hash2, "Checkpoint hash should be deterministic");
     }
 
@@ -62,11 +62,11 @@ contract LibHashingOptimizedTest is Test {
             bondInstructionsHash: bytes32(uint256(0x4444))
         });
 
-        bytes32 hash = LibHashingOptimized.hashCoreState(testCoreState);
+        bytes32 hash = LibHashOptimized.hashCoreState(testCoreState);
         assertNotEq(hash, bytes32(0), "CoreState hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashCoreState(testCoreState);
+        bytes32 hash2 = LibHashOptimized.hashCoreState(testCoreState);
         assertEq(hash, hash2, "CoreState hash should be deterministic");
     }
 
@@ -80,11 +80,11 @@ contract LibHashingOptimizedTest is Test {
             derivationHash: bytes32(uint256(0x6666))
         });
 
-        bytes32 hash = LibHashingOptimized.hashProposal(testProposal);
+        bytes32 hash = LibHashOptimized.hashProposal(testProposal);
         assertNotEq(hash, bytes32(0), "Proposal hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashProposal(testProposal);
+        bytes32 hash2 = LibHashOptimized.hashProposal(testProposal);
         assertEq(hash, hash2, "Proposal hash should be deterministic");
     }
 
@@ -113,11 +113,11 @@ contract LibHashingOptimizedTest is Test {
             sources: sources
         });
 
-        bytes32 hash = LibHashingOptimized.hashDerivation(testDerivation);
+        bytes32 hash = LibHashOptimized.hashDerivation(testDerivation);
         assertNotEq(hash, bytes32(0), "Derivation hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashDerivation(testDerivation);
+        bytes32 hash2 = LibHashOptimized.hashDerivation(testDerivation);
         assertEq(hash, hash2, "Derivation hash should be deterministic");
     }
 
@@ -129,7 +129,7 @@ contract LibHashingOptimizedTest is Test {
             sources: new IInbox.DerivationSource[](0)
         });
 
-        bytes32 hash = LibHashingOptimized.hashDerivation(emptyDerivation);
+        bytes32 hash = LibHashOptimized.hashDerivation(emptyDerivation);
         assertNotEq(hash, bytes32(0), "Empty derivation hash should not be zero");
     }
 
@@ -143,17 +143,17 @@ contract LibHashingOptimizedTest is Test {
         testBlobHashes[1] = bytes32(uint256(0xddd2));
         testBlobHashes[2] = bytes32(uint256(0xddd3));
 
-        bytes32 hash = LibHashingOptimized.hashBlobHashesArray(testBlobHashes);
+        bytes32 hash = LibHashOptimized.hashBlobHashesArray(testBlobHashes);
         assertNotEq(hash, bytes32(0), "Blob hashes array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashBlobHashesArray(testBlobHashes);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(testBlobHashes);
         assertEq(hash, hash2, "Blob hashes array hash should be deterministic");
     }
 
     function test_hashBlobHashesArray_Empty() public pure {
         bytes32[] memory emptyArray = new bytes32[](0);
-        bytes32 hash = LibHashingOptimized.hashBlobHashesArray(emptyArray);
+        bytes32 hash = LibHashOptimized.hashBlobHashesArray(emptyArray);
         assertEq(hash, keccak256(""), "Empty blob hashes array should hash to empty bytes hash");
     }
 
@@ -161,7 +161,7 @@ contract LibHashingOptimizedTest is Test {
         bytes32[] memory singleArray = new bytes32[](1);
         singleArray[0] = bytes32(uint256(0x1234));
 
-        bytes32 hash = LibHashingOptimized.hashBlobHashesArray(singleArray);
+        bytes32 hash = LibHashOptimized.hashBlobHashesArray(singleArray);
         assertNotEq(hash, bytes32(0), "Single blob hash array should not be zero");
     }
 
@@ -170,7 +170,7 @@ contract LibHashingOptimizedTest is Test {
         twoArray[0] = bytes32(uint256(0x1234));
         twoArray[1] = bytes32(uint256(0x5678));
 
-        bytes32 hash = LibHashingOptimized.hashBlobHashesArray(twoArray);
+        bytes32 hash = LibHashOptimized.hashBlobHashesArray(twoArray);
         assertNotEq(hash, bytes32(0), "Two blob hashes array should not be zero");
     }
 
@@ -204,17 +204,17 @@ contract LibHashingOptimizedTest is Test {
             checkpoint: checkpoint2
         });
 
-        bytes32 hash = LibHashingOptimized.hashTransitions(transitions);
+        bytes32 hash = LibHashOptimized.hashTransitions(transitions);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashingOptimized.hashTransitions(transitions);
+        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
         assertEq(hash, hash2, "Transitions array hash should be deterministic");
     }
 
     function test_hashTransitions_Empty() public pure {
         IInbox.Transition[] memory emptyArray = new IInbox.Transition[](0);
-        bytes32 hash = LibHashingOptimized.hashTransitions(emptyArray);
+        bytes32 hash = LibHashOptimized.hashTransitions(emptyArray);
         assertEq(hash, keccak256(""), "Empty transitions array should hash to empty bytes hash");
     }
 
@@ -232,7 +232,7 @@ contract LibHashingOptimizedTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashingOptimized.hashTransitions(singleArray);
+        bytes32 hash = LibHashOptimized.hashTransitions(singleArray);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
@@ -255,7 +255,7 @@ contract LibHashingOptimizedTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashingOptimized.hashTransitions(twoArray);
+        bytes32 hash = LibHashOptimized.hashTransitions(twoArray);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
     }
 
@@ -281,11 +281,11 @@ contract LibHashingOptimizedTest is Test {
             bondInstructions: bondInstructions
         });
 
-        bytes26 hash = LibHashingOptimized.hashTransitionRecord(testTransitionRecord);
+        bytes26 hash = LibHashOptimized.hashTransitionRecord(testTransitionRecord);
         assertNotEq(hash, bytes26(0), "TransitionRecord hash should not be zero");
 
         // Verify deterministic hashing
-        bytes26 hash2 = LibHashingOptimized.hashTransitionRecord(testTransitionRecord);
+        bytes26 hash2 = LibHashOptimized.hashTransitionRecord(testTransitionRecord);
         assertEq(hash, hash2, "TransitionRecord hash should be deterministic");
     }
 
@@ -297,7 +297,7 @@ contract LibHashingOptimizedTest is Test {
             bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
-        bytes26 hash = LibHashingOptimized.hashTransitionRecord(emptyRecord);
+        bytes26 hash = LibHashOptimized.hashTransitionRecord(emptyRecord);
         assertNotEq(hash, bytes26(0), "Empty TransitionRecord hash should not be zero");
     }
 
@@ -309,11 +309,11 @@ contract LibHashingOptimizedTest is Test {
         uint48 proposalId = 12_345;
         bytes32 parentHash = bytes32(uint256(0xabcdef));
 
-        bytes32 key = LibHashingOptimized.composeTransitionKey(proposalId, parentHash);
+        bytes32 key = LibHashOptimized.composeTransitionKey(proposalId, parentHash);
         assertNotEq(key, bytes32(0), "Composite key should not be zero");
 
         // Verify deterministic key generation
-        bytes32 key2 = LibHashingOptimized.composeTransitionKey(proposalId, parentHash);
+        bytes32 key2 = LibHashOptimized.composeTransitionKey(proposalId, parentHash);
         assertEq(key, key2, "Composite key should be deterministic");
     }
 
@@ -340,8 +340,8 @@ contract LibHashingOptimizedTest is Test {
             derivationHash: bytes32(uint256(0x1))
         });
 
-        bytes32 hash1 = LibHashingOptimized.hashProposal(proposal1);
-        bytes32 hash2 = LibHashingOptimized.hashProposal(proposal2);
+        bytes32 hash1 = LibHashOptimized.hashProposal(proposal1);
+        bytes32 hash2 = LibHashOptimized.hashProposal(proposal2);
 
         assertNotEq(hash1, hash2, "Different proposals should have different hashes");
     }
@@ -355,8 +355,8 @@ contract LibHashingOptimizedTest is Test {
         array2[0] = bytes32(uint256(0x1234));
         array2[1] = bytes32(uint256(0x0)); // Adding zero element
 
-        bytes32 hash1 = LibHashingOptimized.hashBlobHashesArray(array1);
-        bytes32 hash2 = LibHashingOptimized.hashBlobHashesArray(array2);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(array1);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(array2);
 
         assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
     }

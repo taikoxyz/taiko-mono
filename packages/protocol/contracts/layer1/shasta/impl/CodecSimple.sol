@@ -5,11 +5,11 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { ICodec } from "../iface/ICodec.sol";
 
-/// @title SimpleCodec
+/// @title CodecSimple
 /// @notice Codec contract for standard Inbox with abi.encode/decode and keccak256 hashing
 /// functions
 /// @custom:security-contact security@taiko.xyz
-contract SimpleCodec is ICodec {
+contract CodecSimple is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------

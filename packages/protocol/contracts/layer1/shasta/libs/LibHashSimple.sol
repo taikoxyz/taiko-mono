@@ -3,15 +3,14 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
-/// @title LibHashingSimple
+/// @title LibHashSimple
 /// @notice Simple hashing functions using standard keccak256(abi.encode(...))
 /// @dev This library provides standard implementations of all hashing functions
 ///      used in the Inbox contract, using the original keccak256(abi.encode(...)) pattern
 ///      from the base Inbox.sol implementation.
 /// @custom:security-contact security@taiko.xyz
-library LibHashingSimple {
+library LibHashSimple {
     // ---------------------------------------------------------------
     // Core Structure Hashing Functions
     // ---------------------------------------------------------------

@@ -2,15 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibHashingOptimized as LibHashing } from "src/layer1/shasta/libs/LibHashingOptimized.sol";
+import { LibHashOptimized } from "src/layer1/shasta/libs/LibHashOptimized.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingOptimizedFuzzTest
-/// @notice Comprehensive fuzz testing for LibHashingOptimized library functions
-contract LibHashingOptimizedFuzzTest is Test {
+/// @title LibHashOptimizedFuzzTest
+/// @notice Comprehensive fuzz testing for LibHashOptimized library functions
+contract LibHashOptimizedFuzzTest is Test {
     // ---------------------------------------------------------------
     // Fuzz Test: hashCheckpoint
     // ---------------------------------------------------------------
@@ -29,8 +29,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             stateRoot: stateRoot
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint);
+        bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint);
+        bytes32 hash2 = LibHashOptimized.hashCheckpoint(checkpoint);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -67,8 +67,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint1);
+        bytes32 hash2 = LibHashOptimized.hashCheckpoint(checkpoint2);
 
         // Different inputs should produce different hashes
         assertTrue(hash1 != hash2, "Different inputs should produce different hashes");
@@ -96,8 +96,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             bondInstructionsHash: bondInstructionsHash
         });
 
-        bytes32 hash1 = LibHashing.hashCoreState(coreState);
-        bytes32 hash2 = LibHashing.hashCoreState(coreState);
+        bytes32 hash1 = LibHashOptimized.hashCoreState(coreState);
+        bytes32 hash2 = LibHashOptimized.hashCoreState(coreState);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -130,8 +130,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             derivationHash: derivationHash
         });
 
-        bytes32 hash1 = LibHashing.hashProposal(proposal);
-        bytes32 hash2 = LibHashing.hashProposal(proposal);
+        bytes32 hash1 = LibHashOptimized.hashProposal(proposal);
+        bytes32 hash2 = LibHashOptimized.hashProposal(proposal);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -164,8 +164,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransition(transition);
-        bytes32 hash2 = LibHashing.hashTransition(transition);
+        bytes32 hash1 = LibHashOptimized.hashTransition(transition);
+        bytes32 hash2 = LibHashOptimized.hashTransition(transition);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -193,8 +193,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             sources: new IInbox.DerivationSource[](0)
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = LibHashOptimized.hashDerivation(derivation);
+        bytes32 hash2 = LibHashOptimized.hashDerivation(derivation);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -235,8 +235,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             sources: sources
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = LibHashOptimized.hashDerivation(derivation);
+        bytes32 hash2 = LibHashOptimized.hashDerivation(derivation);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -252,8 +252,8 @@ contract LibHashingOptimizedFuzzTest is Test {
     function testFuzz_hashTransitions_empty() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
-        bytes32 hash1 = LibHashing.hashTransitions(transitions);
-        bytes32 hash2 = LibHashing.hashTransitions(transitions);
+        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
+        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -283,8 +283,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitions(transitions);
-        bytes32 hash2 = LibHashing.hashTransitions(transitions);
+        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
+        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -323,8 +323,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         doubleArray[0] = transition;
         doubleArray[1] = transition;
 
-        bytes32 singleHash = LibHashing.hashTransitions(singleArray);
-        bytes32 doubleHash = LibHashing.hashTransitions(doubleArray);
+        bytes32 singleHash = LibHashOptimized.hashTransitions(singleArray);
+        bytes32 doubleHash = LibHashOptimized.hashTransitions(doubleArray);
 
         // Different array lengths should produce different hashes even with same elements
         assertTrue(singleHash != doubleHash, "Array length should affect hash");
@@ -349,8 +349,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             checkpointHash: checkpointHash
         });
 
-        bytes26 hash1 = LibHashing.hashTransitionRecord(record);
-        bytes26 hash2 = LibHashing.hashTransitionRecord(record);
+        bytes26 hash1 = LibHashOptimized.hashTransitionRecord(record);
+        bytes26 hash2 = LibHashOptimized.hashTransitionRecord(record);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -389,8 +389,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             checkpointHash: checkpointHash
         });
 
-        bytes26 hash1 = LibHashing.hashTransitionRecord(record);
-        bytes26 hash2 = LibHashing.hashTransitionRecord(record);
+        bytes26 hash1 = LibHashOptimized.hashTransitionRecord(record);
+        bytes26 hash2 = LibHashOptimized.hashTransitionRecord(record);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -410,8 +410,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         public
         pure
     {
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
+        bytes32 key1 = LibHashOptimized.composeTransitionKey(proposalId, parentTransitionHash);
+        bytes32 key2 = LibHashOptimized.composeTransitionKey(proposalId, parentTransitionHash);
 
         // Key should be deterministic
         assertEq(key1, key2, "Key should be deterministic");
@@ -432,8 +432,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         // Skip if inputs are identical
         vm.assume(proposalId1 != proposalId2 || parentTransitionHash1 != parentTransitionHash2);
 
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId1, parentTransitionHash1);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId2, parentTransitionHash2);
+        bytes32 key1 = LibHashOptimized.composeTransitionKey(proposalId1, parentTransitionHash1);
+        bytes32 key2 = LibHashOptimized.composeTransitionKey(proposalId2, parentTransitionHash2);
 
         // Different inputs should produce different keys
         assertTrue(key1 != key2, "Different inputs should produce different keys");
@@ -471,8 +471,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint1);
+        bytes32 hash2 = LibHashOptimized.hashCheckpoint(checkpoint2);
 
         // Should be collision resistant
         assertTrue(hash1 != hash2, "Hash function should be collision resistant");
@@ -486,9 +486,9 @@ contract LibHashingOptimizedFuzzTest is Test {
         pure
     {
         // Test that calling the same function multiple times gives same result
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key3 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
+        bytes32 key1 = LibHashOptimized.composeTransitionKey(proposalId, parentTransitionHash);
+        bytes32 key2 = LibHashOptimized.composeTransitionKey(proposalId, parentTransitionHash);
+        bytes32 key3 = LibHashOptimized.composeTransitionKey(proposalId, parentTransitionHash);
 
         assertEq(key1, key2, "Multiple calls should be consistent");
         assertEq(key2, key3, "Multiple calls should be consistent");
@@ -496,7 +496,7 @@ contract LibHashingOptimizedFuzzTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // Additional tests from LibHashingFuzz.t.sol
+    // Additional tests from LibHashFuzz.t.sol
     // ---------------------------------------------------------------
 
     function testFuzz_hashDerivation_WithSources(
@@ -535,8 +535,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             sources: sources
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = LibHashOptimized.hashDerivation(derivation);
+        bytes32 hash2 = LibHashOptimized.hashDerivation(derivation);
 
         assertEq(hash1, hash2, "Derivation hash should be deterministic");
     }
@@ -545,8 +545,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = blobHash;
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(blobHashes);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(blobHashes);
 
         assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
@@ -557,8 +557,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         blobHashes[0] = blobHash1;
         blobHashes[1] = blobHash2;
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(blobHashes);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(blobHashes);
 
         assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
@@ -567,8 +567,8 @@ contract LibHashingOptimizedFuzzTest is Test {
     function testFuzz_hashBlobHashesArray_Multiple(bytes32[] memory blobHashes) public pure {
         vm.assume(blobHashes.length > 0 && blobHashes.length <= 100); // Reasonable bounds
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(blobHashes);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(blobHashes);
 
         assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
@@ -595,8 +595,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitions(transitions);
-        bytes32 hash2 = LibHashing.hashTransitions(transitions);
+        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
+        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
 
         assertEq(hash1, hash2, "Transitions array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
@@ -633,8 +633,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             derivationHash: bytes32(uint256(0x2))
         });
 
-        bytes32 hash1 = LibHashing.hashProposal(proposal1);
-        bytes32 hash2 = LibHashing.hashProposal(proposal2);
+        bytes32 hash1 = LibHashOptimized.hashProposal(proposal1);
+        bytes32 hash2 = LibHashOptimized.hashProposal(proposal2);
 
         assertNotEq(hash1, hash2, "Different proposals should have different hashes");
     }
@@ -663,8 +663,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             array2[i] = element;
         }
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(array1);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(array2);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(array1);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(array2);
 
         assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
     }
@@ -692,8 +692,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             stateRoot: stateRoot
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint1);
+        bytes32 hash2 = LibHashOptimized.hashCheckpoint(checkpoint2);
 
         assertNotEq(hash1, hash2, "Different checkpoints should have different hashes");
     }
@@ -702,8 +702,8 @@ contract LibHashingOptimizedFuzzTest is Test {
         bytes32[] memory emptyArray1 = new bytes32[](0);
         bytes32[] memory emptyArray2 = new bytes32[](0);
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(emptyArray1);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(emptyArray2);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(emptyArray1);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(emptyArray2);
 
         assertEq(hash1, hash2, "Empty arrays should always hash to the same value");
         assertEq(hash1, keccak256(""), "Empty arrays should hash to keccak256 of empty bytes");
@@ -718,8 +718,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             largeArray[i] = bytes32(uint256(i));
         }
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(largeArray);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(largeArray);
+        bytes32 hash1 = LibHashOptimized.hashBlobHashesArray(largeArray);
+        bytes32 hash2 = LibHashOptimized.hashBlobHashesArray(largeArray);
 
         assertEq(hash1, hash2, "Large arrays should hash deterministically");
         assertNotEq(hash1, bytes32(0), "Large array hash should not be zero");
@@ -766,8 +766,8 @@ contract LibHashingOptimizedFuzzTest is Test {
             sources: sources
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = LibHashOptimized.hashDerivation(derivation);
+        bytes32 hash2 = LibHashOptimized.hashDerivation(derivation);
 
         // Hash should be deterministic even with many blobs
         assertEq(hash1, hash2, "Hash should be deterministic with many blobs");

@@ -6,13 +6,13 @@ import { IInbox } from "../iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
-/// @title LibHashingOptimized
+/// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
 /// @dev This library provides gas-optimized implementations of all hashing functions
 ///      used in the Inbox contract, replacing standard keccak256(abi.encode(...)) calls
 ///      with more efficient alternatives from Solady's EfficientHashLib.
 /// @custom:security-contact security@taiko.xyz
-library LibHashingOptimized {
+library LibHashOptimized {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------

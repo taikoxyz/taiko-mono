@@ -8,7 +8,7 @@ import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibHashingOptimized } from "../libs/LibHashingOptimized.sol";
+import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title InboxOptimized2
@@ -20,7 +20,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 ///      - Custom calldata encoding for propose and prove inputs
 ///      - Compact binary representation using LibProposeInputDecoder and LibProveInputDecoder
 ///      - Reduced transaction costs through efficient data packing
-///      - Uses LibHashing library for optimized struct hashing operations
+///      - Uses LibHash library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
@@ -84,7 +84,7 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     // ---------------------------------------------------------------
-    // LibHashing Optimizations
+    // LibHash Optimizations
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
@@ -98,7 +98,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
@@ -108,7 +108,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.hashBlobHashesArray(_blobHashes);
+        return LibHashOptimized.hashBlobHashesArray(_blobHashes);
     }
 
     /// @inheritdoc Inbox
@@ -118,12 +118,12 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.hashCheckpoint(_checkpoint);
+        return LibHashOptimized.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc Inbox
     function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
-        return LibHashingOptimized.hashCoreState(_coreState);
+        return LibHashOptimized.hashCoreState(_coreState);
     }
 
     /// @inheritdoc Inbox
@@ -133,12 +133,12 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.hashDerivation(_derivation);
+        return LibHashOptimized.hashDerivation(_derivation);
     }
 
     /// @inheritdoc Inbox
     function _hashProposal(Proposal memory _proposal) internal pure override returns (bytes32) {
-        return LibHashingOptimized.hashProposal(_proposal);
+        return LibHashOptimized.hashProposal(_proposal);
     }
 
     /// @inheritdoc Inbox
@@ -148,7 +148,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.hashTransition(_transition);
+        return LibHashOptimized.hashTransition(_transition);
     }
 
     /// @inheritdoc Inbox
@@ -158,7 +158,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes26)
     {
-        return LibHashingOptimized.hashTransitionRecord(_transitionRecord);
+        return LibHashOptimized.hashTransitionRecord(_transitionRecord);
     }
 
     /// @inheritdoc Inbox
@@ -171,6 +171,6 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashingOptimized.hashTransitionsWithMetadata(_transitions, _metadatas);
+        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

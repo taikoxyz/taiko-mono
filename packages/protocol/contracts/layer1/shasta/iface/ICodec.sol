@@ -12,7 +12,7 @@ import { IInbox } from "./IInbox.sol";
 /// - Struct fields are not validated for business logic constraints
 /// - Hash functions assume well-formed input structures
 /// @dev Compatibility warning:
-/// - Different codec implementations (SimpleCodec vs OptimizedCodec) produce
+/// - Different codec implementations (CodecSimple vs CodecOptimized) produce
 ///   INCOMPATIBLE encoded outputs and hashes for the same inputs
 /// - Codec implementations cannot be used interchangeably
 /// - System upgrades between codec types require careful migration planning
