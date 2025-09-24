@@ -504,8 +504,8 @@ contract TestERC20Vault is CommonTest {
             address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.name, ()));
         require(success2, "Name call failed");
 
-        string memory decodedSymbol = LibBytes.toString(symbolData);
-        string memory decodedName = LibBytes.toString(nameData);
+        string memory decodedSymbol = LibBytesInternal.toString(symbolData);
+        string memory decodedName = LibBytesInternal.toString(nameData);
 
         assertEq(decodedSymbol, "123456abcdefgh");
         assertEq(decodedName, "");
