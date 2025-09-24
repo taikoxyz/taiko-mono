@@ -159,6 +159,9 @@ contract CodecOptimized is ICodec {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashTransitions(_transitions);
+        // Note: ICodec interface doesn't include metadata parameter, but LibHashOptimized does
+        // We pass an empty metadata array for compatibility
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, emptyMetadata);
     }
 }

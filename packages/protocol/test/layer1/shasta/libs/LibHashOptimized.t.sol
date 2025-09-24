@@ -204,17 +204,19 @@ contract LibHashOptimizedTest is Test {
             checkpoint: checkpoint2
         });
 
-        bytes32 hash = LibHashOptimized.hashTransitions(transitions);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
+        bytes32 hash2 = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
         assertEq(hash, hash2, "Transitions array hash should be deterministic");
     }
 
     function test_hashTransitions_Empty() public pure {
         IInbox.Transition[] memory emptyArray = new IInbox.Transition[](0);
-        bytes32 hash = LibHashOptimized.hashTransitions(emptyArray);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash = LibHashOptimized.hashTransitionsWithMetadata(emptyArray, emptyMetadata);
         assertEq(hash, keccak256(""), "Empty transitions array should hash to empty bytes hash");
     }
 
@@ -232,7 +234,8 @@ contract LibHashOptimizedTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashOptimized.hashTransitions(singleArray);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash = LibHashOptimized.hashTransitionsWithMetadata(singleArray, emptyMetadata);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
@@ -255,7 +258,8 @@ contract LibHashOptimizedTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashOptimized.hashTransitions(twoArray);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash = LibHashOptimized.hashTransitionsWithMetadata(twoArray, emptyMetadata);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
     }
 

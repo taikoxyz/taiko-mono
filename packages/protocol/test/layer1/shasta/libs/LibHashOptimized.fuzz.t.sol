@@ -249,19 +249,6 @@ contract LibHashOptimizedFuzzTest is Test {
     // Fuzz Test: hashTransitions
     // ---------------------------------------------------------------
 
-    function testFuzz_hashTransitions_empty() public pure {
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
-
-        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
-        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
-
-        // Hash should be deterministic
-        assertEq(hash1, hash2, "Hash should be deterministic");
-
-        // Empty array should have consistent hash
-        assertEq(hash1, keccak256(""), "Empty array should hash to empty bytes hash");
-    }
-
     function testFuzz_hashTransitions_single(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
@@ -283,8 +270,9 @@ contract LibHashOptimizedFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
-        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash1 = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
+        bytes32 hash2 = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -323,8 +311,11 @@ contract LibHashOptimizedFuzzTest is Test {
         doubleArray[0] = transition;
         doubleArray[1] = transition;
 
-        bytes32 singleHash = LibHashOptimized.hashTransitions(singleArray);
-        bytes32 doubleHash = LibHashOptimized.hashTransitions(doubleArray);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 singleHash =
+            LibHashOptimized.hashTransitionsWithMetadata(singleArray, emptyMetadata);
+        bytes32 doubleHash =
+            LibHashOptimized.hashTransitionsWithMetadata(doubleArray, emptyMetadata);
 
         // Different array lengths should produce different hashes even with same elements
         assertTrue(singleHash != doubleHash, "Array length should affect hash");
@@ -595,8 +586,9 @@ contract LibHashOptimizedFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashOptimized.hashTransitions(transitions);
-        bytes32 hash2 = LibHashOptimized.hashTransitions(transitions);
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash1 = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
+        bytes32 hash2 = LibHashOptimized.hashTransitionsWithMetadata(transitions, emptyMetadata);
 
         assertEq(hash1, hash2, "Transitions array hash should be deterministic");
         assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");

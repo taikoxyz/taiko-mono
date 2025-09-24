@@ -102,19 +102,6 @@ library LibHashSimple {
         return keccak256(abi.encode(_transitions));
     }
 
-    /// @notice Simple hashing for arrays of Transitions (without metadata)
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    function hashTransitions(IInbox.Transition[] memory _transitions)
-        internal
-        pure
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
-    }
-
     // ---------------------------------------------------------------
     // Utility Functions
     // ---------------------------------------------------------------
