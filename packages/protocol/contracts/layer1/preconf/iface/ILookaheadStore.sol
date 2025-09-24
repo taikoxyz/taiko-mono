@@ -56,6 +56,19 @@ interface ILookaheadStore {
         bytes commitmentSignature;
     }
 
+    struct ProposerContext {
+        // `True` if the expected proposer is the fallback preconfer
+        bool isFallback;
+        // Address of the expected proposer (opted-in or fallback)
+        address proposer;
+        // Starting timestamp of the preconfing window
+        uint256 submissionWindowStart;
+        // Ending timestamp of the preconfing window
+        uint256 submissionWindowEnd;
+        // The lookahead slot covering the current preconfing window
+        LookaheadSlot lookaheadSlot;
+    }
+
     error CommitmentSignerMismatch();
     error CommitterMismatch();
     error InvalidLookahead();
@@ -66,8 +79,6 @@ interface ILookaheadStore {
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
     error NotInbox();
-    error NotProtectorOrPreconfRouter();
-    error NotWhitelistedPreconfer();
     error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
@@ -79,6 +90,7 @@ interface ILookaheadStore {
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
     error ProposerIsNotPreconfer();
+    error ProposerIsNotFallbackPreconfer();
     error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
@@ -114,6 +126,19 @@ interface ILookaheadStore {
         external
         pure
         returns (bytes26);
+
+    /// @notice Returns the proposer context for the given lookahead input and epoch.
+    /// @dev This is useful for offchain nodes in determining the next proposer/preconfer.
+    /// @param _data The lookahead data for current and next epoch.
+    /// @param _epochTimestamp The timestamp of the current epoch.
+    /// @return context_ The proposer context including proposer and submission window bounds.
+    function getProposerContext(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp
+    )
+        external
+        view
+        returns (ProposerContext memory context_);
 
     /// @notice Returns true if the lookahead is required for the next epoch.
     /// @return True if the lookahead is required for the next epoch, false otherwise.
