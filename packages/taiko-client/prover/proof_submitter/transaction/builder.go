@@ -273,6 +273,7 @@ func BuildParentTransitionHash(
 	var (
 		parentTransitions []transitionEntry
 		cursor            = new(big.Int).Sub(new(big.Int).Set(batchID), common.Big1)
+		coreState         = indexer.GetLastCoreState()
 	)
 
 	for {
@@ -285,6 +286,13 @@ func BuildParentTransitionHash(
 				[]transitionEntry{{transition: transition}},
 				parentTransitions...,
 			)
+			break
+		}
+
+		if coreState.LastFinalizedProposalId.Cmp(cursor) == 0 {
+			if len(parentTransitions) != 0 {
+				parentTransitions[0].transition.ParentTransitionHash = coreState.LastFinalizedTransitionHash
+			}
 			break
 		}
 

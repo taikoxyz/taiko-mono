@@ -560,7 +560,7 @@ func (s *Indexer) GetLastProposal() *ProposalPayload {
 		}
 	}
 
-	log.Info("Last cached Shasta proposal ID", "proposalId", maxID, "key", maxIDKey)
+	log.Debug("Last cached Shasta proposal ID", "proposalId", maxID, "key", maxIDKey)
 
 	proposal, _ := s.proposals.Get(maxIDKey)
 

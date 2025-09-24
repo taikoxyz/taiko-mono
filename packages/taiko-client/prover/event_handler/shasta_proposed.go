@@ -121,7 +121,11 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	}
 
 	if batchID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
-		log.Info("📋 Shasta batch has been verified", "batchID", batchID)
+		log.Info(
+			"📋 Shasta batch has been verified",
+			"batchID", batchID,
+			"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
+		)
 		return nil
 	}
 
