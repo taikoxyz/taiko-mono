@@ -178,7 +178,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	basefeeSharingPctg := core.DecodeExtraData(head2.Header().Extra)
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
 	s.Equal(uint8(75), basefeeSharingPctg)
 
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
@@ -219,7 +219,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Less(head.Time(), head2.Time())
 	s.Equal(head.Coinbase(), head2.Coinbase())
 	s.Equal(head.Extra(), head2.Extra())
-	basefeeSharingPctg := core.DecodeExtraData(head2.Header().Extra)
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
 	s.Equal(uint8(75), basefeeSharingPctg)
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
@@ -292,7 +292,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	s.Equal(head.GasLimit(), head2.GasLimit())
 	s.Less(head.Time(), head2.Time())
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
-	basefeeSharingPctg := core.DecodeExtraData(head2.Header().Extra)
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
 	s.Equal(uint8(75), basefeeSharingPctg)
 	s.GreaterOrEqual(len(head2.Header().Extra), 2)
 	isLowBondProposal := head2.Header().Extra[1]&0x01 == 0x01
