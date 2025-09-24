@@ -23,7 +23,7 @@ library LibProveInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize =
-            _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
+            _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadatas);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -44,9 +44,9 @@ library LibProveInputDecoder {
         }
 
         // 3. Encode Metadata array (no need to encode length, reuse transitions length)
-        P.checkArrayLength(_input.metadata.length);
-        for (uint256 i; i < _input.metadata.length; ++i) {
-            ptr = _encodeMetadata(ptr, _input.metadata[i]);
+        P.checkArrayLength(_input.metadatas.length);
+        for (uint256 i; i < _input.metadatas.length; ++i) {
+            ptr = _encodeMetadata(ptr, _input.metadatas[i]);
         }
     }
 
@@ -75,9 +75,9 @@ library LibProveInputDecoder {
         }
 
         // 3. Decode Metadata array (reuse transitions length)
-        input_.metadata = new IInbox.TransitionMetadata[](transitionsLength);
+        input_.metadatas = new IInbox.TransitionMetadata[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (input_.metadata[i], ptr) = _decodeMetadata(ptr);
+            (input_.metadatas[i], ptr) = _decodeMetadata(ptr);
         }
     }
 

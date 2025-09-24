@@ -2,22 +2,33 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingTest
-/// @notice Comprehensive test suite for LibHashing library
-contract LibHashingTest is Test {
-    function setUp() public { }
+/// @title AbstractCodecTest
+/// @notice Abstract base test for ICodec implementations
+/// @dev This allows sharing test cases between CodecSimple and CodecOptimized
+abstract contract AbstractCodecTest is Test {
+    ICodec internal codec;
+
+    /// @notice Must be implemented by concrete test contracts to provide the codec instance
+    function _getCodec() internal virtual returns (ICodec);
+
+    function setUp() public virtual {
+        codec = _getCodec();
+    }
+
+    /// @notice Get the name of the codec implementation for test output
+    function _getCodecName() internal view virtual returns (string memory);
 
     // ---------------------------------------------------------------
     // Core Structure Hashing Tests
     // ---------------------------------------------------------------
 
-    function test_hashTransition() public pure {
+    function test_hashTransition() public view {
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -30,30 +41,30 @@ contract LibHashingTest is Test {
             checkpoint: testCheckpoint
         });
 
-        bytes32 hash = LibHashing.hashTransition(testTransition);
+        bytes32 hash = codec.hashTransition(testTransition);
         assertNotEq(hash, bytes32(0), "Transition hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashTransition(testTransition);
+        bytes32 hash2 = codec.hashTransition(testTransition);
         assertEq(hash, hash2, "Transition hash should be deterministic");
     }
 
-    function test_hashCheckpoint() public pure {
+    function test_hashCheckpoint() public view {
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
 
-        bytes32 hash = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 hash = codec.hashCheckpoint(testCheckpoint);
         assertNotEq(hash, bytes32(0), "Checkpoint hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 hash2 = codec.hashCheckpoint(testCheckpoint);
         assertEq(hash, hash2, "Checkpoint hash should be deterministic");
     }
 
-    function test_hashCoreState() public pure {
+    function test_hashCoreState() public view {
         IInbox.CoreState memory testCoreState = IInbox.CoreState({
             nextProposalId: 100,
             nextProposalBlockId: 200,
@@ -62,15 +73,15 @@ contract LibHashingTest is Test {
             bondInstructionsHash: bytes32(uint256(0x4444))
         });
 
-        bytes32 hash = LibHashing.hashCoreState(testCoreState);
+        bytes32 hash = codec.hashCoreState(testCoreState);
         assertNotEq(hash, bytes32(0), "CoreState hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashCoreState(testCoreState);
+        bytes32 hash2 = codec.hashCoreState(testCoreState);
         assertEq(hash, hash2, "CoreState hash should be deterministic");
     }
 
-    function test_hashProposal() public pure {
+    function test_hashProposal() public view {
         IInbox.Proposal memory testProposal = IInbox.Proposal({
             id: 42,
             timestamp: 1_000_000,
@@ -80,15 +91,15 @@ contract LibHashingTest is Test {
             derivationHash: bytes32(uint256(0x6666))
         });
 
-        bytes32 hash = LibHashing.hashProposal(testProposal);
+        bytes32 hash = codec.hashProposal(testProposal);
         assertNotEq(hash, bytes32(0), "Proposal hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashProposal(testProposal);
+        bytes32 hash2 = codec.hashProposal(testProposal);
         assertEq(hash, hash2, "Proposal hash should be deterministic");
     }
 
-    function test_hashDerivation() public pure {
+    function test_hashDerivation() public view {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
 
         bytes32[] memory blobHashes1 = new bytes32[](1);
@@ -113,15 +124,15 @@ contract LibHashingTest is Test {
             sources: sources
         });
 
-        bytes32 hash = LibHashing.hashDerivation(testDerivation);
+        bytes32 hash = codec.hashDerivation(testDerivation);
         assertNotEq(hash, bytes32(0), "Derivation hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashDerivation(testDerivation);
+        bytes32 hash2 = codec.hashDerivation(testDerivation);
         assertEq(hash, hash2, "Derivation hash should be deterministic");
     }
 
-    function test_hashDerivation_EmptySources() public pure {
+    function test_hashDerivation_EmptySources() public view {
         IInbox.Derivation memory emptyDerivation = IInbox.Derivation({
             originBlockNumber: 1000,
             originBlockHash: bytes32(uint256(0xfeed)),
@@ -129,7 +140,7 @@ contract LibHashingTest is Test {
             sources: new IInbox.DerivationSource[](0)
         });
 
-        bytes32 hash = LibHashing.hashDerivation(emptyDerivation);
+        bytes32 hash = codec.hashDerivation(emptyDerivation);
         assertNotEq(hash, bytes32(0), "Empty derivation hash should not be zero");
     }
 
@@ -137,44 +148,7 @@ contract LibHashingTest is Test {
     // Array Hashing Tests
     // ---------------------------------------------------------------
 
-    function test_hashBlobHashesArray() public pure {
-        bytes32[] memory testBlobHashes = new bytes32[](3);
-        testBlobHashes[0] = bytes32(uint256(0xddd1));
-        testBlobHashes[1] = bytes32(uint256(0xddd2));
-        testBlobHashes[2] = bytes32(uint256(0xddd3));
-
-        bytes32 hash = LibHashing.hashBlobHashesArray(testBlobHashes);
-        assertNotEq(hash, bytes32(0), "Blob hashes array hash should not be zero");
-
-        // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(testBlobHashes);
-        assertEq(hash, hash2, "Blob hashes array hash should be deterministic");
-    }
-
-    function test_hashBlobHashesArray_Empty() public pure {
-        bytes32[] memory emptyArray = new bytes32[](0);
-        bytes32 hash = LibHashing.hashBlobHashesArray(emptyArray);
-        assertEq(hash, keccak256(""), "Empty blob hashes array should hash to empty bytes hash");
-    }
-
-    function test_hashBlobHashesArray_Single() public pure {
-        bytes32[] memory singleArray = new bytes32[](1);
-        singleArray[0] = bytes32(uint256(0x1234));
-
-        bytes32 hash = LibHashing.hashBlobHashesArray(singleArray);
-        assertNotEq(hash, bytes32(0), "Single blob hash array should not be zero");
-    }
-
-    function test_hashBlobHashesArray_Two() public pure {
-        bytes32[] memory twoArray = new bytes32[](2);
-        twoArray[0] = bytes32(uint256(0x1234));
-        twoArray[1] = bytes32(uint256(0x5678));
-
-        bytes32 hash = LibHashing.hashBlobHashesArray(twoArray);
-        assertNotEq(hash, bytes32(0), "Two blob hashes array should not be zero");
-    }
-
-    function test_hashTransitionsArray() public pure {
+    function test_hashTransitionsWithMetadata() public view {
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -204,21 +178,41 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint2
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(transitions);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](3);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+        metadata[2] = IInbox.TransitionMetadata({
+            designatedProver: address(0x3333),
+            actualProver: address(0x3333)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(transitions, metadata);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, metadata);
         assertEq(hash, hash2, "Transitions array hash should be deterministic");
     }
 
-    function test_hashTransitionsArray_Empty() public pure {
+    function test_hashTransitionsWithMetadata_Empty() public view {
         IInbox.Transition[] memory emptyArray = new IInbox.Transition[](0);
-        bytes32 hash = LibHashing.hashTransitionsArray(emptyArray);
-        assertEq(hash, keccak256(""), "Empty transitions array should hash to empty bytes hash");
+        IInbox.TransitionMetadata[] memory emptyMetadata = new IInbox.TransitionMetadata[](0);
+        bytes32 hash = codec.hashTransitionsWithMetadata(emptyArray, emptyMetadata);
+
+        // Empty array should hash consistently
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(emptyArray, emptyMetadata);
+        assertEq(hash, hash2, "Empty transitions array should hash consistently");
+
+        // Should not be zero
+        assertNotEq(hash, bytes32(0), "Empty transitions array hash should not be zero");
     }
 
-    function test_hashTransitionsArray_Single() public pure {
+    function test_hashTransitionsWithMetadata_Single() public view {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -232,11 +226,16 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(singleArray);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(singleArray, metadata);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
-    function test_hashTransitionsArray_Two() public pure {
+    function test_hashTransitionsWithMetadata_Two() public view {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -255,11 +254,20 @@ contract LibHashingTest is Test {
             checkpoint: checkpoint
         });
 
-        bytes32 hash = LibHashing.hashTransitionsArray(twoArray);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+        bytes32 hash = codec.hashTransitionsWithMetadata(twoArray, metadata);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
     }
 
-    function test_hashTransitionRecord() public pure {
+    function test_hashTransitionRecord() public view {
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
         bondInstructions[0] = LibBonds.BondInstruction({
             proposalId: 10,
@@ -281,15 +289,15 @@ contract LibHashingTest is Test {
             bondInstructions: bondInstructions
         });
 
-        bytes26 hash = LibHashing.hashTransitionRecord(testTransitionRecord);
+        bytes26 hash = codec.hashTransitionRecord(testTransitionRecord);
         assertNotEq(hash, bytes26(0), "TransitionRecord hash should not be zero");
 
         // Verify deterministic hashing
-        bytes26 hash2 = LibHashing.hashTransitionRecord(testTransitionRecord);
+        bytes26 hash2 = codec.hashTransitionRecord(testTransitionRecord);
         assertEq(hash, hash2, "TransitionRecord hash should be deterministic");
     }
 
-    function test_hashTransitionRecord_EmptyBondInstructions() public pure {
+    function test_hashTransitionRecord_EmptyBondInstructions() public view {
         IInbox.TransitionRecord memory emptyRecord = IInbox.TransitionRecord({
             span: 10,
             transitionHash: bytes32(uint256(0x1234)),
@@ -297,31 +305,15 @@ contract LibHashingTest is Test {
             bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
-        bytes26 hash = LibHashing.hashTransitionRecord(emptyRecord);
+        bytes26 hash = codec.hashTransitionRecord(emptyRecord);
         assertNotEq(hash, bytes26(0), "Empty TransitionRecord hash should not be zero");
-    }
-
-    // ---------------------------------------------------------------
-    // Utility Function Tests
-    // ---------------------------------------------------------------
-
-    function test_composeTransitionKey() public pure {
-        uint48 proposalId = 12_345;
-        bytes32 parentHash = bytes32(uint256(0xabcdef));
-
-        bytes32 key = LibHashing.composeTransitionKey(proposalId, parentHash);
-        assertNotEq(key, bytes32(0), "Composite key should not be zero");
-
-        // Verify deterministic key generation
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId, parentHash);
-        assertEq(key, key2, "Composite key should be deterministic");
     }
 
     // ---------------------------------------------------------------
     // Collision Resistance Tests
     // ---------------------------------------------------------------
 
-    function test_hashCollisionResistance_DifferentProposals() public pure {
+    function test_hashCollisionResistance_DifferentProposals() public view {
         IInbox.Proposal memory proposal1 = IInbox.Proposal({
             id: 1,
             timestamp: 1000,
@@ -340,23 +332,57 @@ contract LibHashingTest is Test {
             derivationHash: bytes32(uint256(0x1))
         });
 
-        bytes32 hash1 = LibHashing.hashProposal(proposal1);
-        bytes32 hash2 = LibHashing.hashProposal(proposal2);
+        bytes32 hash1 = codec.hashProposal(proposal1);
+        bytes32 hash2 = codec.hashProposal(proposal2);
 
         assertNotEq(hash1, hash2, "Different proposals should have different hashes");
     }
 
-    function test_hashCollisionResistance_ArrayLengths() public pure {
+    function test_hashCollisionResistance_ArrayLengths() public view {
         // Test that arrays of different lengths produce different hashes
-        bytes32[] memory array1 = new bytes32[](1);
-        array1[0] = bytes32(uint256(0x1234));
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 12_345,
+            blockHash: bytes32(uint256(0xabcd)),
+            stateRoot: bytes32(uint256(0xdead))
+        });
 
-        bytes32[] memory array2 = new bytes32[](2);
-        array2[0] = bytes32(uint256(0x1234));
-        array2[1] = bytes32(uint256(0x0)); // Adding zero element
+        IInbox.Transition[] memory array1 = new IInbox.Transition[](1);
+        array1[0] = IInbox.Transition({
+            proposalHash: bytes32(uint256(0x1234)),
+            parentTransitionHash: bytes32(uint256(0x5678)),
+            checkpoint: checkpoint
+        });
 
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(array1);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(array2);
+        IInbox.Transition[] memory array2 = new IInbox.Transition[](2);
+        array2[0] = IInbox.Transition({
+            proposalHash: bytes32(uint256(0x1234)),
+            parentTransitionHash: bytes32(uint256(0x5678)),
+            checkpoint: checkpoint
+        });
+        array2[1] = IInbox.Transition({
+            proposalHash: bytes32(uint256(0x0)),
+            parentTransitionHash: bytes32(uint256(0x0)),
+            checkpoint: checkpoint
+        });
+
+        IInbox.TransitionMetadata[] memory metadata1 = new IInbox.TransitionMetadata[](1);
+        metadata1[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+
+        IInbox.TransitionMetadata[] memory metadata2 = new IInbox.TransitionMetadata[](2);
+        metadata2[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
+        });
+        metadata2[1] = IInbox.TransitionMetadata({
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
+        });
+
+        bytes32 hash1 = codec.hashTransitionsWithMetadata(array1, metadata1);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(array2, metadata2);
 
         assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
     }

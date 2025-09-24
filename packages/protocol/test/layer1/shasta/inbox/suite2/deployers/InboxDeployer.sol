@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInbox } from "../implementations/TestInbox.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { SimpleCodec } from "src/layer1/shasta/impl/SimpleCodec.sol";
+import { CodecSimple } from "src/layer1/shasta/impl/CodecSimple.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxDeployer
@@ -25,11 +25,9 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         external
         returns (Inbox)
     {
-        address simpleCodec = address(new SimpleCodec());
+        address codec = address(new CodecSimple());
         address impl = address(
-            new TestInbox(
-                simpleCodec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker
-            )
+            new TestInbox(codec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
         );
 
         TestInbox inbox = TestInbox(

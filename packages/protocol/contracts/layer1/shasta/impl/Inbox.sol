@@ -13,6 +13,7 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
@@ -270,7 +271,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         ProveInput memory input = _decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
-        require(input.transitions.length == input.metadata.length, InconsistentParams());
+        require(input.transitions.length == input.metadatas.length, InconsistentParams());
 
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
@@ -278,7 +279,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Verify the proof using staticcall
         (bool success,) = address(_proofVerifier).staticcall(
             abi.encodeCall(
-                IProofVerifier.verifyProof, (_hashTransitionsArray(input.transitions), _proof)
+                IProofVerifier.verifyProof,
+                (_hashTransitionsWithMetadata(input.transitions, input.metadatas), _proof)
             )
         );
         require(success, ProofVerificationFailed());
@@ -430,13 +432,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
-            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
+            _input.proposals[_index], _input.transitions[_index], _input.metadatas[_index]
         );
 
         _setTransitionRecordHashAndDeadline(
             _input.proposals[_index].id,
             _input.transitions[_index],
-            _input.metadata[_index],
+            _input.metadatas[_index],
             transitionRecord
         );
     }
@@ -613,8 +615,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
+        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
@@ -686,7 +687,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        return keccak256(abi.encode(_blobHashes));
+        return LibHashSimple.hashBlobHashesArray(_blobHashes);
     }
 
     /// @dev Hashes a Checkpoint struct.
@@ -698,16 +699,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_checkpoint));
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
     function _hashCoreState(CoreState memory _coreState) internal pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_coreState));
+        return LibHashSimple.hashCoreState(_coreState);
     }
 
     /// @dev Hashes a Derivation struct.
@@ -719,15 +718,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        return keccak256(abi.encode(_derivation));
+        return LibHashSimple.hashDerivation(_derivation);
     }
 
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
     function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposal));
+        return LibHashSimple.hashProposal(_proposal);
     }
 
     /// @dev Hashes a Transition struct.
@@ -739,8 +737,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
+        return LibHashSimple.hashTransition(_transition);
     }
 
     /// @dev Hashes a TransitionRecord struct.
@@ -752,21 +749,23 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes26)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        return LibHashSimple.hashTransitionRecord(_transitionRecord);
     }
 
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
+    /// @param _metadatas The metadata array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
+    function _hashTransitionsWithMetadata(
+        Transition[] memory _transitions,
+        TransitionMetadata[] memory _metadatas
+    )
         internal
         pure
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
+        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 
     // ---------------------------------------------------------------

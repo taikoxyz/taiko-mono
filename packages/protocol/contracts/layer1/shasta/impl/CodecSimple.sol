@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { ICodec } from "../iface/ICodec.sol";
+import { LibHashSimple } from "../libs/LibHashSimple.sol";
 
-/// @title SimpleCodec
-/// @notice Codec contract for standard Inbox with abi.encode/decode and keccak256 hashing
-/// functions
+/// @title CodecSimple
+/// @notice Codec contract wrapping LibHashSimple for basic hashing
 /// @custom:security-contact security@taiko.xyz
-contract SimpleCodec is ICodec {
+contract CodecSimple is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
@@ -108,12 +108,12 @@ contract SimpleCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_checkpoint));
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodec
     function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
-        return keccak256(abi.encode(_coreState));
+        return LibHashSimple.hashCoreState(_coreState);
     }
 
     /// @inheritdoc ICodec
@@ -122,12 +122,12 @@ contract SimpleCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_derivation));
+        return LibHashSimple.hashDerivation(_derivation);
     }
 
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
-        return keccak256(abi.encode(_proposal));
+        return LibHashSimple.hashProposal(_proposal);
     }
 
     /// @inheritdoc ICodec
@@ -136,7 +136,7 @@ contract SimpleCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_transition));
+        return LibHashSimple.hashTransition(_transition);
     }
 
     /// @inheritdoc ICodec
@@ -145,15 +145,18 @@ contract SimpleCodec is ICodec {
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        return LibHashSimple.hashTransitionRecord(_transitionRecord);
     }
 
     /// @inheritdoc ICodec
-    function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] calldata _transitions,
+        IInbox.TransitionMetadata[] calldata _metadatas
+    )
         external
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_transitions));
+        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

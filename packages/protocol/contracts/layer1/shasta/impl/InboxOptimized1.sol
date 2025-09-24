@@ -171,7 +171,7 @@ contract InboxOptimized1 is Inbox {
 
         // Initialize aggregation state from first proposal
         TransitionRecord memory currentRecord =
-            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadatas[0]);
 
         uint48 currentGroupStartId = _input.proposals[0].id;
         uint256 firstIndex = 0;
@@ -181,7 +181,7 @@ contract InboxOptimized1 is Inbox {
             // Check for consecutive proposal aggregation
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 TransitionRecord memory nextRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    _input.proposals[i], _input.transitions[i], _input.metadatas[i]
                 );
                 if (nextRecord.bondInstructions.length == 0) {
                     // Keep current instructions unchanged
@@ -200,7 +200,7 @@ contract InboxOptimized1 is Inbox {
                 _setTransitionRecordHashAndDeadline(
                     currentGroupStartId,
                     _input.transitions[firstIndex],
-                    _input.metadata[firstIndex],
+                    _input.metadatas[firstIndex],
                     currentRecord
                 );
 
@@ -208,7 +208,7 @@ contract InboxOptimized1 is Inbox {
                 currentGroupStartId = _input.proposals[i].id;
                 firstIndex = i;
                 currentRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    _input.proposals[i], _input.transitions[i], _input.metadatas[i]
                 );
             }
         }
@@ -217,7 +217,7 @@ contract InboxOptimized1 is Inbox {
         _setTransitionRecordHashAndDeadline(
             currentGroupStartId,
             _input.transitions[firstIndex],
-            _input.metadata[firstIndex],
+            _input.metadatas[firstIndex],
             currentRecord
         );
     }

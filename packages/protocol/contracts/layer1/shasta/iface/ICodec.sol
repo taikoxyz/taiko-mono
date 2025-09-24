@@ -12,8 +12,8 @@ import { IInbox } from "./IInbox.sol";
 /// - Struct fields are not validated for business logic constraints
 /// - Hash functions assume well-formed input structures
 /// @dev Compatibility warning:
-/// - Different codec implementations (SimpleCodec vs OptimizedCodec) produce
-///   INCOMPATIBLE encoded outputs and hashes for the same inputs
+/// - Different codec implementations produce INCOMPATIBLE encoded outputs and hashes for the same
+/// inputs
 /// - Codec implementations cannot be used interchangeably
 /// - System upgrades between codec types require careful migration planning
 /// @custom:security-contact security@taiko.xyz
@@ -151,9 +151,13 @@ interface ICodec {
 
     /// @notice Hashing for arrays of Transitions
     /// @param _transitions The transitions array to hash
+    /// @param _metadatas The metadata array to hash
     /// @return The hash of the transitions array
     /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
-    function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] calldata _transitions,
+        IInbox.TransitionMetadata[] calldata _metadatas
+    )
         external
         pure
         returns (bytes32);

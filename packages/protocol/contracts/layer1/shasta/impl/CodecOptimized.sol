@@ -4,17 +4,16 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { ICodec } from "../iface/ICodec.sol";
-import { LibHashing } from "../libs/LibHashing.sol";
+import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title OptimizedCodec
-/// @notice Codec contract for InboxOptimized2 with optimized encoder/decoder and hashing library
-/// functions
+/// @title CodecOptimized
+/// @notice Codec contract wrapping LibHashOptimized for optimized hashing
 /// @custom:security-contact security@taiko.xyz
-contract OptimizedCodec is ICodec {
+contract CodecOptimized is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
@@ -104,7 +103,7 @@ contract OptimizedCodec is ICodec {
     }
 
     // ---------------------------------------------------------------
-    // LibHashing Functions
+    // Hashing Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -113,12 +112,12 @@ contract OptimizedCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return LibHashing.hashCheckpoint(_checkpoint);
+        return LibHashOptimized.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodec
     function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
-        return LibHashing.hashCoreState(_coreState);
+        return LibHashOptimized.hashCoreState(_coreState);
     }
 
     /// @inheritdoc ICodec
@@ -127,12 +126,12 @@ contract OptimizedCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return LibHashing.hashDerivation(_derivation);
+        return LibHashOptimized.hashDerivation(_derivation);
     }
 
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
-        return LibHashing.hashProposal(_proposal);
+        return LibHashOptimized.hashProposal(_proposal);
     }
 
     /// @inheritdoc ICodec
@@ -141,7 +140,7 @@ contract OptimizedCodec is ICodec {
         pure
         returns (bytes32)
     {
-        return LibHashing.hashTransition(_transition);
+        return LibHashOptimized.hashTransition(_transition);
     }
 
     /// @inheritdoc ICodec
@@ -150,15 +149,18 @@ contract OptimizedCodec is ICodec {
         pure
         returns (bytes26)
     {
-        return LibHashing.hashTransitionRecord(_transitionRecord);
+        return LibHashOptimized.hashTransitionRecord(_transitionRecord);
     }
 
     /// @inheritdoc ICodec
-    function hashTransitionsArray(IInbox.Transition[] calldata _transitions)
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] calldata _transitions,
+        IInbox.TransitionMetadata[] calldata _metadatas
+    )
         external
         pure
         returns (bytes32)
     {
-        return LibHashing.hashTransitionsArray(_transitions);
+        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

@@ -342,7 +342,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadata: metadata
+            metadatas: metadata
         });
 
         bytes memory proveData = _codec().encodeProveInput(input);
@@ -433,7 +433,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadata: metadata
+            metadatas: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -568,7 +568,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: _proposals,
             transitions: transitions,
-            metadata: metadata
+            metadatas: metadata
         });
 
         return _codec().encodeProveInput(input);
