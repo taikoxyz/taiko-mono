@@ -17,7 +17,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
@@ -191,8 +190,7 @@ func (s *Syncer) processShastaProposal(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	var (
-		meta      = metadata.Shasta()
-		coreState = meta.GetCoreState()
+		meta = metadata.Shasta()
 	)
 
 	// We simply ignore the genesis Shasta block's `Proposed` event.
@@ -206,7 +204,7 @@ func (s *Syncer) processShastaProposal(
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id, &coreState, s.indexer)
+		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id, s.indexer)
 		if err != nil {
 			return err
 		}
@@ -580,12 +578,11 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 // the corresponding L2 EE block hash.
 func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 	ctx context.Context,
-	coreState *shastaBindings.IInboxCoreState,
 	indexer *shastaIndexer.Indexer,
 ) (*rpc.ReorgCheckResult, error) {
 	var (
 		reorgCheckResult    = new(rpc.ReorgCheckResult)
-		lastVerifiedBatchID = coreState.LastFinalizedProposalId
+		lastVerifiedBatchID = indexer.GetLastProposal().CoreState.LastFinalizedProposalId
 	)
 
 	if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
@@ -649,11 +646,10 @@ func (s *Syncer) checkReorgPacaya(ctx context.Context, batchID *big.Int) (*rpc.R
 func (s *Syncer) checkReorgShasta(
 	ctx context.Context,
 	batchID *big.Int,
-	coreState *shastaBindings.IInboxCoreState,
 	indexer *shastaIndexer.Indexer,
 ) (*rpc.ReorgCheckResult, error) {
 	// 1. Check if the verified blocks in L2 EE have been reorged.
-	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx, coreState, indexer)
+	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx, indexer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}
