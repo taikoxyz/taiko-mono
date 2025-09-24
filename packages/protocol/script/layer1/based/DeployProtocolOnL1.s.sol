@@ -36,7 +36,7 @@ import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { ShastaDevnetInbox } from "src/layer1/shasta/impl/ShastaDevnetInbox.sol";
-import { CodecSimple } from "src/layer1/shasta/impl/CodecSimple.sol";
+import { SimpleCodec } from "src/layer1/shasta/impl/SimpleCodec.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -314,7 +314,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address simpleCodec = address(new CodecSimple());
+        address simpleCodec = address(new SimpleCodec());
         address tempFork =
             address(new ShastaDevnetInbox(simpleCodec, proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({

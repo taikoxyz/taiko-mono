@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { LibHashingOptimized } from "src/layer1/shasta/libs/LibHashingOptimized.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibHashingGasTest
-/// @notice Gas comparison tests for LibHashing optimizations vs standard keccak256(abi.encode)
-/// @dev This test demonstrates the gas savings achieved by using LibHashing over standard
-///      keccak256(abi.encode) operations in major hashing functions
+/// @notice Gas comparison tests for LibHashingOptimized vs LibHashingSimple
+/// @dev This test demonstrates the gas savings achieved by using LibHashingOptimized over
+///      LibHashingSimple (standard keccak256(abi.encode)) operations in major hashing functions
 contract LibHashingGasTest is Test {
     // Test data structures
     IInbox.Transition internal testTransition;
@@ -69,7 +69,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashTransition(testTransition);
+        LibHashingOptimized.hashTransition(testTransition);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -96,7 +96,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashCheckpoint(testCheckpoint);
+        LibHashingOptimized.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -123,7 +123,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashCoreState(testCoreState);
+        LibHashingOptimized.hashCoreState(testCoreState);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -150,7 +150,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashProposal(testProposal);
+        LibHashingOptimized.hashProposal(testProposal);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -177,7 +177,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashDerivation(_createTestDerivation());
+        LibHashingOptimized.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -213,7 +213,7 @@ contract LibHashingGasTest is Test {
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        LibHashingOptimized.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -242,7 +242,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashTransition(testTransition);
+        LibHashingOptimized.hashTransition(testTransition);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -253,7 +253,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashCheckpoint(testCheckpoint);
+        LibHashingOptimized.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -264,7 +264,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashCoreState(testCoreState);
+        LibHashingOptimized.hashCoreState(testCoreState);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -275,7 +275,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashProposal(testProposal);
+        LibHashingOptimized.hashProposal(testProposal);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -286,7 +286,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashDerivation(_createTestDerivation());
+        LibHashingOptimized.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -297,7 +297,7 @@ contract LibHashingGasTest is Test {
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        LibHashingOptimized.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -317,33 +317,35 @@ contract LibHashingGasTest is Test {
     /// @dev Ensures optimized hashes are deterministic and consistent across multiple calls
     function test_hashConsistency() external view {
         // Test hashTransition consistency
-        bytes32 hash1 = LibHashing.hashTransition(testTransition);
-        bytes32 hash2 = LibHashing.hashTransition(testTransition);
+        bytes32 hash1 = LibHashingOptimized.hashTransition(testTransition);
+        bytes32 hash2 = LibHashingOptimized.hashTransition(testTransition);
         assertEq(hash1, hash2, "hashTransition should be deterministic");
 
         // Test hashCheckpoint consistency
-        hash1 = LibHashing.hashCheckpoint(testCheckpoint);
-        hash2 = LibHashing.hashCheckpoint(testCheckpoint);
+        hash1 = LibHashingOptimized.hashCheckpoint(testCheckpoint);
+        hash2 = LibHashingOptimized.hashCheckpoint(testCheckpoint);
         assertEq(hash1, hash2, "hashCheckpoint should be deterministic");
 
         // Test hashCoreState consistency
-        hash1 = LibHashing.hashCoreState(testCoreState);
-        hash2 = LibHashing.hashCoreState(testCoreState);
+        hash1 = LibHashingOptimized.hashCoreState(testCoreState);
+        hash2 = LibHashingOptimized.hashCoreState(testCoreState);
         assertEq(hash1, hash2, "hashCoreState should be deterministic");
 
         // Test hashProposal consistency
-        hash1 = LibHashing.hashProposal(testProposal);
-        hash2 = LibHashing.hashProposal(testProposal);
+        hash1 = LibHashingOptimized.hashProposal(testProposal);
+        hash2 = LibHashingOptimized.hashProposal(testProposal);
         assertEq(hash1, hash2, "hashProposal should be deterministic");
 
         // Test hashDerivation consistency
-        hash1 = LibHashing.hashDerivation(_createTestDerivation());
-        hash2 = LibHashing.hashDerivation(_createTestDerivation());
+        hash1 = LibHashingOptimized.hashDerivation(_createTestDerivation());
+        hash2 = LibHashingOptimized.hashDerivation(_createTestDerivation());
         assertEq(hash1, hash2, "hashDerivation should be deterministic");
 
         // Test hashTransitionsWithMetadata consistency
-        hash1 = LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
-        hash2 = LibHashing.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        hash1 =
+            LibHashingOptimized.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
+        hash2 =
+            LibHashingOptimized.hashTransitionsWithMetadata(testTransitionsArray, testMetadataArray);
         assertEq(hash1, hash2, "hashTransitionsWithMetadata should be deterministic");
     }
 
@@ -353,16 +355,16 @@ contract LibHashingGasTest is Test {
     function test_optimizedVsStandardHashBehavior() external view {
         // Compare standard vs optimized implementations
         bytes32 standardTransitionHash = keccak256(abi.encode(testTransition));
-        bytes32 optimizedTransitionHash = LibHashing.hashTransition(testTransition);
+        bytes32 optimizedTransitionHash = LibHashingOptimized.hashTransition(testTransition);
 
         bytes32 standardCheckpointHash = keccak256(abi.encode(testCheckpoint));
-        bytes32 optimizedCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 optimizedCheckpointHash = LibHashingOptimized.hashCheckpoint(testCheckpoint);
 
         bytes32 standardCoreStateHash = keccak256(abi.encode(testCoreState));
-        bytes32 optimizedCoreStateHash = LibHashing.hashCoreState(testCoreState);
+        bytes32 optimizedCoreStateHash = LibHashingOptimized.hashCoreState(testCoreState);
 
         bytes32 standardProposalHash = keccak256(abi.encode(testProposal));
-        bytes32 optimizedProposalHash = LibHashing.hashProposal(testProposal);
+        bytes32 optimizedProposalHash = LibHashingOptimized.hashProposal(testProposal);
 
         console2.log("=== Hash Behavior Verification ===");
 
@@ -415,22 +417,22 @@ contract LibHashingGasTest is Test {
         modifiedProposal.id = testProposal.id + 1;
 
         // Verify different inputs produce different hashes
-        bytes32 originalCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
-        bytes32 modifiedCheckpointHash = LibHashing.hashCheckpoint(modifiedCheckpoint);
+        bytes32 originalCheckpointHash = LibHashingOptimized.hashCheckpoint(testCheckpoint);
+        bytes32 modifiedCheckpointHash = LibHashingOptimized.hashCheckpoint(modifiedCheckpoint);
         assertTrue(
             originalCheckpointHash != modifiedCheckpointHash,
             "Different checkpoints should produce different hashes"
         );
 
-        bytes32 originalCoreStateHash = LibHashing.hashCoreState(testCoreState);
-        bytes32 modifiedCoreStateHash = LibHashing.hashCoreState(modifiedCoreState);
+        bytes32 originalCoreStateHash = LibHashingOptimized.hashCoreState(testCoreState);
+        bytes32 modifiedCoreStateHash = LibHashingOptimized.hashCoreState(modifiedCoreState);
         assertTrue(
             originalCoreStateHash != modifiedCoreStateHash,
             "Different core states should produce different hashes"
         );
 
-        bytes32 originalProposalHash = LibHashing.hashProposal(testProposal);
-        bytes32 modifiedProposalHash = LibHashing.hashProposal(modifiedProposal);
+        bytes32 originalProposalHash = LibHashingOptimized.hashProposal(testProposal);
+        bytes32 modifiedProposalHash = LibHashingOptimized.hashProposal(modifiedProposal);
         assertTrue(
             originalProposalHash != modifiedProposalHash,
             "Different proposals should produce different hashes"

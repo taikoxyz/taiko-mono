@@ -8,7 +8,7 @@ import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibHashing } from "../libs/LibHashing.sol";
+import { LibHashingOptimized } from "../libs/LibHashingOptimized.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title InboxOptimized2
@@ -98,7 +98,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashingOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc Inbox
@@ -108,7 +108,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.hashBlobHashesArray(_blobHashes);
+        return LibHashingOptimized.hashBlobHashesArray(_blobHashes);
     }
 
     /// @inheritdoc Inbox
@@ -118,12 +118,12 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.hashCheckpoint(_checkpoint);
+        return LibHashingOptimized.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc Inbox
     function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
-        return LibHashing.hashCoreState(_coreState);
+        return LibHashingOptimized.hashCoreState(_coreState);
     }
 
     /// @inheritdoc Inbox
@@ -133,12 +133,12 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.hashDerivation(_derivation);
+        return LibHashingOptimized.hashDerivation(_derivation);
     }
 
     /// @inheritdoc Inbox
     function _hashProposal(Proposal memory _proposal) internal pure override returns (bytes32) {
-        return LibHashing.hashProposal(_proposal);
+        return LibHashingOptimized.hashProposal(_proposal);
     }
 
     /// @inheritdoc Inbox
@@ -148,7 +148,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.hashTransition(_transition);
+        return LibHashingOptimized.hashTransition(_transition);
     }
 
     /// @inheritdoc Inbox
@@ -158,7 +158,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes26)
     {
-        return LibHashing.hashTransitionRecord(_transitionRecord);
+        return LibHashingOptimized.hashTransitionRecord(_transitionRecord);
     }
 
     /// @inheritdoc Inbox
@@ -171,6 +171,6 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashing.hashTransitionsWithMetadata(_transitions, _metadatas);
+        return LibHashingOptimized.hashTransitionsWithMetadata(_transitions, _metadatas);
     }
 }

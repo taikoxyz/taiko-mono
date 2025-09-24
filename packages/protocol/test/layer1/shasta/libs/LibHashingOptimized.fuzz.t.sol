@@ -2,15 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { LibHashingOptimized as LibHashing } from "src/layer1/shasta/libs/LibHashingOptimized.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingFuzzTest
-/// @notice Comprehensive fuzz testing for LibHashing library functions
-contract LibHashingFuzzTest is Test {
+/// @title LibHashingOptimizedFuzzTest
+/// @notice Comprehensive fuzz testing for LibHashingOptimized library functions
+contract LibHashingOptimizedFuzzTest is Test {
     // ---------------------------------------------------------------
     // Fuzz Test: hashCheckpoint
     // ---------------------------------------------------------------
