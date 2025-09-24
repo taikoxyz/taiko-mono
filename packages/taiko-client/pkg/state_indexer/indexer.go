@@ -354,13 +354,24 @@ func (s *Indexer) onProposedEvent(
 		derivation = meta.Shasta().GetDerivation()
 	)
 
-	s.proposals.Set(proposal.Id.Uint64()%s.bufferSize, &ProposalPayload{
+	slot := proposal.Id.Uint64() % s.bufferSize
+	if !s.historicalFetchCompleted {
+		if existing, ok := s.proposals.Get(slot); ok && existing != nil && existing.Proposal != nil {
+			if existing.Proposal.Id.Cmp(proposal.Id) >= 0 {
+				return nil
+			}
+		}
+	}
+
+	payload := &ProposalPayload{
 		Proposal:       &proposal,
 		CoreState:      &coreState,
 		Derivation:     &derivation,
 		RawBlockHash:   meta.GetRawBlockHash(),
 		RawBlockHeight: meta.GetRawBlockHeight(),
-	})
+	}
+
+	s.proposals.Set(slot, payload)
 
 	log.Info(
 		"New indexed Shasta proposal",

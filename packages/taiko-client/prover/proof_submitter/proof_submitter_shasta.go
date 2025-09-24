@@ -99,6 +99,14 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			log.Error("Failed to request proof, context is canceled", "batchID", opts.BatchID, "error", ctx.Err())
 			return nil
 		}
+		if s.indexer.GetLastCoreState().LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
+			log.Info(
+				"Shasta proposal already finalized, skip requesting proof",
+				"batchID", meta.Shasta().GetProposal().Id,
+				"lastFinalizedProposalID", s.indexer.GetLastCoreState().LastFinalizedProposalId,
+			)
+			return nil
+		}
 		// Check if there is a need to generate proof, if the proof is already submitted and valid, skip
 		// the proof submission.
 		record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
