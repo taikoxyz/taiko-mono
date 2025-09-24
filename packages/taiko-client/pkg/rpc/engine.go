@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
@@ -172,13 +173,13 @@ func (c *EngineClient) SetL1OriginSignature(
 
 // SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
-	var res *big.Int
+	var res hexutil.Big
 
 	if err := c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	return (*big.Int)(&res), nil
 }
 
 // SetBatchToLastBlock sets the batch to block mapping in the execution engine.

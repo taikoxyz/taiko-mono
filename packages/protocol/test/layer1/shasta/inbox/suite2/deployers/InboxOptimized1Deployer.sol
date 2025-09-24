@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized1 } from "../implementations/TestInboxOptimized1.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxOptimized1Deployer

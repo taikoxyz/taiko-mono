@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title IInboxDeployer
 /// @notice Interface for deploying different Inbox implementations

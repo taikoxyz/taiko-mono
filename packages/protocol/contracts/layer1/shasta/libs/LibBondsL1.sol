@@ -104,7 +104,7 @@ library LibBondsL1 {
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
                 payer: isWithinExtendedWindow ? _metadata.designatedProver : _proposal.proposer,
-                receiver: _metadata.actualProver
+                payee: _metadata.actualProver
             });
         }
     }

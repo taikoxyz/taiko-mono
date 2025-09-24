@@ -39,20 +39,26 @@ interface IInbox {
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
     }
+
+    /// @notice Represents a source of derivation data within a Derivation
+    struct DerivationSource {
+        /// @notice Whether this source is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice Blobs that contain the source's manifest data.
+        LibBlobs.BlobSlice blobSlice;
+    }
+
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contain the proposal's manifest data.
-        LibBlobs.BlobSlice blobSlice;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.

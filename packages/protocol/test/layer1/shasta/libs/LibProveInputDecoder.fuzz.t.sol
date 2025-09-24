@@ -6,10 +6,10 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
-/// @title LibProveInputDecoderFuzz
+/// @title LibProveInputDecoderFuzzTest
 /// @notice Fuzzy tests for LibProveInputDecoder to ensure encode/decode correctness
 /// @custom:security-contact security@taiko.xyz
-contract LibProveInputDecoderFuzz is Test {
+contract LibProveInputDecoderFuzzTest is Test {
     // Wrapper contract to test reverts properly
     TestWrapperFuzz wrapper;
 

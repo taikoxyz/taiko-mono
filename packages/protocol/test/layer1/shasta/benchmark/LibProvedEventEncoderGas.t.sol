@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProvedEventEncoder } from "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibProvedEventEncoder } from "src/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
@@ -174,7 +174,7 @@ contract LibProvedEventEncoderGas is Test {
                 proposalId: uint48(100 + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0x2222222222222222222222222222222222222222) + uint160(i)),
-                receiver: address(uint160(0x3333333333333333333333333333333333333333) + uint160(i))
+                payee: address(uint160(0x3333333333333333333333333333333333333333) + uint160(i))
             });
         }
     }

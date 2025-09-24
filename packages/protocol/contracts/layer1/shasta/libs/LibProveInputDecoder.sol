@@ -10,13 +10,17 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputDecoder {
     // ---------------------------------------------------------------
-    // Public Functions
+    // Internal Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input) public pure returns (bytes memory encoded_) {
+    function encode(IInbox.ProveInput memory _input)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
         // Calculate total size needed
         uint256 bufferSize =
             _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
@@ -27,14 +31,14 @@ library LibProveInputDecoder {
 
         // 1. Encode Proposals array
         P.checkArrayLength(_input.proposals.length);
-        ptr = P.packUint24(ptr, uint24(_input.proposals.length));
+        ptr = P.packUint16(ptr, uint16(_input.proposals.length));
         for (uint256 i; i < _input.proposals.length; ++i) {
             ptr = _encodeProposal(ptr, _input.proposals[i]);
         }
 
         // 2. Encode Transitions array
         P.checkArrayLength(_input.transitions.length);
-        ptr = P.packUint24(ptr, uint24(_input.transitions.length));
+        ptr = P.packUint16(ptr, uint16(_input.transitions.length));
         for (uint256 i; i < _input.transitions.length; ++i) {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
         }
@@ -46,10 +50,6 @@ library LibProveInputDecoder {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
     /// @notice Decodes prove input data using optimized operations with LibPackUnpack
     /// @param _data The encoded data
     /// @return input_ The decoded ProveInput
@@ -58,16 +58,16 @@ library LibProveInputDecoder {
         uint256 ptr = P.dataPtr(_data);
 
         // 1. Decode Proposals array
-        uint24 proposalsLength;
-        (proposalsLength, ptr) = P.unpackUint24(ptr);
+        uint16 proposalsLength;
+        (proposalsLength, ptr) = P.unpackUint16(ptr);
         input_.proposals = new IInbox.Proposal[](proposalsLength);
         for (uint256 i; i < proposalsLength; ++i) {
             (input_.proposals[i], ptr) = _decodeProposal(ptr);
         }
 
         // 2. Decode Transitions array
-        uint24 transitionsLength;
-        (transitionsLength, ptr) = P.unpackUint24(ptr);
+        uint16 transitionsLength;
+        (transitionsLength, ptr) = P.unpackUint16(ptr);
         require(transitionsLength == proposalsLength, ProposalTransitionLengthMismatch());
         input_.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
@@ -184,8 +184,8 @@ library LibProveInputDecoder {
         require(_metadata.length == _transitions.length, MetadataLengthMismatch());
 
         unchecked {
-            // Array lengths: 3 + 3 = 6 bytes (proposals and transitions lengths only)
-            size_ = 6;
+            // Array lengths: 2 + 2 = 4 bytes (proposals and transitions lengths only)
+            size_ = 4;
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
