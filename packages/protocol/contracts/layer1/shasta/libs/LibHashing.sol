@@ -219,9 +219,13 @@ library LibHashing {
     /// @notice Memory-optimized hashing for arrays of Transitions
     /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
+    /// @param _metadatas The metadata array to hash
     /// @return The hash of the transitions array
-    function hashTransitionsWithMetadata(IInbox.Transition[] memory _transitions, IInbox.TransitionMetadata[] memory _metadata)
+    // TODO(dantaik): hash _metadatas
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] memory _transitions,
+        IInbox.TransitionMetadata[] memory _metadatas
+    )
         internal
         pure
         returns (bytes32)

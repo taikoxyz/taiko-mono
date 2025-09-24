@@ -162,7 +162,10 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    function _hashTransitionsWithMetadata(Transition[] memory _transitions, TransitionMetadata[] memory _metadatas)
+    function _hashTransitionsWithMetadata(
+        Transition[] memory _transitions,
+        TransitionMetadata[] memory _metadatas
+    )
         internal
         pure
         override
