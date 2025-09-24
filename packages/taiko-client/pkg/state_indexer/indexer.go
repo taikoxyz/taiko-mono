@@ -99,9 +99,10 @@ func (s *Indexer) Start() error {
 		return fmt.Errorf("failed to fetch historical Shasta proposals: %w", err)
 	}
 
-	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.GetLastProposal())
+	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count())
 	// Fetch historical transition records from the last finalized proposal.
 	if s.proposals.Count() != 0 {
+		log.Info("Last indexed Shasta proposal", "proposal", s.GetLastProposal().Proposal.Id)
 		lastFinializedProposal, ok := s.proposals.Get(
 			s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64() % s.bufferSize,
 		)
@@ -171,14 +172,17 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		}
 
 		if startHeight.Cmp(common.Big0) == 0 {
+			log.Info("Reached the genesis block, stop fetching historical proposals", "cached", s.proposals.Count())
 			break
 		}
 
 		// We stop fetching historical proposals if we have cached enough proposals
 		if uint64(s.proposals.Count()) >= bufferSize {
+			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", s.proposals.Count())
 			break
 		}
-		if _, ok := s.proposals.Get(s.shastaForkHeight.Uint64()); ok {
+		if p, ok := s.proposals.Get(0); ok && p.Proposal.Id.Cmp(common.Big0) == 0 {
+			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkHeight", s.shastaForkHeight)
 			break
 		}
 
@@ -264,8 +268,8 @@ func (s *Indexer) onProvedEvent(
 		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
 	}
 
-	log.Debug(
-		"New cached Shasta transition record",
+	log.Info(
+		"New indexed Shasta transition record",
 		"proposalId", meta.ProposalId,
 		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
 		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
@@ -356,8 +360,8 @@ func (s *Indexer) onProposedEvent(
 		RawBlockHeight: meta.GetRawBlockHeight(),
 	})
 
-	log.Debug(
-		"New cached Shasta proposal",
+	log.Info(
+		"New indexed Shasta proposal",
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
