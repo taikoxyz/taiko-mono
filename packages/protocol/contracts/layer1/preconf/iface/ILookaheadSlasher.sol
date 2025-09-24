@@ -6,7 +6,7 @@ import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@eth-fabric/urc/IRegistry.sol";
-import "@solady/src/utils/ext/ithaca/BLS.sol";
+import "solady/utils/ext/ithaca/BLS.sol";
 
 /// @title ILookaheadSlasher
 /// @dev The lookahead contained within the beacon state is referred to

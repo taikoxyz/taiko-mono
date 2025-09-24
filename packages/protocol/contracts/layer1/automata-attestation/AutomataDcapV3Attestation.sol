@@ -1,8 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/Base64.sol";
-import "solady/src/utils/LibString.sol";
+import "solady/utils/Base64.sol";
+import "solady/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
 import "./lib/QuoteV3Auth/V3Struct.sol";
 import "./lib/QuoteV3Auth/V3Parser.sol";

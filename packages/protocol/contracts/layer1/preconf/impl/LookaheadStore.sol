@@ -48,7 +48,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         address[] memory _overseers
     )
         Blacklist(_overseers)
-        EssentialContract()
     {
         urc = IRegistry(_urc);
         lookaheadSlasher = _lookaheadSlasher;
