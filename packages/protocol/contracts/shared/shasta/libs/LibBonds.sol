@@ -23,7 +23,7 @@ library LibBonds {
         uint48 proposalId;
         BondType bondType;
         address payer;
-        address receiver;
+        address payee;
     }
 
     // ---------------------------------------------------------------
