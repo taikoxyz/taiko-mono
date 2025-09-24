@@ -1439,3 +1439,108 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 
 	return &cfg, nil
 }
+
+// HashProposalShasta hashes the proposal by Shasta Inbox helper contract.
+func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBindings.IInboxProposal) (common.Hash, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	return c.ShastaClients.InboxHelper.HashProposal(opts, *proposal)
+}
+
+// HashTransitionShasta hashes the transition by Shasta Inbox helper contract.
+func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.IInboxTransition) (common.Hash, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	return c.ShastaClients.InboxHelper.HashTransition(opts, *ts)
+}
+
+// EncodeProveInput encodes the prove method input by Shasta Inbox helper contract.
+func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	return c.ShastaClients.InboxHelper.EncodeProveInput(opts, *input)
+}
+
+// EncodeProposeInput encodes the propose method input by Shasta Inbox helper contract.
+func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.IInboxProposeInput) ([]byte, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	return c.ShastaClients.InboxHelper.EncodeProposeInput(opts, *input)
+}
+
+// DecodeProveInput decodes the prove input by Shasta Inbox helper contract.
+func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProveInput, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	input, err := c.ShastaClients.InboxHelper.DecodeProveInput(opts, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &input, nil
+}
+
+// DecodeProvedEventPayload decodes the Proved event payload by Shasta Inbox helper contract.
+func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
+	*shastaBindings.IInboxProvedEventPayload,
+	error,
+) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	payload, err := c.ShastaClients.InboxHelper.DecodeProvedEvent(opts, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &payload, nil
+}
+
+// DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox helper contract.
+func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
+	*shastaBindings.IInboxProposedEventPayload,
+	error,
+) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	payload, err := c.ShastaClients.InboxHelper.DecodeProposedEvent(opts, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &payload, nil
+}

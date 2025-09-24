@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -38,14 +37,15 @@ type BatchProposedIterator struct {
 
 // BatchProposedIteratorConfig represents the configs of a BatchProposed event iterator.
 type BatchProposedIteratorConfig struct {
-	Client                *rpc.EthClient
-	PacayaTaikoInbox      *pacayaBindings.TaikoInboxClient
-	ShastaTaikoInbox      *shastaBindings.ShastaInboxClient
-	MaxBlocksReadPerEpoch *uint64
-	StartHeight           *big.Int
-	EndHeight             *big.Int
-	OnBatchProposedEvent  OnBatchProposedEvent
-	BlockConfirmations    *uint64
+	Client                 *rpc.EthClient
+	PacayaTaikoInbox       *pacayaBindings.TaikoInboxClient
+	ShastaTaikoInbox       *shastaBindings.ShastaInboxClient
+	ShastaTaikoInboxHelper *shastaBindings.InboxHelperClient
+	MaxBlocksReadPerEpoch  *uint64
+	StartHeight            *big.Int
+	EndHeight              *big.Int
+	OnBatchProposedEvent   OnBatchProposedEvent
+	BlockConfirmations     *uint64
 }
 
 // NewBatchProposedIterator creates a new instance of BatchProposed event iterator.
@@ -67,6 +67,7 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 			cfg.Client,
 			cfg.PacayaTaikoInbox,
 			cfg.ShastaTaikoInbox,
+			cfg.ShastaTaikoInboxHelper,
 			cfg.OnBatchProposedEvent,
 			iterator,
 		),
@@ -97,6 +98,7 @@ func assembleBatchProposedIteratorCallback(
 	client *rpc.EthClient,
 	pacayaTaikoInbox *pacayaBindings.TaikoInboxClient,
 	shastaTaikoInbox *shastaBindings.ShastaInboxClient,
+	shastaTaikoInboxHelper *shastaBindings.InboxHelperClient,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -177,7 +179,8 @@ func assembleBatchProposedIteratorCallback(
 
 		for iterShasta.Next() {
 			event := iterShasta.Event
-			proposedEventPayload, err := encoding.DecodeProposedEvent(event.Data)
+
+			proposedEventPayload, err := shastaTaikoInboxHelper.DecodeProposedEvent(&bind.CallOpts{Context: ctx}, event.Data)
 			if err != nil {
 				log.Error("Failed to decode proposed event data", "error", err)
 				return err
@@ -202,7 +205,7 @@ func assembleBatchProposedIteratorCallback(
 
 			if err := callback(
 				ctx,
-				metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, event.Raw),
+				metadata.NewTaikoProposalMetadataShasta(&proposedEventPayload, event.Raw),
 				eventIter.end,
 			); err != nil {
 				log.Warn("Error while processing Proposed events, keep retrying", "error", err)

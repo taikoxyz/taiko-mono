@@ -10,6 +10,7 @@ import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbo
 import "test/shared/DeployCapability.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "test/layer1/shasta/inbox/suite2/mocks/MockContracts.sol";
+import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
 
 contract UpgradeShastaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -45,13 +46,16 @@ contract UpgradeShastaL1 is DeployCapability {
         );
 
         address oldFork = PacayaForkRouter(inbox).newFork();
-        address tempFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
+        address helper = address(new InboxHelper());
+        address tempFork =
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
 
         UUPSUpgradeable(inbox).upgradeTo({
             newImplementation: address(new ShastaForkRouter(oldFork, tempFork))
         });
 
-        address newFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
+        address newFork =
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

@@ -82,17 +82,23 @@ func (m *TaikoProposalMetadataShasta) GetCoinbase() common.Address {
 }
 
 // GetBlobHashes returns blob hashes in this proposal.
-func (m *TaikoProposalMetadataShasta) GetBlobHashes() []common.Hash {
+func (m *TaikoProposalMetadataShasta) GetBlobHashes(idx int) []common.Hash {
 	var blobHashes []common.Hash
-	for _, hash := range m.GetDerivation().BlobSlice.BlobHashes {
+	if len(m.GetDerivation().Sources) <= idx {
+		return blobHashes
+	}
+	for _, hash := range m.GetDerivation().Sources[idx].BlobSlice.BlobHashes {
 		blobHashes = append(blobHashes, hash)
 	}
 	return blobHashes
 }
 
 // GetBlobTimestamp returns the timestamp of the blob slice in this proposal.
-func (m *TaikoProposalMetadataShasta) GetBlobTimestamp() uint64 {
-	return m.GetDerivation().BlobSlice.Timestamp.Uint64()
+func (m *TaikoProposalMetadataShasta) GetBlobTimestamp(idx int) uint64 {
+	if len(m.GetDerivation().Sources) <= idx {
+		return 0
+	}
+	return m.GetDerivation().Sources[idx].BlobSlice.Timestamp.Uint64()
 }
 
 // GetProposal returns the transaction hash.

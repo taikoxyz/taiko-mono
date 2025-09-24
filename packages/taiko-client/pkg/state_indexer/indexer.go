@@ -156,13 +156,14 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		log.Info("Fetching Shasta Proposed events", "from", startHeight, "to", currentHeader.Number)
 
 		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
-			Client:                s.rpc.L1,
-			PacayaTaikoInbox:      s.rpc.PacayaClients.TaikoInbox,
-			ShastaTaikoInbox:      s.rpc.ShastaClients.Inbox,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             currentHeader.Number,
-			OnBatchProposedEvent:  s.onProposedEvent,
+			Client:                 s.rpc.L1,
+			PacayaTaikoInbox:       s.rpc.PacayaClients.TaikoInbox,
+			ShastaTaikoInbox:       s.rpc.ShastaClients.Inbox,
+			ShastaTaikoInboxHelper: s.rpc.ShastaClients.InboxHelper,
+			MaxBlocksReadPerEpoch:  &maxBlocksPerFilter,
+			StartHeight:            startHeight,
+			EndHeight:              currentHeader.Number,
+			OnBatchProposedEvent:   s.onProposedEvent,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
@@ -222,12 +223,13 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 		log.Debug("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
 
 		iter, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
-			Client:                s.rpc.L1,
-			ShastaTaikoInbox:      s.rpc.ShastaClients.Inbox,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           currentHeader.Number,
-			EndHeight:             endHeight,
-			OnShastaProvedEvent:   s.onProvedEvent,
+			Client:                 s.rpc.L1,
+			ShastaTaikoInbox:       s.rpc.ShastaClients.Inbox,
+			ShastaTaikoInboxHelper: s.rpc.ShastaClients.InboxHelper,
+			MaxBlocksReadPerEpoch:  &maxBlocksPerFilter,
+			StartHeight:            currentHeader.Number,
+			EndHeight:              endHeight,
+			OnShastaProvedEvent:    s.onProvedEvent,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
@@ -268,7 +270,7 @@ func (s *Indexer) onProvedEvent(
 		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
 	}
 
-	log.Info(
+	log.Debug(
 		"New indexed Shasta transition record",
 		"proposalId", meta.ProposalId,
 		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
@@ -373,7 +375,7 @@ func (s *Indexer) onProposedEvent(
 
 	s.proposals.Set(slot, payload)
 
-	log.Info(
+	log.Debug(
 		"New indexed Shasta proposal",
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
@@ -465,13 +467,14 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 
 	// Index proposed events
 	iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
-		Client:                s.rpc.L1,
-		PacayaTaikoInbox:      s.rpc.PacayaClients.TaikoInbox,
-		ShastaTaikoInbox:      s.rpc.ShastaClients.Inbox,
-		MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-		StartHeight:           s.lastIndexedBlock.Number,
-		EndHeight:             newHead.Number,
-		OnBatchProposedEvent:  s.onProposedEvent,
+		Client:                 s.rpc.L1,
+		PacayaTaikoInbox:       s.rpc.PacayaClients.TaikoInbox,
+		ShastaTaikoInbox:       s.rpc.ShastaClients.Inbox,
+		ShastaTaikoInboxHelper: s.rpc.ShastaClients.InboxHelper,
+		MaxBlocksReadPerEpoch:  &maxBlocksPerFilter,
+		StartHeight:            s.lastIndexedBlock.Number,
+		EndHeight:              newHead.Number,
+		OnBatchProposedEvent:   s.onProposedEvent,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
@@ -482,12 +485,13 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 
 	// Index proved events
 	iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
-		Client:                s.rpc.L1,
-		ShastaTaikoInbox:      s.rpc.ShastaClients.Inbox,
-		MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-		StartHeight:           s.lastIndexedBlock.Number,
-		EndHeight:             newHead.Number,
-		OnShastaProvedEvent:   s.onProvedEvent,
+		Client:                 s.rpc.L1,
+		ShastaTaikoInbox:       s.rpc.ShastaClients.Inbox,
+		ShastaTaikoInboxHelper: s.rpc.ShastaClients.InboxHelper,
+		MaxBlocksReadPerEpoch:  &maxBlocksPerFilter,
+		StartHeight:            s.lastIndexedBlock.Number,
+		EndHeight:              newHead.Number,
+		OnShastaProvedEvent:    s.onProvedEvent,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)

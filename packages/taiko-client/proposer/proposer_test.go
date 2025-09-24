@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -394,7 +393,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(s.p.ProposeOp(context.Background()))
 
 	event := <-sink1
-	payload, err := encoding.DecodeProposedEvent(event.Data)
+	payload, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
 	s.Nil(err)
 
 	meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)

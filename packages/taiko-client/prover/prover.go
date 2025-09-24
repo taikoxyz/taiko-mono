@@ -304,12 +304,13 @@ func (p *Prover) Close(_ context.Context) {
 // proveOp iterates through BatchProposed events.
 func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
-		Client:               p.rpc.L1,
-		PacayaTaikoInbox:     p.rpc.PacayaClients.TaikoInbox,
-		ShastaTaikoInbox:     p.rpc.ShastaClients.Inbox,
-		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
-		BlockConfirmations:   &p.cfg.BlockConfirmations,
+		Client:                 p.rpc.L1,
+		PacayaTaikoInbox:       p.rpc.PacayaClients.TaikoInbox,
+		ShastaTaikoInbox:       p.rpc.ShastaClients.Inbox,
+		ShastaTaikoInboxHelper: p.rpc.ShastaClients.InboxHelper,
+		StartHeight:            new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
+		OnBatchProposedEvent:   p.eventHandlers.batchProposedHandler.Handle,
+		BlockConfirmations:     &p.cfg.BlockConfirmations,
 	})
 	if err != nil {
 		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)

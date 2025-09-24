@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -37,13 +36,14 @@ type ShastaProvedIterator struct {
 
 // ShastaProvedIteratorConfig represents the configs of a Shasta Proved event iterator.
 type ShastaProvedIteratorConfig struct {
-	Client                *rpc.EthClient
-	ShastaTaikoInbox      *shastaBindings.ShastaInboxClient
-	MaxBlocksReadPerEpoch *uint64
-	StartHeight           *big.Int
-	EndHeight             *big.Int
-	OnShastaProvedEvent   OnShastaProvedEvent
-	BlockConfirmations    *uint64
+	Client                 *rpc.EthClient
+	ShastaTaikoInbox       *shastaBindings.ShastaInboxClient
+	ShastaTaikoInboxHelper *shastaBindings.InboxHelperClient
+	MaxBlocksReadPerEpoch  *uint64
+	StartHeight            *big.Int
+	EndHeight              *big.Int
+	OnShastaProvedEvent    OnShastaProvedEvent
+	BlockConfirmations     *uint64
 }
 
 // NewShastaProvedIterator creates a new instance of Shasta Proved event iterator.
@@ -64,6 +64,7 @@ func NewShastaProvedIterator(ctx context.Context, cfg *ShastaProvedIteratorConfi
 		OnBlocks: assembleShastaProvedIteratorCallback(
 			cfg.Client,
 			cfg.ShastaTaikoInbox,
+			cfg.ShastaTaikoInboxHelper,
 			cfg.OnShastaProvedEvent,
 			iterator,
 		),
@@ -93,6 +94,7 @@ func (i *ShastaProvedIterator) end() {
 func assembleShastaProvedIteratorCallback(
 	client *rpc.EthClient,
 	shastaTaikoInbox *shastaBindings.ShastaInboxClient,
+	shastaTaikoInboxHelper *shastaBindings.InboxHelperClient,
 	callback OnShastaProvedEvent,
 	eventIter *ShastaProvedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -117,7 +119,7 @@ func assembleShastaProvedIteratorCallback(
 			event := iter.Event
 
 			// Decode the Proved event data
-			provedEventPayload, err := encoding.DecodeProvedEvent(event.Data)
+			provedEventPayload, err := shastaTaikoInboxHelper.DecodeProvedEvent(&bind.CallOpts{Context: ctx}, event.Data)
 			if err != nil {
 				log.Error("Failed to decode Shasta Proved event data", "error", err)
 				return err
@@ -126,7 +128,7 @@ func assembleShastaProvedIteratorCallback(
 			proposalID := provedEventPayload.ProposalId.Uint64()
 			log.Debug("Processing Shasta Proved event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if err := callback(ctx, provedEventPayload, &event.Raw, eventIter.end); err != nil {
+			if err := callback(ctx, &provedEventPayload, &event.Raw, eventIter.end); err != nil {
 				log.Warn("Error while processing Shasta Proved events, keep retrying", "error", err)
 				return err
 			}

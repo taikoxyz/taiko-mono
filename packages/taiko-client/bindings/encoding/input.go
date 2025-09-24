@@ -65,7 +65,7 @@ var (
 		{Name: "proposalId", Type: "uint48"},
 		{Name: "bondType", Type: "uint8"},
 		{Name: "payer", Type: "address"},
-		{Name: "receiver", Type: "address"},
+		{Name: "payee", Type: "address"},
 	}
 	ProverAuthComponents = []abi.ArgumentMarshaling{
 		{Name: "proposalId", Type: "uint48"},

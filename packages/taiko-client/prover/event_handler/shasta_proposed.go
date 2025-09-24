@@ -62,7 +62,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"lastBlockID", header.Number,
 		"assignedProver", meta.GetProposer(),
 		"proposalTimestamp", meta.Shasta().GetProposal().Timestamp,
-		"numBlobs", len(meta.Shasta().GetBlobHashes()),
+		"derivationSources", len(meta.Shasta().GetDerivation().Sources),
 	)
 
 	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Shasta().GetProposal().Id.Uint64()))
@@ -83,7 +83,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 					log.Error(
 						"Failed to check Shasta proof status and submit proof",
 						"batchID", meta.Shasta().GetProposal().Id,
-						"numBlobs", len(meta.Shasta().GetBlobHashes()),
+						"derivationSources", len(meta.Shasta().GetDerivation().Sources),
 						"maxRetrys", h.backOffMaxRetrys,
 						"error", err,
 					)

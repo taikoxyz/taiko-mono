@@ -275,7 +275,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	// ABI encode the ShastaInbox.propose parameters.
-	inputData, err := encoding.EncodeProposeInput(
+	inputData, err := b.rpc.EncodeProposeInput(
+		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{
 			Deadline:          common.Big0,
 			CoreState:         *proposals[0].CoreState,

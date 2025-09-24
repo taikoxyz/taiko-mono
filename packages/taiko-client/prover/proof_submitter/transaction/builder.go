@@ -179,7 +179,8 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			)
 		}
 
-		inputData, err := encoding.EncodeProveInput(
+		inputData, err := a.rpc.EncodeProveInput(
+			&bind.CallOpts{Context: txOpts.Context},
 			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions, Metadata: metadatas},
 		)
 		if err != nil {
@@ -255,7 +256,7 @@ func GetShastaGenesisTransitionHash(ctx context.Context, rpc *rpc.Client) (commo
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch genesis transition: %w", err)
 	}
-	return encoding.HashTransitionOptimized(*transition), nil
+	return rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, transition)
 }
 
 // BuildParentTransitionHash builds the parent transition hash for the given batchID.
@@ -336,9 +337,13 @@ func BuildParentTransitionHash(
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch checkpoint header: %w", err)
 		}
+		proposalHash, err := rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, proposal.Proposal)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to fetch proposal hash: %w", err)
+		}
 
 		localTransition := &shastaBindings.IInboxTransition{
-			ProposalHash:         encoding.HashProposalOptimized(*proposal.Proposal),
+			ProposalHash:         proposalHash,
 			ParentTransitionHash: common.Hash{},
 			Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
 				BlockNumber: checkpointHeader.Number,
@@ -358,10 +363,18 @@ func BuildParentTransitionHash(
 		return common.Hash{}, fmt.Errorf("no parent transition found for batchID %s", targetBatchID)
 	}
 
-	currentHash := encoding.HashTransitionOptimized(*parentTransitions[0].transition)
+	currentHash, err := rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, parentTransitions[0].transition)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to hash Shasta transition: %w", err)
+	}
 	for i := 1; i < len(parentTransitions); i++ {
 		parentTransitions[i].transition.ParentTransitionHash = currentHash
-		currentHash = encoding.HashTransitionOptimized(*parentTransitions[i].transition)
+		if currentHash, err = rpc.HashTransitionShasta(
+			&bind.CallOpts{Context: ctx},
+			parentTransitions[i].transition,
+		); err != nil {
+			return common.Hash{}, fmt.Errorf("failed to hash Shasta transition: %w", err)
+		}
 	}
 
 	return currentHash, nil

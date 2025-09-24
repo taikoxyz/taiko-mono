@@ -47,20 +47,22 @@ func NewManifestFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *Shasta
 func (f *ShastaManifestFetcher) Fetch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
+	derivationIdx int,
 ) (*manifest.ProposalManifest, error) {
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offest is invalid,
 	// return the default manifest.
-	if len(meta.GetBlobHashes()) == 0 ||
-		meta.GetDerivation().BlobSlice.Offset.Uint64() > uint64(manifest.BlobBytes*len(meta.GetBlobHashes())-64) {
+	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
+		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
+			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
 		return &manifest.ProposalManifest{Default: true}, nil
 	}
 
-	blobBytes, err := f.fetchBlobs(ctx, meta)
+	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
 
-	return f.manifestFromBlobBytes(blobBytes, int(meta.GetDerivation().BlobSlice.Offset.Uint64()))
+	return f.manifestFromBlobBytes(blobBytes, int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64()))
 }
 
 // manifestFromBlobBytes constructs the manifest from the given blob bytes.
@@ -130,9 +132,10 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 func (f *ShastaManifestFetcher) fetchBlobs(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
+	derivationIdx int,
 ) ([]byte, error) {
 	// Fetch the L1 block sidecars.
-	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(), meta.GetBlobHashes())
+	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), meta.GetBlobHashes(derivationIdx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
@@ -145,7 +148,7 @@ func (f *ShastaManifestFetcher) fetchBlobs(
 	)
 
 	var b []byte
-	for _, blobHash := range meta.GetBlobHashes() {
+	for _, blobHash := range meta.GetBlobHashes(derivationIdx) {
 		// Compare the blob hash with the sidecar's kzg commitment.
 		for j, sidecar := range sidecars {
 			log.Debug(
