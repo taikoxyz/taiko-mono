@@ -6,6 +6,7 @@ import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/shasta/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
@@ -13,7 +14,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
+contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, EssentialContract {
     struct NextEpochResult {
         bytes26 lookaheadHash;
         bool isLookaheadValidationRequired;
@@ -61,13 +62,13 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc ILookaheadStore
+    /// @inheritdoc IProposerChecker
     function checkProposer(
         address _proposer,
         bytes calldata _lookaheadData
     )
         external
-        returns (uint64)
+        returns (uint48)
     {
         require(msg.sender == inbox, NotInbox());
 
@@ -89,7 +90,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         // Step 4: Validate the actual proposer
         _validateProposer(_proposer, context);
 
-        return uint64(context.submissionWindowEnd);
+        return uint48(context.submissionWindowEnd);
     }
 
     /// @dev Validates that the slot index is valid.

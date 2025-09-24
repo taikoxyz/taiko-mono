@@ -200,7 +200,7 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
-    /// @param _lookahead The data to post a new lookahead (currently unused).
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 

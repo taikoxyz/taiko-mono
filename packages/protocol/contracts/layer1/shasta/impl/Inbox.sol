@@ -191,10 +191,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+            uint48 endOfSubmissionWindowTimestamp =
+                _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
