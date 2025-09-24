@@ -423,8 +423,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     {
         require(isLookaheadRequired(), LookaheadNotRequired());
 
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadSlots.length);
-
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
