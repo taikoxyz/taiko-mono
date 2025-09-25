@@ -40,10 +40,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         _setupBlobHashes();
 
         vm.startPrank(currentProposer);
-        // Act: Submit the proposal
-        vm.startSnapshotGas(
-            "shasta-propose", string.concat("propose_single_empty_ring_buffer_", inboxContractName)
-        );
+     
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll to match checkpoint values
@@ -56,6 +53,9 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.expectEmit();
         emit IInbox.Proposed(_codec().encodeProposedEvent(expectedPayload));
 
+        vm.startSnapshotGas(
+            "shasta-propose", string.concat("propose_single_empty_ring_buffer_", inboxContractName)
+        );
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
 
