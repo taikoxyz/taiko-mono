@@ -53,7 +53,6 @@ library LibCheckpointStore {
         returns (ICheckpointStore.Checkpoint memory checkpoint)
     {
         checkpoint = $.checkpoints[_blockNumber];
-        require(checkpoint.blockNumber == _blockNumber, CheckpointNotFound());
     }
 
 
