@@ -104,7 +104,7 @@ func (s *Indexer) Start() error {
 	if s.proposals.Count() != 0 {
 		log.Info("Last indexed Shasta proposal", "proposal", s.GetLastProposal().Proposal.Id)
 		lastFinializedProposal, ok := s.proposals.Get(
-			s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64() % s.bufferSize,
+			s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64(),
 		)
 		if !ok {
 			return fmt.Errorf("last finalized proposal not found: %d", s.GetLastProposal().CoreState.LastFinalizedProposalId)
@@ -181,6 +181,11 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		}
 		if p, ok := s.proposals.Get(0); ok && p.Proposal.Id.Cmp(common.Big0) == 0 {
 			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkHeight", s.shastaForkHeight)
+			break
+		}
+
+		if !s.historicalFetchCompleted && uint64(s.proposals.Count()) >= s.bufferSize {
+			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", s.proposals.Count())
 			break
 		}
 
@@ -351,15 +356,6 @@ func (s *Indexer) onProposedEvent(
 		derivation = meta.Shasta().GetDerivation()
 	)
 
-	slot := proposal.Id.Uint64() % s.bufferSize
-	if !s.historicalFetchCompleted {
-		if existing, ok := s.proposals.Get(slot); ok && existing != nil && existing.Proposal != nil {
-			if existing.Proposal.Id.Cmp(proposal.Id) >= 0 {
-				return nil
-			}
-		}
-	}
-
 	payload := &ProposalPayload{
 		Proposal:       &proposal,
 		CoreState:      &coreState,
@@ -368,7 +364,7 @@ func (s *Indexer) onProposedEvent(
 		RawBlockHeight: meta.GetRawBlockHeight(),
 	}
 
-	s.proposals.Set(slot, payload)
+	s.proposals.Set(proposal.Id.Uint64(), payload)
 
 	log.Debug(
 		"New indexed Shasta proposal",
@@ -380,13 +376,7 @@ func (s *Indexer) onProposedEvent(
 		"proposedAt", meta.GetRawBlockHeight(),
 	)
 	s.cleanupFinazliedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
-
-	// Stop fetching historical proposals if we have cached enough proposals.
-	if !s.historicalFetchCompleted && uint64(s.proposals.Count()) >= s.bufferSize {
-		log.Info("Finished caching Shasta proposals", "cached", s.proposals.Count())
-		endFunc()
-		return nil
-	}
+	s.cleanupLegacyProposals(proposal.Id.Uint64())
 
 	return nil
 }
@@ -512,9 +502,20 @@ func (s *Indexer) TransitionRecords() cmap.ConcurrentMap[uint64, *TransitionPayl
 func (s *Indexer) cleanupFinazliedTransitionRecords(lastFinalizedProposalId uint64) {
 	// We keep two times the buffer size of transition records to avoid future reorg handling.
 	for _, key := range s.transitionRecords.Keys() {
-		if key+s.bufferSize < lastFinalizedProposalId {
+		if key+(s.bufferSize*2) < lastFinalizedProposalId {
 			log.Trace("Cleaning up finalized Shasta transition record", "proposalId", key)
 			s.transitionRecords.Remove(key)
+		}
+	}
+}
+
+// cleanupLegacyProposals cleans up proposals that are older than the last proposal ID minus the buffer size.
+func (s *Indexer) cleanupLegacyProposals(lastProposalId uint64) {
+	// We keep two times the buffer size of transition records to avoid future reorg handling.
+	for _, key := range s.proposals.Keys() {
+		if key+(s.bufferSize*2) < lastProposalId {
+			log.Trace("Cleaning up legacy Shasta proposal", "proposalId", key)
+			s.proposals.Remove(key)
 		}
 	}
 }
@@ -662,7 +663,7 @@ func (s *Indexer) GetProposalByID(proposalID uint64) (*ProposalPayload, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	propsoal, ok := s.proposals.Get(proposalID % s.bufferSize)
+	propsoal, ok := s.proposals.Get(proposalID)
 	if !ok {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
@@ -684,7 +685,7 @@ func (s *Indexer) GetProposalsInput(
 		return nil, nil, fmt.Errorf("no on-chain Shasta proposal events cached")
 	}
 	if lastProposals[0].Proposal.Id.Uint64()+1 >= s.bufferSize {
-		nextSlotProposal, ok := s.proposals.Get((lastProposals[0].Proposal.Id.Uint64() + 1) % s.bufferSize)
+		nextSlotProposal, ok := s.proposals.Get((lastProposals[0].Proposal.Id.Uint64() + 1) - (s.bufferSize - 1))
 		if !ok {
 			return nil, nil, fmt.Errorf(
 				"missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()+1,
