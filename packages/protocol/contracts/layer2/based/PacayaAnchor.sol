@@ -131,7 +131,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
-        _updateParentHashAndDeadlinestamp(parentId);
+        _updateParentHashAndTimestamp(parentId);
 
         // signalService.receiveSignals(_signalSlots);
     }
@@ -241,7 +241,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
 
     /// @dev Updates the parent block hash and timestamp.
     /// @param _parentId The ID of the parent block.
-    function _updateParentHashAndDeadlinestamp(uint256 _parentId) internal {
+    function _updateParentHashAndTimestamp(uint256 _parentId) internal {
         // Get the block hash of the parent block.
         bytes32 parentHash = blockhash(_parentId);
 
