@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -48,6 +48,7 @@ func (s *ProposerTestSuite) SetupTest() {
 	syncer, err := event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -123,12 +124,14 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.Nil(s.p.shastaStateIndexer.Start())
 	s.cancel = cancel
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
+		s.ShastaStateIndexer,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
@@ -150,10 +153,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	metaHash, err := s.p.GetParentMetaHash(context.Background())
-	s.Nil(err)
-
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -165,6 +165,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") != "l2_geth" {
 		s.T().Skip("This test is only applicable for L2 Geth node")
 	}
+	s.ForkIntoShasta(s.p, s.s)
 	var (
 		txsCountForEachSender = 300
 		sendersCount          = 5
@@ -313,6 +314,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
+	s.ForkIntoShasta(s.p, s.s)
 
 	var (
 		p              = s.p
@@ -372,9 +374,11 @@ func (s *ProposerTestSuite) TestName() {
 }
 
 func (s *ProposerTestSuite) TestProposeOp() {
+	s.ForkIntoShasta(s.p, s.s)
+
 	// Propose txs in L2 execution engine's mempool
-	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
-	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
+	sink1 := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1)
 	s.Nil(err)
 
 	defer func() {
@@ -389,8 +393,10 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(s.p.ProposeOp(context.Background()))
 
 	event := <-sink1
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(event)
-	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
+	payload, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+	s.Nil(err)
+
+	meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)
@@ -402,6 +408,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
+	s.ForkIntoShasta(s.p, s.s)
 	s.p.MinProposingInternal = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
@@ -416,6 +423,8 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 }
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
+	s.ForkIntoShasta(s.p, s.s)
+
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -447,7 +456,7 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), txsBatch))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

@@ -29,8 +29,10 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -79,6 +81,7 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -140,6 +143,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -151,7 +155,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -160,9 +164,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -194,6 +203,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -205,7 +215,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -214,9 +224,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -249,8 +264,86 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Equal(parent.Hash(), l2Head1.Hash())
 }
 
+func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	for i := uint64(0); i < s.d.state.ShastaForkHeight.Uint64()-l2Head1.Number.Uint64()-2; i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	}
+	testnetL1SnapshotID := s.SetL1Snapshot()
+
+	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.d.state.ShastaForkHeight.Uint64()-2, l2Head2.Number.Uint64())
+	s.InitShastaGenesisProposal()
+
+	var m metadata.TaikoProposalMetaData
+	for i := 0; i < 5; i++ {
+		m = s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	}
+
+	s.True(m.IsShasta())
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.d.state.ShastaForkHeight.Uint64()+3, l2Head3.Number.Uint64())
+
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head3.Hash(), headL1Origin.L2BlockHash)
+
+	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
+
+	res, err := s.RPCClient.CheckL1Reorg(
+		context.Background(),
+		m.Shasta().GetProposal().Id,
+		true,
+	)
+	s.Nil(err)
+	s.False(res.IsReorged)
+
+	// Reorg back to l2Head1
+	s.RevertL1Snapshot(testnetL1SnapshotID)
+	s.L1Mine()
+	s.InitProposer()
+
+	l1Head3, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l1Head3.Number.Uint64(), l1Head1.Number.Uint64()+1)
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+
+	s.ProposeValidBlock(s.p)
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+	s.L1Mine()
+
+	s.InitShastaGenesisProposal()
+
+	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head4.Number.Uint64(), s.RPCClient.ShastaClients.ForkHeight.Uint64()-1)
+	s.Equal(l2Head2.Number.Uint64()+1, l2Head4.Number.Uint64())
+
+	s.InitShastaGenesisProposal()
+
+	for i := 0; i < 2; i++ {
+		s.ProposeValidBlock(s.p)
+	}
+	s.L1Mine()
+
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+
+	l2Head5, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head4.Number.Uint64()+2, l2Head5.Number.Uint64())
+}
+
 func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
-	s.T().Skip("Skip this test case because of the anvil timestamp issue after rollback.")
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
+
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -262,7 +355,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -271,9 +364,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -359,7 +457,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Nil(err)
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -376,7 +474,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -806,8 +904,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+	ok, err := blocksInserter.IsBasedOnCanonicalChain(
 		context.Background(),
+		s.RPCClient,
 		&preconf.Envelope{
 			Payload: &eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -820,8 +919,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.True(ok)
 
-	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+	ok, err = blocksInserter.IsBasedOnCanonicalChain(
 		context.Background(),
+		s.RPCClient,
 		&preconf.Envelope{
 			Payload: &eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
@@ -835,8 +935,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.True(ok)
 
 	if isInForkA {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		ok, err = blocksInserter.IsBasedOnCanonicalChain(
 			context.Background(),
+			s.RPCClient,
 			&preconf.Envelope{
 				Payload: &eth.ExecutionPayload{
 					BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -849,8 +950,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.Nil(err)
 		s.False(ok)
 	} else {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		ok, err = blocksInserter.IsBasedOnCanonicalChain(
 			context.Background(),
+			s.RPCClient,
 			&preconf.Envelope{
 				Payload: &eth.ExecutionPayload{
 					BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
@@ -1258,12 +1360,7 @@ func (s *DriverTestSuite) InitProposer() {
 	}, nil, nil))
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-}
-
-func (s *DriverTestSuite) TearDownTestTearDown() {
-	if s.d.preconfBlockServer != nil {
-		s.NotNil(s.d.preconfBlockServer.Shutdown(context.Background()))
-	}
+	s.Nil(s.p.ShastaIndexer().Start())
 }
 
 func TestDriverTestSuite(t *testing.T) {
