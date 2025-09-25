@@ -151,12 +151,12 @@ interface ICodec {
 
     /// @notice Hashing for arrays of Transitions
     /// @param _transitions The transitions array to hash
-    /// @param _metadatas The metadata array to hash
+    /// @param _metadata The metadata array to hash
     /// @return The hash of the transitions array
     /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
     function hashTransitionsWithMetadata(
         IInbox.Transition[] calldata _transitions,
-        IInbox.TransitionMetadata[] calldata _metadatas
+        IInbox.TransitionMetadata[] calldata _metadata
     )
         external
         pure

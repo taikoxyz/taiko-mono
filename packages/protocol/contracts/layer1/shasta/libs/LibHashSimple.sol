@@ -87,26 +87,26 @@ library LibHashSimple {
     /// @notice Simple hashing for arrays of Transitions with metadata
     /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
     /// @param _transitions The transitions array to hash
-    /// @param _metadatas The metadata array to hash
+    /// @param _metadata The metadata array to hash
     /// @return The hash of the transitions array
     function hashTransitionsWithMetadata(
         IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadatas
+        IInbox.TransitionMetadata[] memory _metadata
     )
         internal
         pure
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        require(_transitions.length == _metadatas.length, InconsistentLengths());
+        require(_transitions.length == _metadata.length, InconsistentLengths());
         bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
 
         for (uint256 i; i < _transitions.length; ++i) {
             transitionHashes[i] = keccak256(
                 abi.encodePacked(
                     hashTransition(_transitions[i]),
-                    _metadatas[i].designatedProver,
-                    _metadatas[i].actualProver
+                    _metadata[i].designatedProver,
+                    _metadata[i].actualProver
                 )
             );
         }

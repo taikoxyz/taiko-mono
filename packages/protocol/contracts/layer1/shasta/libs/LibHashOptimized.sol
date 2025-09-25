@@ -220,17 +220,17 @@ library LibHashOptimized {
     /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
     ///      Hashes each transition with its corresponding metadata first, then aggregates
     /// @param _transitions The transitions array to hash
-    /// @param _metadatas The metadata array to hash
+    /// @param _metadata The metadata array to hash
     /// @return The hash of the transitions with metadata array
     function hashTransitionsWithMetadata(
         IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadatas
+        IInbox.TransitionMetadata[] memory _metadata
     )
         internal
         pure
         returns (bytes32)
     {
-        require(_transitions.length == _metadatas.length, InconsistentLengths());
+        require(_transitions.length == _metadata.length, InconsistentLengths());
         unchecked {
             uint256 length = _transitions.length;
             if (length == 0) {
@@ -239,13 +239,13 @@ library LibHashOptimized {
 
             if (length == 1) {
                 bytes32 transitionWithMetadataHash =
-                    _hashTransitionWithMetadata(_transitions[0], _metadatas[0]);
+                    _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
                 return EfficientHashLib.hash(bytes32(length), transitionWithMetadataHash);
             }
 
             if (length == 2) {
-                bytes32 hash0 = _hashTransitionWithMetadata(_transitions[0], _metadatas[0]);
-                bytes32 hash1 = _hashTransitionWithMetadata(_transitions[1], _metadatas[1]);
+                bytes32 hash0 = _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
+                bytes32 hash1 = _hashTransitionWithMetadata(_transitions[1], _metadata[1]);
                 return EfficientHashLib.hash(bytes32(length), hash0, hash1);
             }
 
@@ -254,7 +254,7 @@ library LibHashOptimized {
 
             for (uint256 i; i < length; ++i) {
                 EfficientHashLib.set(
-                    buffer, i + 1, _hashTransitionWithMetadata(_transitions[i], _metadatas[i])
+                    buffer, i + 1, _hashTransitionWithMetadata(_transitions[i], _metadata[i])
                 );
             }
 

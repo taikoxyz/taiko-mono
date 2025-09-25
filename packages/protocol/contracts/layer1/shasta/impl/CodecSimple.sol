@@ -151,12 +151,12 @@ contract CodecSimple is ICodec {
     /// @inheritdoc ICodec
     function hashTransitionsWithMetadata(
         IInbox.Transition[] calldata _transitions,
-        IInbox.TransitionMetadata[] calldata _metadatas
+        IInbox.TransitionMetadata[] calldata _metadata
     )
         external
         pure
         returns (bytes32)
     {
-        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadatas);
+        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadata);
     }
 }

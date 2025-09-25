@@ -42,7 +42,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         // Test encoding
@@ -74,11 +74,11 @@ contract LibProveInputDecoderTest is Test {
         );
 
         // Verify metadata array
-        assertEq(decoded.metadatas.length, 1, "Metadata length mismatch");
+        assertEq(decoded.metadata.length, 1, "Metadata length mismatch");
         assertEq(
-            decoded.metadatas[0].designatedProver, address(0x5678), "Designated prover mismatch"
+            decoded.metadata[0].designatedProver, address(0x5678), "Designated prover mismatch"
         );
-        assertEq(decoded.metadatas[0].actualProver, address(0x9ABC), "Actual prover mismatch");
+        assertEq(decoded.metadata[0].actualProver, address(0x9ABC), "Actual prover mismatch");
     }
 
     function test_encode_decode_multiple() public pure {
@@ -134,7 +134,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         // Test encoding/decoding
@@ -144,7 +144,7 @@ contract LibProveInputDecoderTest is Test {
         // Verify arrays have correct lengths
         assertEq(decoded.proposals.length, 2, "Proposals length mismatch");
         assertEq(decoded.transitions.length, 2, "Transitions length mismatch");
-        assertEq(decoded.metadatas.length, 2, "Metadata length mismatch");
+        assertEq(decoded.metadata.length, 2, "Metadata length mismatch");
 
         // Verify second elements (first were tested in simple test)
         assertEq(decoded.proposals[1].id, 2, "Proposal 1 ID mismatch");
@@ -155,7 +155,7 @@ contract LibProveInputDecoderTest is Test {
             "Transition 1 proposal hash mismatch"
         );
         assertEq(
-            decoded.metadatas[1].designatedProver,
+            decoded.metadata[1].designatedProver,
             address(0x4444),
             "Metadata 1 designated prover mismatch"
         );
@@ -166,7 +166,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
             transitions: new IInbox.Transition[](0),
-            metadatas: new IInbox.TransitionMetadata[](0)
+            metadata: new IInbox.TransitionMetadata[](0)
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(input);
@@ -174,7 +174,7 @@ contract LibProveInputDecoderTest is Test {
 
         assertEq(decoded.proposals.length, 0, "Empty proposals array mismatch");
         assertEq(decoded.transitions.length, 0, "Empty transitions array mismatch");
-        assertEq(decoded.metadatas.length, 0, "Empty metadata array mismatch");
+        assertEq(decoded.metadata.length, 0, "Empty metadata array mismatch");
     }
 
     function test_encoding_size_optimization() public pure {
@@ -209,7 +209,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         bytes memory optimized = LibProveInputDecoder.encode(input);

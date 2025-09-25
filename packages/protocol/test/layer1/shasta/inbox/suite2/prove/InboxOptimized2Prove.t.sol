@@ -24,7 +24,7 @@ contract InboxOptimized2Prove is AbstractProveTest {
         IInbox.ProveInput memory input;
         input.proposals = new IInbox.Proposal[](0);
         input.transitions = new IInbox.Transition[](0);
-        input.metadatas = new IInbox.TransitionMetadata[](0);
+        input.metadata = new IInbox.TransitionMetadata[](0);
 
         // Standard encoding is misinterpreted by LibProveInputDecoder as empty
         bytes memory proveData = abi.encode(input);

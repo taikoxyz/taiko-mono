@@ -68,7 +68,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         // Encode
@@ -98,9 +98,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
 
         // Verify metadata
-        assertEq(decoded.metadatas.length, 1);
-        assertEq(decoded.metadatas[0].designatedProver, metadata[0].designatedProver);
-        assertEq(decoded.metadatas[0].actualProver, metadata[0].actualProver);
+        assertEq(decoded.metadata.length, 1);
+        assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver);
+        assertEq(decoded.metadata[0].actualProver, metadata[0].actualProver);
     }
 
     /// @notice Fuzz test for multiple proposals and transitions
@@ -144,7 +144,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         // Encode
@@ -244,7 +244,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         IInbox.ProveInput memory original = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         // First round trip
@@ -296,7 +296,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadatas: metadata
+            metadata: metadata
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -341,9 +341,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         }
 
         // Create metadata array
-        proveInput.metadatas = new IInbox.TransitionMetadata[](transitionCount);
+        proveInput.metadata = new IInbox.TransitionMetadata[](transitionCount);
         for (uint256 i = 0; i < transitionCount; i++) {
-            proveInput.metadatas[i] = IInbox.TransitionMetadata({
+            proveInput.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });

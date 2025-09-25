@@ -156,7 +156,7 @@ interface IInbox {
         Transition[] transitions;
         /// @notice Array of metadata for prover information.
         /// @dev Must have same length as transitions array.
-        TransitionMetadata[] metadatas;
+        TransitionMetadata[] metadata;
     }
 
     /// @notice Payload data emitted in the Proposed event
