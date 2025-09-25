@@ -52,7 +52,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0),
-            parentHash: bytes32(uint256(0x5555))
+            parentHash: firstExpectedPayload.proposal.coreStateHash // Hash of first proposal's CoreState
         });
 
         IInbox.Proposal[] memory secondParentProposals = new IInbox.Proposal[](1);
