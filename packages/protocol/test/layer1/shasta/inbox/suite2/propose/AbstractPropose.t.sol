@@ -273,7 +273,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
                 // this)
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: firstExpectedPayload.proposal.coreStateHash // Hash of first proposal's CoreState
         });
 
         IInbox.Proposal[] memory secondParentProposals = new IInbox.Proposal[](1);
@@ -334,7 +335,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalBlockId: 2,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: _codec().hashCoreState(_getGenesisCoreState()) // Hash of genesis CoreState
         });
 
         // Using genesis as parent instead of the first proposal - this is wrong!
@@ -372,7 +374,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: keccak256("fake") // Fake parent hash for fake parent test
         });
 
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);

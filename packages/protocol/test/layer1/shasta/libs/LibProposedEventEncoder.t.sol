@@ -45,7 +45,8 @@ contract LibProposedEventEncoderTest is Test {
             nextProposalBlockId: 1001,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
-            bondInstructionsHash: bytes32(uint256(666))
+            bondInstructionsHash: bytes32(uint256(666)),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         // Create proposed event payload
@@ -148,7 +149,8 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalBlockId: 5001,
                 lastFinalizedProposalId: 9,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
-                bondInstructionsHash: bytes32(0)
+                bondInstructionsHash: bytes32(0),
+                parentHash: bytes32(uint256(0x5555))
             })
         });
 
@@ -202,7 +204,8 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalBlockId: 2501,
                 lastFinalizedProposalId: 4,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
-                bondInstructionsHash: bytes32(uint256(1616))
+                bondInstructionsHash: bytes32(uint256(1616)),
+                parentHash: bytes32(uint256(0x5555))
             })
         });
 
@@ -255,7 +258,8 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalBlockId: 1001,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: bytes32(0),
-                bondInstructionsHash: bytes32(0)
+                bondInstructionsHash: bytes32(0),
+                parentHash: bytes32(uint256(0x5555))
             })
         });
 

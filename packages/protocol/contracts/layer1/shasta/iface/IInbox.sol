@@ -126,6 +126,8 @@ interface IInbox {
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 bondInstructionsHash;
+        /// @notice The hash of the parent CoreState.
+        bytes32 parentHash;
     }
 
     /// @notice Input data for the propose function

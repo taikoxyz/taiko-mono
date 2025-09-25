@@ -103,7 +103,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             nextProposalBlockId: nextProposalBlockId,
             lastFinalizedProposalId: lastFinalizedProposalId,
             lastFinalizedTransitionHash: lastFinalizedTransitionHash,
-            bondInstructionsHash: bondInstructionsHash
+            bondInstructionsHash: bondInstructionsHash,
+            parentHash: bytes32(uint256(0x5555))
         });
 
         bytes32 hash1 = codec.hashCoreState(coreState);

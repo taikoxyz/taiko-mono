@@ -142,7 +142,8 @@ contract LibProposeInputDecoderGas is Test {
             nextProposalBlockId: 10_000,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
-            bondInstructionsHash: keccak256("bond_instructions")
+            bondInstructionsHash: keccak256("bond_instructions"),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         input.parentProposals = new IInbox.Proposal[](_proposalCount);

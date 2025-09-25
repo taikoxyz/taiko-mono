@@ -16,7 +16,8 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalBlockId: 1000,
             lastFinalizedProposalId: 9,
             lastFinalizedTransitionHash: bytes32(0),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         // Create empty parent proposals array
@@ -147,7 +148,8 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalBlockId: 1000,
             lastFinalizedProposalId: 7,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
-            bondInstructionsHash: bytes32(uint256(666))
+            bondInstructionsHash: bytes32(uint256(666)),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         LibBlobs.BlobReference memory blobReference =
@@ -223,7 +225,8 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalBlockId: 500,
                 lastFinalizedProposalId: 4,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
-                bondInstructionsHash: bytes32(uint256(1010))
+                bondInstructionsHash: bytes32(uint256(1010)),
+                parentHash: bytes32(uint256(0x5555))
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
@@ -279,7 +282,8 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalBlockId: 100,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: bytes32(0),
-                bondInstructionsHash: bytes32(0)
+                bondInstructionsHash: bytes32(0),
+                parentHash: bytes32(uint256(0x5555))
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 0, offset: 0 }),

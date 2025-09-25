@@ -510,7 +510,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
             nextProposalBlockId: expectedNextBlockId,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);

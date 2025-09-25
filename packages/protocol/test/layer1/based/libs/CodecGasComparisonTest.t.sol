@@ -503,7 +503,8 @@ contract CodecGasComparisonTest is Test {
             nextProposalBlockId: 0,
             lastFinalizedProposalId: 1000,
             lastFinalizedTransitionHash: keccak256("test_finalized_transition"),
-            bondInstructionsHash: keccak256("test_bond_instructions")
+            bondInstructionsHash: keccak256("test_bond_instructions"),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         // Initialize test proposal

@@ -70,7 +70,8 @@ abstract contract AbstractCodecTest is Test {
             nextProposalBlockId: 200,
             lastFinalizedProposalId: 99,
             lastFinalizedTransitionHash: bytes32(uint256(0x3333)),
-            bondInstructionsHash: bytes32(uint256(0x4444))
+            bondInstructionsHash: bytes32(uint256(0x4444)),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         bytes32 hash = codec.hashCoreState(testCoreState);

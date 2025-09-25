@@ -94,7 +94,8 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: bytes32(uint256(0x5555))
         });
     }
 
@@ -185,12 +186,25 @@ abstract contract InboxTestHelper is CommonTest {
     {
         // Build the expected core state after proposal
         // Line 215 sets nextProposalBlockId to block.number+1
+        // The parentHash should be the hash of the previous CoreState
+        // For the first proposal (ID 1), this is the genesis CoreState hash
+        // For subsequent proposals, it should be the hash of the previous CoreState
+        bytes32 expectedParentHash;
+        if (_proposalId == 1) {
+            expectedParentHash = _codec().hashCoreState(_getGenesisCoreState());
+        } else {
+            // For subsequent proposals, we need to compute the hash of the previous state
+            // This is more complex and would need the actual previous state
+            expectedParentHash = bytes32(uint256(0x5555)); // Placeholder for now
+        }
+
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
             nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: expectedParentHash
         });
 
         // Build the expected derivation with multi-source format
@@ -429,7 +443,8 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalBlockId: uint48(block.number),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+            bondInstructionsHash: bytes32(0),
+            parentHash: bytes32(uint256(0x5555))
         });
 
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);

@@ -69,6 +69,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
+        ptr = P.packBytes32(ptr, _payload.coreState.parentHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
@@ -125,6 +126,7 @@ library LibProposedEventEncoder {
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.parentHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
@@ -143,10 +145,10 @@ library LibProposedEventEncoder {
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
-            // Total fixed: 38 + 39 + 2 + 64 + 82 = 225
+            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) + parentHash(32) = 114
+            // Total fixed: 38 + 39 + 2 + 64 + 114 = 257
 
-            size_ = 225;
+            size_ = 257;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {
