@@ -5,33 +5,33 @@ import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
-/// @title InboxOptimized1BlobOffsetTest
-/// @notice Isolated test for blob offset functionality on Optimized1 Inbox
-contract InboxOptimized1BlobOffsetTest is AbstractProposeTest {
+/// @title InboxOptimized1MultipleBlobsTest
+/// @notice Isolated test for multiple blobs functionality on Optimized1 Inbox
+contract InboxOptimized1MultipleBlobsTest is AbstractProposeTest {
     function setUp() public virtual override {
         setDeployer(new InboxOptimized1Deployer());
         super.setUp();
     }
 
-    function test_InboxOptimized1_propose_withBlobOffset() public {
+    function test_InboxOptimized1_propose_withMultipleBlobs() public {
         _setupBlobHashes();
 
         vm.roll(block.number + 1);
 
-        // Create proposal input with blob offset after block roll
-        bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
+        // Create proposal input with multiple blobs after block roll
+        (bytes memory proposeData, ) = _composeProposeInputWithBlobs(3, 0);
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
+            _buildExpectedProposedPayload(1, 3, 0, currentProposer);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        // Verify proposal hash and check that offset was correctly included
+        // Verify proposal hash
         bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
-        assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
+        assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 }

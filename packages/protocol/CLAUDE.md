@@ -60,7 +60,7 @@ This guide provides specific instructions for working with Taiko's smart contrac
 - `contracts/layer2/`: L2 contracts
 - `contracts/shared/`: Shared utilities
 - `test/`: Test files (mirror contract structure)
-- `test/layer1/shasta/inbox/suite2`: Test files for the shasta inbox (our main focus at the moment)
+- `test/layer1/shasta/inbox`: Test files for the shasta inbox (our main focus at the moment)
 
 ### 📍 Key Contract Locations (Shasta)
 
@@ -147,7 +147,7 @@ forge test --match-path <path> --summary  # Test summary with gas usage
 
 ```bash
 # IMPORTANT: When testing shasta changes, run ONLY:
-forge test --match-path "test/layer1/shasta/inbox/suite2/*"
+forge test --match-path "test/layer1/shasta/inbox/*"
 # DO NOT run the entire test suite for shasta development
 ```
 

@@ -6,6 +6,7 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/shasta/impl/Inbox.sol";
@@ -19,12 +20,28 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
+    InboxHelper internal helper;
+
+    // Cache contract name to avoid repeated calls and potential recursion
+    string private contractName;
+    bool private useOptimizedInputEncoding;
+
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
 
     function setUp() public virtual override {
         super.setUp();
+
+        // Initialize the helper for encoding/decoding operations
+        helper = new InboxHelper();
+
+        // Cache contract name and determine encoding types
+        contractName = getTestContractName();
+        bytes32 nameHash = keccak256(bytes(contractName));
+        bytes32 optimized2 = keccak256(bytes("InboxOptimized2"));
+
+        useOptimizedInputEncoding = nameHash == optimized2;
 
         // Select a proposer for creating proposals to prove
         currentProposer = _selectProposer(Bob);
@@ -137,6 +154,33 @@ abstract contract AbstractProveTest is InboxTestSetup {
         vm.prank(currentProver);
         vm.startSnapshotGas(
             "shasta-prove", string.concat("prove_consecutive_5_", _getInboxContractName())
+        );
+        inbox.prove(proveData, proof);
+        vm.stopSnapshotGas();
+
+        // Verify correct number of events were emitted
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 eventCount = _countProvedEvents(logs);
+        assertEq(eventCount, expectedEvents, "Unexpected number of Proved events");
+    }
+
+    /// @dev Tests proving 10 consecutive proposals - demonstrates benefit of assembly bulk-copy optimization
+    /// @notice At 10 proposals, bond instruction merging uses optimized assembly operations (>8 threshold)
+    /// forge-config: default.isolate = true
+    function test_prove_tenConsecutiveProposals() public {
+        IInbox.Proposal[] memory proposals = _createConsecutiveProposals(10);
+        bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
+        bytes memory proof = _createValidProof();
+
+        // Check expected events based on implementation
+        (uint256 expectedEvents,) = _getExpectedAggregationBehavior(10, true);
+
+        // Record events to verify count later
+        vm.recordLogs();
+
+        vm.prank(currentProver);
+        vm.startSnapshotGas(
+            "shasta-prove", string.concat("prove_consecutive_10_", getTestContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
@@ -426,7 +470,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
 
             if (consecutive) {
                 // Chain transitions for consecutive proposals
-                parentHash = keccak256(abi.encode(transitions[i]));
+                parentHash = _hashTransition(transitions[i]);
             } else {
                 // For non-consecutive, each transition starts from genesis
                 // This is simplified - in reality each would have its proper parent
@@ -477,7 +521,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         if (block.number < 2) {
             vm.roll(2);
         }
-        bytes memory proposeData = _createFirstProposeInput();
+        bytes memory proposeData = _composeFirstProposeInputForProve();
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -520,7 +564,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _createProposeInputWithCustomParams(
+        bytes memory proposeData = _composeProposeInputForProve(
             0, // no deadline
             _createBlobRef(0, 1, 0),
             parentProposals,
@@ -564,7 +608,7 @@ abstract contract AbstractProveTest is InboxTestSetup {
             metadata[i] = _createMetadataForTransition(currentProver, currentProver);
 
             // Update parent hash for next iteration
-            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+            parentTransitionHash = _hashTransition(transitions[i]);
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -610,4 +654,67 @@ abstract contract AbstractProveTest is InboxTestSetup {
         // MockProofVerifier always accepts, so return any non-empty proof
         return abi.encode("valid_proof");
     }
+
+    function _encodeProposeInputForProve(IInbox.ProposeInput memory _input)
+        private
+        view
+        returns (bytes memory)
+    {
+        if (useOptimizedInputEncoding) {
+            return helper.encodeProposeInput(_input);
+        }
+        return abi.encode(_input);
+    }
+
+    function _defaultCheckpoint() private view returns (ICheckpointStore.Checkpoint memory) {
+        return ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: blockhash(block.number - 1),
+            stateRoot: bytes32(uint256(100))
+        });
+    }
+
+    // Helper function needed from propose tests
+    function _composeProposeInputForProve(
+        uint48 _deadline,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.Proposal[] memory _parentProposals,
+        IInbox.CoreState memory _coreState
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: _deadline,
+            coreState: _coreState,
+            parentProposals: _parentProposals,
+            blobReference: _blobRef,
+            checkpoint: _defaultCheckpoint(),
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            numForcedInclusions: 0
+        });
+
+        return _encodeProposeInputForProve(input);
+    }
+
+    function _composeFirstProposeInputForProve() internal view returns (bytes memory) {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = _createGenesisProposal();
+        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
+
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 0,
+            coreState: coreState,
+            parentProposals: parentProposals,
+            blobReference: blobRef,
+            checkpoint: _defaultCheckpoint(),
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            numForcedInclusions: 0
+        });
+
+        return _encodeProposeInputForProve(input);
+    }
+
 }

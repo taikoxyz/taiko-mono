@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
@@ -113,6 +114,18 @@ contract InboxTestHelper is CommonTest {
         return hashes;
     }
 
+    function _getBlobHashesForTestStartingAt(uint256 _startIndex, uint256 _numBlobs)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory hashes = new bytes32[](_numBlobs);
+        for (uint256 i = 0; i < _numBlobs; i++) {
+            hashes[i] = keccak256(abi.encode("blob", _startIndex + i));
+        }
+        return hashes;
+    }
+
     function _createBlobRef(
         uint8 _blobStartIndex,
         uint8 _numBlobs,
@@ -133,8 +146,25 @@ contract InboxTestHelper is CommonTest {
     // Expected Event Payload Builders
     // ---------------------------------------------------------------
 
+
     function _buildExpectedProposedPayload(
         uint48 _proposalId,
+        uint8 _numBlobs,
+        uint24 _offset,
+        address _currentProposer
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _buildExpectedProposedPayloadWithStartIndex(
+            _proposalId, 0, _numBlobs, _offset, _currentProposer
+        );
+    }
+
+    function _buildExpectedProposedPayloadWithStartIndex(
+        uint48 _proposalId,
+        uint16 _blobStartIndex,
         uint8 _numBlobs,
         uint24 _offset,
         address _currentProposer
@@ -158,7 +188,7 @@ contract InboxTestHelper is CommonTest {
         bytes32[] memory fullBlobHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
         bytes32[] memory selectedBlobHashes = new bytes32[](_numBlobs);
         for (uint256 i = 0; i < _numBlobs; i++) {
-            selectedBlobHashes[i] = fullBlobHashes[i]; // Start from index 0 as per _createBlobRef
+            selectedBlobHashes[i] = fullBlobHashes[_blobStartIndex + i];
         }
 
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
@@ -196,6 +226,58 @@ contract InboxTestHelper is CommonTest {
         });
     }
 
+    function _buildExpectedForcedInclusionPayload(
+        uint48 _proposalId,
+        uint16 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset,
+        uint48 _timestamp
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+            nextProposalId: _proposalId + 1,
+            nextProposalBlockId: uint48(block.number + 1),  // Set to block.number + 1 as per propose() logic
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: true,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: _getBlobHashesForTestStartingAt(_blobStartIndex, _numBlobs),
+                offset: _offset,
+                timestamp: _timestamp
+            })
+        });
+
+        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: 0,
+            sources: sources
+        });
+
+        IInbox.Proposal memory expectedProposal = IInbox.Proposal({
+            id: _proposalId,
+            proposer: address(0), // will be checked in encoded event equality, proposer not used here
+            timestamp: _timestamp,
+            endOfSubmissionWindowTimestamp: 0,
+            coreStateHash: _hashCoreState(expectedCoreState),
+            derivationHash: _hashDerivation(expectedDerivation)
+        });
+
+        return IInbox.ProposedEventPayload({
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState
+        });
+    }
+
     // ---------------------------------------------------------------
     // Input Builders
     // ---------------------------------------------------------------
@@ -220,6 +302,17 @@ contract InboxTestHelper is CommonTest {
             return inboxHelper.encodeProposedEvent(_payload);
         }
         return abi.encode(_payload);
+    }
+
+    function _decodeProposedEvent(bytes memory _data)
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        if (useOptimizedProposedEventEncoding) {
+            return inboxHelper.decodeProposedEvent(_data);
+        }
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
     }
 
     function _encodeProveInput(IInbox.ProveInput memory _input)

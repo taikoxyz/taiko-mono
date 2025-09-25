@@ -1,0 +1,13 @@
+{
+  "propose_and_finalize_multiple_consecutive_Inbox": "153765",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized1": "154518",
+  "propose_and_finalize_multiple_consecutive_InboxOptimized2": "148390",
+  "propose_and_finalize_partial_max_count_Inbox": "195352",
+  "propose_and_finalize_partial_max_count_InboxOptimized1": "199327",
+  "propose_and_finalize_partial_max_count_InboxOptimized2": "186264",
+  "propose_and_finalize_single_Inbox": "147926",
+  "propose_and_finalize_single_InboxOptimized1": "148173",
+  "propose_and_finalize_single_InboxOptimized2": "142826",
+  "propose_and_finalize_span_three_InboxOptimized1": "148203",
+  "propose_and_finalize_span_three_InboxOptimized2": "142830"
+}

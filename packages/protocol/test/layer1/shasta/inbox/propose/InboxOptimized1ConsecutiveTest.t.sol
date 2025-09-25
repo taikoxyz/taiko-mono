@@ -20,10 +20,12 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll
-        bytes memory firstProposeData = _createFirstProposeInput();
+        (bytes memory firstProposeData, IInbox.ProposeInput memory firstInput) =
+            _composeFirstProposeInput();
 
         // Build expected event data after block roll to match timestamps
-        IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory firstExpectedPayload =
+            _buildExpectedProposedPayload(firstInput, 1, currentProposer);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(firstExpectedPayload));
 
@@ -60,7 +62,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         // No additional roll needed - we already advanced by 1 block above
 
         // Create second proposal input after block roll
-        bytes memory secondProposeData = _createProposeInputWithCustomParams(
+        (bytes memory secondProposeData, ) = _composeProposeInputWithCustomParams(
             0, // no deadline
             _createBlobRef(0, 1, 0),
             secondParentProposals,
@@ -68,7 +70,8 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         );
 
         // Build expected event data after block roll to match timestamps
-        IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
+        IInbox.ProposedEventPayload memory secondExpectedPayload =
+            _buildExpectedProposedPayload(2, 1, 0, currentProposer);
         vm.expectEmit();
         emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
 

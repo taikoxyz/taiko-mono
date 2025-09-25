@@ -139,12 +139,14 @@ Emitted when a **batch is verified**.
 ## Design Considerations
 
 1. **Ethereum-Equivalent Execution**
+
    - The contract follows Ethereum’s rollup-centric roadmap, allowing **Ethereum-equivalent execution**.
    - No modifications to **EVM opcodes**, ensuring compatibility.
 
     </br>
 
 2. **Based Rollup Architecture**
+
    - Batches are proposed permissionlessly, following **Ethereum’s L1 sequencing** rules.
    - No centralized sequencer; TaikoInbox ensures **censorship resistance**.
 
