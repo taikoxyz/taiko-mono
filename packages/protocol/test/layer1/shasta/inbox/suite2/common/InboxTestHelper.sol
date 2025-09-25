@@ -20,7 +20,6 @@ contract InboxTestHelper is CommonTest {
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
     uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
     uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
-    uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     uint256 internal constant DEFAULT_TEST_BLOB_COUNT = 9;
@@ -174,7 +173,7 @@ contract InboxTestHelper is CommonTest {
         IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),
-            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
+            basefeeSharingPctg: 0, // Matches suite's test inbox config (basefeeSharingPctg = 0)
             sources: sources
         });
 
