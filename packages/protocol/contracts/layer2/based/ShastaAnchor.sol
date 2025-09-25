@@ -383,7 +383,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
             // Transfer bond from payer to receiver
             if (bond != 0) {
                 uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
-                bondManager.creditBond(instruction.receiver, bondDebited);
+                bondManager.creditBond(instruction.payee, bondDebited);
             }
 
             // Update cumulative hash

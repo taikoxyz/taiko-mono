@@ -379,7 +379,7 @@ contract LibHashingFuzzTest is Test {
             proposalId: proposalId,
             bondType: bondType,
             payer: payer,
-            receiver: receiver
+            payee: receiver
         });
 
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
