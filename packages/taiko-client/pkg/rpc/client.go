@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -12,10 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
-	defaultTimeout = 1 * time.Minute
+	DefaultRpcTimeout = 1 * time.Minute
 )
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
@@ -33,6 +35,14 @@ type PacayaClients struct {
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
+// ShastaClients contains all smart contract clients for ShastaClients fork.
+type ShastaClients struct {
+	Inbox       *shastaBindings.ShastaInboxClient
+	InboxHelper *shastaBindings.InboxHelperClient
+	Anchor      *shastaBindings.ShastaAnchor
+	ForkHeight  *big.Int
+}
+
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
 	// Geth ethclient clients
@@ -45,6 +55,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	PacayaClients *PacayaClients
+	ShastaClients *ShastaClients
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -79,7 +90,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
 	if err := backoff.Retry(func() error {
-		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 		defer cancel()
 
 		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
@@ -94,7 +105,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 		// NOTE: when running tests, we do not have a L1 beacon endpoint.
 		if cfg.L1BeaconEndpoint != "" && os.Getenv("RUN_TESTS") == "" {
-			if l1BeaconClient, err = NewBeaconClient(cfg.L1BeaconEndpoint, defaultTimeout); err != nil {
+			if l1BeaconClient, err = NewBeaconClient(cfg.L1BeaconEndpoint, DefaultRpcTimeout); err != nil {
 				log.Error("Failed to connect to L1 beacon endpoint, retrying", "endpoint", cfg.L1BeaconEndpoint, "err", err)
 				return err
 			}
@@ -135,8 +146,11 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
+	if err := c.initShastaClients(ctx, cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+	}
 
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 	// Initialize the fork height numbers.
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
@@ -188,7 +202,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 	var cancel context.CancelFunc
 	opts := &bind.CallOpts{Context: context.Background()}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
@@ -220,7 +234,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}
 	}
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), DefaultRpcTimeout)
 	defer cancel()
 	if taikoWrapper != nil {
 		preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})
@@ -251,6 +265,42 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	return nil
 }
 
+// initShastaClients initializes all Shasta smart contract clients.
+func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
+	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.TaikoInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
+	}
+
+	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
+	}
+
+	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get shasta fork height: %w", err)
+	}
+
+	inboxHelperAddress, err := shastaInbox.Helper(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get inbox helper address: %w", err)
+	}
+	inboxHelper, err := shastaBindings.NewInboxHelperClient(inboxHelperAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of InboxHelperClient: %w", err)
+	}
+
+	c.ShastaClients = &ShastaClients{
+		Inbox:       shastaInbox,
+		InboxHelper: inboxHelper,
+		Anchor:      shastaAnchor,
+		ForkHeight:  new(big.Int).SetUint64(shastaForkHeight),
+	}
+
+	return nil
+}
+
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
@@ -261,12 +311,14 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
 		Ontake: protocolConfigs.ForkHeights.Ontake,
 		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+		Shasta: protocolConfigs.ForkHeights.Shasta,
 	}
 
 	log.Info(
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
+		"shastaForkHeight", c.PacayaClients.ForkHeights.Shasta,
 	)
 
 	return nil
