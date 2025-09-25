@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 import "src/layer1/automata-attestation/lib/EnclaveIdStruct.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "solady/utils/JSONParserLib.sol";
-import "solady/utils/LibString.sol";
+import "solady/src/utils/JSONParserLib.sol";
+import "solady/src/utils/LibString.sol";
 
 contract DcapTestUtils {
     using JSONParserLib for JSONParserLib.Item;

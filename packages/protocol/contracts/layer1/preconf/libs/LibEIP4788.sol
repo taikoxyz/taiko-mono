@@ -4,7 +4,7 @@
 pragma solidity ^0.8.24;
 
 import "./LibBeaconMerkleUtils.sol";
-import "solady/utils/ext/ithaca/BLS.sol";
+import "@solady/src/utils/ext/ithaca/BLS.sol";
 import "@eth-fabric/urc/lib/BLSUtils.sol";
 
 /// @title LibEIP4788
