@@ -267,13 +267,15 @@
     if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
       log('resetting input');
       reset();
-    } else if (newAccount.address && newAccount?.isConnected && $selectedToken) {
+    } else if (newAccount?.address && newAccount?.isConnected && $selectedToken) {
       log('refreshing user balance', $connectedSourceChain?.name);
       $tokenBalance = await fetchBalance({
         userAddress: newAccount.address,
         token: $selectedToken,
         srcChainId: newAccount.chainId,
       });
+    } else {
+      console.error('No account connected or token selected');
     }
   };
 </script>
