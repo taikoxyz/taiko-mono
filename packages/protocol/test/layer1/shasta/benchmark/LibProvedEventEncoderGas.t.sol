@@ -174,7 +174,7 @@ contract LibProvedEventEncoderGas is Test {
                 proposalId: uint48(100 + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0x2222222222222222222222222222222222222222) + uint160(i)),
-                receiver: address(uint160(0x3333333333333333333333333333333333333333) + uint160(i))
+                payee: address(uint160(0x3333333333333333333333333333333333333333) + uint160(i))
             });
         }
     }
