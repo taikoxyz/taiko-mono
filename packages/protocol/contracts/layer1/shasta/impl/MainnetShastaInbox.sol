@@ -39,6 +39,7 @@ contract MainnetShastaInbox is InboxOptimized2 {
         InboxOptimized2(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

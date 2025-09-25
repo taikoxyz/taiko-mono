@@ -13,6 +13,8 @@ interface IInbox {
     struct Config {
         /// @notice The token used for bonds
         address bondToken;
+        /// @notice The signal service contract address
+        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -36,8 +38,6 @@ interface IInbox {
         uint64 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
-        /// @notice The maximum number of checkpoints to store in ring buffer
-        uint16 maxCheckpointHistory;
     }
 
     /// @notice Represents a source of derivation data within a Derivation

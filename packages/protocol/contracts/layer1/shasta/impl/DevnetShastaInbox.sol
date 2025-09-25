@@ -33,11 +33,13 @@ contract DevnetShastaInbox is InboxOptimized2 {
         address _proofVerifier,
         address _proposerChecker,
         address _taikoToken,
+        address _signalService,
         address _helper
     )
         InboxOptimized2(
             IInbox.Config({
                 bondToken: _taikoToken,
+                signalService: _signalService,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,
