@@ -94,10 +94,16 @@ func enableCORS(next http.Handler) http.Handler {
 			w.Header().Set("Vary", "Origin") // Ensure caching based on origin
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", r.Method)
+		// Allow common methods; do not mirror request method.
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-		w.WriteHeader(http.StatusOK)
+		// Handle CORS preflight early to avoid committing headers for non-OPTIONS.
+		if r.Method == http.MethodOptions {
+			// No body for preflight responses
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
 		next.ServeHTTP(w, r)
 	})
