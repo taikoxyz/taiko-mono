@@ -43,9 +43,4 @@ interface ICheckpointStore {
         external
         view
         returns (Checkpoint memory);
-
-    /// @notice Gets the hash of a checkpoint identified by block number
-    /// @param _blockNumber The block number associated with the checkpoint
-    /// @return _ The keccak256 hash of the checkpoint
-    function getCheckpointHash(uint48 _blockNumber) external view returns (bytes32);
 }

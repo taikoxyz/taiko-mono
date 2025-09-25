@@ -153,13 +153,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         return LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
     }
 
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpointHash(uint48 _blockNumber) external view override returns (bytes32) {
-        Checkpoint memory checkpoint = LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
-        return checkpoint.blockHash;
-    }
-
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
