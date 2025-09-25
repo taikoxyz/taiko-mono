@@ -40,7 +40,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         _setupBlobHashes();
 
         vm.startPrank(currentProposer);
-     
+
         vm.roll(block.number + 1);
 
         // Create proposal input after block roll to match checkpoint values
