@@ -12,7 +12,6 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox

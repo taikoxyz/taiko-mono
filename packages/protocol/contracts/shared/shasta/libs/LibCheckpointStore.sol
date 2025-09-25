@@ -15,8 +15,6 @@ library LibCheckpointStore {
     struct Storage {
         /// @notice Maps block number to checkpoint data
         mapping(uint48 blockNumber => ICheckpointStore.Checkpoint checkpoint) checkpoints;
-        /// @notice The latest checkpoint number
-        uint48 latestCheckpointBlockNumber;
     }
 
     // ---------------------------------------------------------------
@@ -34,10 +32,8 @@ library LibCheckpointStore {
     {
         require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
-        require(_checkpoint.blockNumber > $.latestCheckpointBlockNumber, InvalidCheckpoint());
 
         $.checkpoints[_checkpoint.blockNumber] = _checkpoint;
-        $.latestCheckpointBlockNumber = _checkpoint.blockNumber;
 
         emit ICheckpointStore.CheckpointSaved(
             _checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
@@ -58,13 +54,6 @@ library LibCheckpointStore {
     {
         checkpoint = $.checkpoints[_blockNumber];
         require(checkpoint.blockNumber == _blockNumber, CheckpointNotFound());
-    }
-
-    /// @notice Gets the latest checkpoint number
-    /// @param $ The storage struct
-    /// @return _ The latest checkpoint number
-    function getLatestCheckpointBlockNumber(Storage storage $) internal view returns (uint48) {
-        return $.latestCheckpointBlockNumber;
     }
 
 

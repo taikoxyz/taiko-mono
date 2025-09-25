@@ -28,15 +28,11 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // ---------------------------------------------------------------
     // Pre shasta storage variables
     // ---------------------------------------------------------------
-    
-    // TODO: Remove?
-    /// @notice Mapping to store the top blockId.
-    /// @dev Slot 1.
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
 
-
-    /// @dev Deprecated slot used by the old SignalService `authorized` field
-    uint256 private _slotUsedByPacaya;
+    /// @dev Deprecated slots used by the old SignalService
+    // - `topBlockId`
+    // - `authorized`
+    uint256[2] private _slotsUsedByPacaya;
 
     /// @dev Cache for received signals. 
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
@@ -155,11 +151,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         returns (Checkpoint memory)
     {
         return LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointBlockNumber() external view override returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
     }
 
 
