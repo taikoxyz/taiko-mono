@@ -489,13 +489,13 @@ contract LibHashingGasTest is Test {
             proposalId: 1001,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x1111111111111111111111111111111111111111),
-            receiver: address(0x2222222222222222222222222222222222222222)
+            payee: address(0x2222222222222222222222222222222222222222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 1002,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x3333333333333333333333333333333333333333),
-            receiver: address(0x4444444444444444444444444444444444444444)
+            payee: address(0x4444444444444444444444444444444444444444)
         });
 
         testTransitionRecord = IInbox.TransitionRecord({
