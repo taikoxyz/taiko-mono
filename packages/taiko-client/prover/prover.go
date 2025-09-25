@@ -144,10 +144,6 @@ func InitFromConfig(
 	p.proveNotify = make(chan struct{}, 1)
 	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
 
-	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
-		return fmt.Errorf("initialize L1 current cursor error: %w", err)
-	}
-
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
 		p.shastaIndexer,
@@ -213,7 +209,12 @@ func (p *Prover) Start() error {
 		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
-	// 3. Start the main event loop of the prover.
+	// 3. Initialize the L1 current cursor.
+	if err := p.initL1Current(p.cfg.StartingBatchID); err != nil {
+		return fmt.Errorf("initialize L1 current cursor error: %w", err)
+	}
+
+	// 4. Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil
