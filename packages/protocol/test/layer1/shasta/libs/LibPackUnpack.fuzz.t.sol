@@ -91,7 +91,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint48 proposalId;
         uint8 bondType; // enum as uint8
         address payer;
-        address receiver;
+        address payee;
         uint256 amount;
         uint32 deadline;
         bool executed;
