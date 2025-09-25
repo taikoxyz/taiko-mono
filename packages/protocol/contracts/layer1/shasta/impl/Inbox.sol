@@ -276,14 +276,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        // Verify the proof using staticcall
-        (bool success,) = address(_proofVerifier).staticcall(
-            abi.encodeCall(
-                IProofVerifier.verifyProof,
-                (_hashTransitionsWithMetadata(input.transitions, input.metadata), _proof)
-            )
-        );
-        require(success, ProofVerificationFailed());
+        bytes32 aggregatedProvingHash =
+            _hashTransitionsWithMetadata(input.transitions, input.metadata);
+        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -1022,7 +1017,6 @@ error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NotEnoughCapacity();
 error NoBondToWithdraw();
-error ProofVerificationFailed();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();
