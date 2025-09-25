@@ -58,7 +58,6 @@ abstract contract InboxTestSetup is InboxTestHelper {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            100, // maxCheckpointHistory
             address(proofVerifier),
             address(proposerChecker)
         );

@@ -32,26 +32,26 @@ contract MockCheckpointProvider is ICheckpointStore {
     using LibCheckpointStore for LibCheckpointStore.Storage;
 
     LibCheckpointStore.Storage private _storage;
-    uint16 constant MAX_HISTORY_SIZE = 100;
 
-    function saveCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint) external {
-        LibCheckpointStore.saveCheckpoint(_storage, _checkpoint, MAX_HISTORY_SIZE);
-    }
-
-    function getCheckpoint(uint48 _offset)
-        external
-        view
-        override
-        returns (ICheckpointStore.Checkpoint memory)
-    {
-        return LibCheckpointStore.getCheckpoint(_storage, _offset, MAX_HISTORY_SIZE);
+    function saveCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint) external override {
+        LibCheckpointStore.saveCheckpoint(_storage, _checkpoint);
     }
 
     function getLatestCheckpointBlockNumber() external view override returns (uint48) {
         return LibCheckpointStore.getLatestCheckpointBlockNumber(_storage);
     }
 
-    function getNumberOfCheckpoints() external view override returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_storage);
+    function getCheckpoint(uint48 _blockNumber)
+        external
+        view
+        override
+        returns (ICheckpointStore.Checkpoint memory)
+    {
+        return LibCheckpointStore.getCheckpoint(_storage, _blockNumber);
+    }
+
+    function getCheckpointHash(uint48 _blockNumber) external view override returns (bytes32) {
+        ICheckpointStore.Checkpoint memory checkpoint = LibCheckpointStore.getCheckpoint(_storage, _blockNumber);
+        return checkpoint.blockHash;
     }
 }

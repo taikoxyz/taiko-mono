@@ -315,8 +315,11 @@ contract DeployProtocolOnL1 is DeployCapability {
             );
         }
         address helper = address(new InboxHelper());
+        address signalService = IResolver(_sharedResolver).resolve(
+            uint64(block.chainid), "signal_service", false
+        );
         address tempFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, signalService, helper));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
@@ -324,7 +327,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         address newFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
+            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, signalService, helper));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

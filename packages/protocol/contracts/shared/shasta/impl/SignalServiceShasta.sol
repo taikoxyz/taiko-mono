@@ -22,8 +22,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     /// @dev This is the `inbox` on L1 and the `anchor` on L2.
     address internal immutable _authorizedSyncer;
 
-    /// @dev Size of the ring buffer for storing checkpoints.
-    uint16 internal immutable _maxCheckpointHistory;
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
@@ -59,13 +57,11 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // Constructor
     // ---------------------------------------------------------------
     
-    constructor(address authorizedSyncer, uint16 maxCheckpointHistory, address remoteSignalService)  {
+    constructor(address authorizedSyncer, address remoteSignalService)  {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
-        require(maxCheckpointHistory != 0, ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
-        _maxCheckpointHistory = maxCheckpointHistory;
         _remoteSignalService = remoteSignalService;
     }
 
@@ -147,27 +143,18 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
 
-        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint, _maxCheckpointHistory);
+        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint);
     }
 
+
     /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _offset)
+    function getCheckpoint(uint48 _blockNumber)
         external
         view
         override
         returns (Checkpoint memory)
     {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpointByBlockNumber(uint48 _blockNumber)
-        external
-        view
-        override
-        returns (Checkpoint memory)
-    {
-        // TODO: Implement
+        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
     }
 
     /// @inheritdoc ICheckpointStore
@@ -175,14 +162,11 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
     }
 
-    /// @inheritdoc ICheckpointStore
-    function getNumberOfCheckpoints() external view override returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
-    }
 
     /// @inheritdoc ICheckpointStore
     function getCheckpointHash(uint48 _blockNumber) external view override returns (bytes32) {
-        // TODO: Implement?
+        Checkpoint memory checkpoint = LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
+        return checkpoint.blockHash;
     }
 
     // ---------------------------------------------------------------
@@ -254,7 +238,7 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         if (hop.accountProof.length == 0 || hop.storageProof.length == 0) revert SS_EMPTY_PROOF();
 
         ICheckpointStore.Checkpoint memory checkpoint =
-            LibCheckpointStore.getCheckpointByBlockNumber(_checkpointStorage, uint48(hop.blockId));
+            LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(hop.blockId));
         if (checkpoint.blockNumber != uint48(hop.blockId) || checkpoint.stateRoot != hop.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
@@ -277,3 +261,4 @@ error SS_EMPTY_PROOF();
 error SS_INVALID_PROOF_LENGTH();
 error SS_INVALID_CHECKPOINT();
 error SS_UNAUTHORIZED();
+error SS_SIGNAL_NOT_RECEIVED();

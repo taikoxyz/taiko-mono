@@ -16,6 +16,7 @@ contract InboxOptimized2HelperTest is Test {
 
         IInbox.Config memory config = IInbox.Config({
             bondToken: address(0),
+            signalService: address(0),
             proofVerifier: address(0),
             proposerChecker: address(0),
             provingWindow: 1 hours,
@@ -26,8 +27,7 @@ contract InboxOptimized2HelperTest is Test {
             basefeeSharingPctg: 10,
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 100,
-            maxCheckpointHistory: 10
+            forcedInclusionFeeInGwei: 100
         });
 
         inbox = new InboxOptimized2(config, address(helper));

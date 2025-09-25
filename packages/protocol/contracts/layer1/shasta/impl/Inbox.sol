@@ -344,7 +344,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         config_ = IInbox.Config({
             bondToken: address(_bondToken),
             signalService: address(signalService),
-            maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
