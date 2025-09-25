@@ -58,7 +58,7 @@ library LibProvedEventEncoder {
             ptr = P.packUint48(ptr, _payload.transitionRecord.bondInstructions[i].proposalId);
             ptr = P.packUint8(ptr, uint8(_payload.transitionRecord.bondInstructions[i].bondType));
             ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
-            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].receiver);
+            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payee);
         }
     }
 
@@ -109,7 +109,7 @@ library LibProvedEventEncoder {
                 LibBonds.BondType(bondTypeValue);
 
             (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
-            (payload_.transitionRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
+            (payload_.transitionRecord.bondInstructions[i].payee, ptr) = P.unpackAddress(ptr);
         }
     }
 

@@ -265,13 +265,13 @@ contract LibHashingTest is Test {
             proposalId: 10,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1111111111111111111111111111111111111111),
-            receiver: address(0x2222222222222222222222222222222222222222)
+            payee: address(0x2222222222222222222222222222222222222222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 11,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x3333333333333333333333333333333333333333),
-            receiver: address(0x4444444444444444444444444444444444444444)
+            payee: address(0x4444444444444444444444444444444444444444)
         });
 
         IInbox.TransitionRecord memory testTransitionRecord = IInbox.TransitionRecord({
