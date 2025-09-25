@@ -21,7 +21,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
         bytes32 bondInstructionsHash,
         uint16 blobStartIndex,
         uint16 numBlobs,
-        uint24 offset
+        uint24 offset,
+        bytes32 parentHash
     )
         public
         pure
@@ -42,7 +43,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedProposalId: lastFinalizedProposalId,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash,
-                parentHash: bytes32(uint256(0x5555))
+                parentHash: parentHash
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({
@@ -75,7 +76,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
         address proposer,
         uint48 timestamp,
         bytes32 coreStateHash,
-        bytes32 derivationHash
+        bytes32 derivationHash,
+        bytes32 parentHash
     )
         public
         pure
@@ -98,7 +100,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds"),
-                parentHash: bytes32(uint256(0x5555))
+                parentHash: parentHash
             }),
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
@@ -125,7 +127,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
     function testFuzz_encodeDecodeTransitionRecord(
         bytes32 transitionHash,
         bytes32 checkpointHash,
-        uint8 span
+        uint8 span,
+        bytes32 parentHash
     )
         public
         pure
@@ -156,7 +159,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds"),
-                parentHash: bytes32(uint256(0x5555))
+                parentHash: parentHash
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
@@ -183,7 +186,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
     function testFuzz_encodeDecodeVariableLengths(
         uint8 proposalCount,
         uint8 transitionCount,
-        uint8 bondInstructionCount
+        uint8 bondInstructionCount,
+        bytes32 parentHash
     )
         public
         pure
@@ -200,7 +204,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds"),
-            parentHash: bytes32(uint256(0x5555))
+            parentHash: parentHash
         });
 
         LibBlobs.BlobReference memory blobRef =
@@ -308,7 +312,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
     function testFuzz_encodedSizeComparison(
         uint8 proposalCount,
-        uint8 transitionCount
+        uint8 transitionCount,
+        bytes32 parentHash
     )
         public
         pure
@@ -319,7 +324,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         // Create test data
         IInbox.ProposeInput memory input =
-            _createTestData(proposalCount, transitionCount, proposalCount * 2);
+            _createTestData(proposalCount, transitionCount, proposalCount * 2, parentHash);
 
         // Encode with both methods
         bytes memory abiEncoded = abi.encode(input);
@@ -355,7 +360,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
     function _createTestData(
         uint256 _proposalCount,
         uint256 _transitionCount,
-        uint256 _totalBondInstructions
+        uint256 _totalBondInstructions,
+        bytes32 _parentHash
     )
         private
         pure
@@ -369,7 +375,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions"),
-            parentHash: bytes32(uint256(0x5555))
+            parentHash: _parentHash
         });
 
         input.parentProposals = new IInbox.Proposal[](_proposalCount);

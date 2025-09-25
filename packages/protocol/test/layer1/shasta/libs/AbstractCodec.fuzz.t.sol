@@ -93,7 +93,8 @@ abstract contract AbstractCodecFuzzTest is Test {
         uint48 nextProposalBlockId,
         uint48 lastFinalizedProposalId,
         bytes32 lastFinalizedTransitionHash,
-        bytes32 bondInstructionsHash
+        bytes32 bondInstructionsHash,
+        bytes32 parentHash
     )
         public
         view
@@ -104,7 +105,7 @@ abstract contract AbstractCodecFuzzTest is Test {
             lastFinalizedProposalId: lastFinalizedProposalId,
             lastFinalizedTransitionHash: lastFinalizedTransitionHash,
             bondInstructionsHash: bondInstructionsHash,
-            parentHash: bytes32(uint256(0x5555))
+            parentHash: parentHash
         });
 
         bytes32 hash1 = codec.hashCoreState(coreState);

@@ -145,7 +145,8 @@ library LibProposedEventEncoder {
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) + parentHash(32) = 114
+            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) + parentHash(32)
+            // = 114
             // Total fixed: 38 + 39 + 2 + 64 + 114 = 257
 
             size_ = 257;
