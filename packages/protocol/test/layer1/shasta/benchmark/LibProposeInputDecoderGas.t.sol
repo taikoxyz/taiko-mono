@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProposeInputDecoder } from "contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoderGas
 /// @notice Gas comparison between optimized LibProposeInputDecoder and abi.encode/decode
@@ -182,7 +182,7 @@ contract LibProposeInputDecoderGas is Test {
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
-                    receiver: address(uint160(0xbbbb + bondIndex))
+                    payee: address(uint160(0xbbbb + bondIndex))
                 });
                 bondIndex++;
             }
@@ -196,7 +196,7 @@ contract LibProposeInputDecoderGas is Test {
         }
 
         // Add checkpoint if needed
-        input.checkpoint = ICheckpointManager.Checkpoint({
+        input.checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 0,
             blockHash: bytes32(0),
             stateRoot: bytes32(0)

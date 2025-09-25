@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibPackUnpack } from "contracts/layer1/shasta/libs/LibPackUnpack.sol";
+import { LibPackUnpack } from "src/layer1/shasta/libs/LibPackUnpack.sol";
 
 /// @title LibPackUnpackFuzzTest
 /// @notice Comprehensive fuzzy tests for LibPackUnpack with various complex data structures
@@ -91,7 +91,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint48 proposalId;
         uint8 bondType; // enum as uint8
         address payer;
-        address receiver;
+        address payee;
         uint256 amount;
         uint32 deadline;
         bool executed;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/LibRLP.sol";
+import "@solady/src/utils/LibRLP.sol";
 
 /// @title LibBlockHeader
 /// @custom:security-contact security@taiko.xyz
@@ -25,13 +25,10 @@ library LibBlockHeader {
         bytes8 nonce;
         uint256 baseFeePerGas;
         bytes32 withdrawalsRoot;
-        uint64 blobGasUsed;
-        uint64 excessBlobGas;
-        bytes32 parentBeaconBlockRoot;
     }
 
     function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {
-        LibRLP.List memory list = LibRLP.l();
+        LibRLP.List memory list = LibRLP.p();
         list = LibRLP.p(list, abi.encodePacked(_blockHeader.parentHash));
         list = LibRLP.p(list, abi.encodePacked(_blockHeader.ommersHash));
         list = LibRLP.p(list, _blockHeader.coinbase);

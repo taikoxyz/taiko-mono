@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
-/// @title LibProposeInputDecoderFuzz
+/// @title LibProposeInputDecoderFuzzTest
 /// @notice Fuzzy tests for LibProposeInputDecoder to ensure encode/decode correctness
 /// @custom:security-contact security@taiko.xyz
-contract LibProposeInputDecoderFuzz is Test {
+contract LibProposeInputDecoderFuzzTest is Test {
     /// @notice Fuzz test for basic encode/decode with simple types
     function testFuzz_encodeDecodeBasicTypes(
         uint48 deadline,
@@ -50,7 +50,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0,
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -101,7 +101,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0,
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -135,7 +135,7 @@ contract LibProposeInputDecoderFuzz is Test {
             proposalId: 100,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x1111),
-            receiver: address(0x2222)
+            payee: address(0x2222)
         });
 
         IInbox.TransitionRecord[] memory transitions = new IInbox.TransitionRecord[](1);
@@ -158,7 +158,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 100,
                 blockHash: keccak256("block"),
                 stateRoot: keccak256("state")
@@ -226,7 +226,7 @@ contract LibProposeInputDecoderFuzz is Test {
                     proposalId: uint48(i + j),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0x2000 + i * 10 + j)),
-                    receiver: address(uint160(0x3000 + i * 10 + j))
+                    payee: address(uint160(0x3000 + i * 10 + j))
                 });
             }
 
@@ -244,7 +244,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 2_000_000,
                 blockHash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
@@ -402,7 +402,7 @@ contract LibProposeInputDecoderFuzz is Test {
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
-                    receiver: address(uint160(0xbbbb + bondIndex))
+                    payee: address(uint160(0xbbbb + bondIndex))
                 });
                 bondIndex++;
             }
@@ -415,7 +415,7 @@ contract LibProposeInputDecoderFuzz is Test {
             });
         }
 
-        input.checkpoint = ICheckpointManager.Checkpoint({
+        input.checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 2_000_000,
             blockHash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")

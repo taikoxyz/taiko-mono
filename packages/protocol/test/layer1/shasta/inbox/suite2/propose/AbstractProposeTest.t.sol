@@ -1,48 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
-import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 
 // Import errors from Inbox implementation
-import "contracts/layer1/shasta/impl/Inbox.sol";
+import "src/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProposeTest
 /// @notice All propose tests for Inbox implementations
-abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
+abstract contract AbstractProposeTest is InboxTestSetup {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
-    InboxHelper internal helper;
-
-    // Cache contract name to avoid repeated calls and potential recursion
-    string private contractName;
-    bool private useOptimizedInputEncoding;
-    bool private useOptimizedEventEncoding;
-
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
 
     function setUp() public virtual override {
         super.setUp();
-
-        // Initialize the helper for encoding/decoding operations
-        helper = new InboxHelper();
-
-        // Cache contract name and determine encoding types
-        contractName = getTestContractName();
-        useOptimizedInputEncoding =
-            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
-        useOptimizedEventEncoding = keccak256(bytes(contractName))
-            == keccak256(bytes("InboxOptimized2"))
-            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
@@ -63,7 +43,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Act: Submit the proposal
         vm.startSnapshotGas(
             "shasta-propose",
-            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
+            string.concat("propose_single_empty_ring_buffer_", _getInboxContractName())
         );
         vm.roll(block.number + 1);
 
@@ -108,7 +88,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -130,7 +110,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -172,11 +152,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and blob configuration
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
-    function test_propose_withMultipleBlobs() public {
+    function test_propose_withMultipleBlobs() public virtual {
         _setupBlobHashes();
 
         vm.roll(block.number + 1);
@@ -194,7 +174,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 
@@ -226,7 +206,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
     }
 
-    function test_propose_withBlobOffset() public {
+    function test_propose_withBlobOffset() public virtual {
         _setupBlobHashes();
 
         vm.roll(block.number + 1);
@@ -244,7 +224,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 
@@ -252,7 +232,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // Multiple Proposal Tests
     // ---------------------------------------------------------------
 
-    function test_propose_twoConsecutiveProposals() public {
+    function test_propose_twoConsecutiveProposals() public virtual {
         _setupBlobHashes();
 
         // First proposal (ID 1)
@@ -273,7 +253,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            keccak256(abi.encode(firstExpectedPayload.proposal)),
+            _hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -318,7 +298,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            keccak256(abi.encode(secondExpectedPayload.proposal)),
+            _hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 
@@ -400,119 +380,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         vm.prank(currentProposer);
         vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
-    }
-
-    // ---------------------------------------------------------------
-    // Propose Input Builders
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes ProposeInput using appropriate method based on inbox type
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        returns (bytes memory)
-    {
-        if (useOptimizedInputEncoding) {
-            return helper.encodeProposeInputOptimized(_input);
-        } else {
-            return helper.encodeProposeInput(_input);
-        }
-    }
-
-    /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
-        internal
-        view
-        returns (bytes memory)
-    {
-        if (useOptimizedEventEncoding) {
-            return helper.encodeProposedEventOptimized(_payload);
-        } else {
-            return helper.encodeProposedEvent(_payload);
-        }
-    }
-
-    function _createProposeInputWithCustomParams(
-        uint48 _deadline,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.Proposal[] memory _parentProposals,
-        IInbox.CoreState memory _coreState
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        IInbox.ProposeInput memory input = IInbox.ProposeInput({
-            deadline: _deadline,
-            coreState: _coreState,
-            parentProposals: _parentProposals,
-            blobReference: _blobRef,
-            checkpoint: ICheckpointManager.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: blockhash(block.number - 1),
-                stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
-        });
-
-        return _encodeProposeInput(input);
-    }
-
-    function _createFirstProposeInput() internal view returns (bytes memory) {
-        // For the first proposal after genesis, we need specific state
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-
-        // Parent proposal is genesis (id=0)
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-
-        // Create blob reference
-        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
-
-        // Create the propose input
-        IInbox.ProposeInput memory input;
-        input.coreState = coreState;
-        input.parentProposals = parentProposals;
-        input.blobReference = blobRef;
-
-        return _encodeProposeInput(input);
-    }
-
-    function _createProposeInputWithDeadline(uint48 _deadline)
-        internal
-        view
-        returns (bytes memory)
-    {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-
-        return _createProposeInputWithCustomParams(
-            _deadline, _createBlobRef(0, 1, 0), parentProposals, coreState
-        );
-    }
-
-    function _createProposeInputWithBlobs(
-        uint8 _numBlobs,
-        uint24 _offset
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-
-        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
-
-        return _createProposeInputWithCustomParams(
-            0, // no deadline
-            blobRef,
-            parentProposals,
-            coreState
-        );
     }
 
     // Convenience overload with default blob parameters using currentProposer

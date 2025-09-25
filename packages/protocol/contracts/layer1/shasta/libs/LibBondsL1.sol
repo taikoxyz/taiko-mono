@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibBondsL1
 /// @notice Library for L1-specific bond instruction calculations
@@ -104,7 +104,7 @@ library LibBondsL1 {
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
                 payer: isWithinExtendedWindow ? _metadata.designatedProver : _proposal.proposer,
-                receiver: _metadata.actualProver
+                payee: _metadata.actualProver
             });
         }
     }
