@@ -978,7 +978,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     /// @dev Processes bond instructions and updates aggregated hash
-    /// @notice Emits BondInstructed event for L2 bond manager processing
     /// @param _coreState Core state with bond instructions hash to update
     /// @param _instructions Array of bond transfer instructions to aggregate
     function _processBondInstructions(
@@ -988,8 +987,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
     {
         if (_instructions.length == 0) return;
-
-        emit BondInstructed(_instructions);
 
         for (uint256 i; i < _instructions.length; ++i) {
             _coreState.bondInstructionsHash =
