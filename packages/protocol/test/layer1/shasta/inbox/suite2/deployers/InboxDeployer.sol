@@ -17,6 +17,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
@@ -24,7 +25,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address impl =
-            address(new TestInbox(bondToken, proofVerifier, proposerChecker));
+            address(new TestInbox(bondToken, signalService, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
             deploy({

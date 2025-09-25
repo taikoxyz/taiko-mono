@@ -8,7 +8,9 @@ import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { SignalService } from "src/shared/shasta/impl/SignalServiceShasta.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
 /// @title InboxTestSetup
@@ -23,7 +25,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     // Mock contracts
     IERC20 internal bondToken;
-    ICheckpointStore internal checkpointManager;
+    ICheckpointStore internal signalService;
     IProofVerifier internal proofVerifier;
     IProposerChecker internal proposerChecker;
 
@@ -58,9 +60,19 @@ abstract contract InboxTestSetup is InboxTestHelper {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
+            address(signalService),
             address(proofVerifier),
             address(proposerChecker)
         );
+
+        // Now upgrade SignalService to use the actual inbox address
+        address newSignalServiceImpl = address(
+            new SignalService(address(inbox), address(1)) // actual inbox, dummy remote
+        );
+
+        // Upgrade the proxy to the new implementation
+        vm.prank(owner);
+        SignalService(address(signalService)).upgradeTo(newSignalServiceImpl);
 
         _initializeEncodingHelper(inboxDeployer.getTestContractName());
 
@@ -74,7 +86,6 @@ abstract contract InboxTestSetup is InboxTestHelper {
     /// behavior(e.g. ERC20) or that are not implemented yet
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        checkpointManager = new MockCheckpointProvider();
         proofVerifier = new MockProofVerifier();
     }
 
@@ -82,6 +93,21 @@ abstract contract InboxTestSetup is InboxTestHelper {
     function _setupDependencies() internal virtual {
         // Deploy PreconfWhitelist directly as proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
+
+        // Deploy SignalService behind a proxy
+        // Initially use address(1) as a placeholder for the inbox address
+        // We'll update it after the inbox is deployed
+        address signalServiceImpl = address(
+            new SignalService(address(1), address(1)) // placeholder addresses
+        );
+
+        // Deploy proxy with initial implementation
+        bytes memory initData = abi.encodeCall(SignalService.init, (owner));
+        address signalServiceProxy = address(
+            new ERC1967Proxy(signalServiceImpl, initData)
+        );
+
+        signalService = ICheckpointStore(signalServiceProxy);
     }
 
     /// @dev Helper function to select a proposer (delegates to proposer helper)

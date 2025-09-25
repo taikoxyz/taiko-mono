@@ -9,13 +9,14 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 contract TestInboxOptimized1 is InboxOptimized1 {
     constructor(
         address bondToken,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
         InboxOptimized1(
             IInbox.Config({
                 bondToken: bondToken,
-                signalService: address(0),
+                signalService: signalService,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,

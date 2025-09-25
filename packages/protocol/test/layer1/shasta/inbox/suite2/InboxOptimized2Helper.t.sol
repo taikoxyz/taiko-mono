@@ -16,7 +16,7 @@ contract InboxOptimized2HelperTest is Test {
 
         IInbox.Config memory config = IInbox.Config({
             bondToken: address(0),
-            signalService: address(0),
+            signalService: address(1),
             proofVerifier: address(0),
             proposerChecker: address(0),
             provingWindow: 1 hours,

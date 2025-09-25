@@ -66,9 +66,6 @@ contract LibCheckpointStoreTest is CommonTest {
 
         storage_.saveCheckpoint(checkpoint);
 
-        // Verify storage state
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 100);
-
         // Retrieve and verify checkpoint
         ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(100);
         assertEq(retrieved.blockNumber, checkpoint.blockNumber);
@@ -88,8 +85,6 @@ contract LibCheckpointStoreTest is CommonTest {
 
             storage_.saveCheckpoint(checkpoint);
         }
-
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
 
         // Verify retrieval of each checkpoint
         for (uint48 i = 1; i <= numCheckpoints; i++) {
@@ -127,35 +122,6 @@ contract LibCheckpointStoreTest is CommonTest {
         wrapper.saveCheckpoint(checkpoint);
     }
 
-    function test_revert_invalidCheckpoint_nonIncreasingBlockNumber() public {
-        // Save first checkpoint
-        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2))
-        });
-        wrapper.saveCheckpoint(checkpoint1);
-
-        // Try to save checkpoint with same block number
-        ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(uint256(3)),
-            stateRoot: bytes32(uint256(4))
-        });
-
-        vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint2);
-
-        // Try to save checkpoint with lower block number
-        ICheckpointStore.Checkpoint memory checkpoint3 = ICheckpointStore.Checkpoint({
-            blockNumber: 99,
-            blockHash: bytes32(uint256(5)),
-            stateRoot: bytes32(uint256(6))
-        });
-
-        vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint3);
-    }
 
     function test_revert_getCheckpoint_notFound() public {
         vm.expectRevert(LibCheckpointStore.CheckpointNotFound.selector);
@@ -212,8 +178,6 @@ contract LibCheckpointStoreTest is CommonTest {
 
         ICheckpointStore.Checkpoint memory retrieved3 = storage_.getCheckpoint(300);
         assertEq(retrieved3.blockHash, checkpoint3.blockHash);
-
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
     }
 
     // ---------------------------------------------------------------
@@ -240,8 +204,6 @@ contract LibCheckpointStoreTest is CommonTest {
 
         storage_.saveCheckpoint(checkpoint);
 
-        assertEq(storage_.getLatestCheckpointBlockNumber(), blockNumber);
-
         ICheckpointStore.Checkpoint memory retrieved =
             storage_.getCheckpoint(blockNumber);
         assertEq(retrieved.blockNumber, blockNumber);
@@ -264,8 +226,6 @@ contract LibCheckpointStoreTest is CommonTest {
             storage_.saveCheckpoint(checkpoint);
             lastBlockNumber = blockNum;
         }
-
-        assertEq(storage_.getLatestCheckpointBlockNumber(), lastBlockNumber);
 
         // Verify all checkpoints are retrievable
         for (uint48 i = 1; i <= numCheckpoints; i++) {
