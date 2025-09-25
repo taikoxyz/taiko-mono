@@ -685,7 +685,7 @@ func (s *Indexer) GetProposalsInput(
 		return nil, nil, fmt.Errorf("no on-chain Shasta proposal events cached")
 	}
 	if lastProposals[0].Proposal.Id.Uint64()+1 >= s.bufferSize {
-		nextSlotProposal, ok := s.proposals.Get((lastProposals[0].Proposal.Id.Uint64() + 1) - (s.bufferSize - 1))
+		nextSlotProposal, ok := s.proposals.Get(lastProposals[0].Proposal.Id.Uint64() - (s.bufferSize - 1))
 		if !ok {
 			return nil, nil, fmt.Errorf(
 				"missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()+1,
