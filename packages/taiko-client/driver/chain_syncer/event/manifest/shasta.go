@@ -237,7 +237,6 @@ func ValidateMetadata(
 	originBlockNumber uint64,
 	bondInstructionsHash common.Hash,
 	parentAnchorBlockNumber uint64,
-	derivationIdx int,
 ) error {
 	if proposalManifest == nil {
 		return errors.New("empty proposal manifest")

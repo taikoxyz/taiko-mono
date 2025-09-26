@@ -387,7 +387,6 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 		shastaBindings.IInboxProposal{},
 		0,
 		common.Hash{},
-		0,
 		0),
 	)
 }

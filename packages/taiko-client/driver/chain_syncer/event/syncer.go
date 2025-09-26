@@ -380,7 +380,6 @@ func (s *Syncer) processShastaProposal(
 				meta.GetRawBlockHeight().Uint64(),
 				latestState.BondInstructionsHash,
 				lastAnchorBlockNumber,
-				derivationIdx,
 			); err != nil {
 				return err
 			}
