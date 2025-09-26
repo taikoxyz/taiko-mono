@@ -28,6 +28,11 @@ library LibManifest {
     /// @dev This ensures block gas limit never drops below a critical threshold.
     uint256 internal constant MIN_BLOCK_GAS_LIMIT = 15_000_000;
 
+    /// @notice The delay in processing bond instructions relative to the current proposal. A value
+    /// of 1 signifies that the bond instructions of the immediate parent proposal will be
+    /// processed.
+    uint256 internal constant BOND_PROCESSING_DELAY = 6;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------

@@ -56,6 +56,19 @@ interface ILookaheadStore {
         bytes commitmentSignature;
     }
 
+    struct ProposerContext {
+        // `True` if the expected proposer is the fallback preconfer
+        bool isFallback;
+        // Address of the expected proposer (opted-in or fallback)
+        address proposer;
+        // Starting timestamp of the preconfing window
+        uint256 submissionWindowStart;
+        // Ending timestamp of the preconfing window
+        uint256 submissionWindowEnd;
+        // The lookahead slot covering the current preconfing window
+        LookaheadSlot lookaheadSlot;
+    }
+
     error CommitmentSignerMismatch();
     error CommitterMismatch();
     error InvalidLookahead();
@@ -66,8 +79,6 @@ interface ILookaheadStore {
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
     error NotInbox();
-    error NotProtectorOrPreconfRouter();
-    error NotWhitelistedPreconfer();
     error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
@@ -79,29 +90,13 @@ interface ILookaheadStore {
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
     error ProposerIsNotPreconfer();
+    error ProposerIsNotFallbackPreconfer();
     error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
         uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots
     );
-
-    /// @notice Checks if a proposer is eligible to propose for the current slot and conditionally
-    ///         updates the lookahead for the next epoch.
-    /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next
-    /// epoch.
-    ///      The contract enforces this by trying to update the lookahead for next epoch if none is
-    /// stored.
-    /// @param _proposer The address of the proposer to check.
-    /// @param _lookaheadData The lookahead data for current and next epoch.
-    /// @return submissionSlotTimestamp_ The timestamp of the submission slot i.e also the upper
-    ///         boundary of preconfing period.
-    function checkProposer(
-        address _proposer,
-        bytes calldata _lookaheadData
-    )
-        external
-        returns (uint64 submissionSlotTimestamp_);
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
     /// @param _epochTimestamp The timestamp of the epoch.
@@ -114,6 +109,19 @@ interface ILookaheadStore {
         external
         pure
         returns (bytes26);
+
+    /// @notice Returns the proposer context for the given lookahead input and epoch.
+    /// @dev Useful for off-chain nodes to determine the next proposer/preconfer.
+    /// @param _data The lookahead data for the proposer's epoch, plus the next epoch.
+    /// @param _epochTimestamp The timestamp of the proposer's epoch.
+    /// @return context_ The proposer context, including the proposer and submission window bounds.
+    function getProposerContext(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp
+    )
+        external
+        view
+        returns (ProposerContext memory context_);
 
     /// @notice Returns true if the lookahead is required for the next epoch.
     /// @return True if the lookahead is required for the next epoch, false otherwise.

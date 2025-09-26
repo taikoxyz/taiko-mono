@@ -35,8 +35,8 @@ import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { DevnetShastaInbox } from "src/layer1/shasta/impl/DevnetShastaInbox.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { ShastaDevnetInbox } from "src/layer1/shasta/impl/ShastaDevnetInbox.sol";
+import { CodecOptimized } from "src/layer1/shasta/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -317,17 +317,16 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address helper = address(new InboxHelper());
+        address codec = address(new CodecOptimized());
         address tempFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
+            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address newFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, helper));
+        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

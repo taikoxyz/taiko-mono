@@ -5,11 +5,6 @@ import "src/layer1/preconf/libs/LibEIP4788.sol";
 
 /// @dev Data has been taken from beacon block at slot 9000000 on Ethereum mainnet
 library BeaconProofs {
-    function validator() internal pure returns (bytes memory) {
-        return
-        hex"98fb8eacf684f80712faa9354535620f94a10687c2243c0cdae7280cf6220fb64c78e49efe8eef599406b33e5aac4dd0";
-    }
-
     function validatorsRoot() internal pure returns (bytes32) {
         return 0x0ccf56d8e76d16306c6e6e78ec20c07be5fa5ae89b18873b43cc823075a5df0b;
     }
