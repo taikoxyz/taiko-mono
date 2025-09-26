@@ -27,8 +27,8 @@ contract TestInboxOptimized1 is InboxOptimized1 {
                 finalizationGracePeriod: 5 minutes,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 0,
-                minForcedInclusionCount: 0,
-                forcedInclusionDelay: 100,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 365 days,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
              })
         )
