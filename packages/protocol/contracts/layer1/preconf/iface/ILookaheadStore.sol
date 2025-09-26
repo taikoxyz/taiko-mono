@@ -128,10 +128,10 @@ interface ILookaheadStore {
         returns (bytes26);
 
     /// @notice Returns the proposer context for the given lookahead input and epoch.
-    /// @dev This is useful for offchain nodes in determining the next proposer/preconfer.
-    /// @param _data The lookahead data for current and next epoch.
-    /// @param _epochTimestamp The timestamp of the current epoch.
-    /// @return context_ The proposer context including proposer and submission window bounds.
+    /// @dev Useful for off-chain nodes to determine the next proposer/preconfer.
+    /// @param _data The lookahead data for the proposer's epoch, plus the next epoch.
+    /// @param _epochTimestamp The timestamp of the proposer's epoch.
+    /// @return context_ The proposer context, including the proposer and submission window bounds.
     function getProposerContext(
         LookaheadData memory _data,
         uint256 _epochTimestamp
