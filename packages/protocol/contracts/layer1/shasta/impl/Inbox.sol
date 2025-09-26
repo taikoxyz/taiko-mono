@@ -199,7 +199,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
@@ -208,7 +208,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify parentProposals[0] is actually the last proposal stored on-chain.
             _verifyChainHead(input.parentProposals);
 
-            uint48 endOfSubmissionWindowTimestamp = _validateForcedInclusionRequirements(input);
+            uint48 endOfSubmissionWindowTimestamp =
+                _validateForcedInclusionRequirements(_lookahead, input);
 
             DerivationSource[] memory sources = _createDerivationSources(input);
 
@@ -265,7 +266,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function getOldestInclusionEffectiveTimestamp() external view returns (uint256) {
+    function getOldestInclusionEffectiveTimestamp() external view returns (uint48) {
         return LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
     }
 
@@ -886,6 +887,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bool _hasTransitionRecord
     )
         private
+        view
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
@@ -923,7 +925,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
-        _processBondInstructions(_coreState, _transitionRecord.bondInstructions);
+        _coreState.bondInstructionsHash = _aggregateBondInstructions(
+            _coreState.bondInstructionsHash, _transitionRecord.bondInstructions
+        );
 
         // Validate and calculate next proposal ID
         require(_transitionRecord.span > 0, InvalidSpan());
@@ -933,55 +937,59 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return (true, nextProposalId_);
     }
 
-    /// @dev Processes bond instructions and updates aggregated hash
-    /// @notice Emits BondInstructed event for L2 bond manager processing
-    /// @param _coreState Core state with bond instructions hash to update
+    /// @dev Aggregate bond instructions to hash
+    /// @param _bondInstructionsHash Current aggregated bond instructions hash
     /// @param _instructions Array of bond transfer instructions to aggregate
-    function _processBondInstructions(
-        CoreState memory _coreState,
+    /// @return newBondInstructionsHash_ Updated aggregated bond instructions hash
+    function _aggregateBondInstructions(
+        bytes32 _bondInstructionsHash,
         LibBonds.BondInstruction[] memory _instructions
     )
         private
+        pure
+        returns (bytes32 newBondInstructionsHash_)
     {
-        if (_instructions.length == 0) return;
-
-        emit BondInstructed(_instructions);
-
+        newBondInstructionsHash_ = _bondInstructionsHash;
         for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash =
-                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
+            newBondInstructionsHash_ =
+                LibBonds.aggregateBondInstruction(newBondInstructionsHash_, _instructions[i]);
         }
     }
 
     /// @dev Validates forced inclusion requirements and determines submission window timestamp
     /// @notice Checks if forced inclusions are due and validates proposer permissions
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _input The ProposeInput containing numForcedInclusions
     /// @return endOfSubmissionWindowTimestamp The timestamp when submission window ends (0 if no
     /// restriction)
-    function _validateForcedInclusionRequirements(ProposeInput memory _input)
+    function _validateForcedInclusionRequirements(
+        bytes calldata _lookahead,
+        ProposeInput memory _input
+    )
         private
-        view
         returns (uint48 endOfSubmissionWindowTimestamp)
     {
-        uint48 oldestForcedInclusionTimestamp =
-            LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
+        unchecked {
+            uint256 oldestForcedInclusionTimestamp =
+                LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
 
-        if (block.timestamp > oldestForcedInclusionTimestamp + _forcedInclusionDelay) {
-            // Ensure the proposer is willing to process at least _minForcedInclusionCount
-            // forced inclusions if the oldest forced inclusion is due.
-            // The actual number of forced inclusions may be less, so we validate against
-            // input.numForcedInclusions
-            require(
-                _input.numForcedInclusions >= _minForcedInclusionCount,
-                UnprocessedForcedInclusionIsDue()
-            );
-        }
-        // If the time elapsed since the oldest forced inclusion's effective timestamp
-        // exceeds twice the forced inclusion delay, any address is allowed to propose.
-        // Otherwise, the permission of msg.sender must be verified.
-        if (block.timestamp <= uint256(oldestForcedInclusionTimestamp) + _forcedInclusionDelay * 2)
-        {
-            endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+            if (block.timestamp > oldestForcedInclusionTimestamp + _forcedInclusionDelay) {
+                // Ensure the proposer is willing to process at least _minForcedInclusionCount
+                // forced inclusions if the oldest forced inclusion is due.
+                // The actual number of forced inclusions may be less, so we validate against
+                // input.numForcedInclusions
+                require(
+                    _input.numForcedInclusions >= _minForcedInclusionCount,
+                    UnprocessedForcedInclusionIsDue()
+                );
+            }
+            // If the time elapsed since the oldest forced inclusion's effective timestamp
+            // exceeds twice the forced inclusion delay, any address is allowed to propose.
+            // Otherwise, the permission of msg.sender must be verified.
+            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+            }
         }
     }
 

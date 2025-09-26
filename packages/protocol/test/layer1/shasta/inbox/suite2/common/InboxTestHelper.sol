@@ -362,7 +362,6 @@ abstract contract InboxTestHelper is CommonTest {
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
-
         // Setup forced inclusions
         _setupForcedInclusions();
     }

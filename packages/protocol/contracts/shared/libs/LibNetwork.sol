@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /// @title LibNetwork
 library LibNetwork {
     uint256 internal constant ETHEREUM_MAINNET = 1;
-    uint256 internal constant ETHEREUM_ROPSTEN = 2;
+    uint256 internal constant ETHEREUM_ROPSTEN = 3;
     uint256 internal constant ETHEREUM_RINKEBY = 4;
     uint256 internal constant ETHEREUM_GOERLI = 5;
     uint256 internal constant ETHEREUM_KOVAN = 42;

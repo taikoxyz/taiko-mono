@@ -277,6 +277,11 @@ func BuildParentTransitionHash(
 		coreState         = indexer.GetLastCoreState()
 	)
 
+	// If the parent transition already been just finalized, return the last finalized transition hash directly.
+	if cursor.Cmp(coreState.LastFinalizedProposalId) == 0 {
+		return coreState.LastFinalizedTransitionHash, nil
+	}
+
 	for {
 		if cursor.Cmp(common.Big0) == 0 {
 			transition, err := GetShastaGenesisTransition(ctx, rpc)
