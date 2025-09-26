@@ -144,6 +144,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
         require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
+        require(_config.ringBufferSize != 0, RingBufferSizeZero());
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
@@ -979,7 +980,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     /// @dev Processes bond instructions and updates aggregated hash
-    /// @notice Emits BondInstructed event for L2 bond manager processing
     /// @param _coreState Core state with bond instructions hash to update
     /// @param _instructions Array of bond transfer instructions to aggregate
     function _processBondInstructions(
@@ -989,8 +989,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
     {
         if (_instructions.length == 0) return;
-
-        emit BondInstructed(_instructions);
 
         for (uint256 i; i < _instructions.length; ++i) {
             _coreState.bondInstructionsHash =

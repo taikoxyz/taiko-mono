@@ -429,8 +429,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     {
         require(isLookaheadRequired(), LookaheadNotRequired());
 
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadSlots.length);
-
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
@@ -479,7 +477,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        lookaheadHash_ =
+            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, _lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
         emit LookaheadPosted(_nextEpochTimestamp, lookaheadHash_, _lookaheadSlots);

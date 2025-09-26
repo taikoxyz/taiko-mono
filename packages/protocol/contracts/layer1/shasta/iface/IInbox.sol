@@ -191,10 +191,6 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
-    /// @notice Emitted when bond instructions are issued
-    /// @param instructions The bond instructions that need to be performed.
-    event BondInstructed(LibBonds.BondInstruction[] instructions);
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
