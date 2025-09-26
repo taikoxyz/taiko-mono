@@ -27,7 +27,7 @@ contract TestInbox is Inbox {
                 finalizationGracePeriod: 48 hours,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 0,
-                minForcedInclusionCount: 1,
+                minForcedInclusionCount: 0,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
              })
