@@ -466,7 +466,7 @@ func AssembleBondInstructions(
 		var (
 			aggregatedHash = parentBondInstructionsHash
 		)
-		if i == 0 && originBlockNumber < manifest.BondProcessingDelay {
+		if i == 0 && originBlockNumber >= manifest.BondProcessingDelay {
 			start := originBlockNumber - manifest.BondProcessingDelay
 			proposedIter, err := rpc.ShastaClients.Inbox.FilterProposed(
 				&bind.FilterOpts{Start: start, End: &start, Context: timeoutCtx},
