@@ -512,6 +512,7 @@ func validateBondInstructions(
 					return fmt.Errorf("failed to decode Propose input: %w", err)
 				}
 
+			loop:
 				for _, record := range input.TransitionRecords {
 					for _, instruction := range record.BondInstructions {
 						if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
@@ -530,7 +531,7 @@ func validateBondInstructions(
 							instruction,
 						)
 						if aggregatedHash == payload.CoreState.BondInstructionsHash {
-							break
+							break loop
 						}
 					}
 				}
