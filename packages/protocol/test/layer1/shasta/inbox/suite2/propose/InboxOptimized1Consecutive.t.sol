@@ -39,16 +39,16 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         );
 
         // Advance block for second proposal (need 1 block gap)
+        uint48 firstProposalBlock = uint48(block.number); // Store the block number where first proposal was made
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
 
         // Second proposal (ID 2) - using the first proposal as parent
-        // First proposal set nextProposalBlockId to its block + 1
-        // We advanced by 1 block after first proposal, so we should be at the right block
+        // First proposal set nextProposalBlockId to the block where it was proposed
+        // We advanced by 1 block after first proposal, so we should be able to propose
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
-                // this)
+            nextProposalBlockId: firstProposalBlock, // Block where first proposal was made
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

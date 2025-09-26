@@ -490,19 +490,20 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
-        // Each proposal sets nextProposalBlockId = block.number + 1
+        // Each proposal sets nextProposalBlockId = block.number (last proposal block)
         // Need to roll 1 block forward from the last proposal
         uint48 expectedNextBlockId;
         if (_parent.id == 0) {
-            expectedNextBlockId = 2; // Genesis value - prevents blockhash(0) issue
+            expectedNextBlockId = 1; // Genesis value - represents last proposal block, prevents blockhash(0) issue
             // For first proposal after genesis, roll to block 2
             vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap
             // Roll forward by 1 block from current position
+            uint48 previousProposalBlock = uint48(block.number); // Store previous proposal block
             vm.roll(block.number + 1);
-            // nextProposalBlockId should be current block number
-            expectedNextBlockId = uint48(block.number);
+            // nextProposalBlockId should be the block where previous proposal was made
+            expectedNextBlockId = previousProposalBlock;
         }
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
