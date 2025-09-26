@@ -117,7 +117,7 @@ library LibForcedInclusion {
     /// timestamp if the queue is empty.
     /// @param $ The storage reference for forced inclusion data.
     /// @return The effective timestamp as a uint256.
-    function getOldestForcedInclusionEffectiveTimestamp(Storage storage $)
+    function getOldestInclusionEffectiveTimestamp(Storage storage $)
         public
         view
         returns (uint256)

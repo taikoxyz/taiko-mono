@@ -229,8 +229,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 sourceCount += forcedInclusions.length;
             }
 
-            uint256 effectiveTimestamp = LibForcedInclusion
-                .getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
+            uint256 effectiveTimestamp =
+                LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
 
             if (block.timestamp > effectiveTimestamp + _forcedInclusionDelay) {
                 require(
@@ -314,9 +314,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function getOldestForcedInclusionEffectiveTimestamp() external view returns (uint256) {
-        return
-            LibForcedInclusion.getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
+    function getOldestInclusionEffectiveTimestamp() external view returns (uint256) {
+        return LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
