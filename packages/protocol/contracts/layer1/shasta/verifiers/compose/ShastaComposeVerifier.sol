@@ -15,7 +15,6 @@ abstract contract ShastaComposeVerifier is IProofVerifier {
         bytes proof;
     }
 
-    address public immutable taikoInbox;
     /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
     /// All other proofs share its status root, despite different public inputs
     /// due to different verification types.
