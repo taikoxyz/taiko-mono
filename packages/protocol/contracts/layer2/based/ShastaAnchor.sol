@@ -180,7 +180,8 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
             }
 
             // Process bond instructions with hash verification and assign atomically
-            newState_.bondInstructionsHash = _processBondInstructions(_bondInstructions, _bondInstructionsHash);
+            newState_.bondInstructionsHash =
+                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
         }
 
         // Process new L1 anchor data
