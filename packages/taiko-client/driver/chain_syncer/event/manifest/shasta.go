@@ -271,18 +271,6 @@ func ValidateMetadata(
 		proposalManifest.ParentBlock.GasLimit(),
 	)
 
-	// 5. Ensure each block's bond instructions and bond instructions hash are valid.
-	if err := validateBondInstructions(
-		ctx,
-		proposalManifest,
-		bondInstructionsHash,
-		originBlockNumber,
-		derivationIdx,
-		rpc,
-	); err != nil {
-		return fmt.Errorf("failed to validate bond instructions: %w", err)
-	}
-
 	return nil
 }
 
@@ -460,8 +448,8 @@ func validateGasLimit(
 	}
 }
 
-// validateBondInstructions ensures bond instructions are correctly fetched and their hashes computed.
-func validateBondInstructions(
+// AssembleBondInstructions fetches and assembles bond instructions into the proposal manifest.
+func AssembleBondInstructions(
 	ctx context.Context,
 	proposalManifest *manifest.ProposalManifest,
 	parentBondInstructionsHash common.Hash,
