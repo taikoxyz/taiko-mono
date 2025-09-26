@@ -202,65 +202,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         unchecked {
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
-
             _validateProposeInput(input);
 
             // Verify parentProposals[0] is actually the last proposal stored on-chain.
             _verifyChainHead(input.parentProposals);
 
+            uint48 endOfSubmissionWindowTimestamp = _validateForcedInclusionRequirements(input);
+
+            DerivationSource[] memory sources = _createDerivationSources(input);
+
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
-
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the
-            // ring buffer
-            coreState.nextProposalBlockId = uint48(block.number + 1);
-
-            // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
-
-            // Add forced inclusions as derivation sources
-            uint256 sourceCount = 1;
-            IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
-            if (input.numForcedInclusions > 0) {
-                forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
-                    _forcedInclusionStorage, msg.sender, input.numForcedInclusions
-                );
-                sourceCount += forcedInclusions.length;
-            }
-
-            uint256 effectiveTimestamp = LibForcedInclusion
-                .getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
-
-            if (block.timestamp > effectiveTimestamp + _forcedInclusionDelay) {
-                require(
-                    input.numForcedInclusions >= _minForcedInclusionCount,
-                    UnprocessedForcedInclusionIsDue()
-                );
-            }
-
-            uint48 endOfSubmissionWindowTimestamp;
-            if (block.timestamp <= effectiveTimestamp + _forcedInclusionDelay * 2) {
-                endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
-            }
-
-            // Create sources array and populate it
-            DerivationSource[] memory sources = new DerivationSource[](sourceCount);
-
-            uint256 index;
-            // Add forced inclusion sources first
-            for (; index < forcedInclusions.length; ++index) {
-                sources[index] = DerivationSource({
-                    isForcedInclusion: true,
-                    blobSlice: forcedInclusions[index].blobSlice
-                });
-            }
-
-            // Add normal proposal source last
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
-
-            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
             // Create single proposal with multi-source derivation
             _propose(coreState, sources, endOfSubmissionWindowTimestamp);
@@ -314,9 +267,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function getOldestForcedInclusionEffectiveTimestamp() external view returns (uint256) {
-        return
-            LibForcedInclusion.getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
+    function getOldestInclusionEffectiveTimestamp() external view returns (uint256) {
+        return LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -787,6 +739,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             sources: _derivationSources
         });
 
+        // Enforce one propose call per Ethereum block to prevent spam attacks that could
+        // deplete the ring buffer
+        _coreState.nextProposalBlockId = uint48(block.number + 1);
+
         // Increment nextProposalId (nextProposalBlockId was already set in propose())
         Proposal memory proposal = Proposal({
             id: _coreState.nextProposalId++,
@@ -997,6 +953,75 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             _coreState.bondInstructionsHash =
                 LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
         }
+    }
+
+    /// @dev Validates forced inclusion requirements and determines submission window timestamp
+    /// @notice Checks if forced inclusions are due and validates proposer permissions
+    /// @param _input The ProposeInput containing numForcedInclusions
+    /// @return endOfSubmissionWindowTimestamp The timestamp when submission window ends (0 if no
+    /// restriction)
+    function _validateForcedInclusionRequirements(ProposeInput memory _input)
+        private
+        view
+        returns (uint48 endOfSubmissionWindowTimestamp)
+    {
+        uint256 oldestForcedInclusionTimestamp =
+            LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
+
+        if (block.timestamp > oldestForcedInclusionTimestamp + _forcedInclusionDelay) {
+            // Ensure the proposer is willing to process at least _minForcedInclusionCount
+            // forced inclusions if the oldest forced inclusion is due.
+            // The actual number of forced inclusions may be less, so we validate against
+            // input.numForcedInclusions
+            require(
+                _input.numForcedInclusions >= _minForcedInclusionCount,
+                UnprocessedForcedInclusionIsDue()
+            );
+        }
+        // If the time elapsed since the oldest forced inclusion's effective timestamp
+        // exceeds twice the forced inclusion delay, any address is allowed to propose.
+        // Otherwise, the permission of msg.sender must be verified.
+        if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
+            endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+        }
+    }
+
+    /// @dev Creates derivation sources array from forced inclusions and regular proposal
+    /// @notice Processes forced inclusions and creates a unified sources array for derivation
+    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
+    /// @return sources Array of derivation sources with forced inclusions first, then regular
+    /// proposal
+    function _createDerivationSources(ProposeInput memory _input)
+        private
+        returns (DerivationSource[] memory sources)
+    {
+        // Add forced inclusions as derivation sources
+        uint256 sourceCount = 1;
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+
+        if (_input.numForcedInclusions > 0) {
+            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            );
+            sourceCount += forcedInclusions.length;
+        }
+
+        // Create sources array and populate it
+        sources = new DerivationSource[](sourceCount);
+
+        uint256 index;
+        // Add forced inclusion sources first
+        for (; index < forcedInclusions.length; ++index) {
+            sources[index] = DerivationSource({
+                isForcedInclusion: true,
+                blobSlice: forcedInclusions[index].blobSlice
+            });
+        }
+
+        // Add normal proposal source last
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
+
+        sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
     }
 }
 

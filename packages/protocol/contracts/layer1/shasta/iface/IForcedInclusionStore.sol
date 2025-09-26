@@ -24,5 +24,5 @@ interface IForcedInclusionStore {
 
     /// @notice Retrieves the effective timestamp for the oldest forced inclusion
     /// @return The effective timestamp for the oldest forced inclusion
-    function getOldestForcedInclusionEffectiveTimestamp() external view returns (uint256);
+    function getOldestInclusionEffectiveTimestamp() external view returns (uint256);
 }
