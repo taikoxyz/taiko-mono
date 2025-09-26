@@ -800,12 +800,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             );
             sourceCount += forcedInclusions.length;
             oldestForcedInclusionTimestamp = forcedInclusions[0].blobSlice.timestamp;
-        }
-        else {
+        } else {
             oldestForcedInclusionTimestamp = type(uint48).max;
         }
 
-        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be processed
+        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
+        // processed
         // or none in the queue is due.
         require(
             (_input.numForcedInclusions >= _minForcedInclusionCount)

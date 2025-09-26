@@ -355,7 +355,11 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         assertEq(payload.derivation.sources.length, 2, "Unexpected source count");
         _assertForcedSource(payload.derivation.sources[0], expectedForcedSlice);
         assertFalse(payload.derivation.sources[1].isForcedInclusion, "Normal source missing");
-        assertEq(payload.proposal.endOfSubmissionWindowTimestamp, 0, "Submission window timestamp mismatch");
+        assertEq(
+            payload.proposal.endOfSubmissionWindowTimestamp,
+            0,
+            "Submission window timestamp mismatch"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -540,7 +544,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
-    function _enqueueForcedInclusion(LibBlobs.BlobReference memory _ref, address _payer)
+    function _enqueueForcedInclusion(
+        LibBlobs.BlobReference memory _ref,
+        address _payer
+    )
         internal
         returns (LibBlobs.BlobSlice memory)
     {
@@ -553,7 +560,11 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes32[] memory blobHashes = _expectedBlobHashes(_ref);
 
-        return LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: _ref.offset, timestamp: timestampBefore });
+        return LibBlobs.BlobSlice({
+            blobHashes: blobHashes,
+            offset: _ref.offset,
+            timestamp: timestampBefore
+        });
     }
 
     function _expectedBlobHashes(LibBlobs.BlobReference memory _ref)
