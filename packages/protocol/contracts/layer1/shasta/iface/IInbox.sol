@@ -11,6 +11,8 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
+        /// @notice The codec used for encoding and hashing
+        address codec;
         /// @notice The token used for bonds
         address bondToken;
         /// @notice The proof verifier contract
@@ -196,7 +198,7 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
-    /// @param _lookahead The data to post a new lookahead (currently unused).
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 

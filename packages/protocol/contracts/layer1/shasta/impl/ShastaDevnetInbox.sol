@@ -5,11 +5,11 @@ import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
-/// @title DevnetShastaInbox
+/// @title ShastaDevnetInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetShastaInbox is InboxOptimized2 {
+contract ShastaDevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -30,14 +30,15 @@ contract DevnetShastaInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
+        address _codec,
         address _proofVerifier,
         address _proposerChecker,
-        address _taikoToken,
-        address _helper
+        address _taikoToken
     )
         InboxOptimized2(
             IInbox.Config({
                 bondToken: _taikoToken,
+                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,
@@ -50,8 +51,7 @@ contract DevnetShastaInbox is InboxOptimized2 {
                 forcedInclusionDelay: 0,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
-            }),
-            _helper
+            })
         )
     { }
 

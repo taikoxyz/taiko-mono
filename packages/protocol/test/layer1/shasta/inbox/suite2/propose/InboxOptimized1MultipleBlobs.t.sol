@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
+import { AbstractProposeTest } from "./AbstractPropose.t.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
@@ -19,19 +19,19 @@ contract InboxOptimized1MultipleBlobsTest is AbstractProposeTest {
         vm.roll(block.number + 1);
 
         // Create proposal input with multiple blobs after block roll
-        bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
+        bytes memory proposeData = _codec().encodeProposeInput(_createProposeInputWithBlobs(3, 0));
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
         vm.expectEmit();
-        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
+        emit IInbox.Proposed(_codec().encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = _hashProposal(expectedPayload.proposal);
+        bytes32 expectedHash = _codec().hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 }
