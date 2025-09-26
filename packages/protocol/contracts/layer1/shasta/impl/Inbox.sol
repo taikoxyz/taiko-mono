@@ -199,9 +199,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp =
-                _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
@@ -215,8 +212,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             CoreState memory coreState = _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the
-            // ring buffer
+            // deplete the ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
 
             // Verify capacity for new proposals
@@ -259,6 +255,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 LibBlobs.validateBlobReference(input.blobReference);
 
             sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+
+            // If the oldest processed forced inclusion was too old, allow anyone to propose(and endOfSubmissionWindowTimestamp = 0).
+            // Otherwise, only the current preconfer can propose.
+            uint48 endOfSubmissionWindowTimestamp;
+            if (block.timestamp <= forcedInclusions[0].blobSlice.timestamp + _forcedInclusionDelay * 2) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+            }
 
             // Create single proposal with multi-source derivation
             _propose(coreState, sources, endOfSubmissionWindowTimestamp);
@@ -986,6 +990,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         LibBonds.BondInstruction[] memory _instructions
     )
         private
+        pure
     {
         if (_instructions.length == 0) return;
 
