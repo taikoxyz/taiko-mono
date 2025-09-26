@@ -417,6 +417,8 @@ func (s *Syncer) processShastaProposal(
 		// Assemble bond instructions for the proposal manifest.
 		if err := shastaManifest.AssembleBondInstructions(
 			ctx,
+			meta.GetProposal().Id,
+			s.indexer,
 			proposalManifest,
 			latestState.BondInstructionsHash,
 			meta.GetRawBlockHeight().Uint64(),

@@ -22,6 +22,7 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -451,6 +452,8 @@ func validateGasLimit(
 // AssembleBondInstructions fetches and assembles bond instructions into the proposal manifest.
 func AssembleBondInstructions(
 	ctx context.Context,
+	proposalID *big.Int,
+	indexer *shastaIndexer.Indexer,
 	proposalManifest *manifest.ProposalManifest,
 	parentBondInstructionsHash common.Hash,
 	originBlockNumber uint64,
@@ -466,8 +469,12 @@ func AssembleBondInstructions(
 		var (
 			aggregatedHash = parentBondInstructionsHash
 		)
-		if i == 0 && originBlockNumber >= manifest.BondProcessingDelay {
-			start := originBlockNumber - manifest.BondProcessingDelay
+		if i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
+			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
+			if err != nil {
+				return fmt.Errorf("failed to get target proposal: %w", err)
+			}
+			start := targetProposal.RawBlockHeight.Uint64()
 			proposedIter, err := rpc.ShastaClients.Inbox.FilterProposed(
 				&bind.FilterOpts{Start: start, End: &start, Context: timeoutCtx},
 			)
