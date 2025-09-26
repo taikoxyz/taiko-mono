@@ -16,6 +16,7 @@ contract LibHashingGasTest is Test {
     // Test data structures
     IInbox.Transition internal testTransition;
     ICheckpointStore.Checkpoint internal testCheckpoint;
+    uint48 internal testCheckpointBlockNumber;
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
     // IInbox.Derivation internal testDerivation; // Removed due to IR pipeline requirement for
@@ -89,13 +90,13 @@ contract LibHashingGasTest is Test {
 
         // Measure standard implementation
         gasBefore = gasleft();
-        keccak256(abi.encode(testCheckpoint));
+        keccak256(abi.encode(testCheckpointBlockNumber, testCheckpoint));
         gasAfter = gasleft();
         standardGas = gasBefore - gasAfter;
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashCheckpoint(testCheckpoint);
+        LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -247,12 +248,12 @@ contract LibHashingGasTest is Test {
 
         // hashCheckpoint
         gasBefore = gasleft();
-        keccak256(abi.encode(testCheckpoint));
+        keccak256(abi.encode(testCheckpointBlockNumber, testCheckpoint));
         gasAfter = gasleft();
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashCheckpoint(testCheckpoint);
+        LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -321,8 +322,8 @@ contract LibHashingGasTest is Test {
         assertEq(hash1, hash2, "hashTransition should be deterministic");
 
         // Test hashCheckpoint consistency
-        hash1 = LibHashing.hashCheckpoint(testCheckpoint);
-        hash2 = LibHashing.hashCheckpoint(testCheckpoint);
+        hash1 = LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
+        hash2 = LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
         assertEq(hash1, hash2, "hashCheckpoint should be deterministic");
 
         // Test hashCoreState consistency
@@ -354,8 +355,10 @@ contract LibHashingGasTest is Test {
         bytes32 standardTransitionHash = keccak256(abi.encode(testTransition));
         bytes32 optimizedTransitionHash = LibHashing.hashTransition(testTransition);
 
-        bytes32 standardCheckpointHash = keccak256(abi.encode(testCheckpoint));
-        bytes32 optimizedCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 standardCheckpointHash =
+            keccak256(abi.encode(testCheckpointBlockNumber, testCheckpoint));
+        bytes32 optimizedCheckpointHash =
+            LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
 
         bytes32 standardCoreStateHash = keccak256(abi.encode(testCoreState));
         bytes32 optimizedCoreStateHash = LibHashing.hashCoreState(testCoreState);
@@ -405,7 +408,7 @@ contract LibHashingGasTest is Test {
     function test_hashUniqueness() external view {
         // Create modified test data
         ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
-        modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
+        uint48 modifiedCheckpointBlockNumber = testCheckpointBlockNumber + 1;
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
         modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;
@@ -414,8 +417,10 @@ contract LibHashingGasTest is Test {
         modifiedProposal.id = testProposal.id + 1;
 
         // Verify different inputs produce different hashes
-        bytes32 originalCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
-        bytes32 modifiedCheckpointHash = LibHashing.hashCheckpoint(modifiedCheckpoint);
+        bytes32 originalCheckpointHash =
+            LibHashing.hashCheckpoint(testCheckpointBlockNumber, testCheckpoint);
+        bytes32 modifiedCheckpointHash =
+            LibHashing.hashCheckpoint(modifiedCheckpointBlockNumber, modifiedCheckpoint);
         assertTrue(
             originalCheckpointHash != modifiedCheckpointHash,
             "Different checkpoints should produce different hashes"
@@ -442,8 +447,8 @@ contract LibHashingGasTest is Test {
         testTransition = IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash"),
             parentTransitionHash: keccak256("test_parent_transition_hash"),
+            checkpointBlockNumber: 12_345_678,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
             })
@@ -451,10 +456,10 @@ contract LibHashingGasTest is Test {
 
         // Initialize test checkpoint
         testCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345_678,
             blockHash: keccak256("test_block_hash"),
             stateRoot: keccak256("test_state_root")
         });
+        testCheckpointBlockNumber = 12_345_678;
 
         // Initialize test core state
         testCoreState = IInbox.CoreState({
@@ -512,8 +517,8 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_2"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_2"),
+                checkpointBlockNumber: 12_345_679,
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 12_345_679,
                     blockHash: keccak256("test_block_hash_2"),
                     stateRoot: keccak256("test_state_root_2")
                 })
@@ -523,8 +528,8 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_3"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_3"),
+                checkpointBlockNumber: 12_345_680,
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 12_345_680,
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")
                 })

@@ -553,7 +553,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _provingWindow, _extendedProvingWindow, _proposal, _metadata
         );
         record.transitionHash = _hashTransition(_transition);
-        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+        record.checkpointHash =
+            _hashCheckpoint(_transition.checkpointBlockNumber, _transition.checkpoint);
     }
 
     /// @dev Computes the hash and finalization deadline for a transition record.
@@ -669,14 +670,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         virtual
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_checkpoint));
+        return keccak256(abi.encode(_blockNumber, _checkpoint));
     }
 
     /// @dev Hashes a CoreState struct.
@@ -887,9 +888,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+            bytes32 checkpointHash =
+                _hashCheckpoint(_input.checkpointBlockNumber, _input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            signalService.saveCheckpoint(_input.checkpoint);
+            signalService.saveCheckpoint(_input.checkpointBlockNumber, _input.checkpoint);
         }
 
         return coreState;

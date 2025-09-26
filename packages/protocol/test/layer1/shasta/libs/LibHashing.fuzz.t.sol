@@ -24,13 +24,12 @@ contract LibHashingFuzzTest is Test {
         pure
     {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber,
             blockHash: blockHash,
             stateRoot: stateRoot
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint);
+        bytes32 hash1 = LibHashing.hashCheckpoint(blockNumber, checkpoint);
+        bytes32 hash2 = LibHashing.hashCheckpoint(blockNumber, checkpoint);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -56,19 +55,17 @@ contract LibHashingFuzzTest is Test {
         );
 
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber1,
             blockHash: blockHash1,
             stateRoot: stateRoot1
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber2,
             blockHash: blockHash2,
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashing.hashCheckpoint(blockNumber1, checkpoint1);
+        bytes32 hash2 = LibHashing.hashCheckpoint(blockNumber2, checkpoint2);
 
         // Different inputs should produce different hashes
         assertTrue(hash1 != hash2, "Different inputs should produce different hashes");
@@ -157,8 +154,8 @@ contract LibHashingFuzzTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
+            checkpointBlockNumber: blockNumber,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
                 blockHash: blockHash,
                 stateRoot: stateRoot
             })
@@ -276,8 +273,8 @@ contract LibHashingFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
+            checkpointBlockNumber: blockNumber,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
                 blockHash: blockHash,
                 stateRoot: stateRoot
             })
@@ -307,8 +304,8 @@ contract LibHashingFuzzTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
+            checkpointBlockNumber: blockNumber,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
                 blockHash: blockHash,
                 stateRoot: stateRoot
             })
@@ -460,19 +457,17 @@ contract LibHashingFuzzTest is Test {
         );
 
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber1,
             blockHash: blockHash1,
             stateRoot: stateRoot1
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber2,
             blockHash: blockHash2,
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashing.hashCheckpoint(blockNumber1, checkpoint1);
+        bytes32 hash2 = LibHashing.hashCheckpoint(blockNumber2, checkpoint2);
 
         // Should be collision resistant
         assertTrue(hash1 != hash2, "Hash function should be collision resistant");
@@ -588,8 +583,8 @@ contract LibHashingFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
+            checkpointBlockNumber: blockNumber,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
                 blockHash: blockHash,
                 stateRoot: stateRoot
             })
@@ -681,19 +676,17 @@ contract LibHashingFuzzTest is Test {
         vm.assume(blockNumber1 != blockNumber2); // Ensure different block numbers
 
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber1,
             blockHash: blockHash,
             stateRoot: stateRoot
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber2,
             blockHash: blockHash,
             stateRoot: stateRoot
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = LibHashing.hashCheckpoint(blockNumber1, checkpoint1);
+        bytes32 hash2 = LibHashing.hashCheckpoint(blockNumber2, checkpoint2);
 
         assertNotEq(hash1, hash2, "Different checkpoints should have different hashes");
     }

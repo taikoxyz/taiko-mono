@@ -125,12 +125,12 @@ contract InboxHelper {
     /// @notice Optimized hashing for Checkpoint structs
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    function hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
         external
         pure
         returns (bytes32)
     {
-        return LibHashing.hashCheckpoint(_checkpoint);
+        return LibHashing.hashCheckpoint(_blockNumber, _checkpoint);
     }
 
     /// @notice Optimized hashing for CoreState structs

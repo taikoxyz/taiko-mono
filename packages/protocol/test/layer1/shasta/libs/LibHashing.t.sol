@@ -18,8 +18,8 @@ contract LibHashingTest is Test {
     // ---------------------------------------------------------------
 
     function test_hashTransition() public pure {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -27,6 +27,7 @@ contract LibHashingTest is Test {
         IInbox.Transition memory testTransition = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: testCheckpoint
         });
 
@@ -39,17 +40,17 @@ contract LibHashingTest is Test {
     }
 
     function test_hashCheckpoint() public pure {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
 
-        bytes32 hash = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 hash = LibHashing.hashCheckpoint(checkpointBlockNumber, testCheckpoint);
         assertNotEq(hash, bytes32(0), "Checkpoint hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 hash2 = LibHashing.hashCheckpoint(checkpointBlockNumber, testCheckpoint);
         assertEq(hash, hash2, "Checkpoint hash should be deterministic");
     }
 
@@ -175,14 +176,14 @@ contract LibHashingTest is Test {
     }
 
     function test_hashTransitionsArray() public pure {
+        uint48 checkpointBlockNumber1 = 12_345;
+        uint48 checkpointBlockNumber2 = 99_999;
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 99_999,
             blockHash: bytes32(uint256(0xeeee)),
             stateRoot: bytes32(uint256(0xffff))
         });
@@ -191,16 +192,19 @@ contract LibHashingTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber1,
             checkpoint: checkpoint1
         });
         transitions[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xaaaa)),
             parentTransitionHash: bytes32(uint256(0xbbbb)),
+            checkpointBlockNumber: checkpointBlockNumber1,
             checkpoint: checkpoint1
         });
         transitions[2] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xcccc)),
             parentTransitionHash: bytes32(uint256(0xdddd)),
+            checkpointBlockNumber: checkpointBlockNumber2,
             checkpoint: checkpoint2
         });
 
@@ -219,8 +223,8 @@ contract LibHashingTest is Test {
     }
 
     function test_hashTransitionsArray_Single() public pure {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -229,6 +233,7 @@ contract LibHashingTest is Test {
         singleArray[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 
@@ -237,8 +242,8 @@ contract LibHashingTest is Test {
     }
 
     function test_hashTransitionsArray_Two() public pure {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -247,11 +252,13 @@ contract LibHashingTest is Test {
         twoArray[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
         twoArray[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xfeed)),
             parentTransitionHash: bytes32(uint256(0xbeef)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 

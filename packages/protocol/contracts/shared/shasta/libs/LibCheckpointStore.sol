@@ -26,6 +26,7 @@ library LibCheckpointStore {
     /// @param _checkpoint The checkpoint to save
     function saveCheckpoint(
         Storage storage $,
+        uint48 _blockNumber,
         ICheckpointStore.Checkpoint memory _checkpoint
     )
         internal
@@ -33,10 +34,10 @@ library LibCheckpointStore {
         require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
-        $.checkpoints[_checkpoint.blockNumber] = _checkpoint;
+        $.checkpoints[_blockNumber] = _checkpoint;
 
         emit ICheckpointStore.CheckpointSaved(
-            _checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
+            _blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
         );
     }
 
@@ -53,6 +54,7 @@ library LibCheckpointStore {
         returns (ICheckpointStore.Checkpoint memory checkpoint)
     {
         checkpoint = $.checkpoints[_blockNumber];
+        if (checkpoint.stateRoot == bytes32(0)) revert CheckpointNotFound();
     }
 
 

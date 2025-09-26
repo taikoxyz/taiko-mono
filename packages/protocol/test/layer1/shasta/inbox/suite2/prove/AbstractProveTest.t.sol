@@ -584,8 +584,8 @@ abstract contract AbstractProveTest is InboxTestSetup {
         return IInbox.Transition({
             proposalHash: _hashProposal(_proposal),
             parentTransitionHash: _getGenesisTransitionHash(),
+            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200))
             })

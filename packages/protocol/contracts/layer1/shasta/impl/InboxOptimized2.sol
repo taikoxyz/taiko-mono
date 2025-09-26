@@ -150,13 +150,13 @@ contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Uses LibHashing for efficient checkpoint hashing
     /// @param _checkpoint The checkpoint data to hash
     /// @return bytes32 The keccak256 hash of the checkpoint struct
-    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         override
         returns (bytes32)
     {
-        return LibHashing.hashCheckpoint(_checkpoint);
+        return LibHashing.hashCheckpoint(_blockNumber, _checkpoint);
     }
 
     /// @inheritdoc Inbox

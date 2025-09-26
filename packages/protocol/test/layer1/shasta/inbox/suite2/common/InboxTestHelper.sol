@@ -248,8 +248,8 @@ contract InboxTestHelper is CommonTest {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
+            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
@@ -340,15 +340,15 @@ contract InboxTestHelper is CommonTest {
         return keccak256(abi.encode(_derivation));
     }
 
-    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         view
         returns (bytes32)
     {
         if (useLibHashing) {
-            return LibHashing.hashCheckpoint(_checkpoint);
+            return LibHashing.hashCheckpoint(_blockNumber, _checkpoint);
         }
-        return keccak256(abi.encode(_checkpoint));
+        return keccak256(abi.encode(_blockNumber, _checkpoint));
     }
 
     function _hashProposal(IInbox.Proposal memory _proposal) internal view returns (bytes32) {

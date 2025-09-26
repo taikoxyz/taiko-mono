@@ -40,11 +40,11 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
 
     
     // ---------------------------------------------------------------
-    // New Storage variables
+    // Post shasta storage variables
     // ---------------------------------------------------------------
 
     /// @notice Storage for checkpoints persisted via the SignalService.
-    /// @dev 2 slots used
+    /// @dev 1 slot used
     LibCheckpointStore.Storage private _checkpointStorage;
 
     uint256[44] private __gap;
@@ -136,10 +136,13 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     }
 
     /// @inheritdoc ICheckpointStore
-    function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
+    function saveCheckpoint(uint48 _blockNumber, Checkpoint calldata _checkpoint)
+        external
+        override
+    {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
 
-        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint);
+        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _blockNumber, _checkpoint);
     }
 
 
@@ -223,7 +226,7 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
 
         ICheckpointStore.Checkpoint memory checkpoint =
             LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(hop.blockId));
-        if (checkpoint.blockNumber != uint48(hop.blockId) || checkpoint.stateRoot != hop.rootHash) {
+        if (checkpoint.stateRoot != hop.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
 
