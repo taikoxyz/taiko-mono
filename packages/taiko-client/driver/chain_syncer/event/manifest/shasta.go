@@ -488,6 +488,16 @@ func AssembleBondInstructions(
 				if err != nil {
 					return fmt.Errorf("failed to decode Proposed event payload: %w", err)
 				}
+				// Skip unrelated proposals, should not happen, but just in case.
+				if payload.Proposal.Id.Cmp(targetProposal.Proposal.Id) != 0 {
+					log.Warn(
+						"Skipping unrelated Proposed event",
+						"eventHeight", start,
+						"targetProposalID", targetProposal.Proposal.Id,
+						"proposalID", payload.Proposal.Id,
+					)
+					continue
+				}
 				log.Info(
 					"Processing Proposed event for bond instructions",
 					"eventHeight", start,
