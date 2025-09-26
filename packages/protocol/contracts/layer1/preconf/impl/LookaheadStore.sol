@@ -394,8 +394,14 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
-
+        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
+        if (block.timestamp == epochTimestamp) {
+            // Lookahead for the next epoch is not required to be posted in the first slot
+            // of the current epoch because the offchain node may not have sufficient time
+            // to build the lookahead.
+            return false;
+        }
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
 
