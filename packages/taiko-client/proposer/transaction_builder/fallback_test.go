@@ -127,6 +127,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
+			s.RPCClient.PacayaClients.ForkHeights.Shasta,
 		)
 	)
 
@@ -158,6 +159,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 
 	return NewBuilderWithFallback(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),

@@ -39,6 +39,16 @@ func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
 	return true
 }
 
+// Shasta implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) Shasta() TaikoProposalMetaDataShasta {
+	return nil
+}
+
+// IsShasta implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) IsShasta() bool {
+	return false
+}
+
 // GetTxListHash returns the hash of calldata txlist.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListHash() common.Hash {
 	return m.TxsHash

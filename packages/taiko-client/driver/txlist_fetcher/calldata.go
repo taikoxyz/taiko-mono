@@ -16,8 +16,8 @@ type CalldataFetcher struct {
 	rpc *rpc.Client
 }
 
-// NewCalldataFetch creates a new CalldataFetcher instance based on the given rpc client.
-func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
+// NewCalldataFetcher creates a new CalldataFetcher instance based on the given rpc client.
+func NewCalldataFetcher(rpc *rpc.Client) *CalldataFetcher {
 	return &CalldataFetcher{rpc: rpc}
 }
 
