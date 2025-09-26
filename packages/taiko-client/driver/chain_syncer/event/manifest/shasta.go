@@ -479,6 +479,7 @@ func validateBondInstructions(
 	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
 	// its anchor transaction.
 	for i := range proposalManifest.Blocks {
+		// Bond instructions are only processed in the first block of the proposal.
 		if i != 0 || originBlockNumber < manifest.BondProcessingDelay {
 			continue
 		}
