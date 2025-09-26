@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
+import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
@@ -254,7 +255,11 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         vm.recordLogs();
         vm.prank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-propose", string.concat("forced_inclusion_single_", inboxContractName)
+        );
         inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
 
         IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
 
@@ -287,7 +292,11 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         vm.recordLogs();
         vm.prank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-propose", string.concat("forced_inclusion_multiple_", inboxContractName)
+        );
         inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
 
         IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
 
@@ -360,6 +369,40 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             0,
             "Submission window timestamp mismatch"
         );
+    }
+
+    function test_propose_RevertWhen_UnauthorizedWithoutForcedInclusion() public {
+        _setupBlobHashes();
+
+        vm.roll(block.number + 1);
+
+        bytes memory proposeData = _codec().encodeProposeInput(_createFirstProposeInput());
+
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        vm.prank(Frank);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    function test_propose_RevertWhen_UnauthorizedForcedInclusionNotTooOld() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        _enqueueForcedInclusion(forcedRef, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        uint256 permissionlessWindow = uint256(delay) * _getPermissionlessInclusionMultiplier();
+        uint256 targetTimestamp = uint256(block.timestamp) + permissionlessWindow;
+        vm.warp(targetTimestamp);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.numForcedInclusions = 1;
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        vm.prank(Frank);
+        inbox.propose(bytes(""), proposeData);
     }
 
     // ---------------------------------------------------------------
