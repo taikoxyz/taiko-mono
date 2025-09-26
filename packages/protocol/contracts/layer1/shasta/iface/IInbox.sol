@@ -118,8 +118,8 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The block number in which the last proposal was proposed.
-        uint48 lastProposalBlockId;
+        /// @notice The next proposal block ID to be assigned.
+        uint48 nextProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized transition.

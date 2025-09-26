@@ -90,7 +90,7 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
-            lastProposalBlockId: 1, // Genesis value - now represents lastProposalBlockId
+            nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -183,11 +183,10 @@ abstract contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
-        // lastProposalBlockId now represents lastProposalBlockId (current block)
+        // Line 215 sets nextProposalBlockId to block.number+1
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            lastProposalBlockId: uint48(block.number), // Now stores current block
-                // (lastProposalBlockId)
+            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -426,7 +425,7 @@ abstract contract InboxTestHelper is CommonTest {
     {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _proposalId,
-            lastProposalBlockId: uint48(block.number - 1), // Last proposal was in previous block
+            nextProposalBlockId: uint48(block.number),
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

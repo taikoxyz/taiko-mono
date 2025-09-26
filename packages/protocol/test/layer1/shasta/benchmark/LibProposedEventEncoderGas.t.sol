@@ -203,7 +203,7 @@ contract LibProposedEventEncoderGas is Test {
 
         payload_.coreState = IInbox.CoreState({
             nextProposalId: 12_346,
-            lastProposalBlockId: 1_234_600,
+            nextProposalBlockId: 1_234_600,
             lastFinalizedProposalId: 12_340,
             lastFinalizedTransitionHash: keccak256("lastTransition"),
             bondInstructionsHash: keccak256("bondInstructions")

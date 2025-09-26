@@ -77,7 +77,7 @@ library LibHashOptimized {
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
             bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastProposalBlockId)),
+            bytes32(uint256(_coreState.nextProposalBlockId)),
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
             _coreState.lastFinalizedTransitionHash,
             _coreState.bondInstructionsHash
