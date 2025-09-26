@@ -471,7 +471,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, _lookaheadSlots);
+        lookaheadHash_ =
+            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, _lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
         emit LookaheadPosted(_nextEpochTimestamp, lookaheadHash_, _lookaheadSlots);
