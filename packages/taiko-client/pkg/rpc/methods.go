@@ -1488,7 +1488,24 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	return c.ShastaClients.InboxHelper.EncodeProposeInput(opts, *input)
 }
 
-// DecodeProveInput decodes the prove input by Shasta Inbox helper contract.
+// DecodeProposeInput decodes the propose method input by Shasta Inbox helper contract.
+func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	input, err := c.ShastaClients.InboxHelper.DecodeProposeInput(opts, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &input, nil
+}
+
+// DecodeProveInput decodes the prove method input by Shasta Inbox helper contract.
 func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProveInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
