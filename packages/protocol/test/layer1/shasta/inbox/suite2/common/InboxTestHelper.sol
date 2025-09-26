@@ -6,11 +6,13 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
+import { IForcedInclusionStore } from "src/layer1/shasta/iface/IForcedInclusionStore.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { LibForcedInclusion } from "src/layer1/shasta/libs/LibForcedInclusion.sol";
 import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
@@ -183,21 +185,21 @@ abstract contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
-        // Line 215 sets nextProposalBlockId to block.number+1
+        // nextProposalBlockId uses the old semantics (block.number + 1)
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            nextProposalBlockId: uint48(block.number + 1), // block.number + 1
+            nextProposalBlockId: uint48(block.number + 1), // Old semantics: block.number + 1
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
-        // Build the expected derivation with multi-source format
-        // Extract the correct subset of blob hashes from the full set setup by _setupBlobHashes
-        bytes32[] memory fullBlobHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
+        // For now, just create a single source (normal proposal) without forced inclusions
+        // Build the expected derivation with single-source format
         bytes32[] memory selectedBlobHashes = new bytes32[](_numBlobs);
+        bytes32[] memory fullBlobHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
         for (uint256 i = 0; i < _numBlobs; i++) {
-            selectedBlobHashes[i] = fullBlobHashes[i]; // Start from index 0 as per _createBlobRef
+            selectedBlobHashes[i] = fullBlobHashes[i];
         }
 
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
@@ -360,6 +362,9 @@ abstract contract InboxTestHelper is CommonTest {
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
+
+        // Setup forced inclusions
+        _setupForcedInclusions();
     }
 
     /// @notice Setup mock contracts for testing
@@ -437,5 +442,44 @@ abstract contract InboxTestHelper is CommonTest {
         return _createProposeInputWithCustomParams(
             0, _createBlobRef(0, 1, 0), parentProposals, coreState
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Forced Inclusion Helpers
+    // ---------------------------------------------------------------
+
+    /// @notice Calculate the required number of forced inclusions based on current state
+    /// @return Number of forced inclusions required (0 if none are due)
+    function _calculateRequiredForcedInclusions() private view returns (uint8) {
+        IInbox.Config memory config = inbox.getConfig();
+        uint256 oldestForcedInclusionTimestamp = inbox.getOldestInclusionEffectiveTimestamp();
+
+        if (block.timestamp > oldestForcedInclusionTimestamp + config.forcedInclusionDelay) {
+            return uint8(config.minForcedInclusionCount);
+        }
+        return 0; // No forced inclusions required yet
+    }
+
+    /// @notice Setup initial forced inclusions for testing
+    function _setupForcedInclusions() private {
+        _setupBlobHashes(); // Ensure blob hashes are set up first
+        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
+
+        // Fund the test contract to pay forced inclusion fees
+        vm.deal(address(this), inbox.getConfig().forcedInclusionFeeInGwei * 10 ** 9 * 10);
+
+        // Call saveForcedInclusion multiple times to ensure there are items in the queue
+        inbox.saveForcedInclusion{ value: inbox.getConfig().forcedInclusionFeeInGwei * 10 ** 9 }(
+            blobRef
+        );
+        inbox.saveForcedInclusion{ value: inbox.getConfig().forcedInclusionFeeInGwei * 10 ** 9 }(
+            blobRef
+        );
+        inbox.saveForcedInclusion{ value: inbox.getConfig().forcedInclusionFeeInGwei * 10 ** 9 }(
+            blobRef
+        );
+
+        // Don't advance time here - let individual tests control when forced inclusions become due
+        // This way, forced inclusions are only processed when tests explicitly make them due
     }
 }

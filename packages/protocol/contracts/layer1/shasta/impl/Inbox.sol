@@ -255,10 +255,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei,
-            _blobReference
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 

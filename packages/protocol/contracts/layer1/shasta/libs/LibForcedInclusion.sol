@@ -42,10 +42,13 @@ library LibForcedInclusion {
     //  Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev See `IInbox.storeForcedInclusion`
+    /// @notice Saves a forced inclusion request to the queue
+    /// @dev Validates the blob reference and checks the fee before saving
+    /// @param $ The storage reference for the forced inclusion queue
+    /// @param _forcedInclusionFeeInGwei The fee in Gwei for the forced inclusion
+    /// @param _blobReference The blob reference containing transaction data
     function saveForcedInclusion(
         Storage storage $,
-        uint48, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
