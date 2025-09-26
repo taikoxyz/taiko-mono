@@ -2,15 +2,25 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibHashingFuzzTest
-/// @notice Comprehensive fuzz testing for LibHashing library functions
-contract LibHashingFuzzTest is Test {
+/// @title AbstractCodecFuzzTest
+/// @notice Abstract base fuzz test for ICodec implementations
+/// @dev This allows sharing fuzz test cases between CodecSimple and CodecOptimized
+abstract contract AbstractCodecFuzzTest is Test {
+    ICodec internal codec;
+
+    /// @notice Must be implemented by concrete test contracts to provide the codec instance
+    function _getCodec() internal virtual returns (ICodec);
+
+    function setUp() public virtual {
+        codec = _getCodec();
+    }
+
     // ---------------------------------------------------------------
     // Fuzz Test: hashCheckpoint
     // ---------------------------------------------------------------
@@ -21,7 +31,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot
     )
         public
-        pure
+        view
     {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: blockNumber,
@@ -29,8 +39,8 @@ contract LibHashingFuzzTest is Test {
             stateRoot: stateRoot
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint);
+        bytes32 hash1 = codec.hashCheckpoint(checkpoint);
+        bytes32 hash2 = codec.hashCheckpoint(checkpoint);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -48,7 +58,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot2
     )
         public
-        pure
+        view
     {
         // Skip if inputs are identical
         vm.assume(
@@ -67,8 +77,8 @@ contract LibHashingFuzzTest is Test {
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = codec.hashCheckpoint(checkpoint1);
+        bytes32 hash2 = codec.hashCheckpoint(checkpoint2);
 
         // Different inputs should produce different hashes
         assertTrue(hash1 != hash2, "Different inputs should produce different hashes");
@@ -86,7 +96,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 bondInstructionsHash
     )
         public
-        pure
+        view
     {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: nextProposalId,
@@ -96,8 +106,8 @@ contract LibHashingFuzzTest is Test {
             bondInstructionsHash: bondInstructionsHash
         });
 
-        bytes32 hash1 = LibHashing.hashCoreState(coreState);
-        bytes32 hash2 = LibHashing.hashCoreState(coreState);
+        bytes32 hash1 = codec.hashCoreState(coreState);
+        bytes32 hash2 = codec.hashCoreState(coreState);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -119,7 +129,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 derivationHash
     )
         public
-        pure
+        view
     {
         IInbox.Proposal memory proposal = IInbox.Proposal({
             id: id,
@@ -130,8 +140,8 @@ contract LibHashingFuzzTest is Test {
             derivationHash: derivationHash
         });
 
-        bytes32 hash1 = LibHashing.hashProposal(proposal);
-        bytes32 hash2 = LibHashing.hashProposal(proposal);
+        bytes32 hash1 = codec.hashProposal(proposal);
+        bytes32 hash2 = codec.hashProposal(proposal);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -152,7 +162,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot
     )
         public
-        pure
+        view
     {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: proposalHash,
@@ -164,8 +174,8 @@ contract LibHashingFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransition(transition);
-        bytes32 hash2 = LibHashing.hashTransition(transition);
+        bytes32 hash1 = codec.hashTransition(transition);
+        bytes32 hash2 = codec.hashTransition(transition);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -184,7 +194,7 @@ contract LibHashingFuzzTest is Test {
         uint8 basefeeSharingPctg
     )
         public
-        pure
+        view
     {
         IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: originBlockNumber,
@@ -193,8 +203,8 @@ contract LibHashingFuzzTest is Test {
             sources: new IInbox.DerivationSource[](0)
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = codec.hashDerivation(derivation);
+        bytes32 hash2 = codec.hashDerivation(derivation);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -213,7 +223,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 blobHash
     )
         public
-        pure
+        view
     {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = blobHash;
@@ -235,8 +245,8 @@ contract LibHashingFuzzTest is Test {
             sources: sources
         });
 
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
+        bytes32 hash1 = codec.hashDerivation(derivation);
+        bytes32 hash2 = codec.hashDerivation(derivation);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -246,23 +256,10 @@ contract LibHashingFuzzTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // Fuzz Test: hashTransitionsArray
+    // Fuzz Test: hashTransitionsWithMetadata
     // ---------------------------------------------------------------
 
-    function testFuzz_hashTransitionsArray_empty() public pure {
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
-
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
-
-        // Hash should be deterministic
-        assertEq(hash1, hash2, "Hash should be deterministic");
-
-        // Empty array should have consistent hash
-        assertEq(hash1, keccak256(""), "Empty array should hash to empty bytes hash");
-    }
-
-    function testFuzz_hashTransitionsArray_single(
+    function testFuzz_hashTransitionsWithMetadata_single(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
         uint48 blockNumber,
@@ -270,7 +267,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot
     )
         public
-        pure
+        view
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
@@ -283,8 +280,13 @@ contract LibHashingFuzzTest is Test {
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+        bytes32 hash1 = codec.hashTransitionsWithMetadata(transitions, metadata);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(transitions, metadata);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -293,7 +295,7 @@ contract LibHashingFuzzTest is Test {
         assertTrue(hash1 != bytes32(0), "Hash should not be zero");
     }
 
-    function testFuzz_hashTransitionsArray_lengthMatters(
+    function testFuzz_hashTransitionsWithMetadata_lengthMatters(
         bytes32 proposalHash,
         bytes32 parentTransitionHash,
         uint48 blockNumber,
@@ -301,7 +303,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot
     )
         public
-        pure
+        view
     {
         // Create single transition
         IInbox.Transition memory transition = IInbox.Transition({
@@ -323,8 +325,24 @@ contract LibHashingFuzzTest is Test {
         doubleArray[0] = transition;
         doubleArray[1] = transition;
 
-        bytes32 singleHash = LibHashing.hashTransitionsArray(singleArray);
-        bytes32 doubleHash = LibHashing.hashTransitionsArray(doubleArray);
+        IInbox.TransitionMetadata[] memory singleMetadata = new IInbox.TransitionMetadata[](1);
+        singleMetadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+
+        IInbox.TransitionMetadata[] memory doubleMetadata = new IInbox.TransitionMetadata[](2);
+        doubleMetadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(proposalHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(parentTransitionHash) % type(uint160).max))
+        });
+        doubleMetadata[1] = IInbox.TransitionMetadata({
+            designatedProver: address(uint160(uint256(blockHash) % type(uint160).max)),
+            actualProver: address(uint160(uint256(stateRoot) % type(uint160).max))
+        });
+
+        bytes32 singleHash = codec.hashTransitionsWithMetadata(singleArray, singleMetadata);
+        bytes32 doubleHash = codec.hashTransitionsWithMetadata(doubleArray, doubleMetadata);
 
         // Different array lengths should produce different hashes even with same elements
         assertTrue(singleHash != doubleHash, "Array length should affect hash");
@@ -340,7 +358,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 checkpointHash
     )
         public
-        pure
+        view
     {
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
             span: span,
@@ -349,8 +367,8 @@ contract LibHashingFuzzTest is Test {
             checkpointHash: checkpointHash
         });
 
-        bytes26 hash1 = LibHashing.hashTransitionRecord(record);
-        bytes26 hash2 = LibHashing.hashTransitionRecord(record);
+        bytes26 hash1 = codec.hashTransitionRecord(record);
+        bytes26 hash2 = codec.hashTransitionRecord(record);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
@@ -369,7 +387,7 @@ contract LibHashingFuzzTest is Test {
         address receiver
     )
         public
-        pure
+        view
     {
         // Bound bondType to valid enum range (3 types: 0-2: NONE, PROVABILITY, LIVENESS)
         LibBonds.BondType bondType = LibBonds.BondType(bound(bondTypeRaw, 0, 2));
@@ -389,54 +407,14 @@ contract LibHashingFuzzTest is Test {
             checkpointHash: checkpointHash
         });
 
-        bytes26 hash1 = LibHashing.hashTransitionRecord(record);
-        bytes26 hash2 = LibHashing.hashTransitionRecord(record);
+        bytes26 hash1 = codec.hashTransitionRecord(record);
+        bytes26 hash2 = codec.hashTransitionRecord(record);
 
         // Hash should be deterministic
         assertEq(hash1, hash2, "Hash should be deterministic");
 
         // Hash should not be zero (extremely unlikely)
         assertTrue(hash1 != bytes26(0), "Hash should not be zero");
-    }
-
-    // ---------------------------------------------------------------
-    // Fuzz Test: composeTransitionKey
-    // ---------------------------------------------------------------
-
-    function testFuzz_composeTransitionKey(
-        uint48 proposalId,
-        bytes32 parentTransitionHash
-    )
-        public
-        pure
-    {
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-
-        // Key should be deterministic
-        assertEq(key1, key2, "Key should be deterministic");
-
-        // Key should not be zero (extremely unlikely)
-        assertTrue(key1 != bytes32(0), "Key should not be zero");
-    }
-
-    function testFuzz_composeTransitionKey_differentInputs(
-        uint48 proposalId1,
-        bytes32 parentTransitionHash1,
-        uint48 proposalId2,
-        bytes32 parentTransitionHash2
-    )
-        public
-        pure
-    {
-        // Skip if inputs are identical
-        vm.assume(proposalId1 != proposalId2 || parentTransitionHash1 != parentTransitionHash2);
-
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId1, parentTransitionHash1);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId2, parentTransitionHash2);
-
-        // Different inputs should produce different keys
-        assertTrue(key1 != key2, "Different inputs should produce different keys");
     }
 
     // ---------------------------------------------------------------
@@ -452,7 +430,7 @@ contract LibHashingFuzzTest is Test {
         bytes32 stateRoot2
     )
         public
-        pure
+        view
     {
         // Ensure we have different inputs
         vm.assume(
@@ -471,8 +449,8 @@ contract LibHashingFuzzTest is Test {
             stateRoot: stateRoot2
         });
 
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
+        bytes32 hash1 = codec.hashCheckpoint(checkpoint1);
+        bytes32 hash2 = codec.hashCheckpoint(checkpoint2);
 
         // Should be collision resistant
         assertTrue(hash1 != hash2, "Hash function should be collision resistant");
@@ -483,123 +461,26 @@ contract LibHashingFuzzTest is Test {
         bytes32 parentTransitionHash
     )
         public
-        pure
+        view
     {
-        // Test that calling the same function multiple times gives same result
-        bytes32 key1 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key2 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-        bytes32 key3 = LibHashing.composeTransitionKey(proposalId, parentTransitionHash);
-
-        assertEq(key1, key2, "Multiple calls should be consistent");
-        assertEq(key2, key3, "Multiple calls should be consistent");
-        assertEq(key1, key3, "Multiple calls should be consistent");
-    }
-
-    // ---------------------------------------------------------------
-    // Additional tests from LibHashingFuzz.t.sol
-    // ---------------------------------------------------------------
-
-    function testFuzz_hashDerivation_WithSources(
-        uint48 originBlockNumber,
-        bytes32 originBlockHash,
-        uint8 basefeeSharingPctg,
-        bool isForcedInclusion1,
-        bytes32 blobHash1,
-        uint16 offset1,
-        uint48 timestamp1
-    )
-        public
-        pure
-    {
-        // Limit basefee sharing percentage to valid range
-        basefeeSharingPctg = basefeeSharingPctg % 101; // 0-100
-
-        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
-
-        bytes32[] memory blobHashes1 = new bytes32[](1);
-        blobHashes1[0] = blobHash1;
-
-        sources[0] = IInbox.DerivationSource({
-            isForcedInclusion: isForcedInclusion1,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes1,
-                offset: offset1,
-                timestamp: timestamp1
-            })
-        });
-
-        IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: originBlockNumber,
-            originBlockHash: originBlockHash,
-            basefeeSharingPctg: basefeeSharingPctg,
-            sources: sources
-        });
-
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
-
-        assertEq(hash1, hash2, "Derivation hash should be deterministic");
-    }
-
-    function testFuzz_hashBlobHashesArray_Single(bytes32 blobHash) public pure {
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = blobHash;
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
-
-        assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
-        assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
-    }
-
-    function testFuzz_hashBlobHashesArray_Two(bytes32 blobHash1, bytes32 blobHash2) public pure {
-        bytes32[] memory blobHashes = new bytes32[](2);
-        blobHashes[0] = blobHash1;
-        blobHashes[1] = blobHash2;
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
-
-        assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
-        assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
-    }
-
-    function testFuzz_hashBlobHashesArray_Multiple(bytes32[] memory blobHashes) public pure {
-        vm.assume(blobHashes.length > 0 && blobHashes.length <= 100); // Reasonable bounds
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(blobHashes);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(blobHashes);
-
-        assertEq(hash1, hash2, "Blob hashes array hash should be deterministic");
-        assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
-    }
-
-    function testFuzz_hashTransitionsArray_Single(
-        bytes32 proposalHash,
-        bytes32 parentTransitionHash,
-        uint48 blockNumber,
-        bytes32 blockHash,
-        bytes32 stateRoot
-    )
-        public
-        pure
-    {
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
-        transitions[0] = IInbox.Transition({
-            proposalHash: proposalHash,
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: bytes32(uint256(proposalId)),
             parentTransitionHash: parentTransitionHash,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: proposalId,
+                blockHash: bytes32(uint256(proposalId)),
+                stateRoot: parentTransitionHash
             })
         });
 
-        bytes32 hash1 = LibHashing.hashTransitionsArray(transitions);
-        bytes32 hash2 = LibHashing.hashTransitionsArray(transitions);
+        // Test that calling the same function multiple times gives same result
+        bytes32 hash1 = codec.hashTransition(transition);
+        bytes32 hash2 = codec.hashTransition(transition);
+        bytes32 hash3 = codec.hashTransition(transition);
 
-        assertEq(hash1, hash2, "Transitions array hash should be deterministic");
-        assertNotEq(hash1, bytes32(0), "Hash should not be zero for non-empty array");
+        assertEq(hash1, hash2, "Multiple calls should be consistent");
+        assertEq(hash2, hash3, "Multiple calls should be consistent");
+        assertEq(hash1, hash3, "Multiple calls should be consistent");
     }
 
     function testFuzz_differentProposals_DifferentHashes(
@@ -609,7 +490,7 @@ contract LibHashingFuzzTest is Test {
         address proposer
     )
         public
-        pure
+        view
     {
         vm.assume(id1 != id2); // Ensure different IDs
         // Ensure timestamp doesn't cause overflow
@@ -633,144 +514,22 @@ contract LibHashingFuzzTest is Test {
             derivationHash: bytes32(uint256(0x2))
         });
 
-        bytes32 hash1 = LibHashing.hashProposal(proposal1);
-        bytes32 hash2 = LibHashing.hashProposal(proposal2);
+        bytes32 hash1 = codec.hashProposal(proposal1);
+        bytes32 hash2 = codec.hashProposal(proposal2);
 
         assertNotEq(hash1, hash2, "Different proposals should have different hashes");
     }
 
-    function testFuzz_differentArrayLengths_DifferentHashes(
-        bytes32 element,
-        uint8 length1,
-        uint8 length2
-    )
-        public
-        pure
-    {
-        // Limit to reasonable array sizes and ensure different lengths
-        length1 = (length1 % 20) + 1; // 1-20
-        length2 = (length2 % 20) + 21; // 21-40
-        vm.assume(length1 != length2);
+    function testFuzz_emptyArraysAlwaysHashToSame() public view {
+        IInbox.Transition[] memory emptyArray1 = new IInbox.Transition[](0);
+        IInbox.Transition[] memory emptyArray2 = new IInbox.Transition[](0);
+        IInbox.TransitionMetadata[] memory emptyMetadata1 = new IInbox.TransitionMetadata[](0);
+        IInbox.TransitionMetadata[] memory emptyMetadata2 = new IInbox.TransitionMetadata[](0);
 
-        bytes32[] memory array1 = new bytes32[](length1);
-        bytes32[] memory array2 = new bytes32[](length2);
-
-        // Fill arrays with same element
-        for (uint256 i = 0; i < length1; i++) {
-            array1[i] = element;
-        }
-        for (uint256 i = 0; i < length2; i++) {
-            array2[i] = element;
-        }
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(array1);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(array2);
-
-        assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
-    }
-
-    function testFuzz_differentCheckpoints_DifferentHashes(
-        uint48 blockNumber1,
-        uint48 blockNumber2,
-        bytes32 blockHash,
-        bytes32 stateRoot
-    )
-        public
-        pure
-    {
-        vm.assume(blockNumber1 != blockNumber2); // Ensure different block numbers
-
-        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber1,
-            blockHash: blockHash,
-            stateRoot: stateRoot
-        });
-
-        ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber2,
-            blockHash: blockHash,
-            stateRoot: stateRoot
-        });
-
-        bytes32 hash1 = LibHashing.hashCheckpoint(checkpoint1);
-        bytes32 hash2 = LibHashing.hashCheckpoint(checkpoint2);
-
-        assertNotEq(hash1, hash2, "Different checkpoints should have different hashes");
-    }
-
-    function testFuzz_emptyArraysAlwaysHashToSame() public pure {
-        bytes32[] memory emptyArray1 = new bytes32[](0);
-        bytes32[] memory emptyArray2 = new bytes32[](0);
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(emptyArray1);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(emptyArray2);
+        bytes32 hash1 = codec.hashTransitionsWithMetadata(emptyArray1, emptyMetadata1);
+        bytes32 hash2 = codec.hashTransitionsWithMetadata(emptyArray2, emptyMetadata2);
 
         assertEq(hash1, hash2, "Empty arrays should always hash to the same value");
-        assertEq(hash1, keccak256(""), "Empty arrays should hash to keccak256 of empty bytes");
-    }
-
-    function testFuzz_largeArraysHandled(uint8 size) public pure {
-        // Test with larger arrays (up to 255 elements)
-        vm.assume(size > 0);
-
-        bytes32[] memory largeArray = new bytes32[](size);
-        for (uint256 i = 0; i < size; i++) {
-            largeArray[i] = bytes32(uint256(i));
-        }
-
-        bytes32 hash1 = LibHashing.hashBlobHashesArray(largeArray);
-        bytes32 hash2 = LibHashing.hashBlobHashesArray(largeArray);
-
-        assertEq(hash1, hash2, "Large arrays should hash deterministically");
-        assertNotEq(hash1, bytes32(0), "Large array hash should not be zero");
-    }
-
-    // ---------------------------------------------------------------
-    // Edge cases and boundary tests
-    // ---------------------------------------------------------------
-
-    function testFuzz_hashDerivation_maxBlobHashes(
-        uint48 originBlockNumber,
-        bytes32 originBlockHash,
-        uint8 basefeeSharingPctg,
-        bool isForcedInclusion,
-        uint24 offset,
-        uint48 timestamp
-    )
-        public
-        pure
-    {
-        // Test with maximum reasonable number of blob hashes (bounded for gas)
-        uint256 numBlobs = bound(timestamp, 1, 20); // Use timestamp as seed, bound to reasonable
-            // range
-
-        bytes32[] memory blobHashes = new bytes32[](numBlobs);
-        for (uint256 i = 0; i < numBlobs; i++) {
-            blobHashes[i] = keccak256(abi.encode("blob", i, timestamp));
-        }
-
-        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
-        sources[0] = IInbox.DerivationSource({
-            isForcedInclusion: isForcedInclusion,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: offset,
-                timestamp: timestamp
-            })
-        });
-
-        IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: originBlockNumber,
-            originBlockHash: originBlockHash,
-            basefeeSharingPctg: basefeeSharingPctg,
-            sources: sources
-        });
-
-        bytes32 hash1 = LibHashing.hashDerivation(derivation);
-        bytes32 hash2 = LibHashing.hashDerivation(derivation);
-
-        // Hash should be deterministic even with many blobs
-        assertEq(hash1, hash2, "Hash should be deterministic with many blobs");
-        assertTrue(hash1 != bytes32(0), "Hash should not be zero with many blobs");
+        assertNotEq(hash1, bytes32(0), "Empty arrays should not hash to zero");
     }
 }
