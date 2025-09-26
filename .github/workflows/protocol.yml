@@ -70,6 +70,8 @@ jobs:
           # Reset skip-worktree flags that might exist from local dev
           git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
           git ls-files layout/ | xargs -r git update-index --no-skip-worktree || true
+          # Configure merge strategy for auto-generated files
+          git config merge.ours.driver true
 
       - name: Clean up and fmt
         if: github.event.pull_request.head.repo.fork == false
