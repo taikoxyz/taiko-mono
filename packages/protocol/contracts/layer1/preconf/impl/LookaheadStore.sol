@@ -66,7 +66,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// @dev Checks if a proposer is eligible to propose for the current slot and conditionally
     ///         updates the lookahead for the next epoch.
     /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next
-    /// epoch. The contract enforces this by trying to update the lookahead for next epoch if none is
+    /// epoch. The contract enforces this by trying to update the lookahead for next epoch if none
+    /// is
     /// stored.
     function checkProposer(
         address _proposer,
