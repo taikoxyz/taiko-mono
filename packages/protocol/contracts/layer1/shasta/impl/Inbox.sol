@@ -149,6 +149,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
+        _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
