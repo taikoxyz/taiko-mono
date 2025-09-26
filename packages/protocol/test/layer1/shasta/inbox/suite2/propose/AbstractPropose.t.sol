@@ -265,12 +265,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + 12);
 
         // Second proposal (ID 2) - using the first proposal as parent
-        // First proposal set nextProposalBlockId to its block + 1
-        // We advanced by 1 block after first proposal, so we should be at the right block
+        // First proposal set lastProposalBlockId to its block (lastProposalBlockId)
+        // We advanced by 1 block after first proposal, so the last proposal was in the previous
+        // block
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
-                // this)
+            lastProposalBlockId: uint48(block.number - 1), // Previous block (where first proposal
+                // was made)
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -331,7 +332,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // We'll use genesis as parent instead of the first proposal (wrong!)
         IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 2,
+            lastProposalBlockId: 2,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -369,7 +370,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
