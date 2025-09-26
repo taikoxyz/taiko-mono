@@ -45,7 +45,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.storeForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint64, /* _forcedInclusionDelay */
+        uint48, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
@@ -112,30 +112,22 @@ library LibForcedInclusion {
         }
     }
 
-    /// @dev See `IInbox.isOldestForcedInclusionDue`
-    function isOldestForcedInclusionDue(
-        Storage storage $,
-        uint64 _forcedInclusionDelay
-    )
+    /// @notice Retrieves the effective timestamp for forced inclusions.
+    /// @dev Returns the timestamp of the oldest forced inclusion in the queue or the last processed
+    /// timestamp if the queue is empty.
+    /// @param $ The storage reference for forced inclusion data.
+    /// @return The effective timestamp as a uint256.
+    function getOldestForcedInclusionEffectiveTimestamp(Storage storage $)
         public
         view
-        returns (bool)
+        returns (uint256)
     {
-        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
-
-        // Early exit for empty queue (most common case)
-        if (head == tail) return false;
-
-        uint256 timestamp = $.queue[head].blobSlice.timestamp;
-
-        // Early exit if slot is empty
-        if (timestamp == 0) return false;
-
-        // Only calculate deadline if we have a valid inclusion
-        unchecked {
-            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
-            return block.timestamp >= deadline;
+        if ($.head == $.tail) {
+            return uint256($.lastProcessedAt);
         }
+
+        uint256 oldestTimestamp = $.queue[$.head].blobSlice.timestamp;
+        return oldestTimestamp == 0 ? type(uint256).max : oldestTimestamp.max($.lastProcessedAt);
     }
 
     // ---------------------------------------------------------------

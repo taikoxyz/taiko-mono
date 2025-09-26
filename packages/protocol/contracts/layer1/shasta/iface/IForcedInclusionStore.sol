@@ -22,7 +22,7 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Checks if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
-    function isOldestForcedInclusionDue() external view returns (bool);
+    /// @notice Retrieves the effective timestamp for the oldest forced inclusion
+    /// @return The effective timestamp for the oldest forced inclusion
+    function getOldestForcedInclusionEffectiveTimestamp() external view returns (uint256);
 }

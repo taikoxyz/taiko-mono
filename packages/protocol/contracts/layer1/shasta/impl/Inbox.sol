@@ -4,17 +4,18 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { IInbox } from "../iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -28,6 +29,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline
@@ -74,7 +76,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 internal immutable _forcedInclusionDelay;
+    uint48 internal immutable _forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
@@ -198,9 +200,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         unchecked {
-            // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
-
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
 
@@ -230,15 +229,20 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 sourceCount += forcedInclusions.length;
             }
 
-            // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
-            // none remains in the queue that is due.
-            require(
-                (forcedInclusions.length >= _minForcedInclusionCount)
-                    || !LibForcedInclusion.isOldestForcedInclusionDue(
-                        _forcedInclusionStorage, _forcedInclusionDelay
-                    ),
-                UnprocessedForcedInclusionIsDue()
-            );
+            uint256 effectiveTimestamp = LibForcedInclusion
+                .getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
+
+            if (block.timestamp > effectiveTimestamp + _forcedInclusionDelay) {
+                require(
+                    input.numForcedInclusions >= _minForcedInclusionCount,
+                    UnprocessedForcedInclusionIsDue()
+                );
+            }
+
+            uint48 endOfSubmissionWindowTimestamp;
+            if (block.timestamp <= effectiveTimestamp + _forcedInclusionDelay * 2) {
+                endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+            }
 
             // Create sources array and populate it
             DerivationSource[] memory sources = new DerivationSource[](sourceCount);
@@ -310,10 +314,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, _forcedInclusionDelay
-        );
+    function getOldestForcedInclusionEffectiveTimestamp() external view returns (uint256) {
+        return
+            LibForcedInclusion.getOldestForcedInclusionEffectiveTimestamp(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID

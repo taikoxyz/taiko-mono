@@ -48,7 +48,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 0,
+                forcedInclusionDelay: 768, // 2 Ethereum epochs
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
             })
