@@ -43,8 +43,10 @@ func (s *ProverTestSuite) SetupTest() {
 
 	// Init prover
 	var (
-		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
-		err             error
+		prop              = new(proposer.Proposer)
+		l1ProverPrivKey   = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		err               error
 	)
 
 	s.txmgr, err = txmgr.NewSimpleTxManager(
@@ -56,6 +58,28 @@ func (s *ProverTestSuite) SetupTest() {
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	)
+	s.Nil(err)
+
+	txmgrProposer, err := txmgr.NewSimpleTxManager(
+		"prover_test",
+		log.Root(),
+		&metrics.TxMgrMetrics,
+		txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_WS"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
 			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
 			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
 			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
@@ -91,13 +115,9 @@ func (s *ProverTestSuite) SetupTest() {
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
+	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init proposer
-	var (
-		l1ProposerPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
-		prop              = new(proposer.Proposer)
-	)
-
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  os.Getenv("L1_WS"),
@@ -115,10 +135,12 @@ func (s *ProverTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:         1024 * time.Hour,
 		MaxTxListsPerEpoch:      1,
-	}, s.txmgr, s.txmgr))
+		BlobAllowed:             true,
+	}, txmgrProposer, txmgrProposer))
 
 	s.proposer = prop
 	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *ProverTestSuite) TestName() {
@@ -151,18 +173,24 @@ func (s *ProverTestSuite) TestInitError() {
 }
 
 func (s *ProverTestSuite) TestOnBatchProposed() {
+	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
-	// Valid block
+
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	s.True(m.IsPacaya())
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	if m.IsPacaya() {
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	}
+	if m.IsPacaya() {
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	} else {
+		s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	}
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
@@ -202,6 +230,7 @@ func (s *ProverTestSuite) TestOnBatchesVerified() {
 
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.True(m.IsPacaya())
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
 	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
@@ -212,15 +241,8 @@ func (s *ProverTestSuite) TestProveOp() {
 	}()
 	s.Nil(s.p.proveOp())
 
-	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta))
-		s.True(req.Meta.IsPacaya())
-		if req.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
-			break
-		}
-	}
-
-	s.True(m.IsPacaya())
+	req := <-s.p.proofSubmissionCh
+	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
@@ -509,6 +531,8 @@ func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 }
 
 func (s *ProverTestSuite) TearDownTest() {
+	defer s.ClientTestSuite.TearDownTest()
+
 	if s.p.ctx.Err() == nil {
 		s.cancel()
 	}
@@ -552,6 +576,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	)
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
 	)
@@ -582,7 +607,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.False(paused)
 
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBatchID(0)
+	s.p.sharedState.SetLastHandledPacayaBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -629,7 +654,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Then submit a valid proof again
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBatchID(0)
+	s.p.sharedState.SetLastHandledPacayaBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -671,26 +696,31 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
+	proposerKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	s.Nil(err)
+	s.NotNil(proposerKey)
+
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		L1ProverPrivKey:       key,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
-		RPCTimeout:            3 * time.Second,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
-		SGXProofBufferSize:    1,
-		ZKVMProofBufferSize:   1,
-		BlockConfirmations:    0,
+		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L2WsEndpoint:           os.Getenv("L2_WS"),
+		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		TaikoInboxAddress:      common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),
+		L1ProverPrivKey:        key,
+		Dummy:                  true,
+		ProveUnassignedBlocks:  true,
+		LocalProposerAddresses: []common.Address{crypto.PubkeyToAddress(proposerKey.PublicKey)},
+		Allowance:              new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:             3 * time.Second,
+		BackOffRetryInterval:   3 * time.Second,
+		BackOffMaxRetries:      12,
+		SGXProofBufferSize:     1,
+		ZKVMProofBufferSize:    1,
+		BlockConfirmations:     0,
 	}, s.txmgr, s.txmgr))
-
+	s.Nil(p.shastaIndexer.Start())
 	s.p = p
 }
