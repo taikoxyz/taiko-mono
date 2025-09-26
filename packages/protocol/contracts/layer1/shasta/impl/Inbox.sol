@@ -82,7 +82,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The maximum number of checkpoints to store in ring buffer.
     uint16 internal immutable _maxCheckpointHistory;
 
-    /// @notice The multiplier to determine when a forced inclusion is too old so that proposing becomes permissionless
+    /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
+    /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
     // ---------------------------------------------------------------
@@ -228,7 +229,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // endOfSubmissionWindowTimestamp = 0).
             // Otherwise, only the current preconfer can propose.
             uint48 endOfSubmissionWindowTimestamp;
-            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * _permissionlessInclusionMultiplier) {
+            if (
+                block.timestamp
+                    <= oldestForcedInclusionTimestamp
+                        + _forcedInclusionDelay * _permissionlessInclusionMultiplier
+            ) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
             }

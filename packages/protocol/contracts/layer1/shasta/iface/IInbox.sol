@@ -40,7 +40,8 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
-        /// @notice The multiplier to determine when a forced inclusion is too old so that proposing becomes permissionless
+        /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
+        /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
     }
 
