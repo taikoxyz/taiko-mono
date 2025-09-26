@@ -49,7 +49,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         address[] memory _overseers
     )
         Blacklist(_overseers)
-        EssentialContract()
     {
         urc = IRegistry(_urc);
         lookaheadSlasher = _lookaheadSlasher;
