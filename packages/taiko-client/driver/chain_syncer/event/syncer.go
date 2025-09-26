@@ -413,6 +413,20 @@ func (s *Syncer) processShastaProposal(
 			)
 		}
 
+		// Assemble bond instructions for the proposal manifest.
+		if err := shastaManifest.AssembleBondInstructions(
+			ctx,
+			meta.GetProposal().Id,
+			s.indexer,
+			proposalManifest,
+			latestState.BondInstructionsHash,
+			meta.GetRawBlockHeight().Uint64(),
+			derivationIdx,
+			s.rpc,
+		); err != nil {
+			return fmt.Errorf("failed to assemble bond instructions: %w", err)
+		}
+
 		// Insert new blocks to L2 EE's chain.
 		if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalManifest, endIter); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
