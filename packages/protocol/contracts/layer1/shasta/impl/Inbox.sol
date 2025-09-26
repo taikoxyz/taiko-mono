@@ -199,7 +199,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
 
@@ -218,48 +217,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            // Add forced inclusions as derivation sources
-            uint256 sourceCount = 1;
-            IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
-            if (input.numForcedInclusions > 0) {
-                forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
-                    _forcedInclusionStorage, msg.sender, input.numForcedInclusions
-                );
-                sourceCount += forcedInclusions.length;
-            }
+            (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
+                _createDerivationSources(input);
 
-            // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
-            // none remains in the queue that is due.
-            require(
-                (forcedInclusions.length >= _minForcedInclusionCount)
-                    || !LibForcedInclusion.isOldestForcedInclusionDue(
-                        _forcedInclusionStorage, _forcedInclusionDelay
-                    ),
-                UnprocessedForcedInclusionIsDue()
-            );
-
-            // Create sources array and populate it
-            DerivationSource[] memory sources = new DerivationSource[](sourceCount);
-
-            uint256 index;
-            // Add forced inclusion sources first
-            for (; index < forcedInclusions.length; ++index) {
-                sources[index] = DerivationSource({
-                    isForcedInclusion: true,
-                    blobSlice: forcedInclusions[index].blobSlice
-                });
-            }
-
-            // Add normal proposal source last
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
-
-            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
-
-            // If the oldest processed forced inclusion was too old, allow anyone to propose(and endOfSubmissionWindowTimestamp = 0).
+            // If there was a forced inclusion, and it was too old, allow anyone to propose(and
+            // endOfSubmissionWindowTimestamp = 0).
             // Otherwise, only the current preconfer can propose.
             uint48 endOfSubmissionWindowTimestamp;
-            if (block.timestamp <= forcedInclusions[0].blobSlice.timestamp + _forcedInclusionDelay * 2) {
+            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
@@ -802,6 +767,46 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         _setProposalHash(proposal.id, _hashProposal(proposal));
         _emitProposedEvent(proposal, derivation, _coreState);
+    }
+
+    /// @dev Creates derivation sources array from forced inclusions and regular proposal
+    /// @notice Processes forced inclusions and creates a unified sources array for derivation
+    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
+    /// @return sources Array of derivation sources with forced inclusions first, then regular
+    /// proposal
+    /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
+    /// processed. Zero if there are no forced inclusions.
+    function _createDerivationSources(ProposeInput memory _input)
+        private
+        returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
+    {
+        // Add forced inclusions as derivation sources
+        uint256 sourceCount = 1;
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+
+        if (_input.numForcedInclusions > 0) {
+            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            );
+            sourceCount += forcedInclusions.length;
+        }
+
+        // Create sources array and populate it
+        sources = new DerivationSource[](sourceCount);
+
+        uint256 index;
+        // Add forced inclusion sources first
+        for (; index < forcedInclusions.length; ++index) {
+            sources[index] = DerivationSource({
+                isForcedInclusion: true,
+                blobSlice: forcedInclusions[index].blobSlice
+            });
+        }
+
+        // Add normal proposal source last
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
+
+        sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
