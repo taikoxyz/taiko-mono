@@ -465,9 +465,7 @@ func AssembleBondInstructions(
 	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
 	// its anchor transaction.
 	for i := range proposalManifest.Blocks {
-		var (
-			aggregatedHash = parentBondInstructionsHash
-		)
+		aggregatedHash := parentBondInstructionsHash
 		if derivationIdx == 0 && i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
 			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
 			if err != nil {
