@@ -149,8 +149,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
         require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
-        _codec = _config.codec;
+        require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
+        _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
