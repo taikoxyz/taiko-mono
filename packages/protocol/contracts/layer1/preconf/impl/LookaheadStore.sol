@@ -15,7 +15,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, EssentialContract {
-
     IRegistry public immutable urc;
     address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
