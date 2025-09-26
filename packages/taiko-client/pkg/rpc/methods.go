@@ -1488,7 +1488,7 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	return c.ShastaClients.InboxHelper.EncodeProposeInput(opts, *input)
 }
 
-// DecodeProposedInput decodes the propose method input by Shasta Inbox helper contract.
+// DecodeProposeInput decodes the propose method input by Shasta Inbox helper contract.
 func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
