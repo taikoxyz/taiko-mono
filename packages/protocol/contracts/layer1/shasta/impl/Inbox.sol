@@ -785,7 +785,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @return sources Array of derivation sources with forced inclusions first, then regular
     /// proposal
     /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
-    /// processed. Zero if there are no forced inclusions.
+    /// processed. type(uint48).max if there are no forced inclusions.
     function _createDerivationSources(ProposeInput memory _input)
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
@@ -799,7 +799,21 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
             sourceCount += forcedInclusions.length;
+            oldestForcedInclusionTimestamp = forcedInclusions[0].blobSlice.timestamp;
         }
+        else {
+            oldestForcedInclusionTimestamp = type(uint48).max;
+        }
+
+        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be processed
+        // or none in the queue is due.
+        require(
+            (_input.numForcedInclusions >= _minForcedInclusionCount)
+                || !LibForcedInclusion.isOldestForcedInclusionDue(
+                    _forcedInclusionStorage, _forcedInclusionDelay
+                ),
+            UnprocessedForcedInclusionIsDue()
+        );
 
         // Create sources array and populate it
         sources = new DerivationSource[](sourceCount);
