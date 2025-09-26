@@ -86,23 +86,6 @@ interface ILookaheadStore {
         uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots
     );
 
-    /// @notice Checks if a proposer is eligible to propose for the current slot and conditionally
-    ///         updates the lookahead for the next epoch.
-    /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next
-    /// epoch.
-    ///      The contract enforces this by trying to update the lookahead for next epoch if none is
-    /// stored.
-    /// @param _proposer The address of the proposer to check.
-    /// @param _lookaheadData The lookahead data for current and next epoch.
-    /// @return submissionSlotTimestamp_ The timestamp of the submission slot i.e also the upper
-    ///         boundary of preconfing period.
-    function checkProposer(
-        address _proposer,
-        bytes calldata _lookaheadData
-    )
-        external
-        returns (uint64 submissionSlotTimestamp_);
-
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
     /// @param _epochTimestamp The timestamp of the epoch.
     /// @param _lookaheadSlots The lookahead slots.

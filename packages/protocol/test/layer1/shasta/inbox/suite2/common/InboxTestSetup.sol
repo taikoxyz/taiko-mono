@@ -86,7 +86,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
     }
 
     /// @dev Helper function to select a proposer (delegates to proposer helper)
-    function _selectProposer(address _proposer) internal returns (address) {
+    function _selectProposer(address _proposer) internal virtual returns (address) {
         return proposerHelper._selectProposer(proposerChecker, _proposer);
     }
 
