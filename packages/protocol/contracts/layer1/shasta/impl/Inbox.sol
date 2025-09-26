@@ -13,6 +13,7 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
@@ -38,6 +39,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
+    /// @notice The codec used for encoding and hashing.
+    address private immutable _codec;
 
     /// @notice The token used for bonds.
     IERC20 internal immutable _bondToken;
@@ -145,6 +148,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     constructor(IInbox.Config memory _config) {
         require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
+
+        _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
@@ -192,10 +197,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
+            uint48 endOfSubmissionWindowTimestamp =
+                _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
@@ -272,13 +278,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        // Verify the proof using staticcall
-        (bool success,) = address(_proofVerifier).staticcall(
-            abi.encodeCall(
-                IProofVerifier.verifyProof, (_hashTransitionsArray(input.transitions), _proof)
-            )
-        );
-        require(success, ProofVerificationFailed());
+        bytes32 aggregatedProvingHash =
+            _hashTransitionsWithMetadata(input.transitions, input.metadata);
+        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -345,6 +347,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IInbox
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
+            codec: _codec,
             bondToken: address(_bondToken),
             maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
@@ -609,8 +612,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
+        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
@@ -682,7 +684,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        return keccak256(abi.encode(_blobHashes));
+        return LibHashSimple.hashBlobHashesArray(_blobHashes);
     }
 
     /// @dev Hashes a Checkpoint struct.
@@ -694,16 +696,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_checkpoint));
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
     function _hashCoreState(CoreState memory _coreState) internal pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_coreState));
+        return LibHashSimple.hashCoreState(_coreState);
     }
 
     /// @dev Hashes a Derivation struct.
@@ -715,15 +715,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        return keccak256(abi.encode(_derivation));
+        return LibHashSimple.hashDerivation(_derivation);
     }
 
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
     function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposal));
+        return LibHashSimple.hashProposal(_proposal);
     }
 
     /// @dev Hashes a Transition struct.
@@ -735,8 +734,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
+        return LibHashSimple.hashTransition(_transition);
     }
 
     /// @dev Hashes a TransitionRecord struct.
@@ -748,21 +746,23 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         virtual
         returns (bytes26)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        return LibHashSimple.hashTransitionRecord(_transitionRecord);
     }
 
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
+    /// @param _metadata The metadata array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
+    function _hashTransitionsWithMetadata(
+        Transition[] memory _transitions,
+        TransitionMetadata[] memory _metadata
+    )
         internal
         pure
         virtual
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
+        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadata);
     }
 
     // ---------------------------------------------------------------
@@ -979,7 +979,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     /// @dev Processes bond instructions and updates aggregated hash
-    /// @notice Emits BondInstructed event for L2 bond manager processing
     /// @param _coreState Core state with bond instructions hash to update
     /// @param _instructions Array of bond transfer instructions to aggregate
     function _processBondInstructions(
@@ -989,8 +988,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
     {
         if (_instructions.length == 0) return;
-
-        emit BondInstructed(_instructions);
 
         for (uint256 i; i < _instructions.length; ++i) {
             _coreState.bondInstructionsHash =
@@ -1019,7 +1016,6 @@ error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NotEnoughCapacity();
 error NoBondToWithdraw();
-error ProofVerificationFailed();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();

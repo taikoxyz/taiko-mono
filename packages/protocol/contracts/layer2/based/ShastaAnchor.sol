@@ -26,7 +26,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @notice Stores the current state of an anchor proposal being processed.
     /// @dev This state is updated incrementally as each block in a proposal is processed.
     struct State {
-        bytes32 bondInstructionsHash; // Cumulative hash of all bond instructions processed
+        bytes32 bondInstructionsHash; // Latest known bond instructions hash
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
@@ -128,7 +128,8 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @param _proposalId Unique identifier of the proposal being anchored.
     /// @param _proposer Address of the entity that proposed this batch of blocks.
     /// @param _proverAuth Encoded ProverAuth for prover designation (empty after block 0).
-    /// @param _bondInstructionsHash Expected cumulative hash after processing instructions.
+    /// @param _bondInstructionsHash Bond instructions hash in the (-BOND_PROCESSING_DELAY) ancestor
+    /// proposal. This value must be zero if _proposalId <= BOND_PROCESSING_DELAY.
     /// @param _bondInstructions Bond credit instructions to process for this block.
     /// @param _blockIndex Current block index within the proposal (0-based).
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).

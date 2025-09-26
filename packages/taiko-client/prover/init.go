@@ -275,6 +275,12 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 		return err
 	}
 
+	// Try to initialize L1Current cursor for Shasta protocol first.
+	if err := p.initL1CurrentShasta(startingBatchID); err == nil {
+		return nil
+	}
+
+	// If failed, then try to initialize L1Current cursor for Pacaya protocol.
 	if startingBatchID == nil {
 		var (
 			lastVerifiedBatchID *big.Int
@@ -325,6 +331,51 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	}
 	p.sharedState.SetL1Current(l1Current)
 
+	return nil
+}
+
+// initL1CurrentShasta initializes prover's L1Current cursor for Shasta protocol.
+func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
+		return err
+	}
+
+	lastProposal := p.shastaIndexer.GetLastProposal()
+	if lastProposal == nil || lastProposal.Proposal.Id.Cmp(common.Big0) == 0 {
+		return fmt.Errorf("empty core state")
+	}
+	if startingBatchID == nil {
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	if startingBatchID.Cmp(lastProposal.Proposal.Id) > 0 {
+		log.Warn(
+			"Provided startingBatchID is greater than the last proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastProposalID", lastProposal.Proposal.Id,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+	if startingBatchID.Cmp(lastProposal.CoreState.LastFinalizedProposalId) < 0 {
+		log.Warn(
+			"Provided startingBatchID is less than the last finalized proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastFinalizedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
+
+	startingProposal, err := p.shastaIndexer.GetProposalByID(startingBatchID.Uint64())
+	if err != nil {
+		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
+	}
+	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, startingProposal.RawBlockHash)
+	if err != nil {
+		return err
+	}
+	p.sharedState.SetL1Current(l1Current)
 	return nil
 }
 
