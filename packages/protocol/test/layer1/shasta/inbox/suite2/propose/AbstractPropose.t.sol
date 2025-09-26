@@ -261,16 +261,17 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         );
 
         // Advance block for second proposal (need 1 block gap)
-        uint48 firstProposalBlock = uint48(block.number); // Store the block number where first proposal was made
+        uint48 firstProposalBlock = uint48(block.number); // Store the block number where first
+            // proposal was made
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
 
         // Second proposal (ID 2) - using the first proposal as parent
-        // First proposal set nextProposalBlockId to the block where it was proposed
+        // First proposal set lastProposalBlockId to the block where it was proposed
         // We advanced by 1 block after first proposal, so we should be able to propose
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: firstProposalBlock, // Block where first proposal was made
+            lastProposalBlockId: firstProposalBlock, // Block where first proposal was made
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -331,7 +332,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // We'll use genesis as parent instead of the first proposal (wrong!)
         IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 2,
+            lastProposalBlockId: 2,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -369,7 +370,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

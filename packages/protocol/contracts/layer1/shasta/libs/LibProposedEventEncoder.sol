@@ -65,7 +65,7 @@ library LibProposedEventEncoder {
 
         // Encode core state
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalBlockId);
+        ptr = P.packUint48(ptr, _payload.coreState.lastProposalBlockId);
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
@@ -121,7 +121,7 @@ library LibProposedEventEncoder {
 
         // Decode core state
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
@@ -142,7 +142,7 @@ library LibProposedEventEncoder {
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
-            // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
+            // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
             // Total fixed: 38 + 39 + 2 + 64 + 82 = 225
 
