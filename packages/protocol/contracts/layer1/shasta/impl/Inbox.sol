@@ -82,6 +82,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The maximum number of checkpoints to store in ring buffer.
     uint16 internal immutable _maxCheckpointHistory;
 
+    /// @notice The multiplier to determine when a forced inclusion is too old so that proposing becomes permissionless
+    uint8 internal immutable _permissionlessInclusionMultiplier;
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -163,6 +166,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _maxCheckpointHistory = _config.maxCheckpointHistory;
+        _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
     }
 
     // ---------------------------------------------------------------
@@ -224,7 +228,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // endOfSubmissionWindowTimestamp = 0).
             // Otherwise, only the current preconfer can propose.
             uint48 endOfSubmissionWindowTimestamp;
-            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
+            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * _permissionlessInclusionMultiplier) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
@@ -329,7 +333,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 

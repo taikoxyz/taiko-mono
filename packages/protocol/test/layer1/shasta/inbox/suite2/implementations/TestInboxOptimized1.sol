@@ -29,7 +29,8 @@ contract TestInboxOptimized1 is InboxOptimized1 {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                permissionlessInclusionMultiplier: 5
              })
         )
     { }
