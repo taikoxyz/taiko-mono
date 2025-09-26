@@ -469,7 +469,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
         // Create and submit proposal
         // For the first proposal, we must be at block >= 2
-        // since genesis nextProposalBlockId = 2 (prevents blockhash(0) issue)
+        // since genesis lastProposalBlockId = 2 (prevents blockhash(0) issue)
         if (block.number < 2) {
             vm.roll(2);
         }
@@ -490,24 +490,26 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
-        // Each proposal sets nextProposalBlockId = block.number + 1
+        // Each proposal sets lastProposalBlockId = block.number (last proposal block)
         // Need to roll 1 block forward from the last proposal
         uint48 expectedNextBlockId;
         if (_parent.id == 0) {
-            expectedNextBlockId = 2; // Genesis value - prevents blockhash(0) issue
+            expectedNextBlockId = 1; // Genesis value - represents last proposal block, prevents
+                // blockhash(0) issue
             // For first proposal after genesis, roll to block 2
             vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap
             // Roll forward by 1 block from current position
+            uint48 previousProposalBlock = uint48(block.number); // Store previous proposal block
             vm.roll(block.number + 1);
-            // nextProposalBlockId should be current block number
-            expectedNextBlockId = uint48(block.number);
+            // lastProposalBlockId should be the block where previous proposal was made
+            expectedNextBlockId = previousProposalBlock;
         }
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
-            nextProposalBlockId: expectedNextBlockId,
+            lastProposalBlockId: expectedNextBlockId,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
