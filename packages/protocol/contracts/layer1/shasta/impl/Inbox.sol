@@ -963,7 +963,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (uint48 endOfSubmissionWindowTimestamp)
     {
-        uint256 oldestForcedInclusionTimestamp =
+        uint48 oldestForcedInclusionTimestamp =
             LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
 
         if (block.timestamp > oldestForcedInclusionTimestamp + _forcedInclusionDelay) {
@@ -979,7 +979,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // If the time elapsed since the oldest forced inclusion's effective timestamp
         // exceeds twice the forced inclusion delay, any address is allowed to propose.
         // Otherwise, the permission of msg.sender must be verified.
-        if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
+        if (block.timestamp <= uint256(oldestForcedInclusionTimestamp) + _forcedInclusionDelay * 2)
+        {
             endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
         }
     }

@@ -330,8 +330,8 @@ importers:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
         version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
       risc0-ethereum:
-        specifier: github:risc0/risc0-ethereum#v2.2.2
-        version: risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c
+        specifier: github:risc0/risc0-ethereum#v3.0.0
+        version: risc0-ethereum#v3.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/32aa0b6f23ddd02dd93fc71717667606e5c7db86
       solady:
         specifier: github:Vectorized/solady#v0.1.24
         version: https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d
@@ -9701,8 +9701,8 @@ packages:
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
-  risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c:
-    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c}
+  risc0-ethereum#v3.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/32aa0b6f23ddd02dd93fc71717667606e5c7db86:
+    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/32aa0b6f23ddd02dd93fc71717667606e5c7db86}
     version: 0.0.0
 
   rlp@2.2.7:
@@ -24941,7 +24941,7 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
 
-  risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c: {}
+  risc0-ethereum#v3.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/32aa0b6f23ddd02dd93fc71717667606e5c7db86: {}
 
   rlp@2.2.7:
     dependencies:

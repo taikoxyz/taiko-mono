@@ -120,17 +120,17 @@ library LibForcedInclusion {
     /// timestamp if the queue is empty.
     /// @param $ The storage reference for forced inclusion data.
     /// @return The effective timestamp as a uint256.
-    function getOldestInclusionEffectiveTimestamp(Storage storage $)
-        public
-        view
-        returns (uint256)
-    {
-        if ($.head == $.tail) {
-            return uint256($.lastProcessedAt);
+    function getOldestInclusionEffectiveTimestamp(Storage storage $) public view returns (uint48) {
+        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+        if (head == tail) {
+            return lastProcessedAt;
         }
 
-        uint256 oldestTimestamp = $.queue[$.head].blobSlice.timestamp;
-        return oldestTimestamp == 0 ? type(uint256).max : oldestTimestamp.max($.lastProcessedAt);
+        uint48 oldestTimestamp = $.queue[$.head].blobSlice.timestamp;
+        if (oldestTimestamp == 0) {
+            return type(uint48).max;
+        }
+        return oldestTimestamp > lastProcessedAt ? oldestTimestamp : lastProcessedAt;
     }
 
     // ---------------------------------------------------------------
