@@ -6,6 +6,7 @@ import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/shasta/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
@@ -13,7 +14,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
+contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, EssentialContract {
+
     IRegistry public immutable urc;
     address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
@@ -35,7 +37,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         address[] memory _overseers
     )
         Blacklist(_overseers)
-        EssentialContract()
     {
         urc = IRegistry(_urc);
         lookaheadSlasher = _lookaheadSlasher;
@@ -48,13 +49,19 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc ILookaheadStore
+    /// @inheritdoc IProposerChecker
+    /// @dev Checks if a proposer is eligible to propose for the current slot and conditionally
+    ///         updates the lookahead for the next epoch.
+    /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next
+    /// epoch. The contract enforces this by trying to update the lookahead for next epoch if none
+    /// is
+    /// stored.
     function checkProposer(
         address _proposer,
         bytes calldata _lookaheadData
     )
         external
-        returns (uint64)
+        returns (uint48)
     {
         require(msg.sender == inbox, NotInbox());
 
@@ -84,7 +91,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         // Validate the next lookahead evidence and update the store if required
         _handleNextEpochLookahead(nextEpochTimestamp, context, data);
 
-        return uint64(context.submissionWindowEnd);
+        return uint48(context.submissionWindowEnd);
     }
 
     /// @dev Validates that the slot index is valid.
@@ -387,8 +394,14 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
-
+        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
+        if (block.timestamp == epochTimestamp) {
+            // Lookahead for the next epoch is not required to be posted in the first slot
+            // of the current epoch because the offchain node may not have sufficient time
+            // to build the lookahead.
+            return false;
+        }
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
 
@@ -421,8 +434,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         returns (bytes26 lookaheadHash_)
     {
         require(isLookaheadRequired(), LookaheadNotRequired());
-
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadSlots.length);
 
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
@@ -472,7 +483,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        lookaheadHash_ =
+            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, _lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
         emit LookaheadPosted(_nextEpochTimestamp, lookaheadHash_, _lookaheadSlots);

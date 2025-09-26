@@ -6,13 +6,13 @@ import { IInbox } from "../iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
-/// @title LibHashing
+/// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
 /// @dev This library provides gas-optimized implementations of all hashing functions
 ///      used in the Inbox contract, replacing standard keccak256(abi.encode(...)) calls
 ///      with more efficient alternatives from Solady's EfficientHashLib.
 /// @custom:security-contact security@taiko.xyz
-library LibHashing {
+library LibHashOptimized {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -216,15 +216,21 @@ library LibHashing {
         }
     }
 
-    /// @notice Memory-optimized hashing for arrays of Transitions
+    /// @notice Memory-optimized hashing for arrays of Transitions with metadata
     /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
+    ///      Hashes each transition with its corresponding metadata first, then aggregates
     /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+    /// @param _metadata The metadata array to hash
+    /// @return The hash of the transitions with metadata array
+    function hashTransitionsWithMetadata(
+        IInbox.Transition[] memory _transitions,
+        IInbox.TransitionMetadata[] memory _metadata
+    )
         internal
         pure
         returns (bytes32)
     {
+        require(_transitions.length == _metadata.length, InconsistentLengths());
         unchecked {
             uint256 length = _transitions.length;
             if (length == 0) {
@@ -232,22 +238,24 @@ library LibHashing {
             }
 
             if (length == 1) {
-                return EfficientHashLib.hash(bytes32(length), hashTransition(_transitions[0]));
+                bytes32 transitionWithMetadataHash =
+                    _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
+                return EfficientHashLib.hash(bytes32(length), transitionWithMetadataHash);
             }
 
             if (length == 2) {
-                return EfficientHashLib.hash(
-                    bytes32(length),
-                    hashTransition(_transitions[0]),
-                    hashTransition(_transitions[1])
-                );
+                bytes32 hash0 = _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
+                bytes32 hash1 = _hashTransitionWithMetadata(_transitions[1], _metadata[1]);
+                return EfficientHashLib.hash(bytes32(length), hash0, hash1);
             }
 
             bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
             EfficientHashLib.set(buffer, 0, bytes32(length));
 
             for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, hashTransition(_transitions[i]));
+                EfficientHashLib.set(
+                    buffer, i + 1, _hashTransitionWithMetadata(_transitions[i], _metadata[i])
+                );
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);
@@ -320,4 +328,32 @@ library LibHashing {
             bytes32(uint256(uint160(_instruction.payee)))
         );
     }
+
+    /// @notice Gas-optimized hashing of a transition with its metadata
+    /// @dev Hashes transition first, then combines with metadata fields using packed encoding
+    /// @param _transition The transition to hash
+    /// @param _metadata The metadata to combine with the transition
+    /// @return The hash of the transition combined with metadata
+    function _hashTransitionWithMetadata(
+        IInbox.Transition memory _transition,
+        IInbox.TransitionMetadata memory _metadata
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return EfficientHashLib.hash(
+            _transition.proposalHash,
+            _transition.parentTransitionHash,
+            hashCheckpoint(_transition.checkpoint),
+            bytes32(uint256(uint160(_metadata.designatedProver))),
+            bytes32(uint256(uint160(_metadata.actualProver)))
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InconsistentLengths();
 }

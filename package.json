@@ -2,6 +2,11 @@
   "name": "taiko-mono",
   "version": "0.23.0",
   "private": true,
+  "scripts": {
+    "postinstall": "bash scripts/setup-local-ignores.sh",
+    "setup:ignores": "bash scripts/setup-local-ignores.sh",
+    "remove:ignores": "bash scripts/remove-local-ignores.sh"
+  },
   "devDependencies": {
     "lefthook": "^1.6.10",
     "prettier": "^3.2.5"

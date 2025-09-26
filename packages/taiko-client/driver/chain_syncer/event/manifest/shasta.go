@@ -22,6 +22,7 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -270,17 +271,6 @@ func ValidateMetadata(
 		proposalManifest.ParentBlock.GasLimit(),
 	)
 
-	// 5. Ensure each block's bond instructions and bond instructions hash are valid.
-	if err := validateBondInstructions(
-		ctx,
-		proposalManifest,
-		bondInstructionsHash,
-		parentAnchorBlockNumber,
-		rpc,
-	); err != nil {
-		return fmt.Errorf("failed to validate bond instructions: %w", err)
-	}
-
 	return nil
 }
 
@@ -458,12 +448,15 @@ func validateGasLimit(
 	}
 }
 
-// validateBondInstructions ensures bond instructions are correctly fetched and their hashes computed.
-func validateBondInstructions(
+// AssembleBondInstructions fetches and assembles bond instructions into the proposal manifest.
+func AssembleBondInstructions(
 	ctx context.Context,
+	proposalID *big.Int,
+	indexer *shastaIndexer.Indexer,
 	proposalManifest *manifest.ProposalManifest,
 	parentBondInstructionsHash common.Hash,
-	parentAnchorBlockNumber uint64,
+	originBlockNumber uint64,
+	derivationIdx int,
 	rpc *rpc.Client,
 ) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
@@ -472,37 +465,86 @@ func validateBondInstructions(
 	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
 	// its anchor transaction.
 	for i := range proposalManifest.Blocks {
-		if proposalManifest.Blocks[i].AnchorBlockNumber <= parentAnchorBlockNumber {
-			continue
-		}
-		// If metadata.anchorBlockNumber exceeds parent.metadata.anchorBlockNumber, collect all BondInstructions emitted
-		// from the Taiko inbox via BondInstructed events, occurring between blocks numbered parent.metadata.
-		// anchorBlockNumber + 1 and metadata.anchorBlockNumber. Assign this collection to metadata.bondInstructions, which
-		// may be empty.
-		bondInstructedIter, err := rpc.ShastaClients.Inbox.FilterBondInstructed(
-			&bind.FilterOpts{
-				Start:   parentAnchorBlockNumber + 1,
-				End:     &proposalManifest.Blocks[i].AnchorBlockNumber,
-				Context: timeoutCtx,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to fetch bond instructions: %w", err)
-		}
-		// Aggregate bond instructions from the fetched events.
-		for bondInstructedIter.Next() {
-			proposalManifest.Blocks[i].BondInstructions =
-				append(proposalManifest.Blocks[i].BondInstructions, bondInstructedIter.Event.Instructions...)
-		}
 		aggregatedHash := parentBondInstructionsHash
-		for _, bond := range proposalManifest.Blocks[i].BondInstructions {
-			if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, bond); err != nil {
-				return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
+		if derivationIdx == 0 && i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
+			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
+			if err != nil {
+				return fmt.Errorf("failed to get target proposal: %w", err)
+			}
+			// Only checking bond instructions when there are new instructions.
+			if parentBondInstructionsHash == targetProposal.CoreState.BondInstructionsHash {
+				continue
+			}
+			start := targetProposal.RawBlockHeight.Uint64()
+			proposedIter, err := rpc.ShastaClients.Inbox.FilterProposed(
+				&bind.FilterOpts{Start: start, End: &start, Context: timeoutCtx},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to fetch Proposed events: %w", err)
+			}
+			// Aggregate bond instructions from the fetched events.
+			for proposedIter.Next() {
+				payload, err := rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Data)
+				if err != nil {
+					return fmt.Errorf("failed to decode Proposed event payload: %w", err)
+				}
+				// Skip unrelated proposals, should not happen, but just in case.
+				if payload.Proposal.Id.Cmp(targetProposal.Proposal.Id) != 0 {
+					log.Warn(
+						"Skipping unrelated Proposed event",
+						"eventHeight", start,
+						"targetProposalID", targetProposal.Proposal.Id,
+						"proposalID", payload.Proposal.Id,
+					)
+					continue
+				}
+				log.Info(
+					"Processing Proposed event for bond instructions",
+					"eventHeight", start,
+					"parentBondInstructionsHash", parentBondInstructionsHash.Hex(),
+					"currentBondInstructionsHash", common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
+				)
+				input, err := rpc.DecodeProposeInput(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Raw.Data)
+				if err != nil {
+					return fmt.Errorf("failed to decode Propose input: %w", err)
+				}
+
+			loop:
+				for _, record := range input.TransitionRecords {
+					for _, instruction := range record.BondInstructions {
+						if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
+							return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
+						}
+						log.Info(
+							"New L2 bond instruction",
+							"eventHeight", start,
+							"proposalID", instruction.ProposalId,
+							"type", instruction.BondType,
+							"payee", instruction.Payee,
+							"payer", instruction.Payer,
+						)
+						proposalManifest.Blocks[i].BondInstructions = append(
+							proposalManifest.Blocks[i].BondInstructions,
+							instruction,
+						)
+						if aggregatedHash == payload.CoreState.BondInstructionsHash {
+							break loop
+						}
+					}
+				}
+
+				if aggregatedHash != payload.CoreState.BondInstructionsHash {
+					return fmt.Errorf(
+						"bond instructions hash mismatch: calculated %s, expected %s",
+						aggregatedHash.Hex(),
+						common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
+					)
+				}
 			}
 		}
+
 		proposalManifest.Blocks[i].BondInstructionsHash = aggregatedHash
 		parentBondInstructionsHash = aggregatedHash
-		parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
 	}
 
 	return nil
