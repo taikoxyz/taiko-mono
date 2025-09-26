@@ -491,18 +491,17 @@ func validateBondInstructions(
 			&bind.FilterOpts{Start: start, End: &start, Context: timeoutCtx},
 		)
 		if err != nil {
-			return fmt.Errorf("failed to fetch Proved events: %w", err)
+			return fmt.Errorf("failed to fetch Proposed events: %w", err)
 		}
 		// Aggregate bond instructions from the fetched events.
 		for proposedIter.Next() {
 			payload, err := rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Data)
 			if err != nil {
-				return fmt.Errorf("failed to decode Proved event payload: %w", err)
+				return fmt.Errorf("failed to decode Proposed event payload: %w", err)
 			}
 			log.Info(
-				"Processing Propose event for bond instructions",
-				"blockNumber", start,
-				"blockIndex", i,
+				"Processing Proposed event for bond instructions",
+				"eventHeight", start,
 				"parentBondInstructionsHash", parentBondInstructionsHash.Hex(),
 				"currentBondInstructionsHash", common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
 			)
@@ -518,19 +517,21 @@ func validateBondInstructions(
 						if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
 							return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
 						}
-						if aggregatedHash == payload.CoreState.BondInstructionsHash {
-							break
-						}
 						log.Info(
 							"New L2 bond instruction",
-							"blockNumber", start,
-							"blockIndex", i,
-							"instruction", instruction,
+							"eventHeight", start,
+							"proposalID", instruction.ProposalId,
+							"type", instruction.BondType,
+							"payee", instruction.Payee,
+							"payer", instruction.Payer,
 						)
 						proposalManifest.Blocks[i].BondInstructions = append(
 							proposalManifest.Blocks[i].BondInstructions,
 							instruction,
 						)
+						if aggregatedHash == payload.CoreState.BondInstructionsHash {
+							break
+						}
 					}
 				}
 
