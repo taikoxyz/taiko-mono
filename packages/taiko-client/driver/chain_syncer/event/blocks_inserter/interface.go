@@ -4,12 +4,13 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -20,12 +21,19 @@ type Inserter interface {
 		metadata metadata.TaikoProposalMetaData,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
+	InsertBlocksWithManifest(
+		ctx context.Context,
+		metadata metadata.TaikoProposalMetaData,
+		proposalManifest *manifest.ProposalManifest,
+		endIter eventIterator.EndBatchProposedEventIterFunc,
+	) error
 }
 
 // createExecutionPayloadsMetaData is a struct that contains all the necessary metadata
 // for creating a new execution payloads.
 type createExecutionPayloadsMetaData struct {
 	BlockID               *big.Int
+	BatchID               *big.Int
 	ExtraData             []byte
 	SuggestedFeeRecipient common.Address
 	GasLimit              uint64
@@ -42,8 +50,5 @@ type createExecutionPayloadsMetaData struct {
 // for inserting a new head block to the L2 execution engine's local block chain.
 type createPayloadAndSetHeadMetaData struct {
 	*createExecutionPayloadsMetaData
-	AnchorBlockID   *big.Int
-	AnchorBlockHash common.Hash
-	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig
-	Parent          *types.Header
+	Parent *types.Header
 }

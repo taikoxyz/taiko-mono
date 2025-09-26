@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { LibHashing } from "src/layer1/shasta/libs/LibHashing.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibHashingGasTest
 /// @notice Gas comparison tests for LibHashing optimizations vs standard keccak256(abi.encode)
@@ -15,16 +15,42 @@ import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 contract LibHashingGasTest is Test {
     // Test data structures
     IInbox.Transition internal testTransition;
-    ICheckpointManager.Checkpoint internal testCheckpoint;
+    ICheckpointStore.Checkpoint internal testCheckpoint;
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
-    IInbox.Derivation internal testDerivation;
+    // IInbox.Derivation internal testDerivation; // Removed due to IR pipeline requirement for
+    // dynamic arrays
     // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline
     // requirement
     IInbox.Transition[] internal testTransitionsArray;
 
     function setUp() public {
         _initializeTestData();
+    }
+
+    /// @notice Helper function to create test derivation
+    /// @return derivation Test derivation with sample data
+    function _createTestDerivation() internal pure returns (IInbox.Derivation memory derivation) {
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = keccak256("test_blob_hash_1");
+        blobHashes[1] = keccak256("test_blob_hash_2");
+
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 1024,
+                timestamp: 1_672_531_200
+            })
+        });
+
+        return IInbox.Derivation({
+            originBlockNumber: 12_345_677,
+            originBlockHash: keccak256("test_origin_block_hash"),
+            basefeeSharingPctg: 10,
+            sources: sources
+        });
     }
 
     /// @notice Test gas comparison for hashTransition function
@@ -144,21 +170,30 @@ contract LibHashingGasTest is Test {
 
         // Measure standard implementation
         gasBefore = gasleft();
-        keccak256(abi.encode(testDerivation));
+        keccak256(abi.encode(_createTestDerivation()));
         gasAfter = gasleft();
         standardGas = gasBefore - gasAfter;
 
         // Measure optimized implementation
         gasBefore = gasleft();
-        LibHashing.hashDerivation(testDerivation);
+        LibHashing.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
         console2.log("=== hashDerivation Gas Comparison ===");
         console2.log("Standard Gas:      ", standardGas);
         console2.log("Optimized Gas:     ", optimizedGas);
-        console2.log("Gas Saved:         ", standardGas - optimizedGas);
-        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        if (standardGas > optimizedGas) {
+            console2.log("Gas Saved:         ", standardGas - optimizedGas);
+            console2.log(
+                "Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%"
+            );
+        } else {
+            console2.log("Gas Overhead:      ", optimizedGas - standardGas);
+            console2.log(
+                "Overhead:          ", ((optimizedGas - standardGas) * 100) / standardGas, "%"
+            );
+        }
         console2.log("");
     }
 
@@ -245,12 +280,12 @@ contract LibHashingGasTest is Test {
 
         // hashDerivation
         gasBefore = gasleft();
-        keccak256(abi.encode(testDerivation));
+        keccak256(abi.encode(_createTestDerivation()));
         gasAfter = gasleft();
         totalStandardGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        LibHashing.hashDerivation(testDerivation);
+        LibHashing.hashDerivation(_createTestDerivation());
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -301,8 +336,8 @@ contract LibHashingGasTest is Test {
         assertEq(hash1, hash2, "hashProposal should be deterministic");
 
         // Test hashDerivation consistency
-        hash1 = LibHashing.hashDerivation(testDerivation);
-        hash2 = LibHashing.hashDerivation(testDerivation);
+        hash1 = LibHashing.hashDerivation(_createTestDerivation());
+        hash2 = LibHashing.hashDerivation(_createTestDerivation());
         assertEq(hash1, hash2, "hashDerivation should be deterministic");
 
         // Test hashTransitionsArray consistency
@@ -369,7 +404,7 @@ contract LibHashingGasTest is Test {
     /// @dev Ensures that different inputs produce different hash outputs
     function test_hashUniqueness() external view {
         // Create modified test data
-        ICheckpointManager.Checkpoint memory modifiedCheckpoint = testCheckpoint;
+        ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
         modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
@@ -407,7 +442,7 @@ contract LibHashingGasTest is Test {
         testTransition = IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash"),
             parentTransitionHash: keccak256("test_parent_transition_hash"),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
@@ -415,7 +450,7 @@ contract LibHashingGasTest is Test {
         });
 
         // Initialize test checkpoint
-        testCheckpoint = ICheckpointManager.Checkpoint({
+        testCheckpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345_678,
             blockHash: keccak256("test_block_hash"),
             stateRoot: keccak256("test_state_root")
@@ -445,17 +480,7 @@ contract LibHashingGasTest is Test {
         blobHashes[0] = keccak256("test_blob_hash_1");
         blobHashes[1] = keccak256("test_blob_hash_2");
 
-        testDerivation = IInbox.Derivation({
-            originBlockNumber: 12_345_677,
-            originBlockHash: keccak256("test_origin_block_hash"),
-            isForcedInclusion: false,
-            basefeeSharingPctg: 10,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 1024,
-                timestamp: 1_672_531_200
-            })
-        });
+        // testDerivation initialization removed due to IR pipeline requirement
 
         // Initialize test transition record - Commented out due to IR pipeline requirement
         /*
@@ -464,13 +489,13 @@ contract LibHashingGasTest is Test {
             proposalId: 1001,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x1111111111111111111111111111111111111111),
-            receiver: address(0x2222222222222222222222222222222222222222)
+            payee: address(0x2222222222222222222222222222222222222222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 1002,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x3333333333333333333333333333333333333333),
-            receiver: address(0x4444444444444444444444444444444444444444)
+            payee: address(0x4444444444444444444444444444444444444444)
         });
 
         testTransitionRecord = IInbox.TransitionRecord({
@@ -487,7 +512,7 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_2"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_2"),
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 12_345_679,
                     blockHash: keccak256("test_block_hash_2"),
                     stateRoot: keccak256("test_state_root_2")
@@ -498,7 +523,7 @@ contract LibHashingGasTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_3"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_3"),
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 12_345_680,
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")

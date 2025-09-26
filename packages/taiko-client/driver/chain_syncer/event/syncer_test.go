@@ -41,6 +41,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 	syncer, err := NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),

@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -77,6 +78,60 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	)
 }
 
+// AssembleUpdateStateTx assembles a signed ShastaAnchor.updateState transaction.
+func (c *AnchorTxConstructor) AssembleUpdateStateTx(
+	ctx context.Context,
+	// Parameters of the ShastaAnchor.updateState transaction.
+	parent *types.Header,
+	proposalId *big.Int,
+	proposer common.Address,
+	proverAuth []byte,
+	bondInstructionsHash common.Hash,
+	bondInstructions []shastaBindings.LibBondsBondInstruction,
+	blockIndex uint16,
+	anchorBlockNumber *big.Int,
+	anchorBlockHash common.Hash,
+	anchorStateRoot common.Hash,
+	endOfSubmissionWindowTimestamp *big.Int,
+	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
+	l2Height *big.Int,
+	baseFee *big.Int,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"UpdateState arguments",
+		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockNumber,
+		"anchorStateRoot", anchorStateRoot,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
+		"proposalId", proposalId,
+		"proposer", proposer,
+		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
+		"bondInstructionsHash", bondInstructionsHash,
+		"bondInstructions", len(bondInstructions),
+		"blockIndex", blockIndex,
+	)
+
+	return c.rpc.ShastaClients.Anchor.UpdateState(
+		opts,
+		proposalId,
+		proposer,
+		proverAuth,
+		bondInstructionsHash,
+		bondInstructions,
+		blockIndex,
+		anchorBlockNumber,
+		anchorBlockHash,
+		anchorStateRoot,
+		endOfSubmissionWindowTimestamp,
+	)
+}
+
 // transactOpts is a utility method to create some transact options of the anchor transaction in given L2 block with
 // golden touch account's private key.
 func (c *AnchorTxConstructor) transactOpts(
@@ -103,9 +158,10 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parentHash", parentHash,
 	)
 
-	gasLimit := consensus.AnchorGasLimit
-	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Pacaya {
-		gasLimit = consensus.AnchorV3GasLimit
+	// After the verified block ID has exceeded the Pacaya fork height, we can change this value.
+	gasLimit := consensus.AnchorV3GasLimit
+	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Shasta {
+		gasLimit = consensus.UpdateStateGasLimit
 	}
 
 	return &bind.TransactOpts{
@@ -141,7 +197,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoAnchor.anchorV3 transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction using K = 1 and K = 2")
 		}
 	}
 

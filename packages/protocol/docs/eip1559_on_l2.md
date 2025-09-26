@@ -14,7 +14,7 @@ A nice property of the $e^x$ curve is that for a chosen gas target $T$, the base
 
 ### Implementation of $e^x$
 
-We steal the `exp(x)` implementation from https://github.com/recmo/experiment-solexp/blob/main/src/test/FixedPointMathLib.t.sol. This implementation has a limitation: the range is input parameter `x` is `[-42.139678854, + 135.305999369]` with 18 decimals/precision. In our case, we need to map gas excess to the range of `[0, K]` where `K` equals `135.305999369` or `135305999368893231588` in fixed point integer form.
+We steal the `exp(x)` implementation from https://github.com/recmo/experiment-solexp/blob/main/src/test/FixedPointMathLib.t.sol. This implementation has a limitation: the range of input parameter `x` is `[-42.139678854, + 135.305999369]` with 18 decimals/precision. In our case, we need to map gas excess to the range of `[0, K]` where `K` equals `135.305999369` or `135305999368893231588` in fixed point integer form.
 
 The $e^x$ curve can be expressed using $$py=e^{qx}$$, as you can see below: the two parameters $p$ and $q$ defines the shape/slope of the curve. We need to find the right value for them, otherwise, the base fee movement will not be as expected.
 
@@ -24,9 +24,9 @@ The $e^x$ curve can be expressed using $$py=e^{qx}$$, as you can see below: the 
 
 ## Scaling
 
-The following is how we calculate $p$ and $q$. Assuming the max gas excess $M$, a uint64. then $q = 135305999368893231588/M$ (internally we keep $q'=q <<64$ as it fits into a uint64).
+The following is how we calculate $p$ and $q$. Assuming the max gas excess $M$, a uint64. Then $q = 135305999368893231588/M$ (internally we keep $q'=q <<64$ as it fits into a uint64).
 
-We also assuming the initial value of gasExcess is $M/2$; and the initial basefee (the fee for purchasing 1 gas) is $b_0$, or $$b_0=p e^{(M/2 + 1)} + p e^{M/2}$$, so $$p = b_0/(e^{(M/2 + 1)} + e^{M/2})$$.
+We also assume the initial value of gasExcess is $M/2$; and the initial basefee (the fee for purchasing 1 gas) is $b_0$, or $$b_0=p e^{(M/2 + 1)} + p e^{M/2}$$, so $$p = b_0/(e^{(M/2 + 1)} + e^{M/2})$$.
 
 It turns out the initial value of gasExcess doesn't really matter for the above calculation due to the nature of the e-curve. But choosing $M/2$ allows price to go up and down by the same max amount.
 
