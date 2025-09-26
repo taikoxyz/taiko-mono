@@ -468,10 +468,13 @@ func AssembleBondInstructions(
 		var (
 			aggregatedHash = parentBondInstructionsHash
 		)
-		if i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
+		if derivationIdx == 0 && i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
 			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
 			if err != nil {
 				return fmt.Errorf("failed to get target proposal: %w", err)
+			}
+			if parentBondInstructionsHash == targetProposal.CoreState.BondInstructionsHash {
+				continue
 			}
 			start := targetProposal.RawBlockHeight.Uint64()
 			proposedIter, err := rpc.ShastaClients.Inbox.FilterProposed(
@@ -493,43 +496,41 @@ func AssembleBondInstructions(
 					"currentBondInstructionsHash", common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
 				)
 				// Only checking bond instructions when there are new instructions.
-				if parentBondInstructionsHash != payload.CoreState.BondInstructionsHash {
-					input, err := rpc.DecodeProposeInput(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Raw.Data)
-					if err != nil {
-						return fmt.Errorf("failed to decode Propose input: %w", err)
-					}
+				input, err := rpc.DecodeProposeInput(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Raw.Data)
+				if err != nil {
+					return fmt.Errorf("failed to decode Propose input: %w", err)
+				}
 
-				loop:
-					for _, record := range input.TransitionRecords {
-						for _, instruction := range record.BondInstructions {
-							if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
-								return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
-							}
-							log.Info(
-								"New L2 bond instruction",
-								"eventHeight", start,
-								"proposalID", instruction.ProposalId,
-								"type", instruction.BondType,
-								"payee", instruction.Payee,
-								"payer", instruction.Payer,
-							)
-							proposalManifest.Blocks[i].BondInstructions = append(
-								proposalManifest.Blocks[i].BondInstructions,
-								instruction,
-							)
-							if aggregatedHash == payload.CoreState.BondInstructionsHash {
-								break loop
-							}
+			loop:
+				for _, record := range input.TransitionRecords {
+					for _, instruction := range record.BondInstructions {
+						if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
+							return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
+						}
+						log.Info(
+							"New L2 bond instruction",
+							"eventHeight", start,
+							"proposalID", instruction.ProposalId,
+							"type", instruction.BondType,
+							"payee", instruction.Payee,
+							"payer", instruction.Payer,
+						)
+						proposalManifest.Blocks[i].BondInstructions = append(
+							proposalManifest.Blocks[i].BondInstructions,
+							instruction,
+						)
+						if aggregatedHash == payload.CoreState.BondInstructionsHash {
+							break loop
 						}
 					}
+				}
 
-					if aggregatedHash != payload.CoreState.BondInstructionsHash {
-						return fmt.Errorf(
-							"bond instructions hash mismatch: calculated %s, expected %s",
-							aggregatedHash.Hex(),
-							common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
-						)
-					}
+				if aggregatedHash != payload.CoreState.BondInstructionsHash {
+					return fmt.Errorf(
+						"bond instructions hash mismatch: calculated %s, expected %s",
+						aggregatedHash.Hex(),
+						common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
+					)
 				}
 			}
 		}
