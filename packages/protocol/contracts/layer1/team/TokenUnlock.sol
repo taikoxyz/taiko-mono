@@ -198,7 +198,14 @@ contract TokenUnlock is EssentialContract {
         uint256 balance = IERC20(taikoToken).balanceOf(address(this));
         uint256 locked = _getAmountLocked();
 
-        return balance.max(locked) - locked;
+        // Ensure we don't allow withdrawal of tokens that weren't properly vested
+        // by limiting balance to the amount that was actually vested
+        uint256 maxWithdrawable = amountVested;
+        if (balance > maxWithdrawable) {
+            balance = maxWithdrawable;
+        }
+
+        return balance > locked ? balance - locked : 0;
     }
 
     function _getAmountLocked() private view returns (uint256) {
