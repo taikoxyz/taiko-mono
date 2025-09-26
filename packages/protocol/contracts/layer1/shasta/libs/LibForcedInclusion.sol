@@ -126,7 +126,7 @@ library LibForcedInclusion {
             return lastProcessedAt;
         }
 
-        uint48 oldestTimestamp = $.queue[$.head].blobSlice.timestamp;
+        uint48 oldestTimestamp = $.queue[head].blobSlice.timestamp;
         if (oldestTimestamp == 0) {
             return type(uint48).max;
         }
