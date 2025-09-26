@@ -91,7 +91,6 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm compile:shared && pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
 
-
       - name: Check for changes
         id: git_status
         run: |
