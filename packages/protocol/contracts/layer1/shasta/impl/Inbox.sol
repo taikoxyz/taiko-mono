@@ -199,7 +199,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
@@ -934,7 +934,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     /// @dev Processes bond instructions and updates aggregated hash
-    /// @notice Emits BondInstructed event for L2 bond manager processing
     /// @param _coreState Core state with bond instructions hash to update
     /// @param _instructions Array of bond transfer instructions to aggregate
     function _processBondInstructions(
@@ -944,8 +943,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
     {
         if (_instructions.length == 0) return;
-
-        emit BondInstructed(_instructions);
 
         for (uint256 i; i < _instructions.length; ++i) {
             _coreState.bondInstructionsHash =

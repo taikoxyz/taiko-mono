@@ -240,11 +240,9 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
+The anchor transaction must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are emitted in the `Proved` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
 
-To begin, obtain the `CoreState` from the L1 anchor block's world state through a storage Merkle proof, verifying that its keccak hash matches the `coreStateHash` stored in the inbox contract. Extract the `bondInstructionsHash` field from this verified `CoreState` and set `metadata.bondInstructionsHash` to this value.
-
-If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
+A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is `BOND_PROCESSING_DELAY` proposals prior to the current one. If `BOND_PROCESSING_DELAY` is set to 1, it effectively processes the parent proposal's instructions.
 
 ### Designated Prover System
 
