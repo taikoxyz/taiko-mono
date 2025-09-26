@@ -471,6 +471,7 @@ func AssembleBondInstructions(
 			if err != nil {
 				return fmt.Errorf("failed to get target proposal: %w", err)
 			}
+			// Only checking bond instructions when there are new instructions.
 			if parentBondInstructionsHash == targetProposal.CoreState.BondInstructionsHash {
 				continue
 			}
@@ -493,7 +494,6 @@ func AssembleBondInstructions(
 					"parentBondInstructionsHash", parentBondInstructionsHash.Hex(),
 					"currentBondInstructionsHash", common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
 				)
-				// Only checking bond instructions when there are new instructions.
 				input, err := rpc.DecodeProposeInput(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Raw.Data)
 				if err != nil {
 					return fmt.Errorf("failed to decode Propose input: %w", err)
