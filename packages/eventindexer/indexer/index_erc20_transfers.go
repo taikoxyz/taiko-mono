@@ -93,7 +93,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	// Parse the Transfer event ABI
 	parsedABI, err := abi.JSON(strings.NewReader(transferEventABI))
 	if err != nil {
-		return errors.Wrap(err, "abi.JSON(strings.NewReader")
+		return errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	err = parsedABI.UnpackIntoInterface(&event, "Transfer", vLog.Data)
