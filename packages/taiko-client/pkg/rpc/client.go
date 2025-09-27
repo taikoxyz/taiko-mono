@@ -288,7 +288,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	}
 	inboxCodec, err := shastaBindings.NewCodecOptimizedClient(config.Codec, c.L1)
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of InboxHelperClient: %w", err)
+		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}
 
 	c.ShastaClients = &ShastaClients{

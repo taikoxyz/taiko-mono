@@ -1440,7 +1440,7 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 	return &cfg, nil
 }
 
-// HashProposalShasta hashes the proposal by Shasta Inbox helper contract.
+// HashProposalShasta hashes the proposal by Shasta Inbox Codec contract.
 func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBindings.IInboxProposal) (common.Hash, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1452,7 +1452,7 @@ func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBinding
 	return c.ShastaClients.InboxCodec.HashProposal(opts, *proposal)
 }
 
-// HashTransitionShasta hashes the transition by Shasta Inbox helper contract.
+// HashTransitionShasta hashes the transition by Shasta Inbox Codec contract.
 func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.IInboxTransition) (common.Hash, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1464,7 +1464,7 @@ func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.II
 	return c.ShastaClients.InboxCodec.HashTransition(opts, *ts)
 }
 
-// EncodeProveInput encodes the prove method input by Shasta Inbox helper contract.
+// EncodeProveInput encodes the prove method input by Shasta Inbox Codec contract.
 func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1476,7 +1476,7 @@ func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IIn
 	return c.ShastaClients.InboxCodec.EncodeProveInput(opts, *input)
 }
 
-// EncodeProposeInput encodes the propose method input by Shasta Inbox helper contract.
+// EncodeProposeInput encodes the propose method input by Shasta Inbox Codec contract.
 func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.IInboxProposeInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1488,7 +1488,7 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	return c.ShastaClients.InboxCodec.EncodeProposeInput(opts, *input)
 }
 
-// DecodeProposeInput decodes the propose method input by Shasta Inbox helper contract.
+// DecodeProposeInput decodes the propose method input by Shasta Inbox Codec contract.
 func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1505,7 +1505,7 @@ func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBi
 	return &input, nil
 }
 
-// DecodeProveInput decodes the prove method input by Shasta Inbox helper contract.
+// DecodeProveInput decodes the prove method input by Shasta Inbox Codec contract.
 func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProveInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1522,7 +1522,7 @@ func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBind
 	return &input, nil
 }
 
-// DecodeProvedEventPayload decodes the Proved event payload by Shasta Inbox helper contract.
+// DecodeProvedEventPayload decodes the Proved event payload by Shasta Inbox Codec contract.
 func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProvedEventPayload,
 	error,
@@ -1542,7 +1542,7 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	return &payload, nil
 }
 
-// DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox helper contract.
+// DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox Codec contract.
 func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProposedEventPayload,
 	error,
