@@ -59,7 +59,7 @@ export function generateBridgeConfig() {
       sourceFile = await buildBridgeConfig(sourceFile, configuredBridgesConfigFile);
 
       // Save the file
-      await sourceFile.saveSync();
+      await sourceFile.save();
       logger.info(`Generated config file`);
 
       const formatted = await formatSourceFile(tsFilePath);
