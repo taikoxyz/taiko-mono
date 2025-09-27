@@ -98,8 +98,7 @@ interface ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
+    /// source chain. A non-empty proof is required.
     /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
@@ -117,8 +116,7 @@ interface ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
+    /// source chain. A non-empty proof is required.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
