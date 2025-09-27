@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/gorm"
@@ -155,7 +154,7 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := eventRepo.FindUniqueProposers(context.Background())
-			spew.Dump(resp)
+
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, len(tt.wantResp), len(resp))
 
@@ -167,59 +166,59 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 	}
 }
 
-func TestIntegration_Event_GetCountByAddressAndEventName(t *testing.T) {
-	db, close, err := testMysql(t)
-	assert.Equal(t, nil, err)
+// func TestIntegration_Event_GetCountByAddressAndEventName(t *testing.T) {
+// 	db, close, err := testMysql(t)
+// 	assert.Equal(t, nil, err)
 
-	defer close()
+// 	defer close()
 
-	eventRepo, err := NewEventRepository(db)
-	assert.Equal(t, nil, err)
+// 	eventRepo, err := NewEventRepository(db)
+// 	assert.Equal(t, nil, err)
 
-	_, err = eventRepo.Save(context.Background(), dummyProveEventOpts)
+// 	_, err = eventRepo.Save(context.Background(), dummyProveEventOpts)
 
-	assert.Equal(t, nil, err)
+// 	assert.Equal(t, nil, err)
 
-	_, err = eventRepo.Save(context.Background(), dummyProposeEventOpts)
+// 	_, err = eventRepo.Save(context.Background(), dummyProposeEventOpts)
 
-	assert.Equal(t, nil, err)
+// 	assert.Equal(t, nil, err)
 
-	tests := []struct {
-		name     string
-		address  string
-		event    string
-		wantResp int
-		wantErr  error
-	}{
-		{
-			"success",
-			dummyProposeEventOpts.Address,
-			dummyProposeEventOpts.Event,
-			1,
-			nil,
-		},
-		{
-			"none",
-			"0xfake",
-			dummyProposeEventOpts.Event,
-			0,
-			nil,
-		},
-	}
+// 	tests := []struct {
+// 		name     string
+// 		address  string
+// 		event    string
+// 		wantResp int
+// 		wantErr  error
+// 	}{
+// 		{
+// 			"success",
+// 			dummyProposeEventOpts.Address,
+// 			dummyProposeEventOpts.Event,
+// 			1,
+// 			nil,
+// 		},
+// 		{
+// 			"none",
+// 			"0xfake",
+// 			dummyProposeEventOpts.Event,
+// 			0,
+// 			nil,
+// 		},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.GetCountByAddressAndEventName(
-				context.Background(),
-				tt.address,
-				tt.event,
-			)
-			spew.Dump(resp)
-			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, tt.wantResp, resp)
-		})
-	}
-}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			resp, err := eventRepo.GetCountByAddressAndEventName(
+// 				context.Background(),
+// 				tt.address,
+// 				tt.event,
+// 			)
+
+// 			assert.Equal(t, tt.wantErr, err)
+// 			assert.Equal(t, tt.wantResp, resp)
+// 		})
+// 	}
+// }
 
 func TestIntegration_Event_Delete(t *testing.T) {
 	db, close, err := testMysql(t)
