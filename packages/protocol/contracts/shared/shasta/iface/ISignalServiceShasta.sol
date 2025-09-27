@@ -12,7 +12,7 @@ pragma solidity ^0.8.24;
 interface ISignalService {
 
     struct HopProof {
-        /// @notice Depreacted. Kept here for abi compatibility.
+        /// @notice Deprecated. Kept here for abi compatibility.
         /// @dev In a two chain message system, this is not needed.
         uint64 chainId;
         /// @notice The ID of a source chain block whose state root has been synced to the hop's
