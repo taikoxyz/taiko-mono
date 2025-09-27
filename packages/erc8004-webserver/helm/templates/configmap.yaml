@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "erc8004-webserver.fullname" . }}
+  labels:
+    {{- include "erc8004-webserver.labels" . | nindent 4 }}
+data:
+  server-host: {{ .Values.config.server.host | quote }}
+  server-port: {{ .Values.config.server.port | quote }}
+  agent-domain: {{ .Values.config.server.domain | quote }}
+  environment: {{ .Values.config.server.environment | quote }}
+  web3-provider: {{ .Values.config.blockchain.web3Provider | quote }}
+  chain-id: {{ .Values.config.blockchain.chainId | quote }}
+  contract-address: {{ .Values.config.blockchain.contractAddress | quote }}
+  cors-origins: "https://{{ .Values.config.server.domain }}"
+  rate-limit-enabled: {{ .Values.config.rateLimit.enabled | quote }}
+  rate-limit-public: {{ .Values.config.rateLimit.public | quote }}
+  rate-limit-authenticated: {{ .Values.config.rateLimit.authenticated | quote }}
+  data-path: {{ .Values.config.storage.dataPath | quote }}
+  ipfs-gateway: {{ .Values.config.storage.ipfsGateway | quote }}
+  max-upload-size: {{ .Values.config.storage.maxUploadSize | quote }}
+  metrics-enabled: {{ .Values.config.monitoring.enabled | quote }}
+  log-level: {{ .Values.config.monitoring.logLevel | quote }}
+  agent-card-cache-ttl: {{ .Values.config.cache.agentCardTTL | quote }}
+  feedback-list-cache-ttl: {{ .Values.config.cache.feedbackListTTL | quote }}
+  reputation-cache-ttl: {{ .Values.config.cache.reputationTTL | quote }}

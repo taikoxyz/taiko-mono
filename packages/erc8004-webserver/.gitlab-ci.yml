@@ -1,0 +1,306 @@
+# GitLab CI/CD Pipeline for ERC-8004 WebServer
+
+stages:
+  - test
+  - security
+  - build
+  - deploy-staging
+  - deploy-production
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  REGISTRY: $CI_REGISTRY
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  PYTHON_VERSION: "3.11"
+
+# Test stage
+test:
+  stage: test
+  image: python:${PYTHON_VERSION}
+  
+  services:
+    - postgres:15
+    - redis:7
+  
+  variables:
+    POSTGRES_DB: test_agent_db
+    POSTGRES_USER: test_user
+    POSTGRES_PASSWORD: postgres
+    DATABASE_URL: postgresql+asyncpg://test_user:postgres@postgres:5432/test_agent_db
+    REDIS_URL: redis://redis:6379
+    SECRET_KEY: test-secret-key
+    ENVIRONMENT: testing
+  
+  cache:
+    paths:
+      - ~/.cache/pip/
+  
+  before_script:
+    - cd packages/erc8004-webserver
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install pytest pytest-asyncio pytest-cov black flake8 mypy
+  
+  script:
+    # Linting
+    - flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
+    - flake8 app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    # Format check
+    - black --check app tests
+    
+    # Type checking
+    - mypy app --ignore-missing-imports
+    
+    # Run tests
+    - pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --junitxml=report.xml
+  
+  artifacts:
+    when: always
+    reports:
+      junit: packages/erc8004-webserver/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/erc8004-webserver/coverage.xml
+    paths:
+      - packages/erc8004-webserver/htmlcov/
+    expire_in: 30 days
+  
+  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+
+# Security scanning
+security:
+  stage: security
+  image: python:${PYTHON_VERSION}
+  
+  before_script:
+    - cd packages/erc8004-webserver
+    - pip install bandit safety
+  
+  script:
+    # Security linting
+    - bandit -r app -f json -o bandit-report.json || true
+    
+    # Dependency vulnerability check
+    - safety check --json --output safety-report.json || true
+    
+    # Container scanning will be done in build stage
+  
+  artifacts:
+    reports:
+      sast: packages/erc8004-webserver/bandit-report.json
+    paths:
+      - packages/erc8004-webserver/bandit-report.json
+      - packages/erc8004-webserver/safety-report.json
+    expire_in: 30 days
+  
+  allow_failure: true
+
+# Build stage
+build:
+  stage: build
+  image: docker:20.10.16
+  
+  services:
+    - docker:20.10.16-dind
+  
+  variables:
+    DOCKER_BUILDKIT: 1
+  
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  
+  script:
+    - cd packages/erc8004-webserver
+    
+    # Build image
+    - |
+      docker build \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --cache-from $IMAGE_NAME:latest \
+        --tag $IMAGE_NAME:$CI_COMMIT_SHA \
+        --tag $IMAGE_NAME:latest \
+        .
+    
+    # Push images
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHA
+    - docker push $IMAGE_NAME:latest
+    
+    # Security scan with Trivy
+    - |
+      docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+        -v $PWD:/workspace \
+        aquasecurity/trivy:latest image \
+        --format sarif \
+        --output /workspace/trivy-report.sarif \
+        $IMAGE_NAME:$CI_COMMIT_SHA
+  
+  artifacts:
+    reports:
+      sast: packages/erc8004-webserver/trivy-report.sarif
+    expire_in: 30 days
+  
+  only:
+    - main
+    - develop
+    - tags
+
+# Deploy to staging
+deploy-staging:
+  stage: deploy-staging
+  image: 
+    name: alpine/helm:3.12.0
+    entrypoint: ['']
+  
+  variables:
+    NAMESPACE: erc8004-staging
+    RELEASE_NAME: erc8004-staging
+    DOMAIN: erc8004-staging.taiko.xyz
+  
+  before_script:
+    - apk add --no-cache curl kubectl
+    - kubectl config use-context $CI_PROJECT_PATH:staging-cluster
+  
+  script:
+    - cd packages/erc8004-webserver
+    
+    # Deploy with Helm
+    - |
+      helm upgrade --install $RELEASE_NAME ./helm \
+        --namespace $NAMESPACE \
+        --create-namespace \
+        --values helm/values.yaml \
+        --set image.repository=$IMAGE_NAME \
+        --set image.tag=$CI_COMMIT_SHA \
+        --set config.server.domain=$DOMAIN \
+        --set config.blockchain.web3Provider="https://rpc.test.taiko.xyz" \
+        --set config.blockchain.chainId=167001 \
+        --wait --timeout=600s
+    
+    # Wait for deployment
+    - kubectl rollout status deployment/$RELEASE_NAME-webserver -n $NAMESPACE --timeout=300s
+    
+    # Smoke tests
+    - |
+      kubectl run smoke-test-$CI_PIPELINE_ID --rm -i --image=curlimages/curl \
+        --restart=Never -n $NAMESPACE -- \
+        curl -f http://$RELEASE_NAME-webserver/health
+    
+    - |
+      kubectl run agent-card-test-$CI_PIPELINE_ID --rm -i --image=curlimages/curl \
+        --restart=Never -n $NAMESPACE -- \
+        curl -f http://$RELEASE_NAME-webserver/.well-known/agent-card.json
+  
+  environment:
+    name: staging
+    url: https://$DOMAIN
+  
+  only:
+    - develop
+
+# Deploy to production
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine/helm:3.12.0
+    entrypoint: ['']
+  
+  variables:
+    NAMESPACE: erc8004-prod
+    RELEASE_NAME: erc8004
+    DOMAIN: agent.taiko.xyz
+  
+  before_script:
+    - apk add --no-cache curl kubectl
+    - kubectl config use-context $CI_PROJECT_PATH:production-cluster
+  
+  script:
+    - cd packages/erc8004-webserver
+    
+    # Run database migrations
+    - |
+      kubectl create job migrate-$CI_PIPELINE_ID \
+        --image=$IMAGE_NAME:$CI_COMMIT_SHA \
+        --namespace $NAMESPACE \
+        -- alembic upgrade head
+    
+    - kubectl wait --for=condition=complete job/migrate-$CI_PIPELINE_ID -n $NAMESPACE --timeout=300s
+    
+    # Deploy with Helm
+    - |
+      helm upgrade --install $RELEASE_NAME ./helm \
+        --namespace $NAMESPACE \
+        --create-namespace \
+        --values helm/values.prod.yaml \
+        --set image.repository=$IMAGE_NAME \
+        --set image.tag=$CI_COMMIT_TAG \
+        --wait --timeout=600s
+    
+    # Verify deployment
+    - kubectl rollout status deployment/$RELEASE_NAME-webserver -n $NAMESPACE --timeout=300s
+    
+    # Production health check
+    - |
+      kubectl run prod-health-check-$CI_PIPELINE_ID --rm -i --image=curlimages/curl \
+        --restart=Never -n $NAMESPACE -- \
+        curl -f -v https://$DOMAIN/health
+  
+  environment:
+    name: production
+    url: https://$DOMAIN
+  
+  when: manual
+  only:
+    - tags
+
+# Notification jobs
+.notify_template: &notify_template
+  image: alpine:latest
+  stage: .post
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - |
+      if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"text\": \"$SLACK_MESSAGE\",
+            \"channel\": \"#deployments\",
+            \"username\": \"GitLab CI\",
+            \"icon_emoji\": \"$SLACK_EMOJI\"
+          }" \
+          $SLACK_WEBHOOK_URL
+      fi
+
+notify_success:
+  <<: *notify_template
+  variables:
+    SLACK_MESSAGE: "✅ ERC-8004 WebServer deployment successful! Environment: $CI_ENVIRONMENT_NAME, Version: $CI_COMMIT_TAG"
+    SLACK_EMOJI: ":white_check_mark:"
+  when: on_success
+  dependencies:
+    - deploy-staging
+    - deploy-production
+
+notify_failure:
+  <<: *notify_template
+  variables:
+    SLACK_MESSAGE: "🚨 ERC-8004 WebServer deployment failed! Environment: $CI_ENVIRONMENT_NAME, Pipeline: $CI_PIPELINE_URL"
+    SLACK_EMOJI: ":x:"
+  when: on_failure
+  dependencies:
+    - deploy-staging
+    - deploy-production
+
+# Cleanup job
+cleanup:
+  stage: .post
+  image: 
+    name: alpine/helm:3.12.0
+    entrypoint: ['']
+  script:
+    - kubectl delete job migrate-$CI_PIPELINE_ID -n erc8004-staging --ignore-not-found=true
+    - kubectl delete job migrate-$CI_PIPELINE_ID -n erc8004-prod --ignore-not-found=true
+  when: always
+  allow_failure: true

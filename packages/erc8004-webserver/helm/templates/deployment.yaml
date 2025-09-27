@@ -1,0 +1,233 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "erc8004-webserver.fullname" . }}
+  labels:
+    {{- include "erc8004-webserver.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "erc8004-webserver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "erc8004-webserver.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "erc8004-webserver.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-postgresql
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "erc8004-webserver.postgresql.fullname" . }} 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+        - name: wait-for-redis
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "erc8004-webserver.redis.fullname" . }}-master 6379; do
+                echo "Waiting for Redis..."
+                sleep 2
+              done
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.server.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: server-host
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: server-port
+            - name: AGENT_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: agent-domain
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: environment
+            - name: WEB3_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: web3-provider
+            - name: CHAIN_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: chain-id
+            - name: CONTRACT_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: contract-address
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: cors-origins
+            - name: RATE_LIMIT_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: rate-limit-enabled
+            - name: RATE_LIMIT_PUBLIC
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: rate-limit-public
+            - name: RATE_LIMIT_AUTHENTICATED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: rate-limit-authenticated
+            - name: DATA_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: data-path
+            - name: IPFS_GATEWAY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: ipfs-gateway
+            - name: MAX_UPLOAD_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: max-upload-size
+            - name: METRICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: metrics-enabled
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: log-level
+            - name: AGENT_CARD_CACHE_TTL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: agent-card-cache-ttl
+            - name: FEEDBACK_LIST_CACHE_TTL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: feedback-list-cache-ttl
+            - name: REPUTATION_CACHE_TTL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: reputation-cache-ttl
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: redis-url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "erc8004-webserver.fullname" . }}
+                  key: secret-key
+          volumeMounts:
+            - name: agent-data
+              mountPath: /data/agent_data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: agent-data
+          persistentVolumeClaim:
+            claimName: {{ include "erc8004-webserver.fullname" . }}
+        {{- else }}
+        - name: agent-data
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
