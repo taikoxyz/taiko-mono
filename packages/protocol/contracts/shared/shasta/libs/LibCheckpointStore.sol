@@ -57,7 +57,6 @@ library LibCheckpointStore {
         if (checkpoint.stateRoot == bytes32(0)) revert CheckpointNotFound();
     }
 
-
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------

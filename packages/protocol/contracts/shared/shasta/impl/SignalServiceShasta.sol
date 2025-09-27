@@ -13,15 +13,13 @@ import "../iface/ISignalServiceShasta.sol";
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
-
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
-    
+
     /// @dev Address that can save checkpoints to this contract.
     /// @dev This is the `inbox` on L1 and the `anchor` on L2.
     address internal immutable _authorizedSyncer;
-
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
@@ -34,11 +32,10 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // - `authorized`
     uint256[2] private _slotsUsedByPacaya;
 
-    /// @dev Cache for received signals. 
+    /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
     mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
 
-    
     // ---------------------------------------------------------------
     // Post shasta storage variables
     // ---------------------------------------------------------------
@@ -52,8 +49,8 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
-    
-    constructor(address authorizedSyncer, address remoteSignalService)  {
+
+    constructor(address authorizedSyncer, address remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
@@ -67,7 +64,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         __Essential_init(_owner);
     }
 
-    
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
@@ -136,7 +132,10 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     }
 
     /// @inheritdoc ICheckpointStore
-    function saveCheckpoint(uint48 _blockNumber, Checkpoint calldata _checkpoint)
+    function saveCheckpoint(
+        uint48 _blockNumber,
+        Checkpoint calldata _checkpoint
+    )
         external
         override
     {
@@ -144,7 +143,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
 
         LibCheckpointStore.saveCheckpoint(_checkpointStorage, _blockNumber, _checkpoint);
     }
-
 
     /// @inheritdoc ICheckpointStore
     function getCheckpoint(uint48 _blockNumber)
@@ -159,7 +157,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-    
 
     function _sendSignal(
         address _app,

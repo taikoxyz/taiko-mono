@@ -161,10 +161,7 @@ contract LibProposeInputDecoderTest is Test {
             blobReference: blobReference,
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
             numForcedInclusions: 1
         });
 
@@ -286,10 +283,7 @@ contract LibProposeInputDecoderTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 0, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
             numForcedInclusions: 0
         });
 

@@ -78,7 +78,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -129,7 +128,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
-
 
     /// @notice Signal service responsible for checkpoints
     ICheckpointStore public immutable signalService;
@@ -673,7 +671,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
+    function _hashCheckpoint(
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
         internal
         pure
         virtual

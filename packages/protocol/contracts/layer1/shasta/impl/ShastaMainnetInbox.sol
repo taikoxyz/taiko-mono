@@ -25,7 +25,6 @@ contract ShastaMainnetInbox is InboxOptimized2 {
     ///                     = 2400
     uint64 private constant _RING_BUFFER_SIZE = 2400;
 
-
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
@@ -51,7 +50,7 @@ contract ShastaMainnetInbox is InboxOptimized2 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-            })
+             })
         )
     { }
 

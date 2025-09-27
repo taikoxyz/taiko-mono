@@ -52,10 +52,7 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             checkpointBlockNumber: endBlockNumber,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: endBlockHash,
-                stateRoot: endStateRoot
-            })
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: endBlockHash, stateRoot: endStateRoot })
         });
 
         // Create metadata array
@@ -91,10 +88,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Verify transition fields
         assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
         assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
-        assertEq(
-            decoded.transitions[0].checkpointBlockNumber,
-            transitions[0].checkpointBlockNumber
-        );
+        assertEq(decoded.transitions[0].checkpointBlockNumber, transitions[0].checkpointBlockNumber);
         assertEq(decoded.transitions[0].checkpoint.blockHash, transitions[0].checkpoint.blockHash);
         assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
 
@@ -164,8 +158,7 @@ contract LibProveInputDecoderFuzzTest is Test {
             assertEq(decoded.proposals[i].proposer, proposals[i].proposer);
             assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
             assertEq(
-                decoded.transitions[i].checkpointBlockNumber,
-                transitions[i].checkpointBlockNumber
+                decoded.transitions[i].checkpointBlockNumber, transitions[i].checkpointBlockNumber
             );
         }
     }

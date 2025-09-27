@@ -51,7 +51,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 0,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-            })
+             })
         )
     { }
 

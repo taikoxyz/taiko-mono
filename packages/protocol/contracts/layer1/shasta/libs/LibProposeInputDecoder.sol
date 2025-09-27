@@ -66,8 +66,7 @@ library LibProposeInputDecoder {
         // 6. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
         bool isEmpty = _input.checkpointBlockNumber == 0
-            && _input.checkpoint.blockHash == bytes32(0)
-            && _input.checkpoint.stateRoot == bytes32(0);
+            && _input.checkpoint.blockHash == bytes32(0) && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
         ptr = P.packUint8(ptr, isEmpty ? 0 : 1);

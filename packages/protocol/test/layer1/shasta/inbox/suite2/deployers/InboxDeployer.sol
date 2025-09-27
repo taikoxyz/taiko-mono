@@ -26,9 +26,8 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address codec = address(new CodecSimple());
-        address impl = address(
-            new TestInbox(codec, bondToken, signalService, proofVerifier, proposerChecker)
-        );
+        address impl =
+            address(new TestInbox(codec, bondToken, signalService, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
             deploy({

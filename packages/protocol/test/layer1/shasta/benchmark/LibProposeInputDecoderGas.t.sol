@@ -197,10 +197,8 @@ contract LibProposeInputDecoderGas is Test {
 
         // Add checkpoint if needed
         input.checkpointBlockNumber = 0;
-        input.checkpoint = ICheckpointStore.Checkpoint({
-            blockHash: bytes32(0),
-            stateRoot: bytes32(0)
-        });
+        input.checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) });
     }
 
     function _writeReport() private {

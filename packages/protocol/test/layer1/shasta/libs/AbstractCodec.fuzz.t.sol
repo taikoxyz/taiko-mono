@@ -33,10 +33,8 @@ abstract contract AbstractCodecFuzzTest is Test {
         public
         view
     {
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockHash: blockHash,
-            stateRoot: stateRoot
-        });
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot });
 
         bytes32 hash1 = codec.hashCheckpoint(blockNumber, checkpoint);
         bytes32 hash2 = codec.hashCheckpoint(blockNumber, checkpoint);
@@ -64,15 +62,11 @@ abstract contract AbstractCodecFuzzTest is Test {
             blockNumber1 != blockNumber2 || blockHash1 != blockHash2 || stateRoot1 != stateRoot2
         );
 
-        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockHash: blockHash1,
-            stateRoot: stateRoot1
-        });
+        ICheckpointStore.Checkpoint memory checkpoint1 =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash1, stateRoot: stateRoot1 });
 
-        ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockHash: blockHash2,
-            stateRoot: stateRoot2
-        });
+        ICheckpointStore.Checkpoint memory checkpoint2 =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash2, stateRoot: stateRoot2 });
 
         bytes32 hash1 = codec.hashCheckpoint(blockNumber1, checkpoint1);
         bytes32 hash2 = codec.hashCheckpoint(blockNumber2, checkpoint2);
@@ -165,10 +159,7 @@ abstract contract AbstractCodecFuzzTest is Test {
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             checkpointBlockNumber: blockNumber,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: blockHash,
-                stateRoot: stateRoot
-            })
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot })
         });
 
         bytes32 hash1 = codec.hashTransition(transition);
@@ -271,10 +262,7 @@ abstract contract AbstractCodecFuzzTest is Test {
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             checkpointBlockNumber: blockNumber,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: blockHash,
-                stateRoot: stateRoot
-            })
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot })
         });
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
@@ -307,10 +295,7 @@ abstract contract AbstractCodecFuzzTest is Test {
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             checkpointBlockNumber: blockNumber,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: blockHash,
-                stateRoot: stateRoot
-            })
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot })
         });
 
         // Single element array
@@ -434,15 +419,11 @@ abstract contract AbstractCodecFuzzTest is Test {
             blockNumber1 != blockNumber2 || blockHash1 != blockHash2 || stateRoot1 != stateRoot2
         );
 
-        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockHash: blockHash1,
-            stateRoot: stateRoot1
-        });
+        ICheckpointStore.Checkpoint memory checkpoint1 =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash1, stateRoot: stateRoot1 });
 
-        ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockHash: blockHash2,
-            stateRoot: stateRoot2
-        });
+        ICheckpointStore.Checkpoint memory checkpoint2 =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash2, stateRoot: stateRoot2 });
 
         bytes32 hash1 = codec.hashCheckpoint(blockNumber1, checkpoint1);
         bytes32 hash2 = codec.hashCheckpoint(blockNumber2, checkpoint2);

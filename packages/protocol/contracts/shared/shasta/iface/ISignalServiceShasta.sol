@@ -10,7 +10,6 @@ pragma solidity ^0.8.24;
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService {
-
     struct HopProof {
         /// @notice Deprecated. Kept here for abi compatibility.
         /// @dev In a two chain message system, this is not needed.
@@ -90,5 +89,4 @@ interface ISignalService {
     /// @notice Verifies if a particular signal has already been sent.
     /// @param _signalSlot The location in storage where this signal is stored.
     function isSignalSent(bytes32 _signalSlot) external view returns (bool);
-
 }

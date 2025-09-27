@@ -13,7 +13,10 @@ contract CheckpointStoreWrapper {
 
     LibCheckpointStore.Storage internal storage_;
 
-    function saveCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
+    function saveCheckpoint(
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
         external
     {
         storage_.saveCheckpoint(_blockNumber, _checkpoint);
@@ -90,8 +93,7 @@ contract LibCheckpointStoreTest is CommonTest {
         // Verify retrieval of each checkpoint
         for (uint48 i = 1; i <= numCheckpoints; i++) {
             uint48 blockNumber = i * 100;
-            ICheckpointStore.Checkpoint memory retrieved =
-                storage_.getCheckpoint(blockNumber);
+            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
             assertEq(retrieved.blockHash, bytes32(uint256(i)));
             assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }
@@ -103,10 +105,8 @@ contract LibCheckpointStoreTest is CommonTest {
 
     function test_revert_invalidCheckpoint_zeroStateRoot() public {
         uint48 blockNumber = 100;
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(0)
-        });
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: bytes32(uint256(1)), stateRoot: bytes32(0) });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
         wrapper.saveCheckpoint(blockNumber, checkpoint);
@@ -114,15 +114,12 @@ contract LibCheckpointStoreTest is CommonTest {
 
     function test_revert_invalidCheckpoint_zeroBlockHash() public {
         uint48 blockNumber = 100;
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockHash: bytes32(0),
-            stateRoot: bytes32(uint256(1))
-        });
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(uint256(1)) });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
         wrapper.saveCheckpoint(blockNumber, checkpoint);
     }
-
 
     function test_revert_getCheckpoint_notFound() public {
         vm.expectRevert(LibCheckpointStore.CheckpointNotFound.selector);
@@ -194,15 +191,12 @@ contract LibCheckpointStoreTest is CommonTest {
         vm.assume(blockHash != bytes32(0));
         vm.assume(stateRoot != bytes32(0));
 
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockHash: blockHash,
-            stateRoot: stateRoot
-        });
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot });
 
         storage_.saveCheckpoint(blockNumber, checkpoint);
 
-        ICheckpointStore.Checkpoint memory retrieved =
-            storage_.getCheckpoint(blockNumber);
+        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
         assertEq(retrieved.blockHash, blockHash);
         assertEq(retrieved.stateRoot, stateRoot);
     }
@@ -224,8 +218,7 @@ contract LibCheckpointStoreTest is CommonTest {
 
         // Verify all checkpoints are retrievable
         for (uint48 i = 1; i <= numCheckpoints; i++) {
-            ICheckpointStore.Checkpoint memory retrieved =
-                storage_.getCheckpoint(i * 100);
+            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(i * 100);
             assertEq(retrieved.blockHash, bytes32(uint256(i)));
             assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }

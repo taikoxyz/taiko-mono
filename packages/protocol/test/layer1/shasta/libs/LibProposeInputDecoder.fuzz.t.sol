@@ -51,10 +51,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
             numForcedInclusions: 0
         });
 
@@ -102,10 +99,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
             numForcedInclusions: 0
         });
 

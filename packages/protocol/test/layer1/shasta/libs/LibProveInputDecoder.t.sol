@@ -70,9 +70,7 @@ contract LibProveInputDecoderTest is Test {
             "Parent transition hash mismatch"
         );
         assertEq(
-            decoded.transitions[0].checkpointBlockNumber,
-            100,
-            "Checkpoint block number mismatch"
+            decoded.transitions[0].checkpointBlockNumber, 100, "Checkpoint block number mismatch"
         );
 
         // Verify metadata array

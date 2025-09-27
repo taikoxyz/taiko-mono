@@ -58,7 +58,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
 
-
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -69,7 +68,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
-
 
     /// @notice Storage gap for upgrade safety.
     uint256[46] private __gap;

@@ -318,18 +318,20 @@ contract DeployProtocolOnL1 is DeployCapability {
             );
         }
         address codec = address(new CodecOptimized());
-        address signalService = IResolver(_sharedResolver).resolve(
-            uint64(block.chainid), "signal_service", false
+        address signalService =
+            IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
+        address tempFork = address(
+            new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
         );
-        address tempFork =
-            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService));
+        address newFork = address(
+            new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+        );
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

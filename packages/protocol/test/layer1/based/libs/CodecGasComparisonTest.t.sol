@@ -427,7 +427,8 @@ contract CodecGasComparisonTest is Test {
     function test_hashUniqueness() external view {
         // Create modified test data
         ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
-        modifiedCheckpoint.blockHash = keccak256(abi.encodePacked(testCheckpoint.blockHash, "modified"));
+        modifiedCheckpoint.blockHash =
+            keccak256(abi.encodePacked(testCheckpoint.blockHash, "modified"));
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
         modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;

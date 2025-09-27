@@ -28,7 +28,10 @@ library LibHashSimple {
     /// @param _blockNumber The block number of the checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
+    function hashCheckpoint(
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
         internal
         pure
         returns (bytes32)

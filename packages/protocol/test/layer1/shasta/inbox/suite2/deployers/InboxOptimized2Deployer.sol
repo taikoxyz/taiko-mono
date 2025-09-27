@@ -27,9 +27,7 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
     {
         address codec = address(new CodecOptimized());
         address impl = address(
-            new TestInboxOptimized2(
-                codec, bondToken, signalService, proofVerifier, proposerChecker
-            )
+            new TestInboxOptimized2(codec, bondToken, signalService, proofVerifier, proposerChecker)
         );
 
         TestInboxOptimized2 inbox = TestInboxOptimized2(

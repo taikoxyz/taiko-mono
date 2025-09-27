@@ -39,8 +39,5 @@ interface ICheckpointStore {
     /// @notice Gets a checkpoint by its block number
     /// @param _blockNumber The block number associated with the checkpoint
     /// @return _ The checkpoint
-    function getCheckpoint(uint48 _blockNumber)
-        external
-        view
-        returns (Checkpoint memory);
+    function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory);
 }

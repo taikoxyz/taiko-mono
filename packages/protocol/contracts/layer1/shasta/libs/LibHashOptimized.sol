@@ -60,7 +60,10 @@ library LibHashOptimized {
     /// @dev Efficiently hashes the 3 main fields of a checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(uint48 _blockNumber, ICheckpointStore.Checkpoint memory _checkpoint)
+    function hashCheckpoint(
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
         internal
         pure
         returns (bytes32)
