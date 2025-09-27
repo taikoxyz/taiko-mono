@@ -200,13 +200,13 @@ contract LibProposeInputDecoderTest is Test {
             proposalId: 1,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1111),
-            receiver: address(0x2222)
+            payee: address(0x2222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 2,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x3333),
-            receiver: address(0x4444)
+            payee: address(0x4444)
         });
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);

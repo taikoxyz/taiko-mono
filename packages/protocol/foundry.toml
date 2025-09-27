@@ -1,6 +1,6 @@
 [profile.default]
 script = "script"
-gas_price = 10_000_000_000 # 10 Gwei
+gas_price = 10_000_000_000         # 10 Gwei
 gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
@@ -18,6 +18,8 @@ remappings = [
     "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
     "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
     "@solady/=node_modules/solady/",
+    "solady/src/=node_modules/solady/src/",
+    "solady/utils/=node_modules/solady/src/utils/",
     "@optimism/=node_modules/optimism/",
     "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
     "forge-std/=node_modules/forge-std/",
@@ -58,7 +60,6 @@ number_underscore = "thousands"
 wrap_comments = true
 
 [lint]
-# ... rest of lint config ...
 exclude_lints = [
     "asm-keccak256",
     "unaliased-plain-import",
@@ -66,10 +67,8 @@ exclude_lints = [
     "mixed-case-variable",
     "screaming-snake-case-const",
     "screaming-snake-case-immutable",
-    "pascal-case-struct"
+    "pascal-case-struct",
 ]
-
-
 
 [profile.layer1]
 src = "contracts/layer1"
@@ -82,9 +81,7 @@ src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
-optimizer = true
-optimizer_runs = 800
-yul = true
+via_ir = true
 
 [profile.layer2]
 src = "contracts/layer2"

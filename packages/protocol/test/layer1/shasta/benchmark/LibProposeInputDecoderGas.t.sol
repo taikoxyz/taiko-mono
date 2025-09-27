@@ -182,7 +182,7 @@ contract LibProposeInputDecoderGas is Test {
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
-                    receiver: address(uint160(0xbbbb + bondIndex))
+                    payee: address(uint160(0xbbbb + bondIndex))
                 });
                 bondIndex++;
             }

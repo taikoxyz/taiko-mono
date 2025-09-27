@@ -34,7 +34,7 @@ contract LibProvedEventEncoderTest is Test {
             proposalId: 5,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x9ABC),
-            receiver: address(0xDEF0)
+            payee: address(0xDEF0)
         });
 
         IInbox.TransitionRecord memory transitionRecord = IInbox.TransitionRecord({
@@ -137,19 +137,19 @@ contract LibProvedEventEncoderTest is Test {
             proposalId: 1,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1111),
-            receiver: address(0x2222)
+            payee: address(0x2222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 2,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x3333),
-            receiver: address(0x4444)
+            payee: address(0x4444)
         });
         bondInstructions[2] = LibBonds.BondInstruction({
             proposalId: 3,
             bondType: LibBonds.BondType.NONE,
             payer: address(0x5555),
-            receiver: address(0x6666)
+            payee: address(0x6666)
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({

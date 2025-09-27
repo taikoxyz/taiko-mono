@@ -51,6 +51,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		},
 	}))
 	s.d = d
+	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init calldata syncer
 	testState, err := state.New(context.Background(), s.RPCClient)
@@ -61,6 +62,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		testState,
 		tracker,
 		nil,
@@ -124,11 +126,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.proposer = prop
+	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
+	handler := NewBatchesProvedEventHandler(s.RPCClient, s.ShastaStateIndexer, proofRequestBodyCh)
 
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(m.IsPacaya())

@@ -8,6 +8,7 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 /// @notice Test wrapper for Inbox contract with configurable behavior
 contract TestInbox is Inbox {
     constructor(
+        address codec,
         address bondToken,
         address signalService,
         address proofVerifier,
@@ -15,6 +16,7 @@ contract TestInbox is Inbox {
     )
         Inbox(
             IInbox.Config({
+                codec: codec,
                 bondToken: bondToken,
                 signalService: signalService,
                 proofVerifier: proofVerifier,

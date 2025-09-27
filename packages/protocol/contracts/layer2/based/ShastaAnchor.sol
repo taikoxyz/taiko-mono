@@ -25,7 +25,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Stores the current state of an anchor proposal being processed.
     /// @dev This state is updated incrementally as each block in a proposal is processed.
     struct State {
-        bytes32 bondInstructionsHash; // Cumulative hash of all bond instructions processed
+        bytes32 bondInstructionsHash; // Latest known bond instructions hash
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
@@ -118,7 +118,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proposalId Unique identifier of the proposal being anchored.
     /// @param _proposer Address of the entity that proposed this batch of blocks.
     /// @param _proverAuth Encoded ProverAuth for prover designation (empty after block 0).
-    /// @param _bondInstructionsHash Expected cumulative hash after processing instructions.
+    /// @param _bondInstructionsHash Bond instructions hash in the (-BOND_PROCESSING_DELAY) ancestor
+    /// proposal. This value must be zero if _proposalId <= BOND_PROCESSING_DELAY.
     /// @param _bondInstructions Bond credit instructions to process for this block.
     /// @param _blockIndex Current block index within the proposal (0-based).
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
@@ -167,6 +168,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 bondManager.debitBond(_proposer, proverFee);
                 bondManager.creditBond(newState_.designatedProver, proverFee);
             }
+
+            // Process bond instructions with hash verification and assign atomically
+            newState_.bondInstructionsHash =
+                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
         }
 
         // Process new L1 anchor data
@@ -180,12 +185,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 })
             );
 
-            // Process bond instructions with hash verification
-            bytes32 newBondInstructionsHash =
-                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
-
             // Update state atomically
-            newState_.bondInstructionsHash = newBondInstructionsHash;
             newState_.anchorBlockNumber = _anchorBlockNumber;
         }
 
@@ -355,7 +355,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             // Transfer bond from payer to receiver
             if (bond != 0) {
                 uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
-                bondManager.creditBond(instruction.receiver, bondDebited);
+                bondManager.creditBond(instruction.payee, bondDebited);
             }
 
             // Update cumulative hash

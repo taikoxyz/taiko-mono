@@ -35,8 +35,8 @@ import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { DevnetShastaInbox } from "src/layer1/shasta/impl/DevnetShastaInbox.sol";
-import { InboxHelper } from "src/layer1/shasta/impl/InboxHelper.sol";
+import { ShastaDevnetInbox } from "src/layer1/shasta/impl/ShastaDevnetInbox.sol";
+import { CodecOptimized } from "src/layer1/shasta/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -278,6 +278,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
+        address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -290,11 +291,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
+
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
+        PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken =
             IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
@@ -314,20 +317,19 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address helper = address(new InboxHelper());
+        address codec = address(new CodecOptimized());
         address signalService = IResolver(_sharedResolver).resolve(
             uint64(block.chainid), "signal_service", false
         );
         address tempFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, signalService, helper));
+            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address newFork =
-            address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken, signalService, helper));
+        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

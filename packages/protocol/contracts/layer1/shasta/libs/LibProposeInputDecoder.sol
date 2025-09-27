@@ -197,7 +197,7 @@ library LibProposeInputDecoder {
         newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
         newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
+        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payee);
     }
 
     /// @notice Decode a single Proposal
@@ -251,7 +251,7 @@ library LibProposeInputDecoder {
         bondInstruction_.bondType = LibBonds.BondType(bondType);
 
         (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
-        (bondInstruction_.receiver, newPtr_) = P.unpackAddress(newPtr_);
+        (bondInstruction_.payee, newPtr_) = P.unpackAddress(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
