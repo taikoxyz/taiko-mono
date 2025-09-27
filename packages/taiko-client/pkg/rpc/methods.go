@@ -1449,7 +1449,7 @@ func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBinding
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxHelper.HashProposal(opts, *proposal)
+	return c.ShastaClients.InboxCodec.HashProposal(opts, *proposal)
 }
 
 // HashTransitionShasta hashes the transition by Shasta Inbox helper contract.
@@ -1461,7 +1461,7 @@ func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.II
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxHelper.HashTransition(opts, *ts)
+	return c.ShastaClients.InboxCodec.HashTransition(opts, *ts)
 }
 
 // EncodeProveInput encodes the prove method input by Shasta Inbox helper contract.
@@ -1473,7 +1473,7 @@ func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IIn
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxHelper.EncodeProveInput(opts, *input)
+	return c.ShastaClients.InboxCodec.EncodeProveInput(opts, *input)
 }
 
 // EncodeProposeInput encodes the propose method input by Shasta Inbox helper contract.
@@ -1485,7 +1485,7 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxHelper.EncodeProposeInput(opts, *input)
+	return c.ShastaClients.InboxCodec.EncodeProposeInput(opts, *input)
 }
 
 // DecodeProposeInput decodes the propose method input by Shasta Inbox helper contract.
@@ -1497,7 +1497,7 @@ func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBi
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	input, err := c.ShastaClients.InboxHelper.DecodeProposeInput(opts, data)
+	input, err := c.ShastaClients.InboxCodec.DecodeProposeInput(opts, data)
 	if err != nil {
 		return nil, err
 	}
@@ -1514,7 +1514,7 @@ func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBind
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	input, err := c.ShastaClients.InboxHelper.DecodeProveInput(opts, data)
+	input, err := c.ShastaClients.InboxCodec.DecodeProveInput(opts, data)
 	if err != nil {
 		return nil, err
 	}
@@ -1534,7 +1534,7 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	payload, err := c.ShastaClients.InboxHelper.DecodeProvedEvent(opts, data)
+	payload, err := c.ShastaClients.InboxCodec.DecodeProvedEvent(opts, data)
 	if err != nil {
 		return nil, err
 	}
@@ -1554,7 +1554,7 @@ func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	payload, err := c.ShastaClients.InboxHelper.DecodeProposedEvent(opts, data)
+	payload, err := c.ShastaClients.InboxCodec.DecodeProposedEvent(opts, data)
 	if err != nil {
 		return nil, err
 	}

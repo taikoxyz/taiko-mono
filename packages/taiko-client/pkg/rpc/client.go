@@ -37,10 +37,10 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox       *shastaBindings.ShastaInboxClient
-	InboxHelper *shastaBindings.InboxHelperClient
-	Anchor      *shastaBindings.ShastaAnchor
-	ForkHeight  *big.Int
+	Inbox      *shastaBindings.ShastaInboxClient
+	InboxCodec *shastaBindings.CodecOptimizedClient
+	Anchor     *shastaBindings.ShastaAnchor
+	ForkHeight *big.Int
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -282,20 +282,20 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		return fmt.Errorf("failed to get shasta fork height: %w", err)
 	}
 
-	inboxHelperAddress, err := shastaInbox.Helper(&bind.CallOpts{Context: ctx})
+	config, err := shastaInbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get inbox helper address: %w", err)
+		return fmt.Errorf("failed to get shasta inbox config: %w", err)
 	}
-	inboxHelper, err := shastaBindings.NewInboxHelperClient(inboxHelperAddress, c.L1)
+	inboxCodec, err := shastaBindings.NewCodecOptimizedClient(config.Codec, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxHelperClient: %w", err)
 	}
 
 	c.ShastaClients = &ShastaClients{
-		Inbox:       shastaInbox,
-		InboxHelper: inboxHelper,
-		Anchor:      shastaAnchor,
-		ForkHeight:  new(big.Int).SetUint64(shastaForkHeight),
+		Inbox:      shastaInbox,
+		InboxCodec: inboxCodec,
+		Anchor:     shastaAnchor,
+		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
 	}
 
 	return nil
