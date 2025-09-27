@@ -1,0 +1,19 @@
+[package]
+name = "taiko-proposer"
+version = "0.1.0"
+description = "Proposer implementation for Taiko protocol"
+
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true, default-features = false }
+alloy-rpc-types-engine = { workspace = true, default-features = false }
+clap = { workspace = true, features = ["derive", "env"] }
+url = { workspace = true }
+thiserror = { workspace = true, default-features = false }
+anyhow = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["full"] }
