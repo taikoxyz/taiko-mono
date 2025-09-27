@@ -82,6 +82,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The maximum number of checkpoints to store in ring buffer.
     uint16 internal immutable _maxCheckpointHistory;
 
+    /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
+    /// becomes permissionless
+    uint8 internal immutable _permissionlessInclusionMultiplier;
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -163,6 +167,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _maxCheckpointHistory = _config.maxCheckpointHistory;
+        _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
     }
 
     // ---------------------------------------------------------------
@@ -199,10 +204,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp =
-                _proposerChecker.checkProposer(msg.sender, _lookahead);
-
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
 
@@ -215,50 +216,27 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             CoreState memory coreState = _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the
-            // ring buffer
+            // deplete the ring buffer
             coreState.nextProposalBlockId = uint48(block.number + 1);
 
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            // Add forced inclusions as derivation sources
-            uint256 sourceCount = 1;
-            IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
-            if (input.numForcedInclusions > 0) {
-                forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
-                    _forcedInclusionStorage, msg.sender, input.numForcedInclusions
-                );
-                sourceCount += forcedInclusions.length;
+            (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
+                _createDerivationSources(input);
+
+            // If there was a forced inclusion, and it was too old, allow anyone to propose(and
+            // endOfSubmissionWindowTimestamp = 0).
+            // Otherwise, only the current preconfer can propose.
+            uint48 endOfSubmissionWindowTimestamp;
+            if (
+                block.timestamp
+                    <= oldestForcedInclusionTimestamp
+                        + _forcedInclusionDelay * _permissionlessInclusionMultiplier
+            ) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
-
-            // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
-            // none remains in the queue that is due.
-            require(
-                (forcedInclusions.length >= _minForcedInclusionCount)
-                    || !LibForcedInclusion.isOldestForcedInclusionDue(
-                        _forcedInclusionStorage, _forcedInclusionDelay
-                    ),
-                UnprocessedForcedInclusionIsDue()
-            );
-
-            // Create sources array and populate it
-            DerivationSource[] memory sources = new DerivationSource[](sourceCount);
-
-            uint256 index;
-            // Add forced inclusion sources first
-            for (; index < forcedInclusions.length; ++index) {
-                sources[index] = DerivationSource({
-                    isForcedInclusion: true,
-                    blobSlice: forcedInclusions[index].blobSlice
-                });
-            }
-
-            // Add normal proposal source last
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
-
-            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
             // Create single proposal with multi-source derivation
             _propose(coreState, sources, endOfSubmissionWindowTimestamp);
@@ -360,7 +338,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 
@@ -800,6 +779,60 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _emitProposedEvent(proposal, derivation, _coreState);
     }
 
+    /// @dev Creates derivation sources array from forced inclusions and regular proposal
+    /// @notice Processes forced inclusions and creates a unified sources array for derivation
+    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
+    /// @return sources Array of derivation sources with forced inclusions first, then regular
+    /// proposal
+    /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
+    /// processed. type(uint48).max if there are no forced inclusions.
+    function _createDerivationSources(ProposeInput memory _input)
+        private
+        returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
+    {
+        // Add forced inclusions as derivation sources
+        uint256 sourceCount = 1;
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+
+        if (_input.numForcedInclusions > 0) {
+            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            );
+            sourceCount += forcedInclusions.length;
+            oldestForcedInclusionTimestamp = forcedInclusions[0].blobSlice.timestamp;
+        } else {
+            oldestForcedInclusionTimestamp = type(uint48).max;
+        }
+
+        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
+        // processed
+        // or none in the queue is due.
+        require(
+            (_input.numForcedInclusions >= _minForcedInclusionCount)
+                || !LibForcedInclusion.isOldestForcedInclusionDue(
+                    _forcedInclusionStorage, _forcedInclusionDelay
+                ),
+            UnprocessedForcedInclusionIsDue()
+        );
+
+        // Create sources array and populate it
+        sources = new DerivationSource[](sourceCount);
+
+        uint256 index;
+        // Add forced inclusion sources first
+        for (; index < forcedInclusions.length; ++index) {
+            sources[index] = DerivationSource({
+                isForcedInclusion: true,
+                blobSlice: forcedInclusions[index].blobSlice
+            });
+        }
+
+        // Add normal proposal source last
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
+
+        sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+    }
+
     /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data
     /// @param _derivation The derivation data
@@ -986,6 +1019,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         LibBonds.BondInstruction[] memory _instructions
     )
         private
+        pure
     {
         if (_instructions.length == 0) return;
 
