@@ -9,7 +9,7 @@ import { ShastaDevnetInbox } from "contracts/layer1/shasta/impl/ShastaDevnetInbo
 import "test/shared/DeployCapability.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "test/layer1/shasta/inbox/suite2/mocks/MockContracts.sol";
-import { CodecSimple } from "contracts/layer1/shasta/impl/CodecSimple.sol";
+import { CodecOptimized } from "src/layer1/shasta/impl/CodecOptimized.sol";
 
 contract UpgradeShastaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -45,7 +45,7 @@ contract UpgradeShastaL1 is DeployCapability {
         );
 
         address oldFork = PacayaForkRouter(inbox).newFork();
-        address codec = address(new CodecSimple());
+        address codec = address(new CodecOptimized());
         address tempFork =
             address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
 
