@@ -15,6 +15,7 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -28,6 +29,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
+    using LibMath for uint48;
 
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline
@@ -793,13 +795,17 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Add forced inclusions as derivation sources
         uint256 sourceCount = 1;
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+        // We need to capture the last processed timestamp before consuming the forced inclusions
+        uint48 lastProcessedAt = _forcedInclusionStorage.lastProcessedAt;
 
         if (_input.numForcedInclusions > 0) {
             forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
             sourceCount += forcedInclusions.length;
-            oldestForcedInclusionTimestamp = forcedInclusions[0].blobSlice.timestamp;
+            oldestForcedInclusionTimestamp = uint48(
+                forcedInclusions[0].blobSlice.timestamp.max(lastProcessedAt)
+            );
         } else {
             oldestForcedInclusionTimestamp = type(uint48).max;
         }
