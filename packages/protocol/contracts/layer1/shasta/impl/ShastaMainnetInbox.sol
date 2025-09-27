@@ -47,9 +47,9 @@ contract ShastaMainnetInbox is InboxOptimized2 {
                 maxFinalizationCount: 16,
                 finalizationGracePeriod: 768 seconds,
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 0,
+                basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 100,
+                forcedInclusionDelay: 768, // 2 Ethereum epochs
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
             })

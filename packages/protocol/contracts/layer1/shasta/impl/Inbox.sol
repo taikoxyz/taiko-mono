@@ -4,17 +4,18 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { IInbox } from "../iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -28,6 +29,7 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline
@@ -74,7 +76,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 internal immutable _forcedInclusionDelay;
+    uint48 internal immutable _forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
@@ -199,66 +201,21 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            // Validate proposer
-            uint48 endOfSubmissionWindowTimestamp =
-                _proposerChecker.checkProposer(msg.sender, _lookahead);
-
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
-
             _validateProposeInput(input);
 
             // Verify parentProposals[0] is actually the last proposal stored on-chain.
             _verifyChainHead(input.parentProposals);
 
+            uint48 endOfSubmissionWindowTimestamp =
+                _validateForcedInclusionRequirements(_lookahead, input);
+
+            DerivationSource[] memory sources = _createDerivationSources(input);
+
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
-
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the
-            // ring buffer
-            coreState.nextProposalBlockId = uint48(block.number + 1);
-
-            // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
-
-            // Add forced inclusions as derivation sources
-            uint256 sourceCount = 1;
-            IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
-            if (input.numForcedInclusions > 0) {
-                forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
-                    _forcedInclusionStorage, msg.sender, input.numForcedInclusions
-                );
-                sourceCount += forcedInclusions.length;
-            }
-
-            // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
-            // none remains in the queue that is due.
-            require(
-                (forcedInclusions.length >= _minForcedInclusionCount)
-                    || !LibForcedInclusion.isOldestForcedInclusionDue(
-                        _forcedInclusionStorage, _forcedInclusionDelay
-                    ),
-                UnprocessedForcedInclusionIsDue()
-            );
-
-            // Create sources array and populate it
-            DerivationSource[] memory sources = new DerivationSource[](sourceCount);
-
-            uint256 index;
-            // Add forced inclusion sources first
-            for (; index < forcedInclusions.length; ++index) {
-                sources[index] = DerivationSource({
-                    isForcedInclusion: true,
-                    blobSlice: forcedInclusions[index].blobSlice
-                });
-            }
-
-            // Add normal proposal source last
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
-
-            sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
             // Create single proposal with multi-source derivation
             _propose(coreState, sources, endOfSubmissionWindowTimestamp);
@@ -300,10 +257,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei,
-            _blobReference
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 
@@ -312,10 +266,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, _forcedInclusionDelay
-        );
+    function getOldestInclusionEffectiveTimestamp() external view returns (uint48) {
+        return LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -786,6 +738,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             sources: _derivationSources
         });
 
+        // Enforce one propose call per Ethereum block to prevent spam attacks that could
+        // deplete the ring buffer
+        _coreState.nextProposalBlockId = uint48(block.number + 1);
+
         // Increment nextProposalId (nextProposalBlockId was already set in propose())
         Proposal memory proposal = Proposal({
             id: _coreState.nextProposalId++,
@@ -931,6 +887,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bool _hasTransitionRecord
     )
         private
+        view
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
@@ -968,7 +925,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
-        _processBondInstructions(_coreState, _transitionRecord.bondInstructions);
+        _coreState.bondInstructionsHash = _aggregateBondInstructions(
+            _coreState.bondInstructionsHash, _transitionRecord.bondInstructions
+        );
 
         // Validate and calculate next proposal ID
         require(_transitionRecord.span > 0, InvalidSpan());
@@ -978,21 +937,98 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return (true, nextProposalId_);
     }
 
-    /// @dev Processes bond instructions and updates aggregated hash
-    /// @param _coreState Core state with bond instructions hash to update
+    /// @dev Aggregate bond instructions to hash
+    /// @param _bondInstructionsHash Current aggregated bond instructions hash
     /// @param _instructions Array of bond transfer instructions to aggregate
-    function _processBondInstructions(
-        CoreState memory _coreState,
+    /// @return newBondInstructionsHash_ Updated aggregated bond instructions hash
+    function _aggregateBondInstructions(
+        bytes32 _bondInstructionsHash,
         LibBonds.BondInstruction[] memory _instructions
     )
         private
+        pure
+        returns (bytes32 newBondInstructionsHash_)
     {
-        if (_instructions.length == 0) return;
-
+        newBondInstructionsHash_ = _bondInstructionsHash;
         for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash =
-                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
+            newBondInstructionsHash_ =
+                LibBonds.aggregateBondInstruction(newBondInstructionsHash_, _instructions[i]);
         }
+    }
+
+    /// @dev Validates forced inclusion requirements and determines submission window timestamp
+    /// @notice Checks if forced inclusions are due and validates proposer permissions
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
+    /// @param _input The ProposeInput containing numForcedInclusions
+    /// @return endOfSubmissionWindowTimestamp The timestamp when submission window ends (0 if no
+    /// restriction)
+    function _validateForcedInclusionRequirements(
+        bytes calldata _lookahead,
+        ProposeInput memory _input
+    )
+        private
+        returns (uint48 endOfSubmissionWindowTimestamp)
+    {
+        unchecked {
+            uint256 oldestForcedInclusionTimestamp =
+                LibForcedInclusion.getOldestInclusionEffectiveTimestamp(_forcedInclusionStorage);
+
+            if (block.timestamp > oldestForcedInclusionTimestamp + _forcedInclusionDelay) {
+                // Ensure the proposer is willing to process at least _minForcedInclusionCount
+                // forced inclusions if the oldest forced inclusion is due.
+                // The actual number of forced inclusions may be less, so we validate against
+                // input.numForcedInclusions
+                require(
+                    _input.numForcedInclusions >= _minForcedInclusionCount,
+                    UnprocessedForcedInclusionIsDue()
+                );
+            }
+            // If the time elapsed since the oldest forced inclusion's effective timestamp
+            // exceeds twice the forced inclusion delay, any address is allowed to propose.
+            // Otherwise, the permission of msg.sender must be verified.
+            if (block.timestamp <= oldestForcedInclusionTimestamp + _forcedInclusionDelay * 2) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+            }
+        }
+    }
+
+    /// @dev Creates derivation sources array from forced inclusions and regular proposal
+    /// @notice Processes forced inclusions and creates a unified sources array for derivation
+    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
+    /// @return sources Array of derivation sources with forced inclusions first, then regular
+    /// proposal
+    function _createDerivationSources(ProposeInput memory _input)
+        private
+        returns (DerivationSource[] memory sources)
+    {
+        // Add forced inclusions as derivation sources
+        uint256 sourceCount = 1;
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+
+        if (_input.numForcedInclusions > 0) {
+            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            );
+            sourceCount += forcedInclusions.length;
+        }
+
+        // Create sources array and populate it
+        sources = new DerivationSource[](sourceCount);
+
+        uint256 index;
+        // Add forced inclusion sources first
+        for (; index < forcedInclusions.length; ++index) {
+            sources[index] = DerivationSource({
+                isForcedInclusion: true,
+                blobSlice: forcedInclusions[index].blobSlice
+            });
+        }
+
+        // Add normal proposal source last
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
+
+        sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
     }
 }
 
