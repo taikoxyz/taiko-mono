@@ -178,6 +178,10 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
                 bondManager.debitBond(_proposer, proverFee);
                 bondManager.creditBond(newState_.designatedProver, proverFee);
             }
+
+            // Process bond instructions with hash verification and assign atomically
+            newState_.bondInstructionsHash =
+                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
         }
 
         // Process new L1 anchor data
@@ -193,12 +197,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
                 maxCheckpointHistory
             );
 
-            // Process bond instructions with hash verification
-            bytes32 newBondInstructionsHash =
-                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
-
             // Update state atomically
-            newState_.bondInstructionsHash = newBondInstructionsHash;
             newState_.anchorBlockNumber = _anchorBlockNumber;
         }
 
