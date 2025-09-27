@@ -803,9 +803,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
             sourceCount += forcedInclusions.length;
-            oldestForcedInclusionTimestamp = uint48(
-                forcedInclusions[0].blobSlice.timestamp.max(lastProcessedAt)
-            );
+            oldestForcedInclusionTimestamp =
+                uint48(forcedInclusions[0].blobSlice.timestamp.max(lastProcessedAt));
         } else {
             oldestForcedInclusionTimestamp = type(uint48).max;
         }
