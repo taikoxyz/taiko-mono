@@ -9,3 +9,6 @@ serde = { version = "1.0", features = ["derive"] }
 
 [lib]
 doctest = false
+
+[lints]
+rust.warnings = "allow"
