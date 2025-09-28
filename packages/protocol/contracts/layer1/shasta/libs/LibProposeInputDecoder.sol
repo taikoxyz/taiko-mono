@@ -36,7 +36,7 @@ library LibProposeInputDecoder {
 
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _input.coreState.nextProposalBlockId);
+        ptr = P.packUint48(ptr, _input.coreState.lastProposalBlockId);
         ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
@@ -91,7 +91,7 @@ library LibProposeInputDecoder {
 
         // 2. Decode CoreState
         (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
