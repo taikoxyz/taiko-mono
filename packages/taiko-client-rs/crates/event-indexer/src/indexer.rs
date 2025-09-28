@@ -17,7 +17,8 @@ use bindings::{
             TransitionRecord,
         },
     },
-    i_inbox::IInbox::{self, Proposed, Proved},
+    i_inbox::IInbox::{Proposed, Proved},
+    shasta_mainnet_inbox::ShastaMainnetInbox,
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, event_scanner::EventScanner};
@@ -108,8 +109,11 @@ impl ShastaEventIndexer {
             }
         };
 
-        let inbox = IInbox::new(inbox_address, provider.clone());
+        debug!(?inbox_address, "fetching inbox contract configuration");
+
+        let inbox = ShastaMainnetInbox::new(inbox_address, provider.clone());
         let inbox_config = inbox.getConfig().call().await?;
+        info!(?inbox_config, "fetched inbox contract configuration");
         let ring_buffer_size = inbox_config.ringBufferSize.to();
         let max_finalization_count = inbox_config.maxFinalizationCount.to();
         let finalization_grace_period = inbox_config.finalizationGracePeriod.to();
@@ -376,7 +380,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, str::FromStr};
+    use std::{env, str::FromStr, sync::OnceLock};
 
     use super::*;
     use alloy::{
@@ -398,15 +402,28 @@ mod tests {
         i_inbox::IInbox::IInboxInstance,
     };
 
+    fn init_tracing() {
+        static INIT: OnceLock<()> = OnceLock::new();
+
+        INIT.get_or_init(|| {
+            let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
+            let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
+        });
+    }
+
     struct TestSetup {
         indexer: Arc<ShastaEventIndexer>,
         inbox: IInboxInstance<RootProvider>,
     }
 
-    async fn setup_indexer() -> anyhow::Result<TestSetup> {
+    async fn setup() -> anyhow::Result<TestSetup> {
+        init_tracing();
         let provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
             .with_recommended_fillers()
             .connect_http(Url::from_str(&env::var("L1_HTTP")?)?);
+
+        info!(url = %env::var("L1_WS")?, "connected to L1 WS provider");
 
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
@@ -461,7 +478,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox: _inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox: _inbox } = setup().await?;
 
         let binding_payload = CodecProposedEventPayload {
             proposal: proposal_with_id(1),
@@ -485,7 +502,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proved_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox: _inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox: _inbox } = setup().await?;
 
         let checkpoint = Checkpoint {
             blockNumber: U48::from(0u64),
@@ -533,7 +550,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox } = setup().await?;
         indexer.clone().spawn();
         let input = indexer.read_shasta_propose_input();
         assert_eq!(true, input.is_none());
