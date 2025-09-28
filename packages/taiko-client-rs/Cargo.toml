@@ -1,0 +1,30 @@
+[workspace]
+members = ["crates/bindings", "crates/event-indexer"]
+resolver = "2"
+
+[workspace.dependencies]
+alloy = "1.0.36"
+alloy-primitives = { version = "1.0.36", default-features = false }
+alloy-provider = { version = "1.0.36", default-features = false }
+alloy-rpc-types = { version = "1.0.36", default-features = false }
+alloy-rpc-client = { version = "1.0.36", default-features = false }
+alloy-rpc-types-engine = { version = "1.0.36", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.36", default-features = false }
+alloy-transport = { version = "1.0.36", default-features = false }
+alloy-transport-http = { version = "1.0.36", default-features = false }
+alloy-contract = { version = "1.0.36", default-features = false }
+alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
+  "json",
+] }
+alloy-sol-types = { version = "1.0.36", default-features = false }
+alloy-signer-local = { version = "1.0.36", default-features = false }
+alloy-network = { version = "1.0.36", default-features = false }
+alloy-consensus = { version = "1.0.36", default-features = false, features = [
+] }
+async-trait = "0.1"
+anyhow = "1"
+event-scanner = "0.1.0-alpha.2"
+dashmap = "6.1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tracing = "0.1"

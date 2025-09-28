@@ -1,0 +1,21 @@
+[package]
+name = "event-indexer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bindings = { path = "../bindings" }
+alloy = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-sol-macro = { workspace = true, features = ["json"] }
+alloy-sol-types = { workspace = true }
+async-trait = { workspace = true }
+anyhow = { workspace = true }
+event-scanner = { workspace = true }
+dashmap = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
