@@ -50,6 +50,8 @@ abstract contract BaseVault is
     /// @return The name of the vault.
     function name() public pure virtual returns (bytes32);
 
+    /// @dev Ensures the message was sent by this vault on the source chain via Bridge.
+    /// Resolves this vault's address on the source chain and compares with ctx.from.
     function checkProcessMessageContext()
         internal
         view
@@ -61,6 +63,8 @@ abstract contract BaseVault is
         if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
+    /// @dev Ensures the recall message was initiated by this vault on the source chain via Bridge.
+    /// Resolves this vault's address on the source chain and compares with ctx.from.
     function checkRecallMessageContext()
         internal
         view
@@ -68,7 +72,8 @@ abstract contract BaseVault is
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
-        if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+        address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
+        if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
     function checkToAddressOnDestChain(address _to) internal view {
