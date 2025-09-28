@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use alloy::{
     eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent,
@@ -21,6 +21,7 @@ use bindings::{
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, event_scanner::EventScanner};
+use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -134,7 +135,7 @@ impl ShastaEventIndexer {
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
     #[instrument(skip(self), err)]
-    pub async fn run(&mut self) -> Result<()> {
+    async fn run_inner(self: Arc<Self>) -> Result<()> {
         let mut event_scanner = match &self.config.l1_subscription_source {
             SubscriptionSource::Ipc(path) => {
                 let ipc_path = path.to_string_lossy().into_owned();
@@ -155,43 +156,51 @@ impl ShastaEventIndexer {
         let mut stream = event_scanner.create_event_stream(filter);
 
         // Start the event scanner in a separate task.
-        tokio::spawn(async move {
+        let scanner_handle = tokio::spawn(async move {
             if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Earliest, None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
 
-        // Process incoming event logs.
+        // Process incoming event logs on this task so the indexer instance remains callable elsewhere.
         while let Some(Ok(logs)) = stream.next().await {
             for log in logs {
-                // If the log does not have a topic0, skip it.
                 let Some(topic) = log.topic0() else {
                     debug!("skipping log without topic0");
                     continue;
                 };
 
-                match *topic {
-                    signature if signature == Proposed::SIGNATURE_HASH => {
-                        debug!("received Proposed event log");
-                        self.handle_proposed(log).await?;
+                if *topic == Proposed::SIGNATURE_HASH {
+                    debug!("received Proposed event log");
+                    if let Err(err) = self.handle_proposed(log).await {
+                        error!(?err, "failed to handle Proposed inbox event");
                     }
-                    signature if signature == Proved::SIGNATURE_HASH => {
-                        debug!("received Proved event log");
-                        self.handle_proved(log).await?;
+                } else if *topic == Proved::SIGNATURE_HASH {
+                    debug!("received Proved event log");
+                    if let Err(err) = self.handle_proved(log).await {
+                        error!(?err, "failed to handle Proved inbox event");
                     }
-                    _ => {
-                        warn!(?topic, "skipping unexpected inbox event signature");
-                    }
+                } else {
+                    warn!(?topic, "skipping unexpected inbox event signature");
                 }
             }
         }
 
+        scanner_handle.abort();
+        let _ = scanner_handle.await;
+
         Ok(())
+    }
+
+    /// Start the indexer event processing loop on a background task.
+    #[instrument(skip(self))]
+    pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
+        tokio::spawn(async move { self.run_inner().await })
     }
 
     /// Decode and cache a `Proposed` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
-    pub async fn handle_proposed(&mut self, log: Log) -> Result<()> {
+    async fn handle_proposed(&self, log: Log) -> Result<()> {
         let InboxProposedEventPayload { proposal, derivation, coreState } =
             self.inbox_codec.decodeProposedEvent(log.data().data.clone()).call().await?;
         let proposal_id = proposal.id.to::<U256>();
@@ -210,7 +219,7 @@ impl ShastaEventIndexer {
 
     /// Decode and cache a `Proved` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
-    pub async fn handle_proved(&mut self, log: Log) -> Result<()> {
+    async fn handle_proved(&self, log: Log) -> Result<()> {
         let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } =
             self.inbox_codec.decodeProvedEvent(log.data().data.clone()).call().await?;
 
@@ -463,7 +472,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { mut indexer, _anvil } = setup_indexer().await?;
+        let TestSetup { indexer, _anvil } = setup_indexer().await?;
 
         let binding_payload = CodecProposedEventPayload {
             proposal: proposal_with_id(1),
@@ -487,7 +496,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proved_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { mut indexer, _anvil } = setup_indexer().await?;
+        let TestSetup { indexer, _anvil } = setup_indexer().await?;
 
         let checkpoint = Checkpoint {
             blockNumber: U48::from(0u64),
