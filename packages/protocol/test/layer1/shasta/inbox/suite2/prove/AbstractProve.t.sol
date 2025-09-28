@@ -468,8 +468,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
         _setupBlobHashes();
 
         // Create and submit proposal
-        // For the first proposal, we must be at block >= 2
-        // since genesis lastProposalBlockId = 2 (prevents blockhash(0) issue)
+        // For the first proposal, we must be at block > 1
+        // since genesis lastProposalBlockId = 1 (prevents blockhash(0) issue)
         if (block.number < 2) {
             vm.roll(2);
         }
@@ -490,19 +490,18 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
-        // Each proposal sets lastProposalBlockId = block.number + 1
-        // Need to roll 1 block forward from the last proposal
+        // lastProposalBlockId represents the block where the last proposal was made
+        // We need block.number > lastProposalBlockId to make a new proposal
         uint48 expectedLastBlockId;
         if (_parent.id == 0) {
-            expectedLastBlockId = 2; // Genesis value - prevents blockhash(0) issue
-            // For first proposal after genesis, roll to block 2
+            expectedLastBlockId = 1; // Genesis value - prevents blockhash(0) issue
+            // For first proposal after genesis, roll to block 2 (> 1)
             vm.roll(2);
         } else {
-            // For subsequent proposals, need 1-block gap
-            // Roll forward by 1 block from current position
-            vm.roll(block.number + 1);
-            // lastProposalBlockId should be current block number
-            expectedLastBlockId = uint48(block.number);
+            // For subsequent proposals, lastProposalBlockId is the block where parent was made
+            // We roll to a block > lastProposalBlockId to make the next proposal
+            expectedLastBlockId = uint48(block.number); // Block where parent was made
+            vm.roll(block.number + 1); // Move to next block to satisfy > requirement
         }
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
