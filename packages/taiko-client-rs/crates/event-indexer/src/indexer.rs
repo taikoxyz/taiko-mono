@@ -267,7 +267,7 @@ impl ShastaEventIndexer {
                 break;
             }
 
-            last_finalized_transition_hash = payload.transition_record.transitionHash.into();
+            last_finalized_transition_hash = payload.transition_record.transitionHash;
             info!(?proposal_id, "transition eligible for finalization");
             transitions.push(payload);
         }

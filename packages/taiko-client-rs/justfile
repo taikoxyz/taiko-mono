@@ -1,15 +1,15 @@
-toolchain := "nightly-2025-06-26"
+toolchain := "nightly-2025-09-27"
 
 fmt:
-  rustup toolchain install {{toolchain}} > /dev/null 2>&1 && \
+  rustup toolchain install {{toolchain}} && \
   cargo +{{toolchain}} fmt
 
 fmt-check:
-  rustup toolchain install {{toolchain}} > /dev/null 2>&1 && \
+  rustup toolchain install {{toolchain}} && \
   cargo +{{toolchain}} fmt --check
 
 clippy:
-  cargo clippy --all-features --no-deps -- -D warnings
+  cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings
 
 test:
-  cargo test --workspace --all-features
+  cargo nextest -v run --workspace --exclude bindings --all-features
