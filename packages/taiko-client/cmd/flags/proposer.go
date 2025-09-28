@@ -64,7 +64,7 @@ var (
 		Usage:    "Minimum time interval to force proposing a block, even if there are no transaction in mempool",
 		Category: proposerCategory,
 		Value:    0,
-		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERNAL"},
+		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERVAL"},
 	}
 	AllowZeroTipInterval = &cli.Uint64Flag{
 		Name:     "epoch.allowZeroTipInterval",

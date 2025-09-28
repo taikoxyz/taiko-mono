@@ -6,13 +6,14 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@nethermind.io
 library LibProofType {
     // This represents a bitmap of proof types, allowing for up to 16 distinct proof types.
-    // Bitmap layout: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, SP1_RETH, RISC0_RETH, TDX_RETH, SGX_RETH]
+    // Bitmap layout:
+    // [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, SGX_GETH, SP1_RETH, RISC0_RETH, TDX_RETH, SGX_RETH]
     type ProofType is uint16;
 
-    uint8 internal constant NUM_PROOF_TYPES = 4;
+    uint8 internal constant NUM_PROOF_TYPES = 5;
 
-    uint16 internal constant ZK_MASK = 0x0C; // 0b1100
-    uint16 internal constant TEE_MASK = 0x03; // 0b0011
+    uint16 internal constant ZK_MASK = 0x0C; // 0b01100
+    uint16 internal constant TEE_MASK = 0x13; // 0b10011
 
     // Invidual proof types
     // --------------------
@@ -27,11 +28,6 @@ library LibProofType {
         return ProofType.wrap(0x01);
     }
 
-    /// @dev TDX Reth proof type (0b0010)
-    function tdxReth() internal pure returns (ProofType) {
-        return ProofType.wrap(0x02);
-    }
-
     /// @dev RISC-0 Reth proof type (0b0100)
     function risc0Reth() internal pure returns (ProofType) {
         return ProofType.wrap(0x04);
@@ -40,6 +36,11 @@ library LibProofType {
     /// @dev SP1 Reth proof type (0b1000)
     function sp1Reth() internal pure returns (ProofType) {
         return ProofType.wrap(0x08);
+    }
+
+    /// @dev SGX Geth proof type (0b10000)
+    function sgxGeth() internal pure returns (ProofType) {
+        return ProofType.wrap(0x10);
     }
 
     // ZK / TEE type detectors

@@ -42,7 +42,7 @@ type ProofSubmitterPacaya struct {
 	proverAddress      common.Address
 	proverSetAddress   common.Address
 	taikoAnchorAddress common.Address
-	// Batch proof related
+	// Batch proof related, only for zk proofs (risc0 + sp1) by design
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	// Intervals
 	forceBatchProvingInterval time.Duration
@@ -185,9 +185,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			}
 
 			// Try to add the proof to the buffer.
-			proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
+			proofBuffer, exist := s.proofBuffers[proofResponse.ZKProofType]
 			if !exist {
-				return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+				return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ZKProofType)
 			}
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
@@ -203,12 +203,13 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				"batchID", meta.Pacaya().GetBatchID(),
 				"bufferSize", bufferSize,
 				"maxBufferSize", proofBuffer.MaxLength,
-				"zkProofType", proofResponse.ProofType,
+				"sgxProofType", proofResponse.SGXProofType,
+				"zkProofType", proofResponse.ZKProofType,
 				"bufferIsAggregating", proofBuffer.IsAggregating(),
 				"bufferFirstItemAt", proofBuffer.FirstItemAt(),
 			)
 			// Try to aggregate the proofs in the buffer.
-			s.TryAggregate(proofBuffer, proofResponse.ProofType)
+			s.TryAggregate(proofBuffer, proofResponse.ZKProofType)
 
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
@@ -251,7 +252,8 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		"size", len(batchProof.ProofResponses),
 		"firstID", batchProof.BatchIDs[0],
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
-		"proofType", batchProof.ProofType,
+		"zkProofType", batchProof.ProofType,
+		"sgxProofType", batchProof.SgxProofType,
 	)
 	var (
 		latestProvenBlockID = common.Big0
@@ -322,7 +324,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
-	case proofProducer.ProofTypeSgx, proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
+	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1: // only check for risc0 + sp1 by design
 		producer = s.proofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
@@ -348,6 +350,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 						"batchSize", len(buffer),
 						"firstID", buffer[0].BatchID,
 						"lastID", buffer[len(buffer)-1].BatchID,
+						"sgxProofType", buffer[0].SGXProofType,
 						"zkProofType", proofType,
 					)
 				} else {

@@ -20,6 +20,7 @@ const (
 	ProofTypeTdxReth   uint16 = 0x02 // 0b0010
 	ProofTypeRisc0Reth uint16 = 0x04 // 0b0100
 	ProofTypeSp1Reth   uint16 = 0x08 // 0b1000
+	ProofTypeSgxGeth   uint16 = 0x10 // 0b10000
 )
 
 // GetProofTypeFromString converts a producer.ProofType string to the corresponding LibProofType.ProofType constant
@@ -33,6 +34,8 @@ func GetProofTypeFromString(proofType string) uint16 {
 		return ProofTypeRisc0Reth
 	case "sp1":
 		return ProofTypeSp1Reth
+	case "sgxgeth":
+		return ProofTypeSgxGeth
 	default:
 		return ProofTypeEmpty
 	}

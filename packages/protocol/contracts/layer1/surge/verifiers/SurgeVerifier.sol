@@ -19,9 +19,10 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
     address public immutable taikoInbox;
     /// proofs come from reth client
     InternalVerifier public sgxRethVerifier;
-    InternalVerifier public tdxRethVerifier;
     InternalVerifier public risc0RethVerifier;
     InternalVerifier public sp1RethVerifier;
+    // proofs come from geth client
+    InternalVerifier public sgxGethVerifier;
 
     uint256[46] private __gap;
 
@@ -34,9 +35,9 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
     function init(
         address _owner,
         address _sgxRethVerifier,
-        address _tdxRethVerifier,
         address _risc0RethVerifier,
-        address _sp1RethVerifier
+        address _sp1RethVerifier,
+        address _sgxGethVerifier
     )
         external
         initializer
@@ -44,9 +45,9 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
         __Essential_init(_owner);
 
         sgxRethVerifier.addr = _sgxRethVerifier;
-        tdxRethVerifier.addr = _tdxRethVerifier;
         risc0RethVerifier.addr = _risc0RethVerifier;
         sp1RethVerifier.addr = _sp1RethVerifier;
+        sgxGethVerifier.addr = _sgxGethVerifier;
     }
 
     /// @inheritdoc ISurgeVerifier
@@ -79,10 +80,6 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
             // SGX Reth (0b0001)
             sgxRethVerifier.upgradeable = true;
         }
-        if ((pt & 0x02) != 0) {
-            // TDX Reth (0b0010)
-            tdxRethVerifier.upgradeable = true;
-        }
         if ((pt & 0x04) != 0) {
             // RISC0 Reth (0b0100)
             risc0RethVerifier.upgradeable = true;
@@ -90,6 +87,10 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
         if ((pt & 0x08) != 0) {
             // SP1 Reth (0b1000)
             sp1RethVerifier.upgradeable = true;
+        }
+        if ((pt & 0x10) != 0) {
+            // SGX Geth (0b10000)
+            sgxGethVerifier.upgradeable = true;
         }
     }
 
@@ -103,12 +104,12 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
         InternalVerifier storage _verifier;
         if (_proofType.equals(LibProofType.sgxReth())) {
             _verifier = sgxRethVerifier;
-        } else if (_proofType.equals(LibProofType.tdxReth())) {
-            _verifier = tdxRethVerifier;
         } else if (_proofType.equals(LibProofType.sp1Reth())) {
             _verifier = sp1RethVerifier;
         } else if (_proofType.equals(LibProofType.risc0Reth())) {
             _verifier = risc0RethVerifier;
+        } else if (_proofType.equals(LibProofType.sgxGeth())) {
+            _verifier = sgxGethVerifier;
         } else {
             revert INVALID_PROOF_TYPE();
         }
@@ -125,12 +126,12 @@ contract SurgeVerifier is EssentialContract, ISurgeVerifier {
     {
         if (_proofType.equals(LibProofType.sgxReth())) {
             return sgxRethVerifier.addr;
-        } else if (_proofType.equals(LibProofType.tdxReth())) {
-            return tdxRethVerifier.addr;
         } else if (_proofType.equals(LibProofType.sp1Reth())) {
             return sp1RethVerifier.addr;
         } else if (_proofType.equals(LibProofType.risc0Reth())) {
             return risc0RethVerifier.addr;
+        } else if (_proofType.equals(LibProofType.sgxGeth())) {
+            return sgxGethVerifier.addr;
         } else {
             revert INVALID_PROOF_TYPE();
         }

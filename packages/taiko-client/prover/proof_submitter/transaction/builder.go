@@ -75,7 +75,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
-				"verifier", batchProof.Verifier,
+				"zkVerifier", batchProof.Verifier,
 				"sgxVerifier", batchProof.SgxProofVerifier,
 			)
 		}
@@ -85,12 +85,12 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 				Proof:     batchProof.BatchProof,
 			}
 			subProofs[1] = encoding.SubProof{
-				ProofType: encoding.ProofTypeSgxReth,
+				ProofType: encoding.GetProofTypeFromString(string(batchProof.SgxProofType)),
 				Proof:     batchProof.SgxBatchProof,
 			}
 		} else {
 			subProofs[0] = encoding.SubProof{
-				ProofType: encoding.ProofTypeSgxReth,
+				ProofType: encoding.GetProofTypeFromString(string(batchProof.SgxProofType)),
 				Proof:     batchProof.SgxBatchProof,
 			}
 			subProofs[1] = encoding.SubProof{
@@ -143,6 +143,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			"subProof1Length", len(subProofs[1].Proof),
 			"subProof1Hex", common.Bytes2Hex(subProofs[1].Proof),
 			"zkProofType", batchProof.ProofType,
+			"sgxProofType", batchProof.SgxProofType,
 			"zkBatchProofLength", len(batchProof.BatchProof),
 			"sgxBatchProofLength", len(batchProof.SgxBatchProof),
 		)

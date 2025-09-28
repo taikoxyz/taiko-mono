@@ -11,20 +11,20 @@ contract ProofTypeFixtures {
 
     LibProofType.ProofType[] internal zkTeeProofTypes = [
         LibProofType.sgxReth().combine(LibProofType.sp1Reth()),
-        LibProofType.tdxReth().combine(LibProofType.sp1Reth()),
+        LibProofType.sgxGeth().combine(LibProofType.sp1Reth()),
         LibProofType.sgxReth().combine(LibProofType.risc0Reth()),
-        LibProofType.tdxReth().combine(LibProofType.risc0Reth())
+        LibProofType.sgxGeth().combine(LibProofType.risc0Reth())
     ];
 
     LibProofType.ProofType[] internal zkProofTypes =
         [LibProofType.sp1Reth(), LibProofType.risc0Reth()];
 
     LibProofType.ProofType[] internal teeProofTypes =
-        [LibProofType.sgxReth(), LibProofType.tdxReth()];
+        [LibProofType.sgxReth(), LibProofType.sgxGeth()];
 
     LibProofType.ProofType[] internal allProofTypes = [
         LibProofType.sgxReth(),
-        LibProofType.tdxReth(),
+        LibProofType.sgxGeth(),
         LibProofType.sp1Reth(),
         LibProofType.risc0Reth()
     ];

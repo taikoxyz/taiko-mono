@@ -89,12 +89,14 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
+		// A single proof producer -- unlike upstream taiko-client
 		proofProducer producer.ProofProducer
 
 		// Proof verifiers addresses.
-		sgxVerifierAddress   common.Address
-		risc0VerifierAddress common.Address
-		sp1VerifierAddress   common.Address
+		sgxGethVerifierAddress common.Address
+		sgxRethVerifierAddress common.Address
+		risc0VerifierAddress   common.Address
+		sp1VerifierAddress     common.Address
 
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
@@ -103,17 +105,27 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		err error
 	)
 
-	// Get the required SGX verifier
-	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+	// Get the sgx geth verifier address from the protocol
+	if sgxGethVerifierAddress, err = p.rpc.GetSGXGethVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return fmt.Errorf("failed to get sgx geth verifier: %w", err)
+	}
+	if sgxGethVerifierAddress != rpc.ZeroAddress {
+		verifiers[producer.ProofTypeSgxGeth] = sgxGethVerifierAddress
+	}
+
+	// Get the sgx reth verifier address from the protocol
+	if sgxRethVerifierAddress, err = p.rpc.GetSGXRethVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sgx verifier: %w", err)
 	}
-	if sgxVerifierAddress == rpc.ZeroAddress {
-		return fmt.Errorf("sgx verifier not found")
+	if sgxRethVerifierAddress != rpc.ZeroAddress {
+		verifiers[producer.ProofTypeSgx] = sgxRethVerifierAddress
 	}
-	proofTypes = append(proofTypes, producer.ProofTypeSgx)
-	verifiers[producer.ProofTypeSgx] = sgxVerifierAddress
 
-	// Initialize the zk verifiers and zkvm proof producers.
+	if len(verifiers) == 0 {
+		return fmt.Errorf("at least one of the sgx verifiers (sgx geth, sgx reth) must be set")
+	}
+
+	// Initialize the zk verifiers and zkvm proof producers
 	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get risc0 verifier: %w", err)
 	}
@@ -129,21 +141,20 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		verifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
 
-	if len(verifiers) == 0 {
+	if verifiers[producer.ProofTypeZKR0] == rpc.ZeroAddress && verifiers[producer.ProofTypeZKSP1] == rpc.ZeroAddress {
 		return fmt.Errorf("at least one of the zk verifiers (risc0, sp1) must be set")
 	}
 
-	log.Info("Initialize prover", "type", producer.ProofTypeZKAny, "verifiers", verifiers)
-
 	proofProducer = &producer.ComposeProofProducer{
 		Verifiers:             verifiers,
-		RaikoSGXHostEndpoint:  p.cfg.RaikoSGXHostEndpoint,
-		RaikoZKVMHostEndpoint: p.cfg.RaikoZKVMHostEndpoint,
+		RaikoSGXHostEndpoint:  p.cfg.RaikoSGXHostEndpoint,  // used for sgx geth + sgx reth
+		RaikoZKVMHostEndpoint: p.cfg.RaikoZKVMHostEndpoint, // used for risc0 + sp1
 		JWT:                   p.cfg.RaikoJWT,
 		RaikoRequestTimeout:   p.cfg.RaikoRequestTimeout,
-		ProofType:             producer.ProofTypeZKAny,
 		Dummy:                 p.cfg.Dummy,
 	}
+
+	log.Info("Initialize prover", "proofProducer", proofProducer)
 
 	// Init proof buffers.
 	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
@@ -151,9 +162,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	// We deliberately handle only known proof types and catch others in default case
 	for _, proofType := range proofTypes {
 		switch proofType {
-		case producer.ProofTypeOp, producer.ProofTypeSgx:
-			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
-		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1: // only for risc0 + sp1 by design
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
 			return fmt.Errorf("unexpected proof type: %s", proofType)

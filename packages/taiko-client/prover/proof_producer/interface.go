@@ -12,13 +12,15 @@ type ProofType string
 
 // ProofType constants.
 const (
+	ProofTypeOp ProofType = "op"
+
 	ProofTypeSgxGeth ProofType = "sgxgeth"
-	ProofTypeOp      ProofType = "op"
-	ProofTypeSgx     ProofType = "sgx"
-	ProofTypeSgxCPU  ProofType = "native"
-	ProofTypeZKR0    ProofType = "risc0"
-	ProofTypeZKSP1   ProofType = "sp1"
-	ProofTypeZKAny   ProofType = "zk_any"
+	ProofTypeSgx     ProofType = "sgx" // sgx reth, to be specific
+	ProofTypeSgxAny  ProofType = "sgx_any"
+
+	ProofTypeZKR0  ProofType = "risc0"
+	ProofTypeZKSP1 ProofType = "sp1"
+	ProofTypeZKAny ProofType = "zk_any"
 )
 
 // ProofRequestOptions is an interface that contains all options that need to be passed to a backend proof producer
@@ -37,14 +39,15 @@ type ProofRequestOptionsPacaya struct {
 	ProverAddress common.Address
 	EventL1Hash   common.Hash
 
+	// the following 2 fields are unused but left to avoid breaking changes
 	IsGethProofGenerated            bool
 	IsGethProofAggregationGenerated bool
 
-	IsRethSGXProofGenerated            bool
-	IsRethSGXProofAggregationGenerated bool
+	IsSGXProofGenerated            bool
+	IsSGXProofAggregationGenerated bool
 
-	IsRethZKProofGenerated            bool
-	IsRethZKProofAggregationGenerated bool
+	IsZKProofGenerated            bool
+	IsZKProofAggregationGenerated bool
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.

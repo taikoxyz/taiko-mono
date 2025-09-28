@@ -27,14 +27,14 @@ contract SurgeVerifierTestBase is CommonTest {
     SurgeVerifier internal surgeVerifier;
 
     MockInternalVerifier internal sgxRethVerifier;
-    MockInternalVerifier internal tdxRethVerifier;
+    MockInternalVerifier internal sgxGethVerifier;
     MockInternalVerifier internal risc0RethVerifier;
     MockInternalVerifier internal sp1RethVerifier;
 
     function setUpOnEthereum() internal override {
         taikoInbox = address(new MockTaikoInbox());
         sgxRethVerifier = new MockInternalVerifier(0);
-        tdxRethVerifier = new MockInternalVerifier(1);
+        sgxGethVerifier = new MockInternalVerifier(1);
         sp1RethVerifier = new MockInternalVerifier(2);
         risc0RethVerifier = new MockInternalVerifier(3);
 
@@ -46,9 +46,9 @@ contract SurgeVerifierTestBase is CommonTest {
                 (
                     Alice,
                     address(sgxRethVerifier),
-                    address(tdxRethVerifier),
                     address(risc0RethVerifier),
-                    address(sp1RethVerifier)
+                    address(sp1RethVerifier),
+                    address(sgxGethVerifier)
                 )
             )
         });
@@ -239,7 +239,7 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
                 (upgradeable,) = surgeVerifier.sgxRethVerifier();
                 assertTrue(upgradeable);
             } else if (_indices[i] == 1) {
-                (upgradeable,) = surgeVerifier.tdxRethVerifier();
+                (upgradeable,) = surgeVerifier.sgxGethVerifier();
                 assertTrue(upgradeable);
             } else if (_indices[i] == 2) {
                 (upgradeable,) = surgeVerifier.sp1RethVerifier();
@@ -258,7 +258,7 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
         if (_index == 0) {
             (upgradeable, expectedVerifier) = surgeVerifier.sgxRethVerifier();
         } else if (_index == 1) {
-            (upgradeable, expectedVerifier) = surgeVerifier.tdxRethVerifier();
+            (upgradeable, expectedVerifier) = surgeVerifier.sgxGethVerifier();
         } else if (_index == 2) {
             (upgradeable, expectedVerifier) = surgeVerifier.sp1RethVerifier();
         } else if (_index == 3) {
@@ -267,5 +267,23 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
 
         assertFalse(upgradeable);
         assertEq(expectedVerifier, _newVerifier);
+
+        // Check that other verifiers are untouched
+        if (_index != 0) {
+            (, expectedVerifier) = surgeVerifier.sgxRethVerifier();
+            assertTrue(expectedVerifier != _newVerifier);
+        }
+        if (_index != 1) {
+            (, expectedVerifier) = surgeVerifier.sgxGethVerifier();
+            assertTrue(expectedVerifier != _newVerifier);
+        }
+        if (_index != 2) {
+            (, expectedVerifier) = surgeVerifier.sp1RethVerifier();
+            assertTrue(expectedVerifier != _newVerifier);
+        }
+        if (_index != 3) {
+            (, expectedVerifier) = surgeVerifier.risc0RethVerifier();
+            assertTrue(expectedVerifier != _newVerifier);
+        }
     }
 }

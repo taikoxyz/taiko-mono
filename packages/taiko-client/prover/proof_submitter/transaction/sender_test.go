@@ -86,11 +86,11 @@ func (s *TransactionTestSuite) TestValidateProof() {
 	ok, err := s.sender.ValidateProof(
 		context.Background(),
 		&producer.ProofResponse{
-			BatchID:   common.Big1,
-			Meta:      meta,
-			Proof:     testutils.RandomBytes(100),
-			Opts:      &producer.ProofRequestOptionsPacaya{EventL1Hash: l1Head.Hash()},
-			ProofType: producer.ProofTypeOp,
+			BatchID:     common.Big1,
+			Meta:        meta,
+			Proof:       testutils.RandomBytes(100),
+			Opts:        &producer.ProofRequestOptionsPacaya{EventL1Hash: l1Head.Hash()},
+			ZKProofType: producer.ProofTypeOp,
 		},
 		new(big.Int).SetUint64(ts.BlockId),
 	)
