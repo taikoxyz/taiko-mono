@@ -107,7 +107,8 @@ impl ShastaEventIndexer {
             }
         };
 
-        let inbox_config = IInbox::new(inbox_address, provider.clone()).getConfig().call().await?;
+        let inbox = IInbox::new(inbox_address, provider.clone());
+        let inbox_config = inbox.getConfig().call().await?;
         let ring_buffer_size = inbox_config.ringBufferSize.to();
         let max_finalization_count = inbox_config.maxFinalizationCount.to();
         let finalization_grace_period = inbox_config.finalizationGracePeriod.to();
@@ -153,12 +154,14 @@ impl ShastaEventIndexer {
 
         let mut stream = event_scanner.create_event_stream(filter);
 
+        // Start the event scanner in a separate task.
         tokio::spawn(async move {
             if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Earliest, None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
 
+        // Process incoming event logs.
         while let Some(Ok(logs)) = stream.next().await {
             for log in logs {
                 // If the log does not have a topic0, skip it.
@@ -182,6 +185,7 @@ impl ShastaEventIndexer {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -191,7 +195,12 @@ impl ShastaEventIndexer {
         let InboxProposedEventPayload { proposal, derivation, coreState } =
             self.inbox_codec.decodeProposedEvent(log.data().data.clone()).call().await?;
         let proposal_id = proposal.id.to::<U256>();
-        let payload = ProposedEventPayload { proposal, core_state: coreState, derivation, log };
+        let payload = ProposedEventPayload {
+            proposal: proposal.clone(),
+            core_state: coreState,
+            derivation,
+            log,
+        };
 
         self.proposed_payloads.insert(proposal_id, payload);
         info!(?proposal_id, "cached Proposed event payload");
@@ -360,41 +369,48 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 mod tests {
     use super::*;
     use alloy::{
-        primitives::{Bytes, Log as PrimitiveLog},
+        network::Ethereum,
+        primitives::{Address, B256, Bytes, Log as PrimitiveLog},
         providers::ProviderBuilder,
     };
-    use alloy_node_bindings::Anvil;
+    use alloy_node_bindings::{Anvil, AnvilInstance};
+    use alloy_provider::Identity;
     use bindings::codec_optimized::{
         CodecOptimized,
+        ICheckpointStore::Checkpoint,
         IInbox::{
             CoreState, Derivation, Proposal as CodecProposal,
             ProposedEventPayload as CodecProposedEventPayload,
+            ProvedEventPayload as CodecProvedEventPayload, Transition, TransitionMetadata,
+            TransitionRecord,
         },
     };
 
-    fn proposal_with_id(id: u64) -> CodecProposal {
-        let mut proposal = CodecProposal::default();
-        proposal.id = U48::from(id);
-        proposal
+    struct TestSetup {
+        indexer: ShastaEventIndexer,
+        _anvil: AnvilInstance,
     }
 
-    #[tokio::test]
-    async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
+    async fn setup_indexer() -> anyhow::Result<TestSetup> {
         let anvil = Anvil::new().try_spawn()?;
-        let provider = ProviderBuilder::new()
-            .wallet(anvil.wallet().unwrap())
+        let wallet = anvil.wallet().expect("anvil exposes a dev wallet");
+
+        let wallet_provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
+            .with_recommended_fillers()
+            .wallet(wallet)
             .connect_http(anvil.endpoint_url());
 
-        let codec_instance = CodecOptimized::deploy(provider.clone()).await?;
+        let codec_instance = CodecOptimized::deploy(wallet_provider).await?;
         let codec_address = *codec_instance.address();
         let root_provider = RootProvider::connect(&anvil.endpoint()).await?;
+
         let inbox_address = Address::ZERO;
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(anvil.ws_endpoint_url()),
             inbox_address,
         };
 
-        let mut indexer = ShastaEventIndexer {
+        let indexer = ShastaEventIndexer {
             config,
             inbox_codec: CodecOptimized::new(codec_address, root_provider.clone()),
             inbox_ring_buffer_size: 1,
@@ -404,35 +420,116 @@ mod tests {
             proved_payloads: DashMap::new(),
         };
 
+        Ok(TestSetup { indexer, _anvil: anvil })
+    }
+
+    fn proposal_with_id(id: u64) -> CodecProposal {
+        let mut proposal = CodecProposal::default();
+        proposal.id = U48::from(id);
+        proposal
+    }
+
+    fn empty_core_state() -> CoreState {
+        CoreState {
+            nextProposalId: U48::from(0u64),
+            nextProposalBlockId: U48::from(0u64),
+            lastFinalizedProposalId: U48::from(0u64),
+            lastFinalizedTransitionHash: B256::ZERO.into(),
+            bondInstructionsHash: B256::ZERO.into(),
+        }
+    }
+
+    fn empty_derivation() -> Derivation {
+        Derivation {
+            originBlockNumber: U48::from(0u64),
+            originBlockHash: B256::ZERO.into(),
+            basefeeSharingPctg: 0,
+            sources: Vec::new(),
+        }
+    }
+
+    fn make_log(indexer: &ShastaEventIndexer, topic: B256, data: Bytes) -> Log {
+        Log {
+            inner: PrimitiveLog::new_unchecked(indexer.config.inbox_address, vec![topic], data),
+            block_hash: None,
+            block_number: Some(0),
+            block_timestamp: Some(0),
+            transaction_hash: None,
+            transaction_index: None,
+            log_index: None,
+            removed: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
+        let TestSetup { mut indexer, _anvil } = setup_indexer().await?;
+
         let binding_payload = CodecProposedEventPayload {
             proposal: proposal_with_id(1),
-            derivation: Derivation::default(),
-            coreState: CoreState::default(),
+            derivation: empty_derivation(),
+            coreState: empty_core_state(),
         };
 
-        indexer
-            .handle_proposed(Log {
-                inner: PrimitiveLog::new_unchecked(
-                    inbox_address,
-                    vec![Proposed::SIGNATURE_HASH],
-                    Bytes::from(
-                        codec_instance.encodeProposedEvent(binding_payload.clone()).call().await?,
-                    ),
-                ),
-                block_hash: None,
-                block_number: Some(0),
-                block_timestamp: Some(0),
-                transaction_hash: None,
-                transaction_index: None,
-                log_index: None,
-                removed: false,
-            })
-            .await?;
+        let encoded =
+            indexer.inbox_codec.encodeProposedEvent(binding_payload.clone()).call().await?;
+
+        let log = make_log(&indexer, Proposed::SIGNATURE_HASH, Bytes::from(encoded));
+
+        indexer.handle_proposed(log).await?;
 
         let cached =
             indexer.proposed_payloads.get(&U256::from(1u64)).expect("proposal should be cached");
 
         assert_eq!(cached.proposal.id, binding_payload.proposal.id);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn handle_proved_caches_payload() -> anyhow::Result<()> {
+        let TestSetup { mut indexer, _anvil } = setup_indexer().await?;
+
+        let checkpoint = Checkpoint {
+            blockNumber: U48::from(0u64),
+            blockHash: B256::ZERO,
+            stateRoot: B256::ZERO,
+        };
+
+        let binding_payload = CodecProvedEventPayload {
+            proposalId: U48::from(1u64),
+            transition: Transition {
+                proposalHash: B256::from([1u8; 32]).into(),
+                parentTransitionHash: B256::from([2u8; 32]).into(),
+                checkpoint,
+            },
+            transitionRecord: TransitionRecord {
+                span: 0,
+                bondInstructions: Vec::new(),
+                transitionHash: B256::from([3u8; 32]).into(),
+                checkpointHash: B256::from([4u8; 32]).into(),
+            },
+            metadata: TransitionMetadata {
+                designatedProver: Address::repeat_byte(1).into(),
+                actualProver: Address::repeat_byte(2).into(),
+            },
+        };
+
+        let encoded = indexer.inbox_codec.encodeProvedEvent(binding_payload.clone()).call().await?;
+
+        let log = make_log(&indexer, Proved::SIGNATURE_HASH, Bytes::from(encoded));
+
+        indexer.handle_proved(log).await?;
+
+        let cached = indexer
+            .proved_payloads
+            .get(&U256::from(binding_payload.proposalId.to::<u64>()))
+            .expect("proved payload should be cached");
+
+        assert_eq!(cached.metadata.designatedProver, binding_payload.metadata.designatedProver);
+        assert_eq!(
+            cached.transition_record.transitionHash,
+            binding_payload.transitionRecord.transitionHash
+        );
         Ok(())
     }
 }
