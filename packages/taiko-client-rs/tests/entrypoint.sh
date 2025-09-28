@@ -29,8 +29,8 @@ export PRECONF_INBOX="false"
 export DUMMY_VERIFIERS=true
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 
-docker compose -f test/docker/docker-compose.test.yaml up -d
-trap "docker compose -f test/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
+docker compose -f tests/docker/docker-compose.test.yaml up -d
+trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
 
 # check until L1 node is ready
 until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do

@@ -376,17 +376,17 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 
 #[cfg(test)]
 mod tests {
+    use std::{env, str::FromStr};
+
     use super::*;
     use alloy::{
         network::Ethereum,
         primitives::{Address, B256, Bytes, Log as PrimitiveLog},
         providers::ProviderBuilder,
     };
-    use alloy_node_bindings::{Anvil, AnvilInstance};
-    use alloy_provider::Identity;
+    use alloy_provider::{Identity, Provider, RootProvider};
     use bindings::{
         codec_optimized::{
-            CodecOptimized,
             ICheckpointStore::Checkpoint,
             IInbox::{
                 CoreState, Derivation, Proposal as CodecProposal,
@@ -401,47 +401,24 @@ mod tests {
     struct TestSetup {
         indexer: Arc<ShastaEventIndexer>,
         inbox: IInboxInstance<RootProvider>,
-        anvil: AnvilInstance,
     }
 
     async fn setup_indexer() -> anyhow::Result<TestSetup> {
-        let anvil = Anvil::new().try_spawn()?;
-        let wallet = anvil.wallet().unwrap();
-
         let provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
             .with_recommended_fillers()
-            .wallet(wallet)
-            .connect_http(anvil.endpoint_url());
-
-        let codec_instance = CodecOptimized::deploy(provider.clone()).await?;
-        let codec_address = *codec_instance.address();
-        let root_provider = RootProvider::connect(&anvil.endpoint()).await?;
-
-        let inbox_instance = IInbox::deploy(provider).await?;
-        let inbox_address = *inbox_instance.address();
-
-        // ShastaMainnetInboxInstance::new(inbox_address, root_provider.clone())
-        //     .initialize(codec_address)
-        //     .send()
-        //     .await?
-        //     .await?;
+            .connect_http(Url::from_str(&env::var("L1_HTTP")?)?);
 
         let config = ShastaEventIndexerConfig {
-            l1_subscription_source: SubscriptionSource::Ws(anvil.ws_endpoint_url()),
-            inbox_address,
+            l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
+            inbox_address: env::var("TAIKO_INBOX")?.parse()?,
         };
 
-        let indexer = Arc::new(ShastaEventIndexer {
-            config,
-            inbox_codec: CodecOptimized::new(codec_address, root_provider.clone()),
-            inbox_ring_buffer_size: 1,
-            max_finalization_count: 1,
-            finalization_grace_period: 0,
-            proposed_payloads: DashMap::new(),
-            proved_payloads: DashMap::new(),
-        });
+        let indexer = Arc::new(ShastaEventIndexer::new(config).await?);
 
-        Ok(TestSetup { indexer, anvil, inbox: IInboxInstance::new(inbox_address, root_provider) })
+        Ok(TestSetup {
+            indexer,
+            inbox: IInboxInstance::new(env::var("TAIKO_INBOX")?.parse()?, provider.root().clone()),
+        })
     }
 
     fn proposal_with_id(id: u64) -> CodecProposal {
@@ -484,7 +461,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, anvil: _anvil, inbox: _inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox: _inbox } = setup_indexer().await?;
 
         let binding_payload = CodecProposedEventPayload {
             proposal: proposal_with_id(1),
@@ -508,7 +485,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proved_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, anvil: _anvil, inbox: _inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox: _inbox } = setup_indexer().await?;
 
         let checkpoint = Checkpoint {
             blockNumber: U48::from(0u64),
@@ -556,7 +533,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, anvil: _anvil, inbox } = setup_indexer().await?;
+        let TestSetup { indexer, inbox } = setup_indexer().await?;
         indexer.clone().spawn();
         let input = indexer.read_shasta_propose_input();
         assert_eq!(true, input.is_none());
