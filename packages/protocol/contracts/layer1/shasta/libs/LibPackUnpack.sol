@@ -284,17 +284,17 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Check that an array length fits within uint24 bounds
-    /// @dev Reverts if the length exceeds uint24 maximum value.
+    /// @notice Check that an array length fits within uint16 bounds
+    /// @dev Reverts if the length exceeds uint16 maximum value (65535).
     /// Useful as a validation guard before packing array lengths.
     /// @param _length The array length to validate
     function checkArrayLength(uint256 _length) internal pure {
-        require(_length < 0x1000000, LengthExceedsUint24());
+        require(_length <= type(uint16).max, LengthExceedsUint16());
     }
 
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
-    error LengthExceedsUint24();
+    error LengthExceedsUint16();
 }

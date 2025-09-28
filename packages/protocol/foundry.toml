@@ -1,6 +1,6 @@
 [profile.default]
 script = "script"
-gas_price = 10_000_000_000 # 10 Gwei
+gas_price = 10_000_000_000         # 10 Gwei
 gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
@@ -8,23 +8,27 @@ yul = true
 fuzz_runs = 200
 fuzz_runs_show_logs = false
 ffi = true
-memory_limit = 2_073_741_824
+memory_limit = 4_294_967_296
 solc_version = "0.8.30"
+evm_version = "prague"
+
 remappings = [
-  "openzeppelin/=node_modules/@openzeppelin/",
-  "@openzeppelin=node_modules/@openzeppelin",
-  "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
-  "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
-  "@solady/=node_modules/solady/",
-  "@optimism/=node_modules/optimism/",
-  "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
-  "forge-std/=node_modules/forge-std/",
-  "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
-  "@eth-fabric/urc/=node_modules/urc/src/",
-  "ds-test/=node_modules/ds-test/",
-  "src/=contracts/",
-  "test/=test/",
-  "script/=script/",
+    "openzeppelin/=node_modules/@openzeppelin/",
+    "@openzeppelin=node_modules/@openzeppelin",
+    "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
+    "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
+    "@solady/=node_modules/solady/",
+    "solady/src/=node_modules/solady/src/",
+    "solady/utils/=node_modules/solady/src/utils/",
+    "@optimism/=node_modules/optimism/",
+    "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
+    "forge-std/=node_modules/forge-std/",
+    "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
+    "@eth-fabric/urc/=node_modules/urc/src/",
+    "ds-test/=node_modules/ds-test/",
+    "src/=contracts/",
+    "test/=test/",
+    "script/=script/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -33,13 +37,13 @@ remappings = [
 block_gas_limit = 80_000_000
 
 fs_permissions = [
-  { access = "read", path = "./out" },
-  { access = "read-write", path = "./deployments" },
-  { access = "read-write", path = "./gas-reports" },
-  { access = "read-write", path = "./script/layer1/proposals/" },
-  { access = "read", path = "./test" },
-  { access = "read", path = "./script/" },
-  { access = "read", path = "./genesis" },
+    { access = "read", path = "./out" },
+    { access = "read-write", path = "./deployments" },
+    { access = "read-write", path = "./gas-reports" },
+    { access = "read-write", path = "./script/layer1/proposals/" },
+    { access = "read", path = "./test" },
+    { access = "read", path = "./script/" },
+    { access = "read", path = "./genesis" },
 ]
 
 # 2394: Transient storage warning
@@ -56,15 +60,28 @@ number_underscore = "thousands"
 wrap_comments = true
 
 [lint]
-# ... rest of lint config ...
-exclude_lints = ["asm-keccak256","unaliased-plain-import","mixed-case-function","mixed-case-variable","screaming-snake-case-const","screaming-snake-case-immutable","pascal-case-struct"]
+exclude_lints = [
+    "asm-keccak256",
+    "unaliased-plain-import",
+    "mixed-case-function",
+    "mixed-case-variable",
+    "screaming-snake-case-const",
+    "screaming-snake-case-immutable",
+    "pascal-case-struct",
+]
 
 [profile.layer1]
 src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
-evm_version = "prague"
+
+[profile.layer1o]
+src = "contracts/layer1"
+test = "test/layer1"
+script = "script/layer1"
+out = "out/layer1"
+via_ir = true
 
 [profile.layer2]
 src = "contracts/layer2"
@@ -86,17 +103,3 @@ test = "test/genesis"
 script = "script/layer2"
 out = "out/genesis"
 evm_version = "shanghai"
-
-# Layer1 Optimized profile: Enables via_ir and yul optimizations for maximum contract size reduction
-# Used for contracts that can handle aggressive IR compilation (e.g., Inbox implementations)  
-# Usage: FOUNDRY_PROFILE=layer1o forge build <contracts> --sizes
-[profile.layer1o]
-src = "contracts/layer1"
-test = "test/layer1"
-script = "script/layer1"
-out = "out/layer1"
-evm_version = "prague"
-via_ir = true
-yul = true
-optimizer_runs = 200
-memory_limit = 4_294_967_296

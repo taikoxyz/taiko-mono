@@ -18,6 +18,7 @@ interface IPreconfWhitelist {
         address indexed proposer, address indexed sequencer, uint256 inactiveSince
     );
 
+    error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
     error InvalidOperatorAddress();

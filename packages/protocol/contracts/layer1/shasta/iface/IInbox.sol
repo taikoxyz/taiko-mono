@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -11,10 +11,10 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
+        /// @notice The codec used for encoding and hashing
+        address codec;
         /// @notice The token used for bonds
         address bondToken;
-        /// @notice The checkpoint manager contract
-        address checkpointManager;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -38,21 +38,29 @@ interface IInbox {
         uint64 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
+        /// @notice The maximum number of checkpoints to store in ring buffer
+        uint16 maxCheckpointHistory;
     }
+
+    /// @notice Represents a source of derivation data within a Derivation
+    struct DerivationSource {
+        /// @notice Whether this source is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice Blobs that contain the source's manifest data.
+        LibBlobs.BlobSlice blobSlice;
+    }
+
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
-        LibBlobs.BlobSlice blobSlice;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -72,6 +80,8 @@ interface IInbox {
     }
 
     /// @notice Represents a transition about the state transition of a proposal.
+    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
+    /// support
     struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
@@ -80,10 +90,15 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        ICheckpointManager.Checkpoint checkpoint;
-        /// @notice The designated prover.
+        ICheckpointStore.Checkpoint checkpoint;
+    }
+
+    /// @notice Metadata about the proving of a transition
+    /// @dev Separated from Transition to enable out-of-order proving
+    struct TransitionMetadata {
+        /// @notice The designated prover for this transition.
         address designatedProver;
-        /// @notice The actual prover.
+        /// @notice The actual prover who submitted the proof.
         address actualProver;
     }
 
@@ -103,6 +118,8 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
+        /// @notice The next proposal block ID to be assigned.
+        uint48 nextProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized transition.
@@ -124,7 +141,7 @@ interface IInbox {
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
         /// @notice The checkpoint for finalization.
-        ICheckpointManager.Checkpoint checkpoint;
+        ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
@@ -137,6 +154,9 @@ interface IInbox {
         Proposal[] proposals;
         /// @notice Array of transitions containing proof details.
         Transition[] transitions;
+        /// @notice Array of metadata for prover information.
+        /// @dev Must have same length as transitions array.
+        TransitionMetadata[] metadata;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -157,6 +177,8 @@ interface IInbox {
         Transition transition;
         /// @notice The transition record containing additional metadata.
         TransitionRecord transitionRecord;
+        /// @notice The metadata containing prover information.
+        TransitionMetadata metadata;
     }
 
     // ---------------------------------------------------------------
@@ -171,16 +193,12 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
-    /// @notice Emitted when bond instructions are issued
-    /// @param instructions The bond instructions that need to be performed.
-    event BondInstructed(LibBonds.BondInstruction[] instructions);
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
-    /// @param _lookahead The data to post a new lookahead (currently unused).
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 

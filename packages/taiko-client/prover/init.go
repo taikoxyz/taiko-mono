@@ -80,6 +80,32 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	return nil
 }
 
+// initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initShastaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
+	var (
+		err error
+	)
+	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+		&producer.DummyProofProducer{},
+		p.batchProofGenerationCh,
+		p.proofSubmissionCh,
+		p.shastaIndexer,
+		&proofSubmitter.SenderOptions{
+			RPCClient:        p.rpc,
+			Txmgr:            p.txmgr,
+			PrivateTxmgr:     p.privateTxmgr,
+			ProverSetAddress: p.cfg.ProverSetAddress,
+			GasLimit:         p.cfg.ProveBatchesGasLimit,
+		},
+		txBuilder,
+		p.cfg.ProofPollingInterval,
+	); err != nil {
+		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
+	}
+
+	return nil
+}
+
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
@@ -245,10 +271,16 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
 		return err
 	}
 
+	// Try to initialize L1Current cursor for Shasta protocol first.
+	if err := p.initL1CurrentShasta(startingBatchID); err == nil {
+		return nil
+	}
+
+	// If failed, then try to initialize L1Current cursor for Pacaya protocol.
 	if startingBatchID == nil {
 		var (
 			lastVerifiedBatchID *big.Int
@@ -302,6 +334,51 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	return nil
 }
 
+// initL1CurrentShasta initializes prover's L1Current cursor for Shasta protocol.
+func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
+		return err
+	}
+
+	lastProposal := p.shastaIndexer.GetLastProposal()
+	if lastProposal == nil || lastProposal.Proposal.Id.Cmp(common.Big0) == 0 {
+		return fmt.Errorf("empty core state")
+	}
+	if startingBatchID == nil {
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	if startingBatchID.Cmp(lastProposal.Proposal.Id) > 0 {
+		log.Warn(
+			"Provided startingBatchID is greater than the last proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastProposalID", lastProposal.Proposal.Id,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+	if startingBatchID.Cmp(lastProposal.CoreState.LastFinalizedProposalId) < 0 {
+		log.Warn(
+			"Provided startingBatchID is less than the last finalized proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastFinalizedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
+
+	startingProposal, err := p.shastaIndexer.GetProposalByID(startingBatchID.Uint64())
+	if err != nil {
+		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
+	}
+	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, startingProposal.RawBlockHash)
+	if err != nil {
+		return err
+	}
+	p.sharedState.SetL1Current(l1Current)
+	return nil
+}
+
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
 	p.eventHandlers = &eventHandlers{}
@@ -311,6 +388,7 @@ func (p *Prover) initEventHandlers() error {
 		ProverAddress:          p.ProverAddress(),
 		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
+		Indexer:                p.shastaIndexer,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,
@@ -322,6 +400,7 @@ func (p *Prover) initEventHandlers() error {
 	// ------- BatchesProved -------
 	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(
 		p.rpc,
+		p.shastaIndexer,
 		p.proofSubmissionCh,
 	)
 	// ------- AssignmentExpired -------

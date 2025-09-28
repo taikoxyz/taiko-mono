@@ -19,7 +19,7 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ShastaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import { ForcedInclusionStore } from "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import { ForcedInclusionStore } from "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -34,9 +34,9 @@ import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbox.sol";
-import "src/shared/based/impl/CheckpointManager.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { ShastaDevnetInbox } from "src/layer1/shasta/impl/ShastaDevnetInbox.sol";
+import { CodecOptimized } from "src/layer1/shasta/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -278,6 +278,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
+        address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -290,12 +291,12 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
+
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(address(0))),
+            impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken =
@@ -316,27 +317,16 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
+        address codec = address(new CodecOptimized());
         address tempFork =
-            address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
+            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        address checkPointManager = deployProxy({
-            name: "checkpoint_manager",
-            impl: address(
-                new CheckpointManager(
-                    taikoInboxAddr,
-                    2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
-                )
-            ),
-            data: abi.encodeCall(CheckpointManager.init, (address(0)))
-        });
-
-        address newFork =
-            address(new DevnetShastaInbox(checkPointManager, proofVerifier, whitelist, bondToken));
+        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
@@ -549,9 +539,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         router = deployProxy({
             name: "preconf_router",
-            impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
-            ),
+            impl: address(new PreconfRouter(taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner))
         });
 

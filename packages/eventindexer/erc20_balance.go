@@ -34,7 +34,7 @@ type UpdateERC20BalanceOpts struct {
 	Amount          string
 }
 
-// ERC20BalanceRepository is used to interact with nft balances in the store
+// ERC20BalanceRepository is used to interact with ERC20 balances in the store
 type ERC20BalanceRepository interface {
 	IncreaseAndDecreaseBalancesInTx(
 		ctx context.Context,
