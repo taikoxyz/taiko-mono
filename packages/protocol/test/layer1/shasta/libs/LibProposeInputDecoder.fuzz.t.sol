@@ -93,7 +93,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
-                lastProposalBlockId: 9_999,
+                lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
@@ -150,7 +150,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
-                lastProposalBlockId: 9_999,
+                lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")

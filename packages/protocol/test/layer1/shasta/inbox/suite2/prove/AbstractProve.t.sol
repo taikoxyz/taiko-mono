@@ -501,7 +501,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
             // For subsequent proposals, need 1-block gap
             // Roll forward by 1 block from current position
             vm.roll(block.number + 1);
-            // lastProposalBlockId should be the block where the last proposal was made (current - 1)
+            // lastProposalBlockId should be the block where the last proposal was made (current -
+            // 1)
             expectedLastBlockId = uint48(block.number - 1);
         }
 

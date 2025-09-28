@@ -139,7 +139,7 @@ contract LibProposeInputDecoderGas is Test {
 
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
-            lastProposalBlockId: 9_999,
+            lastProposalBlockId: 9999,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")

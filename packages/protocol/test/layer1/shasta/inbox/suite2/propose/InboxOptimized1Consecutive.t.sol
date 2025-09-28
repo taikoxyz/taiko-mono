@@ -47,7 +47,8 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         // We advanced by 1 block after first proposal, so we should be at the right block
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was made there)
+            lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
+                // made there)
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
