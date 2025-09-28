@@ -21,6 +21,7 @@ alloy-signer-local = { version = "1.0.36", default-features = false }
 alloy-network = { version = "1.0.36", default-features = false }
 alloy-consensus = { version = "1.0.36", default-features = false, features = [
 ] }
+alloy-node-bindings = { version = "1.0.36" }
 async-trait = "0.1"
 anyhow = "1"
 event-scanner = "0.1.0-alpha.2"

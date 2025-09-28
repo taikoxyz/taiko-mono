@@ -5,7 +5,7 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use alloy_primitives::{Address, B256, U256, aliases::U48};
-use alloy_provider::RootProvider;
+use alloy_provider::{IpcConnect, ProviderBuilder, RootProvider, WsConnect};
 use anyhow::Result;
 use bindings::{
     codec_optimized::{
@@ -31,19 +31,28 @@ use super::util::current_unix_timestamp;
 /// The payload body of a Shasta protocol Proposed event.
 #[derive(Debug, Clone)]
 pub struct ProposedEventPayload {
+    /// Proposal metadata emitted by the inbox contract.
     pub proposal: Proposal,
+    /// Latest core state after the proposal.
     pub core_state: CoreState,
+    /// Derivation data required to reproduce the proposal off-chain.
     pub derivation: Derivation,
+    /// Raw log of the event.
     pub log: Log,
 }
 
 /// The payload body of a Shasta protocol Proved event.
 #[derive(Clone)]
 pub struct ProvedEventPayload {
+    /// Proposal that the proof proves.
     pub proposal_id: U256,
+    /// Transition details describing the state change being proven.
     pub transition: Transition,
+    /// Additional transition metadata stored in the inbox ring buffer.
     pub transition_record: TransitionRecord,
+    /// Prover metadata (designated and actual prover addresses).
     pub metadata: TransitionMetadata,
+    /// Raw log of the event.
     pub log: Log,
 }
 
@@ -61,8 +70,6 @@ pub enum SubscriptionSource {
 pub struct ShastaEventIndexerConfig {
     /// Source for L1 log streaming.
     pub l1_subscription_source: SubscriptionSource,
-    /// Provider used to query L2 state.
-    pub l2_rpc_provider: RootProvider,
     /// Address of the Shasta inbox contract.
     pub inbox_address: Address,
 }
@@ -72,8 +79,6 @@ pub struct ShastaEventIndexerConfig {
 pub struct ShastaEventIndexer {
     /// Configuration for the indexer instance.
     config: ShastaEventIndexerConfig,
-    /// Shasta inbox address for filtering and log decoding.
-    inbox_address: Address,
     /// Contract codec used to decode inbox event payloads.
     inbox_codec: CodecOptimizedInstance<RootProvider>,
     /// Size of the inbox ring buffer for proposals.
@@ -93,16 +98,21 @@ impl ShastaEventIndexer {
     #[instrument(skip(config), err)]
     pub async fn new(config: ShastaEventIndexerConfig) -> Result<Self> {
         let inbox_address = config.inbox_address;
-        let l2_rpc_provider = config.l2_rpc_provider.clone();
+        let provider = match &config.l1_subscription_source {
+            SubscriptionSource::Ipc(path) => {
+                ProviderBuilder::default().connect_ipc(IpcConnect::new(path.clone())).await?
+            }
+            SubscriptionSource::Ws(url) => {
+                ProviderBuilder::default().connect_ws(WsConnect::new(url.to_string())).await?
+            }
+        };
 
-        let inbox_config =
-            IInbox::new(inbox_address, l2_rpc_provider.clone()).getConfig().call().await?;
-
+        let inbox_config = IInbox::new(inbox_address, provider.clone()).getConfig().call().await?;
         let ring_buffer_size = inbox_config.ringBufferSize.to();
         let max_finalization_count = inbox_config.maxFinalizationCount.to();
         let finalization_grace_period = inbox_config.finalizationGracePeriod.to();
 
-        debug!(
+        info!(
             ?inbox_address,
             ring_buffer_size,
             max_finalization_count,
@@ -112,8 +122,7 @@ impl ShastaEventIndexer {
 
         Ok(Self {
             config,
-            inbox_address,
-            inbox_codec: CodecOptimized::new(inbox_config.codec, l2_rpc_provider),
+            inbox_codec: CodecOptimized::new(inbox_config.codec, provider.clone()),
             inbox_ring_buffer_size: ring_buffer_size,
             max_finalization_count,
             finalization_grace_period,
@@ -138,7 +147,7 @@ impl ShastaEventIndexer {
         }?;
 
         let filter = EventFilter::new()
-            .with_contract_address(self.inbox_address)
+            .with_contract_address(self.config.inbox_address)
             .with_event(Proposed::SIGNATURE)
             .with_event(Proved::SIGNATURE);
 
@@ -344,5 +353,86 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
             transition_records: transitions.iter().map(|t| t.transition_record.clone()).collect(),
             checkpoint,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::{
+        primitives::{Bytes, Log as PrimitiveLog},
+        providers::ProviderBuilder,
+    };
+    use alloy_node_bindings::Anvil;
+    use bindings::codec_optimized::{
+        CodecOptimized,
+        IInbox::{
+            CoreState, Derivation, Proposal as CodecProposal,
+            ProposedEventPayload as CodecProposedEventPayload,
+        },
+    };
+
+    fn proposal_with_id(id: u64) -> CodecProposal {
+        let mut proposal = CodecProposal::default();
+        proposal.id = U48::from(id);
+        proposal
+    }
+
+    #[tokio::test]
+    async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
+        let anvil = Anvil::new().try_spawn()?;
+        let provider = ProviderBuilder::new()
+            .wallet(anvil.wallet().unwrap())
+            .connect_http(anvil.endpoint_url());
+
+        let codec_instance = CodecOptimized::deploy(provider.clone()).await?;
+        let codec_address = *codec_instance.address();
+        let root_provider = RootProvider::connect(&anvil.endpoint()).await?;
+        let inbox_address = Address::ZERO;
+        let config = ShastaEventIndexerConfig {
+            l1_subscription_source: SubscriptionSource::Ws(anvil.ws_endpoint_url()),
+            inbox_address,
+        };
+
+        let mut indexer = ShastaEventIndexer {
+            config,
+            inbox_codec: CodecOptimized::new(codec_address, root_provider.clone()),
+            inbox_ring_buffer_size: 1,
+            max_finalization_count: 1,
+            finalization_grace_period: 0,
+            proposed_payloads: DashMap::new(),
+            proved_payloads: DashMap::new(),
+        };
+
+        let binding_payload = CodecProposedEventPayload {
+            proposal: proposal_with_id(1),
+            derivation: Derivation::default(),
+            coreState: CoreState::default(),
+        };
+
+        indexer
+            .handle_proposed(Log {
+                inner: PrimitiveLog::new_unchecked(
+                    inbox_address,
+                    vec![Proposed::SIGNATURE_HASH],
+                    Bytes::from(
+                        codec_instance.encodeProposedEvent(binding_payload.clone()).call().await?,
+                    ),
+                ),
+                block_hash: None,
+                block_number: Some(0),
+                block_timestamp: Some(0),
+                transaction_hash: None,
+                transaction_index: None,
+                log_index: None,
+                removed: false,
+            })
+            .await?;
+
+        let cached =
+            indexer.proposed_payloads.get(&U256::from(1u64)).expect("proposal should be cached");
+
+        assert_eq!(cached.proposal.id, binding_payload.proposal.id);
+        Ok(())
     }
 }

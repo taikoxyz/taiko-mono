@@ -19,3 +19,6 @@ dashmap = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+alloy-node-bindings = { workspace = true }
