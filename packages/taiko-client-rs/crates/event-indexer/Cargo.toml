@@ -22,3 +22,4 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 alloy-node-bindings = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -384,42 +384,54 @@ mod tests {
     };
     use alloy_node_bindings::{Anvil, AnvilInstance};
     use alloy_provider::Identity;
-    use bindings::codec_optimized::{
-        CodecOptimized,
-        ICheckpointStore::Checkpoint,
-        IInbox::{
-            CoreState, Derivation, Proposal as CodecProposal,
-            ProposedEventPayload as CodecProposedEventPayload,
-            ProvedEventPayload as CodecProvedEventPayload, Transition, TransitionMetadata,
-            TransitionRecord,
+    use bindings::{
+        codec_optimized::{
+            CodecOptimized,
+            ICheckpointStore::Checkpoint,
+            IInbox::{
+                CoreState, Derivation, Proposal as CodecProposal,
+                ProposedEventPayload as CodecProposedEventPayload,
+                ProvedEventPayload as CodecProvedEventPayload, Transition, TransitionMetadata,
+                TransitionRecord,
+            },
         },
+        i_inbox::IInbox::IInboxInstance,
     };
 
     struct TestSetup {
-        indexer: ShastaEventIndexer,
-        _anvil: AnvilInstance,
+        indexer: Arc<ShastaEventIndexer>,
+        inbox: IInboxInstance<RootProvider>,
+        anvil: AnvilInstance,
     }
 
     async fn setup_indexer() -> anyhow::Result<TestSetup> {
         let anvil = Anvil::new().try_spawn()?;
-        let wallet = anvil.wallet().expect("anvil exposes a dev wallet");
+        let wallet = anvil.wallet().unwrap();
 
-        let wallet_provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
+        let provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
             .with_recommended_fillers()
             .wallet(wallet)
             .connect_http(anvil.endpoint_url());
 
-        let codec_instance = CodecOptimized::deploy(wallet_provider).await?;
+        let codec_instance = CodecOptimized::deploy(provider.clone()).await?;
         let codec_address = *codec_instance.address();
         let root_provider = RootProvider::connect(&anvil.endpoint()).await?;
 
-        let inbox_address = Address::ZERO;
+        let inbox_instance = IInbox::deploy(provider).await?;
+        let inbox_address = *inbox_instance.address();
+
+        // ShastaMainnetInboxInstance::new(inbox_address, root_provider.clone())
+        //     .initialize(codec_address)
+        //     .send()
+        //     .await?
+        //     .await?;
+
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(anvil.ws_endpoint_url()),
             inbox_address,
         };
 
-        let indexer = ShastaEventIndexer {
+        let indexer = Arc::new(ShastaEventIndexer {
             config,
             inbox_codec: CodecOptimized::new(codec_address, root_provider.clone()),
             inbox_ring_buffer_size: 1,
@@ -427,9 +439,9 @@ mod tests {
             finalization_grace_period: 0,
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
-        };
+        });
 
-        Ok(TestSetup { indexer, _anvil: anvil })
+        Ok(TestSetup { indexer, anvil, inbox: IInboxInstance::new(inbox_address, root_provider) })
     }
 
     fn proposal_with_id(id: u64) -> CodecProposal {
@@ -472,7 +484,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proposed_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, _anvil } = setup_indexer().await?;
+        let TestSetup { indexer, anvil: _anvil, inbox: _inbox } = setup_indexer().await?;
 
         let binding_payload = CodecProposedEventPayload {
             proposal: proposal_with_id(1),
@@ -496,7 +508,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_proved_caches_payload() -> anyhow::Result<()> {
-        let TestSetup { indexer, _anvil } = setup_indexer().await?;
+        let TestSetup { indexer, anvil: _anvil, inbox: _inbox } = setup_indexer().await?;
 
         let checkpoint = Checkpoint {
             blockNumber: U48::from(0u64),
@@ -539,6 +551,19 @@ mod tests {
             cached.transition_record.transitionHash,
             binding_payload.transitionRecord.transitionHash
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn handle_indexing() -> anyhow::Result<()> {
+        let TestSetup { indexer, anvil: _anvil, inbox } = setup_indexer().await?;
+        indexer.clone().spawn();
+        let input = indexer.read_shasta_propose_input();
+        assert_eq!(true, input.is_none());
+
+        inbox.propose(Bytes::new(), Bytes::new()).call().await?;
+        let input = indexer.read_shasta_propose_input();
+        assert_eq!(true, input.is_none());
         Ok(())
     }
 }

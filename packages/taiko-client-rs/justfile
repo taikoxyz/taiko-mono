@@ -12,4 +12,7 @@ clippy:
   cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings
 
 test:
-  cargo nextest -v run --workspace --exclude bindings --all-features
+  ./test/entrypoint.sh
+
+gen_bindings:
+  ./script/gen_bindings.sh
