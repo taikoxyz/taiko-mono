@@ -31,13 +31,13 @@ echo ""
 echo "Start generating Go contract bindings..."
 echo ""
 
-cat ../protocol/out/layer1/MainnetShastaInbox.sol/MainnetShastaInbox.json |
+cat ../protocol/out/layer1/ShastaMainnetInbox.sol/ShastaMainnetInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat ../protocol/out/layer1/InboxHelper.sol/InboxHelper.json |
+cat ../protocol/out/layer1/CodecOptimized.sol/CodecOptimized.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type InboxHelperClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_helper.go
+	${ABIGEN_BIN} --abi - --type CodecOptimizedClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_codec.go
 
 cat ../protocol/out/layer2/ShastaAnchor.sol/ShastaAnchor.json |
 	jq .abi |
