@@ -5,7 +5,7 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use alloy_primitives::{Address, B256, U256, aliases::U48};
-use alloy_provider::{IpcConnect, ProviderBuilder, RootProvider, WsConnect};
+use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use anyhow::Result;
 use bindings::{
     codec_optimized::{
@@ -17,8 +17,7 @@ use bindings::{
             TransitionRecord,
         },
     },
-    i_inbox::IInbox::{Proposed, Proved},
-    shasta_mainnet_inbox::ShastaMainnetInbox,
+    i_inbox::IInbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, event_scanner::EventScanner};
@@ -102,18 +101,15 @@ impl ShastaEventIndexer {
         let inbox_address = config.inbox_address;
         let provider = match &config.l1_subscription_source {
             SubscriptionSource::Ipc(path) => {
-                ProviderBuilder::default().connect_ipc(IpcConnect::new(path.clone())).await?
+                ProviderBuilder::new().connect_ipc(IpcConnect::new(path.clone())).await?
             }
             SubscriptionSource::Ws(url) => {
-                ProviderBuilder::default().connect_ws(WsConnect::new(url.to_string())).await?
+                ProviderBuilder::new().connect_ws(WsConnect::new(url.to_string())).await?
             }
         };
 
-        debug!(?inbox_address, "fetching inbox contract configuration");
-
-        let inbox = ShastaMainnetInbox::new(inbox_address, provider.clone());
+        let inbox = IInbox::new(inbox_address, provider.clone());
         let inbox_config = inbox.getConfig().call().await?;
-        info!(?inbox_config, "fetched inbox contract configuration");
         let ring_buffer_size = inbox_config.ringBufferSize.to();
         let max_finalization_count = inbox_config.maxFinalizationCount.to();
         let finalization_grace_period = inbox_config.finalizationGracePeriod.to();
@@ -128,7 +124,7 @@ impl ShastaEventIndexer {
 
         Ok(Self {
             config,
-            inbox_codec: CodecOptimized::new(inbox_config.codec, provider.clone()),
+            inbox_codec: CodecOptimized::new(inbox_config.codec, provider.root().clone()),
             inbox_ring_buffer_size: ring_buffer_size,
             max_finalization_count,
             finalization_grace_period,
@@ -538,7 +534,7 @@ mod tests {
         let cached = indexer
             .proved_payloads
             .get(&U256::from(binding_payload.proposalId.to::<u64>()))
-            .expect("proved payload should be cached");
+            .unwrap();
 
         assert_eq!(cached.metadata.designatedProver, binding_payload.metadata.designatedProver);
         assert_eq!(
