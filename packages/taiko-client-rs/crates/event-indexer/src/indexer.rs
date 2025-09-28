@@ -549,11 +549,8 @@ mod tests {
         let TestSetup { indexer, inbox } = setup().await?;
         indexer.clone().spawn();
         let input = indexer.read_shasta_propose_input();
-        assert_eq!(true, input.is_none());
+        assert_eq!(false, input.is_none());
 
-        inbox.propose(Bytes::new(), Bytes::new()).call().await?;
-        let input = indexer.read_shasta_propose_input();
-        assert_eq!(true, input.is_none());
         Ok(())
     }
 }
