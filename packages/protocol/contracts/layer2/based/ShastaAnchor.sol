@@ -30,7 +30,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
+        uint48 submissionWindowEnd; // The timestamp of the last slot where the current
             // preconfer can submit preconf-ed blocks to the L2 network.
     }
 
@@ -41,6 +41,14 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         address proposer; // The original proposer address
         uint48 provingFeeGwei; // Fee in Gwei that prover will receive
         bytes signature; // ECDSA signature from the designated prover
+    }
+
+    /// @notice Preconfirmation metadata for a given L2 block.
+    struct PreconfMeta {
+        uint48 anchorBlockNumber;
+        uint48 submissionWindowEnd;
+        bytes32 rawTxListHash;
+        bytes32 parentRawTxListHash;
     }
 
     // ---------------------------------------------------------------
@@ -70,12 +78,12 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @dev 3 slots used to store the state:
     State private _state;
 
-    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
-        blockIdToEndOfSubmissionWindowTimeStamp;
-
     /// @dev Storage for checkpoint management
     /// @dev 2 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
+
+    /// @notice Maps L2 block id to preconfirmation metadata.
+    mapping(uint256 blockId => PreconfMeta meta) public blockIdToPreconfMeta;
 
     /// @notice Storage gap for upgrade safety.
     uint256[44] private __gap;
@@ -135,7 +143,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// @param _submissionWindowEnd The timestamp of the last slot where the current
     /// preconfer
     /// can propose.
     /// @return previousState_ The previous state of the anchor. This value make proving easier.
@@ -152,7 +160,8 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
-        uint48 _endOfSubmissionWindowTimestamp
+        uint48 _submissionWindowEnd,
+        bytes32 _rawTxListHash
     )
         external
         onlyGoldenTouch
@@ -201,10 +210,15 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
             newState_.anchorBlockNumber = _anchorBlockNumber;
         }
 
-        newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        newState_.submissionWindowEnd = _submissionWindowEnd;
         _state = newState_;
 
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
+        blockIdToPreconfMeta[block.number] = PreconfMeta({
+            anchorBlockNumber: _anchorBlockNumber,
+            submissionWindowEnd: _submissionWindowEnd,
+            rawTxListHash: _rawTxListHash,
+            parentRawTxListHash: blockIdToPreconfMeta[block.number - 1].rawTxListHash
+        });
     }
 
     // ---------------------------------------------------------------
@@ -250,6 +264,14 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @inheritdoc ICheckpointStore
     function getNumberOfCheckpoints() external view returns (uint48) {
         return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
+    }
+
+    /// @notice Returns preconfirmation metadata for a given L2 block id.
+    /// @param _blockId The L2 block id.
+    /// @return meta_ The preconfirmation metadata containing submissionWindowEnd and rawTxListHash.
+    function getPreconfMeta(uint256 _blockId) external view returns (PreconfMeta memory meta_) {
+        meta_ = blockIdToPreconfMeta[_blockId];
+        require(meta_.anchorBlockNumber != 0, InvalidBlockId());
     }
 
     // ---------------------------------------------------------------
@@ -399,7 +421,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
 
     error BlockHashAlreadySet();
     error BondInstructionsHashMismatch();
-    error InvalidBlockIndex();
+    error InvalidBlockId();
     error InvalidAnchorBlockNumber();
     error InvalidForkHeight();
     error NonZeroAnchorBlockHash();
