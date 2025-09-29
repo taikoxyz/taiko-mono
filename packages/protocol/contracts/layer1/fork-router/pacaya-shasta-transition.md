@@ -2,7 +2,7 @@
 
 The goal of this document is to outline a plan for the Pacaya->Shasta transition in the most secure and gas efficient way possible. ** Since the Shasta Inbox contract will still be deployed with a whitelisted set of preconfers, we can make use of those security assumptions to simplify the transition and avoid having to do too much on-chain. **
 
-## Terminilogy
+## Terminology
 
 - `FORK_BLOCK`: The L1 block where the Pacaya -> Shasta transition should happen
 - `FORK_TIMESTAMP`: The timestamp of the `FORK_BLOCK`
@@ -29,7 +29,7 @@ The reasons why we might want to keep the fork router(or add a new one) are:
 ### Cons
 
 1. Complete trust on the `SHASTA_INITIALIZER`. This address will be able to set any initial state they want. But if they choose the wrong `_genesisBlockHash` proposals won't be able to be proven afterwards. There might also not be a more trustless solution to this, since the storage slots are not compatible, it won't be possible to do an on-chain transition as with Ontake->Pacaya.
-2. Time sensitive: The `SHASTA_INITIALIZER` needs to call `activate` after `FORK_BLOCK` and before the next proposal lands on-chain. Since we have a set of whitelsited proposers, we can be sure this does not happen before the fork(and we could even keep only Taiko as a preconfer during the tranisition period to guarantee this). This gives the `SHASTA_INITIALIZER`at least an epoch(>6min), which should be enough time.
+2. Time sensitive: The `SHASTA_INITIALIZER` needs to call `activate` after `FORK_BLOCK` and before the next proposal lands on-chain. Since we have a set of whitelisted proposers, we can be sure this does not happen before the fork (and we could even keep only Taiko as a preconfer during the transition period to guarantee this). This gives the `SHASTA_INITIALIZER` at least an epoch (>6min), which should be enough time.
 3. The inbox is now at a different address: This means off-chain software(and contracts) need to be updated to listen to the new address. This will be necessary for almost every case, since the functions and events are different, the upgrade will necessarily be messy. Bridges use the signal service, so we should only need to upgrade the SS to support the upgrade(we may need to support old and new state roots if we want to avoid proofs needing to be reconstructed).
 
 ### Conclusion
