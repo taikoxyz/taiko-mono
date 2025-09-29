@@ -587,15 +587,13 @@
 |
 | _forcedInclusionStorage          | struct LibForcedInclusion.Storage                                   | 254  | 0      | 64    |
 |
-| _checkpointStorage               | struct LibCheckpointStore.Storage                                   | 256  | 0      | 64    |
+| __gap                            | uint256[37]                                                         | 256  | 0      | 1184  |
 |
-| __gap                            | uint256[37]                                                         | 258  | 0      | 1184  |
+| _reusableTransitionRecords       | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 293  | 0      | 32    |
 |
-| _reusableTransitionRecords       | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 295  | 0      | 32    |
+| __gap                            | uint256[49]                                                         | 294  | 0      | 1568  |
 |
-| __gap                            | uint256[49]                                                         | 296  | 0      | 1568  |
-|
-| __gap                            | uint256[50]                                                         | 345  | 0      | 1600  |
+| __gap                            | uint256[50]                                                         | 343  | 0      | 1600  |
 ╰----------------------------------+---------------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------╯
 
 
