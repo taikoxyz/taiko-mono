@@ -74,7 +74,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 internal immutable _forcedInclusionDelay;
+    uint16 internal immutable _forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
@@ -931,6 +931,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bool _hasTransitionRecord
     )
         private
+        view
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
@@ -986,6 +987,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         LibBonds.BondInstruction[] memory _instructions
     )
         private
+        pure
     {
         if (_instructions.length == 0) return;
 
