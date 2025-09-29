@@ -7,6 +7,7 @@ import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { ShastaDevnetInbox } from "contracts/layer1/shasta/impl/ShastaDevnetInbox.sol";
 import "test/shared/DeployCapability.sol";
+import "src/layer1/shasta/impl/Inbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "test/layer1/shasta/inbox/suite2/mocks/MockContracts.sol";
 import { CodecOptimized } from "src/layer1/shasta/impl/CodecOptimized.sol";
@@ -32,6 +33,7 @@ contract UpgradeShastaL1 is DeployCapability {
         // Proof verifier
         address proofVerifier = address(new MockProofVerifier());
         address proposer = vm.envAddress("PROPOSER_ADDRESS");
+        address shastaInitializer = vm.envAddress("SHASTA_INITIALIZER");
 
         address whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -58,8 +60,9 @@ contract UpgradeShastaL1 is DeployCapability {
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
-        UUPSUpgradeable(inbox).upgradeTo({
-            newImplementation: address(new ShastaForkRouter(oldFork, newFork))
+        UUPSUpgradeable(inbox).upgradeToAndCall({
+            newImplementation: address(new ShastaForkRouter(oldFork, newFork)),
+            data: abi.encodeCall(Inbox.init, (address(0), shastaInitializer))
         });
     }
 }
