@@ -29,8 +29,8 @@ abstract contract AbstractCodecTest is Test {
     // ---------------------------------------------------------------
 
     function test_hashTransition() public view {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -38,6 +38,7 @@ abstract contract AbstractCodecTest is Test {
         IInbox.Transition memory testTransition = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: testCheckpoint
         });
 
@@ -50,17 +51,17 @@ abstract contract AbstractCodecTest is Test {
     }
 
     function test_hashCheckpoint() public view {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory testCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
 
-        bytes32 hash = codec.hashCheckpoint(testCheckpoint);
+        bytes32 hash = codec.hashCheckpoint(checkpointBlockNumber, testCheckpoint);
         assertNotEq(hash, bytes32(0), "Checkpoint hash should not be zero");
 
         // Verify deterministic hashing
-        bytes32 hash2 = codec.hashCheckpoint(testCheckpoint);
+        bytes32 hash2 = codec.hashCheckpoint(checkpointBlockNumber, testCheckpoint);
         assertEq(hash, hash2, "Checkpoint hash should be deterministic");
     }
 
@@ -149,14 +150,15 @@ abstract contract AbstractCodecTest is Test {
     // ---------------------------------------------------------------
 
     function test_hashTransitionsWithMetadata() public view {
+        uint48 checkpointBlockNumber1 = 12_345;
+        uint48 checkpointBlockNumber2 = 23_456;
+
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 99_999,
             blockHash: bytes32(uint256(0xeeee)),
             stateRoot: bytes32(uint256(0xffff))
         });
@@ -165,16 +167,19 @@ abstract contract AbstractCodecTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber1,
             checkpoint: checkpoint1
         });
         transitions[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xaaaa)),
             parentTransitionHash: bytes32(uint256(0xbbbb)),
+            checkpointBlockNumber: checkpointBlockNumber1,
             checkpoint: checkpoint1
         });
         transitions[2] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xcccc)),
             parentTransitionHash: bytes32(uint256(0xdddd)),
+            checkpointBlockNumber: checkpointBlockNumber2,
             checkpoint: checkpoint2
         });
 
@@ -212,9 +217,9 @@ abstract contract AbstractCodecTest is Test {
         assertNotEq(hash, bytes32(0), "Empty transitions array hash should not be zero");
     }
 
-    function test_hashTransitionsWithMetadata_Single() public view {
+    function test_hashTransitionsArray_Single() public view {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -223,6 +228,7 @@ abstract contract AbstractCodecTest is Test {
         singleArray[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 
@@ -235,9 +241,9 @@ abstract contract AbstractCodecTest is Test {
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
-    function test_hashTransitionsWithMetadata_Two() public view {
+    function test_hashTransitionsArray_Two() public view {
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -246,11 +252,13 @@ abstract contract AbstractCodecTest is Test {
         twoArray[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1111)),
             parentTransitionHash: bytes32(uint256(0x2222)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
         twoArray[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(0xfeed)),
             parentTransitionHash: bytes32(uint256(0xbeef)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 
@@ -340,8 +348,8 @@ abstract contract AbstractCodecTest is Test {
 
     function test_hashCollisionResistance_ArrayLengths() public view {
         // Test that arrays of different lengths produce different hashes
+        uint48 checkpointBlockNumber = 12_345;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
             stateRoot: bytes32(uint256(0xdead))
         });
@@ -350,6 +358,7 @@ abstract contract AbstractCodecTest is Test {
         array1[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1234)),
             parentTransitionHash: bytes32(uint256(0x5678)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 
@@ -357,11 +366,13 @@ abstract contract AbstractCodecTest is Test {
         array2[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x1234)),
             parentTransitionHash: bytes32(uint256(0x5678)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
         array2[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(0x0)),
             parentTransitionHash: bytes32(uint256(0x0)),
+            checkpointBlockNumber: checkpointBlockNumber,
             checkpoint: checkpoint
         });
 

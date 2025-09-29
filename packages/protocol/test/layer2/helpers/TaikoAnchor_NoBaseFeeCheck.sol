@@ -10,7 +10,6 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        uint16 _maxCheckpointHistory,
         address _bondManager
     )
         TaikoAnchor(
@@ -19,7 +18,6 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
             _signalService,
             _pacayaForkHeight,
             _shastaForkHeight,
-            _maxCheckpointHistory,
             _bondManager
         )
     { }

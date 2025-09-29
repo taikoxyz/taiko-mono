@@ -33,7 +33,6 @@ contract TestGenerateGenesis is Test {
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
-    uint16 private maxCheckpointHistory = uint16(configJSON.readUint(".maxCheckpointHistory"));
 
     function setUp() public {
         // Skip all genesis tests - these require specific deployment configuration
@@ -166,7 +165,6 @@ contract TestGenerateGenesis is Test {
         );
         assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
         assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
-        assertEq(maxCheckpointHistory, taikoAnchorProxy.maxCheckpointHistory());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
@@ -178,7 +176,6 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    uint16(100), // maxCheckpointHistory - default value
                     address(0) // bondManager - to be set later
                 )
             )

@@ -43,17 +43,23 @@ contract UpgradeShastaL1 is DeployCapability {
         address bondToken = IResolver(vm.envAddress("SHARED_RESOLVER")).resolve(
             uint64(block.chainid), "bond_token", false
         );
+        address signalService = IResolver(vm.envAddress("SHARED_RESOLVER")).resolve(
+            uint64(block.chainid), "signal_service", false
+        );
 
         address oldFork = PacayaForkRouter(inbox).newFork();
         address codec = address(new CodecOptimized());
-        address tempFork =
-            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
+        address tempFork = address(
+            new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+        );
 
         UUPSUpgradeable(inbox).upgradeTo({
             newImplementation: address(new ShastaForkRouter(oldFork, tempFork))
         });
 
-        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
+        address newFork = address(
+            new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+        );
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

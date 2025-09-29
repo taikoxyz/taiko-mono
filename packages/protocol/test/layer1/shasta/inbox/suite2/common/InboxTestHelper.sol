@@ -11,7 +11,8 @@ import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
 /// @title InboxTestHelper
@@ -254,8 +255,8 @@ abstract contract InboxTestHelper is CommonTest {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
+            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
@@ -277,13 +278,13 @@ abstract contract InboxTestHelper is CommonTest {
             coreState: coreState,
             parentProposals: parentProposals,
             blobReference: blobRef,
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            numForcedInclusions: 0,
+            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
+            })
         });
     }
 
@@ -350,7 +351,7 @@ abstract contract InboxTestHelper is CommonTest {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            100, // maxCheckpointHistory
+            address(checkpointManager), // signalService
             address(proofVerifier),
             address(proposerChecker)
         );
@@ -367,7 +368,7 @@ abstract contract InboxTestHelper is CommonTest {
     /// or are well-tested externally (e.g. ERC20 tokens)
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        checkpointManager = new MockCheckpointProvider();
+        checkpointManager = ICheckpointStore(address(new SignalService(address(0))));
         proofVerifier = new MockProofVerifier();
     }
 

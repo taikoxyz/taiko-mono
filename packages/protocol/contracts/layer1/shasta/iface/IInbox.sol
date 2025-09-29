@@ -15,6 +15,8 @@ interface IInbox {
         address codec;
         /// @notice The token used for bonds
         address bondToken;
+        /// @notice The signal service contract address
+        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -38,8 +40,6 @@ interface IInbox {
         uint16 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
-        /// @notice The maximum number of checkpoints to store in ring buffer
-        uint16 maxCheckpointHistory;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -89,6 +89,8 @@ interface IInbox {
         /// transition to
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
+        /// @notice The block number associated with the checkpoint.
+        uint48 checkpointBlockNumber;
         /// @notice The end block header containing number, hash, and state root.
         ICheckpointStore.Checkpoint checkpoint;
     }
@@ -140,6 +142,8 @@ interface IInbox {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
+        /// @notice The block number associated with the checkpoint.
+        uint48 checkpointBlockNumber;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.

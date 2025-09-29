@@ -18,7 +18,7 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
-        uint16 maxCheckpointHistory,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
@@ -27,9 +27,7 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
     {
         address codec = address(new CodecSimple());
         address impl = address(
-            new TestInboxOptimized1(
-                codec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker
-            )
+            new TestInboxOptimized1(codec, bondToken, signalService, proofVerifier, proposerChecker)
         );
 
         TestInboxOptimized1 inbox = TestInboxOptimized1(

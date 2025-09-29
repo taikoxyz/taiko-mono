@@ -6,12 +6,7 @@ import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.so
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibCheckpointStoreTest
-/// @notice Comprehensive unit tests for LibCheckpointStore library
-/// @dev Tests cover:
-///      - Ring buffer behavior with various history sizes
-///      - Checkpoint storage and retrieval
-///      - Edge cases and error conditions
-///      - Stack management and wraparound scenarios
+/// @notice Unit tests for LibCheckpointStore library
 /// @notice Wrapper contract to ensure proper call depth for reverts
 contract CheckpointStoreWrapper {
     using LibCheckpointStore for LibCheckpointStore.Storage;
@@ -19,24 +14,25 @@ contract CheckpointStoreWrapper {
     LibCheckpointStore.Storage internal storage_;
 
     function saveCheckpoint(
-        ICheckpointStore.Checkpoint memory _checkpoint,
-        uint48 _maxCheckpointHistory
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         external
     {
-        storage_.saveCheckpoint(_checkpoint, _maxCheckpointHistory);
+        storage_.saveCheckpoint(_blockNumber, _checkpoint);
+    }
+
+    function getCheckpoint(uint48 _blockNumber)
+        external
+        view
+        returns (ICheckpointStore.Checkpoint memory)
+    {
+        return storage_.getCheckpoint(_blockNumber);
     }
 }
 
 contract LibCheckpointStoreTest is CommonTest {
     using LibCheckpointStore for LibCheckpointStore.Storage;
-
-    // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    uint48 constant MAX_HISTORY = 5;
-    uint48 constant LARGE_MAX_HISTORY = 100;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -49,7 +45,7 @@ contract LibCheckpointStoreTest is CommonTest {
     // Events
     // ---------------------------------------------------------------
 
-    event CheckpointSaved(uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot);
+    event CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot);
 
     // ---------------------------------------------------------------
     // Setup
@@ -67,22 +63,16 @@ contract LibCheckpointStoreTest is CommonTest {
     // ---------------------------------------------------------------
 
     function test_saveAndRetrieveSingleCheckpoint() public {
+        uint48 blockNumber = 100;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
 
-        // Note: Event is emitted from the library context during delegatecall
-        storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
-
-        // Verify storage state
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 100);
-        assertEq(storage_.getNumberOfCheckpoints(), 1);
+        storage_.saveCheckpoint(blockNumber, checkpoint);
 
         // Retrieve and verify checkpoint
-        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(0, MAX_HISTORY);
-        assertEq(retrieved.blockNumber, checkpoint.blockNumber);
+        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
         assertEq(retrieved.blockHash, checkpoint.blockHash);
         assertEq(retrieved.stateRoot, checkpoint.stateRoot);
     }
@@ -91,88 +81,22 @@ contract LibCheckpointStoreTest is CommonTest {
         uint48 numCheckpoints = 3;
 
         for (uint48 i = 1; i <= numCheckpoints; i++) {
+            uint48 blockNumber = i * 100;
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i * 100,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
-            storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
+            storage_.saveCheckpoint(blockNumber, checkpoint);
         }
 
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
-        assertEq(storage_.getNumberOfCheckpoints(), 3);
-
-        // Verify retrieval in reverse order (most recent first)
-        for (uint48 i = 0; i < numCheckpoints; i++) {
-            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(i, MAX_HISTORY);
-            uint48 expectedBlockNum = (numCheckpoints - i) * 100;
-            assertEq(retrieved.blockNumber, expectedBlockNum);
-            assertEq(retrieved.blockHash, bytes32(uint256(numCheckpoints - i)));
-            assertEq(retrieved.stateRoot, bytes32(uint256((numCheckpoints - i) * 10)));
+        // Verify retrieval of each checkpoint
+        for (uint48 i = 1; i <= numCheckpoints; i++) {
+            uint48 blockNumber = i * 100;
+            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
+            assertEq(retrieved.blockHash, bytes32(uint256(i)));
+            assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }
-    }
-
-    // ---------------------------------------------------------------
-    // Test: Ring Buffer Behavior
-    // ---------------------------------------------------------------
-
-    function test_ringBufferOverwrite() public {
-        // Fill buffer beyond capacity
-        uint48 totalCheckpoints = MAX_HISTORY + 3;
-
-        for (uint48 i = 1; i <= totalCheckpoints; i++) {
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i * 100,
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10))
-            });
-
-            storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
-        }
-
-        // Stack size should be capped at MAX_HISTORY
-        assertEq(storage_.getNumberOfCheckpoints(), MAX_HISTORY);
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 800);
-
-        // Verify only the most recent MAX_HISTORY checkpoints are stored
-        // Should have checkpoints 4-8 (400-800)
-        for (uint48 i = 0; i < MAX_HISTORY; i++) {
-            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(i, MAX_HISTORY);
-            uint48 expectedNum = (totalCheckpoints - i) * 100;
-            assertEq(retrieved.blockNumber, expectedNum);
-        }
-    }
-
-    function test_ringBufferWrapAroundCalculation() public {
-        // Test with specific wrap-around scenarios
-        uint48 historySize = 3;
-
-        // Add 5 checkpoints to a buffer of size 3
-        for (uint48 i = 1; i <= 5; i++) {
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i,
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10))
-            });
-
-            storage_.saveCheckpoint(checkpoint, historySize);
-        }
-
-        // Should have checkpoints 3, 4, 5 in the buffer
-        assertEq(storage_.getNumberOfCheckpoints(), 3);
-
-        // Most recent (offset 0) should be checkpoint 5
-        ICheckpointStore.Checkpoint memory latest = storage_.getCheckpoint(0, historySize);
-        assertEq(latest.blockNumber, 5);
-
-        // Second most recent (offset 1) should be checkpoint 4
-        ICheckpointStore.Checkpoint memory secondLatest = storage_.getCheckpoint(1, historySize);
-        assertEq(secondLatest.blockNumber, 4);
-
-        // Oldest (offset 2) should be checkpoint 3
-        ICheckpointStore.Checkpoint memory oldest = storage_.getCheckpoint(2, historySize);
-        assertEq(oldest.blockNumber, 3);
     }
 
     // ---------------------------------------------------------------
@@ -180,132 +104,75 @@ contract LibCheckpointStoreTest is CommonTest {
     // ---------------------------------------------------------------
 
     function test_revert_invalidCheckpoint_zeroStateRoot() public {
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(0)
-        });
+        uint48 blockNumber = 100;
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: bytes32(uint256(1)), stateRoot: bytes32(0) });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint, MAX_HISTORY);
+        wrapper.saveCheckpoint(blockNumber, checkpoint);
     }
 
     function test_revert_invalidCheckpoint_zeroBlockHash() public {
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(0),
-            stateRoot: bytes32(uint256(1))
-        });
+        uint48 blockNumber = 100;
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(uint256(1)) });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint, MAX_HISTORY);
+        wrapper.saveCheckpoint(blockNumber, checkpoint);
     }
 
-    function test_revert_invalidCheckpoint_nonIncreasingBlockNumber() public {
-        // Save first checkpoint
-        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
+    function test_revert_getCheckpoint_notFound() public {
+        vm.expectRevert(LibCheckpointStore.CheckpointNotFound.selector);
+        wrapper.getCheckpoint(100);
+
+        // Save a checkpoint at block 200
+        uint48 blockNumber = 200;
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
-        wrapper.saveCheckpoint(checkpoint1, MAX_HISTORY);
+        storage_.saveCheckpoint(blockNumber, checkpoint);
 
-        // Try to save checkpoint with same block number
+        // Try to get a non-existent checkpoint
+        vm.expectRevert(LibCheckpointStore.CheckpointNotFound.selector);
+        wrapper.getCheckpoint(100);
+    }
+
+    // ---------------------------------------------------------------
+    // Test: Overwriting Checkpoints
+    // ---------------------------------------------------------------
+
+    function test_overwriteExistingCheckpoint() public {
+        // Save initial checkpoint
+        ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
+            blockHash: bytes32(uint256(1)),
+            stateRoot: bytes32(uint256(2))
+        });
+        storage_.saveCheckpoint(100, checkpoint1);
+
+        // Save new checkpoint at block 200
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
             blockHash: bytes32(uint256(3)),
             stateRoot: bytes32(uint256(4))
         });
+        storage_.saveCheckpoint(200, checkpoint2);
 
-        vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint2, MAX_HISTORY);
-
-        // Try to save checkpoint with lower block number
+        // Now update checkpoint at block 300 (should work fine)
         ICheckpointStore.Checkpoint memory checkpoint3 = ICheckpointStore.Checkpoint({
-            blockNumber: 99,
             blockHash: bytes32(uint256(5)),
             stateRoot: bytes32(uint256(6))
         });
+        storage_.saveCheckpoint(300, checkpoint3);
 
-        vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(checkpoint3, MAX_HISTORY);
-    }
+        // Verify all checkpoints are stored correctly
+        ICheckpointStore.Checkpoint memory retrieved1 = storage_.getCheckpoint(100);
+        assertEq(retrieved1.blockHash, checkpoint1.blockHash);
 
-    function test_revert_invalidCheckpointHistory_zero() public {
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2))
-        });
+        ICheckpointStore.Checkpoint memory retrieved2 = storage_.getCheckpoint(200);
+        assertEq(retrieved2.blockHash, checkpoint2.blockHash);
 
-        vm.expectRevert(LibCheckpointStore.InvalidMaxCheckpointHistory.selector);
-        wrapper.saveCheckpoint(checkpoint, 0);
-    }
-
-    function test_revert_getCheckpoint_indexOutOfBounds() public {
-        vm.expectRevert(LibCheckpointStore.IndexOutOfBounds.selector);
-        storage_.getCheckpoint(0, MAX_HISTORY);
-
-        // Save one checkpoint
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 100,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2))
-        });
-        storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
-
-        // Try to access index 1 when only 1 checkpoint exists
-        vm.expectRevert(LibCheckpointStore.IndexOutOfBounds.selector);
-        storage_.getCheckpoint(1, MAX_HISTORY);
-    }
-
-    // ---------------------------------------------------------------
-    // Test: Edge Cases
-    // ---------------------------------------------------------------
-
-    function test_singleSlotRingBuffer() public {
-        uint48 historySize = 1;
-
-        // Add multiple checkpoints to a buffer of size 1
-        for (uint48 i = 1; i <= 3; i++) {
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i * 100,
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10))
-            });
-
-            storage_.saveCheckpoint(checkpoint, historySize);
-        }
-
-        // Should only have the last checkpoint
-        assertEq(storage_.getNumberOfCheckpoints(), 1);
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
-
-        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(0, historySize);
-        assertEq(retrieved.blockNumber, 300);
-    }
-
-    function test_largeRingBuffer() public {
-        // Test with a large buffer size
-        for (uint48 i = 1; i <= 50; i++) {
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i,
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10))
-            });
-
-            storage_.saveCheckpoint(checkpoint, LARGE_MAX_HISTORY);
-        }
-
-        assertEq(storage_.getNumberOfCheckpoints(), 50);
-        assertEq(storage_.getLatestCheckpointBlockNumber(), 50);
-
-        // Verify all 50 checkpoints are accessible
-        for (uint48 i = 0; i < 50; i++) {
-            ICheckpointStore.Checkpoint memory retrieved =
-                storage_.getCheckpoint(i, LARGE_MAX_HISTORY);
-            assertEq(retrieved.blockNumber, 50 - i);
-        }
+        ICheckpointStore.Checkpoint memory retrieved3 = storage_.getCheckpoint(300);
+        assertEq(retrieved3.blockHash, checkpoint3.blockHash);
     }
 
     // ---------------------------------------------------------------
@@ -315,8 +182,7 @@ contract LibCheckpointStoreTest is CommonTest {
     function testFuzz_saveAndRetrieve(
         uint48 blockNumber,
         bytes32 blockHash,
-        bytes32 stateRoot,
-        uint48 maxHistory
+        bytes32 stateRoot
     )
         public
     {
@@ -324,49 +190,37 @@ contract LibCheckpointStoreTest is CommonTest {
         vm.assume(blockNumber > 0 && blockNumber < type(uint48).max);
         vm.assume(blockHash != bytes32(0));
         vm.assume(stateRoot != bytes32(0));
-        vm.assume(maxHistory > 0 && maxHistory <= 1000);
 
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber,
-            blockHash: blockHash,
-            stateRoot: stateRoot
-        });
+        ICheckpointStore.Checkpoint memory checkpoint =
+            ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot });
 
-        storage_.saveCheckpoint(checkpoint, maxHistory);
+        storage_.saveCheckpoint(blockNumber, checkpoint);
 
-        assertEq(storage_.getLatestCheckpointBlockNumber(), blockNumber);
-        assertEq(storage_.getNumberOfCheckpoints(), 1);
-
-        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(0, maxHistory);
-        assertEq(retrieved.blockNumber, blockNumber);
+        ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
         assertEq(retrieved.blockHash, blockHash);
         assertEq(retrieved.stateRoot, stateRoot);
     }
 
-    function testFuzz_ringBufferBehavior(uint8 maxHistory, uint8 numCheckpoints) public {
-        // Bound to reasonable values
-        vm.assume(maxHistory > 0 && maxHistory <= 20);
+    function testFuzz_multipleCheckpoints(uint8 numCheckpoints) public {
         vm.assume(numCheckpoints > 0 && numCheckpoints <= 100);
 
+        uint48 lastBlockNumber = 0;
         for (uint48 i = 1; i <= numCheckpoints; i++) {
+            uint48 blockNum = i * 100;
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
-            storage_.saveCheckpoint(checkpoint, maxHistory);
+            storage_.saveCheckpoint(blockNum, checkpoint);
+            lastBlockNumber = blockNum;
         }
 
-        // Verify stack size is correctly capped
-        uint48 expectedSize = numCheckpoints < maxHistory ? numCheckpoints : maxHistory;
-        assertEq(storage_.getNumberOfCheckpoints(), expectedSize);
-        assertEq(storage_.getLatestCheckpointBlockNumber(), numCheckpoints);
-
-        // Verify most recent checkpoint is accessible
-        if (numCheckpoints > 0) {
-            ICheckpointStore.Checkpoint memory latest = storage_.getCheckpoint(0, maxHistory);
-            assertEq(latest.blockNumber, numCheckpoints);
+        // Verify all checkpoints are retrievable
+        for (uint48 i = 1; i <= numCheckpoints; i++) {
+            ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(i * 100);
+            assertEq(retrieved.blockHash, bytes32(uint256(i)));
+            assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }
     }
 
@@ -378,23 +232,20 @@ contract LibCheckpointStoreTest is CommonTest {
         uint256 gasUsed;
         uint256 startGas;
 
-        // Measure gas for saving checkpoints in a full buffer
-        for (uint48 i = 1; i <= MAX_HISTORY * 2; i++) {
+        // Measure gas for saving checkpoints
+        for (uint48 i = 1; i <= 10; i++) {
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: i,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
             startGas = gasleft();
-            storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
+            storage_.saveCheckpoint(i, checkpoint);
             gasUsed = startGas - gasleft();
 
-            // Gas usage should be relatively constant after buffer fills
-            if (i > MAX_HISTORY) {
-                // Allow 10% variance in gas usage
-                assertLt(gasUsed, 50_000, "Gas usage too high for checkpoint save");
-            }
+            // Gas usage for first write to a storage slot is higher (around 90k)
+            // Subsequent writes to same slot would be cheaper (~5k)
+            assertLt(gasUsed, 95_000, "Gas usage too high for checkpoint save");
         }
     }
 
@@ -408,15 +259,8 @@ contract LibCheckpointStoreTest is CommonTest {
         returns (ICheckpointStore.Checkpoint memory)
     {
         return ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber,
             blockHash: bytes32(uint256(blockNumber)),
             stateRoot: bytes32(uint256(blockNumber * 10))
         });
-    }
-
-    function _fillBuffer(uint48 count, uint48 maxHistory) private {
-        for (uint48 i = 1; i <= count; i++) {
-            storage_.saveCheckpoint(_createCheckpoint(i), maxHistory);
-        }
     }
 }

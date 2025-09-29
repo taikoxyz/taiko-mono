@@ -107,12 +107,15 @@ contract CodecOptimized is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
-    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+    function hashCheckpoint(
+        uint48 _blockNumber,
+        ICheckpointStore.Checkpoint calldata _checkpoint
+    )
         external
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashCheckpoint(_checkpoint);
+        return LibHashOptimized.hashCheckpoint(_blockNumber, _checkpoint);
     }
 
     /// @inheritdoc ICodec

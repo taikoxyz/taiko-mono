@@ -32,7 +32,6 @@ contract TestTaikoAnchor is Layer2Test {
                     address(signalService),
                     0,
                     0,
-                    uint16(100), // maxCheckpointHistory
                     address(0) // bondManager
                 )
             ),

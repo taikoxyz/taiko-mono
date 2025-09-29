@@ -10,7 +10,7 @@ contract TestInboxOptimized2 is InboxOptimized2 {
     constructor(
         address codec,
         address bondToken,
-        uint16 maxCheckpointHistory,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
@@ -18,7 +18,7 @@ contract TestInboxOptimized2 is InboxOptimized2 {
             IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
-                maxCheckpointHistory: maxCheckpointHistory,
+                signalService: signalService,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,
