@@ -225,7 +225,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
             (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
-                _createDerivationSources(input);
+                _buildDerivationSources(input);
 
             // If there was a forced inclusion, and it was too old, allow anyone to propose(and
             // endOfSubmissionWindowTimestamp = 0).
@@ -788,7 +788,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// proposal
     /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
     /// processed. type(uint48).max if there are no forced inclusions.
-    function _createDerivationSources(ProposeInput memory _input)
+    function _buildDerivationSources(ProposeInput memory _input)
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
     {
@@ -810,8 +810,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         }
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-        // processed
-        // or none in the queue is due.
+        // processed or none in the queue is due.
         require(
             (_input.numForcedInclusions >= _minForcedInclusionCount)
                 || !LibForcedInclusion.isOldestForcedInclusionDue(
