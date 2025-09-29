@@ -87,8 +87,13 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         // Validate the current lookahead evidence
         _validateCurrentEpochLookahead(epochTimestamp, data.currLookahead);
 
-        // Validate the next lookahead evidence and update the store if required
-        _handleNextEpochLookahead(nextEpochTimestamp, context, data);
+        // Only handle next epoch lookahead if:
+        // 1. Proposer is cross-epoch (slotIndex == max) - needs nextLookahead to determine slot
+        // 2. Proposer is fallback (isFallback) - responsible for posting lookahead
+        // Same-epoch proposers don't need to provide nextLookahead when it's already posted
+        if (data.slotIndex == type(uint256).max || context.isFallback) {
+            _handleNextEpochLookahead(nextEpochTimestamp, context, data);
+        }
 
         return uint48(context.submissionWindowEnd);
     }
