@@ -792,22 +792,21 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
     {
-        // Add forced inclusions as derivation sources
-        uint256 sourceCount = 1;
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
         uint256 remainingForcedInclusions = type(uint256).max;
         // We need to capture the last processed timestamp before consuming the forced inclusions
         uint48 lastProcessedAt = _forcedInclusionStorage.lastProcessedAt;
 
         if (_input.numForcedInclusions > 0) {
-            (forcedInclusions, remainingForcedInclusions) = LibForcedInclusion
-                .consumeForcedInclusions(
+            // Get derivation sources with forced inclusions marked and an extra slot for normal
+            // source
+            (sources, remainingForcedInclusions) = LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
-            sourceCount += forcedInclusions.length;
             oldestForcedInclusionTimestamp =
-                uint48(forcedInclusions[0].blobSlice.timestamp.max(lastProcessedAt));
+                uint48(sources[0].blobSlice.timestamp.max(lastProcessedAt));
         } else {
+            // When no forced inclusions, allocate array of size 1 for normal source
+            sources = new DerivationSource[](1);
             oldestForcedInclusionTimestamp = type(uint48).max;
         }
 
@@ -824,22 +823,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             UnprocessedForcedInclusionIsDue()
         );
 
-        // Create sources array and populate it
-        sources = new DerivationSource[](sourceCount);
-
-        uint256 index;
-        // Add forced inclusion sources first
-        for (; index < forcedInclusions.length; ++index) {
-            sources[index] = DerivationSource({
-                isForcedInclusion: true,
-                blobSlice: forcedInclusions[index].blobSlice
-            });
-        }
-
-        // Add normal proposal source last
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
-
-        sources[index] = DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+        // Add normal proposal source in the last slot
+        sources[sources.length - 1] = DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.validateBlobReference(_input.blobReference)
+        });
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
