@@ -1,6 +1,19 @@
 [workspace]
-members = ["crates/bindings", "crates/event-indexer"]
+members = [
+  "crates/bindings",
+  "crates/event-indexer",
+  "crates/proposer",
+  "bin/client",
+]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Taiko Labs"]
+license = "MIT"
+repository = "https://github.com/taikoxyz/taiko-mono"
 
 [workspace.dependencies]
 alloy = "1.0.36"
@@ -31,3 +44,5 @@ dashmap = "6.1.0"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tracing = "0.1"
+clap = { version = "4", features = ["derive", "env"] }
+url = "2.5.4"

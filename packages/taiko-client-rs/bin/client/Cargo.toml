@@ -1,0 +1,17 @@
+[package]
+name = "taiko-client"
+version = "0.1.0"
+description = "Rust client implementation for Taiko protocol"
+
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true, default-features = false }
+anyhow = { workspace = true }
+clap = { workspace = true }
+url = { workspace = true }
+tokio = { workspace = true }
