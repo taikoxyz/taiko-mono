@@ -69,25 +69,24 @@ library LibForcedInclusion {
     /// @param _count The maximum number of forced inclusions to consume
     /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
     /// has fewer)
+    /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
         uint256 _count
     )
         public
-        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+        returns (
+            IForcedInclusionStore.ForcedInclusion[] memory inclusions_,
+            uint256 availableAfter_
+        )
     {
         unchecked {
-            // Early exit if no inclusions requested
-            if (_count == 0) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
-            }
-
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             // Early exit if  queue is empty
             if (head == tail) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
+                return (new IForcedInclusionStore.ForcedInclusion[](0), 0);
             }
 
             // Calculate actual number to process (min of requested and available)
@@ -104,6 +103,9 @@ library LibForcedInclusion {
 
             // Update head and lastProcessedAt after all processing
             ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
+
+            // Calculate remaining available inclusions using already known values
+            availableAfter_ = available - toProcess;
 
             // Send all fees in one transfer
             if (totalFees > 0) {

@@ -795,11 +795,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Add forced inclusions as derivation sources
         uint256 sourceCount = 1;
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions;
+        uint256 remainingForcedInclusions = type(uint256).max;
         // We need to capture the last processed timestamp before consuming the forced inclusions
         uint48 lastProcessedAt = _forcedInclusionStorage.lastProcessedAt;
 
         if (_input.numForcedInclusions > 0) {
-            forcedInclusions = LibForcedInclusion.consumeForcedInclusions(
+            (forcedInclusions, remainingForcedInclusions) = LibForcedInclusion
+                .consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
             sourceCount += forcedInclusions.length;
@@ -810,9 +812,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         }
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-        // processed or none in the queue is due.
+        // processed
+        // OR the queue is empty
+        // OR none remaining are due
         require(
             (_input.numForcedInclusions >= _minForcedInclusionCount)
+                || remainingForcedInclusions == 0
                 || !LibForcedInclusion.isOldestForcedInclusionDue(
                     _forcedInclusionStorage, _forcedInclusionDelay
                 ),
