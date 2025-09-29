@@ -6,8 +6,7 @@ import "src/shared/bridge/IBridge.sol";
 
 /// @title IPreconfSlasherL1
 /// @dev This contract inherits from ISlasher which contains the definition for the `slash` function
-/// that
-/// is called by the URC.
+/// that is called by the URC.
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasher is ISlasher, IMessageInvocable {
     struct SlashAmount {
