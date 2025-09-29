@@ -181,37 +181,12 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             context_ = _handleSameEpochProposer(_data, _epochTimestamp);
         }
 
-        // Determine if we need to use the opted in preconfer or the fallback preconfer
+        // Use fallback preconfer if no opted-in slot, otherwise use lookahead committer
+        // All operators are validated when lookahead is posted, so no need to re-validate
         if (context_.isFallback) {
-            // Use fallback preconfer (whitelist)
             context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
         } else {
-            // If lookahead already exists for current epoch, skip validation and use committer directly
-            // The lookahead was fully validated when it was posted
-            if (getLookaheadHash(_epochTimestamp) != 0) {
-                context_.proposer = context_.lookaheadSlot.committer;
-            } else {
-                // Lookahead being posted now - perform full validation
-                IRegistry.OperatorData memory operatorData =
-                    urc.getOperatorData(context_.lookaheadSlot.registrationRoot);
-                bool isOptedIn =
-                    urc.isOptedIntoSlasher(context_.lookaheadSlot.registrationRoot, preconfSlasher);
-
-                if (
-                    operatorData.unregisteredAt != type(uint48).max || operatorData.slashedAt != 0
-                        || !isOptedIn
-                        || isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)
-                ) {
-                    // If the operator is slashed, unregistered, not opted in, or blacklisted
-                    // we use the fallback preconfer (whitelist)
-                    context_.isFallback = true;
-                    context_.proposer =
-                        IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
-                } else {
-                    // Use the opted in preconfer
-                    context_.proposer = context_.lookaheadSlot.committer;
-                }
-            }
+            context_.proposer = context_.lookaheadSlot.committer;
         }
     }
 
