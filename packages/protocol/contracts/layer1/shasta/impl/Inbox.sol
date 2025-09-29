@@ -88,7 +88,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
     /// @dev The address responsible for calling `activate` on the inbox.
     address internal _shastaInitializer;
-    
+
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -143,7 +143,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the `shastaInitializer` later in order to start accepting proposals.
+    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the
+    /// `shastaInitializer` later in order to start accepting proposals.
     /// @param _owner The owner of this contract
     function init(address _owner, address shastaInitializer) external initializer {
         __Essential_init(_owner);
