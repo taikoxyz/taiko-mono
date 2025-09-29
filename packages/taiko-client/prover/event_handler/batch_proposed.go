@@ -17,6 +17,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
@@ -32,6 +33,7 @@ type BatchProposedEventHandler struct {
 	proverAddress          common.Address
 	proverSetAddress       common.Address
 	rpc                    *rpc.Client
+	indexer                *shastaIndexer.Indexer
 	localProposerAddresses []common.Address
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
@@ -46,6 +48,7 @@ type NewBatchProposedEventHandlerOps struct {
 	ProverAddress          common.Address
 	ProverSetAddress       common.Address
 	RPC                    *rpc.Client
+	Indexer                *shastaIndexer.Indexer
 	LocalProposerAddresses []common.Address
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -61,6 +64,7 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
+		opts.Indexer,
 		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
@@ -76,6 +80,11 @@ func (h *BatchProposedEventHandler) Handle(
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
+	// If it's a Shasta protocol event, handle it in the Shasta handler.
+	if meta.IsShasta() {
+		return h.HandleShasta(ctx, meta, end)
+	}
+
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())); err != nil {
 		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Pacaya().GetLastBlockID(), err)
@@ -92,7 +101,7 @@ func (h *BatchProposedEventHandler) Handle(
 	}
 
 	// If the current batch is handled, just skip it.
-	if meta.Pacaya().GetBatchID().Uint64() <= h.sharedState.GetLastHandledBatchID() {
+	if meta.Pacaya().GetBatchID().Uint64() <= h.sharedState.GetLastHandledPacayaBatchID() {
 		return nil
 	}
 
@@ -116,7 +125,7 @@ func (h *BatchProposedEventHandler) Handle(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledBatchID(meta.Pacaya().GetBatchID().Uint64())
+	h.sharedState.SetLastHandledPacayaBatchID(meta.Pacaya().GetBatchID().Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
@@ -283,7 +292,7 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
-	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1))
+	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), meta.IsShasta())
 	if err != nil {
 		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (batchID %d): %w", batchID, err)
 	}
@@ -293,14 +302,14 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 			"Reset L1Current cursor due to reorg",
 			"l1CurrentHeightOld", h.sharedState.GetL1Current().Number,
 			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-			"lastHandledBatchIDOld", h.sharedState.GetLastHandledBatchID(),
+			"lastHandledBatchIDOld", h.sharedState.GetLastHandledPacayaBatchID(),
 			"lastHandledBatchIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 		)
 		h.sharedState.SetL1Current(reorgCheckResult.L1CurrentToReset)
 		if reorgCheckResult.LastHandledBatchIDToReset == nil {
-			h.sharedState.SetLastHandledBatchID(0)
+			h.sharedState.SetLastHandledPacayaBatchID(0)
 		} else {
-			h.sharedState.SetLastHandledBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			h.sharedState.SetLastHandledPacayaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
 		}
 		return errL1Reorged
 	}
