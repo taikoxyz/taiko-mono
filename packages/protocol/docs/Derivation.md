@@ -8,32 +8,32 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 
 - **Proposal**: Replaces the term _Batch_ to denote the unit of on-chain submission for block construction data
 - **Finalization**: Replaces _Verification_ to describe the state where a proposal's post-state is confirmed as final
-- **Transition**: Represents a specific derivation path for a proposal, characterized by unique parent hash, block hash, and state root combinations. Multiple transitions can exist for the same proposal to support different derivation sources
+- **Transition**: Represents a proposed state transition for a batch, characterized by parent hash, block hash, and state root. Multiple transitions can be proposed and proved for the same batch to support different derivation paths
 
-## Multiple Derivation Sources and Transition Management
+## Multiple Derivation Sources for Proposals
 
-Taiko's Shasta fork supports multiple derivation sources per proposal, allowing different provers to submit transitions with varying parent hashes. This enables parallel proving and increased flexibility in block derivation.
+Taiko's Shasta fork supports multiple derivation sources per proposal/batch, allowing proposals to build from different parent blocks. This enables greater flexibility in block proposal and chain progression.
 
-### Transition Storage and Identification
+### Transition Management in Proposals
 
-Each proposal can contain multiple transitions, each identified by:
-- **Transition ID (tid)**: A unique identifier within the proposal (starting from 1)
-- **Parent Hash**: The hash of the parent block from which this transition derives
+When a batch is proposed, it can subsequently have multiple transitions proved for it, each potentially deriving from a different parent block:
+- **Transition ID (tid)**: A unique identifier within the batch (starting from 1)
+- **Parent Hash**: The hash of the parent block from which this proposed transition derives
 
 The system maintains two key mappings for efficient transition management:
 - Direct storage by transition ID for quick access
 - Parent hash to transition ID mapping for derivation path lookups
 
-### Transition Lifecycle
+### Proving Multiple Transitions
 
-1. **Initial Submission**: When a prover submits a transition, the system checks if a transition with the same parent hash already exists
+1. **Initial Proof Submission**: When proving a batch, the prover specifies the parent hash from which their proof derives
 2. **New Transitions**: If no existing transition shares the parent hash, a new transition ID is allocated
 3. **Overwriting**: If a transition with the same parent hash exists, it may be overwritten based on validation rules
 4. **Conflict Detection**: When transitions have the same parent hash but different block hashes or state roots, a conflict is detected
 
-### Handling Conflicting Proofs
+### Handling Conflicting Transitions
 
-When conflicting proofs are detected:
+When conflicting transitions are detected during proving:
 - The existing transition's block hash is invalidated (set to 0)
 - A `ConflictingProof` event is emitted with details of both transitions
 - The contract is paused to prevent further state progression
