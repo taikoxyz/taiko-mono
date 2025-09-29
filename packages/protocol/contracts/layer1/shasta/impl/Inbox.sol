@@ -824,10 +824,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         );
 
         // Add normal proposal source in the last slot
-        sources[sources.length - 1] = DerivationSource({
-            isForcedInclusion: false,
-            blobSlice: LibBlobs.validateBlobReference(_input.blobReference)
-        });
+        sources[sources.length - 1] =
+            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
