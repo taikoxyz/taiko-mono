@@ -51,7 +51,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     )
         internal
     {
-        // If the block was submitted in a future, we may have a missed submission.
+        // If the block was submitted in the future, we may have a missed submission.
         // Else, we may have a missing EOP
         if (_preconfirmation.submissionWindowEnd > _preconfMeta.submissionWindowEnd) {
             // EOP-only preconfirmations are not required to be submitted
