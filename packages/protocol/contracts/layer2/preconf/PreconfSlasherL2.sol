@@ -101,12 +101,6 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             NotASafetyFault()
         );
 
-        // The parent preconfirmation must not have been messed up during submission
-        require(
-            _preconfirmation.parentRawTxListHash == _preconfMeta.parentRawTxListHash,
-            ParentRawTxListHashMismatch()
-        );
-
         if (
             _preconfirmation.rawTxListHash != _preconfMeta.rawTxListHash
                 || uint48(uint256(_preconfirmation.anchorBlockNumber)) != _preconfMeta.anchorBlockNumber
