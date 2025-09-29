@@ -326,7 +326,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
-            data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
+            data: abi.encodeCall(Inbox.init, (msg.sender, msg.sender))
         });
 
         address newFork = address(

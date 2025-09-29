@@ -89,7 +89,7 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return compressed, nil
 }
 
-// EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
+// EncodeAndCompressShastaProposal encodes and compresses the given Shasta proposal using RLP encoding
 // followed by zlib compression.
 func EncodeAndCompressShastaProposal(proposal manifest.ProtocolProposalManifest) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(proposal)

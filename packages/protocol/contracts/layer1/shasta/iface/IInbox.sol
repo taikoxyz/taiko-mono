@@ -37,7 +37,7 @@ interface IInbox {
         /// if they are due
         uint256 minForcedInclusionCount;
         /// @notice The delay for forced inclusions measured in seconds
-        uint64 forcedInclusionDelay;
+        uint16 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
     }

@@ -31,12 +31,12 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
         );
 
         TestInboxOptimized2 inbox = TestInboxOptimized2(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.initV3, (Alice, bytes32(uint256(1))))
-            })
+            deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice, Alice)) })
         );
+
+        // Activate the inbox with Alice as the activator
+        vm.prank(Alice);
+        inbox.activate(bytes32(uint256(1)));
 
         return inbox;
     }
