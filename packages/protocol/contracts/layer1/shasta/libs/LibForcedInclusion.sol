@@ -45,7 +45,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.storeForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint64, /* _forcedInclusionDelay */
+        uint16, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
@@ -115,7 +115,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
-        uint64 _forcedInclusionDelay
+        uint16 _forcedInclusionDelay
     )
         public
         view
