@@ -295,7 +295,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
+            data: abi.encodeCall(PreconfWhitelist.init, (owner, 0, 0))
         });
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
@@ -318,15 +318,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             );
         }
         address codec = address(new CodecOptimized());
-        address tempFork =
-            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
+        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
+
         taikoInboxAddr = deployProxy({
             name: "taiko",
-            impl: address(new ShastaForkRouter(oldFork, tempFork)),
+            impl: address(new ShastaForkRouter(oldFork, newFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
-
-        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

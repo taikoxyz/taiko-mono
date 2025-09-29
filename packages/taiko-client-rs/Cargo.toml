@@ -12,6 +12,8 @@ alloy-rpc-types-engine = { version = "1.0.36", default-features = false }
 alloy-rpc-types-eth = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", default-features = false }
+alloy-eips = { version = "1.0.36", default-features = false }
+alloy-json-rpc = { version = "1.0.36", default-features = false }
 alloy-contract = { version = "1.0.36", default-features = false }
 alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
   "json",

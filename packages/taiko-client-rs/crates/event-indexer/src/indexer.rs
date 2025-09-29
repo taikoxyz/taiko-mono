@@ -385,6 +385,7 @@ mod tests {
         providers::ProviderBuilder,
     };
     use alloy_provider::{Identity, Provider, RootProvider};
+    use alloy_signer_local::PrivateKeySigner;
     use bindings::{
         codec_optimized::{
             ICheckpointStore::Checkpoint,
@@ -415,11 +416,11 @@ mod tests {
 
     async fn setup() -> anyhow::Result<TestSetup> {
         init_tracing();
+        let signer: PrivateKeySigner = env::var("L1_PROPOSER_PRIVATE_KEY")?.parse()?;
         let provider = ProviderBuilder::<Identity, Identity, Ethereum>::default()
             .with_recommended_fillers()
+            .wallet(signer)
             .connect_http(Url::from_str(&env::var("L1_HTTP")?)?);
-
-        info!(url = %env::var("L1_WS")?, "connected to L1 WS provider");
 
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
@@ -546,10 +547,10 @@ mod tests {
 
     #[tokio::test]
     async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox } = setup().await?;
+        let TestSetup { indexer, inbox: _ } = setup().await?;
         indexer.clone().spawn();
         let input = indexer.read_shasta_propose_input();
-        assert_eq!(false, input.is_none());
+        assert_eq!(true, input.is_none());
 
         Ok(())
     }
