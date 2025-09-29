@@ -328,10 +328,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
-
-        UUPSUpgradeable(taikoInboxAddr).upgradeTo({
-            newImplementation: address(new ShastaForkRouter(oldFork, newFork))
-        });
     }
 
     function deployVerifiers(

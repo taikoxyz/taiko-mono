@@ -39,7 +39,7 @@ alloy-consensus = { version = "1.0.36", default-features = false, features = [
 alloy-node-bindings = { version = "1.0.36" }
 async-trait = "0.1"
 anyhow = "1"
-event-scanner = "0.1.0-alpha.2"
+event-scanner = "0.1.0-alpha.3"
 dashmap = "6.1.0"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"

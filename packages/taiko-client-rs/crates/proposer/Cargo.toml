@@ -5,3 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+bindings = { path = "../bindings" }
+event-indexer = { path = "../event-indexer" }
+anyhow = { workspace = true }
+alloy = { workspace = true }

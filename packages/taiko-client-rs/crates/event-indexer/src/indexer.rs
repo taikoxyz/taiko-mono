@@ -157,7 +157,7 @@ impl ShastaEventIndexer {
 
         // Start the event scanner in a separate task.
         let scanner_handle = tokio::spawn(async move {
-            if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Earliest, None).await {
+            if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Number(0), None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
@@ -376,7 +376,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, str::FromStr, sync::OnceLock};
+    use std::{env, str::FromStr, sync::OnceLock, time::Duration};
 
     use super::*;
     use alloy::{
@@ -385,6 +385,7 @@ mod tests {
         providers::ProviderBuilder,
     };
     use alloy_provider::{Identity, Provider, RootProvider};
+    use alloy_rpc_types::Filter;
     use alloy_signer_local::PrivateKeySigner;
     use bindings::{
         codec_optimized::{
@@ -547,10 +548,17 @@ mod tests {
 
     #[tokio::test]
     async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox: _ } = setup().await?;
+        let TestSetup { indexer, inbox } = setup().await?;
         indexer.clone().spawn();
+
+        let logs = inbox
+            .provider()
+            .get_logs(&Filter::new().event_signature(Proposed::SIGNATURE_HASH).from_block(0))
+            .await?;
+        debug!("fetched the logs by: inbox.provider().get_logs(&Filter::new()).await? {:?}", logs);
+
         let input = indexer.read_shasta_propose_input();
-        assert_eq!(true, input.is_none());
+        assert_eq!(false, input.is_none());
 
         Ok(())
     }
