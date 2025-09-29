@@ -87,14 +87,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         // Validate the current lookahead evidence
         _validateCurrentEpochLookahead(epochTimestamp, data.currLookahead);
 
-        // Handle next epoch lookahead if needed:
-        // Skip only for same-epoch proposers when next lookahead already posted
-        bytes26 nextLookaheadHash = getLookaheadHash(nextEpochTimestamp);
-        bool isSameEpochProposer = data.slotIndex != type(uint256).max && !context.isFallback;
-
-        if (!isSameEpochProposer || nextLookaheadHash == 0) {
-            _handleNextEpochLookahead(nextEpochTimestamp, context, data);
-        }
+        // Validate the next lookahead evidence and update the store if required
+        _handleNextEpochLookahead(nextEpochTimestamp, context, data);
 
         return uint48(context.submissionWindowEnd);
     }
@@ -129,6 +123,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @dev Processes next epoch's lookahead: validates existing or stores new lookahead.
+    /// Optimization: same-epoch proposers can skip this entirely when lookahead already exists.
     function _handleNextEpochLookahead(
         uint256 _nextEpochTimestamp,
         ProposerContext memory _context,
@@ -138,10 +133,21 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     {
         bytes26 nextLookaheadHash = getLookaheadHash(_nextEpochTimestamp);
 
-        if (nextLookaheadHash == 0) {
-            _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
-        } else {
+        // Check if next epoch lookahead already exists
+        if (nextLookaheadHash != 0) {
+            // Lookahead already posted - only validate if proposer needs it
+            bool isSameEpochProposer = _data.slotIndex != type(uint256).max && !_context.isFallback;
+
+            if (isSameEpochProposer) {
+                // Same-epoch proposers don't need nextLookahead - skip validation
+                return;
+            }
+
+            // Cross-epoch or fallback proposers must provide correct nextLookahead
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, nextLookaheadHash);
+        } else {
+            // Lookahead not posted yet - must post it now
+            _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
         }
     }
 
