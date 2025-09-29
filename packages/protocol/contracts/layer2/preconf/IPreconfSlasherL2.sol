@@ -11,11 +11,13 @@ interface IPreconfSlasherL2 {
         // Height of the preconfirmed block
         uint256 blockNumber;
         // Height of the L1 block chosen as anchor for the preconfirmed block
-        bytes32 anchorBlockNumber;
+        uint256 anchorBlockNumber;
         // Keccak256 hash of the raw list of transactions included in the parent block
         bytes32 parentRawTxListHash;
         // Keccak256 hash of the raw list of transactions included in the block
         bytes32 rawTxListHash;
+        // The expected submission window of the parent block
+        uint256 parentSubmissionWindowEnd;
         // The timestamp of the preconfer's slot in the lookahead
         uint256 submissionWindowEnd;
     }
@@ -26,15 +28,43 @@ interface IPreconfSlasherL2 {
         Safety
     }
 
+    // Note: `Commitment` and `SignedCommitment` are extracted here from URC's ISlasher,
+    // since Cancun specific opcodes in ISlasher are not allowing compilation to Shanghai.
+
+    /// @notice A Commitment message binding an opaque payload to a slasher contract
+    struct Commitment {
+        /// The type of commitment
+        uint64 commitmentType;
+        /// The payload of the commitment
+        bytes payload;
+        /// The address of the slasher contract
+        address slasher;
+    }
+
+    /// @notice A commitment message signed by a delegate's ECDSA key
+    struct SignedCommitment {
+        /// The commitment message
+        Commitment commitment;
+        /// The signature of the commitment message
+        bytes signature;
+    }
+
     error InvalidEOPFlag();
     error NotALivenessFault();
     error NotASafetyFault();
     error ParentRawTxListHashMismatch();
+    error ParentSubmissionWindowEndMismatch();
     error UnexpectedExtraProposalsInPreviousWindow();
 
     /// @notice Validates if a preconfirmation is slashable and forwards the fault to the
     /// L1 preconfirmation slasher.
     /// @param _fault The fault that needs to be checked
-    /// @param _preconfirmation The preconfirmation object to slash
-    function slash(Fault _fault, Preconfirmation calldata _preconfirmation) external;
+    /// @param _registrationRoot The urc registration root of the operator being slashed
+    /// @param _signedCommitment The signed preconfirmation commitment to slash
+    function slash(
+        Fault _fault,
+        bytes32 _registrationRoot,
+        SignedCommitment calldata _signedCommitment
+    )
+        external;
 }

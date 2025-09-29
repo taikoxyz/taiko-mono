@@ -3,7 +3,10 @@ pragma solidity ^0.8.24;
 
 import "./IPreconfSlasherL2.sol";
 import "../based/ShastaAnchor.sol";
-import "../../shared/common/EssentialContract.sol";
+import "src/shared/common/EssentialResolverContract.sol";
+import "src/shared/bridge/IBridge.sol";
+import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibNetwork.sol";
 
 /// @title PreconfSlasherL2
 /// @notice PreconfSlasherL2 is a smart contract that validates preconfirmations on Layer 2
@@ -11,11 +14,17 @@ import "../../shared/common/EssentialContract.sol";
 /// are detected. It handles liveness and safety preconfirmation faults.
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
+contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialResolverContract {
     address public immutable preconfSlasherL1;
     address public immutable taikoAnchor;
 
-    constructor(address _preconfSlasherL1, address _taikoAnchor) EssentialContract() {
+    constructor(
+        address _resolver,
+        address _preconfSlasherL1,
+        address _taikoAnchor
+    )
+        EssentialResolverContract(_resolver)
+    {
         preconfSlasherL1 = _preconfSlasherL1;
         taikoAnchor = _taikoAnchor;
     }
@@ -25,31 +34,48 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     }
 
     /// @inheritdoc IPreconfSlasherL2
-    function slash(Fault _fault, Preconfirmation calldata _preconfirmation) external {
+    function slash(
+        Fault _fault,
+        bytes32 _registrationRoot,
+        SignedCommitment calldata _signedCommitment
+    )
+        external
+    {
+        Preconfirmation memory preconfirmation =
+            abi.decode(_signedCommitment.commitment.payload, (Preconfirmation));
+
         // Pull the preconf metadata for the block proposed at the preconfirmation height
         ShastaAnchor.PreconfMeta memory preconfMeta =
-            ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber);
+            ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
 
         // The parent preconfirmation must not have been messed up during submission
         require(
-            _preconfirmation.parentRawTxListHash == preconfMeta.parentRawTxListHash,
+            preconfirmation.parentRawTxListHash == preconfMeta.parentRawTxListHash,
             ParentRawTxListHashMismatch()
+        );
+        require(
+            preconfirmation.parentSubmissionWindowEnd == preconfMeta.parentSubmissionWindowEnd,
+            ParentSubmissionWindowEndMismatch()
         );
 
         if (_fault == Fault.Liveness) {
-            _validateLivenessFault(_preconfirmation, preconfMeta);
+            _validateLivenessFault(preconfirmation, preconfMeta);
         } else {
-            _validateSafetyFault(_preconfirmation, preconfMeta);
+            _validateSafetyFault(preconfirmation, preconfMeta);
         }
 
-        _invokePreconfSlasherL1(_fault);
+        _invokePreconfSlasherL1(_fault, _registrationRoot, _signedCommitment);
     }
 
+    // Internal functions
+    // ---------------------------------------------------------------
+
     function _validateLivenessFault(
-        Preconfirmation calldata _preconfirmation,
+        Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
+        view
     {
         // If the block was submitted in the future, we may have a missed submission.
         // Else, we may have a missing EOP
@@ -64,7 +90,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             // require(
             //     !(
             //         _preconfirmation.rawTxListHash == _preconfMeta.rawTxListHash
-            //             && uint48(uint256(_preconfirmation.anchorBlockNumber)) ==
+            //             && uint48(_preconfirmation.anchorBlockNumber) ==
             // _preconfMeta.anchorBlockNumber
             //     ),
             //     NotALivenessFault()
@@ -90,10 +116,11 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     }
 
     function _validateSafetyFault(
-        Preconfirmation calldata _preconfirmation,
+        Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
+        view
     {
         // The submission must have landed in the assigned window
         require(
@@ -103,7 +130,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
         if (
             _preconfirmation.rawTxListHash != _preconfMeta.rawTxListHash
-                || uint48(uint256(_preconfirmation.anchorBlockNumber)) != _preconfMeta.anchorBlockNumber
+                || uint48(_preconfirmation.anchorBlockNumber) != _preconfMeta.anchorBlockNumber
         ) {
             // No further checks required. This is a slashable preconfirmation.
         } else {
@@ -122,5 +149,33 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         }
     }
 
-    function _invokePreconfSlasherL1(Fault _fault) internal { }
+    /// @dev Invokes a call to L1 preconf slasher's onMessageInvocation(bytes) via the bridge
+    function _invokePreconfSlasherL1(
+        Fault _fault,
+        bytes32 _registrationRoot,
+        SignedCommitment memory _signedCommitment
+    )
+        internal
+    {
+        bytes memory callData = abi.encodeWithSelector(
+            IMessageInvocable.onMessageInvocation.selector,
+            abi.encode(_fault, _registrationRoot, _signedCommitment)
+        );
+
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            fee: 0,
+            gasLimit: 0,
+            from: address(0),
+            srcChainId: 0,
+            srcOwner: msg.sender,
+            destChainId: uint64(LibNetwork.ETHEREUM_MAINNET),
+            destOwner: msg.sender,
+            to: preconfSlasherL1,
+            value: 0,
+            data: callData
+        });
+
+        IBridge(resolve(LibNames.B_BRIDGE, false)).sendMessage(message);
+    }
 }
