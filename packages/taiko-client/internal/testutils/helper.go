@@ -328,7 +328,7 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		)
 		s.Nil(err)
 
-		data, err := encoding.ShastaInboxABI.Pack("initV3", common.Address{}, head.Hash())
+		data, err := encoding.ShastaInboxABI.Pack("activate", head.Hash())
 		s.Nil(err)
 		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
 		s.Nil(err)
