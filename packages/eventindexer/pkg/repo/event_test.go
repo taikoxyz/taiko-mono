@@ -154,7 +154,6 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := eventRepo.FindUniqueProposers(context.Background())
-
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, len(tt.wantResp), len(resp))
 
