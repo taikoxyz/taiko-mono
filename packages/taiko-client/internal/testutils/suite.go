@@ -65,7 +65,8 @@ func (s *ClientTestSuite) SetupTest() {
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -157,7 +158,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 
 	var (
 		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
-		taikoInboxAddress = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+		taikoInboxAddress = common.HexToAddress(os.Getenv("PACAYA_INBOX"))
 	)
 
 	log.Info("Deposit tokens", "address", crypto.PubkeyToAddress(key.PublicKey).Hex())
@@ -166,7 +167,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 	s.Nil(err)
 	s.Greater(balance.Cmp(common.Big0), 0)
 
-	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("TAIKO_INBOX")), balance)
+	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("PACAYA_INBOX")), balance)
 	s.Nil(err)
 
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})

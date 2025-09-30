@@ -66,7 +66,8 @@ type ClientConfig struct {
 	L2Endpoint                  string
 	L1BeaconEndpoint            string
 	L2CheckPoint                string
-	TaikoInboxAddress           common.Address
+	PacayaInboxAddress          common.Address
+	ShastaInboxAddress          common.Address
 	TaikoWrapperAddress         common.Address
 	TaikoAnchorAddress          common.Address
 	TaikoTokenAddress           common.Address
@@ -158,7 +159,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
-	if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.TaikoInboxAddress); err != nil {
+	if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
 		return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
 	}
 
@@ -167,12 +168,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 // initPacayaClients initializes all Pacaya smart contract clients.
 func (c *Client) initPacayaClients(cfg *ClientConfig) error {
-	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
+	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.PacayaInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of TaikoInboxClient: %w", err)
 	}
 
-	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoInboxAddress, c.L1)
+	forkRouter, err := pacayaBindings.NewForkRouter(cfg.PacayaInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
 	}
@@ -267,7 +268,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 
 // initShastaClients initializes all Shasta smart contract clients.
 func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
-	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.TaikoInboxAddress, c.L1)
+	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.ShastaInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
 	}
