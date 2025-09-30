@@ -126,8 +126,8 @@ library LibForcedInclusion {
         )
     {
         unchecked {
-            uint48 head = $.head;
-            uint48 tail = $.tail;
+            // Load all storage variables once at the beginning
+            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
@@ -147,7 +147,7 @@ library LibForcedInclusion {
 
                 // Calculate oldest forced inclusion timestamp
                 oldestForcedInclusionTimestamp_ =
-                    uint48(sources_[0].blobSlice.timestamp.max($.lastProcessedAt));
+                    uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
 
                 // Update head and lastProcessedAt after processing
                 head = head + uint48(toProcess);
@@ -166,13 +166,20 @@ library LibForcedInclusion {
             availableAfter_ = available - toProcess;
 
             // Check if the oldest remaining forced inclusion is due
-            // When toProcess == 0, head is unchanged and we check the current head
-            // When toProcess > 0, head is updated and we check the new head (remaining)
+            // When toProcess == 0, head is unchanged and we check the current head with
+            // lastProcessedAt
+            // When toProcess > 0, head is updated and we check the new head with updated
+            // lastProcessedAt (block.timestamp)
             if (availableAfter_ > 0) {
                 uint256 timestamp = $.queue[head].blobSlice.timestamp;
                 if (timestamp != 0) {
+                    // Use the appropriate lastProcessedAt value:
+                    // - If toProcess > 0: use block.timestamp (just updated)
+                    // - If toProcess == 0: use original lastProcessedAt (loaded at start)
+                    uint48 effectiveLastProcessedAt =
+                        toProcess > 0 ? uint48(block.timestamp) : lastProcessedAt;
                     isRemainingForcedInclusionDue_ =
-                        block.timestamp >= timestamp.max($.lastProcessedAt) + _forcedInclusionDelay;
+                        block.timestamp >= timestamp.max(effectiveLastProcessedAt) + _forcedInclusionDelay;
                 }
             }
         }

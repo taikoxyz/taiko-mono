@@ -1,11 +1,11 @@
 {
-  "forced_inclusion_multiple_Inbox": "112428",
-  "forced_inclusion_multiple_InboxOptimized1": "112536",
-  "forced_inclusion_multiple_InboxOptimized2": "105810",
-  "forced_inclusion_single_Inbox": "108061",
-  "forced_inclusion_single_InboxOptimized1": "108128",
-  "forced_inclusion_single_InboxOptimized2": "101892",
-  "propose_single_empty_ring_buffer_Inbox": "72939",
-  "propose_single_empty_ring_buffer_InboxOptimized1": "72975",
-  "propose_single_empty_ring_buffer_InboxOptimized2": "67932"
+  "forced_inclusion_multiple_Inbox": "112544",
+  "forced_inclusion_multiple_InboxOptimized1": "112652",
+  "forced_inclusion_multiple_InboxOptimized2": "105926",
+  "forced_inclusion_single_Inbox": "108070",
+  "forced_inclusion_single_InboxOptimized1": "108137",
+  "forced_inclusion_single_InboxOptimized2": "101901",
+  "propose_single_empty_ring_buffer_Inbox": "72970",
+  "propose_single_empty_ring_buffer_InboxOptimized1": "73006",
+  "propose_single_empty_ring_buffer_InboxOptimized2": "67963"
 }
