@@ -504,7 +504,7 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		"l1Head", l1Head.Number,
 	)
 
-	if new(big.Int).Add(lastProposal.CoreState.LastProposalBlockId, common.Big1).Cmp(l1Head.Number) >= 0 {
+	if lastProposal.CoreState.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
 		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
