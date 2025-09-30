@@ -194,7 +194,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the
             // ring buffer
-            coreState.nextProposalBlockId = uint48(block.number + 1);
+            coreState.lastProposalBlockId = uint48(block.number);
 
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
@@ -356,11 +356,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         CoreState memory coreState;
         coreState.nextProposalId = 1;
 
-        // Set nextProposalBlockId to 2 to ensure the first proposal happens at block 2 or later.
+        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
-        coreState.nextProposalBlockId = 2;
+        coreState.lastProposalBlockId = 1;
         coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
@@ -749,7 +749,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             sources: _derivationSources
         });
 
-        // Increment nextProposalId (nextProposalBlockId was already set in propose())
+        // Increment nextProposalId (lastProposalBlockId was already set in propose())
         Proposal memory proposal = Proposal({
             id: _coreState.nextProposalId++,
             timestamp: uint48(block.timestamp),
@@ -800,7 +800,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
-        require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
+        require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
         require(
             _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
