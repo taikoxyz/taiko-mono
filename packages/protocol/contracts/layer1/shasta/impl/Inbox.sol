@@ -792,16 +792,28 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
     {
-        uint256 remainingForcedInclusions = type(uint256).max;
+        uint256 remainingForcedInclusions;
+        bool isRemainingForcedInclusionDue;
 
         if (_input.numForcedInclusions > 0) {
             // Get derivation sources with forced inclusions marked and an extra slot for normal
             // source
-            (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
-                LibForcedInclusion.consumeForcedInclusions(
-                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            (
+                sources,
+                remainingForcedInclusions,
+                oldestForcedInclusionTimestamp,
+                isRemainingForcedInclusionDue
+            ) = LibForcedInclusion.consumeForcedInclusions(
+                _forcedInclusionStorage,
+                msg.sender,
+                _input.numForcedInclusions,
+                _forcedInclusionDelay
             );
         } else {
+            // When no forced inclusions requested, check if any are due
+            isRemainingForcedInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
+                _forcedInclusionStorage, _forcedInclusionDelay
+            );
             // When no forced inclusions, allocate array of size 1 for normal source
             sources = new DerivationSource[](1);
             oldestForcedInclusionTimestamp = type(uint48).max;
@@ -809,14 +821,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
         // processed
-        // OR the queue is empty
+        // OR the queue is empty (remainingForcedInclusions == 0 from consumeForcedInclusions)
         // OR none remaining are due
         require(
             (_input.numForcedInclusions >= _minForcedInclusionCount)
-                || remainingForcedInclusions == 0
-                || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, _forcedInclusionDelay
-                ),
+                || (remainingForcedInclusions == 0 && _input.numForcedInclusions > 0)
+                || !isRemainingForcedInclusionDue,
             UnprocessedForcedInclusionIsDue()
         );
 

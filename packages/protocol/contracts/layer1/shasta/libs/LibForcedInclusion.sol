@@ -69,6 +69,7 @@ library LibForcedInclusion {
     /// @notice Consumes up to _count forced inclusions from the queue
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
     /// @param _count The maximum number of forced inclusions to consume
+    /// @param _forcedInclusionDelay The delay in seconds before a forced inclusion is considered due
     /// @return sources_ Array of derivation sources with forced inclusions marked and an extra
     /// empty
     /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
@@ -76,20 +77,25 @@ library LibForcedInclusion {
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
     /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that was
     /// processed. type(uint48).max if no forced inclusions were consumed.
+    /// @return isRemainingForcedInclusionDue_ True if there are remaining forced inclusions in the
+    /// queue that are due for processing after consumption
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
-        uint256 _count
+        uint256 _count,
+        uint64 _forcedInclusionDelay
     )
         internal
         returns (
             IInbox.DerivationSource[] memory sources_,
             uint256 availableAfter_,
-            uint48 oldestForcedInclusionTimestamp_
+            uint48 oldestForcedInclusionTimestamp_,
+            bool isRemainingForcedInclusionDue_
         )
     {
         unchecked {
-            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+            uint48 head = $.head;
+            uint48 tail = $.tail;
 
             // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
@@ -108,16 +114,28 @@ library LibForcedInclusion {
             // Calculate oldest forced inclusion timestamp
             if (toProcess > 0) {
                 oldestForcedInclusionTimestamp_ =
-                    uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
+                    uint48(sources_[0].blobSlice.timestamp.max($.lastProcessedAt));
             } else {
                 oldestForcedInclusionTimestamp_ = type(uint48).max;
             }
 
             // Update head and lastProcessedAt after all processing
-            ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
+            head = head + uint48(toProcess);
+            $.head = head;
+            $.lastProcessedAt = uint48(block.timestamp);
 
             // Calculate remaining available inclusions using already known values
             availableAfter_ = available - toProcess;
+
+            // Check if the oldest remaining forced inclusion is due
+            // This replaces the need for a separate isOldestForcedInclusionDue call
+            if (availableAfter_ > 0) {
+                uint256 timestamp = $.queue[head].blobSlice.timestamp;
+                if (timestamp != 0) {
+                    isRemainingForcedInclusionDue_ =
+                        block.timestamp >= timestamp.max($.lastProcessedAt) + _forcedInclusionDelay;
+                }
+            }
 
             // Send all fees in one transfer
             if (totalFees > 0) {
