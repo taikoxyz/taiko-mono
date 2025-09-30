@@ -78,7 +78,7 @@ library LibForcedInclusion {
         address _feeRecipient,
         uint256 _count
     )
-        public
+        internal
         returns (IInbox.DerivationSource[] memory sources_, uint256 availableAfter_)
     {
         unchecked {
