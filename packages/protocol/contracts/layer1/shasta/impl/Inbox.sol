@@ -205,40 +205,36 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        unchecked {
-            // Decode and validate input data
-            ProposeInput memory input = _decodeProposeInput(_data);
+        // Decode and validate input data
+        ProposeInput memory input = _decodeProposeInput(_data);
 
-            _validateProposeInput(input);
+        _validateProposeInput(input);
 
-            // Verify parentProposals[0] is actually the last proposal stored on-chain.
-            _verifyChainHead(input.parentProposals);
+        // Verify parentProposals[0] is actually the last proposal stored on-chain.
+        _verifyChainHead(input.parentProposals);
 
-            // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+        // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
+        CoreState memory coreState = _finalize(input);
 
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the ring buffer
-            coreState.nextProposalBlockId = uint48(block.number + 1);
+        // Enforce one propose call per Ethereum block to prevent spam attacks that could
+        // deplete the ring buffer
+        coreState.nextProposalBlockId = uint48(block.number + 1);
 
-            // Verify capacity for new proposals
-            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+        // Verify capacity for new proposals
+        require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            (DerivationSource[] memory sources,, bool allowsPermissionlessInclusion) =
-                _buildDerivationSources(input);
+        (DerivationSource[] memory sources, bool allowsPermissionlessInclusion) =
+            _buildDerivationSources(input);
 
-            // If forced inclusion is old enough, allow anyone to propose
-            // (endOfSubmissionWindowTimestamp = 0)
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp;
-            if (!allowsPermissionlessInclusion) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-            }
+        // If forced inclusion is old enough, allow anyone to propose
+        // (endOfSubmissionWindowTimestamp = 0)
+        // Otherwise, only the current preconfer can propose
+        uint48 endOfSubmissionWindowTimestamp = allowsPermissionlessInclusion
+            ? 0
+            : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
-            // Create single proposal with multi-source derivation
-            _propose(coreState, sources, endOfSubmissionWindowTimestamp);
-        }
+        // Create single proposal with multi-source derivation
+        _propose(coreState, sources, endOfSubmissionWindowTimestamp);
     }
 
     /// @inheritdoc IInbox
@@ -803,8 +799,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
         // processed
-        // OR the queue is empty (remainingForcedInclusions == 0 from consumeForcedInclusions)
-        // OR none remaining are due
+        // OR the proposer emptied the queue (remainingForcedInclusions == 0 AND numForcedInclusions
+        // > 0)
+        //    Note: We check numForcedInclusions > 0 to distinguish "proposer emptied the queue"
+        //    from "queue was already empty". Without this, both scenarios would have
+        //    remainingForcedInclusions == 0, but only the former deserves to pass this condition.
+        // OR none remaining are due (covers case where queue is empty or items aren't due yet)
         require(
             (_input.numForcedInclusions >= _minForcedInclusionCount)
                 || (remainingForcedInclusions == 0 && _input.numForcedInclusions > 0)

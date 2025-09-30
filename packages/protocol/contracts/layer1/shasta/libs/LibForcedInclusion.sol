@@ -65,6 +65,36 @@ library LibForcedInclusion {
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
+    /// @dev See `IInbox.isOldestForcedInclusionDue`
+    function isOldestForcedInclusionDue(
+        Storage storage $,
+        uint64 _forcedInclusionDelay
+    )
+        public
+        view
+        returns (bool)
+    {
+        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+
+        // Early exit for empty queue (most common case)
+        if (head == tail) return false;
+
+        uint256 timestamp = $.queue[head].blobSlice.timestamp;
+
+        // Early exit if slot is empty
+        if (timestamp == 0) return false;
+
+        // Only calculate deadline if we have a valid inclusion
+        unchecked {
+            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
+            return block.timestamp >= deadline;
+        }
+    }
+
+    // ---------------------------------------------------------------
+    //  Internal Functions
+    // ---------------------------------------------------------------
+
     /// @dev Internal implementation of consuming forced inclusions
     /// @notice Consumes up to _count forced inclusions from the queue
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
@@ -145,32 +175,6 @@ library LibForcedInclusion {
                         block.timestamp >= timestamp.max($.lastProcessedAt) + _forcedInclusionDelay;
                 }
             }
-        }
-    }
-
-    /// @dev See `IInbox.isOldestForcedInclusionDue`
-    function isOldestForcedInclusionDue(
-        Storage storage $,
-        uint64 _forcedInclusionDelay
-    )
-        public
-        view
-        returns (bool)
-    {
-        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
-
-        // Early exit for empty queue (most common case)
-        if (head == tail) return false;
-
-        uint256 timestamp = $.queue[head].blobSlice.timestamp;
-
-        // Early exit if slot is empty
-        if (timestamp == 0) return false;
-
-        // Only calculate deadline if we have a valid inclusion
-        unchecked {
-            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
-            return block.timestamp >= deadline;
         }
     }
 
