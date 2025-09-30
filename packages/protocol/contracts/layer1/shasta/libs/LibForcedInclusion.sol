@@ -69,13 +69,15 @@ library LibForcedInclusion {
     /// @notice Consumes up to _count forced inclusions from the queue
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
     /// @param _count The maximum number of forced inclusions to consume
-    /// @param _forcedInclusionDelay The delay in seconds before a forced inclusion is considered due
+    /// @param _forcedInclusionDelay The delay in seconds before a forced inclusion is considered
+    /// due
     /// @return sources_ Array of derivation sources with forced inclusions marked and an extra
     /// empty
     /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
     /// is uninitialized for the caller to populate.
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
-    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that was
+    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that
+    /// was
     /// processed. type(uint48).max if no forced inclusions were consumed.
     /// @return isRemainingForcedInclusionDue_ True if there are remaining forced inclusions in the
     /// queue that are due for processing after consumption

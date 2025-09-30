@@ -224,18 +224,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
+            (DerivationSource[] memory sources,, bool allowsPermissionlessInclusion) =
                 _buildDerivationSources(input);
 
-            // If there was a forced inclusion, and it was too old, allow anyone to propose(and
-            // endOfSubmissionWindowTimestamp = 0).
-            // Otherwise, only the current preconfer can propose.
+            // If forced inclusion is old enough, allow anyone to propose
+            // (endOfSubmissionWindowTimestamp = 0)
+            // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
-            if (
-                block.timestamp
-                    <= oldestForcedInclusionTimestamp
-                        + _forcedInclusionDelay * _permissionlessInclusionMultiplier
-            ) {
+            if (!allowsPermissionlessInclusion) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
@@ -786,14 +782,15 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _input The ProposeInput containing numForcedInclusions and blobReference
     /// @return sources Array of derivation sources with forced inclusions first, then regular
     /// proposal
-    /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
-    /// processed. type(uint48).max if there are no forced inclusions.
+    /// @return allowsPermissionlessInclusion_ True if the oldest forced inclusion is old enough to
+    /// allow permissionless proposals
     function _buildDerivationSources(ProposeInput memory _input)
         private
-        returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
+        returns (DerivationSource[] memory sources, bool allowsPermissionlessInclusion_)
     {
         // Always call consumeForcedInclusions which handles both cases:
         uint256 remainingForcedInclusions;
+        uint48 oldestForcedInclusionTimestamp;
         bool isRemainingForcedInclusionDue;
         (
             sources,
@@ -801,10 +798,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             oldestForcedInclusionTimestamp,
             isRemainingForcedInclusionDue
         ) = LibForcedInclusion.consumeForcedInclusions(
-            _forcedInclusionStorage,
-            msg.sender,
-            _input.numForcedInclusions,
-            _forcedInclusionDelay
+            _forcedInclusionStorage, msg.sender, _input.numForcedInclusions, _forcedInclusionDelay
         );
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
@@ -817,6 +811,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 || !isRemainingForcedInclusionDue,
             UnprocessedForcedInclusionIsDue()
         );
+
+        // Calculate if permissionless inclusion is allowed
+        // If there was NO forced inclusion processed, this will be false (type(uint48).max check)
+        // If there was a forced inclusion and it's NOT too old, this will be false
+        // If there was a forced inclusion and it IS too old, this will be true
+        allowsPermissionlessInclusion_ = block.timestamp
+            > oldestForcedInclusionTimestamp
+                + _forcedInclusionDelay * _permissionlessInclusionMultiplier;
 
         // Add normal proposal source in the last slot
         sources[sources.length - 1] =
