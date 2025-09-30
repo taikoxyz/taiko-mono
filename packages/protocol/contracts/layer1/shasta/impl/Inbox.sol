@@ -82,6 +82,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The maximum number of checkpoints to store in ring buffer.
     uint16 internal immutable _maxCheckpointHistory;
 
+    /// @notice The minimum delay between checkpoints in seconds.
+    uint48 internal immutable _minCheckpointDelay;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -137,6 +140,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _maxCheckpointHistory = _config.maxCheckpointHistory;
+        _minCheckpointDelay = _config.minCheckpointDelay;
     }
 
     // ---------------------------------------------------------------
@@ -323,7 +327,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            minCheckpointDelay: _minCheckpointDelay
         });
     }
 
@@ -871,9 +876,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-            );
+
+            // Only save checkpoint if minimum delay has passed
+            if (block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay) {
+                LibCheckpointStore.saveCheckpoint(
+                    _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+                );
+                coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
         }
 
         return coreState;

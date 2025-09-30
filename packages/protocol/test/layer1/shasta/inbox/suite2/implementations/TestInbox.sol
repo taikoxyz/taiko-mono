@@ -18,7 +18,6 @@ contract TestInbox is Inbox {
             IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
-                maxCheckpointHistory: maxCheckpointHistory,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,
@@ -29,7 +28,9 @@ contract TestInbox is Inbox {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                maxCheckpointHistory: maxCheckpointHistory,
+                minCheckpointDelay: 0
              })
         )
     { }

@@ -51,7 +51,8 @@ contract ShastaMainnetInbox is InboxOptimized2 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
-                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
+                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
+                minCheckpointDelay: 0
             })
         )
     { }

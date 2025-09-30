@@ -40,6 +40,8 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
+        /// @notice The minimum delay between checkpoints in seconds
+        uint48 minCheckpointDelay;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -122,6 +124,8 @@ interface IInbox {
         uint48 nextProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last checkpoint was saved.
+        uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.

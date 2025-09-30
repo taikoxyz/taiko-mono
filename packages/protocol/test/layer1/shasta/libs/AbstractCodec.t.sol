@@ -69,6 +69,7 @@ abstract contract AbstractCodecTest is Test {
             nextProposalId: 100,
             nextProposalBlockId: 200,
             lastFinalizedProposalId: 99,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(0x3333)),
             bondInstructionsHash: bytes32(uint256(0x4444))
         });

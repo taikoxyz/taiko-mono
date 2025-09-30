@@ -272,6 +272,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
                 // this)
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -333,6 +334,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalId: 2,
             nextProposalBlockId: 2,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -371,6 +373,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalId: 100,
             nextProposalBlockId: 0,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });

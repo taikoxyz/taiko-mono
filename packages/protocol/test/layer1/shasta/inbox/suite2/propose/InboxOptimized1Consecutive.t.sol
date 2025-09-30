@@ -50,6 +50,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
             nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
                 // this)
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });

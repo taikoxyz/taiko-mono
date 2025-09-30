@@ -92,6 +92,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: 1,
             nextProposalBlockId: 2, // Genesis value - prevents blockhash(0) issue
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -188,6 +189,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId + 1,
             nextProposalBlockId: uint48(block.number + 1), // block.number + 1
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -427,6 +429,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId,
             nextProposalBlockId: uint48(block.number),
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });

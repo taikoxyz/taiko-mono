@@ -205,6 +205,7 @@ contract LibProposedEventEncoderGas is Test {
             nextProposalId: 12_346,
             nextProposalBlockId: 1_234_600,
             lastFinalizedProposalId: 12_340,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("lastTransition"),
             bondInstructionsHash: keccak256("bondInstructions")
         });
