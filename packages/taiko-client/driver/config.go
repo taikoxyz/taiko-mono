@@ -87,7 +87,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L1BeaconEndpoint:        beaconEndpoint,
 			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:            l2CheckPoint,
-			TaikoInboxAddress:       common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+			PacayaInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),

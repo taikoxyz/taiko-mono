@@ -99,7 +99,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
-		TaikoInboxAddress:      common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		TaikoInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),

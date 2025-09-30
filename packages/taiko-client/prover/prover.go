@@ -112,7 +112,7 @@ func InitFromConfig(
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
 		L1Endpoint:         cfg.L1WsEndpoint,
 		L2Endpoint:         cfg.L2WsEndpoint,
-		TaikoInboxAddress:  cfg.TaikoInboxAddress,
+		PacayaInboxAddress: cfg.TaikoInboxAddress,
 		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
 		TaikoTokenAddress:  cfg.TaikoTokenAddress,
 		ProverSetAddress:   cfg.ProverSetAddress,

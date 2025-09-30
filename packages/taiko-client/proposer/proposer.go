@@ -143,7 +143,8 @@ func (p *Proposer) InitFromConfig(
 		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoInboxAddress,
+		cfg.PacayaInboxAddress,
+		cfg.ShastaInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBatchTxGasLimit,
@@ -402,7 +403,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		ctx,
 		p.rpc,
 		proposerAddress,
-		p.TaikoInboxAddress,
+		p.PacayaInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
 			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
