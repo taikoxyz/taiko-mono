@@ -76,7 +76,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 internal immutable _forcedInclusionDelay;
+    uint16 internal immutable _forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
@@ -205,36 +205,50 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        // Decode and validate input data
-        ProposeInput memory input = _decodeProposeInput(_data);
+        unchecked {
+            // Decode and validate input data
+            ProposeInput memory input = _decodeProposeInput(_data);
 
-        _validateProposeInput(input);
+            _validateProposeInput(input);
 
-        // Verify parentProposals[0] is actually the last proposal stored on-chain.
-        _verifyChainHead(input.parentProposals);
+            // Verify parentProposals[0] is actually the last proposal stored on-chain.
+            _verifyChainHead(input.parentProposals);
 
-        // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-        CoreState memory coreState = _finalize(input);
+            // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
+            CoreState memory coreState = _finalize(input);
 
-        // Enforce one propose call per Ethereum block to prevent spam attacks that could
-        // deplete the ring buffer
-        coreState.nextProposalBlockId = uint48(block.number + 1);
+            // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // deplete the ring buffer
+            coreState.nextProposalBlockId = uint48(block.number + 1);
 
-        // Verify capacity for new proposals
-        require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+            // Verify capacity for new proposals
+            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-        (DerivationSource[] memory sources, bool allowsPermissionlessInclusion) =
-            _buildDerivationSources(input);
+            // Consume forced inclusions (validation happens inside)
+            LibForcedInclusion.ConsumptionResult memory result = LibForcedInclusion
+                .consumeForcedInclusions(
+                _forcedInclusionStorage,
+                msg.sender,
+                input.numForcedInclusions,
+                _minForcedInclusionCount,
+                _forcedInclusionDelay,
+                _permissionlessInclusionMultiplier
+            );
 
-        // If forced inclusion is old enough, allow anyone to propose
-        // (endOfSubmissionWindowTimestamp = 0)
-        // Otherwise, only the current preconfer can propose
-        uint48 endOfSubmissionWindowTimestamp = allowsPermissionlessInclusion
-            ? 0
-            : _proposerChecker.checkProposer(msg.sender, _lookahead);
+            // Add normal proposal source in last slot
+            result.sources[result.sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
 
-        // Create single proposal with multi-source derivation
-        _propose(coreState, sources, endOfSubmissionWindowTimestamp);
+            // If forced inclusion is old enough, allow anyone to propose
+            // (endOfSubmissionWindowTimestamp = 0)
+            // Otherwise, only the current preconfer can propose
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
+
+            // Create single proposal with multi-source derivation
+            _propose(coreState, result.sources, endOfSubmissionWindowTimestamp);
+        }
     }
 
     /// @inheritdoc IInbox
@@ -272,9 +286,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionFeeInGwei,
-            _blobReference
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 
@@ -772,58 +784,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _emitProposedEvent(proposal, derivation, _coreState);
     }
 
-    /// @dev Creates derivation sources array from forced inclusions and regular proposal
-    /// @notice Processes forced inclusions and creates a unified sources array for derivation
-    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
-    /// @return sources Array of derivation sources with forced inclusions first, then regular
-    /// proposal
-    /// @return allowsPermissionlessInclusion_ True if the oldest forced inclusion is old enough to
-    /// allow permissionless proposals
-    function _buildDerivationSources(ProposeInput memory _input)
-        private
-        returns (DerivationSource[] memory sources, bool allowsPermissionlessInclusion_)
-    {
-        // Always call consumeForcedInclusions which handles both cases:
-        uint256 remainingForcedInclusions;
-        uint48 oldestForcedInclusionTimestamp;
-        bool isRemainingForcedInclusionDue;
-        (
-            sources,
-            remainingForcedInclusions,
-            oldestForcedInclusionTimestamp,
-            isRemainingForcedInclusionDue
-        ) = LibForcedInclusion.consumeForcedInclusions(
-            _forcedInclusionStorage, msg.sender, _input.numForcedInclusions, _forcedInclusionDelay
-        );
-
-        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-        // processed
-        // OR the proposer emptied the queue (remainingForcedInclusions == 0 AND numForcedInclusions
-        // > 0)
-        //    Note: We check numForcedInclusions > 0 to distinguish "proposer emptied the queue"
-        //    from "queue was already empty". Without this, both scenarios would have
-        //    remainingForcedInclusions == 0, but only the former deserves to pass this condition.
-        // OR none remaining are due (covers case where queue is empty or items aren't due yet)
-        require(
-            (_input.numForcedInclusions >= _minForcedInclusionCount)
-                || (remainingForcedInclusions == 0 && _input.numForcedInclusions > 0)
-                || !isRemainingForcedInclusionDue,
-            UnprocessedForcedInclusionIsDue()
-        );
-
-        // Calculate if permissionless inclusion is allowed
-        // If there was NO forced inclusion processed, this will be false (type(uint48).max check)
-        // If there was a forced inclusion and it's NOT too old, this will be false
-        // If there was a forced inclusion and it IS too old, this will be true
-        allowsPermissionlessInclusion_ = block.timestamp
-            > oldestForcedInclusionTimestamp
-                + _forcedInclusionDelay * _permissionlessInclusionMultiplier;
-
-        // Add normal proposal source in the last slot
-        sources[sources.length - 1] =
-            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
-    }
-
     /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data
     /// @param _derivation The derivation data
@@ -955,6 +915,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bool _hasTransitionRecord
     )
         private
+        view
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
@@ -1039,8 +1000,8 @@ error InvalidState();
 error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
-error NotEnoughCapacity();
 error NoBondToWithdraw();
+error NotEnoughCapacity();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();
@@ -1051,4 +1012,3 @@ error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
-error UnprocessedForcedInclusionIsDue();

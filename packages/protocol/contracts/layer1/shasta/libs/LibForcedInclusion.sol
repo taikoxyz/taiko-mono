@@ -23,6 +23,13 @@ library LibForcedInclusion {
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
+    //  Errors
+    // ---------------------------------------------------------------
+
+    /// @dev Thrown when an unprocessed forced inclusion is due
+    error UnprocessedForcedInclusionIsDue();
+
+    // ---------------------------------------------------------------
     //  Structs
     // ---------------------------------------------------------------
 
@@ -38,6 +45,12 @@ library LibForcedInclusion {
         uint48 tail;
         /// @notice The last time a forced inclusion was processed.
         uint48 lastProcessedAt;
+    }
+
+    /// @dev Result from consuming forced inclusions
+    struct ConsumptionResult {
+        IInbox.DerivationSource[] sources;
+        bool allowsPermissionless;
     }
 
     // ---------------------------------------------------------------
@@ -67,7 +80,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
-        uint64 _forcedInclusionDelay
+        uint16 _forcedInclusionDelay
     )
         public
         view
@@ -94,97 +107,196 @@ library LibForcedInclusion {
     //  Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Internal implementation of consuming forced inclusions
-    /// @notice Consumes up to _count forced inclusions from the queue
-    /// @param _feeRecipient The address to receive the fees from all consumed inclusions
-    /// @param _count The maximum number of forced inclusions to consume
-    /// @param _forcedInclusionDelay The delay in seconds before a forced inclusion is considered
-    /// due
-    /// @return sources_ Array of derivation sources with forced inclusions marked and an extra
-    /// empty
-    /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
-    /// is uninitialized for the caller to populate.
-    /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
-    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that
-    /// was
-    /// processed. type(uint48).max if no forced inclusions were consumed.
-    /// @return isRemainingForcedInclusionDue_ True if there are remaining forced inclusions in the
-    /// queue that are due for processing after consumption
+    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
+    /// source
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive accumulated fees
+    /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
+    /// @param _minForcedInclusionCount Minimum required count for validation
+    /// @param _forcedInclusionDelay Delay in seconds before an inclusion is considered due
+    /// @param _permissionlessInclusionMultiplier Multiplier for permissionless delay calculation
+    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
+    /// and whether permissionless proposals are allowed
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
-        uint256 _count,
-        uint64 _forcedInclusionDelay
+        uint256 _numForcedInclusionsRequested,
+        uint256 _minForcedInclusionCount,
+        uint16 _forcedInclusionDelay,
+        uint8 _permissionlessInclusionMultiplier
     )
         internal
-        returns (
-            IInbox.DerivationSource[] memory sources_,
-            uint256 availableAfter_,
-            uint48 oldestForcedInclusionTimestamp_,
-            bool isRemainingForcedInclusionDue_
-        )
+        returns (ConsumptionResult memory result_)
     {
         unchecked {
-            // Load all storage variables once at the beginning
+            // Load storage once
             (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
-            // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
-            uint256 toProcess = _count > available ? available : _count;
+            uint256 toProcess = _numForcedInclusionsRequested > available
+                ? available
+                : _numForcedInclusionsRequested;
 
-            // Allocate array with an extra slot for the normal derivation source
-            sources_ = new IInbox.DerivationSource[](toProcess + 1);
+            // Allocate array with extra slot for normal source
+            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
 
-            if (toProcess > 0) {
-                // Process forced inclusions
-                uint256 totalFees;
-                for (uint256 i; i < toProcess; ++i) {
-                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
-                    sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                    totalFees += inclusion.feeInGwei;
-                }
+            // Process inclusions if any
+            uint48 oldestTimestamp;
+            (oldestTimestamp, head, lastProcessedAt) = _consumeAndUpdateStorage(
+                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
+            );
 
-                // Calculate oldest forced inclusion timestamp
-                oldestForcedInclusionTimestamp_ =
-                    uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
+            // Calculate remaining and validate
+            _validateForcedInclusionRequirements(
+                $,
+                _numForcedInclusionsRequested,
+                _minForcedInclusionCount,
+                available - toProcess,
+                head,
+                lastProcessedAt,
+                _forcedInclusionDelay
+            );
 
-                // Update local variables (will be stored at the end)
-                head = head + uint48(toProcess);
-                lastProcessedAt = uint48(block.timestamp);
+            // Check if permissionless proposals are allowed
+            result_.allowsPermissionless = block.timestamp
+                > uint256(_forcedInclusionDelay) * _permissionlessInclusionMultiplier + oldestTimestamp;
+        }
+    }
 
-                // Send all fees in one transfer
-                if (totalFees > 0) {
-                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-                }
-            } else {
-                oldestForcedInclusionTimestamp_ = type(uint48).max;
-            }
+    // ---------------------------------------------------------------
+    //  Private Functions
+    // ---------------------------------------------------------------
 
-            // Calculate remaining available inclusions
-            availableAfter_ = available - toProcess;
-
-            // Check if the oldest remaining forced inclusion is due
-            // When toProcess == 0, head is unchanged and we check the current head with
-            // lastProcessedAt
-            // When toProcess > 0, head is updated and we check the new head with updated
-            // lastProcessedAt (block.timestamp)
-            if (availableAfter_ > 0) {
-                uint256 timestamp = $.queue[head].blobSlice.timestamp;
-                if (timestamp != 0) {
-                    isRemainingForcedInclusionDue_ =
-                        block.timestamp >= timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
-                }
-            }
-
-            // Store all storage variables at the end (only if values changed)
-            // Note: We do two separate stores instead of tuple assignment to avoid stack too deep
-            if (toProcess > 0) {
-                $.head = head;
-                $.lastProcessedAt = lastProcessedAt;
+    /// @dev Processes forced inclusions and returns total fees
+    /// @param $ Storage reference
+    /// @param sources Array to populate with derivation sources
+    /// @param head Starting index in the queue
+    /// @param count Number of inclusions to process
+    /// @return totalFees Total fees accumulated from all processed inclusions
+    function _processInclusions(
+        Storage storage $,
+        IInbox.DerivationSource[] memory sources,
+        uint48 head,
+        uint256 count
+    )
+        private
+        view
+        returns (uint256 totalFees)
+    {
+        unchecked {
+            for (uint256 i; i < count; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
             }
         }
     }
 
+    /// @dev Consumes forced inclusions and updates storage
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive fees
+    /// @param _sources Array to populate with derivation sources
+    /// @param _head Current queue head position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _toProcess Number of inclusions to process
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions
+    /// @return head_ Updated head position
+    /// @return lastProcessedAt_ Updated last processed timestamp
+    function _consumeAndUpdateStorage(
+        Storage storage $,
+        address _feeRecipient,
+        IInbox.DerivationSource[] memory _sources,
+        uint48 _head,
+        uint48 _lastProcessedAt,
+        uint256 _toProcess
+    )
+        private
+        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
+    {
+        if (_toProcess > 0) {
+            // Process inclusions and accumulate fees
+            uint256 totalFees = _processInclusions($, _sources, _head, _toProcess);
+
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
+
+            // Oldest timestamp is max of first inclusion timestamp and last processed time
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+            // Update queue position and last processed time
+            head_ = _head + uint48(_toProcess);
+            lastProcessedAt_ = uint48(block.timestamp);
+
+            // Write to storage once (separate assignments to avoid stack too deep)
+            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+        } else {
+            // No inclusions processed
+            oldestTimestamp_ = type(uint48).max;
+            head_ = _head;
+            lastProcessedAt_ = _lastProcessedAt;
+        }
+    }
+
+    /// @dev Validates forced inclusion requirements
+    /// @param $ Storage reference
+    /// @param _numForcedInclusionsRequested Number requested
+    /// @param _minForcedInclusionCount Minimum required count
+    /// @param _remainingForcedInclusionCount Number remaining in queue
+    /// @param _head Current queue head position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _forcedInclusionDelay Delay in seconds before inclusion is due
+    function _validateForcedInclusionRequirements(
+        Storage storage $,
+        uint256 _numForcedInclusionsRequested,
+        uint256 _minForcedInclusionCount,
+        uint256 _remainingForcedInclusionCount,
+        uint48 _head,
+        uint48 _lastProcessedAt,
+        uint16 _forcedInclusionDelay
+    )
+        private
+        view
+    {
+        // Validate forced inclusion requirements: must satisfy one of:
+        // 1. Requested minimum required count - return early
+        if (_numForcedInclusionsRequested >= _minForcedInclusionCount) return;
+
+        // 2. Emptied the queue (remaining is 0 AND requested > 0) - return early
+        if (_remainingForcedInclusionCount == 0 && _numForcedInclusionsRequested > 0) return;
+
+        // 3. No remaining inclusions are due - only check if we reach here
+        if (_remainingForcedInclusionCount == 0) return;
+
+        require(
+            !_isOldestInclusionDue($, _head, _lastProcessedAt, _forcedInclusionDelay),
+            UnprocessedForcedInclusionIsDue()
+        );
+    }
+
+    /// @dev Checks if the oldest remaining forced inclusion is due
+    /// @param $ Storage reference
+    /// @param head Current queue head position
+    /// @param lastProcessedAt Timestamp of last processing
+    /// @param forcedInclusionDelay Delay in seconds before inclusion is due
+    /// @return True if the oldest remaining inclusion is due for processing
+    function _isOldestInclusionDue(
+        Storage storage $,
+        uint48 head,
+        uint48 lastProcessedAt,
+        uint16 forcedInclusionDelay
+    )
+        private
+        view
+        returns (bool)
+    {
+        unchecked {
+            uint256 timestamp = $.queue[head].blobSlice.timestamp;
+            if (timestamp == 0) return false;
+            return block.timestamp >= timestamp.max(lastProcessedAt) + forcedInclusionDelay;
+        }
+    }
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
