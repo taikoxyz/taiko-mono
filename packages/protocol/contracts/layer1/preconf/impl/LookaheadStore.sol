@@ -135,10 +135,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         // Check if next epoch lookahead already exists
         if (nextLookaheadHash != 0) {
-            // Lookahead already posted - only validate if proposer needs it
-            bool isSameEpochProposer = _data.slotIndex != type(uint256).max && !_context.isFallback;
-
-            if (isSameEpochProposer) {
+            if (_data.slotIndex != type(uint256).max) {
                 // Same-epoch proposers don't need nextLookahead - skip validation
                 return;
             }
