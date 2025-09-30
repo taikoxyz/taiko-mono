@@ -40,7 +40,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt)
+		return s.DummyProofProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
 	}
 
 	resp, err := s.requestBatchProof(

@@ -45,12 +45,14 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L1Endpoint:         os.Getenv("L1_WS"),
 			L2Endpoint:         os.Getenv("L2_WS"),
 			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
 	}))
 	s.d = d
+	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init calldata syncer
 	testState, err := state.New(context.Background(), s.RPCClient)
@@ -61,6 +63,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		testState,
 		tracker,
 		nil,
@@ -80,7 +83,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -124,11 +128,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.proposer = prop
+	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
+	handler := NewBatchesProvedEventHandler(s.RPCClient, s.ShastaStateIndexer, proofRequestBodyCh)
 
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(m.IsPacaya())

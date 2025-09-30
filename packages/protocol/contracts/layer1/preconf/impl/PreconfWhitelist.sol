@@ -148,9 +148,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IProposerChecker
-    function checkProposer(address _proposer)
+    function checkProposer(
+        address _proposer,
+        bytes calldata
+    )
         external
         view
+        override(IProposerChecker)
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
         address operator = getOperatorForCurrentEpoch();

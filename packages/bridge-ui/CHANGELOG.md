@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.15.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.14.0...bridge-ui-v2.15.0) (2025-09-26)
+
+
+### Features
+
+* **bridge-ui:** add solverfee to type ([#19667](https://github.com/taikoxyz/taiko-mono/issues/19667)) ([8a62601](https://github.com/taikoxyz/taiko-mono/commit/8a626010ddc57981fc044aeb94dbb0049b7f0ee5))
+* **bridge-ui:** relayer component retry status ([#19390](https://github.com/taikoxyz/taiko-mono/issues/19390)) ([e634dcc](https://github.com/taikoxyz/taiko-mono/commit/e634dcce4effe0d7899a082a4aa56154971ce54a))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix grammar issues and typos ([#20174](https://github.com/taikoxyz/taiko-mono/issues/20174)) ([31374a6](https://github.com/taikoxyz/taiko-mono/commit/31374a6647b4d65f337f1e5ef749314a0893f6ec))
+* **bridge-ui:** fix issue where TokenInput quota validation always returning false ([#19814](https://github.com/taikoxyz/taiko-mono/issues/19814)) ([a36f99f](https://github.com/taikoxyz/taiko-mono/commit/a36f99f1e820e52e12f97f804837c2828e941a41))
+* **bridge-ui:** vercel deployment and wallet connection improvements ([#20256](https://github.com/taikoxyz/taiko-mono/issues/20256)) ([9517737](https://github.com/taikoxyz/taiko-mono/commit/95177371bf839a312d2dc76d28c6a6ffeb9dd1f7))
+
+
+### Chores
+
+* **bridge-ui:** add comprehensive logging to CustomTokenService ([#19998](https://github.com/taikoxyz/taiko-mono/issues/19998)) ([2f5bc85](https://github.com/taikoxyz/taiko-mono/commit/2f5bc859befeb18fc9be4b0503b7c9a4cb1fef5f))
+
 ## [2.14.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.13.0...bridge-ui-v2.14.0) (2025-03-17)
 
 
