@@ -103,43 +103,45 @@ library LibForcedInclusion {
 
             // Allocate array with an extra slot for the normal derivation source
             sources_ = new IInbox.DerivationSource[](toProcess + 1);
-            uint256 totalFees;
 
-            for (uint256 i; i < toProcess; ++i) {
-                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
-                sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                totalFees += inclusion.feeInGwei;
-            }
-
-            // Calculate oldest forced inclusion timestamp
             if (toProcess > 0) {
+                // Process forced inclusions
+                uint256 totalFees;
+                for (uint256 i; i < toProcess; ++i) {
+                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                    sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                    totalFees += inclusion.feeInGwei;
+                }
+
+                // Calculate oldest forced inclusion timestamp
                 oldestForcedInclusionTimestamp_ =
                     uint48(sources_[0].blobSlice.timestamp.max($.lastProcessedAt));
+
+                // Update head and lastProcessedAt after processing
+                head = head + uint48(toProcess);
+                $.head = head;
+                $.lastProcessedAt = uint48(block.timestamp);
+
+                // Send all fees in one transfer
+                if (totalFees > 0) {
+                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                }
             } else {
                 oldestForcedInclusionTimestamp_ = type(uint48).max;
             }
 
-            // Update head and lastProcessedAt after all processing
-            head = head + uint48(toProcess);
-            $.head = head;
-            $.lastProcessedAt = uint48(block.timestamp);
-
-            // Calculate remaining available inclusions using already known values
+            // Calculate remaining available inclusions
             availableAfter_ = available - toProcess;
 
             // Check if the oldest remaining forced inclusion is due
-            // This replaces the need for a separate isOldestForcedInclusionDue call
+            // When toProcess == 0, head is unchanged and we check the current head
+            // When toProcess > 0, head is updated and we check the new head (remaining)
             if (availableAfter_ > 0) {
                 uint256 timestamp = $.queue[head].blobSlice.timestamp;
                 if (timestamp != 0) {
                     isRemainingForcedInclusionDue_ =
                         block.timestamp >= timestamp.max($.lastProcessedAt) + _forcedInclusionDelay;
                 }
-            }
-
-            // Send all fees in one transfer
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
             }
         }
     }
