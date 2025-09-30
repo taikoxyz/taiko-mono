@@ -70,8 +70,13 @@ library LibManifest {
         SignedTransaction[] transactions;
     }
 
-    /// @notice Represents a proposal manifest
-    struct ProposalManifest {
+    /// @notice Represents a derivation source manifest
+    /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
+    /// If a DerivationSourceManifest is invalid, it is replaced with a default manifest
+    /// (single empty block), but the entire proposal is NOT invalidated. This design prevents
+    /// censorship of forced inclusions: a malicious proposer cannot invalidate their entire
+    /// proposal (including valid forced inclusions) by including bad data in one source.
+    struct DerivationSourceManifest {
         bytes proverAuthBytes;
         BlockManifest[] blocks;
     }

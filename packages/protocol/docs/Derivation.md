@@ -99,13 +99,13 @@ struct DerivationSource {
 
 The following metadata fields are extracted from the `proposal` and `derivation` objects:
 
-| Metadata Field                | Value Assignment                    |
-| ----------------------------- | ----------------------------------- |
-| `metadata.id`                 | `proposal.id`                      |
-| `metadata.proposer`           | `proposal.proposer`                 |
-| `metadata.timestamp`          | `proposal.timestamp`                |
-| `metadata.originBlockNumber`  | `derivation.originBlockNumber`      |
-| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`     |
+| Metadata Field                | Value Assignment                          |
+| ----------------------------- | ----------------------------------------- |
+| `metadata.id`                 | `proposal.id`                             |
+| `metadata.proposer`           | `proposal.proposer`                       |
+| `metadata.timestamp`          | `proposal.timestamp`                      |
+| `metadata.originBlockNumber`  | `derivation.originBlockNumber`            |
+| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`           |
 | `metadata.isForcedInclusion`  | `derivation.sources[i].isForcedInclusion` |
 
 The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
@@ -144,8 +144,9 @@ struct BlockManifest {
   SignedTransaction[] transactions;
 }
 
-/// @notice Represents a proposal manifest
-struct ProposalManifest {
+/// @notice Represents a derivation source manifest
+/// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
+struct DerivationSourceManifest {
   bytes proverAuthBytes;
   BlockManifest[] blocks;
 }
@@ -183,11 +184,11 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 2. **Version Extraction**: Extract the version number from bytes `[offset, offset+32)` (only version `0x1` is valid for Shasta)
 3. **Size Extraction**: Extract the data size from bytes `[offset+32, offset+64)`
 4. **Decompression**: Apply ZLIB decompression to the extracted data slice (bytes `[offset+64, offset+64+size)`)
-5. **Decoding**: RLP decode the decompressed data into a `ProposalManifest` struct
+5. **Decoding**: RLP decode the decompressed data into a `DerivationSourceManifest` struct
 
 #### Default Manifest Conditions
 
-A default manifest is returned when any of the following validation criteria fail:
+A default manifest is returned for a specific `DerivationSource` when any of the following validation criteria fail:
 
 - **Blob validation**: `blobHashes.length` is zero
 - **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
@@ -199,11 +200,13 @@ A default manifest is returned when any of the following validation criteria fai
 The default manifest is one initialized as:
 
 ```solidity
-ProposalManifest memory default;
-default.blocks = new BlockManifest[](1) ;
+DerivationSourceManifest memory default;
+default.blocks = new BlockManifest[](1);
 ```
 
-A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid proposals.
+A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid manifests.
+
+**Important**: Each proposal can have multiple `DerivationSource` objects (and thus multiple `DerivationSourceManifest` objects). If one `DerivationSourceManifest` is invalid, **only that specific manifest is replaced with a default manifest**—the entire proposal is NOT invalidated. This design is helps prevent forced inclusion censorship: a malicious proposer cannot invalidate their entire proposal (including valid forced inclusions) by intentionally including bad data in one source. The valid sources will still be processed, and the invalid source will simply contribute an empty block to the proposal.
 
 ### Metadata Validation and Computation
 
@@ -294,7 +297,7 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 
 ```solidity
 /// @notice Structure for prover authentication
-/// @dev Used in the proverAuthBytes field of ProposalManifest
+/// @dev Used in the proverAuthBytes field of DerivationSourceManifest
 struct ProverAuth {
   address prover;
   address feeToken;
