@@ -47,7 +47,6 @@ library LibForcedInclusion {
     /// @dev See `IInbox.storeForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint64, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
