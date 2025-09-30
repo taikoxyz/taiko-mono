@@ -40,6 +40,12 @@ library LibForcedInclusion {
         uint48 lastProcessedAt;
     }
 
+    /// @dev Result from consuming forced inclusions
+    struct ConsumptionResult {
+        IInbox.DerivationSource[] sources;
+        bool allowsPermissionless;
+    }
+
     // ---------------------------------------------------------------
     //  Public Functions
     // ---------------------------------------------------------------
@@ -94,8 +100,7 @@ library LibForcedInclusion {
     //  Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Consumes forced inclusions from the queue and returns sources with extra slot for
-    /// normal
+    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
     /// @param $ Storage reference
     /// @param _feeRecipient Address to receive accumulated fees
@@ -103,8 +108,8 @@ library LibForcedInclusion {
     /// @param _minForcedInclusionCount Minimum required count for validation
     /// @param _forcedInclusionDelay Delay in seconds before an inclusion is considered due
     /// @param _permissionlessInclusionMultiplier Multiplier for permissionless delay calculation
-    /// @return sources_ Sources array (size: processed + 1, last slot empty for normal source)
-    /// @return allowsPermissionless_ Whether permissionless proposals are allowed
+    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
+    /// and whether permissionless proposals are allowed
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
@@ -114,7 +119,7 @@ library LibForcedInclusion {
         uint8 _permissionlessInclusionMultiplier
     )
         internal
-        returns (IInbox.DerivationSource[] memory sources_, bool allowsPermissionless_)
+        returns (ConsumptionResult memory result_)
     {
         unchecked {
             // Load storage once
@@ -126,12 +131,12 @@ library LibForcedInclusion {
                 : _numForcedInclusionsRequested;
 
             // Allocate array with extra slot for normal source
-            sources_ = new IInbox.DerivationSource[](toProcess + 1);
+            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
 
             // Process inclusions if any
             uint48 oldestTimestamp;
             (oldestTimestamp, head, lastProcessedAt) = _consumeAndUpdateStorage(
-                $, _feeRecipient, sources_, head, lastProcessedAt, toProcess
+                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
             );
 
             // Calculate remaining and validate
@@ -146,7 +151,7 @@ library LibForcedInclusion {
             );
 
             // Check if permissionless proposals are allowed
-            allowsPermissionless_ = block.timestamp
+            result_.allowsPermissionless = block.timestamp
                 > uint256(_forcedInclusionDelay) * _permissionlessInclusionMultiplier + oldestTimestamp;
         }
     }

@@ -202,7 +202,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
             // Consume forced inclusions (validation happens inside)
-            (DerivationSource[] memory sources, bool allowsPermissionless) = LibForcedInclusion
+            LibForcedInclusion.ConsumptionResult memory result = LibForcedInclusion
                 .consumeForcedInclusions(
                 _forcedInclusionStorage,
                 msg.sender,
@@ -213,17 +213,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             );
 
             // Add normal proposal source in last slot
-            sources[sources.length - 1] =
+            result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
             // (endOfSubmissionWindowTimestamp = 0)
             // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp =
-                allowsPermissionless ? 0 : _proposerChecker.checkProposer(msg.sender, _lookahead);
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Create single proposal with multi-source derivation
-            _propose(coreState, sources, endOfSubmissionWindowTimestamp);
+            _propose(coreState, result.sources, endOfSubmissionWindowTimestamp);
         }
     }
 
