@@ -74,7 +74,8 @@ library LibForcedInclusion {
     /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
     /// is uninitialized for the caller to populate.
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
-    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that was
+    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that
+    /// was
     /// processed. block.timestamp if no forced inclusions were consumed.
     function consumeForcedInclusions(
         Storage storage $,

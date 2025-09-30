@@ -761,7 +761,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Get derivation sources with forced inclusions marked and an extra slot for normal
             // source
             (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
-                LibForcedInclusion.consumeForcedInclusions(
+            LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
         } else {
