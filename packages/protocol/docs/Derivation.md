@@ -228,6 +228,20 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 **Censorship Resistance**: This per-source validation design prevents a malicious proposer from invalidating valid forced inclusions by including invalid data in other sources. Each source is isolated: failures only affect that specific source, not the entire proposal.
 
+#### Forced Inclusion Submission Requirements
+
+Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
+
+| Field               | Required Value | Reason                                                  |
+| ------------------- | -------------- | ------------------------------------------------------- |
+| `timestamp`         | `0`            | Protocol assigns based on proposal timing               |
+| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions |
+| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                     |
+| `gasLimit`          | `0`            | Protocol inherits from parent block                     |
+| `transactions`      | User-provided  | The actual transactions to be forcibly included         |
+
+This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
+
 ### Metadata Validation and Computation
 
 With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
