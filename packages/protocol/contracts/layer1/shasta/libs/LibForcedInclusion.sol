@@ -167,31 +167,6 @@ library LibForcedInclusion {
     //  Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Processes forced inclusions and returns total fees
-    /// @param $ Storage reference
-    /// @param sources Array to populate with derivation sources
-    /// @param head Starting index in the queue
-    /// @param count Number of inclusions to process
-    /// @return totalFees Total fees accumulated from all processed inclusions
-    function _processInclusions(
-        Storage storage $,
-        IInbox.DerivationSource[] memory sources,
-        uint48 head,
-        uint256 count
-    )
-        private
-        view
-        returns (uint256 totalFees)
-    {
-        unchecked {
-            for (uint256 i; i < count; ++i) {
-                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
-                sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                totalFees += inclusion.feeInGwei;
-            }
-        }
-    }
-
     /// @dev Consumes forced inclusions and updates storage
     /// @param $ Storage reference
     /// @param _feeRecipient Address to receive fees
@@ -229,13 +204,38 @@ library LibForcedInclusion {
             head_ = _head + uint48(_toProcess);
             lastProcessedAt_ = uint48(block.timestamp);
 
-            // Write to storage once 
+            // Write to storage once
             ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
         } else {
             // No inclusions processed
             oldestTimestamp_ = type(uint48).max;
             head_ = _head;
             lastProcessedAt_ = _lastProcessedAt;
+        }
+    }
+
+    /// @dev Processes forced inclusions and returns total fees
+    /// @param $ Storage reference
+    /// @param sources Array to populate with derivation sources
+    /// @param head Starting index in the queue
+    /// @param count Number of inclusions to process
+    /// @return totalFees Total fees accumulated from all processed inclusions
+    function _processInclusions(
+        Storage storage $,
+        IInbox.DerivationSource[] memory sources,
+        uint48 head,
+        uint256 count
+    )
+        private
+        view
+        returns (uint256 totalFees)
+    {
+        unchecked {
+            for (uint256 i; i < count; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
+            }
         }
     }
 
