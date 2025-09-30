@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
@@ -67,38 +68,34 @@ library LibForcedInclusion {
     /// @notice Consumes up to _count forced inclusions from the queue
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
     /// @param _count The maximum number of forced inclusions to consume
-    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
-    /// has fewer)
+    /// @return sources_ Array of derivation sources with forced inclusions marked and an extra
+    /// empty
+    /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
+    /// is uninitialized for the caller to populate.
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
         uint256 _count
     )
-        public
-        returns (
-            IForcedInclusionStore.ForcedInclusion[] memory inclusions_,
-            uint256 availableAfter_
-        )
+        internal
+        returns (IInbox.DerivationSource[] memory sources_, uint256 availableAfter_)
     {
         unchecked {
             (uint48 head, uint48 tail) = ($.head, $.tail);
-
-            // Early exit if  queue is empty
-            if (head == tail) {
-                return (new IForcedInclusionStore.ForcedInclusion[](0), 0);
-            }
 
             // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
             uint256 toProcess = _count > available ? available : _count;
 
-            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](toProcess);
+            // Allocate array with an extra slot for the normal derivation source
+            sources_ = new IInbox.DerivationSource[](toProcess + 1);
             uint256 totalFees;
 
             for (uint256 i; i < toProcess; ++i) {
-                inclusions_[i] = $.queue[head + i];
-                totalFees += inclusions_[i].feeInGwei;
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
             }
 
             // Update head and lastProcessedAt after all processing
