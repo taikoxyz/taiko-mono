@@ -420,7 +420,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASAT_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
