@@ -19,6 +19,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibForcedInclusion {
     using LibAddress for address;
+    using LibMath for uint48;
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
@@ -73,16 +74,22 @@ library LibForcedInclusion {
     /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
     /// is uninitialized for the caller to populate.
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
+    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that was
+    /// processed. type(uint48).max if no forced inclusions were consumed.
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
         uint256 _count
     )
         internal
-        returns (IInbox.DerivationSource[] memory sources_, uint256 availableAfter_)
+        returns (
+            IInbox.DerivationSource[] memory sources_,
+            uint256 availableAfter_,
+            uint48 oldestForcedInclusionTimestamp_
+        )
     {
         unchecked {
-            (uint48 head, uint48 tail) = ($.head, $.tail);
+            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
@@ -96,6 +103,14 @@ library LibForcedInclusion {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
                 sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
                 totalFees += inclusion.feeInGwei;
+            }
+
+            // Calculate oldest forced inclusion timestamp
+            if (toProcess > 0) {
+                oldestForcedInclusionTimestamp_ =
+                    uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
+            } else {
+                oldestForcedInclusionTimestamp_ = type(uint48).max;
             }
 
             // Update head and lastProcessedAt after all processing

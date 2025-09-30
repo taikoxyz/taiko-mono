@@ -793,17 +793,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
     {
         uint256 remainingForcedInclusions = type(uint256).max;
-        // We need to capture the last processed timestamp before consuming the forced inclusions
-        uint48 lastProcessedAt = _forcedInclusionStorage.lastProcessedAt;
 
         if (_input.numForcedInclusions > 0) {
             // Get derivation sources with forced inclusions marked and an extra slot for normal
             // source
-            (sources, remainingForcedInclusions) = LibForcedInclusion.consumeForcedInclusions(
+            (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
+                LibForcedInclusion.consumeForcedInclusions(
                 _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
             );
-            oldestForcedInclusionTimestamp =
-                uint48(sources[0].blobSlice.timestamp.max(lastProcessedAt));
         } else {
             // When no forced inclusions, allocate array of size 1 for normal source
             sources = new DerivationSource[](1);
