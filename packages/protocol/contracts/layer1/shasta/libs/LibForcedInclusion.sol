@@ -149,10 +149,9 @@ library LibForcedInclusion {
                 oldestForcedInclusionTimestamp_ =
                     uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
 
-                // Update head and lastProcessedAt after processing
+                // Update local variables (will be stored at the end)
                 head = head + uint48(toProcess);
-                $.head = head;
-                $.lastProcessedAt = uint48(block.timestamp);
+                lastProcessedAt = uint48(block.timestamp);
 
                 // Send all fees in one transfer
                 if (totalFees > 0) {
@@ -173,14 +172,16 @@ library LibForcedInclusion {
             if (availableAfter_ > 0) {
                 uint256 timestamp = $.queue[head].blobSlice.timestamp;
                 if (timestamp != 0) {
-                    // Use the appropriate lastProcessedAt value:
-                    // - If toProcess > 0: use block.timestamp (just updated)
-                    // - If toProcess == 0: use original lastProcessedAt (loaded at start)
-                    uint48 effectiveLastProcessedAt =
-                        toProcess > 0 ? uint48(block.timestamp) : lastProcessedAt;
                     isRemainingForcedInclusionDue_ =
-                        block.timestamp >= timestamp.max(effectiveLastProcessedAt) + _forcedInclusionDelay;
+                        block.timestamp >= timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
                 }
+            }
+
+            // Store all storage variables at the end (only if values changed)
+            // Note: We do two separate stores instead of tuple assignment to avoid stack too deep
+            if (toProcess > 0) {
+                $.head = head;
+                $.lastProcessedAt = lastProcessedAt;
             }
         }
     }
