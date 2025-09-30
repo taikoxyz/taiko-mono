@@ -64,6 +64,13 @@ func (b *BalanceMonitor) Name() string {
 }
 
 func (b *BalanceMonitor) Close(ctx context.Context) {
+	if b.l1EthClient != nil {
+		b.l1EthClient.Close()
+	}
+
+	if b.l2EthClient != nil {
+		b.l2EthClient.Close()
+	}
 }
 
 func (b *BalanceMonitor) Start() error {
