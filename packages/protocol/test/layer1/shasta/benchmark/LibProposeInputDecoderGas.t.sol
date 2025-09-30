@@ -139,7 +139,7 @@ contract LibProposeInputDecoderGas is Test {
 
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 10_000,
+            lastProposalBlockId: 9999,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
@@ -182,7 +182,7 @@ contract LibProposeInputDecoderGas is Test {
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
-                    receiver: address(uint160(0xbbbb + bondIndex))
+                    payee: address(uint160(0xbbbb + bondIndex))
                 });
                 bondIndex++;
             }

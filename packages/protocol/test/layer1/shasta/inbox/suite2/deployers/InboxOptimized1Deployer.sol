@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized1 } from "../implementations/TestInboxOptimized1.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { CodecSimple } from "src/layer1/shasta/impl/CodecSimple.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
 /// @title InboxOptimized1Deployer
@@ -24,17 +25,20 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
         external
         returns (Inbox)
     {
+        address codec = address(new CodecSimple());
         address impl = address(
-            new TestInboxOptimized1(bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
+            new TestInboxOptimized1(
+                codec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker
+            )
         );
 
         TestInboxOptimized1 inbox = TestInboxOptimized1(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.initV3, (Alice, bytes32(uint256(1))))
-            })
+            deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice, Alice)) })
         );
+
+        // Activate the inbox with Alice as the activator
+        vm.prank(Alice);
+        inbox.activate(bytes32(uint256(1)));
 
         return inbox;
     }

@@ -600,7 +600,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
 
         // This should not revert since Bob is the correct operator
-        whitelist.checkProposer(Bob);
+        whitelist.checkProposer(Bob, bytes(""));
     }
 
     function test_checkProposer_invalidOperatorWillRevert() external {
@@ -619,7 +619,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
         // Alice is not the correct operator, should revert
         vm.expectRevert(IProposerChecker.InvalidProposer.selector);
-        whitelist.checkProposer(Alice);
+        whitelist.checkProposer(Alice, bytes(""));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
