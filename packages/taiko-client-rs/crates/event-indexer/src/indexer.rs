@@ -1,4 +1,10 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use alloy::{
     eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent,
@@ -92,6 +98,8 @@ pub struct ShastaEventIndexer {
     proposed_payloads: DashMap<U256, ProposedEventPayload>,
     /// Cache of recently observed `Proved` events keyed by proposal id.
     proved_payloads: DashMap<U256, ProvedEventPayload>,
+    /// Whether the indexer has finished the historical indexing.
+    finished_historical_indexing: AtomicBool,
 }
 
 impl ShastaEventIndexer {
@@ -130,6 +138,7 @@ impl ShastaEventIndexer {
             finalization_grace_period,
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
+            finished_historical_indexing: AtomicBool::new(false),
         })
     }
 
@@ -150,8 +159,8 @@ impl ShastaEventIndexer {
 
         let filter = EventFilter::new()
             .with_contract_address(self.config.inbox_address)
-            .with_event(Proposed::SIGNATURE)
-            .with_event(Proved::SIGNATURE);
+            .with_event(Proposed::SIGNATURE);
+        // .with_event(Proved::SIGNATURE); // TODO: add this back when the filter supports multiple .with_event calls.
 
         let mut stream = event_scanner.create_event_stream(filter);
 
@@ -169,6 +178,8 @@ impl ShastaEventIndexer {
                     debug!("skipping log without topic0");
                     continue;
                 };
+
+                self.finished_historical_indexing.store(true, Ordering::Relaxed);
 
                 if *topic == Proposed::SIGNATURE_HASH {
                     debug!("received Proposed event log");
@@ -302,6 +313,21 @@ impl ShastaEventIndexer {
         transitions
     }
 
+    /// Wait till the historical indexing finished.
+    /// TODO: update this after the next event indexer release.
+    pub async fn wait_historical_indexing_finished(&self) {
+        if self.finished_historical_indexing.load(Ordering::Relaxed) {
+            return;
+        }
+
+        loop {
+            if self.finished_historical_indexing.load(Ordering::Relaxed) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+    }
+
     /// Return the Shasta inbox ring buffer size.
     pub fn ring_buffer_size(&self) -> u64 {
         self.inbox_ring_buffer_size
@@ -376,7 +402,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, str::FromStr, sync::OnceLock, time::Duration};
+    use std::{env, str::FromStr, sync::OnceLock};
 
     use super::*;
     use alloy::{
@@ -385,7 +411,6 @@ mod tests {
         providers::ProviderBuilder,
     };
     use alloy_provider::{Identity, Provider, RootProvider};
-    use alloy_rpc_types::Filter;
     use alloy_signer_local::PrivateKeySigner;
     use bindings::{
         codec_optimized::{
@@ -548,14 +573,9 @@ mod tests {
 
     #[tokio::test]
     async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox } = setup().await?;
+        let TestSetup { indexer, inbox: _ } = setup().await?;
         indexer.clone().spawn();
-
-        let logs = inbox
-            .provider()
-            .get_logs(&Filter::new().event_signature(Proposed::SIGNATURE_HASH).from_block(0))
-            .await?;
-        debug!("fetched the logs by: inbox.provider().get_logs(&Filter::new()).await? {:?}", logs);
+        indexer.wait_historical_indexing_finished().await;
 
         let input = indexer.read_shasta_propose_input();
         assert_eq!(false, input.is_none());

@@ -19,11 +19,3 @@ impl Proposer {
         Ok(Self { _event_indexer: indexer })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn proposer_initializes() {}
-}
