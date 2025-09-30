@@ -144,10 +144,19 @@ struct BlockManifest {
   SignedTransaction[] transactions;
 }
 
-/// @notice Represents a derivation source manifest
+/// @notice Represents a proposal manifest containing proposal-level metadata and all sources
+/// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
+struct ProposalManifest {
+  /// @notice Prover authentication data (proposal-level, shared across all sources).
+  bytes proverAuthBytes;
+  /// @notice Array of derivation source manifests (one per DerivationSource).
+  DerivationSourceManifest[] sources;
+}
+
+/// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
-  bytes proverAuthBytes;
+  /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
 ```
@@ -178,13 +187,13 @@ struct BlobSlice {
 }
 ```
 
-The `BlobSlice` struct represents binary data distributed across multiple blobs. Processing involves the following steps:
+The `BlobSlice` struct represents binary data distributed across multiple blobs. For each proposal, all `DerivationSource[].blobSlice` data is aggregated and processed through the following steps:
 
-1. **Blob Concatenation**: Concatenate blobs in the order specified by the `blobHashes` array
+1. **Blob Aggregation**: Collect and concatenate blob data from all `DerivationSource` objects in the order specified by their `blobHashes` arrays
 2. **Version Extraction**: Extract the version number from bytes `[offset, offset+32)` (only version `0x1` is valid for Shasta)
 3. **Size Extraction**: Extract the data size from bytes `[offset+32, offset+64)`
 4. **Decompression**: Apply ZLIB decompression to the extracted data slice (bytes `[offset+64, offset+64+size)`)
-5. **Decoding**: RLP decode the decompressed data into a `DerivationSourceManifest` struct
+5. **Decoding**: RLP decode the decompressed data into a `ProposalManifest` struct, which contains the proposal-level `proverAuthBytes` and an array of `DerivationSourceManifest[]` (one per source)
 
 #### Default Manifest Conditions
 
@@ -200,17 +209,19 @@ A default manifest is returned for a specific `DerivationSource` when any of the
 The default manifest is one initialized as:
 
 ```solidity
-DerivationSourceManifest memory default;
-default.blocks = new BlockManifest[](1);
+ProposalManifest memory default;
+default.proverAuthBytes = "";  // Empty, will fallback to proposer as designated prover
+default.sources = new DerivationSourceManifest[](1);
+default.sources[0].blocks = new BlockManifest[](1);
 ```
 
-A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid manifests.
+A default manifest contains empty `proverAuthBytes` (causing fallback to the proposer as designated prover) and a single `DerivationSourceManifest` with one empty block, effectively serving as a fallback mechanism for invalid proposals.
 
-**Important**: Each proposal can have multiple `DerivationSource` objects (and thus multiple `DerivationSourceManifest` objects). If one `DerivationSourceManifest` is invalid, **only that specific manifest is replaced with a default manifest**—the entire proposal is NOT invalidated. This design is helps prevent forced inclusion censorship: a malicious proposer cannot invalidate their entire proposal (including valid forced inclusions) by intentionally including bad data in one source. The valid sources will still be processed, and the invalid source will simply contribute an empty block to the proposal.
+**Important**: Each proposal can have multiple `DerivationSource` objects (and thus multiple `DerivationSourceManifest` objects within the `ProposalManifest.sources[]` array). If one `DerivationSourceManifest` is invalid, **only that specific source manifest is replaced with a default source manifest** (single empty block)—the entire proposal is NOT invalidated. This design helps prevent forced inclusion censorship: a malicious proposer cannot invalidate their entire proposal (including valid forced inclusions) by intentionally including bad data in one source. The valid sources will still be processed, and the invalid source will simply contribute an empty block to the proposal.
 
 ### Metadata Validation and Computation
 
-With the extracted manifest, metadata computation proceeds using both the manifest data and the parent block's metadata (`parent.metadata`). The following sections detail the validation rules for each metadata component:
+With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
 
 #### `timestamp` Validation
 
@@ -230,7 +241,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single empty block), penalizing proposals that fail to provide proper L1 anchoring.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -297,7 +308,7 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 
 ```solidity
 /// @notice Structure for prover authentication
-/// @dev Used in the proverAuthBytes field of DerivationSourceManifest
+/// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
 struct ProverAuth {
   address prover;
   address feeToken;
@@ -309,6 +320,8 @@ struct ProverAuth {
 ```
 
 #### Prover Designation Process
+
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `updateState` function designates the prover for the entire proposal.
 
 ##### 1. Authentication and Validation
 
@@ -385,16 +398,37 @@ Several enhancements are under consideration to address current limitations:
 
 The remaining metadata fields follow straightforward assignment patterns:
 
-| Metadata Field             | Value Assignment                                                  |
-| -------------------------- | ----------------------------------------------------------------- |
-| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                  |
-| `metadata.number`          | `parent.metadata.number + 1`                                      |
-| `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
-| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                        |
-| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                        |
-| `metadata.transactions`    | `manifest.blocks[i].transactions`                                 |
+| Metadata Field             | Value Assignment                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                                  |
+| `metadata.number`          | `parent.metadata.number + 1`                                                      |
+| `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))`                 |
+| `metadata.numBlocks`       | Total blocks from current source `sourceManifest.blocks.length` (post-validation) |
+| `metadata.proverAuthBytes` | `proposalManifest.proverAuthBytes`                                                |
+| `metadata.transactions`    | `sourceManifest.blocks[i].transactions` (from current source)                     |
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
+
+#### Block Index Monotonicity
+
+The `_blockIndex` parameter in the anchor transaction's `updateState` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+
+- First source's blocks: `_blockIndex = 0, 1, 2, ...`
+- Second source's blocks: `_blockIndex` continues from where the first source ended
+- Third source's blocks: `_blockIndex` continues sequentially, etc.
+
+**Why this is critical**: The check `if (_blockIndex == 0)` gates proposal-level operations that must execute exactly once per proposal:
+
+1. **Prover designation** - ONE designated prover per proposal
+2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
+
+If `_blockIndex` were to reset per source (e.g., each source starting from 0), these operations would execute multiple times, causing:
+
+- Financial incorrectness (bond instructions processed multiple times)
+- Multiple prover designations (violating the one-prover-per-proposal design)
+- Hash chain integrity violations
+
+Therefore, `_blockIndex` **must** be globally monotonic across all sources in a proposal. This is not a design choice—it's a correctness requirement.
 
 ## Metadata Application
 
