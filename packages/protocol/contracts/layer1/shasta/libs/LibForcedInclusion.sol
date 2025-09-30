@@ -229,7 +229,7 @@ library LibForcedInclusion {
             head_ = _head + uint48(_toProcess);
             lastProcessedAt_ = uint48(block.timestamp);
 
-            // Write to storage once (separate assignments to avoid stack too deep)
+            // Write to storage once 
             ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
         } else {
             // No inclusions processed

@@ -89,41 +89,15 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
     // ---------------------------------------------------------------
-    // Events
+    // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when bond is withdrawn from the contract
-    /// @param user The user whose bond was withdrawn
-    /// @param amount The amount of bond withdrawn
-    event BondWithdrawn(address indexed user, uint256 amount);
-
-    // ---------------------------------------------------------------
-    // State Variables for compatibility with Pacaya inbox.
-    // ---------------------------------------------------------------
-
-    /// @dev Deprecated slots used by Pacaya inbox that contains:
-    /// - `batches`
-    /// - `transitionIds`
-    /// - `transitions`
-    /// - `__reserve1`
-    /// - `stats1`
-    /// - `stats2`
-    uint256[6] private __slotsUsedByPacaya;
-
-    /// @notice Bond balance for each account used in Pacaya inbox.
-    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
-    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
-    mapping(address account => uint256 bond) public bondBalance;
-
-    // ---------------------------------------------------------------
-    // State Variables for Shasta inbox.
-    // ---------------------------------------------------------------
+    /// @dev The address responsible for calling `activate` on the inbox.
+    address internal _shastaInitializer;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
-    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap
-    /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev Simple mapping for storing transition record hashes
@@ -176,21 +150,24 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the Inbox contract with genesis block
-    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
-    /// as existing inbox proxies(i.e. mainnet)
-    /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
-    /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
+    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the
+    /// `shastaInitializer` later in order to start accepting proposals.
     /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The hash of the genesis block
-    function initV3(address _owner, bytes32 _genesisBlockHash) external reinitializer(3) {
-        address owner = owner();
-        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
+    function init(address _owner, address shastaInitializer) external initializer {
+        __Essential_init(_owner);
+        _shastaInitializer = shastaInitializer;
+    }
 
-        if (owner == address(0)) {
-            __Essential_init(_owner);
-        }
-        _initializeInbox(_genesisBlockHash);
+    /// @notice Activates the inbox so that it can start accepting proposals.
+    ///         This function can only be called once.
+    /// @dev Only the `shastaInitializer` can call this function.
+    /// @param _genesisBlockHash The hash of the genesis block
+    function activate(bytes32 _genesisBlockHash) external {
+        require(msg.sender == _shastaInitializer, ACCESS_DENIED());
+        _activateInbox(_genesisBlockHash);
+
+        // Set the shastaInitializer to zero to prevent further calls to `activate`
+        _shastaInitializer = address(0);
     }
 
     /// @inheritdoc IInbox
@@ -219,7 +196,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            coreState.nextProposalBlockId = uint48(block.number + 1);
+            coreState.lastProposalBlockId = uint48(block.number);
 
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
@@ -267,20 +244,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
         _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
-    }
-
-    /// @notice Withdraws bond balance to specified address
-    /// @dev Legacy function for withdrawing bonds from Pacaya fork
-    /// @dev Bonds are now managed on L2 by the BondManager contract
-    /// @param _address The recipient address for the bond withdrawal
-    function withdrawBond(address _address) external nonReentrant {
-        uint256 amount = bondBalance[_address];
-        require(amount > 0, NoBondToWithdraw());
-        // Clear balance before transfer (checks-effects-interactions)
-        bondBalance[_address] = 0;
-        // Transfer the bond
-        _bondToken.safeTransfer(_address, amount);
-        emit BondWithdrawn(_address, amount);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -367,21 +330,21 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Initializes the inbox with genesis state
+    /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
     /// @notice Sets up the initial proposal and core state with genesis block
     /// @param _genesisBlockHash The hash of the genesis block
-    function _initializeInbox(bytes32 _genesisBlockHash) internal {
+    function _activateInbox(bytes32 _genesisBlockHash) internal {
         Transition memory transition;
         transition.checkpoint.blockHash = _genesisBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
 
-        // Set nextProposalBlockId to 2 to ensure the first proposal happens at block 2 or later.
+        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
-        coreState.nextProposalBlockId = 2;
+        coreState.lastProposalBlockId = 1;
         coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
@@ -770,7 +733,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             sources: _derivationSources
         });
 
-        // Increment nextProposalId (nextProposalBlockId was already set in propose())
+        // Increment nextProposalId (lastProposalBlockId was already set in propose())
         Proposal memory proposal = Proposal({
             id: _coreState.nextProposalId++,
             timestamp: uint48(block.timestamp),
@@ -821,7 +784,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
-        require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
+        require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
         require(
             _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
