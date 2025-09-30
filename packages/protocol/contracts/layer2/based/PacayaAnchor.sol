@@ -285,6 +285,9 @@ abstract contract PacayaAnchor is OntakeAnchor {
 
         emit EIP1559Update(parentGasTarget, newGasTarget, parentGasExcess, newGasExcess, basefee);
 
+        // Record telemetry for the last observed parent gas used value.
+        lastAnchorGasUsed = _parentGasUsed;
+
         parentGasTarget = newGasTarget;
         parentGasExcess = newGasExcess;
     }
