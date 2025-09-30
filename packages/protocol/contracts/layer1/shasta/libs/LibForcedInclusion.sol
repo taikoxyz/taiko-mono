@@ -23,13 +23,6 @@ library LibForcedInclusion {
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
-    //  Errors
-    // ---------------------------------------------------------------
-
-    /// @dev Thrown when an unprocessed forced inclusion is due
-    error UnprocessedForcedInclusionIsDue();
-
-    // ---------------------------------------------------------------
     //  Structs
     // ---------------------------------------------------------------
 
@@ -302,4 +295,5 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     error IncorrectFee();
+    error UnprocessedForcedInclusionIsDue();
 }
