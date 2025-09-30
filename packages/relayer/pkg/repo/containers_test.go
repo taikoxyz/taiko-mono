@@ -130,7 +130,7 @@ func setupSharedContainer() error {
 					}
 
 					// Store ping error for potential debugging
-					_ = pingErr
+					fmt.Printf("ping error: %v\n", pingErr)
 				}
 			}
 
