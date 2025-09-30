@@ -845,49 +845,51 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _input Input containing transition records and end block header
     /// @return _ Core state with updated finalization counters
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
-        CoreState memory coreState = _input.coreState;
-        TransitionRecord memory lastFinalizedRecord;
-        TransitionRecord memory emptyRecord;
-        uint48 proposalId = coreState.lastFinalizedProposalId + 1;
-        uint256 finalizedCount;
+        unchecked {
+            CoreState memory coreState = _input.coreState;
+            TransitionRecord memory lastFinalizedRecord;
+            TransitionRecord memory emptyRecord;
+            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 finalizedCount;
 
-        for (uint256 i; i < _maxFinalizationCount; ++i) {
-            // Check if there are more proposals to finalize
-            if (proposalId >= coreState.nextProposalId) break;
+            for (uint256 i; i < _maxFinalizationCount; ++i) {
+                // Check if there are more proposals to finalize
+                if (proposalId >= coreState.nextProposalId) break;
 
-            // Try to finalize the current proposal
-            bool hasRecord = i < _input.transitionRecords.length;
+                // Try to finalize the current proposal
+                bool hasRecord = i < _input.transitionRecords.length;
 
-            TransitionRecord memory transitionRecord =
-                hasRecord ? _input.transitionRecords[i] : emptyRecord;
+                TransitionRecord memory transitionRecord =
+                    hasRecord ? _input.transitionRecords[i] : emptyRecord;
 
-            bool finalized;
-            (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
+                bool finalized;
+                (finalized, proposalId) =
+                    _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
 
-            if (!finalized) break;
+                if (!finalized) break;
 
-            // Update state for successful finalization
-            lastFinalizedRecord = _input.transitionRecords[i];
-            finalizedCount++;
+                // Update state for successful finalization
+                lastFinalizedRecord = _input.transitionRecords[i];
+                finalizedCount++;
+            }
+
+            // Update checkpoint if any proposals were finalized
+            if (
+                finalizedCount > 0
+                    && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
+            ) {
+                bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+                require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
+
+                // Only save checkpoint if minimum delay has passed
+                LibCheckpointStore.saveCheckpoint(
+                    _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+                );
+                coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
+
+            return coreState;
         }
-
-        // Update checkpoint if any proposals were finalized
-        if (
-            finalizedCount > 0
-                && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
-        ) {
-            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-            require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-
-            // Only save checkpoint if minimum delay has passed
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-            );
-            coreState.lastCheckpointTimestamp = uint48(block.timestamp);
-        }
-
-        return coreState;
     }
 
     /// @dev Attempts to finalize a single proposal
