@@ -42,7 +42,7 @@ contract LibProposedEventEncoderTest is Test {
         // Create core state
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 1001,
+            lastProposalBlockId: 1000,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
@@ -105,9 +105,9 @@ contract LibProposedEventEncoderTest is Test {
             "Next proposal ID mismatch"
         );
         assertEq(
-            decoded.coreState.nextProposalBlockId,
-            original.coreState.nextProposalBlockId,
-            "Next proposal block ID mismatch"
+            decoded.coreState.lastProposalBlockId,
+            original.coreState.lastProposalBlockId,
+            "Last proposal block ID mismatch"
         );
         assertEq(
             decoded.coreState.lastFinalizedProposalId,
@@ -145,7 +145,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 11,
-                nextProposalBlockId: 5001,
+                lastProposalBlockId: 5000,
                 lastFinalizedProposalId: 9,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(0)
@@ -199,7 +199,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 6,
-                nextProposalBlockId: 2501,
+                lastProposalBlockId: 2500,
                 lastFinalizedProposalId: 4,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
                 bondInstructionsHash: bytes32(uint256(1616))
@@ -252,7 +252,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 2,
-                nextProposalBlockId: 1001,
+                lastProposalBlockId: 1000,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
