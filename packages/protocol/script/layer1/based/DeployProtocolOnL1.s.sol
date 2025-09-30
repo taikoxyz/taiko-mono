@@ -304,37 +304,32 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
-            oldFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
-                    address(0),
-                    proofVerifier,
-                    bondToken,
-                    IResolver(_sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
+            oldFork = deployProxy({
+                name: "taiko",
+                impl: address(
+                    new DevnetInbox(
+                        LibNetwork.TAIKO_DEVNET,
+                        DEVNET_COOLDOWN_WINDOW,
+                        address(0),
+                        proofVerifier,
+                        bondToken,
+                        IResolver(_sharedResolver).resolve(
+                            uint64(block.chainid), "signal_service", false
+                        )
                     )
-                )
-            );
+                ),
+                data: abi.encodeCall(TaikoInbox.v4Init, (address(0), vm.envBytes32("L2_GENESIS_HASH")))
+            });
         }
         address codec = address(new CodecOptimized());
-        address tempFork =
-            address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({
-            name: "taiko",
-            impl: address(new ShastaForkRouter(oldFork, tempFork)),
-            data: abi.encodeCall(Inbox.init, (msg.sender, msg.sender))
-        });
-
-        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
-
-        console2.log("  oldFork       :", oldFork);
-        console2.log("  newFork       :", newFork);
-
-        UUPSUpgradeable(taikoInboxAddr).upgradeToAndCall({
-            newImplementation: address(new ShastaForkRouter(oldFork, newFork)),
+            name: "shasta_inbox",
+            impl: address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken)),
             data: abi.encodeCall(Inbox.init, (address(0), owner))
         });
+
+        console2.log("  pacaya_inbox       :", oldFork);
+        console2.log("  shasta_inbox       :", taikoInboxAddr);
     }
 
     function deployVerifiers(
