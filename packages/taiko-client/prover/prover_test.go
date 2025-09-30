@@ -163,7 +163,7 @@ func (s *ProverTestSuite) TestInitError() {
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASAT_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
