@@ -35,7 +35,7 @@ interface IInbox {
         /// if they are due
         uint256 minForcedInclusionCount;
         /// @notice The delay for forced inclusions measured in seconds
-        uint64 forcedInclusionDelay;
+        uint16 forcedInclusionDelay;
         /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
         /// @notice The maximum number of checkpoints to store in ring buffer
@@ -121,8 +121,8 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The next proposal block ID to be assigned.
-        uint48 nextProposalBlockId;
+        /// @notice The last block ID where a proposal was made.
+        uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized transition.
