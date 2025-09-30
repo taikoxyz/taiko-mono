@@ -22,6 +22,7 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
+		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.Uint64Flag{Name: flags.StartingBatchID.Name},
