@@ -98,7 +98,10 @@ func requestHTTPProofResponse[T any](
 	apiKey string,
 	reqBody T,
 ) (*http.Response, error) {
-	client := &http.Client{}
+	// Set a client timeout to avoid hanging requests in case of network stalls
+    client := &http.Client{
+        Timeout: 30 * time.Second,
+    }
 
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
