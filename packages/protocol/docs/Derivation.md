@@ -187,37 +187,46 @@ struct BlobSlice {
 }
 ```
 
-The `BlobSlice` struct represents binary data distributed across multiple blobs. For each proposal, all `DerivationSource[].blobSlice` data is aggregated and processed through the following steps:
+The `BlobSlice` struct represents binary data distributed across multiple blobs. Each `DerivationSource` in the `derivation.sources[]` array is processed independently to extract its `DerivationSourceManifest`.
 
-1. **Blob Aggregation**: Collect and concatenate blob data from all `DerivationSource` objects in the order specified by their `blobHashes` arrays
-2. **Version Extraction**: Extract the version number from bytes `[offset, offset+32)` (only version `0x1` is valid for Shasta)
-3. **Size Extraction**: Extract the data size from bytes `[offset+32, offset+64)`
-4. **Decompression**: Apply ZLIB decompression to the extracted data slice (bytes `[offset+64, offset+64+size)`)
-5. **Decoding**: RLP decode the decompressed data into a `ProposalManifest` struct, which contains the proposal-level `proverAuthBytes` and an array of `DerivationSourceManifest[]` (one per source)
+**TODO**: The proposal-level `proverAuthBytes` field needs a storage location. Current `Derivation` struct only has per-source `blobSlice` fields. Option: add dedicated `proposalBlob` field to `Derivation` struct (requires protocol change).?
 
-#### Default Manifest Conditions
+#### Per-Source Manifest Extraction
 
-A default manifest is returned for a specific `DerivationSource` when any of the following validation criteria fail:
+For each `DerivationSource[i]`, the following steps are performed independently:
 
-- **Blob validation**: `blobHashes.length` is zero
-- **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
-- **Version validation**: Version number is not `0x1`
-- **Decompression failure**: ZLIB decompression fails
-- **Decoding failure**: RLP decoding fails
-- **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
+1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
+2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
+3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
+4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
+5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
+6. **Decoding**: RLP decode the decompressed data:
+   - If `i == 0`: Decode into a structure containing `proverAuthBytes` and `DerivationSourceManifest[0]`
+   - If `i > 0`: Decode into `DerivationSourceManifest[i]`
+7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
 
-The default manifest is one initialized as:
+If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single empty block). Other sources are unaffected.
+
+#### Default Source Manifest
+
+A default source manifest is used when validation fails for a specific source:
 
 ```solidity
-ProposalManifest memory default;
-default.proverAuthBytes = "";  // Empty, will fallback to proposer as designated prover
-default.sources = new DerivationSourceManifest[](1);
-default.sources[0].blocks = new BlockManifest[](1);
+DerivationSourceManifest memory defaultSource;
+defaultSource.blocks = new BlockManifest[](1);  // Single empty block
 ```
 
-A default manifest contains empty `proverAuthBytes` (causing fallback to the proposer as designated prover) and a single `DerivationSourceManifest` with one empty block, effectively serving as a fallback mechanism for invalid proposals.
+#### ProposalManifest Construction
 
-**Important**: Each proposal can have multiple `DerivationSource` objects (and thus multiple `DerivationSourceManifest` objects within the `ProposalManifest.sources[]` array). If one `DerivationSourceManifest` is invalid, **only that specific source manifest is replaced with a default source manifest** (single empty block)—the entire proposal is NOT invalidated. This design helps prevent forced inclusion censorship: a malicious proposer cannot invalidate their entire proposal (including valid forced inclusions) by intentionally including bad data in one source. The valid sources will still be processed, and the invalid source will simply contribute an empty block to the proposal.
+After processing all sources, the `ProposalManifest` is constructed:
+
+```solidity
+ProposalManifest memory manifest;
+manifest.proverAuthBytes = proverAuthBytesFromSource0;  // Empty if source 0 failed
+manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults for failed sources
+```
+
+**Censorship Resistance**: This per-source validation design prevents a malicious proposer from invalidating valid forced inclusions by including invalid data in other sources. Each source is isolated: failures only affect that specific source, not the entire proposal.
 
 ### Metadata Validation and Computation
 
