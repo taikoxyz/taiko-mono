@@ -37,6 +37,7 @@ func (s *TransactionTestSuite) SetupTest() {
 		s.RPCClient,
 		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		rpc.ZeroAddress,
 	)
 
