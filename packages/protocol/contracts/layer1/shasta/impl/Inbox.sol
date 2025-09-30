@@ -750,7 +750,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @return sources Array of derivation sources with forced inclusions first, then regular
     /// proposal
     /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
-    /// processed. type(uint48).max if there are no forced inclusions.
+    /// processed. block.timestamp if there are no forced inclusions.
     function _buildDerivationSources(ProposeInput memory _input)
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
@@ -767,7 +767,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         } else {
             // When no forced inclusions, allocate array of size 1 for normal source
             sources = new DerivationSource[](1);
-            oldestForcedInclusionTimestamp = type(uint48).max;
+            oldestForcedInclusionTimestamp = uint48(block.timestamp);
         }
 
         // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be

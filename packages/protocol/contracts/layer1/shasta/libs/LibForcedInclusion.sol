@@ -75,7 +75,7 @@ library LibForcedInclusion {
     /// is uninitialized for the caller to populate.
     /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
     /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that was
-    /// processed. type(uint48).max if no forced inclusions were consumed.
+    /// processed. block.timestamp if no forced inclusions were consumed.
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
@@ -110,7 +110,7 @@ library LibForcedInclusion {
                 oldestForcedInclusionTimestamp_ =
                     uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
             } else {
-                oldestForcedInclusionTimestamp_ = type(uint48).max;
+                oldestForcedInclusionTimestamp_ = uint48(block.timestamp);
             }
 
             // Update head and lastProcessedAt after all processing
