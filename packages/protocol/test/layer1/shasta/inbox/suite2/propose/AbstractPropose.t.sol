@@ -612,7 +612,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function _expectedBlobHashes(LibBlobs.BlobReference memory _ref)
         internal
-        view
+        pure
         returns (bytes32[] memory)
     {
         bytes32[] memory fullHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
@@ -661,7 +661,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         LibBlobs.BlobSlice memory expected
     )
         internal
-        view
+        pure
     {
         assertTrue(actual.isForcedInclusion);
         assertEq(uint256(actual.blobSlice.offset), uint256(expected.offset));
