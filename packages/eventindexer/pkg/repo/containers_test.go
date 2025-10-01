@@ -1,76 +1,61 @@
 package repo
 
-import (
-	"context"
-	"fmt"
-	"testing"
+// var (
+// 	dbName     = "indexer"
+// 	dbUsername = "root"
+// 	dbPassword = "password"
+// )
 
-	"github.com/pressly/goose/v3"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+// func testMysql(t *testing.T) (db.DB, func(), error) {
+// 	req := testcontainers.ContainerRequest{
+// 		Image:        "mysql:latest",
+// 		ExposedPorts: []string{"3306/tcp"},
+// 		Env: map[string]string{
+// 			"MYSQL_ROOT_PASSWORD": dbPassword,
+// 			"MYSQL_DATABASE":      dbName,
+// 		},
+// 		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
+// 	}
 
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
-)
+// 	ctx := context.Background()
 
-var (
-	dbName     = "indexer"
-	dbUsername = "root"
-	dbPassword = "password"
-)
+// 	mysqlC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+// 		ContainerRequest: req,
+// 		Started:          true,
+// 	})
 
-func testMysql(t *testing.T) (db.DB, func(), error) {
-	req := testcontainers.ContainerRequest{
-		Image:        "mysql:latest",
-		ExposedPorts: []string{"3306/tcp"},
-		Env: map[string]string{
-			"MYSQL_ROOT_PASSWORD": dbPassword,
-			"MYSQL_DATABASE":      dbName,
-		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
-	}
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	ctx := context.Background()
+// 	closeContainer := func() {
+// 		err := mysqlC.Terminate(ctx)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 	}
 
-	mysqlC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
+// 	host, _ := mysqlC.Host(ctx)
+// 	port, _ := mysqlC.MappedPort(ctx, "3306/tcp")
 
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
+// 		dbUsername, dbPassword, host, port.Int(), dbName)
 
-	closeContainer := func() {
-		err := mysqlC.Terminate(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+// 	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+// 		Logger: logger.Default.LogMode(logger.Silent),
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	host, _ := mysqlC.Host(ctx)
-	port, _ := mysqlC.MappedPort(ctx, "3306/tcp")
+// 	if err := goose.SetDialect("mysql"); err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-		dbUsername, dbPassword, host, port.Int(), dbName)
+// 	sqlDB, _ := gormDB.DB()
+// 	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := goose.SetDialect("mysql"); err != nil {
-		t.Fatal(err)
-	}
-
-	sqlDB, _ := gormDB.DB()
-	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
-		t.Fatal(err)
-	}
-
-	return db.New(gormDB), closeContainer, nil
-}
+// 	return db.New(gormDB), closeContainer, nil
+// }

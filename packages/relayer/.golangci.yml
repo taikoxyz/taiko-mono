@@ -13,6 +13,8 @@ linters:
       statements: 100
     gocognit:
       min-complexity: 75
+    lll:
+      line-length: 150
   exclusions:
     generated: lax
     presets:
