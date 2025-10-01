@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICheckpointStore } from "../iface/ICheckpointStore.sol";
+import {ICheckpointStore} from "../iface/ICheckpointStore.sol";
 
 /// @title LibCheckpointStore
 /// @notice Library for managing synced L1 or L2 checkpoints using a ring buffer
@@ -15,9 +15,7 @@ library LibCheckpointStore {
     // ---------------------------------------------------------------
 
     struct CheckpointRecord {
-        /// @notice The block hash for the end (last) L2 block in this proposal.
         bytes32 blockHash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
         bytes32 stateRoot;
     }
 
@@ -47,17 +45,21 @@ library LibCheckpointStore {
         Storage storage $,
         ICheckpointStore.Checkpoint memory _checkpoint,
         uint48 _maxCheckpointHistory
-    )
-        public
-    {
+    ) public {
         require(_maxCheckpointHistory != 0, InvalidMaxCheckpointHistory());
         require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
-        (uint48 latestBlockNumber, uint48 stackTop, uint48 stackSize) =
-            ($.latestBlockNumber, $.stackTop, $.stackSize);
+        (uint48 latestBlockNumber, uint48 stackTop, uint48 stackSize) = (
+            $.latestBlockNumber,
+            $.stackTop,
+            $.stackSize
+        );
 
-        require(_checkpoint.blockNumber > latestBlockNumber, InvalidCheckpoint());
+        require(
+            _checkpoint.blockNumber > latestBlockNumber,
+            InvalidCheckpoint()
+        );
 
         unchecked {
             // Ring buffer implementation:
@@ -77,11 +79,16 @@ library LibCheckpointStore {
             }
         }
 
-        ($.latestBlockNumber, $.stackTop, $.stackSize) =
-            (_checkpoint.blockNumber, stackTop, stackSize);
+        ($.latestBlockNumber, $.stackTop, $.stackSize) = (
+            _checkpoint.blockNumber,
+            stackTop,
+            stackSize
+        );
 
         emit ICheckpointStore.CheckpointSaved(
-            _checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
+            _checkpoint.blockNumber,
+            _checkpoint.blockHash,
+            _checkpoint.stateRoot
         );
     }
 
@@ -95,14 +102,13 @@ library LibCheckpointStore {
         Storage storage $,
         uint48 _offset,
         uint48 _maxCheckpointHistory
-    )
-        public
-        view
-        returns (ICheckpointStore.Checkpoint memory)
-    {
+    ) public view returns (ICheckpointStore.Checkpoint memory) {
         unchecked {
-            (uint48 stackTop, uint48 stackSize, uint48 latestBlockNumber) =
-                ($.stackTop, $.stackSize, $.latestBlockNumber);
+            (uint48 stackTop, uint48 stackSize, uint48 latestBlockNumber) = (
+                $.stackTop,
+                $.stackSize,
+                $.latestBlockNumber
+            );
 
             require(_offset < stackSize, IndexOutOfBounds());
             // Calculate the slot position for the requested offset:
@@ -121,25 +127,30 @@ library LibCheckpointStore {
             }
 
             CheckpointRecord storage record = $.checkpoints[slot];
-            return ICheckpointStore.Checkpoint({
-                blockNumber: latestBlockNumber - _offset,
-                blockHash: record.blockHash,
-                stateRoot: record.stateRoot
-            });
+            return
+                ICheckpointStore.Checkpoint({
+                    blockNumber: latestBlockNumber - _offset,
+                    blockHash: record.blockHash,
+                    stateRoot: record.stateRoot
+                });
         }
     }
 
     /// @notice Gets the latest checkpoint number
     /// @param $ The storage struct
     /// @return _ The latest checkpoint number
-    function getlatestBlockNumber(Storage storage $) public view returns (uint48) {
+    function getlatestBlockNumber(
+        Storage storage $
+    ) public view returns (uint48) {
         return $.latestBlockNumber;
     }
 
     /// @notice Gets the number of checkpoints
     /// @param $ The storage struct
     /// @return _ The number of checkpoints
-    function getNumberOfCheckpoints(Storage storage $) public view returns (uint48) {
+    function getNumberOfCheckpoints(
+        Storage storage $
+    ) public view returns (uint48) {
         return $.stackSize;
     }
 
