@@ -94,7 +94,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         bytes32 _parentTransitionHash
     )
         internal
-        pure
+        view
         override
         returns (bytes32)
     {

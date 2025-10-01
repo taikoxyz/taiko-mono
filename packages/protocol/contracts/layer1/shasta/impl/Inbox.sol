@@ -101,7 +101,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     address internal _shastaInitializer;
 
     /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public hasConflictingTransition;
+    bool public conflictingTransitionDetected;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -463,7 +463,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             return true;
         }
 
-        hasConflictingTransition = true;
+        conflictingTransitionDetected = true;
         entry.finalizationDeadline = type(uint48).max;
 
         emit ConflictingTransitionRecordProved(
