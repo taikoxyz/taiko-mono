@@ -137,7 +137,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         whenNotPaused
         nonReentrant
     {
-
         (bytes memory data) = abi.decode(message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
             abi.decode(data, (CanonicalNFT, address, address, uint256[], uint256[]));

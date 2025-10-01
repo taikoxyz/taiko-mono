@@ -61,7 +61,6 @@ abstract contract BaseVault is
         if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
-
     function checkToAddressOnDestChain(address _to) internal view {
         if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
     }

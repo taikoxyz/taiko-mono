@@ -131,7 +131,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         whenNotPaused
         nonReentrant
     {
-
         (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds) =
             abi.decode(data, (CanonicalNFT, address, address, uint256[]));

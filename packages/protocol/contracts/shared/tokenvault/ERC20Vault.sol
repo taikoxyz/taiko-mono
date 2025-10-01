@@ -325,7 +325,6 @@ contract ERC20Vault is BaseVault {
         whenNotPaused
         nonReentrant
     {
-
         (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
