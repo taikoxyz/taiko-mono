@@ -43,6 +43,8 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
+        /// @notice Version identifier for composite key generation
+        bytes32 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -195,6 +197,18 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
+
+    /// @notice Emitted when a conflicting transition record is proved.
+    /// @param proposalId The proposal ID.
+    /// @param parentTransitionHash The parent transition hash.
+    /// @param recordHash The hash of the transition record.
+    /// @param conflictingRecordHash The hash of the conflicting transition record.
+    event ConflictingTransitionRecordProved(
+        uint48 indexed proposalId,
+        bytes32 indexed parentTransitionHash,
+        bytes26 recordHash,
+        bytes26 conflictingRecordHash
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions

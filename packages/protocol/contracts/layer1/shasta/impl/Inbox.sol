@@ -88,12 +88,20 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
+    /// @notice Version identifier for composite key generation
+    /// @dev Used to invalidate all proved but unfinalized transition records to recover from
+    /// potential proof verifier bugs
+    bytes32 internal immutable _compositeKeyVersion;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
     /// @dev The address responsible for calling `activate` on the inbox.
     address internal _shastaInitializer;
+
+    /// @notice Flag indicating whether a conflicting transition record has been detected
+    bool public hasConflictingTransition;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -144,6 +152,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _maxCheckpointHistory = _config.maxCheckpointHistory;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
+        _compositeKeyVersion = _config.compositeKeyVersion;
     }
 
     // ---------------------------------------------------------------
@@ -304,7 +313,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
+            compositeKeyVersion: _compositeKeyVersion
         });
     }
 
@@ -447,11 +457,20 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         if (entry.recordHash == _recordHash) return false;
 
-        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
+        if (entry.recordHash == 0) {
+            entry.recordHash = _hashAndDeadline.recordHash;
+            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            return true;
+        }
 
-        entry.recordHash = _hashAndDeadline.recordHash;
-        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        return true;
+        hasConflictingTransition = true;
+        entry.finalizationDeadline = type(uint48).max;
+
+        emit ConflictingTransitionRecordProved(
+            _proposalId, _parentTransitionHash, entry.recordHash, _recordHash
+        );
+
+        return false;
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -552,11 +571,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bytes32 _parentTransitionHash
     )
         internal
-        pure
+        view
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashSimple.composeTransitionKey(
+            _proposalId, _compositeKeyVersion, _parentTransitionHash
+        );
     }
 
     // ---------------------------------------------------------------
@@ -1015,5 +1036,4 @@ error RingBufferSizeZero();
 error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
-error TransitionWithSameParentHashAlreadyProved();
 error UnprocessedForcedInclusionIsDue();

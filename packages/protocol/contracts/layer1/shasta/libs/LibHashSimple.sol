@@ -124,6 +124,7 @@ library LibHashSimple {
     /// @return The composite key for storage mapping
     function composeTransitionKey(
         uint48 _proposalId,
+        bytes32 _compositeKeyVersion,
         bytes32 _parentTransitionHash
     )
         internal
@@ -131,7 +132,7 @@ library LibHashSimple {
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
+        return keccak256(abi.encode(_proposalId, _compositeKeyVersion, _parentTransitionHash));
     }
 
     // ---------------------------------------------------------------
