@@ -111,5 +111,4 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     error IncorrectFee();
-    error UnprocessedForcedInclusionIsDue();
 }

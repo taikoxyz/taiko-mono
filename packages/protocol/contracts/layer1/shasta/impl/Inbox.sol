@@ -781,7 +781,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
                     $, head, tail, lastProcessedAt, _forcedInclusionDelay
                 );
-                require(!isOldestInclusionDue, LibForcedInclusion.UnprocessedForcedInclusionIsDue());
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
 
             // Check if permissionless proposals are allowed
@@ -1059,3 +1059,4 @@ error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
+error UnprocessedForcedInclusionIsDue();
