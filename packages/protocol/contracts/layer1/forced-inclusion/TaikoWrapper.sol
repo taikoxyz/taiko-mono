@@ -32,7 +32,6 @@ import "./ForcedInclusionStore.sol";
 ///
 /// @custom:security-contact security@taiko.xyz
 contract TaikoWrapper is EssentialContract, IProposeBatch {
-
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
