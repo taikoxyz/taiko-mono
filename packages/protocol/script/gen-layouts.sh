@@ -25,7 +25,6 @@ contracts_layer1=(
 "contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
-"contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
 "contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
 "contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
@@ -49,7 +48,6 @@ contracts_layer1=(
 # Layer 2 contracts
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
 "contracts/layer2/mainnet/DelegateController.sol:DelegateController"
 "contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
 )
