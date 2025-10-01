@@ -24,7 +24,7 @@ export SHARED_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.shared_resolver' | sed '
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 
 cat "L1 contracts deployed:
-  TaikoInbox: $INBOX
+  PacayaTaikoInbox: $INBOX
   SharedAddressManager: $SHARED_RESOLVER
 "
 

@@ -32,20 +32,22 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
-	rpc               *rpc.Client
-	indexer           *shastaIndexer.Indexer
-	taikoInboxAddress common.Address
-	proverSetAddress  common.Address
+	rpc                *rpc.Client
+	indexer            *shastaIndexer.Indexer
+	pacayaInboxAddress common.Address
+	shastaInboxAddress common.Address
+	proverSetAddress   common.Address
 }
 
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
 	indexer *shastaIndexer.Indexer,
-	taikoInboxAddress common.Address,
+	pacayaInboxAddress common.Address,
+	shastaInboxAddress common.Address,
 	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, indexer, taikoInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -106,7 +108,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
-			to = a.taikoInboxAddress
+			to = a.pacayaInboxAddress
 		}
 
 		return &txmgr.TxCandidate{
@@ -193,7 +195,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 		}
 		return &txmgr.TxCandidate{
 			TxData:   data,
-			To:       &a.taikoInboxAddress,
+			To:       &a.shastaInboxAddress,
 			Blobs:    nil,
 			GasLimit: txOpts.GasLimit,
 		}, nil
