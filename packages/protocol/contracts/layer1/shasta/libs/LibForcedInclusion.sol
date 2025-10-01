@@ -84,16 +84,8 @@ library LibForcedInclusion {
         // Early exit for empty queue (most common case)
         if (head == tail) return false;
 
-        uint256 timestamp = $.queue[head].blobSlice.timestamp;
-
-        // Early exit if slot is empty
-        if (timestamp == 0) return false;
-
-        // Only calculate deadline if we have a valid inclusion
-        unchecked {
-            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
-            return block.timestamp >= deadline;
-        }
+        // Delegate to private helper function
+        return _isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay);
     }
 
     // ---------------------------------------------------------------
