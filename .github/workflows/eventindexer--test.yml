@@ -41,7 +41,7 @@ jobs:
 
   test-eventindexer:
     runs-on: [arc-runner-set]
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot')) }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
