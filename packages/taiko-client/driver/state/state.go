@@ -120,7 +120,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			batchesVerifiedPacayaCh,
 		)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
-		l2ProposedShastaSub      = rpc.SubscribePorposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
+		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
 		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
 
 		// Last finalized Shasta proposal ID
