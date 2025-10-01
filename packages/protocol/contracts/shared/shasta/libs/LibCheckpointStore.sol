@@ -14,12 +14,19 @@ library LibCheckpointStore {
     // Structs
     // ---------------------------------------------------------------
 
+    struct CheckpointRecord {
+        /// @notice The block hash for the end (last) L2 block in this proposal.
+        bytes32 blockHash;
+        /// @notice The state root for the end (last) L2 block in this proposal.
+        bytes32 stateRoot;
+    }
+
     /// @notice Storage for the checkpoint ring buffer
     /// @dev 2 slots used
     struct Storage {
         /// @notice Ring buffer as a stack for storing checkpoints
         /// @dev Maps slot indices (0 to maxHistorySize-1) to checkpoint data
-        mapping(uint48 slot => ICheckpointStore.Checkpoint checkpoint) checkpoints;
+        mapping(uint48 slot => CheckpointRecord checkpoint) checkpoints;
         /// @notice The latest checkpoint number
         uint48 latestCheckpointBlockNumber;
         /// @notice The current top of the stack (ring buffer index)
@@ -59,7 +66,10 @@ library LibCheckpointStore {
             // - This ensures we always overwrite the oldest entry when buffer is full
             stackTop = (stackTop + 1) % _maxCheckpointHistory;
 
-            $.checkpoints[stackTop] = _checkpoint;
+            $.checkpoints[stackTop] = CheckpointRecord({
+                blockHash: _checkpoint.blockHash,
+                stateRoot: _checkpoint.stateRoot
+            });
 
             // Update stack size (capped at maxHistorySize)
             if (stackSize < _maxCheckpointHistory) {
@@ -90,11 +100,11 @@ library LibCheckpointStore {
         view
         returns (ICheckpointStore.Checkpoint memory)
     {
-        (uint48 stackTop, uint48 stackSize) = ($.stackTop, $.stackSize);
-
-        require(_offset < stackSize, IndexOutOfBounds());
-
         unchecked {
+            (uint48 stackTop, uint48 stackSize, uint48 latestCheckpointBlockNumber) =
+                ($.stackTop, $.stackSize, $.latestCheckpointBlockNumber);
+
+            require(_offset < stackSize, IndexOutOfBounds());
             // Calculate the slot position for the requested offset:
             // - offset 0 = most recent block (at stackTop)
             // - offset 1 = second most recent block
@@ -110,7 +120,12 @@ library LibCheckpointStore {
                 slot = _maxCheckpointHistory + stackTop - _offset;
             }
 
-            return $.checkpoints[slot];
+            CheckpointRecord storage record = $.checkpoints[slot];
+            return ICheckpointStore.Checkpoint({
+                blockNumber: latestCheckpointBlockNumber - _offset,
+                blockHash: record.blockHash,
+                stateRoot: record.stateRoot
+            });
         }
     }
 
