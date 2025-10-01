@@ -217,7 +217,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
-            // (endOfSubmissionWindowTimestamp = 0)
+            // and set endOfSubmissionWindowTimestamp = 0
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
                 ? 0
