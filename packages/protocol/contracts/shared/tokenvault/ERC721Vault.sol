@@ -127,11 +127,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         external
         payable
         override
+        onlyFromNamed(LibNames.B_BRIDGE)
         whenNotPaused
         nonReentrant
     {
-        // `onlyFromBridge` checked in checkRecallMessageContext
-        checkRecallMessageContext();
 
         (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds) =

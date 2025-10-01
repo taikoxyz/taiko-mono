@@ -133,11 +133,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         override
+        onlyFromNamed(LibNames.B_BRIDGE)
         whenNotPaused
         nonReentrant
     {
-        // `onlyFromBridge` checked in checkRecallMessageContext
-        checkRecallMessageContext();
 
         (bytes memory data) = abi.decode(message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
