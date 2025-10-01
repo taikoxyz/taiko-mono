@@ -195,7 +195,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         if (context_.isFallback) {
             context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
         } else {
-            if (isOperatorBlacklisted(_data.registrationRoot)) {
+            if (isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)) {
                 context_.isFallback = true;
                 context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
             } else {
