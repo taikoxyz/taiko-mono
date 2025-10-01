@@ -86,7 +86,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		NumLatestBlocksEndWhenCrawling:   c.Uint64(flags.NumLatestBlocksEndWhenCrawling.Name),
 		NumLatestBlocksStartWhenCrawling: c.Uint64(flags.NumLatestBlocksStartWhenCrawling.Name),
 		EventName:                        c.String(flags.EventName.Name),
-		BackOffMaxRetries:                c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffMaxRetries:                c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:             c.Duration(flags.BackOffRetryInterval.Name),
 		MinFeeToIndex:                    c.Uint64(flags.MinFeeToIndex.Name),
 		ConfirmationTimeout:              c.Duration(flags.WaitForConfirmationTimeout.Name),

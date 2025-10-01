@@ -87,6 +87,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			gormDB = nil
 
 			time.Sleep(2 * time.Second)
+
 			continue
 		}
 
