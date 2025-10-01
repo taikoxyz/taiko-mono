@@ -126,8 +126,6 @@
   - signal_service: `0x1670000000000000000000000000000000000005`
   - bridge: `0x1670000000000000000000000000000000000001`
   - taiko: `0x1670000000000000000000000000000000010001`
-- todo:
-  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
@@ -138,8 +136,6 @@
 - proxy: `0x1670000000000000000000000000000000010001`
 - impl: `0xE6d1efcC6AC8969474308C99a3805c332D33a1E0`
 - owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
-- todo:
-  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
