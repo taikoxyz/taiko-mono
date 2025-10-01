@@ -69,4 +69,3 @@ contract Proposal0004 is BuildProposal {
         actions = new Controller.Action[](0);
     }
 }
-
