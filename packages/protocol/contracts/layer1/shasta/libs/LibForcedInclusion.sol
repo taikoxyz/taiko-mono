@@ -133,17 +133,15 @@ library LibForcedInclusion {
 
             // Validate forced inclusion requirements: must satisfy one of:
             // 1. Requested minimum required count - skip validation
+            // 2. Queue is empty - nothing to validate
+            // 3. No remaining inclusions are due - only then we check
             if (_numForcedInclusionsRequested < _minForcedInclusionCount) {
                 uint256 remaining = available - toProcess;
-                // 2. Emptied the queue (remaining is 0 AND requested > 0) - skip validation
-                if (remaining != 0 || _numForcedInclusionsRequested == 0) {
-                    // 3. No remaining inclusions are due - only check if we reach here
-                    if (remaining > 0) {
-                        require(
-                            !_isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay),
-                            UnprocessedForcedInclusionIsDue()
-                        );
-                    }
+                if (remaining > 0) {
+                    require(
+                        !_isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay),
+                        UnprocessedForcedInclusionIsDue()
+                    );
                 }
             }
 
