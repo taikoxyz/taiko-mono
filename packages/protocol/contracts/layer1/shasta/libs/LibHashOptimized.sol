@@ -284,7 +284,9 @@ library LibHashOptimized {
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)), bytes32(uint256(_compositeKeyVersion)), _parentTransitionHash
+            bytes32(uint256(_proposalId)),
+            bytes32(uint256(_compositeKeyVersion)),
+            _parentTransitionHash
         );
     }
 

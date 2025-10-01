@@ -548,7 +548,7 @@
 |
 | _shastaInitializer               | address                                                             | 251  | 0      | 20    |
 |
-| hasConflictingTransition         | bool                                                                | 251  | 20     | 1     |
+| conflictingTransitionDetected    | bool                                                                | 251  | 20     | 1     |
 |
 | _proposalHashes                  | mapping(uint256 => bytes32)                                         | 252  | 0      | 32    |
 |
