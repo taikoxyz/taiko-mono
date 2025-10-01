@@ -466,7 +466,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         conflictingTransitionDetected = true;
         entry.finalizationDeadline = type(uint48).max;
 
-        emit ConflictingTransitionRecordProved(
+        emit ConflictingTransitionDetected(
             _proposalId, _parentTransitionHash, entry.recordHash, _recordHash
         );
 
