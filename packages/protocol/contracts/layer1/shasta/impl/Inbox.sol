@@ -1014,7 +1014,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
-        _processBondInstructions(_coreState, _transitionRecord.bondInstructions);
+        for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
+            _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                _coreState.bondInstructionsHash, _transitionRecord.bondInstructions[i]
+            );
+        }
 
         // Validate and calculate next proposal ID
         require(_transitionRecord.span > 0, InvalidSpan());
@@ -1022,24 +1026,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
-    }
-
-    /// @dev Processes bond instructions and updates aggregated hash
-    /// @param _coreState Core state with bond instructions hash to update
-    /// @param _instructions Array of bond transfer instructions to aggregate
-    function _processBondInstructions(
-        CoreState memory _coreState,
-        LibBonds.BondInstruction[] memory _instructions
-    )
-        private
-        pure
-    {
-        if (_instructions.length == 0) return;
-
-        for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash =
-                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
-        }
     }
 }
 
