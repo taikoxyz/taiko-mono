@@ -31,7 +31,7 @@ contract TestInbox is Inbox {
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: bytes32(uint256(1))
+                compositeKeyVersion: 1
             })
         )
     { }

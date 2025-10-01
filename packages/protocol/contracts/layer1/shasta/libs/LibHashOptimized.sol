@@ -271,12 +271,12 @@ library LibHashOptimized {
     /// @notice Computes optimized composite key for transition record storage
     /// @dev Creates unique identifier using efficient hashing
     /// @param _proposalId The ID of the proposal
-    /// @param _compositeKeyVersion The version of the composite key
+    /// @param _compositeKeyVersion Version identifier for key generation
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
     function composeTransitionKey(
         uint48 _proposalId,
-        bytes32 _compositeKeyVersion,
+        uint16 _compositeKeyVersion,
         bytes32 _parentTransitionHash
     )
         internal
@@ -284,7 +284,7 @@ library LibHashOptimized {
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)), _compositeKeyVersion, _parentTransitionHash
+            bytes32(uint256(_proposalId)), bytes32(uint256(_compositeKeyVersion)), _parentTransitionHash
         );
     }
 

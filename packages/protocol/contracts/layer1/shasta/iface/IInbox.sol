@@ -44,7 +44,7 @@ interface IInbox {
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
         /// @notice Version identifier for composite key generation
-        bytes32 compositeKeyVersion;
+        uint16 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation

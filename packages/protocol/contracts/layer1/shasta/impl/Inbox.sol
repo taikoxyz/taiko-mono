@@ -91,7 +91,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Version identifier for composite key generation
     /// @dev Used to invalidate all proved but unfinalized transition records to recover from
     /// potential proof verifier bugs
-    bytes32 internal immutable _compositeKeyVersion;
+    uint16 internal immutable _compositeKeyVersion;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -556,10 +556,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             recordHash: recordHash_
         });
     }
-
-    // ---------------------------------------------------------------
-    // Internal Pure Functions
-    // ---------------------------------------------------------------
 
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
