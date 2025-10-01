@@ -25,7 +25,15 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Proof verification with transition record management
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
-///      - Finalization of proven proposals
+///      - Finalization of proven proposals with checkpoint rate limiting
+///
+/// @dev Checkpoint Rate Limiting:
+///      The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage.
+///      - Finalization can occur at any frequency without extra cost
+///      - Checkpoint storage is rate-limited to save gas and prevent excessive storage operations
+///      - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
+///      - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
+///
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
