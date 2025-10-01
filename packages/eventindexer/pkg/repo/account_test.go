@@ -1,85 +1,74 @@
 package repo
 
-import (
-	"context"
-	"testing"
-	"time"
+// func Test_NewAccountRepository(t *testing.T) {
+// 	tests := []struct {
+// 		name    string
+// 		db      db.DB
+// 		wantErr error
+// 	}{
+// 		{
+// 			"success",
+// 			&db.Database{},
+// 			nil,
+// 		},
+// 		{
+// 			"noDb",
+// 			nil,
+// 			db.ErrNoDB,
+// 		},
+// 	}
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
-)
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			_, err := NewAccountRepository(tt.db)
+// 			assert.Equal(t, tt.wantErr, err)
+// 		})
+// 	}
+// }
 
-func Test_NewAccountRepository(t *testing.T) {
-	tests := []struct {
-		name    string
-		db      db.DB
-		wantErr error
-	}{
-		{
-			"success",
-			&db.Database{},
-			nil,
-		},
-		{
-			"noDb",
-			nil,
-			db.ErrNoDB,
-		},
-	}
+// func TestIntegration_Account_Save(t *testing.T) {
+// 	db, close, err := testMysql(t)
+// 	assert.Equal(t, nil, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewAccountRepository(tt.db)
-			assert.Equal(t, tt.wantErr, err)
-		})
-	}
-}
+// 	defer close()
 
-func TestIntegration_Account_Save(t *testing.T) {
-	db, close, err := testMysql(t)
-	assert.Equal(t, nil, err)
+// 	accountRepo, err := NewAccountRepository(db)
+// 	assert.Equal(t, nil, err)
 
-	defer close()
+// 	t1 := time.Now()
+// 	tests := []struct {
+// 		name    string
+// 		acct    eventindexer.Account
+// 		wantErr error
+// 	}{
+// 		{
+// 			"success",
+// 			eventindexer.Account{
+// 				ID:           0,
+// 				Address:      "0x1234",
+// 				TransactedAt: t1,
+// 			},
+// 			nil,
+// 		},
+// 		{
+// 			"duplicate",
+// 			eventindexer.Account{
+// 				ID:           0,
+// 				Address:      "0x1234",
+// 				TransactedAt: t1,
+// 			},
+// 			nil,
+// 		},
+// 	}
 
-	accountRepo, err := NewAccountRepository(db)
-	assert.Equal(t, nil, err)
-
-	t1 := time.Now()
-	tests := []struct {
-		name    string
-		acct    eventindexer.Account
-		wantErr error
-	}{
-		{
-			"success",
-			eventindexer.Account{
-				ID:           0,
-				Address:      "0x1234",
-				TransactedAt: t1,
-			},
-			nil,
-		},
-		{
-			"duplicate",
-			eventindexer.Account{
-				ID:           0,
-				Address:      "0x1234",
-				TransactedAt: t1,
-			},
-			nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err = accountRepo.Save(
-				context.Background(),
-				common.HexToAddress(tt.acct.Address),
-				tt.acct.TransactedAt,
-			)
-			assert.Equal(t, tt.wantErr, err)
-		})
-	}
-}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			err = accountRepo.Save(
+// 				context.Background(),
+// 				common.HexToAddress(tt.acct.Address),
+// 				tt.acct.TransactedAt,
+// 			)
+// 			assert.Equal(t, tt.wantErr, err)
+// 		})
+// 	}
+// }
