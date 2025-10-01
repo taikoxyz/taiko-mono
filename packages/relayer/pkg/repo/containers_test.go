@@ -61,11 +61,14 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		t.Fatalf("failed to map mysql port: %v", err)
 	}
 
+	// nolint: lll
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true&timeout=30s&readTimeout=30s&writeTimeout=30s",
 		dbUsername, dbPassword, host, port.Int(), dbName)
 
 	deadline := time.Now().Add(2 * time.Minute)
+
 	var gormDB *gorm.DB
+
 	var lastErr error
 
 	for time.Now().Before(deadline) {
@@ -80,7 +83,9 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		sqlDB, dbErr := gormDB.DB()
 		if dbErr != nil {
 			lastErr = fmt.Errorf("failed to obtain sql.DB: %w", dbErr)
+
 			gormDB = nil
+
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -92,8 +97,11 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		}
 
 		lastErr = fmt.Errorf("mysql ping failed: %w", pingErr)
+
 		_ = sqlDB.Close()
+
 		gormDB = nil
+
 		time.Sleep(2 * time.Second)
 	}
 
