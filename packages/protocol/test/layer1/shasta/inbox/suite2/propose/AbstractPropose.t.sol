@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
+import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/shasta/impl/Inbox.sol";
@@ -17,6 +19,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
+    bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
@@ -232,6 +235,177 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
+    // Forced Inclusion Tests
+    // ---------------------------------------------------------------
+
+    function test_propose_processesSingleForcedInclusion() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        LibBlobs.BlobSlice memory expectedForcedSlice = _enqueueForcedInclusion(forcedRef, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        vm.warp(block.timestamp + delay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.numForcedInclusions = 1;
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-propose", string.concat("forced_inclusion_single_", inboxContractName)
+        );
+        inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
+
+        IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
+
+        assertEq(payload.proposal.proposer, currentProposer, "Proposer mismatch");
+        assertEq(uint256(payload.proposal.id), 1, "Proposal id mismatch");
+        assertEq(payload.derivation.sources.length, 2, "Unexpected source count");
+        _assertForcedSource(payload.derivation.sources[0], expectedForcedSlice);
+        assertFalse(payload.derivation.sources[1].isForcedInclusion, "Normal source missing");
+    }
+
+    function test_propose_processesMultipleForcedInclusions() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef0 = _createBlobRef(1, 1, 0);
+        LibBlobs.BlobSlice memory firstSlice = _enqueueForcedInclusion(forcedRef0, Alice);
+
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef1 = _createBlobRef(2, 1, 0);
+        LibBlobs.BlobSlice memory secondSlice = _enqueueForcedInclusion(forcedRef1, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        vm.warp(block.timestamp + delay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.numForcedInclusions = 2;
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        vm.startSnapshotGas(
+            "shasta-propose", string.concat("forced_inclusion_multiple_", inboxContractName)
+        );
+        inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
+
+        IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
+
+        assertEq(payload.derivation.sources.length, 3, "Expected forced inclusions plus proposal");
+        _assertForcedSource(payload.derivation.sources[0], firstSlice);
+        _assertForcedSource(payload.derivation.sources[1], secondSlice);
+        assertFalse(payload.derivation.sources[2].isForcedInclusion, "Normal source missing");
+    }
+
+    function test_propose_RevertWhen_forcedInclusionDueButNotProcessed() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        _enqueueForcedInclusion(forcedRef, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        vm.warp(block.timestamp + delay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.expectRevert(UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    function test_propose_allowsPermissionlessWhenForcedInclusionTooOld() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        LibBlobs.BlobSlice memory expectedForcedSlice = _enqueueForcedInclusion(forcedRef, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        uint256 permissionlessWindow = uint256(delay) * _getPermissionlessInclusionMultiplier();
+
+        vm.warp(block.timestamp + delay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory unauthorizedInput = _createFirstProposeInput();
+        unauthorizedInput.numForcedInclusions = 1;
+        bytes memory unauthorizedData = _codec().encodeProposeInput(unauthorizedInput);
+
+        vm.expectRevert();
+        vm.prank(nextProposer);
+        inbox.propose(bytes(""), unauthorizedData);
+
+        uint256 targetTimestamp = uint256(expectedForcedSlice.timestamp) + permissionlessWindow + 1;
+        vm.warp(targetTimestamp);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.numForcedInclusions = 1;
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(nextProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
+
+        assertEq(payload.proposal.proposer, nextProposer, "Permissionless proposer should succeed");
+        assertEq(payload.derivation.sources.length, 2, "Unexpected source count");
+        _assertForcedSource(payload.derivation.sources[0], expectedForcedSlice);
+        assertFalse(payload.derivation.sources[1].isForcedInclusion, "Normal source missing");
+        assertEq(
+            payload.proposal.endOfSubmissionWindowTimestamp,
+            0,
+            "Submission window timestamp mismatch"
+        );
+    }
+
+    function test_propose_RevertWhen_UnauthorizedWithoutForcedInclusion() public {
+        _setupBlobHashes();
+
+        vm.roll(block.number + 1);
+
+        bytes memory proposeData = _codec().encodeProposeInput(_createFirstProposeInput());
+
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        vm.prank(Frank);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    function test_propose_RevertWhen_UnauthorizedForcedInclusionNotTooOld() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        _enqueueForcedInclusion(forcedRef, Alice);
+
+        uint64 delay = _getForcedInclusionDelay();
+        uint256 permissionlessWindow = uint256(delay) * _getPermissionlessInclusionMultiplier();
+        uint256 targetTimestamp = uint256(block.timestamp) + permissionlessWindow;
+        vm.warp(targetTimestamp);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.numForcedInclusions = 1;
+
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        vm.prank(Frank);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    // ---------------------------------------------------------------
     // Multiple Proposal Tests
     // ---------------------------------------------------------------
 
@@ -265,12 +439,12 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + 12);
 
         // Second proposal (ID 2) - using the first proposal as parent
-        // First proposal set nextProposalBlockId to its block + 1
+        // First proposal set lastProposalBlockId to its block number
         // We advanced by 1 block after first proposal, so we should be at the right block
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to
-                // this)
+            lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
+                // made there)
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -331,7 +505,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // We'll use genesis as parent instead of the first proposal (wrong!)
         IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 2,
+            lastProposalBlockId: 1,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -369,7 +543,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -411,5 +585,91 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         returns (IInbox.ProposedEventPayload memory)
     {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
+    }
+
+    function _enqueueForcedInclusion(
+        LibBlobs.BlobReference memory _ref,
+        address _payer
+    )
+        internal
+        returns (LibBlobs.BlobSlice memory)
+    {
+        uint48 timestampBefore = uint48(block.timestamp);
+        uint256 fee = _getForcedInclusionFeeWei();
+
+        vm.deal(_payer, fee);
+        vm.prank(_payer);
+        inbox.saveForcedInclusion{ value: fee }(_ref);
+
+        bytes32[] memory blobHashes = _expectedBlobHashes(_ref);
+
+        return LibBlobs.BlobSlice({
+            blobHashes: blobHashes,
+            offset: _ref.offset,
+            timestamp: timestampBefore
+        });
+    }
+
+    function _expectedBlobHashes(LibBlobs.BlobReference memory _ref)
+        internal
+        view
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory fullHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
+        uint256 numBlobs = uint256(_ref.numBlobs);
+        bytes32[] memory selected = new bytes32[](numBlobs);
+        uint256 startIndex = uint256(_ref.blobStartIndex);
+
+        for (uint256 i; i < numBlobs; ++i) {
+            selected[i] = fullHashes[startIndex + i];
+        }
+
+        return selected;
+    }
+
+    function _getForcedInclusionFeeWei() internal view returns (uint256) {
+        IInbox.Config memory config = inbox.getConfig();
+        return uint256(config.forcedInclusionFeeInGwei) * 1 gwei;
+    }
+
+    function _getForcedInclusionDelay() internal view returns (uint64) {
+        IInbox.Config memory config = inbox.getConfig();
+        return config.forcedInclusionDelay;
+    }
+
+    function _getPermissionlessInclusionMultiplier() internal view returns (uint256) {
+        IInbox.Config memory config = inbox.getConfig();
+        return uint256(config.permissionlessInclusionMultiplier);
+    }
+
+    function _decodeLastProposedEvent() internal returns (IInbox.ProposedEventPayload memory) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint256 i = logs.length; i > 0; --i) {
+            Vm.Log memory entry = logs[i - 1];
+            if (entry.topics.length > 0 && entry.topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(entry.data, (bytes));
+                return _codec().decodeProposedEvent(eventData);
+            }
+        }
+
+        revert("Proposed event not found");
+    }
+
+    function _assertForcedSource(
+        IInbox.DerivationSource memory actual,
+        LibBlobs.BlobSlice memory expected
+    )
+        internal
+        view
+    {
+        assertTrue(actual.isForcedInclusion);
+        assertEq(uint256(actual.blobSlice.offset), uint256(expected.offset));
+        assertEq(uint256(actual.blobSlice.timestamp), uint256(expected.timestamp));
+        assertEq(actual.blobSlice.blobHashes.length, expected.blobHashes.length);
+
+        for (uint256 i; i < expected.blobHashes.length; ++i) {
+            assertEq(actual.blobSlice.blobHashes[i], expected.blobHashes[i]);
+        }
     }
 }
