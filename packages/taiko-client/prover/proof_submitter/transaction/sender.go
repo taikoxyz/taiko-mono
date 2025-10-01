@@ -46,7 +46,7 @@ func NewSender(
 func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
 	txMgr, isPrivate := s.txmgrSelector.Select()
 
-	// Assemble the TaikoInbox.proveBatches transaction.
+	// Assemble the Pacaya TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit, Context: ctx, From: txMgr.From()})
 	if err != nil {
 		return err

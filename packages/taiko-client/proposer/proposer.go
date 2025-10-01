@@ -143,7 +143,8 @@ func (p *Proposer) InitFromConfig(
 		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoInboxAddress,
+		cfg.PacayaInboxAddress,
+		cfg.ShastaInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBatchTxGasLimit,
@@ -402,7 +403,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		ctx,
 		p.rpc,
 		proposerAddress,
-		p.TaikoInboxAddress,
+		p.PacayaInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
 			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
@@ -499,11 +500,11 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	log.Info(
 		"Last proposal",
 		"id", lastProposal.Proposal.Id,
-		"nextBlockID", lastProposal.CoreState.NextProposalBlockId,
+		"nextProposalId", lastProposal.CoreState.NextProposalId,
 		"l1Head", l1Head.Number,
 	)
 
-	if lastProposal.CoreState.NextProposalBlockId.Cmp(l1Head.Number) >= 0 {
+	if lastProposal.CoreState.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
 		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
