@@ -131,16 +131,21 @@ library LibForcedInclusion {
                 $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
             );
 
-            // Calculate remaining and validate
-            _validateForcedInclusionRequirements(
-                $,
-                _numForcedInclusionsRequested,
-                _minForcedInclusionCount,
-                available - toProcess,
-                head,
-                lastProcessedAt,
-                _forcedInclusionDelay
-            );
+            // Validate forced inclusion requirements: must satisfy one of:
+            // 1. Requested minimum required count - skip validation
+            if (_numForcedInclusionsRequested < _minForcedInclusionCount) {
+                uint256 remaining = available - toProcess;
+                // 2. Emptied the queue (remaining is 0 AND requested > 0) - skip validation
+                if (remaining != 0 || _numForcedInclusionsRequested == 0) {
+                    // 3. No remaining inclusions are due - only check if we reach here
+                    if (remaining > 0) {
+                        require(
+                            !_isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay),
+                            UnprocessedForcedInclusionIsDue()
+                        );
+                    }
+                }
+            }
 
             // Check if permissionless proposals are allowed
             result_.allowsPermissionless = block.timestamp
@@ -222,42 +227,6 @@ library LibForcedInclusion {
                 totalFees += inclusion.feeInGwei;
             }
         }
-    }
-
-    /// @dev Validates forced inclusion requirements
-    /// @param $ Storage reference
-    /// @param _numForcedInclusionsRequested Number requested
-    /// @param _minForcedInclusionCount Minimum required count
-    /// @param _remainingForcedInclusionCount Number remaining in queue
-    /// @param _head Current queue head position
-    /// @param _lastProcessedAt Timestamp of last processing
-    /// @param _forcedInclusionDelay Delay in seconds before inclusion is due
-    function _validateForcedInclusionRequirements(
-        Storage storage $,
-        uint256 _numForcedInclusionsRequested,
-        uint256 _minForcedInclusionCount,
-        uint256 _remainingForcedInclusionCount,
-        uint48 _head,
-        uint48 _lastProcessedAt,
-        uint16 _forcedInclusionDelay
-    )
-        private
-        view
-    {
-        // Validate forced inclusion requirements: must satisfy one of:
-        // 1. Requested minimum required count - return early
-        if (_numForcedInclusionsRequested >= _minForcedInclusionCount) return;
-
-        // 2. Emptied the queue (remaining is 0 AND requested > 0) - return early
-        if (_remainingForcedInclusionCount == 0 && _numForcedInclusionsRequested > 0) return;
-
-        // 3. No remaining inclusions are due - only check if we reach here
-        if (_remainingForcedInclusionCount == 0) return;
-
-        require(
-            !_isOldestInclusionDue($, _head, _lastProcessedAt, _forcedInclusionDelay),
-            UnprocessedForcedInclusionIsDue()
-        );
     }
 
     /// @dev Checks if the oldest remaining forced inclusion is due
