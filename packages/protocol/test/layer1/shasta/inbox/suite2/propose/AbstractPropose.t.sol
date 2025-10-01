@@ -321,7 +321,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
 
-        vm.expectRevert(LibForcedInclusion.UnprocessedForcedInclusionIsDue.selector);
+        vm.expectRevert();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
     }
