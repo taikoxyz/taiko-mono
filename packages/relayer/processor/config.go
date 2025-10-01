@@ -55,7 +55,7 @@ type Config struct {
 
 	// backoff configs
 	BackoffRetryInterval uint64
-	BackOffMaxRetrys     uint64
+	BackOffMaxRetries     uint64
 
 	// db configs
 	DatabaseUsername        string
@@ -165,7 +165,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableTaikoL2:                      c.Bool(flags.EnableTaikoL2.Name),
 		ProfitableOnly:                     c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
-		BackOffMaxRetrys:                   c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffMaxRetries:                   c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),

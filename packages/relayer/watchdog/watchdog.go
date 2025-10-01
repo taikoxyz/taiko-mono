@@ -198,7 +198,7 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.mu = &sync.Mutex{}
 
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	w.backOffMaxRetries = cfg.BackOffMaxRetrys
+	w.backOffMaxRetries = cfg.BackOffMaxRetries
 	w.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	w.cfg = cfg

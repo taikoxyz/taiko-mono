@@ -107,12 +107,12 @@ var (
 		Value:    12,
 		EnvVars:  []string{"BACKOFF_RETRY_INTERVAL"},
 	}
-	BackOffMaxRetrys = &cli.Uint64Flag{
-		Name:     "backoff.maxRetrys",
+	BackOffMaxRetries = &cli.Uint64Flag{
+		Name:     "backoff.maxRetries",
 		Usage:    "Max retry times when there is an error",
 		Category: processorCategory,
 		Value:    5,
-		EnvVars:  []string{"BACKOFF_MAX_RETRYS"},
+		EnvVars:  []string{"BACKOFF_MAX_RETRIES"},
 	}
 )
 
@@ -132,7 +132,7 @@ var CommonFlags = []cli.Flag{
 	MetricsHTTPPort,
 	ETHClientTimeout,
 	SrcSignalServiceAddress,
-	BackOffMaxRetrys,
+	BackOffMaxRetries,
 	BackOffRetryInterval,
 }
 

@@ -366,7 +366,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcCaller = srcRpcClient
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	p.backOffMaxRetries = cfg.BackOffMaxRetrys
+	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash

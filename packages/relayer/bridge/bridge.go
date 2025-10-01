@@ -125,7 +125,7 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 	b.mu = &sync.Mutex{}
 
 	b.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	b.backOffMaxRetries = cfg.BackOffMaxRetrys
+	b.backOffMaxRetries = cfg.BackOffMaxRetries
 	b.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	b.bridgeMessageValue = cfg.BridgeMessageValue
