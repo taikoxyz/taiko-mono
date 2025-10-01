@@ -232,7 +232,7 @@ library LibForcedInclusion {
         }
     }
 
-    /// @dev Validates forced inclusion requirements
+    /// @dev Ensures no overdue forced inclusions remain unprocessed
     /// @param $ Storage reference
     /// @param _numForcedInclusionsRequested Number requested
     /// @param _minForcedInclusionCount Minimum required count
