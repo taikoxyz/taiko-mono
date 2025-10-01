@@ -131,23 +131,21 @@ library LibForcedInclusion {
                 $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
             );
 
-            // Validate forced inclusion requirements: must satisfy one of:
-            // 1. Proposer included at least the minimum required - skip validation
-            // 2. Queue is empty - nothing to validate
-            // 3. No remaining inclusions are due - only then we check
-            if (_numForcedInclusionsRequested < _minForcedInclusionCount) {
-                uint256 remaining = available - toProcess;
-                if (remaining > 0) {
-                    require(
-                        !_isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay),
-                        UnprocessedForcedInclusionIsDue()
-                    );
-                }
+            // We check the following conditions are met:
+            // 1. Proposer is willing to include at least the minimum required
+            // (_minForcedInclusionCount)
+            // 2. Proposer included all available inclusions
+            // 3. The oldest inclusion is not due
+            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
+                bool isOldestInclusionDue =
+                    _isOldestInclusionDue($, head, lastProcessedAt, _forcedInclusionDelay);
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
 
             // Check if permissionless proposals are allowed
-            result_.allowsPermissionless = block.timestamp
-                > uint256(_forcedInclusionDelay) * _permissionlessInclusionMultiplier + oldestTimestamp;
+            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
+                * _permissionlessInclusionMultiplier + oldestTimestamp;
+            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
         }
     }
 
