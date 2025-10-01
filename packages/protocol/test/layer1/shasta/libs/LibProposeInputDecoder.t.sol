@@ -13,7 +13,7 @@ contract LibProposeInputDecoderTest is Test {
         // Setup simple test case with new structure
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
-            nextProposalBlockId: 1000,
+            lastProposalBlockId: 999,
             lastFinalizedProposalId: 9,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(0),
@@ -63,9 +63,9 @@ contract LibProposeInputDecoderTest is Test {
             "NextProposalId mismatch"
         );
         assertEq(
-            decoded.coreState.nextProposalBlockId,
-            input.coreState.nextProposalBlockId,
-            "NextProposalBlockId mismatch"
+            decoded.coreState.lastProposalBlockId,
+            input.coreState.lastProposalBlockId,
+            "LastProposalBlockId mismatch"
         );
         assertEq(
             decoded.coreState.lastFinalizedProposalId,
@@ -145,7 +145,7 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
-            nextProposalBlockId: 1000,
+            lastProposalBlockId: 999,
             lastFinalizedProposalId: 7,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
@@ -222,7 +222,7 @@ contract LibProposeInputDecoderTest is Test {
             deadline: 11_111,
             coreState: IInbox.CoreState({
                 nextProposalId: 5,
-                nextProposalBlockId: 500,
+                lastProposalBlockId: 499,
                 lastFinalizedProposalId: 4,
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
@@ -279,7 +279,7 @@ contract LibProposeInputDecoderTest is Test {
             deadline: 12_345,
             coreState: IInbox.CoreState({
                 nextProposalId: 1,
-                nextProposalBlockId: 100,
+                lastProposalBlockId: 99,
                 lastFinalizedProposalId: 0,
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),

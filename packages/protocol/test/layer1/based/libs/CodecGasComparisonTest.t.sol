@@ -500,7 +500,7 @@ contract CodecGasComparisonTest is Test {
         // Initialize test core state
         testCoreState = IInbox.CoreState({
             nextProposalId: 1001,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 1000,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test_finalized_transition"),

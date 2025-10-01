@@ -75,6 +75,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 
 // ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
+// TODO: more param
 func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()

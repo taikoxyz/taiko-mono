@@ -67,7 +67,8 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
@@ -118,7 +119,8 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		prop.ShastaIndexer(),
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -344,7 +346,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	b, err := builder.SplitToBlobs(proposalManifestBytes)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{

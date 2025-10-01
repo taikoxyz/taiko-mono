@@ -42,6 +42,9 @@ interface IInbox {
         uint16 maxCheckpointHistory;
         /// @notice The minimum delay between checkpoints in seconds
         uint48 minCheckpointDelay;
+        /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
+        /// becomes permissionless
+        uint8 permissionlessInclusionMultiplier;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -120,8 +123,8 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The next proposal block ID to be assigned.
-        uint48 nextProposalBlockId;
+        /// @notice The last block ID where a proposal was made.
+        uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The timestamp when the last checkpoint was saved.

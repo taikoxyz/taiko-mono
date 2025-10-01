@@ -42,7 +42,7 @@ contract LibProposedEventEncoderTest is Test {
         // Create core state
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 1001,
+            lastProposalBlockId: 1000,
             lastFinalizedProposalId: 0,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
@@ -106,9 +106,9 @@ contract LibProposedEventEncoderTest is Test {
             "Next proposal ID mismatch"
         );
         assertEq(
-            decoded.coreState.nextProposalBlockId,
-            original.coreState.nextProposalBlockId,
-            "Next proposal block ID mismatch"
+            decoded.coreState.lastProposalBlockId,
+            original.coreState.lastProposalBlockId,
+            "Last proposal block ID mismatch"
         );
         assertEq(
             decoded.coreState.lastFinalizedProposalId,
@@ -146,7 +146,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 11,
-                nextProposalBlockId: 5001,
+                lastProposalBlockId: 5000,
                 lastFinalizedProposalId: 9,
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
@@ -201,7 +201,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 6,
-                nextProposalBlockId: 2501,
+                lastProposalBlockId: 2500,
                 lastFinalizedProposalId: 4,
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
@@ -255,7 +255,7 @@ contract LibProposedEventEncoderTest is Test {
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 2,
-                nextProposalBlockId: 1001,
+                lastProposalBlockId: 1000,
                 lastFinalizedProposalId: 0,
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
