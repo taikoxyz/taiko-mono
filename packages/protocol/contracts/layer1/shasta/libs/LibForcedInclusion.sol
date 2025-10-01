@@ -132,7 +132,7 @@ library LibForcedInclusion {
             );
 
             // Validate forced inclusion requirements: must satisfy one of:
-            // 1. Requested minimum required count - skip validation
+            // 1. Proposer included at least the minimum required - skip validation
             // 2. Queue is empty - nothing to validate
             // 3. No remaining inclusions are due - only then we check
             if (_numForcedInclusionsRequested < _minForcedInclusionCount) {
