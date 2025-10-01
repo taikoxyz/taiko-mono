@@ -10,7 +10,7 @@ package repo
 // 	{
 // 		ID:   1,
 // 		Name: "name",
-// 		// nolint lll
+// nolint lll
 // 		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 // 		ChainID:                1,
 // 		DestChainID:            2,
@@ -29,7 +29,7 @@ package repo
 // 	{
 // 		ID:   2,
 // 		Name: "name",
-// 		// nolint lll
+// nolint lll
 // 		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 // 		ChainID:                1,
 // 		DestChainID:            2,
@@ -48,7 +48,7 @@ package repo
 // 	{
 // 		ID:   3,
 // 		Name: "name",
-// 		// nolint lll
+// nolint lll
 // 		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 // 		ChainID:                1,
 // 		DestChainID:            2,
@@ -456,7 +456,7 @@ package repo
 // 			&relayer.Event{
 // 				ID:   1,
 // 				Name: "name",
-// 				// nolint lll
+// nolint lll
 // 				Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 // 				ChainID:                1,
 // 				DestChainID:            2,
