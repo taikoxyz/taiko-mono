@@ -29,7 +29,6 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///
 /// @dev Checkpoint Rate Limiting:
 ///      The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage.
-///      - Finalization can occur at any frequency without extra cost
 ///      - Checkpoint storage is rate-limited to save gas and prevent excessive storage operations
 ///      - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
 ///      - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
