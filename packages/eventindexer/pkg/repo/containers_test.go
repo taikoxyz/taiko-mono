@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 var (
