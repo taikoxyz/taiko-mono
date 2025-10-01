@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ICheckpointStore} from "../iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "../iface/ICheckpointStore.sol";
 
 /// @title LibCheckpointStore
 /// @notice Library for managing synced L1 or L2 checkpoints using a ring buffer
@@ -37,61 +37,6 @@ library LibCheckpointStore {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Saves a new checkpoint
-    /// @param $ The storage struct
-    /// @param _checkpoint The checkpoint to save
-    /// @param _maxCheckpointHistory The maximum number of checkpoints to store
-    function saveCheckpoint(
-        Storage storage $,
-        ICheckpointStore.Checkpoint memory _checkpoint,
-        uint48 _maxCheckpointHistory
-    ) public {
-        require(_maxCheckpointHistory != 0, InvalidMaxCheckpointHistory());
-        require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
-        require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
-
-        (uint48 latestBlockNumber, uint48 stackTop, uint48 stackSize) = (
-            $.latestBlockNumber,
-            $.stackTop,
-            $.stackSize
-        );
-
-        require(
-            _checkpoint.blockNumber > latestBlockNumber,
-            InvalidCheckpoint()
-        );
-
-        unchecked {
-            // Ring buffer implementation:
-            // - stackTop starts at 0 and cycles through 0 to (maxHistorySize-1)
-            // - When we reach maxHistorySize, it wraps back to 0
-            // - This ensures we always overwrite the oldest entry when buffer is full
-            stackTop = (stackTop + 1) % _maxCheckpointHistory;
-
-            $.checkpoints[stackTop] = CheckpointRecord({
-                blockHash: _checkpoint.blockHash,
-                stateRoot: _checkpoint.stateRoot
-            });
-
-            // Update stack size (capped at maxHistorySize)
-            if (stackSize < _maxCheckpointHistory) {
-                stackSize += 1;
-            }
-        }
-
-        ($.latestBlockNumber, $.stackTop, $.stackSize) = (
-            _checkpoint.blockNumber,
-            stackTop,
-            stackSize
-        );
-
-        emit ICheckpointStore.CheckpointSaved(
-            _checkpoint.blockNumber,
-            _checkpoint.blockHash,
-            _checkpoint.stateRoot
-        );
-    }
-
     /// @notice Gets a checkpoint by index
     /// @param $ The storage struct
     /// @param _offset The offset of the checkpoint. Use 0 for the last checkpoint, 1 for the
@@ -102,13 +47,14 @@ library LibCheckpointStore {
         Storage storage $,
         uint48 _offset,
         uint48 _maxCheckpointHistory
-    ) public view returns (ICheckpointStore.Checkpoint memory) {
+    )
+        public
+        view
+        returns (ICheckpointStore.Checkpoint memory)
+    {
         unchecked {
-            (uint48 stackTop, uint48 stackSize, uint48 latestBlockNumber) = (
-                $.stackTop,
-                $.stackSize,
-                $.latestBlockNumber
-            );
+            (uint48 stackTop, uint48 stackSize, uint48 latestBlockNumber) =
+                ($.stackTop, $.stackSize, $.latestBlockNumber);
 
             require(_offset < stackSize, IndexOutOfBounds());
             // Calculate the slot position for the requested offset:
@@ -127,31 +73,76 @@ library LibCheckpointStore {
             }
 
             CheckpointRecord storage record = $.checkpoints[slot];
-            return
-                ICheckpointStore.Checkpoint({
-                    blockNumber: latestBlockNumber - _offset,
-                    blockHash: record.blockHash,
-                    stateRoot: record.stateRoot
-                });
+            return ICheckpointStore.Checkpoint({
+                blockNumber: latestBlockNumber - _offset,
+                blockHash: record.blockHash,
+                stateRoot: record.stateRoot
+            });
         }
     }
 
     /// @notice Gets the latest checkpoint number
     /// @param $ The storage struct
     /// @return _ The latest checkpoint number
-    function getlatestBlockNumber(
-        Storage storage $
-    ) public view returns (uint48) {
+    function getLatestCheckpointBlockNumber(Storage storage $) public view returns (uint48) {
         return $.latestBlockNumber;
     }
 
     /// @notice Gets the number of checkpoints
     /// @param $ The storage struct
     /// @return _ The number of checkpoints
-    function getNumberOfCheckpoints(
-        Storage storage $
-    ) public view returns (uint48) {
+    function getNumberOfCheckpoints(Storage storage $) public view returns (uint48) {
         return $.stackSize;
+    }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Saves a new checkpoint
+    /// @param $ The storage struct
+    /// @param _checkpoint The checkpoint to save
+    /// @param _maxCheckpointHistory The maximum number of checkpoints to store
+    function saveCheckpoint(
+        Storage storage $,
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        uint48 _maxCheckpointHistory
+    )
+        internal
+    {
+        unchecked {
+            require(_maxCheckpointHistory != 0, InvalidMaxCheckpointHistory());
+            require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
+            require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
+
+            (uint48 latestBlockNumber, uint48 stackTop, uint48 stackSize) =
+                ($.latestBlockNumber, $.stackTop, $.stackSize);
+
+            require(_checkpoint.blockNumber > latestBlockNumber, InvalidCheckpoint());
+
+            // Ring buffer implementation:
+            // - stackTop starts at 0 and cycles through 0 to (maxHistorySize-1)
+            // - When we reach maxHistorySize, it wraps back to 0
+            // - This ensures we always overwrite the oldest entry when buffer is full
+            stackTop = (stackTop + 1) % _maxCheckpointHistory;
+
+            $.checkpoints[stackTop] = CheckpointRecord({
+                blockHash: _checkpoint.blockHash,
+                stateRoot: _checkpoint.stateRoot
+            });
+
+            // Update stack size (capped at maxHistorySize)
+            if (stackSize < _maxCheckpointHistory) {
+                stackSize += 1;
+            }
+
+            ($.latestBlockNumber, $.stackTop, $.stackSize) =
+                (_checkpoint.blockNumber, stackTop, stackSize);
+
+            emit ICheckpointStore.CheckpointSaved(
+                _checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
+            );
+        }
     }
 
     // ---------------------------------------------------------------

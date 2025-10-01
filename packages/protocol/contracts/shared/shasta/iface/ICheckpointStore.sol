@@ -12,9 +12,9 @@ interface ICheckpointStore {
     /// @notice Represents a synced checkpoint
     struct Checkpoint {
         uint48 blockNumber;
-        /// @notice The block hash for the end (last) L2 block in this proposal.
+        /// @notice The block hash for the end (last) block in this proposal.
         bytes32 blockHash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
+        /// @notice The state root for the end (last) block in this proposal.
         bytes32 stateRoot;
     }
 
