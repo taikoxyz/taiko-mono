@@ -21,9 +21,9 @@ contract MainnetInbox is TaikoInbox {
     { }
 
     function _getConfig() internal pure virtual override returns (ITaikoInbox.Config memory) {
-        // All hard-coded configurations:
-        // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 1_000_000
+        // All hard-coded configurations for ITaikoInbox.Config.
+        // Note: treasury is handled at L2/circuits level, not via this Config.
+        // Note: there is no anchorGasLimit field; use blockMaxGasLimit and derivation rules.
 
         (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_) = _getRingbufferConfig();
         return ITaikoInbox.Config({
