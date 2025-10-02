@@ -254,7 +254,7 @@ func (p *Prover) eventLoop() {
 	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
 	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
 	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
-	shastaProposedSub := rpc.SubscribePorposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
+	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
 	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
 	defer func() {
 		batchProposedSub.Unsubscribe()
