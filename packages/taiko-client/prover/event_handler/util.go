@@ -68,8 +68,7 @@ func getMetadataFromBatchPacaya(
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
-		Client:               rpc.L1,
-		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
+		RpcClient:            rpc,
 		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
 		EndHeight:            endHeight,
 		OnBatchProposedEvent: callback,
@@ -114,6 +113,25 @@ func IsProvingWindowExpired(
 	var (
 		now       = uint64(time.Now().Unix())
 		expiredAt = timestamp + uint64(provingWindow.Seconds())
+	)
+	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
+}
+
+// IsProvingWindowExpiredShasta returns true as the first return parameter if the assigned prover
+// proving window of the given proposed block is expired, the second return parameter is the expired time,
+// and the third return parameter is the time remaining till proving window is expired.
+func IsProvingWindowExpiredShasta(
+	rpc *rpc.Client,
+	metadata metadata.TaikoProposalMetaData,
+) (bool, time.Time, time.Duration, error) {
+	configs, err := rpc.GetProtocolConfigsShasta(nil)
+	if err != nil {
+		return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
+	}
+
+	var (
+		now       = uint64(time.Now().Unix())
+		expiredAt = metadata.Shasta().GetProposal().Timestamp.Uint64() + configs.ProvingWindow.Uint64()
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

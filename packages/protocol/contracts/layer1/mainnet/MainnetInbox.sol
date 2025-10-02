@@ -5,10 +5,10 @@ import "src/layer1/based/TaikoInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./libs/LibFasterReentryLock.sol";
 
-/// @title MainnetTaikoL1
+/// @title MainnetInbox
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
-/// @notice See the documentation in {TaikoL1}.
+/// @notice See the documentation in {TaikoInbox}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
     constructor(

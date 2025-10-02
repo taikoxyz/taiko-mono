@@ -35,7 +35,7 @@ See [deployed contracts](/network-reference/contract-addresses) for a list of de
 
 See [deployed contracts](/network-reference/contract-addresses) for a list of deployed contract addresses.
 
-### I ran a node during a previous testnet do I need to do anything different?
+### I ran a node during a previous testnet, do I need to do anything different?
 
 Yes, please update your simple-taiko-node and run through one of the profiles described in the guides. You can also shut down your Taiko (Katla) node and run a Taiko Hekla node. Check out our guides in the sidebar.
 

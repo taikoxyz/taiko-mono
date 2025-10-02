@@ -48,7 +48,7 @@ contract DevnetInbox is TaikoInbox {
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 0,
                 pacaya: 0,
-                shasta: 0,
+                shasta: 10,
                 unzen: 0,
                 etna: 0,
                 fuji: 0

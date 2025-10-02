@@ -20,7 +20,7 @@ var (
 	confirmations           = "10"
 	confirmationTimeout     = "30"
 	backoffRetryInterval    = "20"
-	backOffMaxRetrys        = "10"
+	backOffMaxRetries       = "10"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
@@ -64,7 +64,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(10), c.Confirmations)
 		assert.Equal(t, uint64(30), c.ConfirmationsTimeout)
 		assert.Equal(t, uint64(20), c.BackoffRetryInterval)
-		assert.Equal(t, uint64(10), c.BackOffMaxRetrys)
+		assert.Equal(t, uint64(10), c.BackOffMaxRetries)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
@@ -109,7 +109,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.Confirmations.Name, confirmations,
 		"--" + flags.ConfirmationTimeout.Name, confirmationTimeout,
 		"--" + flags.BackOffRetryInterval.Name, backoffRetryInterval,
-		"--" + flags.BackOffMaxRetrys.Name, backOffMaxRetrys,
+		"--" + flags.BackOffMaxRetries.Name, backOffMaxRetries,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
 		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,

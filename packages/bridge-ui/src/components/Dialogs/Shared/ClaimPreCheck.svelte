@@ -84,9 +84,9 @@
 
   $: correctChain = Number(tx.destChainId) === $connectedSourceChain?.id;
 
-  $: successFullPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
+  $: successfulPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 
-  $: if (!checkingPrerequisites && successFullPreChecks && $account && !onlyDestOwnerCanClaimWarning) {
+  $: if (!checkingPrerequisites && successfulPreChecks && $account && !onlyDestOwnerCanClaimWarning) {
     hideContinueButton = false;
     canContinue = true;
   } else {

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.31.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.0...docs-site-v1.31.1) (2025-09-25)
+
+
+### Chores
+
+* **docs-site:** update explorer for button ([#20269](https://github.com/taikoxyz/taiko-mono/issues/20269)) ([4aa8421](https://github.com/taikoxyz/taiko-mono/commit/4aa8421851730df01d702ead742386f1bf4675c3))
+
+
+### Documentation
+
+* **docs-site:** corrected IP address ([#20116](https://github.com/taikoxyz/taiko-mono/issues/20116)) ([5803f33](https://github.com/taikoxyz/taiko-mono/commit/5803f33bdf3bd6d76c8de99b36315aa029910b37))
+* **docs-site:** fix ERC-4337 doc link ([#20111](https://github.com/taikoxyz/taiko-mono/issues/20111)) ([f13659c](https://github.com/taikoxyz/taiko-mono/commit/f13659c4464a2b4aa748756eda8439a53f41247e))
+* **docs-site:** fix grammar and typos in documentation ([#20173](https://github.com/taikoxyz/taiko-mono/issues/20173)) ([f029957](https://github.com/taikoxyz/taiko-mono/commit/f02995731f89ab8c1642e11e7f891dd05af9fb5d))
+* **docs-site:** fix typos ([#20138](https://github.com/taikoxyz/taiko-mono/issues/20138)) ([dfe19eb](https://github.com/taikoxyz/taiko-mono/commit/dfe19ebf50de39ac175b41a58684a6b443ae4e85))
+* **docs-site:** new Taiko Hoodi testnet (code name Tolba) ([#20182](https://github.com/taikoxyz/taiko-mono/issues/20182)) ([6a82488](https://github.com/taikoxyz/taiko-mono/commit/6a824882d71d90af3ba2de423e45768a8cb806da))
+* **docs-site:** typo fix ([#20077](https://github.com/taikoxyz/taiko-mono/issues/20077)) ([9232838](https://github.com/taikoxyz/taiko-mono/commit/9232838a0f580567112bad253f997bec7c4a4eab))
+
 ## [1.31.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.30.0...docs-site-v1.31.0) (2025-09-03)
 
 

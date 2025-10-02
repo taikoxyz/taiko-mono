@@ -19,7 +19,7 @@ var (
 )
 
 // EventStatus is used to indicate whether processing has been attempted
-// for this particular event, and it's success
+// for this particular event, and its success
 type EventStatus int
 
 const (
