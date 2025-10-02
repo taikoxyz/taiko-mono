@@ -78,7 +78,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores transition record hash with optimized slot reuse
     /// @notice Storage strategy:
     ///         1. New proposal ID: Overwrites reusable slot
-    ///         2. Same ID, same parent: Updates reusable slot
+    ///         2. Same ID, same parent: Check for duplicate/conflict and handle accordingly
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
@@ -103,11 +103,24 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - update reusable slot
-            record.hashAndDeadline = _hashAndDeadline;
+            // Same proposal and parent hash - check for duplicate or conflict
+            bytes26 existingRecordHash = record.hashAndDeadline.recordHash;
+
+            if (existingRecordHash == _recordHash) {
+                // Duplicate: same transition proved again
+                emit TransitionDuplicateDetected();
+            } else if (existingRecordHash == 0) {
+                // First proof for this transition
+                record.hashAndDeadline = _hashAndDeadline;
+            } else {
+                // Conflict: different transition for same proposal and parent
+                conflictingTransitionDetected = true;
+                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
+                emit TransitionConflictDetected();
+            }
         } else {
             // Collision: same proposal ID, different parent hash - use composite mapping
-            return super._storeTransitionRecord(
+            super._storeTransitionRecord(
                 _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
             );
         }
