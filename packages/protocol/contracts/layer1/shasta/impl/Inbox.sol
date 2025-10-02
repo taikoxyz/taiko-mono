@@ -414,6 +414,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         TransitionRecord memory _transitionRecord
     )
         internal
+        virtual
     {
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
@@ -452,15 +453,15 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             _transitionRecordHashAndDeadline[compositeKey];
         bytes26 recordHash = entry.recordHash;
 
-        if (recordHash == _recordHash) {
-            emit TransitionDuplicateDetected();
-        } else if (recordHash == 0) {
+        if (recordHash == 0) {
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        } else if (recordHash == _recordHash) {
+            emit TransitionDuplicateDetected();
         } else {
+            emit TransitionConflictDetected();
             conflictingTransitionDetected = true;
             entry.finalizationDeadline = type(uint48).max;
-            emit TransitionConflictDetected();
         }
     }
 
