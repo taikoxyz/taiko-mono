@@ -4,8 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
@@ -47,26 +45,8 @@ type BlockManifest struct {
 	Transactions types.Transactions `json:"transactions"`
 }
 
-// BlockManifestWithExtra represents a block manifest with extra information.
-type BlockManifestWithExtra struct {
-	BlockManifest
-	// Extra information
-	BondInstructionsHash common.Hash                              `json:"bondInstructionsHash"`
-	BondInstructions     []shastaBindings.LibBondsBondInstruction `json:"bondInstructions"`
-}
-
 // DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
 // Should be same with LibManifest.ProposalManifest.
 type DerivationSourceManifest struct {
 	Blocks []*BlockManifest `json:"blocks"`
-}
-
-// ProposalManifest represents a proposal manifest with extra information.
-type ProposalManifest struct {
-	ProverAuthBytes []byte                    `json:"proverAuthBytes"`
-	Blocks          []*BlockManifestWithExtra `json:"blocks"`
-	// Extra information
-	Default           bool         `json:"default"`
-	ParentBlock       *types.Block `json:"parentBlock"`
-	IsLowBondProposal bool         `json:"isLowBondProposal"`
 }

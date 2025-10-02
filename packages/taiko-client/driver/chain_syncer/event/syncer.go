@@ -308,44 +308,44 @@ func (s *Syncer) processShastaProposal(
 			"l1Hash", meta.GetRawBlockHash(),
 		)
 		// Fetch and parse the manifest from blobs.
-		proposalManifest, err := s.shastaManifestFetcher.Fetch(ctx, meta, derivationIdx)
+		proposalPayload, err := s.shastaManifestFetcher.Fetch(ctx, meta, derivationIdx)
 		if err != nil {
 			return err
 		}
-		proposalManifest.ParentBlock = parent
+		proposalPayload.ParentBlock = parent
 
 		log.Info(
 			"Parent block info for shsata Proposal",
 			"proposalID", meta.GetProposal().Id,
-			"blocks", len(proposalManifest.Blocks),
-			"parentBlockID", proposalManifest.ParentBlock.Number(),
-			"parentHash", proposalManifest.ParentBlock.Hash(),
-			"parentGasLimit", proposalManifest.ParentBlock.GasLimit(),
-			"parentTimestamp", proposalManifest.ParentBlock.Time(),
+			"blocks", len(proposalPayload.BlockPayloads),
+			"parentBlockID", proposalPayload.ParentBlock.Number(),
+			"parentHash", proposalPayload.ParentBlock.Hash(),
+			"parentGasLimit", proposalPayload.ParentBlock.GasLimit(),
+			"parentTimestamp", proposalPayload.ParentBlock.Time(),
 		)
 
 		latestState, err := s.rpc.GetShastaAnchorState(
-			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
+			&bind.CallOpts{BlockHash: proposalPayload.ParentBlock.Hash(), Context: ctx},
 		)
 		if err != nil {
 			return err
 		}
 		lastAnchorBlockNumber := latestState.AnchorBlockNumber.Uint64()
-		if meta.GetProposal().Id.Cmp(common.Big1) == 0 && proposalManifest.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		if meta.GetProposal().Id.Cmp(common.Big1) == 0 && proposalPayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
-				proposalManifest.ParentBlock.Transactions()[0],
+				proposalPayload.ParentBlock.Transactions()[0],
 			); err != nil {
 				return err
 			}
 		}
 		// If the proposal is not a default one, we need to do some extra validations for
 		// the proposer and `isLowBondProposal` flag.
-		if !proposalManifest.Default {
+		if !proposalPayload.Default {
 			designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-				&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
+				&bind.CallOpts{BlockHash: proposalPayload.ParentBlock.Hash(), Context: ctx},
 				meta.GetProposal().Id,
 				meta.GetProposal().Proposer,
-				proposalManifest.ProverAuthBytes,
+				proposalPayload.ProverAuthBytes,
 			)
 			if err != nil {
 				return err
@@ -354,19 +354,19 @@ func (s *Syncer) processShastaProposal(
 			log.Info(
 				"Designated prover info",
 				"proposalID", meta.GetProposal().Id,
-				"blocks", len(proposalManifest.Blocks),
+				"blocks", len(proposalPayload.BlockPayloads),
 				"proposer", meta.GetProposal().Proposer,
 				"prover", designatedProverInfo.DesignatedProver,
 				"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
 				"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
-				"proverAuth", common.Bytes2Hex(proposalManifest.ProverAuthBytes[:]),
+				"proverAuth", common.Bytes2Hex(proposalPayload.ProverAuthBytes[:]),
 			)
 
 			if designatedProverInfo.IsLowBondProposal {
-				proposalManifest = &manifest.ProposalManifest{
+				proposalPayload = &shastaManifest.ShastaProposalPayload{
 					Default:           true,
 					IsLowBondProposal: true,
-					ParentBlock:       proposalManifest.ParentBlock,
+					ParentBlock:       proposalPayload.ParentBlock,
 				}
 			}
 
@@ -374,7 +374,7 @@ func (s *Syncer) processShastaProposal(
 			if err := shastaManifest.ValidateMetadata(
 				ctx,
 				s.rpc,
-				proposalManifest,
+				proposalPayload,
 				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
 				meta.GetProposal(),
 				meta.GetRawBlockHeight().Uint64(),
@@ -385,17 +385,17 @@ func (s *Syncer) processShastaProposal(
 			}
 		}
 
-		if proposalManifest.Default {
+		if proposalPayload.Default {
 			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
 			// or Shasta anchor transaction gas limit, which always equals to consensus.UpdateStateGasLimit.
 			// Therefore, we need to subtract consensus.UpdateStateGasLimit from the parent gas limit to get
 			// the real gas limit from parent block metadata.
-			gasLimit := proposalManifest.ParentBlock.GasLimit()
-			if proposalManifest.ParentBlock.Number().Cmp(common.Big0) != 0 {
+			gasLimit := proposalPayload.ParentBlock.GasLimit()
+			if proposalPayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
 				gasLimit = gasLimit - consensus.UpdateStateGasLimit
 			}
 
-			proposalManifest.Blocks = []*manifest.BlockManifestWithExtra{
+			proposalPayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
 				{
 					BlockManifest: manifest.BlockManifest{
 						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
@@ -418,7 +418,7 @@ func (s *Syncer) processShastaProposal(
 			ctx,
 			meta.GetProposal().Id,
 			s.indexer,
-			proposalManifest,
+			proposalPayload,
 			latestState.BondInstructionsHash,
 			meta.GetRawBlockHeight().Uint64(),
 			derivationIdx,
@@ -428,7 +428,7 @@ func (s *Syncer) processShastaProposal(
 		}
 
 		// Insert new blocks to L2 EE's chain.
-		if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalManifest, endIter); err != nil {
+		if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalPayload, endIter); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
 		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {

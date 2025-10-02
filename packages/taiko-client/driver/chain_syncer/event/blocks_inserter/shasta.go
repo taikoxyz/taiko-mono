@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
@@ -60,7 +60,7 @@ func (i *Shasta) InsertBlocks(
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest *manifest.ProposalManifest,
+	proposalPayload *shastaManifest.ShastaProposalPayload,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
@@ -81,17 +81,17 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
 		"proposer", meta.GetProposal().Proposer,
-		"invalidManifest", proposalManifest.Default,
+		"invalidManifest", proposalPayload.Default,
 	)
 
 	var (
-		parent          = proposalManifest.ParentBlock.Header()
+		parent          = proposalPayload.ParentBlock.Header()
 		lastPayloadData *engine.ExecutableData
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
-	for j := range proposalManifest.Blocks {
+	for j := range proposalPayload.BlockPayloads {
 		log.Debug(
 			"Parent block",
 			"blockID", parent.Number,
@@ -118,7 +118,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				i.rpc,
 				i.anchorConstructor,
 				metadata,
-				proposalManifest,
+				proposalPayload,
 				parent,
 			)
 			if err != nil {
@@ -140,7 +140,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				)
 
 				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, proposalManifest); err != nil {
+				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, proposalPayload); err != nil {
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetProposal().Id, err)
 				}
 
@@ -154,10 +154,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 			i.rpc,
 			i.anchorConstructor,
 			metadata,
-			proposalManifest,
+			proposalPayload,
 			parent,
 			j,
-			proposalManifest.IsLowBondProposal,
+			proposalPayload.IsLowBondProposal,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)

@@ -23,9 +23,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -274,19 +274,19 @@ func isKnownCanonicalBatchShasta(
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest *manifest.ProposalManifest,
+	proposalPayload *shastaManifest.ShastaProposalPayload,
 	parent *types.Header,
 ) (*types.Header, error) {
 	if !metadata.IsShasta() {
 		return nil, fmt.Errorf("metadata is not for Shasta fork blocks")
 	}
 	var (
-		headers = make([]*types.Header, len(proposalManifest.Blocks))
+		headers = make([]*types.Header, len(proposalPayload.BlockPayloads))
 		g       = new(errgroup.Group)
 	)
 
 	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
-	for i := 0; i < len(proposalManifest.Blocks); i++ {
+	for i := 0; i < len(proposalPayload.BlockPayloads); i++ {
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
@@ -298,10 +298,10 @@ func isKnownCanonicalBatchShasta(
 				rpc,
 				anchorConstructor,
 				metadata,
-				proposalManifest,
+				proposalPayload,
 				parentHeader,
 				i,
-				proposalManifest.IsLowBondProposal,
+				proposalPayload.IsLowBondProposal,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to assemble Shasta execution payload creation metadata: %w", err)
@@ -572,7 +572,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest *manifest.ProposalManifest,
+	proposalPayload *shastaManifest.ShastaProposalPayload,
 	parent *types.Header,
 	blockIndex int,
 	isLowBondProposal bool,
@@ -580,14 +580,14 @@ func assembleCreateExecutionPayloadMetaShasta(
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
 	}
-	if blockIndex >= len(proposalManifest.Blocks) {
+	if blockIndex >= len(proposalPayload.BlockPayloads) {
 		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
 	}
 
 	var (
 		meta          = metadata.Shasta()
 		blockID       = new(big.Int).Add(parent.Number, common.Big1)
-		blockInfo     = proposalManifest.Blocks[blockIndex]
+		blockInfo     = proposalPayload.BlockPayloads[blockIndex]
 		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
 	)
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
@@ -607,9 +607,9 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
 	var parentAnchorBlockNumber = latestState.AnchorBlockNumber.Uint64()
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && proposalManifest.ParentBlock.NumberU64() != 0 {
+	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && proposalPayload.ParentBlock.NumberU64() != 0 {
 		if _, parentAnchorBlockNumber, _, err = rpc.GetSyncedL1SnippetFromAnchor(
-			proposalManifest.ParentBlock.Transactions()[0],
+			proposalPayload.ParentBlock.Transactions()[0],
 		); err != nil {
 			return nil, nil, err
 		}
@@ -642,7 +642,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		parent,
 		meta.GetProposal().Id,
 		meta.GetProposal().Proposer,
-		proposalManifest.ProverAuthBytes,
+		proposalPayload.ProverAuthBytes,
 		blockInfo.BondInstructionsHash,
 		blockInfo.BondInstructions,
 		uint16(blockIndex),
@@ -665,7 +665,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	// Set batchID only for the last block in the proposal
 	var batchID *big.Int
-	if len(proposalManifest.Blocks)-1 == blockIndex {
+	if len(proposalPayload.BlockPayloads)-1 == blockIndex {
 		batchID = meta.GetProposal().Id
 	}
 
@@ -789,21 +789,21 @@ func updateL1OriginForBatchShasta(
 	rpc *rpc.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest *manifest.ProposalManifest,
+	proposalPayload *shastaManifest.ShastaProposalPayload,
 ) error {
 	if !metadata.IsShasta() {
 		return fmt.Errorf("metadata is not for Shasta fork blocks")
 	}
 
 	meta := metadata.Shasta()
-	lastBlockID := parentHeader.Number.Uint64() + uint64(len(proposalManifest.Blocks))
+	lastBlockID := parentHeader.Number.Uint64() + uint64(len(proposalPayload.BlockPayloads))
 
 	return updateL1OriginForBlocks(
 		ctx,
 		rpc,
-		len(proposalManifest.Blocks),
+		len(proposalPayload.BlockPayloads),
 		func(i int) *big.Int {
-			return new(big.Int).SetUint64(lastBlockID - uint64(len(proposalManifest.Blocks)-1-i))
+			return new(big.Int).SetUint64(lastBlockID - uint64(len(proposalPayload.BlockPayloads)-1-i))
 		},
 		func() *big.Int { return meta.GetProposal().Id },
 		meta.GetRawBlockHeight(),

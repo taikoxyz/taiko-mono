@@ -4,13 +4,12 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -24,7 +23,7 @@ type Inserter interface {
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		proposalManifest *manifest.ProposalManifest,
+		proposalPayload *shastaManifest.ShastaProposalPayload,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }
