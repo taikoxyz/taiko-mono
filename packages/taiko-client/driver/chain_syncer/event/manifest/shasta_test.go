@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
@@ -33,12 +34,29 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 			Transactions:      types.Transactions{},
 		}},
 	}
-	b, err := builder.EncodeDerivationSourceManifestShasta(m)
+	b, err := builder.EncodeProposalManifestShasta(&manifest.ProposalManifest{
+		ProverAuthBytes: []byte{},
+		Sources:         []*manifest.DerivationSourceManifest{m},
+	})
 	s.Nil(err)
 	s.NotEmpty(b)
 
-	decoded, err := new(ShastaDerivationSourceFetcher).manifestFromBlobBytes(b, 0)
+	meta := &metadata.TaikoProposalMetadataShasta{
+		IInboxDerivation: shastaBindings.IInboxDerivation{
+			OriginBlockNumber: big.NewInt(0),
+			Sources: []shastaBindings.IInboxDerivationSource{
+				{
+					BlobSlice: shastaBindings.LibBlobsBlobSlice{
+						Offset:    big.NewInt(0),
+						Timestamp: big.NewInt(0),
+					},
+				},
+			},
+		},
+	}
+	decoded, err := new(ShastaDerivationSourceFetcher).manifestFromBlobBytes(b, meta, 0)
 	s.Nil(err)
+	s.False(decoded.Default)
 	s.Equal(len(m.Blocks), len(decoded.BlockPayloads))
 	s.Equal(m.Blocks[0].Timestamp, decoded.BlockPayloads[0].Timestamp)
 	s.Equal(m.Blocks[0].Coinbase, decoded.BlockPayloads[0].Coinbase)

@@ -80,17 +80,24 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
 
-	return f.manifestFromBlobBytes(blobBytes, int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64()))
+	return f.manifestFromBlobBytes(
+		blobBytes,
+		meta,
+		derivationIdx,
+	)
 }
 
 // manifestFromBlobBytes constructs the derivation payload from the given blob bytes.
 func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	b []byte,
-	offset int,
+	meta metadata.TaikoProposalMetaDataShasta,
+	derivationIdx int,
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
-		defaultPayload   = &ShastaDerivationSourcePayload{Default: true}
-		protocolProposal = new(manifest.DerivationSourceManifest)
+		proverAuth               []byte
+		offset                   = int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64())
+		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
+		derivationSourceManifest = new(manifest.DerivationSourceManifest)
 	)
 	version, size, err := ExtractVersionAndSize(b, offset)
 	if err != nil {
@@ -119,16 +126,34 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	}
 
 	// Try to RLP decode the manifest bytes.
-	if err = rlp.DecodeBytes(encoded, protocolProposal); err != nil {
-		log.Warn("Failed to decode manifest bytes, use default payload instead", "error", err)
-		return defaultPayload, err
+	if derivationIdx == len(meta.GetDerivation().Sources)-1 {
+		var proposalManifest = new(manifest.ProposalManifest)
+		if err = rlp.DecodeBytes(encoded, proposalManifest); err != nil {
+			log.Warn("Failed to decode proposal manifest bytes, use default payload instead", "error", err)
+			return defaultPayload, err
+		}
+		if len(proposalManifest.Sources) > 0 {
+			derivationSourceManifest = proposalManifest.Sources[0]
+			proverAuth = proposalManifest.ProverAuthBytes
+		} else {
+			log.Warn(
+				"Empty derivation source in proposal manifest, use default payload instead",
+				"proposalID", meta.GetProposal().Id,
+			)
+			return defaultPayload, err
+		}
+	} else {
+		if err = rlp.DecodeBytes(encoded, derivationSourceManifest); err != nil {
+			log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
+			return defaultPayload, err
+		}
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
-	if len(protocolProposal.Blocks) > manifest.ProposalMaxBlocks {
+	if len(derivationSourceManifest.Blocks) > manifest.ProposalMaxBlocks {
 		log.Warn(
 			"Too many blocks in the manifest, use default payload instead",
-			"blocks", len(protocolProposal.Blocks),
+			"blocks", len(derivationSourceManifest.Blocks),
 			"max", manifest.ProposalMaxBlocks,
 		)
 		return defaultPayload, nil
@@ -136,9 +161,10 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	// Convert ProtocolProposalManifest to ShastaDerivationSourcePayload.
 	payload := &ShastaDerivationSourcePayload{
-		BlockPayloads: make([]*ShastaBlockPayload, len(protocolProposal.Blocks)),
+		ProverAuthBytes: proverAuth,
+		BlockPayloads:   make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
 	}
-	for i, block := range protocolProposal.Blocks {
+	for i, block := range derivationSourceManifest.Blocks {
 		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
 	}
 

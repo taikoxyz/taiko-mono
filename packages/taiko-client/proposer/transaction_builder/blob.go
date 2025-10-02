@@ -267,7 +267,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	// Encode the proposal manifest.
-	proposalManifestBytes, err := EncodeDerivationSourceManifestShasta(derivationSourceManifest)
+	proposalManifestBytes, err := EncodeProposalManifestShasta(&manifest.ProposalManifest{
+		ProverAuthBytes: proverAuth,
+		Sources:         []*manifest.DerivationSourceManifest{derivationSourceManifest},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode proposal manifest: %w", err)
 	}
@@ -327,26 +330,26 @@ func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	return blobs, nil
 }
 
-// EncodeDerivationSourceManifestShasta encodes the given derivation source manifest to a byte slice
+// EncodeProposalManifestShasta encodes the given proposal manifest to a byte slice
 // that can be used as input to the Shasta Inbox.propose function.
-func EncodeDerivationSourceManifestShasta(derivationSourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	derivationSourceManifestBytes, err := utils.EncodeAndCompressDerivationSourceShasta(*derivationSourceManifest)
+func EncodeProposalManifestShasta(proposalManifest *manifest.ProposalManifest) ([]byte, error) {
+	proposalManifestBytes, err := utils.EncodeAndCompressProposalManifestShasta(*proposalManifest)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prepend the version and length bytes to the derivation manifest bytes, then split
+	// Prepend the version and length bytes to the manifest bytes, then split
 	// the resulting bytes into multiple blobs.
 	versionBytes := make([]byte, 32)
 	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
 
 	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(derivationSourceManifestBytes)))
+	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
 	lenBig.FillBytes(lenBytes)
 
 	blobBytesPrefix := make([]byte, 0, 64)
 	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
-	return append(blobBytesPrefix, derivationSourceManifestBytes...), nil
+	return append(blobBytesPrefix, proposalManifestBytes...), nil
 }

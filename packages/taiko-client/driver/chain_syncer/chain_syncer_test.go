@@ -24,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -233,9 +234,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
-	// TODO: remove this `Skip()` when https://github.com/taikoxyz/taiko-mono/pull/20322 figures
-	// out where to put `proverAuth`.
-	s.T().Skip()
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
@@ -342,7 +340,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeDerivationSourceManifestShasta(manifest)
+	derivationSourceManifestBytes, err := EncodeDerivationSourceShasta(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -411,4 +409,26 @@ func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 
 	blockIdx, ok := args["_blockIndex"].(uint16)
 	s.True(ok)
 	return blockIdx
+}
+
+func EncodeDerivationSourceShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	proposalManifestBytes, err := utils.EncodeAndCompressDerivationSourceShasta(*sourceManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepend the version and length bytes to the manifest bytes, then split
+	// the resulting bytes into multiple blobs.
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
+
+	lenBytes := make([]byte, 32)
+	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig.FillBytes(lenBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
+
+	return append(blobBytesPrefix, proposalManifestBytes...), nil
 }
