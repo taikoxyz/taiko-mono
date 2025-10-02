@@ -22,10 +22,10 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot')}}
     runs-on: [arc-runner-set]
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 1.23.0
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
@@ -49,8 +49,8 @@ jobs:
       - name: Install Git
         run: sudo apt-get update && sudo apt-get install -y git
 
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.23.0"
 
@@ -77,7 +77,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y git
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.ref }}
 
