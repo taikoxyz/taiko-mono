@@ -327,7 +327,7 @@ func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	return blobs, nil
 }
 
-// EncodeDerivationSourceManifestShasta encodes the given derivation srouce manifest to a byte slice
+// EncodeDerivationSourceManifestShasta encodes the given derivation source manifest to a byte slice
 // that can be used as input to the Shasta Inbox.propose function.
 func EncodeDerivationSourceManifestShasta(derivationSourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
 	derivationSourceManifestBytes, err := utils.EncodeAndCompressDerivationSourceShasta(*derivationSourceManifest)
