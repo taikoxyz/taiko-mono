@@ -36,7 +36,7 @@ library LibProposeInputDecoder {
 
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _input.coreState.nextProposalBlockId);
+        ptr = P.packUint48(ptr, _input.coreState.lastProposalBlockId);
         ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
@@ -91,7 +91,7 @@ library LibProposeInputDecoder {
 
         // 2. Decode CoreState
         (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
@@ -193,7 +193,7 @@ library LibProposeInputDecoder {
         newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
         newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
+        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payee);
     }
 
     /// @notice Decode a single Proposal
@@ -247,7 +247,7 @@ library LibProposeInputDecoder {
         bondInstruction_.bondType = LibBonds.BondType(bondType);
 
         (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
-        (bondInstruction_.receiver, newPtr_) = P.unpackAddress(newPtr_);
+        (bondInstruction_.payee, newPtr_) = P.unpackAddress(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding

@@ -66,7 +66,7 @@ These services are open-source, meaning anyone can replicate or improve them.
 
 - [Event Indexer](/api-reference/event-indexer) → Tracks rollup transactions & events.
 - [Bridge Relayer](/api-reference/bridge-relayer) → Facilitates trust-minimized bridging.
-- [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.16.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
+- [Taiko Alethia, Taiko Hekla & Taiko Hoodi P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.20.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
 - [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/contract-addresses)
 
 ---
@@ -76,7 +76,7 @@ These services are open-source, meaning anyone can replicate or improve them.
 | Feature                        | Traditional Rollups                  | Taiko Alethia                          |
 | ------------------------------ | ------------------------------------ | -------------------------------------- |
 | **Sequencing**                 | Centralized (single sequencer)       | Decentralized (L1 validators sequence) |
-| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE +ZK)    |
+| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE + ZK)   |
 | **Censorship Resistance**      | Operator can censor transactions     | Permissionless transaction inclusion   |
 | **Smart Contract Equivalence** | Modified Ethereum (Geth changes)     | 100% Ethereum-equivalent               |
 | **Decentralization**           | Relies on multisig governance        | DAO-controlled with open participation |

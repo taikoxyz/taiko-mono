@@ -14,7 +14,7 @@
 
 # Frontend applications
 /packages/docs-site/**          @ggonzalez94 @RogerLamTd
-/packages/bridge-ui/**          @KorbinianK @myronrotter
+/packages/bridge-ui/**          @KorbinianK @myronrotter @bearni95
 
 # Infrastructure and tools
 /packages/balance-monitor/**    @cyberhorsey @YoGhurt111 @davidtaikocha

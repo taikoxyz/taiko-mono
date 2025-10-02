@@ -13,7 +13,7 @@ contract LibProposeInputDecoderTest is Test {
         // Setup simple test case with new structure
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
-            nextProposalBlockId: 1000,
+            lastProposalBlockId: 999,
             lastFinalizedProposalId: 9,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -62,9 +62,9 @@ contract LibProposeInputDecoderTest is Test {
             "NextProposalId mismatch"
         );
         assertEq(
-            decoded.coreState.nextProposalBlockId,
-            input.coreState.nextProposalBlockId,
-            "NextProposalBlockId mismatch"
+            decoded.coreState.lastProposalBlockId,
+            input.coreState.lastProposalBlockId,
+            "LastProposalBlockId mismatch"
         );
         assertEq(
             decoded.coreState.lastFinalizedProposalId,
@@ -144,7 +144,7 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
-            nextProposalBlockId: 1000,
+            lastProposalBlockId: 999,
             lastFinalizedProposalId: 7,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
@@ -199,13 +199,13 @@ contract LibProposeInputDecoderTest is Test {
             proposalId: 1,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1111),
-            receiver: address(0x2222)
+            payee: address(0x2222)
         });
         bondInstructions[1] = LibBonds.BondInstruction({
             proposalId: 2,
             bondType: LibBonds.BondType.LIVENESS,
             payer: address(0x3333),
-            receiver: address(0x4444)
+            payee: address(0x4444)
         });
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -220,7 +220,7 @@ contract LibProposeInputDecoderTest is Test {
             deadline: 11_111,
             coreState: IInbox.CoreState({
                 nextProposalId: 5,
-                nextProposalBlockId: 500,
+                lastProposalBlockId: 499,
                 lastFinalizedProposalId: 4,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(uint256(1010))
@@ -276,7 +276,7 @@ contract LibProposeInputDecoderTest is Test {
             deadline: 12_345,
             coreState: IInbox.CoreState({
                 nextProposalId: 1,
-                nextProposalBlockId: 100,
+                lastProposalBlockId: 99,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)

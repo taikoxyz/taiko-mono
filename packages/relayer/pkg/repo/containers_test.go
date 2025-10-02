@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
@@ -29,7 +30,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
+		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL").WithStartupTimeout(2 * time.Minute),
 	}
 
 	ctx := context.Background()
@@ -50,18 +51,63 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 		}
 	}
 
-	host, _ := mysqlC.Host(ctx)
-	p, _ := mysqlC.MappedPort(ctx, "3306/tcp")
-	port := p.Int()
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-		dbUsername, dbPassword, host, port, dbName)
-
-	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
+	host, err := mysqlC.Host(ctx)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to resolve mysql host: %v", err)
+	}
+
+	port, err := mysqlC.MappedPort(ctx, "3306/tcp")
+	if err != nil {
+		t.Fatalf("failed to map mysql port: %v", err)
+	}
+
+	// nolint: lll
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true&timeout=30s&readTimeout=30s&writeTimeout=30s",
+		dbUsername, dbPassword, host, port.Int(), dbName)
+
+	deadline := time.Now().Add(2 * time.Minute)
+
+	var gormDB *gorm.DB
+
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		gormDB, lastErr = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		if lastErr != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		sqlDB, dbErr := gormDB.DB()
+		if dbErr != nil {
+			lastErr = fmt.Errorf("failed to obtain sql.DB: %w", dbErr)
+
+			gormDB = nil
+
+			time.Sleep(2 * time.Second)
+
+			continue
+		}
+
+		pingErr := sqlDB.Ping()
+		if pingErr == nil {
+			lastErr = nil
+			break
+		}
+
+		lastErr = fmt.Errorf("mysql ping failed: %w", pingErr)
+
+		_ = sqlDB.Close()
+
+		gormDB = nil
+
+		time.Sleep(2 * time.Second)
+	}
+
+	if lastErr != nil {
+		t.Fatalf("failed to connect to mysql container: %v", lastErr)
 	}
 
 	if err := goose.SetDialect("mysql"); err != nil {
