@@ -10,8 +10,19 @@ library LibBeaconMerkleUtils {
     uint256 internal constant TMP_LENGTH = 4;
 
     function hash(bytes32 a, bytes32 b) internal pure returns (bytes32) {
-        // TODO: reuse word with assembly
-        return sha256(abi.encodePacked(a, b));
+        // Uses the SHA-256 precompile to hash two 32-byte words without allocating
+        // intermediate dynamic bytes.
+        bytes32 result;
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, a)
+            mstore(add(ptr, 0x20), b)
+            // staticcall to SHA-256 precompile (address 0x02): input 64 bytes, output 32 bytes
+            // We write the output back to `ptr` and then load it into `result`.
+            if iszero(staticcall(gas(), 0x02, ptr, 0x40, ptr, 0x20)) { revert(0, 0) }
+            result := mload(ptr)
+        }
+        return result;
     }
 
     // TODO: use calldata for chunks
