@@ -537,11 +537,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
+        unchecked {
         recordHash_ = _hashTransitionRecord(_transitionRecord);
         hashAndDeadline_ = TransitionRecordHashAndDeadline({
             finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: recordHash_
-        });
+                recordHash: recordHash_
+            });
+        }
     }
 
     // ---------------------------------------------------------------
@@ -725,7 +727,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         uint48 _endOfSubmissionWindowTimestamp
     )
         internal
-    {
+    {unchecked {
         // use previous block as the origin for the proposal to be able to call `blockhash`
         uint256 parentBlockNumber = block.number - 1;
 
@@ -748,6 +750,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
         _setProposalHash(proposal.id, _hashProposal(proposal));
         _emitProposedEvent(proposal, derivation, _coreState);
+        }
     }
 
     /// @dev Creates derivation sources array from forced inclusions and regular proposal
@@ -761,37 +764,39 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
         returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
     {
-        uint256 remainingForcedInclusions = type(uint256).max;
+        unchecked {
+            uint256 remainingForcedInclusions = type(uint256).max;
 
-        if (_input.numForcedInclusions > 0) {
-            // Get derivation sources with forced inclusions marked and an extra slot for normal
-            // source
-            (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
-            LibForcedInclusion.consumeForcedInclusions(
-                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+            if (_input.numForcedInclusions > 0) {
+                // Get derivation sources with forced inclusions marked and an extra slot for normal
+                // source
+                (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
+                LibForcedInclusion.consumeForcedInclusions(
+                    _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
+                );
+            } else {
+                // When no forced inclusions, allocate array of size 1 for normal source
+                sources = new DerivationSource[](1);
+                oldestForcedInclusionTimestamp = uint48(block.timestamp);
+            }
+
+            // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
+            // processed
+            // OR the queue is empty
+            // OR none remaining are due
+            require(
+                (_input.numForcedInclusions >= _minForcedInclusionCount)
+                    || remainingForcedInclusions == 0
+                    || !LibForcedInclusion.isOldestForcedInclusionDue(
+                        _forcedInclusionStorage, _forcedInclusionDelay
+                    ),
+                UnprocessedForcedInclusionIsDue()
             );
-        } else {
-            // When no forced inclusions, allocate array of size 1 for normal source
-            sources = new DerivationSource[](1);
-            oldestForcedInclusionTimestamp = uint48(block.timestamp);
+
+            // Add normal proposal source in the last slot
+            sources[sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
         }
-
-        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-        // processed
-        // OR the queue is empty
-        // OR none remaining are due
-        require(
-            (_input.numForcedInclusions >= _minForcedInclusionCount)
-                || remainingForcedInclusions == 0
-                || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, _forcedInclusionDelay
-                ),
-            UnprocessedForcedInclusionIsDue()
-        );
-
-        // Add normal proposal source in the last slot
-        sources[sources.length - 1] =
-            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
@@ -842,34 +847,39 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
     function _verifyChainHead(Proposal[] memory _parentProposals) private view {
-        // First verify parentProposals[0] matches what's stored on-chain
-        _checkProposalHash(_parentProposals[0]);
+        unchecked {
+            // First verify parentProposals[0] matches what's stored on-chain
+            _checkProposalHash(_parentProposals[0]);
 
-        // Then verify it's actually the chain head
-        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
-        bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
+            // Then verify it's actually the chain head
+            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
+            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
-        if (storedNextProposalHash == bytes32(0)) {
-            // Next slot in the ring buffer is empty, only one proposal expected
-            require(_parentProposals.length == 1, IncorrectProposalCount());
-        } else {
-            // Next slot in the ring buffer is occupied, need to prove it contains a
-            // proposal with a smaller id
-            require(_parentProposals.length == 2, IncorrectProposalCount());
-            require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
-            require(
-                storedNextProposalHash == _hashProposal(_parentProposals[1]),
-                NextProposalHashMismatch()
-            );
+            if (storedNextProposalHash == bytes32(0)) {
+                // Next slot in the ring buffer is empty, only one proposal expected
+                require(_parentProposals.length == 1, IncorrectProposalCount());
+            } else {
+                // Next slot in the ring buffer is occupied, need to prove it contains a
+                // proposal with a smaller id
+                require(_parentProposals.length == 2, IncorrectProposalCount());
+                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
+                require(
+                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                    NextProposalHashMismatch()
+                );
+            }
         }
     }
 
-    /// @dev Finalizes proven proposals and updates checkpoint
-    /// @dev Performs up to `maxFinalizationCount` finalization iterations.
-    /// The caller is forced to finalize transition records that have passed their finalization
-    /// grace period, but can decide to finalize ones that haven't.
-    /// @param _input Input containing transition records and end block header
-    /// @return _ Core state with updated finalization counters
+    /// @dev Finalizes proven proposals and updates the checkpoint.
+    /// Executes up to `maxFinalizationCount` iterations to finalize proposals.
+    /// Rate limiting is applied to prevent excessive checkpoint storage operations,
+    /// ensuring smooth finalization even in high-throughput systems where checkpoint
+    /// storage could become a bottleneck.
+    /// The caller must finalize transition records that have exceeded their finalization
+    /// grace period, but has the option to finalize those that have not.
+    /// @param _input Contains transition records and the end block header.
+    /// @return _ Updated core state with new finalization counters.
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
         unchecked {
             CoreState memory coreState = _input.coreState;
