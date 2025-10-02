@@ -41,7 +41,7 @@ jobs:
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # account for forked repos case
           ref: ${{ steps.comment-branch.outputs.head_ref }}
@@ -132,7 +132,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
