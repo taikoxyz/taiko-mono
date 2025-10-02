@@ -89,7 +89,7 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return compressed, nil
 }
 
-// EncodeAndCompressDerivationSourceShasta encodes and compresses the given Shasta derivation srouce using RLP encoding
+// EncodeAndCompressDerivationSourceShasta encodes and compresses the given Shasta derivation source using RLP encoding
 // followed by zlib compression.
 func EncodeAndCompressDerivationSourceShasta(proposal manifest.DerivationSourceManifest) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(proposal)
