@@ -86,7 +86,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     uint16 internal immutable _maxCheckpointHistory;
 
     /// @notice The minimum delay between checkpoints in seconds.
-    uint48 internal immutable _minCheckpointDelay;
+    uint16 internal immutable _minCheckpointDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
