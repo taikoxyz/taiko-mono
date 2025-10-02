@@ -275,6 +275,7 @@ func isKnownCanonicalBatchShasta(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	startBlockIdx uint16,
 	parent *types.Header,
 ) (*types.Header, error) {
 	if !metadata.IsShasta() {
@@ -301,7 +302,7 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				0, // TODO: check this.
+				startBlockIdx,
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {

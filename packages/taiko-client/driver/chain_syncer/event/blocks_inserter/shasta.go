@@ -121,6 +121,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				i.anchorConstructor,
 				metadata,
 				sourcePayload,
+				startBlockIdx,
 				parent,
 			)
 			if err != nil {
