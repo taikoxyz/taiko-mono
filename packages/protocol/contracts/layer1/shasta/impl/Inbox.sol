@@ -538,9 +538,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         unchecked {
-        recordHash_ = _hashTransitionRecord(_transitionRecord);
-        hashAndDeadline_ = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+            recordHash_ = _hashTransitionRecord(_transitionRecord);
+            hashAndDeadline_ = TransitionRecordHashAndDeadline({
+                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
                 recordHash: recordHash_
             });
         }
@@ -727,29 +727,30 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         uint48 _endOfSubmissionWindowTimestamp
     )
         internal
-    {unchecked {
-        // use previous block as the origin for the proposal to be able to call `blockhash`
-        uint256 parentBlockNumber = block.number - 1;
+    {
+        unchecked {
+            // use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
 
-        Derivation memory derivation = Derivation({
-            originBlockNumber: uint48(parentBlockNumber),
-            originBlockHash: blockhash(parentBlockNumber),
-            basefeeSharingPctg: _basefeeSharingPctg,
-            sources: _derivationSources
-        });
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: _derivationSources
+            });
 
-        // Increment nextProposalId (lastProposalBlockId was already set in propose())
-        Proposal memory proposal = Proposal({
-            id: _coreState.nextProposalId++,
-            timestamp: uint48(block.timestamp),
-            endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
-            proposer: msg.sender,
-            coreStateHash: _hashCoreState(_coreState),
-            derivationHash: _hashDerivation(derivation)
-        });
+            // Increment nextProposalId (lastProposalBlockId was already set in propose())
+            Proposal memory proposal = Proposal({
+                id: _coreState.nextProposalId++,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                coreStateHash: _hashCoreState(_coreState),
+                derivationHash: _hashDerivation(derivation)
+            });
 
-        _setProposalHash(proposal.id, _hashProposal(proposal));
-        _emitProposedEvent(proposal, derivation, _coreState);
+            _setProposalHash(proposal.id, _hashProposal(proposal));
+            _emitProposedEvent(proposal, derivation, _coreState);
         }
     }
 
