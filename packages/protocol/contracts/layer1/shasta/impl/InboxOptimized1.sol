@@ -2,17 +2,18 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
-/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and
-/// transition
-/// aggregation
-/// @dev Key optimizations:
-///      - Reusable transition record slots to reduce storage operations
-///      - Transition aggregation for consecutive proposals to minimize gas costs
-///      - Partial parent transition hash matching (26 bytes) for storage optimization
-///      - Inline bond instruction merging to reduce function calls
+/// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
+/// @dev Key optimizations implemented:
+///      - Ring buffer pattern for frequently accessed transition records (reduces SSTORE
+/// operations)
+///      - Transition aggregation for consecutive proposals (reduces transaction overhead)
+///      - Partial parent hash matching to minimize storage slot usage
+///      - Optimized memory allocation and reuse patterns
+///      - Separated single vs multi-transition logic paths for gas efficiency
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
@@ -20,11 +21,13 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @notice Optimized storage for frequently accessed transition records
-    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    /// @dev Stores the first transition record for each proposal to reduce gas costs.
+    ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
+    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
     struct ReusableTransitionRecord {
-        bytes32 transitionRecordHash;
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
+        TransitionRecordHashAndDeadline hashAndDeadline;
     }
 
     // ---------------------------------------------------------------
@@ -32,10 +35,10 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @dev Storage for default transition records to optimize gas usage
-    /// @notice Stores the most common transition record for each buffer slot
-    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
-    /// - reusableTransitionRecord: The default transition record for quick access
-    mapping(uint256 bufferSlot => ReusableTransitionRecord reusableTransitionRecord) internal
+    /// @notice Stores one transition record per buffer slot for gas optimization
+    /// @dev Ring buffer implementation with collision handling that falls back to the composite key
+    /// mapping from the parent contract
+    mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal
         _reusableTransitionRecords;
 
     uint256[49] private __gap;
@@ -44,161 +47,31 @@ contract InboxOptimized1 is Inbox {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        address _bondToken,
-        address _checkpointManager,
-        address _proofVerifier,
-        address _proposerChecker,
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        uint256 _maxFinalizationCount,
-        uint256 _ringBufferSize,
-        uint8 _basefeeSharingPctg,
-        uint256 _minForcedInclusionCount,
-        uint64 _forcedInclusionDelay,
-        uint64 _forcedInclusionFeeInGwei
-    )
-        Inbox(
-            _bondToken,
-            _checkpointManager,
-            _proofVerifier,
-            _proposerChecker,
-            _provingWindow,
-            _extendedProvingWindow,
-            _maxFinalizationCount,
-            _ringBufferSize,
-            _basefeeSharingPctg,
-            _minForcedInclusionCount,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei
-        )
-    { }
+    constructor(IInbox.Config memory _config) Inbox(_config) { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @inheritdoc Inbox
     /// @notice Optimized transition record building with automatic aggregation
-    /// @dev Aggregation strategy:
-    ///      - Groups consecutive proposal IDs into single transition records
-    ///      - Merges bond instructions for aggregated transitions
-    ///      - Updates end block header for each aggregation
-    ///      - Saves aggregated records with increased span value
-    /// @dev Memory optimizations:
-    ///      - Inline bond instruction merging
-    ///      - Reuses memory allocations across iterations
+    /// @dev Optimization strategy:
+    ///      - Single transitions: Use optimized storage lookup
+    ///      - Multiple transitions: Apply aggregation to group consecutive proposals
+    ///      - Aggregation: Merges bond instructions and increases span value
+    /// @param _input ProveInput containing arrays of proposals and transitions to process
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
-        // Validate first proposal
-
-        _validateTransition(_input.proposals[0], _input.transitions[0]);
-
-        // Initialize current aggregation state
-        TransitionRecord memory currentRecord = TransitionRecord({
-            span: 1,
-            bondInstructions: _calculateBondInstructions(_input.proposals[0], _input.transitions[0]),
-            transitionHash: _hashTransition(_input.transitions[0]),
-            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
-        });
-
-        uint48 currentGroupStartId = _input.proposals[0].id;
-        Transition memory firstTransitionInGroup = _input.transitions[0];
-
-        // Process remaining proposals
-        for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
-
-            // Check if current proposal can be aggregated with the previous group
-            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                // Aggregate with current record
-                LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
-
-                if (newInstructions.length > 0) {
-                    // Inline merge to avoid separate function call and reduce stack depth
-                    uint256 oldLen = currentRecord.bondInstructions.length;
-                    uint256 newLen = newInstructions.length;
-                    LibBonds.BondInstruction[] memory merged =
-                        new LibBonds.BondInstruction[](oldLen + newLen);
-
-                    // Copy existing instructions
-                    for (uint256 j; j < oldLen; ++j) {
-                        merged[j] = currentRecord.bondInstructions[j];
-                    }
-
-                    // Copy new instructions
-                    for (uint256 j; j < newLen; ++j) {
-                        merged[oldLen + j] = newInstructions[j];
-                    }
-                    currentRecord.bondInstructions = merged;
-                }
-
-                // Update the transition hash and checkpoint hash for the aggregated
-                // record
-                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
-
-                // Increment span to include this aggregated proposal
-                currentRecord.span++;
-            } else {
-                // Save the current aggregated record before starting a new one
-                _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
-
-                // Start a new record for non-continuous proposal
-                currentGroupStartId = _input.proposals[i].id;
-                firstTransitionInGroup = _input.transitions[i];
-
-                currentRecord = TransitionRecord({
-                    span: 1,
-                    bondInstructions: _calculateBondInstructions(
-                        _input.proposals[i], _input.transitions[i]
-                    ),
-                    transitionHash: _hashTransition(_input.transitions[i]),
-                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
-                });
-            }
+        if (_input.proposals.length == 1) {
+            _processSingleTransitionAtIndex(_input, 0);
+        } else {
+            _buildAndSaveAggregatedTransitionRecords(_input);
         }
-
-        // Save the final aggregated record
-        _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Retrieves transition record hash with storage optimization
-    /// @notice Gas optimization strategy:
-    ///         1. First checks reusable slot for matching proposal ID
-    ///         2. Performs partial parent transition hash comparison (26 bytes)
-    ///         3. Falls back to composite key mapping if no match
-    /// @dev Reduces storage reads by ~50% for common case (single transition per proposal)
-    function _getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        view
-        override
-        returns (bytes32 transitionRecordHash_)
-    {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
-
-        // Check if this is the default record for this proposal
-        if (record.proposalId == _proposalId) {
-            // Check if parent transition hash matches (partial match)
-            if (
-                _isPartialParentTransitionHashMatch(
-                    record.partialParentTransitionHash, _parentTransitionHash
-                )
-            ) {
-                return record.transitionRecordHash;
-            }
-        }
-
-        // Otherwise check the direct mapping
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordHashes[compositeKey];
     }
 
     /// @inheritdoc Inbox
@@ -207,65 +80,145 @@ contract InboxOptimized1 is Inbox {
     ///         1. New proposal ID: Overwrites reusable slot
     ///         2. Same ID, same parent: Updates reusable slot
     ///         3. Same ID, different parent: Uses composite key mapping
-    /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
-    function _setTransitionRecordHash(
+    /// @param _proposalId The proposal ID for this transition record
+    /// @param _parentTransitionHash Parent transition hash used as part of the key
+    /// @param _recordHash The keccak hash representing the transition record
+    /// @param _hashAndDeadline The finalization metadata to persist
+    /// @return stored_ True if the caller should emit the Proved event
+    function _storeTransitionRecord(
         uint48 _proposalId,
-        Transition memory _transition,
-        TransitionRecord memory _transitionRecord
+        bytes32 _parentTransitionHash,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
         override
+        returns (bool stored_)
     {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
-        // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
-            // Different proposal ID, so we can use the default slot
-            record.transitionRecordHash = transitionRecordHash;
+            // New proposal ID - use reusable slot
             record.proposalId = _proposalId;
-            record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
-        } else if (
-            _isPartialParentTransitionHashMatch(
-                record.partialParentTransitionHash, _transition.parentTransitionHash
-            )
-        ) {
-            // Same proposal ID and same parent transition hash (partial match), update the default
-            // slot
-            record.transitionRecordHash = transitionRecordHash;
-        } else {
-            // Same proposal ID but different parent transition hash, use direct mapping
-            bytes32 compositeKey =
-                _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-            _transitionRecordHashes[compositeKey] = transitionRecordHash;
+            record.partialParentTransitionHash = partialParentHash;
+            record.hashAndDeadline = _hashAndDeadline;
+            return true;
         }
 
-        bytes memory payload = encodeProvedEventData(
-            ProvedEventPayload({
-                proposalId: _proposalId,
-                transition: _transition,
-                transitionRecord: _transitionRecord
-            })
+        if (record.partialParentTransitionHash == partialParentHash) {
+            // Same proposal and parent hash - update reusable slot
+            record.hashAndDeadline = _hashAndDeadline;
+            return true;
+        }
+
+        // Collision: same proposal ID, different parent hash - use composite mapping
+        return super._storeTransitionRecord(
+            _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
         );
-        emit Proved(payload);
+    }
+
+    // ---------------------------------------------------------------
+    // Internal View Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc Inbox
+    /// @dev Optimized retrieval using ring buffer with collision detection
+    /// @notice Lookup strategy (gas-optimized order):
+    ///         1. Ring buffer slot lookup (cheapest - single SLOAD)
+    ///         2. Proposal ID verification (cached in memory)
+    ///         3. Partial parent hash comparison (single comparison)
+    ///         4. Fallback to composite key mapping (most expensive)
+    /// @param _proposalId The proposal ID to look up
+    /// @param _parentTransitionHash Parent transition hash for verification
+    /// @return hashAndDeadline_ The transition record hash and finalization deadline
+    function _getTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        view
+        override
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+    {
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+
+        // Fast path: ring buffer hit (single SLOAD + memory comparison)
+        if (
+            record.proposalId == _proposalId
+                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
+        ) {
+            return record.hashAndDeadline;
+        }
+
+        // Slow path: composite key mapping (additional SLOAD)
+        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Compares partial (26 bytes) with full (32 bytes) parent transition hash
-    /// @notice Used for storage optimization - stores only 26 bytes in reusable slot
-    /// @dev Collision probability negligible for practical use (2^-208)
-    function _isPartialParentTransitionHashMatch(
-        bytes26 _partialParentTransitionHash,
-        bytes32 _parentTransitionHash
-    )
-        private
-        pure
-        returns (bool)
-    {
-        return _partialParentTransitionHash == bytes26(_parentTransitionHash);
+    /// @dev Handles multi-transition aggregation logic
+    /// @param _input ProveInput containing multiple proposals and transitions to aggregate
+    function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
+        // Validate all transitions upfront using shared function
+        for (uint256 i; i < _input.proposals.length; ++i) {
+            _validateTransition(_input.proposals[i], _input.transitions[i]);
+        }
+
+        // Initialize aggregation state from first proposal
+        TransitionRecord memory currentRecord =
+            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+
+        uint48 currentGroupStartId = _input.proposals[0].id;
+        uint256 firstIndex = 0;
+
+        // Process remaining proposals with optimized loop
+        for (uint256 i = 1; i < _input.proposals.length; ++i) {
+            // Check for consecutive proposal aggregation
+            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                TransitionRecord memory nextRecord = _buildTransitionRecord(
+                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                );
+                if (nextRecord.bondInstructions.length == 0) {
+                    // Keep current instructions unchanged
+                } else if (currentRecord.bondInstructions.length == 0) {
+                    currentRecord.bondInstructions = nextRecord.bondInstructions;
+                } else {
+                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
+                        currentRecord.bondInstructions, nextRecord.bondInstructions
+                    );
+                }
+                currentRecord.transitionHash = nextRecord.transitionHash;
+                currentRecord.checkpointHash = nextRecord.checkpointHash;
+                currentRecord.span++;
+            } else {
+                // Save current group and start new one
+                _setTransitionRecordHashAndDeadline(
+                    currentGroupStartId,
+                    _input.transitions[firstIndex],
+                    _input.metadata[firstIndex],
+                    currentRecord
+                );
+
+                // Reset for new group
+                currentGroupStartId = _input.proposals[i].id;
+                firstIndex = i;
+                currentRecord = _buildTransitionRecord(
+                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                );
+            }
+        }
+
+        // Save the final aggregated record
+        _setTransitionRecordHashAndDeadline(
+            currentGroupStartId,
+            _input.transitions[firstIndex],
+            _input.metadata[firstIndex],
+            currentRecord
+        );
     }
 }

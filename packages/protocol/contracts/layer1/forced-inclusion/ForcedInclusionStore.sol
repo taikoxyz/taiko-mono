@@ -58,7 +58,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         nonZeroValue(_feeInGwei)
         nonZeroAddr(_inbox)
         nonZeroAddr(_inboxWrapper)
-        EssentialContract()
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;

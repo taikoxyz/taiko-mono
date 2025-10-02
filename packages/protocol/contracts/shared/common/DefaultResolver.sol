@@ -22,8 +22,6 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         uint256 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
-    constructor() EssentialContract() { }
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
     function init(address _owner) external initializer {

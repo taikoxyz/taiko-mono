@@ -54,7 +54,7 @@ contract TestLibEIP1559 is Layer2Test {
         uint256 basefee = LibEIP1559.basefee(target * 2, excess) / unit;
         console2.log("basefee will decrease if target increases:", basefee);
 
-        basefee = LibEIP1559.basefee(excess, target / 2) / unit;
+        basefee = LibEIP1559.basefee(target / 2, excess) / unit;
         console2.log("basefee will increase if target decreases:", basefee);
 
         console2.log("maintain basefee when target increases");

@@ -3,10 +3,9 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProveInputDecoderGas
 /// @notice Gas comparison between optimized LibProveInputDecoder and abi.encode/decode
@@ -180,7 +179,7 @@ contract LibProveInputDecoderGas is Test {
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i * 10 + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
@@ -191,11 +190,17 @@ contract LibProveInputDecoderGas is Test {
             input.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent_transition", i)),
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(2_000_000 + i * 10),
                     blockHash: keccak256(abi.encodePacked("end_block", i)),
                     stateRoot: keccak256(abi.encodePacked("end_state", i))
-                }),
+                })
+            });
+        }
+
+        input.metadata = new IInbox.TransitionMetadata[](_proposalCount);
+        for (uint256 i = 0; i < _proposalCount; i++) {
+            input.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });

@@ -81,12 +81,25 @@ library LibPreconfUtils {
     function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint48) {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = block.timestamp - genesisTimestamp;
+        /// forge-lint: disable-start(divide-before-multiply)
         uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
+        /// forge-lint: disable-end
 
         return (
             genesisTimestamp + timePassedUptoCurrentEpoch
                 + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH
         ).toUint48();
+    }
+
+    /// @notice Calculates the timestamp of the epoch containing the provided slot timestamp .
+    /// @param _slotTimestamp The timestamp of the slot.
+    /// @return The timestamp of the epoch.
+    function getEpochtimestampForSlot(uint256 _slotTimestamp) internal view returns (uint256) {
+        uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        uint256 timePassed = _slotTimestamp - genesisTimestamp;
+        uint256 timePassedUptoEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+            * LibPreconfConstants.SECONDS_IN_EPOCH;
+        return genesisTimestamp + timePassedUptoEpoch;
     }
 }

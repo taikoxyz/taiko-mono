@@ -31,7 +31,7 @@ contract TaikoSP1Verifier is EssentialContract, IVerifier {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) EssentialContract() {
+    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) {
         taikoChainId = _taikoChainId;
         sp1RemoteVerifier = _sp1RemoteVerifier;
     }

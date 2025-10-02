@@ -16,7 +16,7 @@ contract OpVerifier is EssentialContract, IVerifier {
 
     uint256[50] private __gap;
 
-    constructor(address _taikoInbox, address _proofVerifier) EssentialContract() {
+    constructor(address _taikoInbox, address _proofVerifier) {
         taikoInbox = _taikoInbox;
         proofVerifier = _proofVerifier;
     }

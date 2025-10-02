@@ -28,6 +28,7 @@ func (s *DriverStateTestSuite) SetupTest() {
 }
 
 func (s *DriverStateTestSuite) TearDownTest() {
+	defer s.ClientTestSuite.TearDownTest()
 	if s.ctx.Err() == nil {
 		s.cancel()
 	}

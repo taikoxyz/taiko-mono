@@ -60,13 +60,6 @@ contract InboxTest_Params is InboxTestBase {
         _proposeBatchesWithDefaultParameters(1);
         ITaikoInbox.Batch memory parent = inbox.v4GetBatch(1);
 
-        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
-        blocks[0] = ITaikoInbox.BlockParams({
-            numTransactions: 0,
-            timeShift: 0,
-            signalSlots: new bytes32[](0)
-        });
-
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.anchorBlockId = parent.anchorBlockId - 1;

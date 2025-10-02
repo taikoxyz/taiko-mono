@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
@@ -65,7 +66,9 @@ type preconfBlockChainSyncer interface {
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
 	rpc                           *rpc.Client
-	chainSyncer                   preconfBlockChainSyncer
+	pacayaChainSyncer             preconfBlockChainSyncer
+	shastaChainSyncer             preconfBlockChainSyncer
+	shastaIndexer                 *shastaIndexer.Indexer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
@@ -97,8 +100,10 @@ func New(
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
 	taikoAnchorAddress common.Address,
-	chainSyncer preconfBlockChainSyncer,
+	pacayaChainSyncer preconfBlockChainSyncer,
+	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
+	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
@@ -128,9 +133,11 @@ func New(
 	server := &PreconfBlockAPIServer{
 		echo:                          echo.New(),
 		anchorValidator:               anchorValidator,
-		chainSyncer:                   chainSyncer,
+		pacayaChainSyncer:             pacayaChainSyncer,
+		shastaChainSyncer:             shastaChainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
+		shastaIndexer:                 shastaIndexer,
 		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
 		lookahead:                     &Lookahead{},
@@ -275,7 +282,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 	if err != nil {
 		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 	}
@@ -675,7 +682,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 				if err != nil {
 					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 				}
@@ -707,7 +714,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				tip := progress.HighestOriginBlockID.Uint64()
 
 				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
-					log.Debug("Skipping request for very old block",
+					log.Debug(
+						"Skipping request for very old block",
 						"tip", tip,
 						"margin", requestSyncMargin,
 					)
@@ -765,7 +773,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	)
 
 	// If all ancient envelopes are found, try to import them.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
@@ -799,7 +807,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	)
 
 	// Try to import all available child envelopes.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
@@ -875,7 +883,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
-	latestPayload := s.envelopesCache.getLatestPayload()
+	latestPayload := s.envelopesCache.getLatestEnvelope()
 	if latestPayload == nil {
 		log.Info("No envelopes in cache, skip importing from cache")
 		return nil
@@ -1179,7 +1187,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
+	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(
 		ctx,
 		[]*preconf.Envelope{
 			{

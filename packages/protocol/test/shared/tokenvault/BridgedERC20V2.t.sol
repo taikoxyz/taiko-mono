@@ -112,7 +112,7 @@ contract TestBridgedERC20V2 is CommonTest {
 
         // Following the "transfer and burn" pattern
         vm.prank(vault);
-        newToken.transferFrom(Bob, vault, 25);
+        require(newToken.transferFrom(Bob, vault, 25), "Transfer failed");
 
         vm.prank(vault);
         newToken.burn(25);

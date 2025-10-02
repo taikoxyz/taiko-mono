@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibProposedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProposedEventEncoder
@@ -34,14 +34,22 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = _id;
         payload.proposal.proposer = _proposer;
         payload.proposal.timestamp = _timestamp;
+        payload.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         payload.proposal.coreStateHash = _coreStateHash;
         payload.proposal.derivationHash = _derivationHash;
 
         payload.derivation.originBlockNumber = _originBlockNumber;
         payload.derivation.originBlockHash = _originBlockHash;
-        payload.derivation.isForcedInclusion = _isForcedInclusion;
         payload.derivation.basefeeSharingPctg = _basefeeSharingPctg;
-        payload.derivation.blobSlice.blobHashes = new bytes32[](0);
+
+        // Create sources array with single source
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: _isForcedInclusion,
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 })
+        });
+        payload.derivation.sources = sources;
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
         IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
@@ -50,14 +58,22 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposal.id, payload.proposal.id);
         assertEq(decoded.proposal.proposer, payload.proposal.proposer);
         assertEq(decoded.proposal.timestamp, payload.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            payload.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
-        // derivationHash is not preserved by encoder
+        assertEq(decoded.proposal.derivationHash, payload.proposal.derivationHash);
 
         // Verify Derivation fields
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
-        assertEq(decoded.derivation.isForcedInclusion, payload.derivation.isForcedInclusion);
+        assertEq(decoded.derivation.originBlockHash, payload.derivation.originBlockHash);
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
+        assertEq(decoded.derivation.sources.length, 1);
+        assertEq(
+            decoded.derivation.sources[0].isForcedInclusion,
+            payload.derivation.sources[0].isForcedInclusion
+        );
     }
 
     function testFuzz_encodeDecodeCoreState(
@@ -70,7 +86,10 @@ contract LibProposedEventEncoderFuzzTest is Test {
         pure
     {
         IInbox.ProposedEventPayload memory payload;
-        payload.derivation.blobSlice.blobHashes = new bytes32[](0);
+
+        // Create empty sources array
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](0);
+        payload.derivation.sources = sources;
 
         payload.coreState.nextProposalId = _nextProposalId;
         payload.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
@@ -102,29 +121,45 @@ contract LibProposedEventEncoderFuzzTest is Test {
         vm.assume(_blobHashCount <= MAX_BLOB_HASHES);
 
         IInbox.ProposedEventPayload memory payload;
-        payload.derivation.blobSlice.offset = _offset;
-        payload.derivation.blobSlice.timestamp = _timestamp;
 
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
         }
-        payload.derivation.blobSlice.blobHashes = blobHashes;
+
+        // Create sources array with single source containing blob slice
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: _offset,
+                timestamp: _timestamp
+            })
+        });
+        payload.derivation.sources = sources;
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
         IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
-        assertEq(decoded.derivation.blobSlice.offset, payload.derivation.blobSlice.offset);
-        assertEq(decoded.derivation.blobSlice.timestamp, payload.derivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.sources.length, 1);
         assertEq(
-            decoded.derivation.blobSlice.blobHashes.length,
-            payload.derivation.blobSlice.blobHashes.length
+            decoded.derivation.sources[0].blobSlice.offset,
+            payload.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            payload.derivation.sources[0].blobSlice.timestamp
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.blobHashes.length,
+            payload.derivation.sources[0].blobSlice.blobHashes.length
         );
 
         for (uint256 i = 0; i < _blobHashCount; i++) {
             assertEq(
-                decoded.derivation.blobSlice.blobHashes[i],
-                payload.derivation.blobSlice.blobHashes[i]
+                decoded.derivation.sources[0].blobSlice.blobHashes[i],
+                payload.derivation.sources[0].blobSlice.blobHashes[i]
             );
         }
     }
@@ -146,6 +181,8 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = _id;
         payload.proposal.proposer = _proposer;
         payload.proposal.timestamp = _timestamp;
+        payload.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         payload.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         payload.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
@@ -153,7 +190,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.derivation.originBlockNumber =
             uint48(uint256(keccak256(abi.encode(_id))) % MAX_UINT48);
         payload.derivation.originBlockHash = keccak256(abi.encode("origin", _id));
-        payload.derivation.isForcedInclusion = (_id % 2 == 0);
         payload.derivation.basefeeSharingPctg = uint8(uint256(keccak256(abi.encode(_id))) % 101);
 
         // Create BlobSlice with derived values
@@ -161,11 +197,18 @@ contract LibProposedEventEncoderFuzzTest is Test {
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", _id, i));
         }
-        payload.derivation.blobSlice.blobHashes = blobHashes;
-        payload.derivation.blobSlice.offset =
-            uint24(uint256(keccak256(abi.encode(_id))) % MAX_UINT24);
-        payload.derivation.blobSlice.timestamp =
-            uint48(uint256(keccak256(abi.encode(_timestamp))) % MAX_UINT48);
+
+        // Create sources array with single source
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: (_id % 2 == 0),
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: uint24(uint256(keccak256(abi.encode(_id))) % MAX_UINT24),
+                timestamp: uint48(uint256(keccak256(abi.encode(_timestamp))) % MAX_UINT48)
+            })
+        });
+        payload.derivation.sources = sources;
 
         // Create CoreState with derived values
         payload.coreState.nextProposalId =
@@ -183,20 +226,34 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposal.id, payload.proposal.id);
         assertEq(decoded.proposal.proposer, payload.proposal.proposer);
         assertEq(decoded.proposal.timestamp, payload.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            payload.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
-        assertEq(decoded.derivation.isForcedInclusion, payload.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
-        assertEq(decoded.derivation.blobSlice.offset, payload.derivation.blobSlice.offset);
-        assertEq(decoded.derivation.blobSlice.timestamp, payload.derivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.sources.length, 1);
         assertEq(
-            decoded.derivation.blobSlice.blobHashes.length,
-            payload.derivation.blobSlice.blobHashes.length
+            decoded.derivation.sources[0].isForcedInclusion,
+            payload.derivation.sources[0].isForcedInclusion
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.offset,
+            payload.derivation.sources[0].blobSlice.offset
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            payload.derivation.sources[0].blobSlice.timestamp
+        );
+        assertEq(
+            decoded.derivation.sources[0].blobSlice.blobHashes.length,
+            payload.derivation.sources[0].blobSlice.blobHashes.length
         );
         for (uint256 i = 0; i < _blobHashCount; i++) {
             assertEq(
-                decoded.derivation.blobSlice.blobHashes[i],
-                payload.derivation.blobSlice.blobHashes[i]
+                decoded.derivation.sources[0].blobSlice.blobHashes[i],
+                payload.derivation.sources[0].blobSlice.blobHashes[i]
             );
         }
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
@@ -240,21 +297,31 @@ contract LibProposedEventEncoderFuzzTest is Test {
         original.proposal.id = _id;
         original.proposal.proposer = _proposer;
         original.proposal.timestamp = _timestamp;
+        original.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         original.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         original.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
         original.derivation.originBlockNumber = _timestamp;
         original.derivation.originBlockHash = keccak256(abi.encode("origin", _id));
-        original.derivation.isForcedInclusion = (_id % 2 == 0);
         original.derivation.basefeeSharingPctg = uint8(_id % 101);
 
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
         }
-        original.derivation.blobSlice.blobHashes = blobHashes;
-        original.derivation.blobSlice.offset = uint24(_id % MAX_UINT24);
-        original.derivation.blobSlice.timestamp = _timestamp;
+
+        // Create sources array with single source
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: (_id % 2 == 0),
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: uint24(_id % MAX_UINT24),
+                timestamp: _timestamp
+            })
+        });
+        original.derivation.sources = sources;
 
         original.coreState.nextProposalId = _nextProposalId;
         original.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
@@ -272,6 +339,11 @@ contract LibProposedEventEncoderFuzzTest is Test {
         // Verify data is preserved through multiple round trips
         assertEq(decoded1.proposal.id, decoded2.proposal.id);
         assertEq(decoded1.proposal.proposer, decoded2.proposal.proposer);
+        assertEq(decoded1.proposal.timestamp, decoded2.proposal.timestamp);
+        assertEq(
+            decoded1.proposal.endOfSubmissionWindowTimestamp,
+            decoded2.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded1.coreState.nextProposalId, decoded2.coreState.nextProposalId);
         assertEq(
             decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
@@ -287,21 +359,26 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = 123;
         payload.proposal.proposer = address(0x1234);
         payload.proposal.timestamp = 1_000_000;
+        payload.proposal.endOfSubmissionWindowTimestamp = 1_100_000;
         payload.proposal.coreStateHash = keccak256("core");
         payload.proposal.derivationHash = keccak256("deriv");
 
         payload.derivation.originBlockNumber = 5_000_000;
         payload.derivation.originBlockHash = keccak256("origin");
-        payload.derivation.isForcedInclusion = false;
         payload.derivation.basefeeSharingPctg = 50;
 
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
         }
-        payload.derivation.blobSlice.blobHashes = blobHashes;
-        payload.derivation.blobSlice.offset = 1024;
-        payload.derivation.blobSlice.timestamp = 1_000_001;
+
+        // Create sources array with single source
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001 })
+        });
+        payload.derivation.sources = sources;
 
         payload.coreState.nextProposalId = 124;
         payload.coreState.lastFinalizedProposalId = 120;

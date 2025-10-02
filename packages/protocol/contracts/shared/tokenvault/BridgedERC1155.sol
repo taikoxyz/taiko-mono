@@ -34,7 +34,7 @@ contract BridgedERC1155 is
 
     error BTOKEN_INVALID_PARAMS();
 
-    constructor(address _erc1155Vault) EssentialContract() {
+    constructor(address _erc1155Vault) {
         erc1155Vault = _erc1155Vault;
     }
 

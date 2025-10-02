@@ -15,7 +15,7 @@ contract InboxTest_BondToken is InboxTestBase {
         vm.deal(Alice, 1000 ether);
 
         uint256 transferAmount = 1234 ether;
-        bondToken.transfer(Alice, transferAmount);
+        require(bondToken.transfer(Alice, transferAmount), "Transfer failed");
         assertEq(bondToken.balanceOf(Alice), transferAmount);
 
         uint256 depositAmount = 1 ether;
@@ -41,7 +41,7 @@ contract InboxTest_BondToken is InboxTestBase {
         uint256 depositAmount = 1 ether;
         uint256 withdrawAmount = 2 ether;
 
-        bondToken.transfer(Alice, transferAmount);
+        require(bondToken.transfer(Alice, transferAmount), "Transfer failed");
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), depositAmount);
@@ -62,7 +62,7 @@ contract InboxTest_BondToken is InboxTestBase {
         uint256 insufficientApproval = 5 ether;
         uint256 depositAmount = 10 ether;
 
-        bondToken.transfer(Alice, transferAmount);
+        require(bondToken.transfer(Alice, transferAmount), "Transfer failed");
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), insufficientApproval);
@@ -79,7 +79,7 @@ contract InboxTest_BondToken is InboxTestBase {
         uint256 transferAmount = 10 ether;
         uint256 depositAmount = 12 ether;
 
-        bondToken.transfer(Alice, transferAmount);
+        require(bondToken.transfer(Alice, transferAmount), "Transfer failed");
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), depositAmount);
@@ -96,7 +96,7 @@ contract InboxTest_BondToken is InboxTestBase {
         uint256 transferAmount = 10 ether;
         uint256 depositAmount = 1 ether;
 
-        bondToken.transfer(Alice, transferAmount);
+        require(bondToken.transfer(Alice, transferAmount), "Transfer failed");
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), depositAmount);
@@ -115,10 +115,10 @@ contract InboxTest_BondToken is InboxTestBase {
         uint256 transferAmountBob = 10 ether;
 
         // Transfer bond tokens to Alice and Bob
-        bondToken.transfer(Alice, transferAmountAlice);
+        require(bondToken.transfer(Alice, transferAmountAlice), "Transfer failed");
         assertEq(bondToken.balanceOf(Alice), transferAmountAlice);
 
-        bondToken.transfer(Bob, transferAmountBob);
+        require(bondToken.transfer(Bob, transferAmountBob), "Transfer failed");
         assertEq(bondToken.balanceOf(Bob), transferAmountBob);
 
         uint256 aliceFirstDeposit = 2 ether;
