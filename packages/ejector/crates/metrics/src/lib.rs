@@ -1,17 +1,16 @@
 use axum::{Router, http::StatusCode, response::IntoResponse};
-use once_cell::sync::Lazy;
 use prometheus::{Encoder, IntCounter, IntCounterVec, Registry};
 
 // registry we can re-use
-static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
+static REGISTRY: std::sync::LazyLock<Registry> = std::sync::LazyLock::new(Registry::new);
 
 // metrics handles
-static L2_BLOCKS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+static L2_BLOCKS_TOTAL: std::sync::LazyLock<IntCounter> = std::sync::LazyLock::new(|| {
     IntCounter::new("l2_blocks_total", "Total number of l2 blocks observed")
         .expect("l2_blocks_total metric can be created")
 });
 
-static EJECTIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+static EJECTIONS_TOTAL: std::sync::LazyLock<IntCounterVec> = std::sync::LazyLock::new(|| {
     IntCounterVec::new(
         prometheus::opts!("ejections_total", "total number of ejections attempted"),
         &["status", "addr"],
@@ -19,7 +18,7 @@ static EJECTIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     .expect("ejections_total metric can be created")
 });
 
-static WS_RECONNECTIONS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+static WS_RECONNECTIONS_TOTAL: std::sync::LazyLock<IntCounter> = std::sync::LazyLock::new(|| {
     IntCounter::new("ws_reconnections_total", "Total number of websocket reconnections")
         .expect("ws_reconnections_total metric can be created")
 });
