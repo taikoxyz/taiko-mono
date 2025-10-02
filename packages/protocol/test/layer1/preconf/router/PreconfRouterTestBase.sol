@@ -11,12 +11,10 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     PreconfWhitelist internal whitelist;
     address internal routerOwner;
     address internal whitelistOwner;
-    address internal fallbackPreconfer;
 
     function setUpOnEthereum() internal virtual override {
         routerOwner = Alice;
         whitelistOwner = Alice;
-        fallbackPreconfer = Frank;
 
         vm.chainId(1);
 
@@ -30,7 +28,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist(fallbackPreconfer)),
+                impl: address(new PreconfWhitelist()),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
             })
         );
@@ -39,7 +37,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter(taikoWrapper, address(whitelist), fallbackPreconfer)),
+                impl: address(new PreconfRouter(taikoWrapper, address(whitelist))),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );

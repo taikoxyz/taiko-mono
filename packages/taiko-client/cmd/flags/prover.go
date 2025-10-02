@@ -11,7 +11,7 @@ import (
 var (
 	L1ProverPrivKey = &cli.StringFlag{
 		Name:     "l1.proverPrivKey",
-		Usage:    "Private key of L1 prover, who will send TaikoInbox.proveBatches transactions",
+		Usage:    "Private key of L1 prover, who will send transactions to Pacaya / Shasta inbox",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
@@ -35,7 +35,7 @@ var (
 	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
-		Usage:    "Path to a api key for the Raiko service",
+		Usage:    "Path to an Api key for the Raiko service",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_API_KEY_PATH"},
 	}
@@ -98,7 +98,7 @@ var (
 	}
 	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
-		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
+		Usage: "Time interval to prove blocks even if the number of pending proofs does not exceed prover.batchSize, " +
 			"this flag only works for post Ontake fork blocks",
 		Category: proverCategory,
 		Value:    30 * time.Minute,
@@ -107,7 +107,7 @@ var (
 	// Batch proof related flag
 	SGXBatchSize = &cli.Uint64Flag{
 		Name: "prover.sgx.batchSize",
-		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
+		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proofs immediately, " +
 			"this flag only works for post Ontake fork blocks",
 		Value:    1,
 		Category: proverCategory,
@@ -115,7 +115,7 @@ var (
 	}
 	ZKVMBatchSize = &cli.Uint64Flag{
 		Name: "prover.zkvm.batchSize",
-		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
+		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proofs immediately, " +
 			"this flag only works for post Ontake fork blocks",
 		Value:    1,
 		Category: proverCategory,

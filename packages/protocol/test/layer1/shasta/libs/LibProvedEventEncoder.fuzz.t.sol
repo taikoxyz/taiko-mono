@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { LibProvedEventEncoder } from "src/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProvedEventEncoder
@@ -89,7 +89,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
             original.transitionRecord.bondInstructions[i].proposalId = uint48(i + 1000);
             original.transitionRecord.bondInstructions[i].bondType = LibBonds.BondType(i % 3);
             original.transitionRecord.bondInstructions[i].payer = address(uint160(i * 1000));
-            original.transitionRecord.bondInstructions[i].receiver = address(uint160(i * 2000));
+            original.transitionRecord.bondInstructions[i].payee = address(uint160(i * 2000));
         }
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -111,8 +111,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 original.transitionRecord.bondInstructions[i].payer
             );
             assertEq(
-                decoded.transitionRecord.bondInstructions[i].receiver,
-                original.transitionRecord.bondInstructions[i].receiver
+                decoded.transitionRecord.bondInstructions[i].payee,
+                original.transitionRecord.bondInstructions[i].payee
             );
         }
     }
@@ -157,7 +157,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 proposalId: uint48(_proposalId + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0xaaaa + i * 10)),
-                receiver: address(uint160(0xbbbb + i * 10))
+                payee: address(uint160(0xbbbb + i * 10))
             });
         }
 
@@ -242,7 +242,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
             proposalId: type(uint48).max,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(type(uint160).max),
-            receiver: address(type(uint160).max)
+            payee: address(type(uint160).max)
         });
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -277,7 +277,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 proposalId: uint48(123 + i),
                 bondType: i % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                 payer: address(uint160(0x1000 + i)),
-                receiver: address(uint160(0x2000 + i))
+                payee: address(uint160(0x2000 + i))
             });
         }
     }

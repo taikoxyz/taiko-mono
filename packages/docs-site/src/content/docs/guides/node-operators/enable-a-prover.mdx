@@ -28,41 +28,15 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 5. Set `COMPOSE_PROFILES=prover` or add prover to the list.
 
-6. You can then run your prover with `docker compose up -d`! Please use `docker compose -f docker-compose-hekla.yml up -d` if you are running on Taiko Hekla.
+6. You can then run your prover with `docker compose up -d`!
 
 </Steps>
 
-Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
-
-## Enabling batch proving/proof aggregation (optional)
-
-<Aside type="danger">
-We don't recommend users utilize this function unless they already run a fairly active and successful proposer.
-
-By enabling proof aggregation, you will be opening yourself up to more risk as you will be putting up more TAIKO as bond at one time.
-
-The recommended value for SGX_BATCH_SIZE is 10+ as you will see the most gas saved at this value and above. We will NOT refund any lost bonds due to misconfiguration, please evaluate and use this function at your own risk.
-
-We highly recommend you test the function **on Taiko Hekla**, not on Taiko Alethia.
-
-Please also note that you should NOT enable revert protection without a PBS service that has revert protection support, as it will interfere with your batch proving on Taiko Hekla.
+<Aside>
+For Step 6, please use `docker compose -f docker-compose-hekla.yml up -d` if you are running on Taiko Hekla, and `docker compose -f docker-compose-hoodi.yml up -d` if you are running on Taiko Hoodi.
 </Aside>
 
-Batch proving has been enabled in release 0.43.1 of [the taiko alethia client!](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-client-v0.43.1)
-
-Please use [simple-taiko-node release 1.9.0](https://github.com/taikoxyz/simple-taiko-node/releases/tag/v1.9.0) **or above** to enable this functionality.
-
-You can find the latest software releases [here](/network-reference/software-releases-and-deployments).
-
-**This functionality can be enabled simply by setting `SGX_BATCH_SIZE` in your `.env` file to a number greater than 1.**
-
-If it is set to 1 or unset your prover will submit proofs upon assignment (standard function).
-When enabled, your prover will submit a batch of proofs when x number of blocks are assigned, x being `SGX_BATCH_SIZE`.
-
-As provers are given a proof window for every assigned proof, it can become the case that while waiting for a batch size to be fulfilled the already assigned proofs exit their proof window and become unassigned.
-To prevent this, we have introduced another flag `FORCE_BATCH_PROVING_INTERVAL`. This flag will only be functional if batch proving is enabled.
-
-This flag will force the prover to submit a batch of proofs every x minutes, regardless of the batch size being fulfilled. We don't recommend this value be set > 45 minutes, as the provingWindow is 60 minutes and any closer will put you at risk of having proof assignments expire. It is by default set to 30 minutes.
+Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
 
 ### Approve TaikoInbox as TAIKO spender (Taiko Alethia)
 
@@ -105,6 +79,32 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 2. Click the **Connect to Web3** button.
 
 3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
+
+4. Set the amount to at least the minimum bond amount of 125 TTKOh.
+
+   You will need at least 125 TTKOh for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
+
+   If you have bonded TTKOh in the TaikoInbox contract, it will be used first before more is taken from your allowance.
+
+   For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
+
+5. Finally, click the **Write** button.
+
+</Steps>
+
+### Approve TaikoInbox as TTKOh spender (Taiko Hoodi)
+
+You will need TTKOh deposited on the TaikoInbox contract to secure the bond for the proofs you generate.
+
+<Steps>
+
+1. Approve the TaikoInbox contract as a spender.
+
+   Visit the TTKOh contract on Hoodi [here](https://hoodi.etherscan.io/address/0xf3b83e226202ECf7E7bb2419a4C6e3eC99e963DA#writeProxyContract).
+
+2. Click the **Connect to Web3** button.
+
+3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x50A576435E2D9c179124D657d804eb56A10b6999`.
 
 4. Set the amount to at least the minimum bond amount of 125 TTKOh.
 
