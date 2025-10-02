@@ -47,7 +47,7 @@ type ShastaDerivationSourcePayload struct {
 	IsLowBondProposal bool
 }
 
-// ShastaDerivationSourceFetcher is responsible for fetching the blob srouce from the L1 block sidecar.
+// ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
 type ShastaDerivationSourceFetcher struct {
 	cli        *rpc.Client
 	dataSource *rpc.BlobDataSource
