@@ -50,8 +50,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      operations when mixing different numeric types. Without explicit casts, Solidity may
 /// perform
 ///      implicit conversions that could lead to unexpected results within unchecked blocks.
-///      Example: uint256(uint48Value) + uint256(anotherUint48) instead of uint48Value +
-/// anotherUint48
+///      Example: uint256(uint48Value) + anotherUint48 instead of uint48Value + anotherUint48
 ///
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
