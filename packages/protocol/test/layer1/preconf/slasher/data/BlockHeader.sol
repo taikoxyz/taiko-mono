@@ -23,10 +23,7 @@ library BlockHeader {
             prevRandao: 0xaafa35d898bd91c9a4bc9db02c47dd9cb8eeadffb3ee1cb7557e3b2f988835f4,
             nonce: 0x0000000000000000,
             baseFeePerGas: 0x989680,
-            withdrawalsRoot: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421,
-            blobGasUsed: 0,
-            excessBlobGas: 0,
-            parentBeaconBlockRoot: bytes32(0)
+            withdrawalsRoot: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
         });
 
         return actualBlockHeader;
@@ -51,10 +48,7 @@ library BlockHeader {
             prevRandao: 0xc9b497c39d35269062f3ee8af427522b1502593809d313ebeb67af52d169f02e,
             nonce: 0x0000000000000000,
             baseFeePerGas: 0x989680,
-            withdrawalsRoot: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421,
-            blobGasUsed: 0,
-            excessBlobGas: 0,
-            parentBeaconBlockRoot: bytes32(0)
+            withdrawalsRoot: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
         });
 
         return verifiedBlockHeader;

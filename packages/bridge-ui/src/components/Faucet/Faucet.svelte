@@ -27,6 +27,7 @@
   let mintButtonEnabled = false;
   let alertMessage = '';
   let mintableTokens: Token[] = [];
+  let minted = false;
 
   const onlyMintable: boolean = true;
 
@@ -109,6 +110,7 @@
           break;
         case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
+          minted = true; // Set minted to true when user has already minted
           break;
         case err instanceof ContractFunctionExecutionError && err.functionName === 'minters':
           reasonNotMintable = $t('faucet.warning.not_mintable');
@@ -174,8 +176,6 @@
     mintableTokens = [...testERC20, ...testNFTs];
   });
 
-  $: minted = false;
-
   $: wrongChain = false;
 
   $: connected = isUserConnected($account);
@@ -222,7 +222,7 @@
     {:else}
       <ActionButton
         priority="primary"
-        disabled={!mintButtonEnabled || disabled}
+        disabled={!mintButtonEnabled || disabled || minted}
         loading={checkingMintable || minting}
         on:click={mintToken}>
         <span class="body-bold">

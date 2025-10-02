@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
@@ -18,6 +19,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibForcedInclusion {
     using LibAddress for address;
+    using LibMath for uint48;
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
@@ -25,6 +27,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev Storage for the forced inclusion queue. This struct uses 2 slots.
+    /// @dev 2 slots used
     struct Storage {
         mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue;
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
@@ -42,9 +45,9 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev See `IInbox.storeForcedInclusion`
-    function storeForcedInclusion(
+    function saveForcedInclusion(
         Storage storage $,
-        uint64, /* _forcedInclusionDelay */
+        uint16, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
@@ -59,51 +62,63 @@ library LibForcedInclusion {
 
         $.queue[$.tail++] = inclusion;
 
-        emit IForcedInclusionStore.ForcedInclusionStored(inclusion);
+        emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
     /// @dev Internal implementation of consuming forced inclusions
     /// @notice Consumes up to _count forced inclusions from the queue
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
     /// @param _count The maximum number of forced inclusions to consume
-    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
-    /// has fewer)
+    /// @return sources_ Array of derivation sources with forced inclusions marked and an extra
+    /// empty
+    /// slot at the end for the normal source. The array size is toProcess + 1, where the last slot
+    /// is uninitialized for the caller to populate.
+    /// @return availableAfter_ Number of forced inclusions remaining in the queue after consuming
+    /// @return oldestForcedInclusionTimestamp_ The timestamp of the oldest forced inclusion that
+    /// was
+    /// processed. block.timestamp if no forced inclusions were consumed.
     function consumeForcedInclusions(
         Storage storage $,
         address _feeRecipient,
         uint256 _count
     )
         internal
-        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+        returns (
+            IInbox.DerivationSource[] memory sources_,
+            uint256 availableAfter_,
+            uint48 oldestForcedInclusionTimestamp_
+        )
     {
         unchecked {
-            // Early exit if no inclusions requested
-            if (_count == 0) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
-            }
-
-            (uint48 head, uint48 tail) = ($.head, $.tail);
-
-            // Early exit if  queue is empty
-            if (head == tail) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
-            }
+            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             // Calculate actual number to process (min of requested and available)
             uint256 available = tail - head;
             uint256 toProcess = _count > available ? available : _count;
 
-            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](toProcess);
+            // Allocate array with an extra slot for the normal derivation source
+            sources_ = new IInbox.DerivationSource[](toProcess + 1);
             uint256 totalFees;
 
             for (uint256 i; i < toProcess; ++i) {
-                inclusions_[i] = $.queue[head + i];
-                totalFees += inclusions_[i].feeInGwei;
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                sources_[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
+            }
+
+            // Calculate oldest forced inclusion timestamp
+            if (toProcess > 0) {
+                oldestForcedInclusionTimestamp_ =
+                    uint48(sources_[0].blobSlice.timestamp.max(lastProcessedAt));
+            } else {
+                oldestForcedInclusionTimestamp_ = uint48(block.timestamp);
             }
 
             // Update head and lastProcessedAt after all processing
-
             ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
+
+            // Calculate remaining available inclusions using already known values
+            availableAfter_ = available - toProcess;
 
             // Send all fees in one transfer
             if (totalFees > 0) {
@@ -115,7 +130,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
-        uint64 _forcedInclusionDelay
+        uint16 _forcedInclusionDelay
     )
         public
         view
