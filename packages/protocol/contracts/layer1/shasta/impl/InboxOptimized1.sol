@@ -95,7 +95,10 @@ contract InboxOptimized1 is Inbox {
         override
         returns (bool stored_)
     {
-        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        uint256 bufferSlot;
+        unchecked {
+            bufferSlot = _proposalId % _ringBufferSize;
+        }
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
@@ -142,7 +145,10 @@ contract InboxOptimized1 is Inbox {
         override
         returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        uint256 bufferSlot;
+        unchecked {
+            bufferSlot = _proposalId % _ringBufferSize;
+        }
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
@@ -165,8 +171,10 @@ contract InboxOptimized1 is Inbox {
     /// @param _input ProveInput containing multiple proposals and transitions to aggregate
     function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
         // Validate all transitions upfront using shared function
-        for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
+        unchecked {
+            for (uint256 i; i < _input.proposals.length; ++i) {
+                _validateTransition(_input.proposals[i], _input.transitions[i]);
+            }
         }
 
         // Initialize aggregation state from first proposal
@@ -177,39 +185,41 @@ contract InboxOptimized1 is Inbox {
         uint256 firstIndex = 0;
 
         // Process remaining proposals with optimized loop
-        for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            // Check for consecutive proposal aggregation
-            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                TransitionRecord memory nextRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
-                );
-                if (nextRecord.bondInstructions.length == 0) {
-                    // Keep current instructions unchanged
-                } else if (currentRecord.bondInstructions.length == 0) {
-                    currentRecord.bondInstructions = nextRecord.bondInstructions;
+        unchecked {
+            for (uint256 i = 1; i < _input.proposals.length; ++i) {
+                // Check for consecutive proposal aggregation
+                if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                    TransitionRecord memory nextRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    );
+                    if (nextRecord.bondInstructions.length == 0) {
+                        // Keep current instructions unchanged
+                    } else if (currentRecord.bondInstructions.length == 0) {
+                        currentRecord.bondInstructions = nextRecord.bondInstructions;
+                    } else {
+                        currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
+                            currentRecord.bondInstructions, nextRecord.bondInstructions
+                        );
+                    }
+                    currentRecord.transitionHash = nextRecord.transitionHash;
+                    currentRecord.checkpointHash = nextRecord.checkpointHash;
+                    currentRecord.span++;
                 } else {
-                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
-                        currentRecord.bondInstructions, nextRecord.bondInstructions
+                    // Save current group and start new one
+                    _setTransitionRecordHashAndDeadline(
+                        currentGroupStartId,
+                        _input.transitions[firstIndex],
+                        _input.metadata[firstIndex],
+                        currentRecord
+                    );
+
+                    // Reset for new group
+                    currentGroupStartId = _input.proposals[i].id;
+                    firstIndex = i;
+                    currentRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
                 }
-                currentRecord.transitionHash = nextRecord.transitionHash;
-                currentRecord.checkpointHash = nextRecord.checkpointHash;
-                currentRecord.span++;
-            } else {
-                // Save current group and start new one
-                _setTransitionRecordHashAndDeadline(
-                    currentGroupStartId,
-                    _input.transitions[firstIndex],
-                    _input.metadata[firstIndex],
-                    currentRecord
-                );
-
-                // Reset for new group
-                currentGroupStartId = _input.proposals[i].id;
-                firstIndex = i;
-                currentRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
-                );
             }
         }
 
