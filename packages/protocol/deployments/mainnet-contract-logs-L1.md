@@ -322,24 +322,6 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
-#### risc0_groth16_verifier
-
-- impl: `0x34eda8bffb539aec33078819847b36d221c6641c`
-- logs:
-  - deployed on Nov 6, 2024 @commit`bfb0386`
-  - deployed on Jan 13, 2025 @commit`a58852f`
-  - deployed on Jan 13, 2025 @commit`e0805e3`
-  - deployed on Jun 11, 2025 at commit `9dfb5b9`
-  - deployed on Jul 21, 2025 at commit `92ad14e`
-
-#### sp1_remote_verifier
-
-- impl: `0xff5adab685362dc4c33536a65af5873738d1216b`
-- logs:
-  - deployed on Nov 8, 2024 @commit`0b11101`
-  - deployed on Jan 13, 2025 @commit`a58852f`
-  - deployed on Jun 3, 2025 at commit `52bc719`
-
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
@@ -539,12 +521,13 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
-- impl : `0x3dEF88e306E449c6Abf9AaD8038C95d11Bb0b614`
+- impl : `0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36`
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9` @tx `0x2b9250ebdcf10b1a1ec658e5cc9e7fd9aa19dd32573e6ab5bc036499682dea3a`
   - upgraded on Jul 21, 2025 at commit `92ad14e` @tx `0x95d0cfffe42dc984ce8b24104a28d1083100ab638bb4fe396d1a145c17460db9`
+  - upgraded on Sep 30, 2025 at commit `c459c0d` @tx `` //TODO(@yue): fill the tx hash
 
 ### sp1_reth_verifier(Pacaya)
 
