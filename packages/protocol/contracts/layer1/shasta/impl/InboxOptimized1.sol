@@ -96,7 +96,6 @@ contract InboxOptimized1 is Inbox {
         returns (bool stored_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
@@ -144,7 +143,6 @@ contract InboxOptimized1 is Inbox {
         returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
