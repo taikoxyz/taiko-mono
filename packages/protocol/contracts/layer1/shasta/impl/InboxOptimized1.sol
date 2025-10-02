@@ -102,25 +102,23 @@ contract InboxOptimized1 is Inbox {
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
-        } else {
-            if (record.partialParentTransitionHash == partialParentHash) {
-                // Same proposal and parent hash - check for duplicate or conflict
-                bytes26 recordHash = record.hashAndDeadline.recordHash;
+        } else if (record.partialParentTransitionHash == partialParentHash) {
+            // Same proposal and parent hash - check for duplicate or conflict
+            bytes26 recordHash = record.hashAndDeadline.recordHash;
 
-                if (recordHash == 0) {
-                    record.hashAndDeadline = _hashAndDeadline;
-                } else if (recordHash == _recordHash) {
-                    emit TransitionDuplicateDetected();
-                } else {
-                    emit TransitionConflictDetected();
-                    conflictingTransitionDetected = true;
-                    record.hashAndDeadline.finalizationDeadline = type(uint48).max;
-                }
+            if (recordHash == 0) {
+                record.hashAndDeadline = _hashAndDeadline;
+            } else if (recordHash == _recordHash) {
+                emit TransitionDuplicateDetected();
             } else {
-                super._storeTransitionRecord(
-                    _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
-                );
+                emit TransitionConflictDetected();
+                conflictingTransitionDetected = true;
+                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
             }
+        } else {
+            super._storeTransitionRecord(
+                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+            );
         }
     }
 
