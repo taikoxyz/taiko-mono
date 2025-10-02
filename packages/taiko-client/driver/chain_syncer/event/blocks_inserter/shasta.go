@@ -62,6 +62,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	startBlockIdx uint16,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
@@ -158,6 +159,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 			sourcePayload,
 			parent,
 			j,
+			startBlockIdx,
 			sourcePayload.IsLowBondProposal,
 		)
 		if err != nil {

@@ -301,6 +301,7 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
+				0, // TODO: check this.
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
@@ -575,13 +576,14 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
+	startBlockIdx uint16,
 	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
 	}
 	if blockIndex >= len(sourcePayload.BlockPayloads) {
-		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
+		return nil, nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
 	}
 
 	var (
@@ -645,7 +647,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		sourcePayload.ProverAuthBytes,
 		blockInfo.BondInstructionsHash,
 		blockInfo.BondInstructions,
-		uint16(blockIndex),
+		startBlockIdx+uint16(blockIndex),
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,

@@ -24,6 +24,7 @@ type Inserter interface {
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
 		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+		startBlockIdx uint16,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }

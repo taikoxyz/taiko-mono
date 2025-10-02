@@ -383,6 +383,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+	s.Equal(uint16(1), s.getBlockIndexInAnchor(head2))
 
 	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -395,8 +396,19 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
 	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
 	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
+	s.Equal(uint16(0), s.getBlockIndexInAnchor(forcedIncludedHeader))
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {
 	suite.Run(t, new(ChainSyncerTestSuite))
+}
+
+func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 {
+	method, err := encoding.ShastaAnchorABI.MethodById(block.Transactions()[0].Data())
+	s.Nil(err)
+	args := map[string]interface{}{}
+	s.Nil(method.Inputs.UnpackIntoMap(args, block.Transactions()[0].Data()[4:]))
+	blockIdx, ok := args["_blockIndex"].(uint16)
+	s.True(ok)
+	return blockIdx
 }
