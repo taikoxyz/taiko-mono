@@ -81,28 +81,29 @@ library LibForcedInclusion {
     /// @dev Checks if the oldest remaining forced inclusion is due (internal variant with
     /// parameters)
     /// @param $ Storage reference
-    /// @param head Current queue head position
-    /// @param lastProcessedAt Timestamp of last processing
-    /// @param forcedInclusionDelay Delay in seconds before inclusion is due
+    /// @param _head Current queue head position
+    /// @param _tail Current queue tail position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _forcedInclusionDelay Delay in seconds before inclusion is due
     /// @return True if the oldest remaining inclusion is due for processing
     function isOldestForcedInclusionDue(
         Storage storage $,
-        uint48 head,
-        uint48 tail,
-        uint48 lastProcessedAt,
-        uint16 forcedInclusionDelay
+        uint48 _head,
+        uint48 _tail,
+        uint48 _lastProcessedAt,
+        uint16 _forcedInclusionDelay
     )
         internal
         view
         returns (bool)
     {
         unchecked {
-            if (head == tail) return false;
+            if (_head == _tail) return false;
 
-            uint256 timestamp = $.queue[head].blobSlice.timestamp;
+            uint256 timestamp = $.queue[_head].blobSlice.timestamp;
             if (timestamp == 0) return false;
 
-            return block.timestamp >= timestamp.max(lastProcessedAt) + forcedInclusionDelay;
+            return block.timestamp >= timestamp.max(_lastProcessedAt) + _forcedInclusionDelay;
         }
     }
 
