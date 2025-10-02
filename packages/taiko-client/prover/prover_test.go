@@ -108,7 +108,8 @@ func (s *ProverTestSuite) SetupTest() {
 			L1Endpoint:         os.Getenv("L1_WS"),
 			L2Endpoint:         os.Getenv("L2_WS"),
 			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
@@ -124,7 +125,8 @@ func (s *ProverTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -160,7 +162,8 @@ func (s *ProverTestSuite) TestInitError() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
@@ -359,7 +362,8 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
@@ -415,7 +419,8 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
@@ -464,7 +469,8 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -510,21 +516,21 @@ func (s *ProverTestSuite) TestForceAggregate() {
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	s.p.cfg.Allowance = common.Big256
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.PacayaInboxAddress))
 
 	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(
 		nil,
 		s.p.ProverAddress(),
-		s.p.cfg.TaikoInboxAddress,
+		s.p.cfg.PacayaInboxAddress,
 	)
 	s.Nil(err)
 	s.NotZero(originalAllowance.Uint64())
 
 	s.p.cfg.Allowance = new(big.Int).Sub(originalAllowance, common.Big1)
 
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.PacayaInboxAddress))
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoInboxAddress)
+	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.PacayaInboxAddress)
 	s.Nil(err)
 
 	s.Zero(allowance.Cmp(originalAllowance))
@@ -577,7 +583,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
 		s.ShastaStateIndexer,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.Address{},
 	)
 	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
@@ -647,7 +654,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
 		Send(
 			context.Background(),
-			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoInboxAddress},
+			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.PacayaInboxAddress},
 		)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
@@ -705,7 +712,8 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		L1WsEndpoint:           os.Getenv("L1_WS"),
 		L2WsEndpoint:           os.Getenv("L2_WS"),
 		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
-		TaikoInboxAddress:      common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:     common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:     common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),

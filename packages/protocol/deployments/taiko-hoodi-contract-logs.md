@@ -154,11 +154,12 @@
 ### risc0_reth_verifier
 
 - proxy : `0xD1359ba7297e207b9B2519B0E1e15b0E0c8b790e`
-- impl : `0xCB9ec35c63E7A3d6976dc3b80B5b39731E82Ed1f`
+- impl : `0x8De57c1268778F7971635d18DC2F2F8988bf8A5a`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
   - upgraded on Sep 22, 2025 at commit `6be61d3`
+  - upgraded on Sep 27, 2025 at commit `c459c0d`
 
 ### sp1_reth_verifier
 
