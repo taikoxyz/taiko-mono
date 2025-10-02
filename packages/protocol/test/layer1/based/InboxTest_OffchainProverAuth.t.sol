@@ -513,11 +513,11 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         NonBondToken differentFeeToken = new NonBondToken();
 
         // Fund accounts with bond tokens
-        bondToken.transfer(Alice, 10_000 ether);
-        bondToken.transfer(prover, 5000 ether);
+        require(bondToken.transfer(Alice, 10_000 ether), "Transfer failed");
+        require(bondToken.transfer(prover, 5000 ether), "Transfer failed");
 
         // Fund Alice with the different fee token
-        differentFeeToken.transfer(Alice, 10_000 ether);
+        require(differentFeeToken.transfer(Alice, 10_000 ether), "Transfer failed");
 
         // Create batch params
         ITaikoInbox.BatchParams memory batchParams;
@@ -616,7 +616,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
     }
 
     function _distributeBonds() internal {
-        bondToken.transfer(Alice, 10_000 ether);
-        bondToken.transfer(prover, 5000 ether);
+        require(bondToken.transfer(Alice, 10_000 ether), "Transfer failed");
+        require(bondToken.transfer(prover, 5000 ether), "Transfer failed");
     }
 }

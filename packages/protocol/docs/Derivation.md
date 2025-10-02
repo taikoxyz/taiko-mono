@@ -166,20 +166,18 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 
 A default manifest is returned when any of the following validation criteria fail:
 
-- **Blob validation**: `blobHashes.length` is zero or exceeds `PROPOSAL_MAX_BLOBS`
+- **Blob validation**: `blobHashes.length` is zero
 - **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
 - **Version validation**: Version number is not `0x1`
-- **Size validation**: `size` exceeds `PROPOSAL_MAX_BYTES`
 - **Decompression failure**: ZLIB decompression fails
 - **Decoding failure**: RLP decoding fails
 - **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
-- **Transaction limit**: Any block contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions
 
 The default manifest is one initialized as:
 
 ```solidity
 ProposalManifest memory default;
-default.blocks = new Block[](1);
+default.blocks = new BlockManifest[](1) ;
 ```
 
 A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid proposals.
@@ -225,14 +223,14 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (10000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000`
+   - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -242,11 +240,9 @@ Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
 
-To begin, obtain the `CoreState` from the L1 anchor block's world state through a storage Merkle proof, verifying that its keccak hash matches the `coreStateHash` stored in the inbox contract. Extract the `bondInstructionsHash` field from this verified `CoreState` and set `metadata.bondInstructionsHash` to this value.
-
-If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
+A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is `BOND_PROCESSING_DELAY` proposals prior to the current one. If `BOND_PROCESSING_DELAY` is set to 1, it effectively processes the parent proposal's instructions.
 
 ### Designated Prover System
 
@@ -368,7 +364,7 @@ The following block header fields are also set before transaction execution but 
 | Header Field | Value                                                                                           |
 | ------------ | ----------------------------------------------------------------------------------------------- |
 | `parentHash` | Hash of the previous L2 block                                                                   |
-| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                      |
+| `mixHash`    | Set to `prevRandao` as per EIP-4399                                                             |
 | `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.

@@ -19,8 +19,7 @@ abstract contract Controller is EssentialContract {
         bytes data;
     }
 
-    // __reserved0 and __reserved1 are here to make sure this contract's layout is compatible with
-    // the DelegateOwner contract.
+    // __reserved0 and __reserved1 are preserved for storage layout compatibility.
 
     // solhint-disable var-name-mixedcase
     uint256 private __reserved0;
@@ -29,12 +28,10 @@ abstract contract Controller is EssentialContract {
     uint64 public lastExecutionId; // slot 2
 
     // solhint-disable var-name-mixedcase
-    address private __reserved1; //
+    address private __reserved1;
     uint256[48] private __gap;
 
     event ActionExecuted(address indexed target, uint256 value, bytes data);
-
-    constructor() EssentialContract() { }
 
     receive() external payable { }
 

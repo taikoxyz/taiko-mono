@@ -44,14 +44,15 @@ func NewSender(
 
 // SendBatchProof sends the batch proof transaction to the L1 protocol.
 func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
-	// Assemble the TaikoInbox.proveBatches transaction.
-	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
+	txMgr, isPrivate := s.txmgrSelector.Select()
+
+	// Assemble the Pacaya TaikoInbox.proveBatches transaction.
+	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit, Context: ctx, From: txMgr.From()})
 	if err != nil {
 		return err
 	}
 
 	// Send the transaction.
-	txMgr, isPrivate := s.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		if isPrivate {

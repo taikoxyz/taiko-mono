@@ -43,7 +43,7 @@ var (
 	Filter WatchMode = "filter"
 	// Subscribe ignores all past blocks, only subscibes to new events from latest block.
 	Subscribe WatchMode = "subscribe"
-	// FilterAndSubscribe filters up til latest block, then subscribes to new events. This is the
+	// FilterAndSubscribe filters up to latest block, then subscribes to new events. This is the
 	// default mode.
 	FilterAndSubscribe WatchMode = "filter-and-subscribe"
 	// CrawlPastBlocks filters through the past N blocks on a loop, when it reaches `latestBlock - N`,
