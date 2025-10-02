@@ -20,8 +20,6 @@ interface IForcedInclusionStore {
 
     /// @dev Error thrown when a blob is not found.
     error BlobNotFound();
-    /// @dev Error thrown when the parameters are invalid.
-    error InvalidParams();
     /// @dev Error thrown when the fee is incorrect.
     error IncorrectFee();
     /// @dev Error thrown when the index is invalid.
