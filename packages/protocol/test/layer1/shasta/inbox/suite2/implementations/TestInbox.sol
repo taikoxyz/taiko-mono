@@ -8,15 +8,17 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 /// @notice Test wrapper for Inbox contract with configurable behavior
 contract TestInbox is Inbox {
     constructor(
+        address codec,
         address bondToken,
-        address checkpointManager,
+        uint16 maxCheckpointHistory,
         address proofVerifier,
         address proposerChecker
     )
         Inbox(
             IInbox.Config({
+                codec: codec,
                 bondToken: bondToken,
-                checkpointManager: checkpointManager,
+                maxCheckpointHistory: maxCheckpointHistory,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,
@@ -27,8 +29,9 @@ contract TestInbox is Inbox {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             })
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                permissionlessInclusionMultiplier: 5
+            })
         )
     { }
 }
