@@ -47,12 +47,15 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		return err
 	}
 
-	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	ctxDial, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	srcEthClient, err := ethclient.DialContext(ctxDial, cfg.SrcRPCUrl)
 	if err != nil {
 		return err
 	}
 
-	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	destEthClient, err := ethclient.DialContext(ctxDial, cfg.DestRPCUrl)
 	if err != nil {
 		return err
 	}
