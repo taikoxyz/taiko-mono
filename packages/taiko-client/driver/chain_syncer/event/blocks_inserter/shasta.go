@@ -57,7 +57,7 @@ func (i *Shasta) InsertBlocks(
 }
 
 // InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
-// srouce payload.
+// source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
