@@ -414,7 +414,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         TransitionRecord memory _transitionRecord
     )
         internal
-        virtual
     {
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
