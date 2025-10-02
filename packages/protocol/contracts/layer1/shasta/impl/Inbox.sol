@@ -27,6 +27,32 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals with checkpoint rate limiting
 ///
+/// @dev Checkpoint Rate Limiting:
+///      The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage.
+///      - Finalization can occur at any frequency without extra cost
+///      - Checkpoint storage is rate-limited to save gas and prevent excessive storage operations
+///      - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
+///      - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
+///
+/// @dev Unchecked Arithmetic:
+///      This contract and its subcontracts (InboxOptimized1, InboxOptimized2) use unchecked blocks
+///      aggressively for gas optimization. All unchecked operations have been verified safe
+/// through:
+///      - Bounded loop counters (limited by array lengths or configuration parameters)
+///      - Modulo operations (mathematically cannot overflow)
+///      - Increments with protocol invariant guarantees (e.g., proposal IDs, span counters)
+///      - Timestamp/block number arithmetic with practical overflow impossibility
+///      See inline comments for specific safety justifications on each unchecked block.
+///
+/// @dev IMPORTANT - Type Conversions in Unchecked Blocks:
+///      Due to aggressive use of unchecked blocks throughout this contract and its subcontracts,
+///      developers MUST explicitly cast values to their proper types before performing mathematical
+///      operations when mixing different numeric types. Without explicit casts, Solidity may
+/// perform
+///      implicit conversions that could lead to unexpected results within unchecked blocks.
+///      Example: uint256(uint48Value) + uint256(anotherUint48) instead of uint48Value +
+/// anotherUint48
+///
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
