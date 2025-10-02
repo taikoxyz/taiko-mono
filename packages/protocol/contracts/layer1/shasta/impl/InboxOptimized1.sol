@@ -105,11 +105,11 @@ contract InboxOptimized1 is Inbox {
         } else {
             if (record.partialParentTransitionHash == partialParentHash) {
                 // Same proposal and parent hash - check for duplicate or conflict
-                bytes26 existingRecordHash = record.hashAndDeadline.recordHash;
+                bytes26 recordHash = record.hashAndDeadline.recordHash;
 
-                if (existingRecordHash == 0) {
+                if (recordHash == 0) {
                     record.hashAndDeadline = _hashAndDeadline;
-                } else if (existingRecordHash == _recordHash) {
+                } else if (recordHash == _recordHash) {
                     emit TransitionDuplicateDetected();
                 } else {
                     emit TransitionConflictDetected();
