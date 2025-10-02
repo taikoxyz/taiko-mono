@@ -84,7 +84,7 @@ library LibManifest {
     /// @notice Represents a derivation source manifest containing blocks for one source
     /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
     /// If a DerivationSourceManifest is invalid, it is replaced with a default manifest
-    /// (single empty block), but the entire proposal is NOT invalidated. This design prevents
+    /// (single block with only an anchor transaction), but the entire proposal is NOT invalidated. This design prevents
     /// censorship of forced inclusions: a malicious proposer cannot invalidate their entire
     /// proposal (including valid forced inclusions) by including bad data in one source.
     ///
