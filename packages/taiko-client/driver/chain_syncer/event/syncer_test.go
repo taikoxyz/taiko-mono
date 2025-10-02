@@ -41,6 +41,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 	syncer, err := NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -257,7 +258,8 @@ func (s *EventSyncerTestSuite) initProposer() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),

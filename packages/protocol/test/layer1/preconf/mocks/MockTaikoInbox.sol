@@ -10,7 +10,7 @@ contract MockTaikoInbox is EssentialContract {
     mapping(uint64 => ITaikoInbox.TransitionState) private _transitions;
     ITaikoInbox.Config private _config;
 
-    constructor(uint64 _chainId) EssentialContract() {
+    constructor(uint64 _chainId) {
         _config = ITaikoInbox.Config({
             chainId: _chainId,
             maxUnverifiedBatches: 10,
@@ -47,7 +47,7 @@ contract MockTaikoInbox is EssentialContract {
     }
 
     // Used by PreconfRouter
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function v4ProposeBatch(
         bytes calldata _params,
@@ -97,7 +97,7 @@ contract MockTaikoInbox is EssentialContract {
     }
 
     // Used by PreconfSlasher
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function v4GetBatch(uint64 _batchId) external view returns (ITaikoInbox.Batch memory) {
         return _batches[_batchId];

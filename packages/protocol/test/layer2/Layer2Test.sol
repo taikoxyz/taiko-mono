@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/hekla/DelegateOwner.sol";
 import "src/layer2/mainnet/DelegateController.sol";
-import "src/layer2/based/anchor/TaikoAnchor.sol";
+import "src/layer2/based/TaikoAnchor.sol";
 import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";
 
@@ -21,25 +20,6 @@ abstract contract Layer2Test is CommonTest {
                 impl: taikoAnchorImpl,
                 data: abi.encodeCall(TaikoAnchor.init, (address(0), l1ChainId, 0))
             })
-        );
-    }
-
-    function deployDelegateOwner(
-        address daoController,
-        uint64 remoteChainId,
-        address bridge
-    )
-        internal
-        returns (DelegateOwner)
-    {
-        return DelegateOwner(
-            payable(
-                deploy({
-                    name: "delegate_owner",
-                    impl: address(new DelegateOwner(remoteChainId, bridge, daoController)),
-                    data: abi.encodeCall(DelegateOwner.init, ())
-                })
-            )
         );
     }
 

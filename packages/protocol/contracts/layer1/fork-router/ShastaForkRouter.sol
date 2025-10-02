@@ -16,6 +16,8 @@ interface IPacayaFork {
     function withdrawBond(uint256) external;
     function bondBalanceOf(address) external;
     function bondToken() external;
+    function inboxWrapper() external;
+    function verifier() external;
     function getStats1() external;
     function getStats2() external;
     function getBatch(uint64) external;
@@ -26,6 +28,10 @@ interface IPacayaFork {
     function getBatchVerifyingTransition(uint64) external;
     function pacayaConfig() external;
     function isOnL1() external;
+    function v4GetConfig() external;
+    function pause() external;
+    function unpause() external;
+    function paused() external;
 }
 
 /// @title ShastaForkRouter
@@ -43,6 +49,8 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.withdrawBond.selector
                 || _selector == IPacayaFork.bondBalanceOf.selector
                 || _selector == IPacayaFork.bondToken.selector
+                || _selector == IPacayaFork.inboxWrapper.selector
+                || _selector == IPacayaFork.verifier.selector
                 || _selector == IPacayaFork.getStats1.selector
                 || _selector == IPacayaFork.getStats2.selector
                 || _selector == IPacayaFork.getBatch.selector
@@ -53,6 +61,9 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.getBatchVerifyingTransition.selector
                 || _selector == IPacayaFork.pacayaConfig.selector
                 || _selector == IPacayaFork.isOnL1.selector
+                || _selector == IPacayaFork.v4GetConfig.selector
+                || _selector == IPacayaFork.pause.selector || _selector == IPacayaFork.unpause.selector
+                || _selector == IPacayaFork.paused.selector
         ) return true;
 
         return false;

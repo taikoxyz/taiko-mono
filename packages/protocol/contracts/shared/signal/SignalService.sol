@@ -20,7 +20,8 @@ contract SignalService is EssentialResolverContract, ISignalService {
     /// @dev Slot 2.
     mapping(address addr => bool authorized) public isAuthorized;
 
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+    // solhint-disable var-name-mixedcase
+    mapping(bytes32 signalSlot => bool received) private __deprecated_receivedSignals;
 
     uint256[47] private __gap;
 
@@ -40,7 +41,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_STATE();
     error SS_SIGNAL_NOT_FOUND();
-    error SS_SIGNAL_NOT_RECEIVED();
     error SS_UNAUTHORIZED();
 
     constructor(address _resolver) EssentialResolverContract(_resolver) { }
@@ -59,18 +59,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         if (isAuthorized[_addr] == _authorize) revert SS_INVALID_STATE();
         isAuthorized[_addr] = _authorize;
         emit Authorized(_addr, _authorize);
-    }
-
-    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
-    /// @param _signalSlots The signal slots to mark as received.
-    function receiveSignals(bytes32[] calldata _signalSlots)
-        external
-        onlyFromNamed(LibNames.B_TAIKO)
-    {
-        for (uint256 i; i < _signalSlots.length; ++i) {
-            _receivedSignals[_signalSlots[i]] = true;
-        }
-        emit SignalsReceived(_signalSlots);
     }
 
     /// @inheritdoc ISignalService
@@ -324,13 +312,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         nonZeroBytes32(_signal)
         returns (CacheAction[] memory actions)
     {
-        if (_proof.length == 0) {
-            require(
-                _receivedSignals[getSignalSlot(_chainId, _app, _signal)], SS_SIGNAL_NOT_RECEIVED()
-            );
-            return new CacheAction[](0);
-        }
-
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
 

@@ -96,6 +96,7 @@ module.exports = {
       // Rollup Contracts
       TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
+      BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       // ============ Proxies ============
       // Shared Contracts
       Bridge: getConstantAddress(this.chainId, 1),
@@ -105,8 +106,9 @@ module.exports = {
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
       // Rollup Contracts
-      TaikoL2: getConstantAddress(this.chainId, 10001),
+      TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
+      BondManager: getConstantAddress(this.chainId, 10003),
     };
   },
   param1559: {
@@ -115,6 +117,12 @@ module.exports = {
   predeployERC20: true,
   pacayaForkHeight: 1024,
   shastaForkHeight: 2048,
+  livenessBondGwei: 128_000_000_000,
+  provabilityBondGwei: 128_000_000_000,
+  withdrawalDelay: 3600,
+  maxCheckpointHistory: 256,
+  minBond: 0,
+  bondToken: "0x0000000000000000000000000000000000000000",
 };
 
 function getConstantAddress(prefix, suffix) {

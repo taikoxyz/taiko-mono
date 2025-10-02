@@ -189,7 +189,8 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 							return fmt.Errorf("zk proof is WIP, status: %w", err)
 						}
 					} else {
-						log.Debug("ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
+						log.Debug(
+							"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
 							"batchID", opts.BatchID,
 						)
 						useZK = false

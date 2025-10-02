@@ -47,7 +47,7 @@ abstract contract InboxTestBase is Layer1Test {
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
         if (bondToken != TaikoToken(address(0))) {
-            bondToken.transfer(transactor, 10_000 ether);
+            require(bondToken.transfer(transactor, 10_000 ether), "Transfer failed");
             vm.startPrank(transactor);
             bondToken.approve(address(inbox), type(uint256).max);
         } else {
@@ -371,7 +371,7 @@ abstract contract InboxTestBase is Layer1Test {
     }
 
     function mintTaikoToken(address to, uint256 amountTko) internal {
-        bondToken.transfer(to, amountTko);
+        require(bondToken.transfer(to, amountTko), "Transfer failed");
 
         vm.prank(to);
         bondToken.approve(address(inbox), amountTko);
@@ -387,7 +387,7 @@ abstract contract InboxTestBase is Layer1Test {
         internal
     {
         vm.deal(user, 1000 ether);
-        bondToken.transfer(user, initialBondBalance);
+        require(bondToken.transfer(user, initialBondBalance), "Transfer failed");
 
         vm.prank(user);
         bondToken.approve(address(inbox), bondAmount);

@@ -15,14 +15,16 @@ import (
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 // L2ChainSyncer is responsible for keeping the L2 execution engine's local chain in sync with the one
 // in TaikoInbox contract.
 type L2ChainSyncer struct {
-	ctx   context.Context
-	state *state.State // Driver's state
-	rpc   *rpc.Client  // L1/L2 RPC clients
+	ctx     context.Context
+	state   *state.State           // Driver's state
+	indexer *shastaIndexer.Indexer // Shasta state indexer
+	rpc     *rpc.Client            // L1/L2 RPC clients
 
 	// Syncers
 	beaconSyncer *beaconsync.Syncer
@@ -43,6 +45,7 @@ type L2ChainSyncer struct {
 func New(
 	ctx context.Context,
 	rpc *rpc.Client,
+	indexer *shastaIndexer.Indexer,
 	state *state.State,
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
@@ -53,14 +56,15 @@ func New(
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint, latestSeenProposalCh)
+	eventSyncer, err := event.NewSyncer(ctx, rpc, indexer, state, tracker, blobServerEndpoint, latestSeenProposalCh)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create event syncer: %w", err)
 	}
 
 	return &L2ChainSyncer{
 		ctx:             ctx,
 		rpc:             rpc,
+		indexer:         indexer,
 		state:           state,
 		beaconSyncer:    beaconSyncer,
 		eventSyncer:     eventSyncer,
@@ -73,7 +77,7 @@ func New(
 func (s *L2ChainSyncer) Sync() error {
 	blockIDToSync, needNewBeaconSyncTriggered, err := s.needNewBeaconSyncTriggered()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if beacon sync is needed: %w", err)
 	}
 
 	// If current L2 execution engine's chain is behind of the block head to sync, and the
@@ -111,7 +115,7 @@ func (s *L2ChainSyncer) Sync() error {
 }
 
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head,
-// and tries to import the pending preconfirmation blocks from the cache,  this method should only be
+// and tries to import the pending preconfirmation blocks from the cache, this method should only be
 // called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync() error {
 	// Get the execution engine's chain head.
@@ -212,7 +216,7 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 
 	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
 	if err != nil {
-		return 0, false, err
+		return 0, false, fmt.Errorf("failed to get L2 checkpoint head L1 origin: %w", err)
 	}
 
 	// If the protocol's block head is zero, we simply return false.

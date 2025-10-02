@@ -21,6 +21,9 @@
 
 </div>
 
+> [!WARNING]
+> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Pacaya fork), please use the [`taiko-alethia-protocol-v2.3.1`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.3.1) branch. The release process involves security measures that the `main` branch does not guarantee.
+
 ## Documentation
 
 Get started with Taiko Alethia:
@@ -41,7 +44,6 @@ Get started with Taiko Alethia:
 | [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
-| [geth-rpc-gateway](./packages/geth-rpc-gateway)               | RPC gateway for geth nodes.                                        |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |

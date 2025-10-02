@@ -220,6 +220,10 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
+                  label: "Run a node for Taiko Hoodi",
+                  link: "/guides/node-operators/run-a-node-for-taiko-hoodi/",
+                },
+                {
                   label: "Enable a prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },

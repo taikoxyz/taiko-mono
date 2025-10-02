@@ -107,7 +107,7 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 
 func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	if hash == relayer.ZeroHash {
-		return nil, errors.New("cant find block")
+		return nil, errors.New("can't find block")
 	}
 
 	return Header, nil
