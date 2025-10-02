@@ -97,14 +97,6 @@ script = "script/shared"
 out = "out/shared"
 evm_version = "shanghai"
 
-# Used for CI
-[profile.shared-layer2]
-src = "contracts/shared:contracts/layer2"
-test = "test/shared:test/layer2"
-script = "script/shared:script/layer2"
-out = "out/shared-layer2"
-evm_version = "shanghai"
-
 [profile.genesis]
 src = "contracts/layer2"
 test = "test/genesis"
