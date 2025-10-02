@@ -16,6 +16,7 @@ impl Proposer {
             inbox_address: Address::ZERO,
         })
         .await?;
+        indexer.wait_historical_indexing_finished().await;
         Ok(Self { _event_indexer: indexer })
     }
 }
