@@ -18,7 +18,6 @@ contract TaikoToken is TaikoTokenBase {
     // v20.based.taiko.eth
     address public constant TAIKO_ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
-    error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
 
     /// @notice Initializes the contract.

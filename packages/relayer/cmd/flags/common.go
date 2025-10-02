@@ -82,14 +82,14 @@ var (
 	}
 	MetricsHTTPPort = &cli.Uint64Flag{
 		Name:     "metrics.port",
-		Usage:    "Port to run metrics http server on",
+		Usage:    "Port to run metrics HTTP server on",
 		Category: commonCategory,
 		Value:    6061,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
 	}
 	ETHClientTimeout = &cli.Uint64Flag{
 		Name:     "ethClientTimeout",
-		Usage:    "Timeout for eth client and contract binding calls",
+		Usage:    "Timeout for ETH client and contract binding calls",
 		Category: commonCategory,
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
@@ -107,12 +107,12 @@ var (
 		Value:    12,
 		EnvVars:  []string{"BACKOFF_RETRY_INTERVAL"},
 	}
-	BackOffMaxRetrys = &cli.Uint64Flag{
-		Name:     "backoff.maxRetrys",
-		Usage:    "Max retry times when there is an error",
+	BackOffMaxRetries = &cli.Uint64Flag{
+		Name:     "backoff.maxRetries",
+		Usage:    "Maximum retry attempts when there is an error",
 		Category: processorCategory,
 		Value:    5,
-		EnvVars:  []string{"BACKOFF_MAX_RETRYS"},
+		EnvVars:  []string{"BACKOFF_MAX_RETRIES"},
 	}
 )
 
@@ -132,7 +132,7 @@ var CommonFlags = []cli.Flag{
 	MetricsHTTPPort,
 	ETHClientTimeout,
 	SrcSignalServiceAddress,
-	BackOffMaxRetrys,
+	BackOffMaxRetries,
 	BackOffRetryInterval,
 }
 

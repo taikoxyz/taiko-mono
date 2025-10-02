@@ -24,12 +24,15 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*",
+	server, err := New(
+		"*",
 		nil,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		nil,
+		nil,
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		nil,
 	)
 	s.Nil(err)

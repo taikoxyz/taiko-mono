@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { LibProvedEventEncoder } from "src/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProvedEventEncoder
@@ -59,8 +59,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.checkpoint.blockNumber = _endBlockNumber;
         original.transition.checkpoint.blockHash = _endBlockHash;
         original.transition.checkpoint.stateRoot = _endStateRoot;
-        original.transition.designatedProver = _designatedProver;
-        original.transition.actualProver = _actualProver;
+        original.metadata.designatedProver = _designatedProver;
+        original.metadata.actualProver = _actualProver;
         original.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](0);
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -73,8 +73,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
     }
 
     function testFuzz_encodeBondInstructions(uint8 _instructionCount) public pure {
@@ -89,7 +89,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
             original.transitionRecord.bondInstructions[i].proposalId = uint48(i + 1000);
             original.transitionRecord.bondInstructions[i].bondType = LibBonds.BondType(i % 3);
             original.transitionRecord.bondInstructions[i].payer = address(uint160(i * 1000));
-            original.transitionRecord.bondInstructions[i].receiver = address(uint160(i * 2000));
+            original.transitionRecord.bondInstructions[i].payee = address(uint160(i * 2000));
         }
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -111,8 +111,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 original.transitionRecord.bondInstructions[i].payer
             );
             assertEq(
-                decoded.transitionRecord.bondInstructions[i].receiver,
-                original.transitionRecord.bondInstructions[i].receiver
+                decoded.transitionRecord.bondInstructions[i].payee,
+                original.transitionRecord.bondInstructions[i].payee
             );
         }
     }
@@ -139,8 +139,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
             uint48(uint256(keccak256(abi.encode(_proposalId))) % MAX_UINT48);
         original.transition.checkpoint.blockHash = keccak256(abi.encode("endBlock", _proposalId));
         original.transition.checkpoint.stateRoot = keccak256(abi.encode("endState", _proposalId));
-        original.transition.designatedProver = _designatedProver;
-        original.transition.actualProver = address(uint160(_designatedProver) + 1);
+        original.metadata.designatedProver = _designatedProver;
+        original.metadata.actualProver = address(uint160(_designatedProver) + 1);
 
         // Create TransitionRecord with derived values
         original.transitionRecord.span = uint8(uint256(keccak256(abi.encode(_proposalId))) % 10 + 1);
@@ -157,7 +157,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 proposalId: uint48(_proposalId + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0xaaaa + i * 10)),
-                receiver: address(uint160(0xbbbb + i * 10))
+                payee: address(uint160(0xbbbb + i * 10))
             });
         }
 
@@ -174,8 +174,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
@@ -232,8 +232,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.checkpoint.blockNumber = type(uint48).max;
         original.transition.checkpoint.blockHash = bytes32(type(uint256).max);
         original.transition.checkpoint.stateRoot = bytes32(type(uint256).max);
-        original.transition.designatedProver = address(type(uint160).max);
-        original.transition.actualProver = address(type(uint160).max);
+        original.metadata.designatedProver = address(type(uint160).max);
+        original.metadata.actualProver = address(type(uint160).max);
         original.transitionRecord.span = type(uint8).max;
         original.transitionRecord.transitionHash = bytes32(type(uint256).max);
         original.transitionRecord.checkpointHash = bytes32(type(uint256).max);
@@ -242,7 +242,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
             proposalId: type(uint48).max,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(type(uint160).max),
-            receiver: address(type(uint160).max)
+            payee: address(type(uint160).max)
         });
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -264,8 +264,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         payload.transition.checkpoint.blockNumber = 1_000_000;
         payload.transition.checkpoint.blockHash = keccak256("endBlock");
         payload.transition.checkpoint.stateRoot = keccak256("endState");
-        payload.transition.designatedProver = address(0x1234);
-        payload.transition.actualProver = address(0x5678);
+        payload.metadata.designatedProver = address(0x1234);
+        payload.metadata.actualProver = address(0x5678);
         payload.transitionRecord.span = 3;
         payload.transitionRecord.transitionHash = keccak256("transitionHash");
         payload.transitionRecord.checkpointHash = keccak256("checkpointHash");
@@ -277,7 +277,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
                 proposalId: uint48(123 + i),
                 bondType: i % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                 payer: address(uint160(0x1000 + i)),
-                receiver: address(uint160(0x2000 + i))
+                payee: address(uint160(0x2000 + i))
             });
         }
     }

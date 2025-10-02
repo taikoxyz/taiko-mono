@@ -62,7 +62,20 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - name: Prepare generated artifacts directories for CI
+        working-directory: ./packages/protocol
+        run: |
+          # Ensure directories exist and are writable in CI
+          mkdir -p gas-reports layout snapshots
+          # Reset skip-worktree flags that might exist from local dev
+          git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
+          git ls-files layout/ | xargs -r git update-index --no-skip-worktree || true
+          git ls-files snapshots/ | xargs -r git update-index --no-skip-worktree || true
+          # Configure merge strategy for auto-generated files
+          git config merge.ours.driver true
+
       - name: Clean up and fmt
+        if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
         run: pnpm clean && forge fmt
 
@@ -88,19 +101,19 @@ jobs:
             echo "changes=false" >> $GITHUB_ENV
           fi
 
-      - name: Commit contract layout table
-        if: env.changes == 'true'
+      - name: Commit generated protocol artifacts
+        if: env.changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "forge fmt & update contract layout tables"
+          commit_message: "Update protocol generated artifacts"
           branch: ${{ github.head_ref }}
           push_options: "--force-with-lease"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        timeout-minutes: 2
+        timeout-minutes: 4
         run: |
-          anvil --hardfork cancun &
+          anvil &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done

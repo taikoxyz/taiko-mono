@@ -5,12 +5,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // ABI arguments marshaling components.
@@ -59,6 +61,18 @@ var (
 		{Name: "verifier", Type: "address"},
 		{Name: "proof", Type: "bytes"},
 	}
+	BondInstructionComponents = []abi.ArgumentMarshaling{
+		{Name: "proposalId", Type: "uint48"},
+		{Name: "bondType", Type: "uint8"},
+		{Name: "payer", Type: "address"},
+		{Name: "payee", Type: "address"},
+	}
+	ProverAuthComponents = []abi.ArgumentMarshaling{
+		{Name: "proposalId", Type: "uint48"},
+		{Name: "proposer", Type: "address"},
+		{Name: "provingFeeGwei", Type: "uint48"},
+		{Name: "signature", Type: "bytes"},
+	}
 )
 
 var (
@@ -69,6 +83,8 @@ var (
 	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
+	BondInstructionComponentsType, _      = abi.NewType("tuple", "LibBonds.BondInstruction", BondInstructionComponents)
+	BondInstructionComponentsArgs         = abi.Arguments{{Name: "LibBonds.BondInstruction", Type: BondInstructionComponentsType}}
 	SubProofsComponentsArrayArgs          = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
@@ -79,14 +95,21 @@ var (
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
 	bytesType, _              = abi.NewType("bytes", "", nil)
+	bytes32Type, _            = abi.NewType("bytes32", "", nil)
 	PacayaDifficultyInputArgs = abi.Arguments{
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
+		{Name: "block.number", Type: uint256Type},
+	}
+	ShastaDifficultyInputArgs = abi.Arguments{
+		{Name: "parent.metadata.difficulty", Type: uint256Type},
 		{Name: "block.number", Type: uint256Type},
 	}
 	batchParamsWithForcedInclusionArgs = abi.Arguments{
 		{Name: "bytesX", Type: bytesType},
 		{Name: "bytesY", Type: bytesType},
 	}
+	ProverAuthType, _ = abi.NewType("tuple", "ProverAuth", ProverAuthComponents)
+	ProverAuthArgs    = abi.Arguments{{Name: "ProverAuth", Type: ProverAuthType}}
 )
 
 // Contract ABIs.
@@ -113,6 +136,11 @@ var (
 	ForkRouterPacayaABI     *abi.ABI
 	TaikoTokenPacayaABI     *abi.ABI
 	ProverSetPacayaABI      *abi.ABI
+
+	// Shasta fork
+	ShastaInboxABI  *abi.ABI
+	ShastaAnchorABI *abi.ABI
+	BondManagerABI  *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -161,7 +189,7 @@ func init() {
 	}
 
 	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoInbox ABI error", "error", err)
+		log.Crit("Get Pacaya TaikoInbox ABI error", "error", err)
 	}
 
 	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
@@ -196,6 +224,18 @@ func init() {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
+	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get Shasta Inbox ABI error", "error", err)
+	}
+
+	if ShastaAnchorABI, err = shastaBindings.ShastaAnchorMetaData.GetAbi(); err != nil {
+		log.Crit("Get Shasta Anchor ABI error", "error", err)
+	}
+
+	if BondManagerABI, err = shastaBindings.BondManagerMetaData.GetAbi(); err != nil {
+		log.Crit("Get BondManager ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -215,6 +255,9 @@ func init() {
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
 		ProverSetPacayaABI.Errors,
+		ShastaInboxABI.Errors,
+		ShastaAnchorABI.Errors,
+		BondManagerABI.Errors,
 	}
 }
 
@@ -245,7 +288,7 @@ func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeProveBatchesInput performs the solidity `abi.encode` for the given TaikoInbox.proveBatches input.
+// EncodeProveBatchesInput performs the solidity `abi.encode` for the given Pacaya `TaikoInbox.proveBatches` input.
 func EncodeProveBatchesInput(
 	metas []metadata.TaikoProposalMetaData,
 	transitions []pacayaBindings.ITaikoInboxTransition,
@@ -264,10 +307,33 @@ func EncodeProveBatchesInput(
 	}
 	input, err := ProveBatchesInputArgs.Pack(pacayaMetas, transitions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after pacaya fork, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode Pacaya TaikoInbox.proveBatches input item after pacaya fork, %w", err)
 	}
 
 	return input, nil
+}
+
+// EncodeProverAuth performs the solidity `abi.encode` for the given Shasta ProverAuth.
+func EncodeProverAuth(proverAuth *ProverAuth) ([]byte, error) {
+	if proverAuth == nil {
+		return nil, nil
+	}
+	// Normalize the signature so the recovery id matches Solidity's expected 27/28 format.
+	auth := *proverAuth
+	if len(auth.Signature) == crypto.SignatureLength {
+		recoveryID := auth.Signature[crypto.RecoveryIDOffset]
+		if recoveryID == 0 || recoveryID == 1 {
+			sig := make([]byte, crypto.SignatureLength)
+			copy(sig, auth.Signature)
+			sig[crypto.RecoveryIDOffset] = recoveryID + 27
+			auth.Signature = sig
+		}
+	}
+	b, err := ProverAuthArgs.Pack(&auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode ProverAuth, %w", err)
+	}
+	return b, nil
 }
 
 // CalculatePacayaDifficulty calculates the difficulty for the given Pacaya block.
@@ -278,6 +344,37 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 	}
 
 	return crypto.Keccak256(packed), nil
+}
+
+// CalculateShastaDifficulty calculates the difficulty for the given Shasta block.
+func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
+	packed, err := ShastaDifficultyInputArgs.Pack(parentDifficulty, blockNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode Shasta block difficulty, %w", err)
+	}
+
+	return crypto.Keccak256(packed), nil
+}
+
+// CalculateBondInstructionHash calculates the bond instruction hash by hashing the given previous bond instruction
+// hash and bond instruction.
+func CalculateBondInstructionHash(
+	previousBondInstructionHash common.Hash,
+	bondInstruction shastaBindings.LibBondsBondInstruction,
+) (common.Hash, error) {
+	if bondInstruction.ProposalId.Cmp(common.Big0) == 0 || bondInstruction.BondType == 0 {
+		return previousBondInstructionHash, nil
+	}
+	instructionBytes, err := BondInstructionComponentsArgs.Pack(bondInstruction)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to abi.encode bondInstruction, %w", err)
+	}
+
+	data := make([]byte, 32+len(instructionBytes))
+	copy(data, previousBondInstructionHash[:])
+	copy(data[32:], instructionBytes)
+
+	return common.BytesToHash(crypto.Keccak256(data)), nil
 }
 
 // EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
