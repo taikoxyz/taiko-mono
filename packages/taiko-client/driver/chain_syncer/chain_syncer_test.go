@@ -327,9 +327,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	)
 	s.Nil(err)
 
-	manifest := &manifest.ProtocolProposalManifest{
-		ProverAuthBytes: []byte{},
-		Blocks: []*manifest.ProtocolBlockManifest{
+	manifest := &manifest.DerivationSourceManifest{
+		Blocks: []*manifest.BlockManifest{
 			{
 				Timestamp:         0,
 				Coinbase:          s.TestAddr,
@@ -340,10 +339,10 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	proposalManifestBytes, err := builder.EncodeProposalManifestShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeDerivationSourceManifestShasta(manifest)
 	s.Nil(err)
 
-	b, err := builder.SplitToBlobs(proposalManifestBytes)
+	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
 
 	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))

@@ -73,7 +73,7 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 ) (*manifest.ProposalManifest, error) {
 	var (
 		defaultManifest  = &manifest.ProposalManifest{Default: true}
-		protocolProposal = new(manifest.ProtocolProposalManifest)
+		protocolProposal = new(manifest.DerivationSourceManifest)
 	)
 	version, size, err := ExtractVersionAndSize(b, offset)
 	if err != nil {
@@ -119,11 +119,10 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 
 	// Convert ProtocolProposalManifest to ProposalManifest
 	proposal := &manifest.ProposalManifest{
-		ProverAuthBytes: protocolProposal.ProverAuthBytes,
-		Blocks:          make([]*manifest.BlockManifest, len(protocolProposal.Blocks)),
+		Blocks: make([]*manifest.BlockManifestWithExtra, len(protocolProposal.Blocks)),
 	}
 	for i, block := range protocolProposal.Blocks {
-		proposal.Blocks[i] = &manifest.BlockManifest{ProtocolBlockManifest: *block}
+		proposal.Blocks[i] = &manifest.BlockManifestWithExtra{BlockManifest: *block}
 	}
 
 	return proposal, nil

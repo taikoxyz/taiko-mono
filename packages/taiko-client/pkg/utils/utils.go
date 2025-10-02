@@ -89,17 +89,17 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return compressed, nil
 }
 
-// EncodeAndCompressShastaProposal encodes and compresses the given Shasta proposal using RLP encoding
+// EncodeAndCompressDerivationSourceShasta encodes and compresses the given Shasta derivation srouce using RLP encoding
 // followed by zlib compression.
-func EncodeAndCompressShastaProposal(proposal manifest.ProtocolProposalManifest) ([]byte, error) {
+func EncodeAndCompressDerivationSourceShasta(proposal manifest.DerivationSourceManifest) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(proposal)
 	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode Shasta proposal: %w", err)
+		return nil, fmt.Errorf("failed to RLP encode Shasta derivation source manifest: %w", err)
 	}
 
 	compressed, err := Compress(b)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded Shasta proposal: %w", err)
+		return nil, fmt.Errorf("failed to compress RLP encoded Shasta derivation source manifest: %w", err)
 	}
 
 	return compressed, nil

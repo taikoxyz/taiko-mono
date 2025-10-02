@@ -31,9 +31,9 @@ const (
 	BondProcessingDelay = 6
 )
 
-// BlockManifest represents a block manifest
-// Should be same with LibManifest.BlockManifest
-type ProtocolBlockManifest struct {
+// BlockManifest represents the blocks inside a derivation source.
+// Should be same with LibManifest.BlockManifest.
+type BlockManifest struct {
 	// The timestamp of the block
 	Timestamp uint64 `json:"timestamp"`
 	// The coinbase of the block
@@ -47,25 +47,24 @@ type ProtocolBlockManifest struct {
 	Transactions types.Transactions `json:"transactions"`
 }
 
-// BlockManifest represents a block manifest with extra information.
-type BlockManifest struct {
-	ProtocolBlockManifest
+// BlockManifestWithExtra represents a block manifest with extra information.
+type BlockManifestWithExtra struct {
+	BlockManifest
 	// Extra information
 	BondInstructionsHash common.Hash                              `json:"bondInstructionsHash"`
 	BondInstructions     []shastaBindings.LibBondsBondInstruction `json:"bondInstructions"`
 }
 
-// ProtocolProposalManifest represents a proposal manifest
-// Should be same with LibManifest.ProposalManifest
-type ProtocolProposalManifest struct {
-	ProverAuthBytes []byte                   `json:"proverAuthBytes"`
-	Blocks          []*ProtocolBlockManifest `json:"blocks"`
+// DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
+// Should be same with LibManifest.ProposalManifest.
+type DerivationSourceManifest struct {
+	Blocks []*BlockManifest `json:"blocks"`
 }
 
 // ProposalManifest represents a proposal manifest with extra information.
 type ProposalManifest struct {
-	ProverAuthBytes []byte           `json:"proverAuthBytes"`
-	Blocks          []*BlockManifest `json:"blocks"`
+	ProverAuthBytes []byte                    `json:"proverAuthBytes"`
+	Blocks          []*BlockManifestWithExtra `json:"blocks"`
 	// Extra information
 	Default           bool         `json:"default"`
 	ParentBlock       *types.Block `json:"parentBlock"`

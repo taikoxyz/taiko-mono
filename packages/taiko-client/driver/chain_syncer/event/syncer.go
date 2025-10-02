@@ -395,9 +395,9 @@ func (s *Syncer) processShastaProposal(
 				gasLimit = gasLimit - consensus.UpdateStateGasLimit
 			}
 
-			proposalManifest.Blocks = []*manifest.BlockManifest{
+			proposalManifest.Blocks = []*manifest.BlockManifestWithExtra{
 				{
-					ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+					BlockManifest: manifest.BlockManifest{
 						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 						Coinbase:          meta.GetProposal().Proposer,
 						AnchorBlockNumber: lastAnchorBlockNumber,

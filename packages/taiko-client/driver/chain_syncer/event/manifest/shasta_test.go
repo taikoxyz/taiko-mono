@@ -24,9 +24,8 @@ func (s *ShastaManifestFetcherTestSuite) SetupTest() {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
-	m := &manifest.ProtocolProposalManifest{
-		ProverAuthBytes: testutils.RandomBytes(32),
-		Blocks: []*manifest.ProtocolBlockManifest{{
+	m := &manifest.DerivationSourceManifest{
+		Blocks: []*manifest.BlockManifest{{
 			Timestamp:         testutils.RandomHash().Big().Uint64(),
 			Coinbase:          common.BytesToAddress(testutils.RandomBytes(20)),
 			AnchorBlockNumber: testutils.RandomHash().Big().Uint64(),
@@ -34,13 +33,12 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 			Transactions:      types.Transactions{},
 		}},
 	}
-	b, err := builder.EncodeProposalManifestShasta(m)
+	b, err := builder.EncodeDerivationSourceManifestShasta(m)
 	s.Nil(err)
 	s.NotEmpty(b)
 
 	decoded, err := new(ShastaManifestFetcher).manifestFromBlobBytes(b, 0)
 	s.Nil(err)
-	s.Equal(m.ProverAuthBytes, decoded.ProverAuthBytes)
 	s.Equal(len(m.Blocks), len(decoded.Blocks))
 	s.Equal(m.Blocks[0].Timestamp, decoded.Blocks[0].Timestamp)
 	s.Equal(m.Blocks[0].Coinbase, decoded.Blocks[0].Coinbase)
@@ -82,8 +80,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	// Test upper bound enforcement
 	proposalManifest := &manifest.ProposalManifest{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Timestamp: proposalTimestamp.Uint64() + testutils.RandomHash().Big().Uint64()%1000 + 1,
 			}},
 		},
@@ -106,8 +104,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	}
 	proposalManifest = &manifest.ProposalManifest{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Timestamp: lowTimestamp,
 			}},
 		},
@@ -128,9 +126,9 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	secondBlockTime := firstBlockTime - testutils.RandomHash().Big().Uint64()%50 - 10
 	proposalManifest = &manifest.ProposalManifest{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{Timestamp: firstBlockTime}},
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{Timestamp: secondBlockTime}},
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{Timestamp: firstBlockTime}},
+			{BlockManifest: manifest.BlockManifest{Timestamp: secondBlockTime}},
 		},
 	}
 
@@ -146,8 +144,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	// Test 1: Non-monotonic progression - should be adjusted and return false (no progression)
 	proposalManifest := &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				AnchorBlockNumber: 850, // Less than parent, should be adjusted
 			}},
 		},
@@ -161,8 +159,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	// Test 2: Future reference - should be adjusted and return false (no progression)
 	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				AnchorBlockNumber: futureAnchor,
 			}},
 		},
@@ -175,8 +173,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	// Test 3: Excessive lag - should be adjusted and return false (no progression)
 	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				AnchorBlockNumber: lagAnchor,
 			}},
 		},
@@ -189,8 +187,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	// Test 4: Valid anchor block number - should remain unchanged
 	validAnchor := uint64(950) // Between parent (900) and max allowed (998)
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				AnchorBlockNumber: validAnchor,
 			}},
 		},
@@ -202,8 +200,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	// Test 5: Forced inclusion protection - non-forced proposal with no progression should return false
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				AnchorBlockNumber: parentAnchorBlockNumber, // Same as parent, no progression
 			}},
 		},
@@ -223,8 +221,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 
 	// Test 1: Forced inclusion - always use proposal.proposer
 	proposalManifest := &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Coinbase: customCoinbase, // Should be overridden
 			}},
 		},
@@ -237,8 +235,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 	// Test 2: Regular proposal with non-zero coinbase - should remain unchanged
 	// NOTE: This tests the current buggy behavior where the second if condition still executes
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Coinbase: customCoinbase,
 			}},
 		},
@@ -251,8 +249,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 
 	// Test 3: Regular proposal with zero coinbase - should use fallback
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Coinbase: common.Address{}, // Zero address
 			}},
 		},
@@ -265,8 +263,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 	// This shows that even for forced inclusion, if coinbase happens to be zero after
 	// being set to proposer, it would be set again (though to the same value)
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				Coinbase: common.Address{}, // Zero address initially
 			}},
 		},
@@ -293,8 +291,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 
 	// Test 1: Zero gas limit - should inherit parent
 	proposalManifest := &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: 0,
 			}},
 		},
@@ -306,8 +304,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	// Test 2: Gas limit below lower bound - should be clamped
 	lowGasLimit := expectedLowerBound - 1000
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: lowGasLimit,
 			}},
 		},
@@ -319,8 +317,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	// Test 3: Gas limit above upper bound - should be clamped
 	highGasLimit := expectedUpperBound + 1000
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: highGasLimit,
 			}},
 		},
@@ -332,8 +330,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	// Test 4: Valid gas limit within bounds - should remain unchanged
 	validGasLimit := effectiveParentGasLimit + 20000 // 29,020,000, within bounds
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: validGasLimit,
 			}},
 		},
@@ -347,11 +345,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	secondBlockGasLimit := uint64(0)                      // Should inherit from first block
 
 	proposalManifest = &manifest.ProposalManifest{
-		Blocks: []*manifest.BlockManifest{
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+		Blocks: []*manifest.BlockManifestWithExtra{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: firstBlockGasLimit,
 			}},
-			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+			{BlockManifest: manifest.BlockManifest{
 				GasLimit: secondBlockGasLimit,
 			}},
 		},
@@ -365,8 +363,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	if manifest.MinBlockGasLimit > expectedLowerBound {
 		veryLowParentGasLimit := uint64(10_000_000) // Low parent gas limit
 		proposalManifest = &manifest.ProposalManifest{
-			Blocks: []*manifest.BlockManifest{
-				{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+			Blocks: []*manifest.BlockManifestWithExtra{
+				{BlockManifest: manifest.BlockManifest{
 					GasLimit: 5_000_000, // Very low, should be clamped to MIN_BLOCK_GAS_LIMIT
 				}},
 			},
