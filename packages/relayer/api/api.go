@@ -92,7 +92,7 @@ func (api *API) Close(ctx context.Context) {
 	if api.cancel != nil {
 		api.cancel()
 	}
-	
+
 	if err := api.srv.Shutdown(ctx); err != nil {
 		slog.Error("srv shutdown", "error", err)
 	}
