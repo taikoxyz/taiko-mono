@@ -12,9 +12,9 @@ pub struct BeaconClient {
 impl BeaconClient {
     // fetches and constructs a BeaconClient from the given base URL
     pub async fn new(base_url: Url) -> Result<Self> {
-        let genesis = Self::fetch_genesis(base_url.clone()).await?;
+        let genesis = Self::fetch_genesis(&base_url).await?;
 
-        let spec = Self::fetch_spec(base_url.clone()).await?;
+        let spec = Self::fetch_spec(&base_url).await?;
 
         // Validate beacon spec invariants to prevent divide-by-zero at runtime
         if spec.seconds_per_slot == 0 {
@@ -56,7 +56,7 @@ impl BeaconClient {
         self.slots_per_epoch
     }
 
-    async fn fetch_genesis(base_url: Url) -> Result<Genesis> {
+    async fn fetch_genesis(base_url: &Url) -> Result<Genesis> {
         let genesis_url = base_url
             .join("eth/v1/beacon/genesis")
             .map_err(|_| eyre!("Invalid URL for genesis endpoint"))?;
@@ -78,7 +78,7 @@ impl BeaconClient {
         Ok(beacon_response.data)
     }
 
-    async fn fetch_spec(base_url: Url) -> Result<Spec> {
+    async fn fetch_spec(base_url: &Url) -> Result<Spec> {
         let spec_url = base_url
             .join("eth/v1/config/spec")
             .map_err(|_| eyre!("Invalid URL for spec endpoint"))?;
@@ -123,10 +123,13 @@ struct Spec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
 
     #[tokio::test]
     async fn new_fetches_and_parses_genesis_and_spec() -> Result<()> {
