@@ -266,7 +266,7 @@ func (i *Pacaya) InsertBlocks(
 func (i *Pacaya) InsertBlocksWithManifest(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
-	_ *shastaManifest.ShastaProposalPayload,
+	_ *shastaManifest.ShastaDerivationSourcePayload,
 	_ eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	return errors.New("not supported in Pacaya")

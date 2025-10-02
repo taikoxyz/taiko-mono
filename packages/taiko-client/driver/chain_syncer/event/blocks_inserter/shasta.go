@@ -56,11 +56,12 @@ func (i *Shasta) InsertBlocks(
 	return errors.New("not supported in Shasta block inserter")
 }
 
-// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given proposal manifest.
+// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
+// srouce payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposalPayload *shastaManifest.ShastaProposalPayload,
+	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
@@ -81,17 +82,17 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
 		"proposer", meta.GetProposal().Proposer,
-		"invalidManifest", proposalPayload.Default,
+		"invalidManifest", sourcePayload.Default,
 	)
 
 	var (
-		parent          = proposalPayload.ParentBlock.Header()
+		parent          = sourcePayload.ParentBlock.Header()
 		lastPayloadData *engine.ExecutableData
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
-	for j := range proposalPayload.BlockPayloads {
+	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
 			"Parent block",
 			"blockID", parent.Number,
@@ -118,7 +119,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				i.rpc,
 				i.anchorConstructor,
 				metadata,
-				proposalPayload,
+				sourcePayload,
 				parent,
 			)
 			if err != nil {
@@ -140,7 +141,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				)
 
 				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, proposalPayload); err != nil {
+				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetProposal().Id, err)
 				}
 
@@ -154,10 +155,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 			i.rpc,
 			i.anchorConstructor,
 			metadata,
-			proposalPayload,
+			sourcePayload,
 			parent,
 			j,
-			proposalPayload.IsLowBondProposal,
+			sourcePayload.IsLowBondProposal,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)

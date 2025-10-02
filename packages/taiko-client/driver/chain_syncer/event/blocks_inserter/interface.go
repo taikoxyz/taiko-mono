@@ -23,7 +23,7 @@ type Inserter interface {
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		proposalPayload *shastaManifest.ShastaProposalPayload,
+		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }

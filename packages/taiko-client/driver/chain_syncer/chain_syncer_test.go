@@ -233,6 +233,8 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
+	// TODO: remove this `Skip()` when https://github.com/taikoxyz/taiko-mono/pull/20322 figures
+	// out where to put `proverAuth`.
 	s.T().Skip()
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 

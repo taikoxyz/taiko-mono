@@ -38,8 +38,8 @@ type ShastaBlockPayload struct {
 	BondInstructions     []shastaBindings.LibBondsBondInstruction
 }
 
-// ShastaProposalPayload wraps Shasta blocks alongside proposal metadata.
-type ShastaProposalPayload struct {
+// ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
+type ShastaDerivationSourcePayload struct {
 	ProverAuthBytes   []byte
 	BlockPayloads     []*ShastaBlockPayload
 	Default           bool
@@ -47,32 +47,32 @@ type ShastaProposalPayload struct {
 	IsLowBondProposal bool
 }
 
-// ShastaManifestFetcher is responsible for fetching the txList blob from the L1 block sidecar.
-type ShastaManifestFetcher struct {
+// ShastaDerivationSourceFetcher is responsible for fetching the blob srouce from the L1 block sidecar.
+type ShastaDerivationSourceFetcher struct {
 	cli        *rpc.Client
 	dataSource *rpc.BlobDataSource
 }
 
-// NewManifestFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
-func NewManifestFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *ShastaManifestFetcher {
-	return &ShastaManifestFetcher{
+// NewDerivationSourceFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
+func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *ShastaDerivationSourceFetcher {
+	return &ShastaDerivationSourceFetcher{
 		cli:        cli,
 		dataSource: dataSource,
 	}
 }
 
-// NewShastaManifestFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
-func (f *ShastaManifestFetcher) Fetch(
+// NewShastaManifestFetcher creates a new ShastaDerivationSourceFetcher instance based on the given rpc client.
+func (f *ShastaDerivationSourceFetcher) Fetch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
-) (*ShastaProposalPayload, error) {
+) (*ShastaDerivationSourcePayload, error) {
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offest is invalid,
-	// return the default manifest.
+	// return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
 		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
-		return &ShastaProposalPayload{Default: true}, nil
+		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
 
 	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
@@ -83,13 +83,13 @@ func (f *ShastaManifestFetcher) Fetch(
 	return f.manifestFromBlobBytes(blobBytes, int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64()))
 }
 
-// manifestFromBlobBytes constructs the manifest from the given blob bytes.
-func (f *ShastaManifestFetcher) manifestFromBlobBytes(
+// manifestFromBlobBytes constructs the derivation payload from the given blob bytes.
+func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	b []byte,
 	offset int,
-) (*ShastaProposalPayload, error) {
+) (*ShastaDerivationSourcePayload, error) {
 	var (
-		defaultPayload   = &ShastaProposalPayload{Default: true}
+		defaultPayload   = &ShastaDerivationSourcePayload{Default: true}
 		protocolProposal = new(manifest.DerivationSourceManifest)
 	)
 	version, size, err := ExtractVersionAndSize(b, offset)
@@ -124,7 +124,7 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 		return defaultPayload, err
 	}
 
-	// If there are too many blocks in the manifest, return the default manifest.
+	// If there are too many blocks in the manifest, return the default payload.
 	if len(protocolProposal.Blocks) > manifest.ProposalMaxBlocks {
 		log.Warn(
 			"Too many blocks in the manifest, use default payload instead",
@@ -134,19 +134,19 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 		return defaultPayload, nil
 	}
 
-	// Convert ProtocolProposalManifest to ShastaProposalPayload.
-	proposal := &ShastaProposalPayload{
+	// Convert ProtocolProposalManifest to ShastaDerivationSourcePayload.
+	payload := &ShastaDerivationSourcePayload{
 		BlockPayloads: make([]*ShastaBlockPayload, len(protocolProposal.Blocks)),
 	}
 	for i, block := range protocolProposal.Blocks {
-		proposal.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
+		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
 	}
 
-	return proposal, nil
+	return payload, nil
 }
 
-// fetchBlobs fetches the blobs from the L1 block sidecar.
-func (f *ShastaManifestFetcher) fetchBlobs(
+// fetchBlobs fetches the blob source from the L1 block sidecar.
+func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
@@ -247,81 +247,81 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 func ValidateMetadata(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proposalPayload *ShastaProposalPayload,
+	sourcePayload *ShastaDerivationSourcePayload,
 	isForcedInclusion bool,
 	proposal shastaBindings.IInboxProposal,
 	originBlockNumber uint64,
 	bondInstructionsHash common.Hash,
 	parentAnchorBlockNumber uint64,
 ) error {
-	if proposalPayload == nil {
-		return errors.New("empty proposal payload")
+	if sourcePayload == nil {
+		return errors.New("empty derivation source payload")
 	}
 	// If there is the default payload, we return directly
-	if proposalPayload.Default {
+	if sourcePayload.Default {
 		return nil
 	}
 
 	// 1. Validate and adjust each block's timestamp.
-	validateMetadataTimestamp(proposalPayload, proposal)
+	validateMetadataTimestamp(sourcePayload, proposal)
 
 	// 2. Validate and adjust each block's anchor block number.
 	if !validateAnchorBlockNumber(
-		proposalPayload,
+		sourcePayload,
 		originBlockNumber,
 		parentAnchorBlockNumber,
 		proposal,
 		isForcedInclusion,
 	) {
-		proposalPayload.Default = true
+		sourcePayload.Default = true
 		return nil
 	}
 
 	// 3. Ensure each block's coinbase is correctly assigned.
-	validateCoinbase(proposalPayload, proposal, isForcedInclusion)
+	validateCoinbase(sourcePayload, proposal, isForcedInclusion)
 
 	// 4. Ensure each block's gas limit is within valid bounds.
 	validateGasLimit(
-		proposalPayload,
-		proposalPayload.ParentBlock.Number(),
-		proposalPayload.ParentBlock.GasLimit(),
+		sourcePayload,
+		sourcePayload.ParentBlock.Number(),
+		sourcePayload.ParentBlock.GasLimit(),
 	)
 
 	return nil
 }
 
 // validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
-func validateMetadataTimestamp(proposalPayload *ShastaProposalPayload, proposal shastaBindings.IInboxProposal) {
-	var parentTimestamp = proposalPayload.ParentBlock.Time()
-	for i := range proposalPayload.BlockPayloads {
-		if proposalPayload.BlockPayloads[i].Timestamp > proposal.Timestamp.Uint64() {
+func validateMetadataTimestamp(sourcePayload *ShastaDerivationSourcePayload, proposal shastaBindings.IInboxProposal) {
+	var parentTimestamp = sourcePayload.ParentBlock.Time()
+	for i := range sourcePayload.BlockPayloads {
+		if sourcePayload.BlockPayloads[i].Timestamp > proposal.Timestamp.Uint64() {
 			log.Info(
 				"Adjusting block timestamp to upper bound",
 				"blockIndex", i,
-				"originalTimestamp", proposalPayload.BlockPayloads[i].Timestamp,
+				"originalTimestamp", sourcePayload.BlockPayloads[i].Timestamp,
 				"newTimestamp", proposal.Timestamp,
 			)
-			proposalPayload.BlockPayloads[i].Timestamp = proposal.Timestamp.Uint64()
+			sourcePayload.BlockPayloads[i].Timestamp = proposal.Timestamp.Uint64()
 		}
 
 		// Calculate lower bound for timestamp.
 		lowerBound := max(parentTimestamp+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
-		if proposalPayload.BlockPayloads[i].Timestamp < lowerBound {
+		if sourcePayload.BlockPayloads[i].Timestamp < lowerBound {
 			log.Info(
 				"Adjusting block timestamp to lower bound",
 				"blockIndex", i,
-				"originalTimestamp", proposalPayload.BlockPayloads[i].Timestamp,
+				"originalTimestamp", sourcePayload.BlockPayloads[i].Timestamp,
 				"newTimestamp", lowerBound,
 			)
-			proposalPayload.BlockPayloads[i].Timestamp = lowerBound
+			sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		}
-		parentTimestamp = proposalPayload.BlockPayloads[i].Timestamp
+		parentTimestamp = sourcePayload.BlockPayloads[i].Timestamp
 	}
 }
 
 // validateAnchorBlockNumber checks if each block's anchor block number is valid.
 func validateAnchorBlockNumber(
-	proposalPayload *ShastaProposalPayload,
+	sourcePayload *ShastaDerivationSourcePayload,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
 	proposal shastaBindings.IInboxProposal,
@@ -331,56 +331,56 @@ func validateAnchorBlockNumber(
 		originalParentAnchorNumber = parentAnchorBlockNumber
 		highestAnchorNumber        = parentAnchorBlockNumber
 	)
-	for i := range proposalPayload.BlockPayloads {
+	for i := range sourcePayload.BlockPayloads {
 		// 1. Non-monotonic progression: manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber
-		if proposalPayload.BlockPayloads[i].AnchorBlockNumber < parentAnchorBlockNumber {
+		if sourcePayload.BlockPayloads[i].AnchorBlockNumber < parentAnchorBlockNumber {
 			log.Info(
 				"Invalid anchor block number: non-monotonic progression",
 				"proposal", proposal.Id,
 				"blockIndex", i,
-				"anchorBlockNumber", proposalPayload.BlockPayloads[i].AnchorBlockNumber,
+				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
 			)
-			proposalPayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
+			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
 			continue
 		}
 
 		// 2. Future reference: manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET
-		if proposalPayload.BlockPayloads[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
+		if sourcePayload.BlockPayloads[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
 			log.Info(
 				"Invalid anchor block number: future reference",
 				"proposal", proposal.Id,
 				"blockIndex", i,
-				"anchorBlockNumber", proposalPayload.BlockPayloads[i].AnchorBlockNumber,
+				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
 			)
-			proposalPayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
+			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
 			continue
 		}
 
 		// 3. Excessive lag: manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET
 		if originBlockNumber > manifest.AnchorMaxOffset &&
-			proposalPayload.BlockPayloads[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
+			sourcePayload.BlockPayloads[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
 				"Invalid anchor block number: excessive lag",
 				"proposal", proposal.Id,
 				"blockIndex", i,
-				"anchorBlockNumber", proposalPayload.BlockPayloads[i].AnchorBlockNumber,
+				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
 			)
-			proposalPayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
+			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
 			continue
 		}
 
-		if proposalPayload.BlockPayloads[i].AnchorBlockNumber > highestAnchorNumber {
-			highestAnchorNumber = proposalPayload.BlockPayloads[i].AnchorBlockNumber
+		if sourcePayload.BlockPayloads[i].AnchorBlockNumber > highestAnchorNumber {
+			highestAnchorNumber = sourcePayload.BlockPayloads[i].AnchorBlockNumber
 		}
 
-		parentAnchorBlockNumber = proposalPayload.BlockPayloads[i].AnchorBlockNumber
+		parentAnchorBlockNumber = sourcePayload.BlockPayloads[i].AnchorBlockNumber
 	}
 
 	// Forced inclusion protection: For non-forced proposals, if no blocks have valid anchor numbers greater than its
-	// parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide
+	// parent's, the entire payload is replaced with the default payload, penalizing proposals that fail to provide
 	// proper L1 anchoring.
 	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
 		log.Info(
@@ -398,26 +398,26 @@ func validateAnchorBlockNumber(
 
 // validateCoinbase ensures each block's coinbase is correctly assigned.
 func validateCoinbase(
-	proposalPayload *ShastaProposalPayload,
+	sourcePayload *ShastaDerivationSourcePayload,
 	proposal shastaBindings.IInboxProposal,
 	isForcedInclusion bool,
 ) {
-	for i := range proposalPayload.BlockPayloads {
+	for i := range sourcePayload.BlockPayloads {
 		if isForcedInclusion {
 			// Forced inclusions always use proposal.proposer
-			proposalPayload.BlockPayloads[i].Coinbase = proposal.Proposer
+			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
 		}
 
-		if (proposalPayload.BlockPayloads[i].Coinbase == common.Address{}) {
-			// Use proposal.proposer as fallback if manifest coinbase is zero
-			proposalPayload.BlockPayloads[i].Coinbase = proposal.Proposer
+		if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
+			// Use proposal.proposer as fallback if coinbase is zero
+			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
 		}
 	}
 }
 
 // validateGasLimit ensures each block's gas limit is within valid bounds.
 func validateGasLimit(
-	proposalPayload *ShastaProposalPayload,
+	sourcePayload *ShastaDerivationSourcePayload,
 	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) {
@@ -428,48 +428,48 @@ func validateGasLimit(
 	if parentBlockNumber.Cmp(common.Big0) != 0 {
 		parentGasLimit = parentGasLimit - consensus.UpdateStateGasLimit
 	}
-	for i := range proposalPayload.BlockPayloads {
+	for i := range sourcePayload.BlockPayloads {
 		lowerGasBound := max(
 			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
 			manifest.MinBlockGasLimit,
 		)
 		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
 
-		if proposalPayload.BlockPayloads[i].GasLimit == 0 {
+		if sourcePayload.BlockPayloads[i].GasLimit == 0 {
 			// Inherit parent value.
-			proposalPayload.BlockPayloads[i].GasLimit = parentGasLimit
-			log.Info("Inheriting gas limit from parent", "blockIndex", i, "gasLimit", proposalPayload.BlockPayloads[i].GasLimit)
+			sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
+			log.Info("Inheriting gas limit from parent", "blockIndex", i, "gasLimit", sourcePayload.BlockPayloads[i].GasLimit)
 		}
 
-		if proposalPayload.BlockPayloads[i].GasLimit < lowerGasBound {
+		if sourcePayload.BlockPayloads[i].GasLimit < lowerGasBound {
 			log.Info(
 				"Clamping gas limit to lower bound",
 				"blockIndex", i,
-				"originalGasLimit", proposalPayload.BlockPayloads[i].GasLimit,
+				"originalGasLimit", sourcePayload.BlockPayloads[i].GasLimit,
 				"newGasLimit", lowerGasBound,
 			)
-			proposalPayload.BlockPayloads[i].GasLimit = lowerGasBound
+			sourcePayload.BlockPayloads[i].GasLimit = lowerGasBound
 		}
-		if proposalPayload.BlockPayloads[i].GasLimit > upperGasBound {
+		if sourcePayload.BlockPayloads[i].GasLimit > upperGasBound {
 			log.Info(
 				"Clamping gas limit to upper bound",
 				"blockIndex", i,
-				"originalGasLimit", proposalPayload.BlockPayloads[i].GasLimit,
+				"originalGasLimit", sourcePayload.BlockPayloads[i].GasLimit,
 				"newGasLimit", upperGasBound,
 			)
-			proposalPayload.BlockPayloads[i].GasLimit = upperGasBound
+			sourcePayload.BlockPayloads[i].GasLimit = upperGasBound
 		}
 
-		parentGasLimit = proposalPayload.BlockPayloads[i].GasLimit
+		parentGasLimit = sourcePayload.BlockPayloads[i].GasLimit
 	}
 }
 
-// AssembleBondInstructions fetches and assembles bond instructions into the proposal manifest.
+// AssembleBondInstructions fetches and assembles bond instructions into the derivation payload.
 func AssembleBondInstructions(
 	ctx context.Context,
 	proposalID *big.Int,
 	indexer *shastaIndexer.Indexer,
-	proposalPayload *ShastaProposalPayload,
+	sourcePayload *ShastaDerivationSourcePayload,
 	parentBondInstructionsHash common.Hash,
 	originBlockNumber uint64,
 	derivationIdx int,
@@ -480,7 +480,7 @@ func AssembleBondInstructions(
 
 	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
 	// its anchor transaction.
-	for i := range proposalPayload.BlockPayloads {
+	for i := range sourcePayload.BlockPayloads {
 		aggregatedHash := parentBondInstructionsHash
 		if derivationIdx == 0 && i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
 			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
@@ -539,8 +539,8 @@ func AssembleBondInstructions(
 							"payee", instruction.Payee,
 							"payer", instruction.Payer,
 						)
-						proposalPayload.BlockPayloads[i].BondInstructions = append(
-							proposalPayload.BlockPayloads[i].BondInstructions,
+						sourcePayload.BlockPayloads[i].BondInstructions = append(
+							sourcePayload.BlockPayloads[i].BondInstructions,
 							instruction,
 						)
 						if aggregatedHash == payload.CoreState.BondInstructionsHash {
@@ -559,7 +559,7 @@ func AssembleBondInstructions(
 			}
 		}
 
-		proposalPayload.BlockPayloads[i].BondInstructionsHash = aggregatedHash
+		sourcePayload.BlockPayloads[i].BondInstructionsHash = aggregatedHash
 		parentBondInstructionsHash = aggregatedHash
 	}
 
