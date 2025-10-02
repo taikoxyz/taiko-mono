@@ -38,58 +38,70 @@ export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
 load_env() {
     local env="$1"
     case "$env" in
-    dev-ontake |\
-    dev-ontake-sgxreth)
+    dev-ontake | \
+        dev-ontake-sgxreth)
         export SGX_VERIFIER_ADDRESS=0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68
         export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
         export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
         ;;
-    dev-pacaya |\
-    dev-pacaya-sgxreth)
+    dev-pacaya | \
+        dev-pacaya-sgxreth)
         export SGX_VERIFIER_ADDRESS=0x0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3
         export ATTESTATION_ADDRESS=0x3b5C873F4B22C96D835D0D15fD6d1b132A068C05
         export PEM_CERTCHAIN_ADDRESS=0xefd45598d2166f9E958bb55b8E78bDEc82684d90
         ;;
-    dev-sgxgeth |\
-    dev-pacaya-sgxgeth)
+    dev-sgxgeth | \
+        dev-pacaya-sgxgeth)
         export SGX_VERIFIER_ADDRESS=0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8
         export ATTESTATION_ADDRESS=0xE1eA623b32C352791Bd1Aba23665707C21053492
         export PEM_CERTCHAIN_ADDRESS=0x5B06e1cBc4bc4c3Eb52A9D40F1D49C6513E23B70
         ;;
-    hekla-ontake |\
-    hekla-ontake-sgxreth)
+    hekla-ontake | \
+        hekla-ontake-sgxreth)
         echo "ontake in hekla is deprecated"
         export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
         export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    hekla-pacaya |\
-    hekla-pacaya-sgxreth)
+    hekla-pacaya | \
+        hekla-pacaya-sgxreth)
         export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
         export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    hekla-sgxgeth |\
-    hekla-pacaya-sgxgeth)
+    hekla-sgxgeth | \
+        hekla-pacaya-sgxgeth)
         export SGX_VERIFIER_ADDRESS=0x4361B85093720bD50d25236693CA58FD6e1b3a53
         export ATTESTATION_ADDRESS=0x84af08F56AeA1f847c75bE08c96cDC4811694595
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    mainnet |\
-    mainnet-ontake |\
-    mainnet-ontake-sgxreth)
+    tolba-pacaya | \
+        tolba-pacaya-sgxreth)
+        export SGX_VERIFIER_ADDRESS=0x237506C97895771Ae3177dF31FC40D27c99fD382
+        export ATTESTATION_ADDRESS=0x771DBE57fED491dFF7b350dAe56025eD2271AFbf
+        export PEM_CERTCHAIN_ADDRESS=0xAc9547e2c7855976df06a41de993F6288B76F570
+        ;;
+    tolba-sgxgeth | \
+        tolba-pacaya-sgxgeth)
+        export SGX_VERIFIER_ADDRESS=0xA75c8FCB2609eB66E0DAdd4ECA438870F4f22FE8
+        export ATTESTATION_ADDRESS=0xE94aEe197619Cc1ab860294a0F080805665C17DA
+        export PEM_CERTCHAIN_ADDRESS=0xAc9547e2c7855976df06a41de993F6288B76F570
+        ;;
+    mainnet | \
+        mainnet-ontake | \
+        mainnet-ontake-sgxreth)
         export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
         export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
         export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
         ;;
-    mainnet-pacaya |\
-    mainnet-pacaya-sgxreth)
+    mainnet-pacaya | \
+        mainnet-pacaya-sgxreth)
         export SGX_VERIFIER_ADDRESS=0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136
         export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
         export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
         ;;
-    mainnet-sgxgeth |\
-    mainnet-pacaya-sgxgeth)
+    mainnet-sgxgeth | \
+        mainnet-pacaya-sgxgeth)
         export SGX_VERIFIER_ADDRESS=0x7e6409e9b6c5e2064064a6cC994f9a2e95680782
         export ATTESTATION_ADDRESS=0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
         export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169

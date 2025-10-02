@@ -22,8 +22,8 @@ type BlobFetcher struct {
 	dataSource *rpc.BlobDataSource
 }
 
-// NewBlobTxListFetcher creates a new BlobFetcher instance based on the given rpc client.
-func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
+// NewBlobFetcher creates a new BlobFetcher instance based on the given rpc client.
+func NewBlobFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
 	return &BlobFetcher{cli, ds}
 }
 

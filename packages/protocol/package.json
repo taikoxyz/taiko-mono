@@ -11,7 +11,6 @@
     "compile:shared": "FOUNDRY_PROFILE=shared forge build --build-info --extra-output storage-layout",
     "compile": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2",
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
-    "test:inbox:suite1": "./test/layer1/shasta/inbox/suite1/run-inbox-tests.sh all",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test --extra-output storage-layout --match-path 'test/layer2/**/*.t.sol'",
     "test:shared": "FOUNDRY_PROFILE=shared forge test --extra-output storage-layout --match-path 'test/shared/**/*.t.sol'",
     "snapshot:l1": "pnpm test:l1 && FOUNDRY_PROFILE=layer1 forge snapshot --snap gas-reports/layer1-contracts.txt",
@@ -20,7 +19,7 @@
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
     "layout": "pnpm layout:l1 && pnpm layout:l2 && pnpm layout:shared",
-    "test:deploy:l1": "./script/download_solc.sh && ./script/layer1/based/deploy_protocol_on_l1.sh",
+    "test:deploy:l1": "./script/layer1/based/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
@@ -59,8 +58,8 @@
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "risc0-ethereum": "github:risc0/risc0-ethereum#v2.2.2",
-    "solady": "github:Vectorized/solady#v0.0.231",
+    "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.0",
+    "solady": "github:Vectorized/solady#v0.1.24",
     "urc": "github:eth-fabric/urc#main",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0"
   }
