@@ -50,6 +50,9 @@ interface ILookaheadStore {
         /// will be updated with this value
         /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the
         /// current epoch start
+        /// @dev Can be empty for same-epoch proposers when next epoch lookahead already exists
+        /// on-chain (gas optimization). Must be provided for cross-epoch proposers (need slot
+        /// info) and fallback preconfers (responsible for posting/validation)
         LookaheadSlot[] nextLookahead;
         /// @notice Commitment signature for the lookahead poster
         /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
