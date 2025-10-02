@@ -26,7 +26,6 @@ contract BridgedERC721 is
 
     uint256[48] private __gap;
 
-    error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
     constructor(address _erc721Vault) {

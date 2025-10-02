@@ -19,7 +19,7 @@ Blocks are now proposed in batches, with each batch capable of containing **zero
 
 In the interest of simplifying the protocol and removing the added security risk that Guardian provers introduce, we have removed proof contestation entirely. This change also conveniently aligns us better as a Stage 1 L2 protocol.
 
-In it's place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** (Gaiko) proof and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition.
+In its place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** (Gaiko) proof and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition.
 
 We have also shortened the proving and cooldown windows to 2 hours, with further reductions planned to enable faster withdrawals.
 

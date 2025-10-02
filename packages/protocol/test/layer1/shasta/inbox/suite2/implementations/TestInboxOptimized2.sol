@@ -8,15 +8,17 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 /// @notice Test wrapper for TestInboxOptimized2 contract with configurable behavior
 contract TestInboxOptimized2 is InboxOptimized2 {
     constructor(
+        address codec,
         address bondToken,
-        address checkpointManager,
+        uint16 maxCheckpointHistory,
         address proofVerifier,
         address proposerChecker
     )
         InboxOptimized2(
             IInbox.Config({
+                codec: codec,
                 bondToken: bondToken,
-                checkpointManager: checkpointManager,
+                maxCheckpointHistory: maxCheckpointHistory,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,
@@ -27,8 +29,9 @@ contract TestInboxOptimized2 is InboxOptimized2 {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             })
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                permissionlessInclusionMultiplier: 5
+            })
         )
     { }
 }
