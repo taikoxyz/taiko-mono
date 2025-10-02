@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/hekla"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -75,8 +74,10 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 
 // ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
-// TODO: more param
-func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
+func (c *Client) ensureGenesisMatched(
+	ctx context.Context,
+	pacayaInbox common.Address,
+) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
@@ -105,48 +106,29 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		return err
 	}
 
-	var chainIDHekla uint64 = 167009
-	// hekla has a specific block verified event that never made it to other chains.
-	// we need to check for it explicitly here.
-	if c.L2.ChainID.Uint64() == chainIDHekla {
-		event, err := hekla.FilterBlockVerifiedHekla(
-			ctx,
-			c.L1.EthClient(),
-			taikoInbox,
-			new(big.Int).SetUint64(filterOpts.Start),
-			new(big.Int).SetUint64(*filterOpts.End),
-		)
-
+	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
+	if protocolConfigs.ForkHeightsPacaya() == 0 {
+		// Fetch the genesis `BatchesVerified` event.
+		log.Info("Filtering batchesVerified events from Pacaya TaikoInbox contract")
+		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
 		if err != nil {
 			return err
 		}
-
-		l2GenesisHash = event[0].BlockHash
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
+	} else if protocolConfigs.ForkHeightsOntake() == 0 {
+		log.Info("Filtering blockVerifiedV2 events from Pacaya TaikoInbox contract")
+		if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, pacayaInbox); err != nil {
+			return err
+		}
 	} else {
-		// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-		if protocolConfigs.ForkHeightsPacaya() == 0 {
-			// Fetch the genesis `BatchesVerified` event.
-			log.Info("Filtering batchesVerified events from Pacaya TaikoInbox contract")
-			iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
-			if err != nil {
-				return err
-			}
-			if iter.Next() {
-				l2GenesisHash = iter.Event.BlockHash
-			}
-			if iter.Error() != nil {
-				return iter.Error()
-			}
-		} else if protocolConfigs.ForkHeightsOntake() == 0 {
-			log.Info("Filtering blockVerifiedV2 events from Pacaya TaikoInbox contract")
-			if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, taikoInbox); err != nil {
-				return err
-			}
-		} else {
-			log.Info("Filtering blockVerified events from Pacaya TaikoInbox contract")
-			if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, taikoInbox); err != nil {
-				return err
-			}
+		log.Info("Filtering blockVerified events from Pacaya TaikoInbox contract")
+		if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, pacayaInbox); err != nil {
+			return err
 		}
 	}
 
