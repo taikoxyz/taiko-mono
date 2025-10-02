@@ -95,10 +95,8 @@ contract InboxOptimized1 is Inbox {
         override
         returns (bool stored_)
     {
-        uint256 bufferSlot;
-        unchecked {
-            bufferSlot = _proposalId % _ringBufferSize;
-        }
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
@@ -145,10 +143,8 @@ contract InboxOptimized1 is Inbox {
         override
         returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        uint256 bufferSlot;
-        unchecked {
-            bufferSlot = _proposalId % _ringBufferSize;
-        }
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
@@ -175,17 +171,16 @@ contract InboxOptimized1 is Inbox {
             for (uint256 i; i < _input.proposals.length; ++i) {
                 _validateTransition(_input.proposals[i], _input.transitions[i]);
             }
-        }
 
-        // Initialize aggregation state from first proposal
-        TransitionRecord memory currentRecord =
-            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+            // Initialize aggregation state from first proposal
+            TransitionRecord memory currentRecord = _buildTransitionRecord(
+                _input.proposals[0], _input.transitions[0], _input.metadata[0]
+            );
 
-        uint48 currentGroupStartId = _input.proposals[0].id;
-        uint256 firstIndex = 0;
+            uint48 currentGroupStartId = _input.proposals[0].id;
+            uint256 firstIndex;
 
-        // Process remaining proposals with optimized loop
-        unchecked {
+            // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
                 // Check for consecutive proposal aggregation
                 if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
@@ -221,14 +216,14 @@ contract InboxOptimized1 is Inbox {
                     );
                 }
             }
-        }
 
-        // Save the final aggregated record
-        _setTransitionRecordHashAndDeadline(
-            currentGroupStartId,
-            _input.transitions[firstIndex],
-            _input.metadata[firstIndex],
-            currentRecord
-        );
+            // Save the final aggregated record
+            _setTransitionRecordHashAndDeadline(
+                currentGroupStartId,
+                _input.transitions[firstIndex],
+                _input.metadata[firstIndex],
+                currentRecord
+            );
+        }
     }
 }
