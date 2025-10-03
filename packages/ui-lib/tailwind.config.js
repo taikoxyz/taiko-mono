@@ -127,8 +127,6 @@ export default {
 				// Custom
 				'discord-purple': '#5765f1',
 
-				// testing
-				legacy: 'var(--primary-brand)'
 			}
 		}
 	},
