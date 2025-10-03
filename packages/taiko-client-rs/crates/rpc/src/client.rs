@@ -14,7 +14,6 @@ use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
 use tower::ServiceBuilder;
-use tracing::info;
 
 use crate::SubscriptionSource;
 

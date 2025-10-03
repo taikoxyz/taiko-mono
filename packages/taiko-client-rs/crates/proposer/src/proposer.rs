@@ -26,6 +26,7 @@ pub struct Proposer {
 impl Proposer {
     /// Creates a new proposer instance.
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
+        info!("Initializing proposer with config: {:?}", cfg);
         // Initialize RPC client.
         let rpc_provider = Client::new(rpc::client::ClientConfig {
             l1_provider: cfg.l1_provider.clone(),
