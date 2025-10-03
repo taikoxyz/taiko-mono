@@ -21,9 +21,6 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: [arc-runner-set]
     steps:
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v5
 
