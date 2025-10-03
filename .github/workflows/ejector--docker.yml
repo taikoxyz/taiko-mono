@@ -38,7 +38,6 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-          sudo apt-get update && sudo apt-get install -y git
 
       - name: Checkout
         uses: actions/checkout@v5
@@ -106,9 +105,6 @@ jobs:
     needs: [build]
 
     steps:
-      - name: Prepare Environment
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
