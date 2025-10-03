@@ -26,7 +26,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Proof verification with transition record management
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
-///      - Finalization of proven proposals
+///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using LibAddress for address;
@@ -92,6 +92,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
     /// @notice The maximum number of checkpoints to store in ring buffer.
     uint16 internal immutable _maxCheckpointHistory;
+
+    /// @notice The minimum delay between checkpoints in seconds.
+    uint16 internal immutable _minCheckpointDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
@@ -160,6 +163,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _maxCheckpointHistory = _config.maxCheckpointHistory;
+        _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
         _compositeKeyVersion = _config.compositeKeyVersion;
     }
@@ -339,6 +343,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            maxCheckpointHistory: _maxCheckpointHistory,
+            minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             compositeKeyVersion: _compositeKeyVersion
         });
@@ -568,11 +574,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        recordHash_ = _hashTransitionRecord(_transitionRecord);
-        hashAndDeadline_ = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: recordHash_
-        });
+        unchecked {
+            recordHash_ = _hashTransitionRecord(_transitionRecord);
+            hashAndDeadline_ = TransitionRecordHashAndDeadline({
+                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+                recordHash: recordHash_
+            });
+        }
     }
 
     /// @dev Computes composite key for transition record storage
@@ -873,50 +881,57 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         emit Proposed(_encodeProposedEventData(payload));
     }
 
-    /// @dev Finalizes proven proposals and updates checkpoint
-    /// @dev Performs up to `maxFinalizationCount` finalization iterations.
-    /// The caller is forced to finalize transition records that have passed their finalization
-    /// grace period, but can decide to finalize ones that haven't.
-    /// @param _input Input containing transition records and end block header
-    /// @return _ Core state with updated finalization counters
+    /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
+    /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
+    /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
+    /// Set minCheckpointDelay to 0 to disable rate limiting.
+    /// @param _input Contains transition records and the end block header.
+    /// @return _ Updated core state with new finalization counters.
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
-        CoreState memory coreState = _input.coreState;
-        TransitionRecord memory lastFinalizedRecord;
-        TransitionRecord memory emptyRecord;
-        uint48 proposalId = coreState.lastFinalizedProposalId + 1;
-        uint256 finalizedCount;
+        unchecked {
+            CoreState memory coreState = _input.coreState;
+            TransitionRecord memory lastFinalizedRecord;
+            TransitionRecord memory emptyRecord;
+            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 finalizedCount;
 
-        for (uint256 i; i < _maxFinalizationCount; ++i) {
-            // Check if there are more proposals to finalize
-            if (proposalId >= coreState.nextProposalId) break;
+            for (uint256 i; i < _maxFinalizationCount; ++i) {
+                // Check if there are more proposals to finalize
+                if (proposalId >= coreState.nextProposalId) break;
 
-            // Try to finalize the current proposal
-            bool hasRecord = i < _input.transitionRecords.length;
+                // Try to finalize the current proposal
+                bool hasRecord = i < _input.transitionRecords.length;
 
-            TransitionRecord memory transitionRecord =
-                hasRecord ? _input.transitionRecords[i] : emptyRecord;
+                TransitionRecord memory transitionRecord =
+                    hasRecord ? _input.transitionRecords[i] : emptyRecord;
 
-            bool finalized;
-            (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
+                bool finalized;
+                (finalized, proposalId) =
+                    _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
 
-            if (!finalized) break;
+                if (!finalized) break;
 
-            // Update state for successful finalization
-            lastFinalizedRecord = _input.transitionRecords[i];
-            finalizedCount++;
+                // Update state for successful finalization
+                lastFinalizedRecord = _input.transitionRecords[i];
+                finalizedCount++;
+            }
+
+            // Update checkpoint if any proposals were finalized and minimum delay has passed
+            if (
+                finalizedCount > 0
+                    && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
+            ) {
+                bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+                require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
+
+                LibCheckpointStore.saveCheckpoint(
+                    _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+                );
+                coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
+
+            return coreState;
         }
-
-        // Update checkpoint if any proposals were finalized
-        if (finalizedCount > 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-            require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-            );
-        }
-
-        return coreState;
     }
 
     /// @dev Calculates remaining capacity for new proposals
@@ -948,25 +963,27 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
     function _verifyChainHead(Proposal[] memory _parentProposals) private view {
-        // First verify parentProposals[0] matches what's stored on-chain
-        _checkProposalHash(_parentProposals[0]);
+        unchecked {
+            // First verify parentProposals[0] matches what's stored on-chain
+            _checkProposalHash(_parentProposals[0]);
 
-        // Then verify it's actually the chain head
-        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
-        bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
+            // Then verify it's actually the chain head
+            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
+            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
-        if (storedNextProposalHash == bytes32(0)) {
-            // Next slot in the ring buffer is empty, only one proposal expected
-            require(_parentProposals.length == 1, IncorrectProposalCount());
-        } else {
-            // Next slot in the ring buffer is occupied, need to prove it contains a
-            // proposal with a smaller id
-            require(_parentProposals.length == 2, IncorrectProposalCount());
-            require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
-            require(
-                storedNextProposalHash == _hashProposal(_parentProposals[1]),
-                NextProposalHashMismatch()
-            );
+            if (storedNextProposalHash == bytes32(0)) {
+                // Next slot in the ring buffer is empty, only one proposal expected
+                require(_parentProposals.length == 1, IncorrectProposalCount());
+            } else {
+                // Next slot in the ring buffer is occupied, need to prove it contains a
+                // proposal with a smaller id
+                require(_parentProposals.length == 2, IncorrectProposalCount());
+                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
+                require(
+                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                    NextProposalHashMismatch()
+                );
+            }
         }
     }
 

@@ -502,6 +502,7 @@ contract CodecGasComparisonTest is Test {
             nextProposalId: 1001,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 1000,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test_finalized_transition"),
             bondInstructionsHash: keccak256("test_bond_instructions")
         });

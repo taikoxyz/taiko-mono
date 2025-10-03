@@ -40,6 +40,9 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice The maximum number of checkpoints to store in ring buffer
         uint16 maxCheckpointHistory;
+        /// @notice The minimum delay between checkpoints in seconds
+        /// @dev Must be less than or equal to finalization grace period
+        uint16 minCheckpointDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
@@ -127,6 +130,9 @@ interface IInbox {
         uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last checkpoint was saved.
+        /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
+        uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.

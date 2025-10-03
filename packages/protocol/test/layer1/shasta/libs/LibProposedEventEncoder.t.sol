@@ -44,6 +44,7 @@ contract LibProposedEventEncoderTest is Test {
             nextProposalId: 2,
             lastProposalBlockId: 1000,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
         });
@@ -147,6 +148,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 11,
                 lastProposalBlockId: 5000,
                 lastFinalizedProposalId: 9,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(0)
             })
@@ -201,6 +203,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 6,
                 lastProposalBlockId: 2500,
                 lastFinalizedProposalId: 4,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
                 bondInstructionsHash: bytes32(uint256(1616))
             })
@@ -254,6 +257,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 2,
                 lastProposalBlockId: 1000,
                 lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             })

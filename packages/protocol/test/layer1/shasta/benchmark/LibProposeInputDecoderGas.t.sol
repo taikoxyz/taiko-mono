@@ -141,6 +141,7 @@ contract LibProposeInputDecoderGas is Test {
             nextProposalId: 100,
             lastProposalBlockId: 9999,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });

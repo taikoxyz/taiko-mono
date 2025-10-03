@@ -168,60 +168,63 @@ contract InboxOptimized1 is Inbox {
     /// @param _input ProveInput containing multiple proposals and transitions to aggregate
     function _buildAndSaveAggregatedTransitionRecords(ProveInput memory _input) private {
         // Validate all transitions upfront using shared function
-        for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
-        }
+        unchecked {
+            for (uint256 i; i < _input.proposals.length; ++i) {
+                _validateTransition(_input.proposals[i], _input.transitions[i]);
+            }
 
-        // Initialize aggregation state from first proposal
-        TransitionRecord memory currentRecord =
-            _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+            // Initialize aggregation state from first proposal
+            TransitionRecord memory currentRecord = _buildTransitionRecord(
+                _input.proposals[0], _input.transitions[0], _input.metadata[0]
+            );
 
-        uint48 currentGroupStartId = _input.proposals[0].id;
-        uint256 firstIndex = 0;
+            uint48 currentGroupStartId = _input.proposals[0].id;
+            uint256 firstIndex;
 
-        // Process remaining proposals with optimized loop
-        for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            // Check for consecutive proposal aggregation
-            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                TransitionRecord memory nextRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
-                );
-                if (nextRecord.bondInstructions.length == 0) {
-                    // Keep current instructions unchanged
-                } else if (currentRecord.bondInstructions.length == 0) {
-                    currentRecord.bondInstructions = nextRecord.bondInstructions;
+            // Process remaining proposals with optimized loop
+            for (uint256 i = 1; i < _input.proposals.length; ++i) {
+                // Check for consecutive proposal aggregation
+                if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                    TransitionRecord memory nextRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    );
+                    if (nextRecord.bondInstructions.length == 0) {
+                        // Keep current instructions unchanged
+                    } else if (currentRecord.bondInstructions.length == 0) {
+                        currentRecord.bondInstructions = nextRecord.bondInstructions;
+                    } else {
+                        currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
+                            currentRecord.bondInstructions, nextRecord.bondInstructions
+                        );
+                    }
+                    currentRecord.transitionHash = nextRecord.transitionHash;
+                    currentRecord.checkpointHash = nextRecord.checkpointHash;
+                    currentRecord.span++;
                 } else {
-                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
-                        currentRecord.bondInstructions, nextRecord.bondInstructions
+                    // Save current group and start new one
+                    _setTransitionRecordHashAndDeadline(
+                        currentGroupStartId,
+                        _input.transitions[firstIndex],
+                        _input.metadata[firstIndex],
+                        currentRecord
+                    );
+
+                    // Reset for new group
+                    currentGroupStartId = _input.proposals[i].id;
+                    firstIndex = i;
+                    currentRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
                 }
-                currentRecord.transitionHash = nextRecord.transitionHash;
-                currentRecord.checkpointHash = nextRecord.checkpointHash;
-                currentRecord.span++;
-            } else {
-                // Save current group and start new one
-                _setTransitionRecordHashAndDeadline(
-                    currentGroupStartId,
-                    _input.transitions[firstIndex],
-                    _input.metadata[firstIndex],
-                    currentRecord
-                );
-
-                // Reset for new group
-                currentGroupStartId = _input.proposals[i].id;
-                firstIndex = i;
-                currentRecord = _buildTransitionRecord(
-                    _input.proposals[i], _input.transitions[i], _input.metadata[i]
-                );
             }
-        }
 
-        // Save the final aggregated record
-        _setTransitionRecordHashAndDeadline(
-            currentGroupStartId,
-            _input.transitions[firstIndex],
-            _input.metadata[firstIndex],
-            currentRecord
-        );
+            // Save the final aggregated record
+            _setTransitionRecordHashAndDeadline(
+                currentGroupStartId,
+                _input.transitions[firstIndex],
+                _input.metadata[firstIndex],
+                currentRecord
+            );
+        }
     }
 }
