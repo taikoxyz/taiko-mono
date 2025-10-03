@@ -92,7 +92,7 @@ pub struct ShastaEventIndexer {
 impl ShastaEventIndexer {
     /// Construct a new indexer instance with the given configuration.
     #[instrument(skip(config), err)]
-    pub async fn new(config: ShastaEventIndexerConfig) -> Result<Self> {
+    pub async fn new(config: ShastaEventIndexerConfig) -> Result<Arc<Self>> {
         let inbox_address = config.inbox_address;
         let provider = match &config.l1_subscription_source {
             SubscriptionSource::Ipc(path) => {
@@ -117,7 +117,7 @@ impl ShastaEventIndexer {
             "shasta inbox contract configuration"
         );
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             config,
             inbox_codec: CodecOptimized::new(inbox_config.codec, provider.root().clone()),
             inbox_ring_buffer_size: ring_buffer_size,
@@ -126,7 +126,7 @@ impl ShastaEventIndexer {
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
             finished_historical_indexing: AtomicBool::new(false),
-        })
+        }))
     }
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
@@ -166,6 +166,7 @@ impl ShastaEventIndexer {
                     continue;
                 };
 
+                info!(?topic, block_number = ?log.block_number, "received inbox event log");
                 self.finished_historical_indexing.store(true, Ordering::Relaxed);
 
                 if *topic == Proposed::SIGNATURE_HASH {
@@ -441,7 +442,7 @@ mod tests {
             inbox_address: env::var("SHASTA_INBOX")?.parse()?,
         };
 
-        let indexer = Arc::new(ShastaEventIndexer::new(config).await?);
+        let indexer = ShastaEventIndexer::new(config).await?;
 
         Ok(TestSetup {
             indexer,

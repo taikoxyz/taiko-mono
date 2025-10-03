@@ -27,6 +27,7 @@ impl Proposer {
     /// Creates a new proposer instance.
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
         info!("Initializing proposer with config: {:?}", cfg);
+
         // Initialize RPC client.
         let rpc_provider = Client::new(rpc::client::ClientConfig {
             l1_provider: cfg.l1_provider.clone(),
@@ -43,7 +44,8 @@ impl Proposer {
             inbox_address: cfg.inbox_address,
         })
         .await?;
-        // indexer.wait_historical_indexing_finished().await;
+        indexer.clone().spawn();
+        indexer.wait_historical_indexing_finished().await;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
         let signer = PrivateKeySigner::from_bytes(&cfg.l1_proposer_private_key)?;
@@ -80,14 +82,14 @@ impl Proposer {
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     async fn fetch_and_propose(&self) -> Result<()> {
         // Fetch mempool content from L2 execution engine.
-        let pool_content = self.fetch_pool_content().await?;
+        let mut pool_content = self.fetch_pool_content().await?;
 
         tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
         // If there are no transaction to propose, skip this epoch.
         if pool_content.is_empty() {
             tracing::info!("No transaction to propose");
-            return Err(anyhow!("No transaction to propose"));
+            pool_content = vec![];
         }
 
         let transaction_request =
@@ -116,11 +118,14 @@ impl Proposer {
 
     /// Fetch transaction pool content from the L2 execution engine.
     async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
+        let base_fee_u64 = u64::try_from(self.calculate_next_block_base_fee().await?)
+            .map_err(|_| anyhow!("base fee exceeds u64"))?;
+
         let pool_content = self
             .rpc_provider
             .tx_pool_content_with_min_tip(
                 self.cfg.l2_suggested_fee_recipient,
-                Some(self.calculate_next_block_base_fee().await?),
+                Some(base_fee_u64),
                 MIN_BLOCK_GAS_LIMIT,
                 PROPOSAL_MAX_BLOB_BYTES as u64,
                 vec![],
@@ -128,6 +133,8 @@ impl Proposer {
                 0,
             )
             .await?;
+
+        info!("Fetched {} tx lists from L2 execution engine", pool_content.len());
 
         let transactions = pool_content
             .into_iter()
@@ -166,17 +173,20 @@ impl Proposer {
             parent_block_time,
         )))
     }
+
+    /// Return a reference to the wallet used by the proposer.
+    pub fn wallet(&self) -> &EthereumWallet {
+        &self.wallet
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::{env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
 
+    use super::*;
     use alloy::{primitives::Address, transports::http::reqwest::Url};
     use rpc::SubscriptionSource;
-    use tracing::info;
-
-    use super::*;
 
     fn init_tracing() {
         static INIT: OnceLock<()> = OnceLock::new();
@@ -210,7 +220,8 @@ mod tests {
             l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY").unwrap().parse().unwrap(),
         };
 
-        let proposer = Proposer::new(cfg).await.unwrap();
-        proposer.fetch_and_propose().await.unwrap();
+        let proposer = Proposer::new(cfg.clone()).await.unwrap();
+
+        let _ = proposer.fetch_and_propose().await.unwrap();
     }
 }

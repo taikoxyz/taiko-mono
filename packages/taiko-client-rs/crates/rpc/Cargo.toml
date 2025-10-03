@@ -10,6 +10,7 @@ alloy-contract = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
 alloy-transport-http = { workspace = true }
 alloy-sol-types = { workspace = true }

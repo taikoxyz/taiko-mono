@@ -21,14 +21,14 @@ impl Client {
     pub async fn tx_pool_content_with_min_tip(
         &self,
         beneficiary: Address,
-        base_fee: Option<U256>,
+        base_fee: Option<u64>,
         block_max_gas_limit: u64,
         max_bytes_per_tx_list: u64,
         locals: Vec<String>,
         max_transactions_lists: u64,
         min_tip: u64,
     ) -> Result<Vec<PreBuiltTxList>> {
-        self.l2_provider
+        self.l2_auth_provider
             .raw_request(
                 Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
                 (
@@ -47,7 +47,7 @@ impl Client {
 
     /// Update the execution engine's L1 origin metadata for a given block.
     pub async fn update_l1_origin(&self, origin: &L1Origin) -> Result<Option<L1Origin>> {
-        self.l2_provider
+        self.l2_auth_provider
             .raw_request(Cow::Borrowed("taikoAuth_updateL1Origin"), (origin,))
             .await
             .map_err(Into::into)
@@ -59,7 +59,7 @@ impl Client {
         block_id: U256,
         signature: FixedBytes<65>,
     ) -> Result<Option<L1Origin>> {
-        self.l2_provider
+        self.l2_auth_provider
             .raw_request(Cow::Borrowed("taikoAuth_setL1OriginSignature"), (block_id, signature))
             .await
             .map_err(Into::into)
@@ -67,7 +67,7 @@ impl Client {
 
     /// Update the head L1 origin pointer in the execution engine.
     pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
-        self.l2_provider
+        self.l2_auth_provider
             .raw_request(Cow::Borrowed("taikoAuth_setHeadL1Origin"), (block_id,))
             .await
             .map_err(Into::into)
@@ -79,7 +79,7 @@ impl Client {
         batch_id: U256,
         block_id: U256,
     ) -> Result<Option<U256>> {
-        self.l2_provider
+        self.l2_auth_provider
             .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
             .await
             .map_err(Into::into)

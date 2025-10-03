@@ -15,3 +15,10 @@ forge bind \
   --crate-name bindings \
   --overwrite \
   --alloy-version ${ALLOY_VERSION}
+
+CARGO_TOML="crates/bindings/Cargo.toml"
+SNIPPET=$'\n\n[lib]\ndoctest = false\n\n[lints]\nrust.warnings = "allow"\n'
+
+if ! grep -q 'rust.warnings' "$CARGO_TOML"; then
+  printf "%s" "$SNIPPET" >> "$CARGO_TOML"
+fi

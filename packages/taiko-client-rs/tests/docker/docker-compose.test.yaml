@@ -38,3 +38,6 @@ services:
       - --disable-discovery
       - --authrpc.jwtsecret
       - /host/jwt.hex
+      - --authrpc.addr
+      - "0.0.0.0"
+      - -vvvv

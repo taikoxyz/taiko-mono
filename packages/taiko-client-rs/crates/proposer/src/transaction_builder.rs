@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{sync::Arc, time::SystemTime};
 
 use alloy::{
     consensus::{SidecarBuilder, SimpleCoder},
@@ -23,14 +23,14 @@ use rpc::client::Client;
 pub struct ShastaProposalTransactionBuilder {
     pub rpc_provider: Client,
     pub l2_suggested_fee_recipient: Address,
-    pub event_indexer: ShastaEventIndexer,
+    pub event_indexer: Arc<ShastaEventIndexer>,
 }
 
 impl ShastaProposalTransactionBuilder {
     /// Creates a new `ShastaProposalTransactionBuilder`.
     pub fn new(
         rpc_provider: Client,
-        event_indexer: ShastaEventIndexer,
+        event_indexer: Arc<ShastaEventIndexer>,
         l2_suggested_fee_recipient: Address,
     ) -> Self {
         Self { rpc_provider, event_indexer, l2_suggested_fee_recipient }

@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
 use alloy::transports::http::reqwest::Url;
 use alloy_primitives::Address;
@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
         inbox_address: Address::ZERO,
     };
 
-    let indexer = Arc::new(ShastaEventIndexer::new(config).await?);
+    let indexer = ShastaEventIndexer::new(config).await?;
     indexer.clone().spawn();
     let _ = indexer.read_shasta_propose_input();
 

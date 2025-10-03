@@ -49,7 +49,7 @@ impl Client {
         let l1_provider = config.l1_provider.to_provider().await?;
         let l2_provider = config.l2_provider.to_provider().await?;
 
-        let jwt_secret = read_jwt_secret(config.jwt_secret)
+        let jwt_secret = read_jwt_secret(config.jwt_secret.clone())
             .ok_or_else(|| anyhow::anyhow!("Failed to read JWT secret"))?;
         let l2_auth_provider = build_l2_auth_provider(config.l2_auth_provider.clone(), jwt_secret);
 
@@ -65,11 +65,15 @@ impl Client {
 
 /// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.
 fn build_l2_auth_provider(url: Url, secret: JwtSecret) -> RootProvider {
-    let service = HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
-    let service = ServiceBuilder::new().layer(AuthLayer::new(secret)).service(service);
-    let transport = Http::with_client(HyperClient::with_service(service), url);
-    let is_local = transport.guess_local();
-    RootProvider::new(RpcClient::new(transport, is_local))
+    let hyper_client = HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
+
+    let auth_layer = AuthLayer::new(secret);
+    let service = ServiceBuilder::new().layer(auth_layer).service(hyper_client);
+
+    let layer_transport = HyperClient::<Full<Bytes>, _>::with_service(service);
+    let http_hyper = Http::with_client(layer_transport, url);
+
+    RootProvider::new(RpcClient::new(http_hyper, true))
 }
 
 /// Returns the JWT secret for the engine API
