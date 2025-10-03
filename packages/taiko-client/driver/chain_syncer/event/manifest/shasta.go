@@ -101,7 +101,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	)
 	version, size, err := ExtractVersionAndSize(b, offset)
 	if err != nil {
-		log.Warn("Failed to extracts version or size in blob bytes, use default payload instead", "err", err)
+		log.Warn("Failed to extract version or size in blob bytes, use default payload instead", "err", err)
 		return defaultPayload, nil
 	}
 
