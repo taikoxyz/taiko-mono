@@ -438,14 +438,14 @@ mod tests {
 
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
-            inbox_address: env::var("TAIKO_INBOX")?.parse()?,
+            inbox_address: env::var("SHASTA_INBOX")?.parse()?,
         };
 
         let indexer = Arc::new(ShastaEventIndexer::new(config).await?);
 
         Ok(TestSetup {
             indexer,
-            inbox: IInboxInstance::new(env::var("TAIKO_INBOX")?.parse()?, provider.root().clone()),
+            inbox: IInboxInstance::new(env::var("SHASTA_INBOX")?.parse()?, provider.root().clone()),
         })
     }
 

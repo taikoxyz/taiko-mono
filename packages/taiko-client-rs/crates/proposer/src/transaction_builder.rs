@@ -74,12 +74,19 @@ impl ShastaProposalTransactionBuilder {
             ));
         }
 
+        // Build the blob sidecar.
+        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?).build()?;
+
         // Build the propose input.
         let input = ProposeInput {
             deadline: U48::ZERO,
             coreState: cached_input_params.core_state,
             parentProposals: cached_input_params.proposals,
-            blobReference: BlobReference { blobStartIndex: 0, numBlobs: 1, offset: U24::ZERO },
+            blobReference: BlobReference {
+                blobStartIndex: 0,
+                numBlobs: sidecar.blobs.len() as u16,
+                offset: U24::ZERO,
+            },
             transitionRecords: cached_input_params.transition_records,
             checkpoint: cached_input_params.checkpoint,
             numForcedInclusions: config.minForcedInclusionCount.to(),
@@ -95,9 +102,7 @@ impl ShastaProposalTransactionBuilder {
                 self.rpc_provider.shasta.codec.encodeProposeInput(input).call().await?,
             )
             .into_transaction_request()
-            .with_blob_sidecar(
-                SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?).build()?,
-            );
+            .with_blob_sidecar(sidecar);
 
         Ok(request)
     }

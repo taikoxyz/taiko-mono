@@ -64,43 +64,50 @@ impl Proposer {
         let mut epoch = 0;
 
         loop {
-            tracing::info!("Proposer epoch {}", epoch);
             interval.tick().await;
+            tracing::info!("Proposer epoch {}", epoch);
 
-            // Fetch mempool content from L2 execution engine.
-            let pool_content = self.fetch_pool_content().await?;
-
-            tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
-
-            // If there are no transaction to propose, skip this epoch.
-            if pool_content.is_empty() {
-                tracing::info!("No transaction to propose");
-                continue;
-            }
-
-            let transaction_request =
-                self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
-
-            let pending_tx = self
-                .rpc_provider
-                .l1_provider
-                .send_transaction(
-                    NetworkWallet::<Ethereum>::sign_request(&self.wallet, transaction_request)
-                        .await?
-                        .into(),
-                )
-                .await?;
-
-            let receipt = pending_tx.get_receipt().await?;
-
-            if receipt.status() {
-                tracing::info!("Propose transaction mined: {}", receipt.transaction_hash);
-            } else {
-                tracing::warn!("Propose transaction not mined yet: {}", receipt.transaction_hash);
-            }
+            self.fetch_and_propose().await?;
 
             epoch += 1;
         }
+    }
+
+    /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
+    async fn fetch_and_propose(&self) -> Result<()> {
+        // Fetch mempool content from L2 execution engine.
+        let pool_content = self.fetch_pool_content().await?;
+
+        tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
+
+        // If there are no transaction to propose, skip this epoch.
+        if pool_content.is_empty() {
+            tracing::info!("No transaction to propose");
+            return Err(anyhow!("No transaction to propose"));
+        }
+
+        let transaction_request =
+            self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
+
+        let pending_tx = self
+            .rpc_provider
+            .l1_provider
+            .send_transaction(
+                NetworkWallet::<Ethereum>::sign_request(&self.wallet, transaction_request)
+                    .await?
+                    .into(),
+            )
+            .await?;
+
+        let receipt = pending_tx.get_receipt().await?;
+
+        if receipt.status() {
+            tracing::info!("Propose transaction mined: {}", receipt.transaction_hash);
+        } else {
+            tracing::warn!("Propose transaction not mined yet: {}", receipt.transaction_hash);
+        }
+
+        Ok(())
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
@@ -154,5 +161,46 @@ impl Proposer {
             &parent.header.inner,
             parent_block_time,
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{env, str::FromStr, sync::OnceLock, time::Duration};
+
+    use alloy::{primitives::Address, transports::http::reqwest::Url};
+    use rpc::SubscriptionSource;
+
+    use super::*;
+
+    fn init_tracing() {
+        static INIT: OnceLock<()> = OnceLock::new();
+
+        INIT.get_or_init(|| {
+            let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
+            let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
+        });
+    }
+
+    #[tokio::test]
+    async fn propose_shasta_batches() {
+        init_tracing();
+
+        let _cfg = ProposerConfigs {
+            l1_provider: SubscriptionSource::Ws(
+                Url::from_str(&env::var("L1_WS").unwrap()).unwrap(),
+            ),
+            l2_provider: SubscriptionSource::Ws(
+                Url::from_str(&env::var("L2_WS").unwrap()).unwrap(),
+            ),
+            inbox_address: Address::from_str(&env::var("SHASTA_INBOX").unwrap()).unwrap(),
+            l2_suggested_fee_recipient: Address::from_str(
+                &env::var("L2_SUGGESTED_FEE_RECIPIENT").unwrap(),
+            )
+            .unwrap(),
+            propose_interval: Duration::from_secs(0),
+            l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY").unwrap().parse().unwrap(),
+        };
     }
 }
