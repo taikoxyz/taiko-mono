@@ -4,7 +4,7 @@ use alloy::rpc::client::RpcClient;
 use alloy::transports::http::reqwest::Url;
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
+    ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
@@ -49,10 +49,8 @@ pub struct ClientConfig {
 impl Client {
     /// Create a new `Client` from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
-        let l1_provider =
-            config.l1_provider_source.to_provider(config.l1_sender_private_key).await?.clone();
-        let l2_provider =
-            config.l2_provider_source.to_provider(config.l1_sender_private_key).await?.clone();
+        let l1_provider = config.l1_provider_source.to_provider().await?.clone();
+        let l2_provider = config.l2_provider_source.to_provider().await?.clone();
 
         let jwt_secret = read_jwt_secret(config.jwt_secret.clone())
             .ok_or_else(|| anyhow::anyhow!("Failed to read JWT secret"))?;

@@ -11,7 +11,7 @@ use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig};
 use tokio::time::interval;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransactionBuilder};
 
@@ -87,19 +87,12 @@ impl Proposer {
 
         tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
-        if pool_content.is_empty() {
-            tracing::info!("No transaction to propose");
-            return Ok(());
-        }
-
-        let from = NetworkWallet::<Ethereum>::default_signer_address(&self.wallet);
-
         let transaction_request = self
             .transaction_builder
             .build(pool_content)
             .await?
             .with_to(self.cfg.inbox_address)
-            .with_from(from);
+            .with_from(NetworkWallet::<Ethereum>::default_signer_address(&self.wallet));
 
         let pending_tx = self
             .rpc_provider
@@ -114,9 +107,9 @@ impl Proposer {
         let receipt = pending_tx.get_receipt().await?;
 
         if receipt.status() {
-            tracing::info!("Propose transaction mined: {}", receipt.transaction_hash);
+            info!("Propose transaction mined: {}", receipt.transaction_hash);
         } else {
-            tracing::warn!("Propose transaction not mined yet: {}", receipt.transaction_hash);
+            warn!("Propose transaction not mined yet: {}", receipt.transaction_hash);
         }
 
         Ok(())
@@ -191,7 +184,10 @@ mod tests {
     use std::{env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
 
     use super::*;
-    use alloy::{primitives::Address, transports::http::reqwest::Url};
+    use alloy::{
+        primitives::{Address, B256, aliases::U48},
+        transports::http::reqwest::Url,
+    };
     use rpc::SubscriptionSource;
 
     fn init_tracing() {
@@ -228,6 +224,13 @@ mod tests {
 
         let proposer = Proposer::new(cfg.clone()).await.unwrap();
 
-        let _ = proposer.fetch_and_propose().await.unwrap();
+        for _ in 0..3 {
+            proposer.fetch_and_propose().await.unwrap();
+        }
+
+        assert_ne!(
+            B256::ZERO,
+            proposer.rpc_provider.shasta.inbox.getProposalHash(U48::from(2)).call().await.unwrap()
+        );
     }
 }
