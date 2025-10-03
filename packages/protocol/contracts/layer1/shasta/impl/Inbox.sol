@@ -907,10 +907,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             }
 
             // Update checkpoint if any proposals were finalized and either:
-            // 1. Checkpoint data is provided (blockHash != 0 && stateRoot != 0) for voluntary sync, OR
+            // 1. Checkpoint data is provided (blockHash != 0 && stateRoot != 0) for voluntary sync,
+            // OR
             // 2. minimum delay has passed (regular rate limiting)
             // Rate limiting: Checkpoints are only saved if at least minCheckpointDelay seconds
-            // have elapsed since the last checkpoint, unless checkpoint data is explicitly provided.
+            // have elapsed since the last checkpoint, unless checkpoint data is explicitly
+            // provided.
             // This prevents excessive checkpoint storage operations while still allowing
             // finalization to proceed.
             // Note: minCheckpointDelay can be zero to disable rate limiting.
