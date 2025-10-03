@@ -908,19 +908,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
-                bool syncCheckpoint = _input.checkpoint.blockHash != 0 // voluntary checkpoint sync
-                    || block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay; // forced checkpoint sync
-                if (syncCheckpoint) {
-                    bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-                    require(
-                        checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch()
-                    );
-
-                    LibCheckpointStore.saveCheckpoint(
-                        _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-                    );
-                    coreState.lastCheckpointTimestamp = uint48(block.timestamp);
-                }
+                _syncCheckpointIfNeeded(
+                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
+                );
             }
 
             return coreState;
@@ -1045,6 +1035,33 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
+    }
+
+    /// @dev Syncs checkpoint to storage if conditions are met (voluntary or forced sync).
+    /// @notice Validates checkpoint hash and updates checkpoint storage and timestamp.
+    /// @param _checkpoint The checkpoint data to sync.
+    /// @param _expectedCheckpointHash The expected hash to validate against.
+    /// @param _coreState Core state to update with new checkpoint timestamp.
+    function _syncCheckpointIfNeeded(
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        bytes32 _expectedCheckpointHash,
+        CoreState memory _coreState
+    )
+        private
+    {
+        // Check if checkpoint sync should occur:
+        // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
+        // 2. Forced: minimum delay elapsed since last checkpoint
+        bool syncCheckpoint = _checkpoint.blockHash != 0
+            || block.timestamp >= _coreState.lastCheckpointTimestamp + _minCheckpointDelay;
+
+        if (syncCheckpoint) {
+            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
+            require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
+
+            LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint, _maxCheckpointHistory);
+            _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+        }
     }
 }
 
