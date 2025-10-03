@@ -56,7 +56,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -108,7 +109,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            forceCheckpointSync: false
         });
 
         // Encode and decode
@@ -166,7 +168,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 blockHash: keccak256("block"),
                 stateRoot: keccak256("state")
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -253,7 +256,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 blockHash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            forceCheckpointSync: false
         });
 
         // Encode
