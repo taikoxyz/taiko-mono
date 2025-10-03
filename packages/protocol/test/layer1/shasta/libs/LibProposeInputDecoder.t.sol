@@ -15,6 +15,7 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalId: 10,
             lastProposalBlockId: 999,
             lastFinalizedProposalId: 9,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
@@ -146,6 +147,7 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalId: 10,
             lastProposalBlockId: 999,
             lastFinalizedProposalId: 7,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
         });
@@ -222,6 +224,7 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalId: 5,
                 lastProposalBlockId: 499,
                 lastFinalizedProposalId: 4,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(uint256(1010))
             }),
@@ -278,6 +281,7 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalId: 1,
                 lastProposalBlockId: 99,
                 lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             }),

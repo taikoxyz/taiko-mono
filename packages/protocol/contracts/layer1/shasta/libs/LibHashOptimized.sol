@@ -79,6 +79,7 @@ library LibHashOptimized {
             bytes32(uint256(_coreState.nextProposalId)),
             bytes32(uint256(_coreState.lastProposalBlockId)),
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
+            bytes32(uint256(_coreState.lastCheckpointTimestamp)),
             _coreState.lastFinalizedTransitionHash,
             _coreState.bondInstructionsHash
         );
