@@ -27,32 +27,6 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals with checkpoint rate limiting
-///
-/// @dev Checkpoint Rate Limiting:
-///      The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage.
-///      - Finalization can occur at any frequency without extra cost
-///      - Checkpoint storage is rate-limited to save gas and prevent excessive storage operations
-///      - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
-///      - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
-///
-/// @dev Unchecked Arithmetic:
-///      This contract and its subcontracts (InboxOptimized1, InboxOptimized2) use unchecked blocks
-///      aggressively for gas optimization. All unchecked operations have been verified safe
-/// through:
-///      - Bounded loop counters (limited by array lengths or configuration parameters)
-///      - Modulo operations (mathematically cannot overflow)
-///      - Increments with protocol invariant guarantees (e.g., proposal IDs, span counters)
-///      - Timestamp/block number arithmetic with practical overflow impossibility
-///      See inline comments for specific safety justifications on each unchecked block.
-///
-/// @dev IMPORTANT - Type Conversions in Unchecked Blocks:
-///      Due to aggressive use of unchecked blocks throughout this contract and its subcontracts,
-///      developers MUST explicitly cast values to their proper types before performing mathematical
-///      operations when mixing different numeric types. Without explicit casts, Solidity may
-/// perform
-///      implicit conversions that could lead to unexpected results within unchecked blocks.
-///      Example: uint256(uint48Value) + anotherUint48 instead of uint48Value + anotherUint48
-///
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using LibAddress for address;
@@ -899,11 +873,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
     /// @dev Finalizes proven proposals and updates the checkpoint.
     /// Executes up to `maxFinalizationCount` iterations to finalize proposals.
-    /// Rate limiting is applied to prevent excessive checkpoint storage operations,
-    /// ensuring smooth finalization even in high-throughput systems where checkpoint
-    /// storage could become a bottleneck.
     /// The caller must finalize transition records that have exceeded their finalization
     /// grace period, but has the option to finalize those that have not.
+    ///
+    /// @dev Checkpoint Rate Limiting:
+    /// The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage:
+    /// - Finalization can occur at any frequency without extra cost
+    /// - Rate limiting is applied to prevent excessive checkpoint syncing. This helps reduce
+    ///   `SSTORE` operations, but causes L2 checkpoints to be made available less frequently on the
+    /// L1
+    /// - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
+    /// - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
+    ///
     /// @param _input Contains transition records and the end block header.
     /// @return _ Updated core state with new finalization counters.
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
@@ -935,11 +916,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 finalizedCount++;
             }
 
-            // Update checkpoint if any proposals were finalized and minimum delay has passed.
-            // Rate limiting: Checkpoints are only saved if at least minCheckpointDelay seconds
-            // have elapsed since the last checkpoint. This prevents excessive checkpoint storage
-            // operations while still allowing finalization to proceed.
-            // Note: minCheckpointDelay can be zero to disable rate limiting.
+            // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (
                 finalizedCount > 0
                     && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
