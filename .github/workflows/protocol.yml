@@ -70,24 +70,25 @@ jobs:
           # Configure merge strategy for auto-generated files
           git config merge.ours.driver true
 
-      - name: Clean up and fmt
+      - name: Clean up
         if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt
+        run: pnpm clean
 
-      - name: Compile contracts
+      - name: Format solidity
+        if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm compile
+        run: pnpm fmt:sol
 
-      - name: Shared-Unit tests
+      - name: Test Shared contracts
         working-directory: ./packages/protocol
         run: pnpm test:shared && pnpm layout:shared
 
-      - name: L2-Unit tests
+      - name: Test L2 contracts
         working-directory: ./packages/protocol
         run: pnpm test:l2 && pnpm layout:l2
 
-      - name: L1-Unit tests
+      - name: Test L1 contracts
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
 
