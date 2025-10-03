@@ -262,8 +262,7 @@ abstract contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(uint256(100))
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0,
-            forceCheckpointSync: false
+            numForcedInclusions: 0
         });
     }
 
@@ -286,8 +285,7 @@ abstract contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(uint256(100))
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0,
-            forceCheckpointSync: false
+            numForcedInclusions: 0
         });
     }
 

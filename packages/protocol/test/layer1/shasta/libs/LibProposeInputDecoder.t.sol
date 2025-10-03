@@ -45,8 +45,7 @@ contract LibProposeInputDecoderTest is Test {
             blobReference: blobReference,
             transitionRecords: transitionRecords,
             checkpoint: checkpoint,
-            numForcedInclusions: 2,
-            forceCheckpointSync: false
+            numForcedInclusions: 2
         });
 
         // Test encoding
@@ -167,8 +166,7 @@ contract LibProposeInputDecoderTest is Test {
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 1,
-            forceCheckpointSync: false
+            numForcedInclusions: 1
         });
 
         // Test encoding/decoding
@@ -238,8 +236,7 @@ contract LibProposeInputDecoderTest is Test {
                 blockHash: bytes32(uint256(1111)),
                 stateRoot: bytes32(uint256(1212))
             }),
-            numForcedInclusions: 0,
-            forceCheckpointSync: false
+            numForcedInclusions: 0
         });
 
         // Test encoding/decoding
@@ -296,8 +293,7 @@ contract LibProposeInputDecoderTest is Test {
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0,
-            forceCheckpointSync: false
+            numForcedInclusions: 0
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);

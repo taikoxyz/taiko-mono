@@ -155,9 +155,6 @@ interface IInbox {
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
-        /// @notice Whether to force checkpoint sync even before minCheckpointDelay.
-        /// @dev When true, checkpoint will be synced regardless of minCheckpointDelay.
-        bool forceCheckpointSync;
     }
 
     /// @notice Input data for the prove function
