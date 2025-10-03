@@ -26,20 +26,21 @@ contract LibProposeInputDecoderFuzzTest is Test {
         public
         pure
     {
-        // Bound nextProposalId to avoid overflow when calculating nextProposalBlockId
+        // Bound nextProposalId to avoid overflow when calculating lastProposalBlockId
         nextProposalId = uint48(bound(nextProposalId, 1, 2_800_000)); // 2800000 * 100 = 280M <
             // 2^48-1
         lastFinalizedProposalId = uint48(bound(lastFinalizedProposalId, 0, nextProposalId));
 
         // Use differentiated IDs like the main tests
-        uint48 nextProposalBlockId = nextProposalId == 1 ? uint48(0) : nextProposalId;
+        uint48 lastProposalBlockId = nextProposalId == 1 ? uint48(0) : nextProposalId - 1;
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: deadline,
             coreState: IInbox.CoreState({
                 nextProposalId: nextProposalId,
-                nextProposalBlockId: nextProposalBlockId,
+                lastProposalBlockId: lastProposalBlockId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
@@ -64,7 +65,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
         // Verify
         assertEq(decoded.deadline, deadline);
         assertEq(decoded.coreState.nextProposalId, nextProposalId);
-        assertEq(decoded.coreState.nextProposalBlockId, nextProposalBlockId);
+        assertEq(decoded.coreState.lastProposalBlockId, lastProposalBlockId);
         assertEq(decoded.blobReference.blobStartIndex, blobStartIndex);
     }
 
@@ -93,8 +94,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
-                nextProposalBlockId: 10_000,
+                lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -150,8 +152,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
-                nextProposalBlockId: 10_000,
+                lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -193,8 +196,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
         // Create test data
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
         });
@@ -361,8 +365,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 0,
+            lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });

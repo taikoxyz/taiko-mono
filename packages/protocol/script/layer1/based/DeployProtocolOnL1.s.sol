@@ -79,18 +79,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address taikoInboxAddr, address proofVerifier, address whitelist) =
-            deployRollupContracts(sharedResolver, contractOwner);
+        (address pacayaInboxAddr, address shastaInboxAddr, address proofVerifier, address whitelist)
+        = deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers
-        OpVerifier opImpl = new OpVerifier(taikoInboxAddr, proofVerifier);
+        OpVerifier opImpl = new OpVerifier(pacayaInboxAddr, proofVerifier);
         VerifierAddresses memory verifiers =
-            deployVerifiers(contractOwner, proofVerifier, taikoInboxAddr, address(opImpl));
+            deployVerifiers(contractOwner, proofVerifier, pacayaInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
                     new DevnetVerifier(
-                        taikoInboxAddr,
+                        pacayaInboxAddr,
                         verifiers.opGethVerifier,
                         verifiers.opRethVerifier,
                         address(0),
@@ -103,7 +103,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
                     new DevnetVerifier(
-                        taikoInboxAddr,
+                        pacayaInboxAddr,
                         verifiers.sgxGethVerifier,
                         verifiers.opRethVerifier,
                         verifiers.sgxRethVerifier,
@@ -122,14 +122,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
         SignalService signalService = SignalService(signalServiceAddr);
 
-        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
-
         if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
-            SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
+            SignalService(signalServiceAddr).authorize(pacayaInboxAddr, true);
+            SignalService(signalServiceAddr).authorize(shastaInboxAddr, true);
         }
-
-        uint64 l2ChainId = taikoInbox.v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
@@ -143,7 +139,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("Warning - you need to transact manually:");
             console2.log("signalService.authorize(taikoInboxAddr, bytes32(block.chainid))");
             console2.log("- signalService : ", signalServiceAddr);
-            console2.log("- taikoInboxAddr   : ", taikoInboxAddr);
+            console2.log("- pacayaInboxAddr   : ", pacayaInboxAddr);
+            console2.log("- shastaInboxAddr   : ", shastaInboxAddr);
             console2.log("- chainId       : ", block.chainid);
         }
 
@@ -155,7 +152,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
             deployPreconfContracts(
-                contractOwner, sharedResolver, address(taikoInbox), proofVerifier, whitelist
+                contractOwner, sharedResolver, pacayaInboxAddr, proofVerifier, whitelist
             );
         }
 
@@ -164,7 +161,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("** sharedResolver ownership transferred to:", contractOwner);
         }
 
-        Ownable2StepUpgradeable(taikoInboxAddr).transferOwnership(contractOwner);
+        Ownable2StepUpgradeable(pacayaInboxAddr).transferOwnership(contractOwner);
+        Ownable2StepUpgradeable(shastaInboxAddr).transferOwnership(contractOwner);
     }
 
     function deploySharedContracts(address owner) internal returns (address sharedResolver) {
@@ -274,7 +272,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         address owner
     )
         internal
-        returns (address taikoInboxAddr, address proofVerifier, address whitelist)
+        returns (
+            address pacayaInboxAddr,
+            address shastaInboxAddr,
+            address proofVerifier,
+            address whitelist
+        )
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
@@ -302,32 +305,34 @@ contract DeployProtocolOnL1 is DeployCapability {
         address bondToken =
             IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
 
-        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
-        if (oldFork == address(0)) {
-            oldFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
-                    address(0),
-                    proofVerifier,
-                    bondToken,
-                    IResolver(_sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
+        pacayaInboxAddr = vm.envAddress("OLD_FORK_TAIKO_INBOX");
+        if (pacayaInboxAddr == address(0)) {
+            pacayaInboxAddr = deployProxy({
+                name: "taiko",
+                impl: address(
+                    new DevnetInbox(
+                        LibNetwork.TAIKO_DEVNET,
+                        DEVNET_COOLDOWN_WINDOW,
+                        address(0),
+                        proofVerifier,
+                        bondToken,
+                        IResolver(_sharedResolver).resolve(
+                            uint64(block.chainid), "signal_service", false
+                        )
                     )
-                )
-            );
+                ),
+                data: abi.encodeCall(TaikoInbox.v4Init, (address(0), vm.envBytes32("L2_GENESIS_HASH")))
+            });
         }
         address codec = address(new CodecOptimized());
-        address newFork = address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken));
-
-        taikoInboxAddr = deployProxy({
-            name: "taiko",
-            impl: address(new ShastaForkRouter(oldFork, newFork)),
-            data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
+        shastaInboxAddr = deployProxy({
+            name: "shasta_inbox",
+            impl: address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken)),
+            data: abi.encodeCall(Inbox.init, (address(0), owner))
         });
 
-        console2.log("  oldFork       :", oldFork);
-        console2.log("  newFork       :", newFork);
+        console2.log("  pacaya_inbox       :", pacayaInboxAddr);
+        console2.log("  shasta_inbox       :", shastaInboxAddr);
     }
 
     function deployVerifiers(
@@ -363,8 +368,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
-        uint64 l2ChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
@@ -373,7 +376,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
-            deployZKVerifiers(owner, l2ChainId);
+            deployZKVerifiers(owner, uint64(vm.envUint("L2_CHAIN_ID")));
         verifiers.opGethVerifier = deployProxy({
             name: "op_geth_verifier",
             impl: opImplAddr,

@@ -67,8 +67,9 @@ abstract contract AbstractCodecTest is Test {
     function test_hashCoreState() public view {
         IInbox.CoreState memory testCoreState = IInbox.CoreState({
             nextProposalId: 100,
-            nextProposalBlockId: 200,
+            lastProposalBlockId: 199,
             lastFinalizedProposalId: 99,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(0x3333)),
             bondInstructionsHash: bytes32(uint256(0x4444))
         });
