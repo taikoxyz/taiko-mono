@@ -8,6 +8,7 @@ publish = false
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-rlp = { workspace = true }
+alloy-eips = { workspace = true }
 anyhow = { workspace = true }
 bindings = { path = "../bindings" }
 flate2 = { workspace = true }

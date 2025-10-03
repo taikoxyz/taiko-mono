@@ -1,6 +1,9 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::SystemTime,
 };
 
 use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
@@ -27,8 +30,6 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::interface::{ShastaProposeInput, ShastaProposeInputReader};
-
-use super::util::current_unix_timestamp;
 
 /// The payload body of a Shasta protocol Proposed event.
 #[derive(Debug, Clone)]
@@ -248,7 +249,7 @@ impl ShastaEventIndexer {
         mut last_finalized_transition_hash: B256,
     ) -> Vec<ProvedEventPayload> {
         let mut transitions = Vec::new();
-        let now = current_unix_timestamp();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
 
         if self.max_finalization_count() == 0 {
             debug!("max_finalization_count is zero; no transitions eligible");

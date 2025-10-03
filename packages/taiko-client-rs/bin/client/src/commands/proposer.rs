@@ -1,8 +1,10 @@
 //! Proposer Subcommand.
+use std::time::Duration;
+
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use clap::Parser;
-use proposer::config::ProposerConfigs;
+use proposer::{config::ProposerConfigs, proposer::Proposer};
 use rpc::SubscriptionSource;
 
 use crate::flags::{common::CommonArgs, proposer::ProposerArgs};
@@ -52,9 +54,10 @@ impl ProposerSubCommand {
             l2_provider,
             inbox_address: self.common_flags.taiko_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
-            propose_interval: std::time::Duration::from_secs(6),
+            propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
+            l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
         };
 
-        proposer::Proposer::new(cfg).await?.start().await
+        Proposer::new(cfg).await?.start().await
     }
 }

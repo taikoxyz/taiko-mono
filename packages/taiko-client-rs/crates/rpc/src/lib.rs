@@ -6,7 +6,6 @@ use anyhow::Result;
 
 pub mod auth;
 pub mod client;
-pub mod constants;
 
 /// The source from which to subscribe to events.
 #[derive(Debug, Clone)]
