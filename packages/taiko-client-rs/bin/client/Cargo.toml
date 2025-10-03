@@ -10,8 +10,10 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+proposer = { path = "../../crates/proposer" }
 alloy-primitives = { workspace = true, default-features = false }
 anyhow = { workspace = true }
 clap = { workspace = true }
 url = { workspace = true }
 tokio = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,7 +1,12 @@
 use std::str::FromStr;
 
 use alloy::{primitives::Address, transports::http::reqwest::Url};
+use anyhow::Result;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig, SubscriptionSource};
+
+use crate::config::ProposerConfigs;
+
+pub mod config;
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
@@ -10,7 +15,7 @@ pub struct Proposer {
 
 impl Proposer {
     /// Creates a new proposer instance.
-    pub async fn new() -> anyhow::Result<Self> {
+    pub async fn new(_cfg: ProposerConfigs) -> Result<Self> {
         let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(Url::from_str("s")?),
             inbox_address: Address::ZERO,
@@ -18,5 +23,9 @@ impl Proposer {
         .await?;
         indexer.wait_historical_indexing_finished().await;
         Ok(Self { _event_indexer: indexer })
+    }
+
+    pub async fn start(&self) -> Result<()> {
+        Ok(())
     }
 }
