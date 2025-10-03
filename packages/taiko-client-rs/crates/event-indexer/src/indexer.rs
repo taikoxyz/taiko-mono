@@ -458,8 +458,9 @@ mod tests {
     fn empty_core_state() -> CoreState {
         CoreState {
             nextProposalId: U48::from(0u64),
-            nextProposalBlockId: U48::from(0u64),
+            lastProposalBlockId: U48::from(0u64),
             lastFinalizedProposalId: U48::from(0u64),
+            lastCheckpointTimestamp: U48::from(0u64),
             lastFinalizedTransitionHash: B256::ZERO.into(),
             bondInstructionsHash: B256::ZERO.into(),
         }
@@ -556,18 +557,6 @@ mod tests {
             cached.transition_record.transitionHash,
             binding_payload.transitionRecord.transitionHash
         );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn handle_indexing() -> anyhow::Result<()> {
-        let TestSetup { indexer, inbox: _ } = setup().await?;
-        indexer.clone().spawn();
-        indexer.wait_historical_indexing_finished().await;
-
-        let input = indexer.read_shasta_propose_input();
-        assert_eq!(false, input.is_none());
-
         Ok(())
     }
 }

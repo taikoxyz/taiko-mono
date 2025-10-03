@@ -52,7 +52,7 @@ impl ProposerSubCommand {
         let cfg = ProposerConfigs {
             l1_provider,
             l2_provider,
-            inbox_address: self.common_flags.taiko_inbox_address,
+            inbox_address: self.common_flags.shasta_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,

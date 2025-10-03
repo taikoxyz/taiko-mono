@@ -11,7 +11,6 @@ forge bind \
   --root ../protocol \
   --select '^IInbox$' \
   --select '^CodecOptimized$' \
-  --select '^ShastaMainnetInbox$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \

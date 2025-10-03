@@ -18,6 +18,7 @@ export TAIKO_ANCHOR_ADDRESS=0x1670010000000000000000000000000000010001
 export L2_SIGNAL_SERVICE=0x1670010000000000000000000000000000010005
 export CONTRACT_OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 export TAIKO_TOKEN_PREMINT_RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+export L2_CHAIN_ID=167001
 export PAUSE_BRIDGE="false"
 export OLD_FORK_TAIKO_INBOX=0x0000000000000000000000000000000000000000
 export TAIKO_TOKEN=0x0000000000000000000000000000000000000000
@@ -57,7 +58,7 @@ $DIR/deploy.sh
 
 # Export deployed contract addresses and other env vars for tests.
 DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
-export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
+export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
 export FORCED_INCLUSION_STORE=$(echo "$DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')

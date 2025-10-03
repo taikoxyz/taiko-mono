@@ -35,10 +35,10 @@ pub struct CommonArgs {
     )]
     pub l2_auth_jwt_secret: PathBuf,
     #[clap(
-        long = "taikoInbox",
-        env = "TAIKO_INBOX",
+        long = "shastaInbox",
+        env = "SHASTA_INBOX",
         required = true,
         help = "Taiko Inbox contract address"
     )]
-    pub taiko_inbox_address: Address,
+    pub shasta_inbox_address: Address,
 }
