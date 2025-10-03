@@ -935,14 +935,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 finalizedCount++;
             }
 
-            // Update checkpoint if any proposals were finalized and minimum delay has passed.
+            // Update checkpoint if any proposals were finalized and either:
+            // 1. forceCheckpointSync is true (voluntary sync before delay), OR
+            // 2. minimum delay has passed (regular rate limiting)
             // Rate limiting: Checkpoints are only saved if at least minCheckpointDelay seconds
-            // have elapsed since the last checkpoint. This prevents excessive checkpoint storage
-            // operations while still allowing finalization to proceed.
+            // have elapsed since the last checkpoint, unless forceCheckpointSync is true.
+            // This prevents excessive checkpoint storage operations while still allowing
+            // finalization to proceed.
             // Note: minCheckpointDelay can be zero to disable rate limiting.
             if (
                 finalizedCount > 0
-                    && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
+                    && (_input.forceCheckpointSync
+                        || block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay)
             ) {
                 bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
                 require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
