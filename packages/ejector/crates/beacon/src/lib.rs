@@ -16,6 +16,14 @@ impl BeaconClient {
 
         let spec = Self::fetch_spec(base_url.clone()).await?;
 
+        // Validate beacon spec invariants to prevent divide-by-zero at runtime
+        if spec.seconds_per_slot == 0 {
+            return Err(eyre!("Invalid beacon spec: seconds_per_slot must be > 0"));
+        }
+        if spec.slots_per_epoch == 0 {
+            return Err(eyre!("Invalid beacon spec: slots_per_epoch must be > 0"));
+        }
+
         Ok(Self {
             seconds_per_slot: spec.seconds_per_slot,
             genesis_time_sec: genesis.genesis_time,
