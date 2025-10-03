@@ -3,6 +3,7 @@ package balanceMonitor
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 )
 
 type BalanceMonitor struct {

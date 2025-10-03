@@ -30,7 +30,7 @@ pub fn responsibility_for_slot(
     slots_per_epoch: u64,
     handover_slots: u64,
 ) -> Responsibility {
-    debug_assert!(slots_per_epoch > 0);
+    assert!(slots_per_epoch > 0);
     let epoch = slot / slots_per_epoch;
     let slot_in_epoch = slot % slots_per_epoch;
 

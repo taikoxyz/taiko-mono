@@ -19,7 +19,7 @@ func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
 		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
-		BackOffMaxRetrys:      5,
+		BackOffMaxRetries:     5,
 		ProveUnassignedBlocks: true,
 	})
 	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer), func() {}))
