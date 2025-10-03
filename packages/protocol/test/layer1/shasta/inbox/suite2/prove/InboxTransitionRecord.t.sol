@@ -335,6 +335,7 @@ contract InboxTransitionRecord is InboxTestHelper {
             nextProposalId: _parent.id + 1,
             lastProposalBlockId: expectedLastBlockId,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
