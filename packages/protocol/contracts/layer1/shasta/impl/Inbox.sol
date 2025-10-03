@@ -871,20 +871,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         emit Proposed(_encodeProposedEventData(payload));
     }
 
-    /// @dev Finalizes proven proposals and updates the checkpoint.
-    /// Executes up to `maxFinalizationCount` iterations to finalize proposals.
-    /// The caller must finalize transition records that have exceeded their finalization
-    /// grace period, but has the option to finalize those that have not.
-    ///
-    /// @dev Checkpoint Rate Limiting:
-    /// The minCheckpointDelay parameter controls how frequently checkpoints are saved to storage:
-    /// - Finalization can occur at any frequency without extra cost
-    /// - Rate limiting is applied to prevent excessive checkpoint syncing. This helps reduce
-    ///   `SSTORE` operations, but causes L2 checkpoints to be made available less frequently on the
-    /// L1
-    /// - Nodes syncing checkpoint data will only sync at the rate limited by minCheckpointDelay
-    /// - Set minCheckpointDelay to 0 to disable rate limiting and save every checkpoint
-    ///
+    /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
+    /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
+    /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
+    /// Set minCheckpointDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
     /// @return _ Updated core state with new finalization counters.
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
