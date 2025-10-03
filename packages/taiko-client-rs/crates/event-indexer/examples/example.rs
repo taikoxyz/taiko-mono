@@ -3,9 +3,10 @@ use std::{str::FromStr, sync::Arc};
 use alloy::transports::http::reqwest::Url;
 use alloy_primitives::Address;
 use event_indexer::{
-    indexer::{ShastaEventIndexer, ShastaEventIndexerConfig, SubscriptionSource},
+    indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
     interface::ShastaProposeInputReader,
 };
+use rpc::SubscriptionSource;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

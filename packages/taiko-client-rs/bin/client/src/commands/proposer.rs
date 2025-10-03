@@ -1,7 +1,9 @@
 //! Proposer Subcommand.
+use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use clap::Parser;
 use proposer::config::ProposerConfigs;
+use rpc::SubscriptionSource;
 
 use crate::flags::{common::CommonArgs, proposer::ProposerArgs};
 
@@ -40,6 +42,19 @@ impl ProposerSubCommand {
 
     /// Run the proposer software.
     pub async fn run(&self) -> Result<()> {
-        proposer::Proposer::new(ProposerConfigs {}).await?.start().await
+        let l1_provider =
+            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
+        let l2_provider =
+            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?);
+
+        let cfg = ProposerConfigs {
+            l1_provider,
+            l2_provider,
+            inbox_address: self.common_flags.taiko_inbox_address,
+            l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
+            propose_interval: std::time::Duration::from_secs(6),
+        };
+
+        proposer::Proposer::new(cfg).await?.start().await
     }
 }

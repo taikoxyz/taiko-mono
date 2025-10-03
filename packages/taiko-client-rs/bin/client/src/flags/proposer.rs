@@ -17,4 +17,11 @@ pub struct ProposerArgs {
         help = "Address of the proposed block's suggested L2 fee recipient"
     )]
     pub l2_suggested_fee_recipient: Address,
+    #[clap(
+        long = "propose.interval",
+        env = "PROPOSE_INTERVAL",
+        default_value = "12",
+        help = "Interval (in seconds) between proposing L2 blocks"
+    )]
+    pub propose_interval: u64,
 }

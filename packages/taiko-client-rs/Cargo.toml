@@ -3,6 +3,7 @@ members = [
   "crates/bindings",
   "crates/event-indexer",
   "crates/proposer",
+  "crates/rpc",
   "bin/client",
 ]
 resolver = "2"
@@ -37,6 +38,7 @@ alloy-network = { version = "1.0.36", default-features = false }
 alloy-consensus = { version = "1.0.36", default-features = false, features = [
 ] }
 alloy-node-bindings = { version = "1.0.36" }
+alethia-reth = { package = "taiko-reth", git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
 async-trait = "0.1"
 anyhow = "1"
 event-scanner = "0.1.0-alpha.3"

@@ -1,15 +1,9 @@
-use std::{
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
-use alloy::{
-    eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent,
-    transports::http::reqwest::Url,
-};
+use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use anyhow::Result;
@@ -27,6 +21,7 @@ use bindings::{
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, event_scanner::EventScanner};
+use rpc::SubscriptionSource;
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
@@ -61,15 +56,6 @@ pub struct ProvedEventPayload {
     pub metadata: TransitionMetadata,
     /// Raw log of the event.
     pub log: Log,
-}
-
-/// The source from which to subscribe to events.
-#[derive(Debug, Clone)]
-pub enum SubscriptionSource {
-    /// Consume Ethereum logs from a local IPC endpoint.
-    Ipc(PathBuf),
-    /// Consume Ethereum logs from a remote WebSocket endpoint.
-    Ws(Url),
 }
 
 /// Configuration for the Shasta event indexer.
@@ -409,6 +395,7 @@ mod tests {
         network::Ethereum,
         primitives::{Address, B256, Bytes, Log as PrimitiveLog},
         providers::ProviderBuilder,
+        transports::http::reqwest::Url,
     };
     use alloy_provider::{Identity, Provider, RootProvider};
     use alloy_signer_local::PrivateKeySigner;

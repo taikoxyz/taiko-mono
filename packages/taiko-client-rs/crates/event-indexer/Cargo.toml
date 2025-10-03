@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bindings = { path = "../bindings" }
+rpc = { path = "../rpc" }
 alloy = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }

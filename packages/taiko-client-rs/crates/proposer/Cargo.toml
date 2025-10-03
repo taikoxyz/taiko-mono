@@ -6,6 +6,10 @@ publish = false
 
 [dependencies]
 bindings = { path = "../bindings" }
+rpc = { path = "../rpc" }
 event-indexer = { path = "../event-indexer" }
 anyhow = { workspace = true }
 alloy = { workspace = true }
+alethia-reth = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
