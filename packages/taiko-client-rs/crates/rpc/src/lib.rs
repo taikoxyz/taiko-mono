@@ -1,7 +1,13 @@
 use std::path::PathBuf;
 
-use alloy::transports::http::reqwest::Url;
-use alloy_provider::{IpcConnect, ProviderBuilder, RootProvider, WsConnect};
+use alloy::{
+    network::EthereumWallet, signers::local::PrivateKeySigner, transports::http::reqwest::Url,
+};
+use alloy_primitives::B256;
+use alloy_provider::{
+    IpcConnect, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
+    utils::JoinedRecommendedFillers,
+};
 use anyhow::Result;
 
 pub mod auth;
@@ -38,14 +44,24 @@ impl SubscriptionSource {
         matches!(self, SubscriptionSource::Ws(_))
     }
 
-    /// Convert the `SubscriptionSource` into a `RootProvider`.
-    pub async fn to_provider(&self) -> Result<RootProvider> {
+    /// Convert the `SubscriptionSource` into a `FillProvider` built via `ProviderBuilder::new()`.
+    pub async fn to_provider(
+        &self,
+        sender_private_key: Option<B256>,
+    ) -> Result<FillProvider<JoinedRecommendedFillers, RootProvider>> {
+        let mut builder = ProviderBuilder::new();
+        if let Some(key) = sender_private_key {
+            let signer = PrivateKeySigner::from_bytes(&key)?;
+            let wallet = EthereumWallet::new(signer);
+
+            builder.wallet(wallet);
+        };
         let provider = match self {
             SubscriptionSource::Ipc(path) => {
-                ProviderBuilder::default().connect_ipc(IpcConnect::new(path.clone())).await?
+                builder.connect_ipc(IpcConnect::new(path.clone())).await?
             }
             SubscriptionSource::Ws(url) => {
-                ProviderBuilder::default().connect_ws(WsConnect::new(url.to_string())).await?
+                builder.connect_ws(WsConnect::new(url.to_string())).await?
             }
         };
 

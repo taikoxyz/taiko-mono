@@ -50,9 +50,9 @@ impl ProposerSubCommand {
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?);
 
         let cfg = ProposerConfigs {
-            l1_provider,
-            l2_provider,
-            l2_auth_provider: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
+            l1_provider_source: l1_provider,
+            l2_provider_source: l2_provider,
+            l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
             jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,

@@ -5,13 +5,11 @@ use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
     signers::local::PrivateKeySigner,
 };
-use alloy_network::{
-    Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder, TransactionBuilder4844,
-};
+use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder};
 use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
-use rpc::client::Client;
+use rpc::client::{Client, ClientConfig};
 use tokio::time::interval;
 use tracing::info;
 
@@ -31,10 +29,11 @@ impl Proposer {
         info!("Initializing proposer with config: {:?}", cfg);
 
         // Initialize RPC client.
-        let rpc_provider = Client::new(rpc::client::ClientConfig {
-            l1_provider: cfg.l1_provider.clone(),
-            l2_provider: cfg.l2_provider.clone(),
-            l2_auth_provider: cfg.l2_auth_provider.clone(),
+        let rpc_provider = Client::new(ClientConfig {
+            l1_provider_source: cfg.l1_provider_source.clone(),
+            l2_provider_source: cfg.l2_provider_source.clone(),
+            l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
+            l1_sender_private_key: Some(cfg.l1_proposer_private_key),
             jwt_secret: cfg.jwt_secret.clone(),
             inbox_address: cfg.inbox_address,
         })
@@ -42,7 +41,7 @@ impl Proposer {
 
         // Initialize event indexer.
         let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.l1_provider.clone(),
+            l1_subscription_source: cfg.l1_provider_source.clone(),
             inbox_address: cfg.inbox_address,
         })
         .await?;
@@ -95,31 +94,12 @@ impl Proposer {
 
         let from = NetworkWallet::<Ethereum>::default_signer_address(&self.wallet);
 
-        let mut transaction_request = self
+        let transaction_request = self
             .transaction_builder
             .build(pool_content)
             .await?
             .with_to(self.cfg.inbox_address)
             .with_from(from);
-
-        let chain_id = self.rpc_provider.l1_provider.get_chain_id().await?;
-        transaction_request = transaction_request.with_chain_id(chain_id);
-
-        let nonce = self.rpc_provider.l1_provider.get_transaction_count(from).await?;
-        transaction_request = transaction_request.with_nonce(nonce);
-
-        let gas_price = self.rpc_provider.l1_provider.get_gas_price().await?;
-        let gas_price_u128 = u128::try_from(gas_price)
-            .map_err(|_| anyhow!("gas price exceeds u128 for EIP-1559 tx"))?;
-
-        transaction_request = transaction_request
-            .with_max_priority_fee_per_gas(gas_price_u128)
-            .with_max_fee_per_gas(gas_price_u128)
-            .with_max_fee_per_blob_gas(gas_price_u128);
-
-        let gas_limit =
-            self.rpc_provider.l1_provider.estimate_gas(transaction_request.clone()).await?;
-        transaction_request = transaction_request.with_gas_limit(gas_limit);
 
         let pending_tx = self
             .rpc_provider
@@ -229,13 +209,13 @@ mod tests {
         init_tracing();
 
         let cfg = ProposerConfigs {
-            l1_provider: SubscriptionSource::Ws(
+            l1_provider_source: SubscriptionSource::Ws(
                 Url::from_str(&env::var("L1_WS").unwrap()).unwrap(),
             ),
-            l2_provider: SubscriptionSource::Ws(
+            l2_provider_source: SubscriptionSource::Ws(
                 Url::from_str(&env::var("L2_WS").unwrap()).unwrap(),
             ),
-            l2_auth_provider: Url::from_str(&env::var("L2_AUTH").unwrap()).unwrap(),
+            l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH").unwrap()).unwrap(),
             jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET").unwrap()).unwrap(),
             inbox_address: Address::from_str(&env::var("SHASTA_INBOX").unwrap()).unwrap(),
             l2_suggested_fee_recipient: Address::from_str(
