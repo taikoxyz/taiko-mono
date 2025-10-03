@@ -5,7 +5,9 @@ use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
     signers::local::PrivateKeySigner,
 };
-use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder};
+use alloy_network::{
+    Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder, TransactionBuilder4844,
+};
 use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
@@ -82,18 +84,42 @@ impl Proposer {
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     async fn fetch_and_propose(&self) -> Result<()> {
         // Fetch mempool content from L2 execution engine.
-        let mut pool_content = self.fetch_pool_content().await?;
+        let pool_content = self.fetch_pool_content().await?;
 
         tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
-        // If there are no transaction to propose, skip this epoch.
         if pool_content.is_empty() {
             tracing::info!("No transaction to propose");
-            pool_content = vec![];
+            return Ok(());
         }
 
-        let transaction_request =
-            self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
+        let from = NetworkWallet::<Ethereum>::default_signer_address(&self.wallet);
+
+        let mut transaction_request = self
+            .transaction_builder
+            .build(pool_content)
+            .await?
+            .with_to(self.cfg.inbox_address)
+            .with_from(from);
+
+        let chain_id = self.rpc_provider.l1_provider.get_chain_id().await?;
+        transaction_request = transaction_request.with_chain_id(chain_id);
+
+        let nonce = self.rpc_provider.l1_provider.get_transaction_count(from).await?;
+        transaction_request = transaction_request.with_nonce(nonce);
+
+        let gas_price = self.rpc_provider.l1_provider.get_gas_price().await?;
+        let gas_price_u128 = u128::try_from(gas_price)
+            .map_err(|_| anyhow!("gas price exceeds u128 for EIP-1559 tx"))?;
+
+        transaction_request = transaction_request
+            .with_max_priority_fee_per_gas(gas_price_u128)
+            .with_max_fee_per_gas(gas_price_u128)
+            .with_max_fee_per_blob_gas(gas_price_u128);
+
+        let gas_limit =
+            self.rpc_provider.l1_provider.estimate_gas(transaction_request.clone()).await?;
+        transaction_request = transaction_request.with_gas_limit(gas_limit);
 
         let pending_tx = self
             .rpc_provider
