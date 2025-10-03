@@ -1,7 +1,8 @@
 <script lang="ts">
 </script>
 
-<div class="text-legacy">Purple?</div>
+<!-- Demo text color removed: legacy token was for testing only -->
+<div>Purple?</div>
 <div class="text-3xl">Welcome to your library project</div>
 <p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
 <p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
