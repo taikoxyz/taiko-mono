@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProposedEventEncoder } from "contracts/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibProposedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode
@@ -183,11 +183,10 @@ contract LibProposedEventEncoderGas is Test {
             derivationHash: keccak256("derivation")
         });
 
-        payload_.derivation = IInbox.Derivation({
-            originBlockNumber: 18_000_000,
-            originBlockHash: bytes32(uint256(18_000_000)),
+        // Create single DerivationSource for the new sources array structure
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 100,
@@ -195,9 +194,18 @@ contract LibProposedEventEncoderGas is Test {
             })
         });
 
+        payload_.derivation = IInbox.Derivation({
+            originBlockNumber: 18_000_000,
+            originBlockHash: bytes32(uint256(18_000_000)),
+            basefeeSharingPctg: 75,
+            sources: sources
+        });
+
         payload_.coreState = IInbox.CoreState({
             nextProposalId: 12_346,
+            lastProposalBlockId: 1_234_599,
             lastFinalizedProposalId: 12_340,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("lastTransition"),
             bondInstructionsHash: keccak256("bondInstructions")
         });

@@ -19,17 +19,17 @@ jobs:
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          # account for forked repos case
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          # SECURITY: Pin to exact commit at comment time to prevent TOCTOU attacks
+          ref: ${{ steps.comment-branch.outputs.head_sha }}
           repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
           # Fetch more history for better git operations
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
 
@@ -53,7 +53,7 @@ jobs:
           # Allow Claude to run specific commands
           allowed_tools: |
             mcp__github__create_pull_request
-            Bash(pnpm install)
+            Bash(pnpm install --ignore-scripts)
             Bash(pnpm test:*)
             Bash(pnpm fmt:sol)
             Bash(pnpm snapshot:*)
@@ -69,7 +69,7 @@ jobs:
           # Add custom instructions for Claude to customize its behavior for your project
           custom_instructions: |
             For protocol(smart contract) changes always start in the `packages/protocol` directory.
-            You MUST run `pnpm install` first.
+            You MUST run `pnpm install --ignore-scripts` first for security (prevents malicious lifecycle scripts).
             You MUST follow the development workflow described in CLAUDE.md.
             You MUST make sure the tests are passing before creating a pull request.
             You MUST open a draft pull request after creating a branch.
