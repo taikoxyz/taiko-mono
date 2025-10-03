@@ -4,6 +4,7 @@ members = [
   "crates/event-indexer",
   "crates/proposer",
   "crates/rpc",
+  "crates/protocol",
   "bin/client",
 ]
 resolver = "2"
@@ -35,8 +36,8 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-signer-local = { version = "1.0.36", default-features = false }
 alloy-network = { version = "1.0.36", default-features = false }
-alloy-consensus = { version = "1.0.36", default-features = false, features = [
-] }
+alloy-consensus = { version = "1.0.36", default-features = false, features = ["serde"] }
+alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-node-bindings = { version = "1.0.36" }
 alethia-reth = { package = "taiko-reth", git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
 async-trait = "0.1"
@@ -48,3 +49,4 @@ tokio-stream = "0.1"
 tracing = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 url = "2.5.4"
+flate2 = { version = "1.0", default-features = false, features = ["zlib"] }

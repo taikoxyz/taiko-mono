@@ -1,0 +1,14 @@
+[package]
+name = "protocol"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-rlp = { workspace = true }
+anyhow = { workspace = true }
+bindings = { path = "../bindings" }
+flate2 = { workspace = true }
+serde = { version = "1", features = ["derive"] }

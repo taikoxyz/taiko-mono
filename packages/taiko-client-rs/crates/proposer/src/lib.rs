@@ -1,8 +1,10 @@
 use alethia_reth::consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
-use alloy::{eips::BlockNumberOrTag, primitives::U256, providers::Provider};
-use anyhow::{Context, Result};
+use alloy::{
+    eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
+};
+use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use rpc::{
     client::Client,
@@ -53,24 +55,41 @@ impl Proposer {
             interval.tick().await;
 
             // Fetch mempool content from L2 execution engine.
-            let pool_content = self
-                .rpc_provider
-                .tx_pool_content_with_min_tip(
-                    self.cfg.l2_suggested_fee_recipient,
-                    Some(self.calculate_next_block_base_fee().await?),
-                    MIN_BLOCK_GAS_LIMIT,
-                    PROPOSAL_MAX_BLOB_BYTES as u64,
-                    vec![],
-                    1,
-                    0,
-                )
-                .await?;
+            let pool_content = self.fetch_pool_content().await?;
 
             tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
+            // If there are no transaction to propose, skip this epoch.
+            if pool_content.is_empty() {
+                tracing::info!("No transaction to propose");
+                continue;
+            }
+
             epoch += 1;
         }
-        Ok(())
+    }
+
+    async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
+        let pool_content = self
+            .rpc_provider
+            .tx_pool_content_with_min_tip(
+                self.cfg.l2_suggested_fee_recipient,
+                Some(self.calculate_next_block_base_fee().await?),
+                MIN_BLOCK_GAS_LIMIT,
+                PROPOSAL_MAX_BLOB_BYTES as u64,
+                vec![],
+                1,
+                0,
+            )
+            .await?;
+
+        let transactions = pool_content
+            .into_iter()
+            .flat_map(|tx_list| tx_list.tx_list.into_iter())
+            .map(|tx| serde_json::from_value::<Transaction>(tx).map_err(anyhow::Error::from))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(transactions)
     }
 
     /// Calculate the base fee for the next L2 block using EIP-4396 rules.
@@ -80,7 +99,7 @@ impl Proposer {
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await?
-            .ok_or(anyhow::anyhow!("latest block not found"))?;
+            .ok_or(anyhow!("latest block not found"))?;
 
         if parent.number() <= 2 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
@@ -92,7 +111,7 @@ impl Proposer {
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
-                .ok_or_else(|| anyhow::anyhow!("parent block {} not found", parent.number() - 1))?
+                .ok_or_else(|| anyhow!("parent block {} not found", parent.number() - 1))?
                 .header
                 .timestamp;
 
