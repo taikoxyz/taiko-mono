@@ -1,9 +1,20 @@
+use std::path::PathBuf;
+
+use alloy::rpc::client::RpcClient;
+use alloy::transports::http::reqwest::Url;
 use alloy_primitives::Address;
 use alloy_provider::RootProvider;
+use alloy_rpc_types::engine::JwtSecret;
+use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use anyhow::Result;
 use bindings::{
     codec_optimized::CodecOptimized::CodecOptimizedInstance, i_inbox::IInbox::IInboxInstance,
 };
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
+use tower::ServiceBuilder;
+use tracing::info;
 
 use crate::SubscriptionSource;
 
@@ -19,6 +30,7 @@ pub struct ShastaProtocolInstance {
 pub struct Client {
     pub l1_provider: RootProvider,
     pub l2_provider: RootProvider,
+    pub l2_auth_provider: RootProvider,
     pub shasta: ShastaProtocolInstance,
 }
 
@@ -27,6 +39,8 @@ pub struct Client {
 pub struct ClientConfig {
     pub l1_provider: SubscriptionSource,
     pub l2_provider: SubscriptionSource,
+    pub l2_auth_provider: Url,
+    pub jwt_secret: PathBuf,
     pub inbox_address: Address,
 }
 
@@ -36,12 +50,36 @@ impl Client {
         let l1_provider = config.l1_provider.to_provider().await?;
         let l2_provider = config.l2_provider.to_provider().await?;
 
+        let jwt_secret = read_jwt_secret(config.jwt_secret)
+            .ok_or_else(|| anyhow::anyhow!("Failed to read JWT secret"))?;
+        let l2_auth_provider = build_l2_auth_provider(config.l2_auth_provider.clone(), jwt_secret);
+
         let inbox = IInboxInstance::new(config.inbox_address, l1_provider.clone());
         let codec =
             CodecOptimizedInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
 
         let shasta = ShastaProtocolInstance { inbox, codec };
 
-        Ok(Self { l1_provider, l2_provider, shasta })
+        Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
     }
+}
+
+/// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.
+fn build_l2_auth_provider(url: Url, secret: JwtSecret) -> RootProvider {
+    let service = HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
+    let service = ServiceBuilder::new().layer(AuthLayer::new(secret)).service(service);
+    let transport = Http::with_client(HyperClient::with_service(service), url);
+    let is_local = transport.guess_local();
+    RootProvider::new(RpcClient::new(transport, is_local))
+}
+
+/// Returns the JWT secret for the engine API
+/// using the provided [PathBuf]. If the file is not found,
+/// it will return the default JWT secret.
+pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
+    if let Ok(secret) = std::fs::read_to_string(path) {
+        return JwtSecret::from_hex(secret).ok();
+    };
+
+    None
 }

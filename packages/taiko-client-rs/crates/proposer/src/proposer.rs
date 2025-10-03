@@ -11,6 +11,7 @@ use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::Client;
 use tokio::time::interval;
+use tracing::info;
 
 use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransactionBuilder};
 
@@ -29,6 +30,8 @@ impl Proposer {
         let rpc_provider = Client::new(rpc::client::ClientConfig {
             l1_provider: cfg.l1_provider.clone(),
             l2_provider: cfg.l2_provider.clone(),
+            l2_auth_provider: cfg.l2_auth_provider.clone(),
+            jwt_secret: cfg.jwt_secret.clone(),
             inbox_address: cfg.inbox_address,
         })
         .await?;
@@ -39,7 +42,7 @@ impl Proposer {
             inbox_address: cfg.inbox_address,
         })
         .await?;
-        indexer.wait_historical_indexing_finished().await;
+        // indexer.wait_historical_indexing_finished().await;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
         let signer = PrivateKeySigner::from_bytes(&cfg.l1_proposer_private_key)?;
@@ -166,10 +169,11 @@ impl Proposer {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, str::FromStr, sync::OnceLock, time::Duration};
+    use std::{env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
 
     use alloy::{primitives::Address, transports::http::reqwest::Url};
     use rpc::SubscriptionSource;
+    use tracing::info;
 
     use super::*;
 
@@ -187,13 +191,15 @@ mod tests {
     async fn propose_shasta_batches() {
         init_tracing();
 
-        let _cfg = ProposerConfigs {
+        let cfg = ProposerConfigs {
             l1_provider: SubscriptionSource::Ws(
                 Url::from_str(&env::var("L1_WS").unwrap()).unwrap(),
             ),
             l2_provider: SubscriptionSource::Ws(
                 Url::from_str(&env::var("L2_WS").unwrap()).unwrap(),
             ),
+            l2_auth_provider: Url::from_str(&env::var("L2_AUTH").unwrap()).unwrap(),
+            jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET").unwrap()).unwrap(),
             inbox_address: Address::from_str(&env::var("SHASTA_INBOX").unwrap()).unwrap(),
             l2_suggested_fee_recipient: Address::from_str(
                 &env::var("L2_SUGGESTED_FEE_RECIPIENT").unwrap(),
@@ -202,5 +208,8 @@ mod tests {
             propose_interval: Duration::from_secs(0),
             l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY").unwrap().parse().unwrap(),
         };
+
+        let proposer = Proposer::new(cfg).await.unwrap();
+        proposer.fetch_and_propose().await.unwrap();
     }
 }

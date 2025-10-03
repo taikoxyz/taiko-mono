@@ -52,6 +52,8 @@ impl ProposerSubCommand {
         let cfg = ProposerConfigs {
             l1_provider,
             l2_provider,
+            l2_auth_provider: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
+            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),

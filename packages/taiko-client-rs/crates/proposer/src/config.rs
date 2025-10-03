@@ -1,6 +1,9 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
-use alloy::primitives::{Address, B256};
+use alloy::{
+    primitives::{Address, B256},
+    transports::http::reqwest::Url,
+};
 use rpc::SubscriptionSource;
 
 /// Configuration for the proposer.
@@ -8,6 +11,8 @@ use rpc::SubscriptionSource;
 pub struct ProposerConfigs {
     pub l1_provider: SubscriptionSource,
     pub l2_provider: SubscriptionSource,
+    pub l2_auth_provider: Url,
+    pub jwt_secret: PathBuf,
     pub inbox_address: Address,
     pub l2_suggested_fee_recipient: Address,
     pub propose_interval: Duration,

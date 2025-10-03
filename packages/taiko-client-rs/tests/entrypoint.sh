@@ -10,7 +10,7 @@ export L1_WS=ws://localhost:18545
 export L2_HTTP=http://localhost:28545
 export L2_WS=ws://localhost:28546
 export L2_AUTH=http://localhost:28551
-export JWT_SECRET=$DIR/nodes/jwt.hex
+export JWT_SECRET=$DIR/docker/jwt.hex
 
 # Environment variables for deploying protocol contracts on L1.
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

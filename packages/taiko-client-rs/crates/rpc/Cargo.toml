@@ -11,6 +11,7 @@ alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
+alloy-transport-http = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-eips = { workspace = true }
 bindings = { path = "../bindings" }
@@ -19,3 +20,8 @@ alethia-reth = { workspace = true }
 protocol = { path = "../protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
+http-body-util = "0.1"
+tower = { version = "0.4", features = ["util"] }
+tracing = { workspace = true }
