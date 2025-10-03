@@ -31,7 +31,8 @@ type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
-	taikoInboxAddress       common.Address
+	pacayaInboxAddress      common.Address
+	shastaInboxAddress      common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -45,7 +46,8 @@ func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	taikoInboxAddress common.Address,
+	pacayaInboxAddress common.Address,
+	shastaInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -57,7 +59,8 @@ func NewBlobTransactionBuilder(
 		rpc,
 		shastaStateIndexer,
 		proposerPrivateKey,
-		taikoInboxAddress,
+		pacayaInboxAddress,
+		shastaInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
@@ -179,7 +182,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.taikoInboxAddress
+		to    = &b.shastaInboxAddress
 		blobs []*eth.Blob
 		data  []byte
 	)

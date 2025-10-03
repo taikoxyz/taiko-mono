@@ -40,6 +40,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: nextProposalId,
                 lastProposalBlockId: lastProposalBlockId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
@@ -95,6 +96,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: 100,
                 lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -152,6 +154,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: 100,
                 lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -195,6 +198,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             nextProposalId: 100,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
         });
@@ -363,6 +367,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             nextProposalId: 100,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });

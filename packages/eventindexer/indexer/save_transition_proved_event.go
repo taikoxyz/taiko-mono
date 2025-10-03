@@ -33,7 +33,7 @@ func (i *Indexer) saveTransitionProvedEvents(
 			if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
 				eventindexer.TransitionProvedEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockProvenEvent")
+				return errors.Wrap(err, "i.saveTransitionProvedEvent")
 			}
 
 			return nil
@@ -111,7 +111,7 @@ func (i *Indexer) saveTransitionProvedEventsV2(
 			if err := i.saveTransitionProvedEventV2(ctx, chainID, event); err != nil {
 				eventindexer.TransitionProvedEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockProvenEvent")
+				return errors.Wrap(err, "i.saveTransitionProvedEventV2")
 			}
 
 			return nil
