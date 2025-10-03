@@ -8,6 +8,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
@@ -54,14 +55,22 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
-    using SafeERC20 for IERC20;
+    using LibAddress for address;
     using LibMath for uint48;
+    using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
         uint48 finalizationDeadline;
+    }
+
+    /// @notice Result from consuming forced inclusions
+    struct ConsumptionResult {
+        IInbox.DerivationSource[] sources;
+        bool allowsPermissionless;
     }
 
     // ---------------------------------------------------------------
@@ -231,24 +240,44 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
-                _buildDerivationSources(input);
+            // Consume forced inclusions (validation happens inside)
+            ConsumptionResult memory result =
+                _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
 
-            // If there was a forced inclusion, and it was too old, allow anyone to propose(and
-            // endOfSubmissionWindowTimestamp = 0).
-            // Otherwise, only the current preconfer can propose.
-            uint48 endOfSubmissionWindowTimestamp;
-            if (
-                block.timestamp
-                    <= oldestForcedInclusionTimestamp
-                        + _forcedInclusionDelay * _permissionlessInclusionMultiplier
-            ) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-            }
+            // Add normal proposal source in last slot
+            result.sources[result.sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
+
+            // If forced inclusion is old enough, allow anyone to propose
+            // and set endOfSubmissionWindowTimestamp = 0
+            // Otherwise, only the current preconfer can propose
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Create single proposal with multi-source derivation
-            _propose(coreState, sources, endOfSubmissionWindowTimestamp);
+            // Use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: result.sources
+            });
+
+            // Increment nextProposalId (lastProposalBlockId was already set above)
+            Proposal memory proposal = Proposal({
+                id: coreState.nextProposalId++,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                coreStateHash: _hashCoreState(coreState),
+                derivationHash: _hashDerivation(derivation)
+            });
+
+            _setProposalHash(proposal.id, _hashProposal(proposal));
+            _emitProposedEvent(proposal, derivation, coreState);
         }
     }
 
@@ -273,10 +302,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei,
-            _blobReference
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 
@@ -369,7 +395,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         coreState.nextProposalId = 1;
 
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
-        // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
+        // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.lastProposalBlockId = 1;
@@ -746,82 +772,109 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // Private Functions
     // ---------------------------------------------------------------
 
-    function _propose(
-        CoreState memory _coreState,
-        DerivationSource[] memory _derivationSources,
-        uint48 _endOfSubmissionWindowTimestamp
+    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
+    /// source
+    /// @param _feeRecipient Address to receive accumulated fees
+    /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
+    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
+    /// and whether permissionless proposals are allowed
+    function _consumeForcedInclusions(
+        address _feeRecipient,
+        uint256 _numForcedInclusionsRequested
     )
-        internal
+        private
+        returns (ConsumptionResult memory result_)
     {
         unchecked {
-            // use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
+            LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
-            Derivation memory derivation = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: _derivationSources
-            });
+            // Load storage once
+            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
-            // Increment nextProposalId (lastProposalBlockId was already set in propose())
-            Proposal memory proposal = Proposal({
-                id: _coreState.nextProposalId++,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                coreStateHash: _hashCoreState(_coreState),
-                derivationHash: _hashDerivation(derivation)
-            });
+            uint256 available = tail - head;
+            uint256 toProcess = _numForcedInclusionsRequested > available
+                ? available
+                : _numForcedInclusionsRequested;
 
-            _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, _coreState);
+            // Allocate array with extra slot for normal source
+            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
+
+            // Process inclusions if any
+            uint48 oldestTimestamp;
+            (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
+                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
+            );
+
+            // We check the following conditions are met:
+            // 1. Proposer is willing to include at least the minimum required
+            // (_minForcedInclusionCount)
+            // 2. Proposer included all available inclusions
+            // 3. The oldest inclusion is not due
+            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
+                bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
+                    $, head, tail, lastProcessedAt, _forcedInclusionDelay
+                );
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            }
+
+            // Check if permissionless proposals are allowed
+            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
+                * _permissionlessInclusionMultiplier + oldestTimestamp;
+            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
         }
     }
 
-    /// @dev Creates derivation sources array from forced inclusions and regular proposal
-    /// @notice Processes forced inclusions and creates a unified sources array for derivation
-    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
-    /// @return sources Array of derivation sources with forced inclusions first, then regular
-    /// proposal
-    /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
-    /// processed. block.timestamp if there are no forced inclusions.
-    function _buildDerivationSources(ProposeInput memory _input)
+    /// @dev Dequeues and processes forced inclusions from the queue
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive fees
+    /// @param _sources Array to populate with derivation sources
+    /// @param _head Current queue head position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _toProcess Number of inclusions to process
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions
+    /// @return head_ Updated head position
+    /// @return lastProcessedAt_ Updated last processed timestamp
+    function _dequeueAndProcessForcedInclusions(
+        LibForcedInclusion.Storage storage $,
+        address _feeRecipient,
+        IInbox.DerivationSource[] memory _sources,
+        uint48 _head,
+        uint48 _lastProcessedAt,
+        uint256 _toProcess
+    )
         private
-        returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
+        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
     {
-        unchecked {
-            uint256 remainingForcedInclusions = type(uint256).max;
-
-            if (_input.numForcedInclusions > 0) {
-                // Get derivation sources with forced inclusions marked and an extra slot for normal
-                // source
-                (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
-                LibForcedInclusion.consumeForcedInclusions(
-                    _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
-                );
-            } else {
-                // When no forced inclusions, allocate array of size 1 for normal source
-                sources = new DerivationSource[](1);
-                oldestForcedInclusionTimestamp = uint48(block.timestamp);
+        if (_toProcess > 0) {
+            // Process inclusions and accumulate fees
+            uint256 totalFees;
+            unchecked {
+                for (uint256 i; i < _toProcess; ++i) {
+                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
+                    _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                    totalFees += inclusion.feeInGwei;
+                }
             }
 
-            // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-            // processed
-            // OR the queue is empty
-            // OR none remaining are due
-            require(
-                (_input.numForcedInclusions >= _minForcedInclusionCount)
-                    || remainingForcedInclusions == 0
-                    || !LibForcedInclusion.isOldestForcedInclusionDue(
-                        _forcedInclusionStorage, _forcedInclusionDelay
-                    ),
-                UnprocessedForcedInclusionIsDue()
-            );
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
 
-            // Add normal proposal source in the last slot
-            sources[sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+            // Oldest timestamp is max of first inclusion timestamp and last processed time
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+            // Update queue position and last processed time
+            head_ = _head + uint48(_toProcess);
+            lastProcessedAt_ = uint48(block.timestamp);
+
+            // Write to storage once
+            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+        } else {
+            // No inclusions processed
+            oldestTimestamp_ = type(uint48).max;
+            head_ = _head;
+            lastProcessedAt_ = _lastProcessedAt;
         }
     }
 
@@ -842,59 +895,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             coreState: _coreState
         });
         emit Proposed(_encodeProposedEventData(payload));
-    }
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// @notice Subtracts unfinalized proposals from total capacity
-    /// @param _coreState Current state with proposal counters
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
-        unchecked {
-            uint256 numUnfinalizedProposals =
-                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
-
-    /// @dev Validates propose function inputs
-    /// @notice Checks deadline, proposal array, and state consistency
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-        require(_input.parentProposals.length > 0, EmptyProposals());
-        require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
-        require(
-            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
-            InvalidState()
-        );
-    }
-
-    /// @dev Verifies that parentProposals[0] is the current chain head
-    /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
-    /// @param _parentProposals Array of 1-2 proposals to verify chain head
-    function _verifyChainHead(Proposal[] memory _parentProposals) private view {
-        unchecked {
-            // First verify parentProposals[0] matches what's stored on-chain
-            _checkProposalHash(_parentProposals[0]);
-
-            // Then verify it's actually the chain head
-            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
-            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
-
-            if (storedNextProposalHash == bytes32(0)) {
-                // Next slot in the ring buffer is empty, only one proposal expected
-                require(_parentProposals.length == 1, IncorrectProposalCount());
-            } else {
-                // Next slot in the ring buffer is occupied, need to prove it contains a
-                // proposal with a smaller id
-                require(_parentProposals.length == 2, IncorrectProposalCount());
-                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
-                require(
-                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
-                    NextProposalHashMismatch()
-                );
-            }
-        }
     }
 
     /// @dev Finalizes proven proposals and updates the checkpoint.
@@ -957,6 +957,59 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         }
     }
 
+    /// @dev Calculates remaining capacity for new proposals
+    /// @notice Subtracts unfinalized proposals from total capacity
+    /// @param _coreState Current state with proposal counters
+    /// @return _ Number of additional proposals that can be submitted
+    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+            return _ringBufferSize - 1 - numUnfinalizedProposals;
+        }
+    }
+
+    /// @dev Validates propose function inputs
+    /// @notice Checks deadline, proposal array, and state consistency
+    /// @param _input The ProposeInput to validate
+    function _validateProposeInput(ProposeInput memory _input) private view {
+        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+        require(_input.parentProposals.length > 0, EmptyProposals());
+        require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
+        require(
+            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
+            InvalidState()
+        );
+    }
+
+    /// @dev Verifies that parentProposals[0] is the current chain head
+    /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
+    /// @param _parentProposals Array of 1-2 proposals to verify chain head
+    function _verifyChainHead(Proposal[] memory _parentProposals) private view {
+        unchecked {
+            // First verify parentProposals[0] matches what's stored on-chain
+            _checkProposalHash(_parentProposals[0]);
+
+            // Then verify it's actually the chain head
+            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
+            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
+
+            if (storedNextProposalHash == bytes32(0)) {
+                // Next slot in the ring buffer is empty, only one proposal expected
+                require(_parentProposals.length == 1, IncorrectProposalCount());
+            } else {
+                // Next slot in the ring buffer is occupied, need to prove it contains a
+                // proposal with a smaller id
+                require(_parentProposals.length == 2, IncorrectProposalCount());
+                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
+                require(
+                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                    NextProposalHashMismatch()
+                );
+            }
+        }
+    }
+
     /// @dev Attempts to finalize a single proposal
     /// @notice Updates core state and processes bond instructions if successful
     /// @param _coreState Core state to update (passed by reference)
@@ -1010,7 +1063,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
-        _processBondInstructions(_coreState, _transitionRecord.bondInstructions);
+        for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
+            _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                _coreState.bondInstructionsHash, _transitionRecord.bondInstructions[i]
+            );
+        }
 
         // Validate and calculate next proposal ID
         require(_transitionRecord.span > 0, InvalidSpan());
@@ -1018,24 +1075,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
-    }
-
-    /// @dev Processes bond instructions and updates aggregated hash
-    /// @param _coreState Core state with bond instructions hash to update
-    /// @param _instructions Array of bond transfer instructions to aggregate
-    function _processBondInstructions(
-        CoreState memory _coreState,
-        LibBonds.BondInstruction[] memory _instructions
-    )
-        private
-        pure
-    {
-        if (_instructions.length == 0) return;
-
-        for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash =
-                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
-        }
     }
 }
 
@@ -1057,8 +1096,8 @@ error InvalidState();
 error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
-error NotEnoughCapacity();
 error NoBondToWithdraw();
+error NotEnoughCapacity();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();

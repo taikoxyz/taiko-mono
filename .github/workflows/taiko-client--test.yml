@@ -26,12 +26,12 @@ jobs:
     runs-on: [ubuntu-latest]
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.24
+          go-version-file: go.mod
           cache: true
 
       - name: Lint
@@ -57,21 +57,21 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.24
+          go-version-file: go.mod
           cache: true
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}

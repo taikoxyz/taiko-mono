@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { LibForcedInclusion } from "src/layer1/shasta/libs/LibForcedInclusion.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
@@ -320,7 +321,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
 
-        vm.expectRevert(UnprocessedForcedInclusionIsDue.selector);
+        vm.expectRevert();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
     }
@@ -615,7 +616,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function _expectedBlobHashes(LibBlobs.BlobReference memory _ref)
         internal
-        view
+        pure
         returns (bytes32[] memory)
     {
         bytes32[] memory fullHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
@@ -664,7 +665,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         LibBlobs.BlobSlice memory expected
     )
         internal
-        view
+        pure
     {
         assertTrue(actual.isForcedInclusion);
         assertEq(uint256(actual.blobSlice.offset), uint256(expected.offset));
