@@ -18,7 +18,6 @@
     "layout:shared": "./script/gen-layouts.sh shared",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
-    "layout": "pnpm layout:l1 && pnpm layout:l2 && pnpm layout:shared",
     "test:deploy:l1": "./script/layer1/based/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
