@@ -907,17 +907,20 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
-            if (
-                finalizedCount > 0
-                    && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
-            ) {
-                bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-                require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
+            if (finalizedCount > 0) {
+                bool syncCheckpoint = _input.checkpoint.blockHash != 0 // voluntary checkpoint sync
+                    || block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay; // forced checkpoint sync
+                if (syncCheckpoint) {
+                    bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+                    require(
+                        checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch()
+                    );
 
-                LibCheckpointStore.saveCheckpoint(
-                    _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-                );
-                coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+                    LibCheckpointStore.saveCheckpoint(
+                        _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+                    );
+                    coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+                }
             }
 
             return coreState;
