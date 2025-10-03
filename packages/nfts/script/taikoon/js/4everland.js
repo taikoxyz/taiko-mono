@@ -53,11 +53,14 @@ async function main() {
     path.resolve(__dirname, "../../../data/taikoon"),
     "images",
   );
-  const filesName = await fsPromises.readdir(imgDirPath, (err) => {
-    if (err) {
-      console.log("Import from directory failed: ", err);
-    }
-  });
+
+  let filesName = [];
+  try {
+    filesName = await fsPromises.readdir(imgDirPath);
+  } catch (err) {
+    console.error("Import from directory failed: ", err);
+    return;
+  }
 
   // Uploading images to IPFS
   console.log(`Uploading image data to IPFS...`);
