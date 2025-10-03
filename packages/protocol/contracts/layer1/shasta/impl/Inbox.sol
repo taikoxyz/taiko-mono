@@ -419,10 +419,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        bool stored = _storeTransitionRecord(
+        _storeTransitionRecord(
             _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
         );
-        if (!stored) return;
 
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: _proposalId,
@@ -440,7 +439,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-    /// @return stored_ True if storage was updated and caller should emit the Proved event.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -449,28 +447,22 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     )
         internal
         virtual
-        returns (bool stored_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
+        bytes26 recordHash = entry.recordHash;
 
-        if (entry.recordHash == _recordHash) return false;
-
-        if (entry.recordHash == 0) {
-            entry.recordHash = _hashAndDeadline.recordHash;
+        if (recordHash == 0) {
+            entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-            return true;
+        } else if (recordHash == _recordHash) {
+            emit TransitionDuplicateDetected();
+        } else {
+            emit TransitionConflictDetected();
+            conflictingTransitionDetected = true;
+            entry.finalizationDeadline = type(uint48).max;
         }
-
-        conflictingTransitionDetected = true;
-        entry.finalizationDeadline = type(uint48).max;
-
-        emit ConflictingTransitionDetected(
-            _proposalId, _parentTransitionHash, entry.recordHash, _recordHash
-        );
-
-        return false;
     }
 
     /// @dev Loads transition record metadata from storage.

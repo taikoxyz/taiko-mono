@@ -78,13 +78,12 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores transition record hash with optimized slot reuse
     /// @notice Storage strategy:
     ///         1. New proposal ID: Overwrites reusable slot
-    ///         2. Same ID, same parent: Updates reusable slot
+    ///         2. Same ID, same parent: Check for duplicate/conflict and handle accordingly
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _recordHash The keccak hash representing the transition record
     /// @param _hashAndDeadline The finalization metadata to persist
-    /// @return stored_ True if the caller should emit the Proved event
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -93,7 +92,6 @@ contract InboxOptimized1 is Inbox {
     )
         internal
         override
-        returns (bool stored_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -104,19 +102,24 @@ contract InboxOptimized1 is Inbox {
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
-            return true;
-        }
+        } else if (record.partialParentTransitionHash == partialParentHash) {
+            // Same proposal and parent hash - check for duplicate or conflict
+            bytes26 recordHash = record.hashAndDeadline.recordHash;
 
-        if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - update reusable slot
-            record.hashAndDeadline = _hashAndDeadline;
-            return true;
+            if (recordHash == 0) {
+                record.hashAndDeadline = _hashAndDeadline;
+            } else if (recordHash == _recordHash) {
+                emit TransitionDuplicateDetected();
+            } else {
+                emit TransitionConflictDetected();
+                conflictingTransitionDetected = true;
+                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
+            }
+        } else {
+            super._storeTransitionRecord(
+                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+            );
         }
-
-        // Collision: same proposal ID, different parent hash - use composite mapping
-        return super._storeTransitionRecord(
-            _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
-        );
     }
 
     // ---------------------------------------------------------------

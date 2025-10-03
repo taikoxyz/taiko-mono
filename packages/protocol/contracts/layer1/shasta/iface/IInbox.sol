@@ -198,17 +198,13 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
-    /// @notice Emitted when a conflicting transition is detected.
-    /// @param proposalId The proposal ID.
-    /// @param parentTransitionHash The parent transition hash.
-    /// @param recordHash The hash of the transition record.
-    /// @param conflictingRecordHash The hash of the conflicting transition record.
-    event ConflictingTransitionDetected(
-        uint48 indexed proposalId,
-        bytes32 indexed parentTransitionHash,
-        bytes26 recordHash,
-        bytes26 conflictingRecordHash
-    );
+    /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
+    /// Proved event.
+    event TransitionConflictDetected();
+
+    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
+    /// event.
+    event TransitionDuplicateDetected();
 
     // ---------------------------------------------------------------
     // External Transactional Functions
