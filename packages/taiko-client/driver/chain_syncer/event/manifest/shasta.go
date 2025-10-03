@@ -435,7 +435,7 @@ func validateCoinbase(
 		}
 
 		if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
-			// Use proposal.proposer as fallback if coinbase is zero
+			// Use proposal.proposer as fallback if manifest coinbase is zero
 			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
 		}
 	}
