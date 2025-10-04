@@ -903,7 +903,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
                 // Update state for successful finalization
                 lastFinalizedRecord = _input.transitionRecords[i];
-                finalizedCount++;
+                ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
