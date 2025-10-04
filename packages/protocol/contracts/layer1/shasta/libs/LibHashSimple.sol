@@ -120,10 +120,12 @@ library LibHashSimple {
     /// @notice Computes simple composite key for transition record storage
     /// @dev Creates unique identifier using standard keccak256(abi.encode(...))
     /// @param _proposalId The ID of the proposal
+    /// @param _compositeKeyVersion Version identifier for key generation
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
     function composeTransitionKey(
         uint48 _proposalId,
+        uint16 _compositeKeyVersion,
         bytes32 _parentTransitionHash
     )
         internal
@@ -131,7 +133,7 @@ library LibHashSimple {
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
+        return keccak256(abi.encode(_proposalId, _compositeKeyVersion, _parentTransitionHash));
     }
 
     // ---------------------------------------------------------------

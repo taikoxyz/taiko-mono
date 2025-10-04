@@ -52,7 +52,8 @@ contract ShastaDevnetInbox is InboxOptimized2 {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                compositeKeyVersion: 1
             })
         )
     { }

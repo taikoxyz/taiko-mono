@@ -94,11 +94,13 @@ contract InboxOptimized2 is InboxOptimized1 {
         bytes32 _parentTransitionHash
     )
         internal
-        pure
+        view
         override
         returns (bytes32)
     {
-        return LibHashOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashOptimized.composeTransitionKey(
+            _proposalId, _compositeKeyVersion, _parentTransitionHash
+        );
     }
 
     /// @inheritdoc Inbox
