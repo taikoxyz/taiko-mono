@@ -61,6 +61,15 @@ impl ShastaProposalTransactionBuilder {
             "cached propose input params"
         );
 
+        // Ensure the current L1 head is sufficiently advanced.
+        let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
+        if current_l1_head <= ANCHOR_MIN_OFFSET {
+            return Err(ProposerError::L1HeadTooLow {
+                current: current_l1_head,
+                minimum: ANCHOR_MIN_OFFSET,
+            });
+        }
+
         // Build the block manifests and proposal manifest.
         let manifest = ProposalManifest {
             prover_auth_bytes: Bytes::new(),
@@ -72,21 +81,12 @@ impl ShastaProposalTransactionBuilder {
                         .unwrap_or_default()
                         .as_secs(),
                     coinbase: self.l2_suggested_fee_recipient,
-                    anchor_block_number: 0,
-                    gas_limit: 0,
+                    anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
+                    gas_limit: 0, // Use 0 for gas limit as it will be set as its parent's gas limit during derivation.
                     transactions: vec![tx.clone().into_inner()],
                 })
                 .collect::<Vec<_>>(),
         };
-
-        // Ensure the current L1 head is sufficiently advanced.
-        let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
-        if current_l1_head <= ANCHOR_MIN_OFFSET {
-            return Err(ProposerError::L1HeadTooLow {
-                current: current_l1_head,
-                minimum: ANCHOR_MIN_OFFSET,
-            });
-        }
 
         // Build the blob sidecar.
         let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)

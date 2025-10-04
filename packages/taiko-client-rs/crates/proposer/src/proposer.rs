@@ -22,6 +22,9 @@ use crate::{
     transaction_builder::ShastaProposalTransactionBuilder,
 };
 
+/// The number of blocks at the start of the chain that use the initial base fee.
+const INITIAL_BASE_FEE_BLOCKS: u64 = 2;
+
 // Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
     rpc_provider: ClientWithWallet,
@@ -174,8 +177,8 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first two Shasta blocks, return the initial base fee.
-        if parent.number() <= 2 {
+        // For the first few Shasta blocks, return the initial base fee.
+        if parent.number() <= INITIAL_BASE_FEE_BLOCKS {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
