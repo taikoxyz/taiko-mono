@@ -4,6 +4,7 @@ use alloy::{
     providers::PendingTransactionError,
     transports::{RpcError, TransportErrorKind},
 };
+use event_indexer::error::IndexerError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -55,7 +56,7 @@ pub enum ProposerError {
 
     /// Event indexer error
     #[error("event indexer error: {0}")]
-    Indexer(#[from] event_indexer::error::IndexerError),
+    Indexer(#[from] IndexerError),
 
     /// Generic error
     #[error(transparent)]

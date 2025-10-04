@@ -244,6 +244,10 @@ impl ShastaEventIndexer {
 
         info!(?proposal, ?coreState, ?derivation, "cached propose input params");
 
+        // Cleanup old data after caching the new proposal.
+        self.cleanup_finalized_transition_records(coreState.lastFinalizedProposalId.to());
+        self.cleanup_legacy_proposals(proposal.id.to());
+
         Ok(())
     }
 
@@ -363,6 +367,55 @@ impl ShastaEventIndexer {
     /// Return the Shasta inbox finalization grace period in seconds.
     pub fn finalization_grace_period(&self) -> u64 {
         self.finalization_grace_period
+    }
+
+    /// Clean up transition records that are older than the last finalized proposal ID minus the
+    /// buffer size. We keep two times the buffer size of transition records in cache for now.
+    #[instrument(skip(self), fields(last_finalized_proposal_id))]
+    fn cleanup_finalized_transition_records(&self, last_finalized_proposal_id: u64) {
+        let threshold = last_finalized_proposal_id.saturating_sub(self.inbox_ring_buffer_size * 2);
+        let mut removed_count = 0;
+
+        self.proved_payloads.retain(|proposal_id, _| {
+            let id = proposal_id.to::<u64>();
+            if id < threshold {
+                trace!(proposal_id = id, "cleaning up finalized transition record");
+                removed_count += 1;
+                false
+            } else {
+                true
+            }
+        });
+
+        if removed_count > 0 {
+            debug!(removed_count, threshold, "cleaned up finalized transition records");
+            metrics::gauge!(IndexerMetrics::CACHED_PROOFS).set(self.proved_payloads.len() as f64);
+        }
+    }
+
+    /// Clean up proposals that are older than the last proposal ID minus the buffer size. We keep
+    /// two times the buffer size of proposals in cache for now.
+    #[instrument(skip(self), fields(last_proposal_id))]
+    fn cleanup_legacy_proposals(&self, last_proposal_id: u64) {
+        let threshold = last_proposal_id.saturating_sub(self.inbox_ring_buffer_size * 2);
+        let mut removed_count = 0;
+
+        self.proposed_payloads.retain(|proposal_id, _| {
+            let id = proposal_id.to::<u64>();
+            if id < threshold {
+                trace!(proposal_id = id, "cleaning up legacy proposal");
+                removed_count += 1;
+                false
+            } else {
+                true
+            }
+        });
+
+        if removed_count > 0 {
+            debug!(removed_count, threshold, "cleaned up legacy proposals");
+            metrics::gauge!(IndexerMetrics::CACHED_PROPOSALS)
+                .set(self.proposed_payloads.len() as f64);
+        }
     }
 }
 
