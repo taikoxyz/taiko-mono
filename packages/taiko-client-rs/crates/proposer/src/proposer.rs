@@ -138,7 +138,7 @@ impl Proposer {
 
     /// Fetch transaction pool content from the L2 execution engine.
     async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
-        let base_fee_u64 = u64::try_from(self.calculate_next_block_base_fee().await?)
+        let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
             .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
         let pool_content = self
@@ -166,7 +166,7 @@ impl Proposer {
     }
 
     /// Calculate the base fee for the next L2 block using EIP-4396 rules.
-    async fn calculate_next_block_base_fee(&self) -> Result<U256> {
+    async fn calculate_next_shasta_block_base_fee(&self) -> Result<U256> {
         let parent = self
             .rpc_provider
             .l2_provider
@@ -174,12 +174,14 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
+        // For the first two Shasta blocks, return the initial base fee.
         if parent.number() <= 2 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp -
-            self.rpc_provider
+        let parent_block_time = parent.header.timestamp
+            - self
+                .rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
