@@ -80,6 +80,12 @@ jobs:
           toolchain: nightly-2025-09-27
           components: clippy, rustfmt
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
       - name: Setup just
         uses: extractions/setup-just@v2
         with:
