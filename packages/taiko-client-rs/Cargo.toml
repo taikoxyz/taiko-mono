@@ -1,11 +1,11 @@
 [workspace]
 members = [
-    "bin/client",
-    "crates/bindings",
-    "crates/event-indexer",
-    "crates/proposer",
-    "crates/protocol",
-    "crates/rpc",
+  "bin/client",
+  "crates/bindings",
+  "crates/event-indexer",
+  "crates/proposer",
+  "crates/protocol",
+  "crates/rpc",
 ]
 resolver = "2"
 
@@ -58,6 +58,7 @@ serde_json = "1"
 thiserror = { version = "2.0.12", default-features = false }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
+tokio-retry = "0.3.0"
 tower = { version = "0.4", features = ["util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

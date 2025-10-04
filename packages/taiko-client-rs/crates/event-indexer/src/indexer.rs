@@ -1,6 +1,9 @@
 //! Shasta inbox event indexer implementation.
 
-use std::{sync::Arc, time::SystemTime};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
@@ -25,6 +28,7 @@ use event_scanner::{
 };
 use rpc::SubscriptionSource;
 use tokio::{sync::Notify, task::JoinHandle};
+use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, trace, warn};
 
@@ -190,18 +194,37 @@ impl ShastaEventIndexer {
 
                 info!(?topic, block_number = ?log.block_number, "received inbox event log");
 
+                let retry_strategy =
+                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12)).take(5);
+
                 if *topic == Proposed::SIGNATURE_HASH {
                     trace!(?log.transaction_hash, "received Proposed event log");
-                    if let Err(err) = self.handle_proposed(log).await {
-                        error!(?err, "failed to handle Proposed inbox event");
-                        metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
-                    }
+                    Retry::spawn(retry_strategy, || {
+                        let log = log.clone();
+                        let indexer = self.clone();
+                        async move {
+                            if let Err(err) = indexer.handle_proposed(log).await {
+                                error!(?err, "failed to handle Proposed inbox event");
+                                metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
+                            }
+                            Ok::<_, crate::error::IndexerError>(())
+                        }
+                    })
+                    .await?;
                 } else if *topic == Proved::SIGNATURE_HASH {
                     trace!(?log.transaction_hash, "received Proved event log");
-                    if let Err(err) = self.handle_proved(log).await {
-                        error!(?err, "failed to handle Proved inbox event");
-                        metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
-                    }
+                    Retry::spawn(retry_strategy, || {
+                        let log = log.clone();
+                        let indexer = self.clone();
+                        async move {
+                            if let Err(err) = indexer.handle_proved(log).await {
+                                error!(?err, "failed to handle Proved inbox event");
+                                metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
+                            }
+                            Ok::<_, crate::error::IndexerError>(())
+                        }
+                    })
+                    .await?;
                 } else {
                     warn!(?topic, "skipping unexpected inbox event signature");
                 }
@@ -220,12 +243,14 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proposed` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
+        // Decode the event payload using the contract codec.
         let InboxProposedEventPayload { proposal, derivation, coreState } = self
             .inbox_codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
             .await?;
 
+        // Cache the payload keyed by proposal id.
         self.proposed_payloads.insert(
             proposal.id.to::<U256>(),
             ProposedEventPayload {
@@ -236,6 +261,7 @@ impl ShastaEventIndexer {
             },
         );
 
+        // Record metrics.
         metrics::counter!(IndexerMetrics::PROPOSED_EVENTS).increment(1);
         metrics::gauge!(IndexerMetrics::CACHED_PROPOSALS).set(self.proposed_payloads.len() as f64);
         if let Some(block_number) = log.block_number {
@@ -254,12 +280,14 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proved` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proved(&self, log: Log) -> Result<()> {
+        // Decode the event payload using the contract codec.
         let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } = self
             .inbox_codec
             .decodeProvedEvent(Proved::decode_log_data(log.data())?.data)
             .call()
             .await?;
 
+        // Cache the payload keyed by proposal id.
         let proposal_id = proposalId.to::<U256>();
         let payload = ProvedEventPayload {
             proposal_id,
@@ -270,6 +298,7 @@ impl ShastaEventIndexer {
         };
         self.proved_payloads.insert(proposal_id, payload);
 
+        // Record metrics.
         metrics::counter!(IndexerMetrics::PROVED_EVENTS).increment(1);
         metrics::gauge!(IndexerMetrics::CACHED_PROOFS).set(self.proved_payloads.len() as f64);
         if let Some(block_number) = log.block_number {
