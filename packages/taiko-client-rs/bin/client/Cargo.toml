@@ -15,6 +15,7 @@ alloy-primitives = { workspace = true, default-features = false }
 anyhow = { workspace = true }
 clap = { workspace = true }
 metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
 proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 tokio = { workspace = true }

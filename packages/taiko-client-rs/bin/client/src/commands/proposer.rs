@@ -4,8 +4,10 @@ use std::time::Duration;
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use clap::Parser;
-use proposer::{config::ProposerConfigs, proposer::Proposer};
+use metrics_exporter_prometheus::PrometheusBuilder;
+use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
+use tracing::info;
 
 use crate::flags::{common::CommonArgs, proposer::ProposerArgs};
 
@@ -45,9 +47,32 @@ impl ProposerSubCommand {
         &self.proposer_flags
     }
 
+    /// Initialize Prometheus metrics server.
+    fn init_metrics(&self) -> Result<()> {
+        if !self.common_flags.metrics_enabled {
+            return Ok(());
+        }
+
+        let metrics_addr =
+            format!("{}:{}", self.common_flags.metrics_addr, self.common_flags.metrics_port);
+
+        let socket_addr: std::net::SocketAddr = metrics_addr.parse()?;
+        PrometheusBuilder::new().with_http_listener(socket_addr).install()?;
+        ProposerMetrics::init();
+
+        info!(
+            target: "metrics",
+            "Prometheus metrics server started at http://{}",
+            metrics_addr
+        );
+
+        Ok(())
+    }
+
     /// Run the proposer software.
     pub async fn run(&self) -> Result<()> {
         self.init_logs(self.common_flags())?;
+        self.init_metrics()?;
 
         let l1_provider_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);

@@ -50,6 +50,27 @@ pub struct CommonArgs {
         help = "Set the minimum log level. 0 = error, 1 = warn, 2 = info, 3 = debug, 4 = trace"
     )]
     pub verbosity: u8,
+    #[clap(
+        long = "metrics.enabled",
+        env = "METRICS_ENABLED",
+        default_value = "false",
+        help = "Enable Prometheus metrics server"
+    )]
+    pub metrics_enabled: bool,
+    #[clap(
+        long = "metrics.port",
+        env = "METRICS_PORT",
+        default_value = "9090",
+        help = "Port for Prometheus metrics server"
+    )]
+    pub metrics_port: u16,
+    #[clap(
+        long = "metrics.addr",
+        env = "METRICS_ADDR",
+        default_value = "0.0.0.0",
+        help = "Address to bind Prometheus metrics server"
+    )]
+    pub metrics_addr: String,
 }
 
 impl CommonArgs {

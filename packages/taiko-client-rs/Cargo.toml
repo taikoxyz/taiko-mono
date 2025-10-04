@@ -52,6 +52,7 @@ http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 metrics = "0.24"
+metrics-exporter-prometheus = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = { version = "2.0.12", default-features = false }
