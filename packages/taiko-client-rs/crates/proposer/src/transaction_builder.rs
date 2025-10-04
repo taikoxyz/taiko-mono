@@ -69,7 +69,7 @@ impl ShastaProposalTransactionBuilder {
                 .map(|tx| BlockManifest {
                     timestamp: SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_default()
                         .as_secs(),
                     coinbase: self.l2_suggested_fee_recipient,
                     anchor_block_number: 0,

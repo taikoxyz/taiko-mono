@@ -312,7 +312,8 @@ impl ShastaEventIndexer {
         mut last_finalized_transition_hash: B256,
     ) -> Vec<ProvedEventPayload> {
         let mut transitions = Vec::new();
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        let now =
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
         if self.max_finalization_count() == 0 {
             debug!("max_finalization_count is zero; no transitions eligible");
