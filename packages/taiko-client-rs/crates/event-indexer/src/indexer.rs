@@ -24,7 +24,7 @@ use event_scanner::{
 use rpc::SubscriptionSource;
 use tokio::{sync::Notify, task::JoinHandle};
 use tokio_stream::StreamExt;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
     error::Result,
@@ -144,6 +144,7 @@ impl ShastaEventIndexer {
             }
         }?;
 
+        // Filter for inbox events.
         let filter = EventFilter::new()
             .with_contract_address(self.config.inbox_address)
             .with_event(Proposed::SIGNATURE)
@@ -152,7 +153,7 @@ impl ShastaEventIndexer {
         let mut stream = event_scanner.create_event_stream(filter);
 
         // Start the event scanner in a separate task.
-        let scanner_handle = tokio::spawn(async move {
+        tokio::spawn(async move {
             if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Number(0), None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
@@ -161,6 +162,8 @@ impl ShastaEventIndexer {
         // Process incoming event logs on this task so the indexer instance remains callable
         // elsewhere.
         while let Some(message) = stream.next().await {
+            trace!(?message, "received scanner message");
+
             let logs = match message {
                 ScannerMessage::Data(logs) => logs,
                 ScannerMessage::Error(err) => {
@@ -178,19 +181,19 @@ impl ShastaEventIndexer {
 
             for log in logs {
                 let Some(topic) = log.topic0() else {
-                    debug!("skipping log without topic0");
+                    debug!(?log.transaction_hash, "skipping log without topic0");
                     continue;
                 };
 
                 info!(?topic, block_number = ?log.block_number, "received inbox event log");
 
                 if *topic == Proposed::SIGNATURE_HASH {
-                    debug!("received Proposed event log");
+                    trace!(?log.transaction_hash, "received Proposed event log");
                     if let Err(err) = self.handle_proposed(log).await {
                         error!(?err, "failed to handle Proposed inbox event");
                     }
                 } else if *topic == Proved::SIGNATURE_HASH {
-                    debug!("received Proved event log");
+                    trace!(?log.transaction_hash, "received Proved event log");
                     if let Err(err) = self.handle_proved(log).await {
                         error!(?err, "failed to handle Proved inbox event");
                     }
@@ -199,9 +202,6 @@ impl ShastaEventIndexer {
                 }
             }
         }
-
-        scanner_handle.abort();
-        let _ = scanner_handle.await;
 
         Ok(())
     }
@@ -354,7 +354,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
     #[instrument(skip(self), level = "debug")]
     fn read_shasta_propose_input(&self) -> Option<ShastaProposeInput> {
         let Some(last_proposal) = self.get_last_proposal() else {
-            debug!("no proposals cached yet; cannot assemble propose input");
+            warn!("no proposals cached yet; cannot assemble propose input");
             return None;
         };
         let mut proposals = vec![last_proposal.proposal.clone()];
@@ -390,7 +390,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
                 Checkpoint { blockNumber: U48::ZERO, blockHash: B256::ZERO, stateRoot: B256::ZERO }
             });
 
-        info!(
+        debug!(
             proposal_count = proposals.len(),
             transition_count = transitions.len(),
             "built Shasta propose input"

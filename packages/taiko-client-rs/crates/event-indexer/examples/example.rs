@@ -15,8 +15,11 @@ async fn main() -> anyhow::Result<()> {
         inbox_address: Address::ZERO,
     };
 
+    // Create and spawn the indexer.
     let indexer = ShastaEventIndexer::new(config).await?;
     indexer.clone().spawn();
+
+    // Read the ShastaProposeInput events from the cache.
     let _ = indexer.read_shasta_propose_input();
 
     Ok(())
