@@ -932,11 +932,16 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Check if checkpoint sync should occur:
         // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
         // 2. Forced: minimum delay elapsed since last checkpoint
-        bool syncCheckpoint = _checkpoint.blockHash != 0
-            || block.timestamp >= _coreState.lastCheckpointTimestamp + _minCheckpointDelay;
+        bool syncCheckpoint;
+
+        if (block.timestamp >= _coreState.lastCheckpointTimestamp + _minCheckpointDelay) {
+            syncCheckpoint = true;
+            require(_checkpoint.blockHash != 0, InvalidCheckpoint());
+        } else if (_checkpoint.blockHash != 0) {
+            syncCheckpoint = true;
+        }
 
         if (syncCheckpoint) {
-            require(_checkpoint.blockHash != 0, InvalidCheckpoint());
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
