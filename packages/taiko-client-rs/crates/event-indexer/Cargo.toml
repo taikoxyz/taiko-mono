@@ -25,4 +25,4 @@ tracing = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-json-rpc = { workspace = true }
 alloy-signer-local = { workspace = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

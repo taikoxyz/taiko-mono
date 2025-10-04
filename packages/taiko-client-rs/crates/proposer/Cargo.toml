@@ -15,7 +15,7 @@ event-indexer = { path = "../event-indexer" }
 metrics = { workspace = true }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
-serde_json = "1"
+serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

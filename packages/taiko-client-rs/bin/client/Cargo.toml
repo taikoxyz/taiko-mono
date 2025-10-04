@@ -19,5 +19,5 @@ proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }

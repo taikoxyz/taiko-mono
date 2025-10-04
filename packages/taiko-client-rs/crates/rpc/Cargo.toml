@@ -18,10 +18,10 @@ alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
 anyhow = { workspace = true }
 bindings = { path = "../bindings" }
-http-body-util = "0.1"
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tower = { version = "0.4", features = ["util"] }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tower = { workspace = true }
 tracing = { workspace = true }
