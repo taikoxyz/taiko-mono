@@ -1,14 +1,22 @@
 use std::path::PathBuf;
 
-use alloy::transports::http::reqwest::Url;
+use alloy::{
+    network::EthereumWallet, signers::local::PrivateKeySigner, transports::http::reqwest::Url,
+};
+use alloy_primitives::B256;
 use alloy_provider::{
-    IpcConnect, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
+    IpcConnect, ProviderBuilder, RootProvider, WsConnect,
+    fillers::{FillProvider, JoinFill, WalletFiller},
     utils::JoinedRecommendedFillers,
 };
 use anyhow::Result;
 
 pub mod auth;
 pub mod client;
+
+/// Type alias for a provider with recommended fillers and a wallet.
+pub type JoinedRecommendedFillersWithWallet =
+    JoinFill<JoinedRecommendedFillers, WalletFiller<EthereumWallet>>;
 
 /// The source from which to subscribe to events.
 #[derive(Debug, Clone)]
@@ -51,6 +59,32 @@ impl SubscriptionSource {
             }
             SubscriptionSource::Ws(url) => {
                 ProviderBuilder::new().connect_ws(WsConnect::new(url.to_string())).await?
+            }
+        };
+
+        Ok(provider)
+    }
+
+    /// Convert the `SubscriptionSource` into a `FillProvider` with wallet built via `ProviderBuilder::new()`.
+    pub async fn to_provider_with_wallet(
+        &self,
+        sender_private_key: B256,
+    ) -> Result<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
+        let signer = PrivateKeySigner::from_bytes(&sender_private_key)?;
+        let wallet = EthereumWallet::new(signer);
+
+        let provider = match self {
+            SubscriptionSource::Ipc(path) => {
+                ProviderBuilder::new()
+                    .wallet(wallet)
+                    .connect_ipc(IpcConnect::new(path.clone()))
+                    .await?
+            }
+            SubscriptionSource::Ws(url) => {
+                ProviderBuilder::new()
+                    .wallet(wallet)
+                    .connect_ws(WsConnect::new(url.to_string()))
+                    .await?
             }
         };
 

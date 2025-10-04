@@ -9,7 +9,7 @@ use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder}
 use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
-use rpc::client::{Client, ClientConfig};
+use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use tokio::time::interval;
 use tracing::{info, warn};
 
@@ -17,7 +17,7 @@ use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransact
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
-    rpc_provider: Client,
+    rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
     wallet: EthereumWallet,
     cfg: ProposerConfigs,
@@ -29,14 +29,16 @@ impl Proposer {
         info!("Initializing proposer with config: {:?}", cfg);
 
         // Initialize RPC client.
-        let rpc_provider = Client::new(ClientConfig {
-            l1_provider_source: cfg.l1_provider_source.clone(),
-            l2_provider_source: cfg.l2_provider_source.clone(),
-            l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
-            l1_sender_private_key: Some(cfg.l1_proposer_private_key),
-            jwt_secret: cfg.jwt_secret.clone(),
-            inbox_address: cfg.inbox_address,
-        })
+        let rpc_provider = Client::new_with_wallet(
+            ClientConfig {
+                l1_provider_source: cfg.l1_provider_source.clone(),
+                l2_provider_source: cfg.l2_provider_source.clone(),
+                l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
+                jwt_secret: cfg.jwt_secret.clone(),
+                inbox_address: cfg.inbox_address,
+            },
+            cfg.l1_proposer_private_key,
+        )
         .await?;
 
         // Initialize event indexer.

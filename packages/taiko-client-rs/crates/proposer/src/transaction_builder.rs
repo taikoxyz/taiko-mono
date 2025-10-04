@@ -17,11 +17,11 @@ use protocol::shasta::{
     constants::ANCHOR_MIN_OFFSET,
     manifest::{BlockManifest, ProposalManifest},
 };
-use rpc::client::Client;
+use rpc::client::ClientWithWallet;
 
 /// A transaction builder for Shasta `propose` transactions.
 pub struct ShastaProposalTransactionBuilder {
-    pub rpc_provider: Client,
+    pub rpc_provider: ClientWithWallet,
     pub l2_suggested_fee_recipient: Address,
     pub event_indexer: Arc<ShastaEventIndexer>,
 }
@@ -29,7 +29,7 @@ pub struct ShastaProposalTransactionBuilder {
 impl ShastaProposalTransactionBuilder {
     /// Creates a new `ShastaProposalTransactionBuilder`.
     pub fn new(
-        rpc_provider: Client,
+        rpc_provider: ClientWithWallet,
         event_indexer: Arc<ShastaEventIndexer>,
         l2_suggested_fee_recipient: Address,
     ) -> Self {

@@ -16,7 +16,7 @@ pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
 /// Re-export of Taiko's L1 origin payload type.
 pub type L1Origin = RpcL1Origin;
 
-impl Client {
+impl<P: Provider + Clone> Client<P> {
     /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
     pub async fn tx_pool_content_with_min_tip(
         &self,
