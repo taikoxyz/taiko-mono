@@ -912,24 +912,48 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
                 // Update state for successful finalization
                 lastFinalizedRecord = _input.transitionRecords[i];
-                finalizedCount++;
+                ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
-            if (
-                finalizedCount > 0
-                    && block.timestamp >= coreState.lastCheckpointTimestamp + _minCheckpointDelay
-            ) {
-                bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-                require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-
-                LibCheckpointStore.saveCheckpoint(
-                    _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+            if (finalizedCount > 0) {
+                _syncCheckpointIfNeeded(
+                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
                 );
-                coreState.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 
             return coreState;
+        }
+    }
+
+    /// @dev Syncs checkpoint to storage if conditions are met (voluntary or forced sync).
+    /// @notice Validates checkpoint hash and updates checkpoint storage and timestamp.
+    /// @param _checkpoint The checkpoint data to sync.
+    /// @param _expectedCheckpointHash The expected hash to validate against.
+    /// @param _coreState Core state to update with new checkpoint timestamp.
+    function _syncCheckpointIfNeeded(
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        bytes32 _expectedCheckpointHash,
+        CoreState memory _coreState
+    )
+        private
+    {
+        // Check if checkpoint sync should occur:
+        // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
+        // 2. Forced: minimum delay elapsed since last checkpoint
+        if (_checkpoint.blockHash != 0) {
+            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
+            require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
+
+            LibCheckpointStore.saveCheckpoint(
+                _checkpointStorage, _checkpoint, _maxCheckpointHistory
+            );
+            _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+        } else {
+            require(
+                block.timestamp < _coreState.lastCheckpointTimestamp + _minCheckpointDelay,
+                CheckpointNotProvided()
+            );
         }
     }
 
@@ -1060,6 +1084,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
 error CannotProposeInCurrentBlock();
 error CheckpointMismatch();
+error CheckpointNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
 error ForkNotActive();
