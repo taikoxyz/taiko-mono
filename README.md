@@ -50,6 +50,7 @@ Get started with Taiko Alethia:
 | [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
 | [supplementary-contracts](./packages/supplementary-contracts) | Supplementary contracts not part of the Taiko Alethia protocol.    |
 | [taiko-client](./packages/taiko-client)                       | Taiko Alethia client implementation in Go.                         |
+| [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
 

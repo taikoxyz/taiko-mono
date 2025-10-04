@@ -1,0 +1,34 @@
+[package]
+name = "proposer"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+# async
+tokio = { workspace = true }
+
+# observability
+metrics = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# ethereum
+alloy = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-network = { workspace = true }
+
+# taiko
+alethia-reth = { workspace = true }
+bindings = { path = "../bindings" }
+event-indexer = { path = "../event-indexer" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+# types
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+# serialization
+serde_json = { workspace = true }
