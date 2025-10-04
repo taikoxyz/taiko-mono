@@ -1,3 +1,5 @@
+//! Common CLI flags shared across commands.
+
 use std::path::PathBuf;
 
 use alloy_primitives::Address;

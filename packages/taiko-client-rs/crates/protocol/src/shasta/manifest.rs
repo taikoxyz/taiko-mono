@@ -1,3 +1,5 @@
+//! Manifest types for encoding block proposals and metadata.
+
 use std::io::Write;
 
 use alloy::primitives::{Address, Bytes, U256};

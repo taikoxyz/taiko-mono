@@ -1,3 +1,5 @@
+//! RPC client utilities for connecting to Taiko nodes.
+
 use std::path::PathBuf;
 
 use alloy::{

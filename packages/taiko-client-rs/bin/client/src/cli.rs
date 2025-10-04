@@ -1,3 +1,5 @@
+//! CLI command parser and runner.
+
 use std::io::Error;
 
 use anyhow::Result;

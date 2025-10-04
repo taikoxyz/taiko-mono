@@ -1,3 +1,5 @@
+//! Proposer-specific CLI flags.
+
 use alloy_primitives::{Address, B256};
 use clap::Parser;
 

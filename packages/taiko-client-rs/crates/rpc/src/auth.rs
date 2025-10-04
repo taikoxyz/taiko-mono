@@ -1,3 +1,5 @@
+//! Authenticated RPC extensions for Taiko execution engine.
+
 use std::borrow::Cow;
 
 use alethia_reth::{
@@ -15,6 +17,34 @@ pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
 
 /// Re-export of Taiko's L1 origin payload type.
 pub type L1Origin = RpcL1Origin;
+
+/// Taiko authenticated RPC method names.
+#[derive(Debug, Clone, Copy)]
+pub enum TaikoAuthMethod {
+    /// Fetch pre-built transaction lists with minimum tip.
+    TxPoolContentWithMinTip,
+    /// Update L1 origin metadata.
+    UpdateL1Origin,
+    /// Set L1 origin signature.
+    SetL1OriginSignature,
+    /// Set head L1 origin pointer.
+    SetHeadL1Origin,
+    /// Set batch to last block mapping.
+    SetBatchToLastBlock,
+}
+
+impl TaikoAuthMethod {
+    /// Get the RPC method name as a string.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::TxPoolContentWithMinTip => "taikoAuth_txPoolContentWithMinTip",
+            Self::UpdateL1Origin => "taikoAuth_updateL1Origin",
+            Self::SetL1OriginSignature => "taikoAuth_setL1OriginSignature",
+            Self::SetHeadL1Origin => "taikoAuth_setHeadL1Origin",
+            Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
+        }
+    }
+}
 
 /// Parameters for fetching pre-built transaction lists with minimum tip.
 pub struct TxPoolContentParams {
@@ -35,7 +65,7 @@ impl<P: Provider + Clone> Client<P> {
     ) -> Result<Vec<PreBuiltTxList>> {
         self.l2_auth_provider
             .raw_request(
-                Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
+                Cow::Borrowed(TaikoAuthMethod::TxPoolContentWithMinTip.as_str()),
                 (
                     params.beneficiary,
                     params.base_fee,
@@ -53,7 +83,7 @@ impl<P: Provider + Clone> Client<P> {
     /// Update the execution engine's L1 origin metadata for a given block.
     pub async fn update_l1_origin(&self, origin: &L1Origin) -> Result<Option<L1Origin>> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_updateL1Origin"), (origin,))
+            .raw_request(Cow::Borrowed(TaikoAuthMethod::UpdateL1Origin.as_str()), (origin,))
             .await
             .map_err(Into::into)
     }
@@ -65,7 +95,10 @@ impl<P: Provider + Clone> Client<P> {
         signature: FixedBytes<65>,
     ) -> Result<Option<L1Origin>> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_setL1OriginSignature"), (block_id, signature))
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::SetL1OriginSignature.as_str()),
+                (block_id, signature),
+            )
             .await
             .map_err(Into::into)
     }
@@ -73,7 +106,10 @@ impl<P: Provider + Clone> Client<P> {
     /// Update the head L1 origin pointer in the execution engine.
     pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_setHeadL1Origin"), (block_id,))
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::SetHeadL1Origin.as_str()),
+                (block_id,),
+            )
             .await
             .map_err(Into::into)
     }
@@ -85,7 +121,10 @@ impl<P: Provider + Clone> Client<P> {
         block_id: U256,
     ) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::SetBatchToLastBlock.as_str()),
+                (batch_id, block_id),
+            )
             .await
             .map_err(Into::into)
     }

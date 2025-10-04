@@ -1,3 +1,5 @@
+//! RPC client for interacting with L1 and L2 nodes.
+
 use std::path::PathBuf;
 
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};

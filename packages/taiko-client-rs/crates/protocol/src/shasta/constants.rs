@@ -1,3 +1,5 @@
+//! Shasta protocol constants and limits.
+
 use alloy_eips::eip4844::{FIELD_ELEMENTS_PER_BLOB, USABLE_BITS_PER_FIELD_ELEMENT};
 
 /// The maximum number of blocks allowed in a proposal. If we assume block time is as
