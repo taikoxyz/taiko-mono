@@ -89,7 +89,7 @@ impl Proposer {
             .build(pool_content)
             .await?
             .with_to(self.cfg.inbox_address)
-            .with_gas_limit(1_000_000); // TODO: add a flag
+            .with_gas_limit(2_000_000);
 
         // Send transaction using provider with wallet filler.
         // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the transaction.
@@ -179,7 +179,6 @@ mod tests {
         transports::http::reqwest::Url,
     };
     use rpc::SubscriptionSource;
-    use tokio::time::{Sleep, sleep};
 
     fn init_tracing() {
         static INIT: OnceLock<()> = OnceLock::new();
@@ -214,17 +213,16 @@ mod tests {
         };
 
         let proposer = Proposer::new(cfg.clone()).await.unwrap();
+        let provider = proposer.rpc_provider.clone();
 
-        for _ in 0..3 {
-            evm_mine(proposer.rpc_provider.clone()).await;
+        for i in 0..3 {
+            assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await);
+
+            evm_mine(provider.clone()).await;
             proposer.fetch_and_propose().await.unwrap();
-            sleep(Duration::from_secs(3)).await;
-        }
 
-        assert_ne!(
-            B256::ZERO,
-            proposer.rpc_provider.shasta.inbox.getProposalHash(U48::from(2)).call().await.unwrap()
-        );
+            assert_ne!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await);
+        }
     }
 
     async fn evm_mine(client: ClientWithWallet) {
@@ -233,5 +231,9 @@ mod tests {
             .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
             .await
             .unwrap();
+    }
+
+    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> B256 {
+        client.shasta.inbox.getProposalHash(proposal_id).call().await.unwrap()
     }
 }

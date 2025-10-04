@@ -212,18 +212,26 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proposed` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
-        let InboxProposedEventPayload { proposal, derivation, coreState } =
-            self.inbox_codec.decodeProposedEvent(log.data().data.clone()).call().await?;
-        let proposal_id = proposal.id.to::<U256>();
-        let payload = ProposedEventPayload {
-            proposal: proposal.clone(),
-            core_state: coreState,
-            derivation,
-            log,
-        };
+        let InboxProposedEventPayload { proposal, derivation, coreState } = self
+            .inbox_codec
+            .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
+            .call()
+            .await?;
 
-        self.proposed_payloads.insert(proposal_id, payload);
-        info!(?proposal_id, "cached Proposed event payload");
+        self.proposed_payloads.insert(
+            proposal.id.to::<U256>(),
+            ProposedEventPayload {
+                proposal: proposal.clone(),
+                core_state: coreState.clone(),
+                derivation: derivation.clone(),
+                log,
+            },
+        );
+
+        info!(
+            "Cached propose input params: proposal={:?}, core_state={:?}, derivation={:?}",
+            proposal, coreState, derivation,
+        );
 
         Ok(())
     }
@@ -231,16 +239,23 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proved` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proved(&self, log: Log) -> Result<()> {
-        let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } =
-            self.inbox_codec.decodeProvedEvent(log.data().data.clone()).call().await?;
+        let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } = self
+            .inbox_codec
+            .decodeProvedEvent(Proved::decode_log_data(log.data())?.data)
+            .call()
+            .await?;
 
         let proposal_id = proposalId.to::<U256>();
-        let transition_record = transitionRecord;
-        let payload =
-            ProvedEventPayload { proposal_id, transition, transition_record, metadata, log };
-
+        let payload = ProvedEventPayload {
+            proposal_id,
+            transition,
+            transition_record: transitionRecord,
+            metadata,
+            log,
+        };
         self.proved_payloads.insert(proposal_id, payload);
-        info!(?proposal_id, "cached Proved event payload");
+
+        info!("Cached proved event for proposal id {:?}", proposal_id);
 
         Ok(())
     }
@@ -504,7 +519,11 @@ mod tests {
         let encoded =
             indexer.inbox_codec.encodeProposedEvent(binding_payload.clone()).call().await?;
 
-        let log = make_log(&indexer, Proposed::SIGNATURE_HASH, Bytes::from(encoded));
+        // ABI encode the bytes data for the Proposed event
+        use alloy::sol_types::SolValue;
+        let abi_encoded = encoded.abi_encode();
+
+        let log = make_log(&indexer, Proposed::SIGNATURE_HASH, Bytes::from(abi_encoded));
 
         indexer.handle_proposed(log).await?;
 
@@ -546,7 +565,11 @@ mod tests {
 
         let encoded = indexer.inbox_codec.encodeProvedEvent(binding_payload.clone()).call().await?;
 
-        let log = make_log(&indexer, Proved::SIGNATURE_HASH, Bytes::from(encoded));
+        // ABI encode the bytes data for the Proved event
+        use alloy::sol_types::SolValue;
+        let abi_encoded = encoded.abi_encode();
+
+        let log = make_log(&indexer, Proved::SIGNATURE_HASH, Bytes::from(abi_encoded));
 
         indexer.handle_proved(log).await?;
 
