@@ -1,10 +1,4 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::SystemTime,
-};
+use std::{sync::Arc, time::SystemTime};
 
 use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
@@ -29,7 +23,7 @@ use event_scanner::{
     types::{ScannerMessage, ScannerStatus},
 };
 use rpc::SubscriptionSource;
-use tokio::task::JoinHandle;
+use tokio::{sync::Notify, task::JoinHandle};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -89,8 +83,8 @@ pub struct ShastaEventIndexer {
     proposed_payloads: DashMap<U256, ProposedEventPayload>,
     /// Cache of recently observed `Proved` events keyed by proposal id.
     proved_payloads: DashMap<U256, ProvedEventPayload>,
-    /// Whether the indexer has finished the historical indexing.
-    finished_historical_indexing: AtomicBool,
+    /// Notifier for when historical indexing is finished.
+    historical_indexing_finished: Notify,
 }
 
 impl ShastaEventIndexer {
@@ -129,7 +123,7 @@ impl ShastaEventIndexer {
             finalization_grace_period,
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
-            finished_historical_indexing: AtomicBool::new(false),
+            historical_indexing_finished: Notify::new(),
         }))
     }
 
@@ -173,7 +167,7 @@ impl ShastaEventIndexer {
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
                     if matches!(status, ScannerStatus::ChainTipReached) {
-                        self.finished_historical_indexing.store(true, Ordering::Relaxed);
+                        self.historical_indexing_finished.notify_waiters();
                     }
                     continue;
                 }
@@ -321,16 +315,7 @@ impl ShastaEventIndexer {
 
     /// Wait till the historical indexing finished.
     pub async fn wait_historical_indexing_finished(&self) {
-        if self.finished_historical_indexing.load(Ordering::Relaxed) {
-            return;
-        }
-
-        loop {
-            if self.finished_historical_indexing.load(Ordering::Relaxed) {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        }
+        self.historical_indexing_finished.notified().await;
     }
 
     /// Return the Shasta inbox ring buffer size.
