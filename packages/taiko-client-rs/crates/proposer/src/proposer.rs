@@ -29,7 +29,12 @@ impl Proposer {
     /// Creates a new proposer instance.
     #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
-        info!("Initializing proposer with config: {:?}", cfg);
+        info!(
+            inbox_address = ?cfg.inbox_address,
+            l2_suggested_fee_recipient = ?cfg.l2_suggested_fee_recipient,
+            propose_interval = ?cfg.propose_interval,
+            "initializing proposer"
+        );
 
         // Initialize RPC client.
         let rpc_provider = Client::new_with_wallet(
@@ -68,13 +73,12 @@ impl Proposer {
 
     /// Start the proposer main loop.
     pub async fn start(&self) -> Result<()> {
-        info!("Starting proposer");
         let mut interval = interval(self.cfg.propose_interval);
         let mut epoch = 0;
 
         loop {
             interval.tick().await;
-            info!("Proposer epoch {}", epoch);
+            info!(epoch, "proposer epoch");
 
             self.fetch_and_propose().await?;
 
@@ -89,7 +93,7 @@ impl Proposer {
 
         // Record number of transactions in the pool
         gauge!(ProposerMetrics::TX_POOL_SIZE).set(pool_content.len() as f64);
-        info!("Fetched tx pool content, length: {:#?}", pool_content.len());
+        info!(tx_count = pool_content.len(), "fetched tx pool content");
 
         let mut transaction_request =
             self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
@@ -105,19 +109,23 @@ impl Proposer {
         let pending_tx =
             self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
 
-        info!("Propose transaction sent: {}", pending_tx.tx_hash());
+        info!(tx_hash = %pending_tx.tx_hash(), "proposal transaction sent");
         counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
 
         let receipt = pending_tx.get_receipt().await?;
 
         if receipt.status() {
-            info!("Propose transaction mined: {}", receipt.transaction_hash);
+            info!(
+                tx_hash = %receipt.transaction_hash,
+                gas_used = receipt.gas_used,
+                "proposal transaction mined successfully"
+            );
             counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
 
             // Record gas used
             histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
         } else {
-            error!("Propose transaction failed: {}", receipt.transaction_hash);
+            error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
             counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
         }
 
@@ -142,7 +150,7 @@ impl Proposer {
             })
             .await?;
 
-        info!("Fetched {} tx lists from L2 execution engine", pool_content.len());
+        info!(tx_lists_count = pool_content.len(), "fetched tx lists from L2 execution engine");
 
         let transactions = pool_content
             .into_iter()
@@ -166,8 +174,9 @@ impl Proposer {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp -
-            self.rpc_provider
+        let parent_block_time = parent.header.timestamp
+            - self
+                .rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
@@ -205,48 +214,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn propose_shasta_batches() {
+    async fn propose_shasta_batches() -> Result<()> {
         init_tracing();
 
         let cfg = ProposerConfigs {
-            l1_provider_source: SubscriptionSource::Ws(
-                Url::from_str(&env::var("L1_WS").unwrap()).unwrap(),
-            ),
-            l2_provider_url: Url::from_str(&env::var("L2_HTTP").unwrap()).unwrap(),
-            l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH").unwrap()).unwrap(),
-            jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET").unwrap()).unwrap(),
-            inbox_address: Address::from_str(&env::var("SHASTA_INBOX").unwrap()).unwrap(),
-            l2_suggested_fee_recipient: Address::from_str(
-                &env::var("L2_SUGGESTED_FEE_RECIPIENT").unwrap(),
-            )
-            .unwrap(),
+            l1_provider_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
+            l2_provider_url: Url::from_str(&env::var("L2_HTTP")?)?,
+            l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH")?)?,
+            jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET")?)?,
+            inbox_address: Address::from_str(&env::var("SHASTA_INBOX")?)?,
+            l2_suggested_fee_recipient: Address::from_str(&env::var(
+                "L2_SUGGESTED_FEE_RECIPIENT",
+            )?)?,
             propose_interval: Duration::from_secs(0),
-            l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY").unwrap().parse().unwrap(),
+            l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY")?.parse()?,
             gas_limit: None,
         };
 
-        let proposer = Proposer::new(cfg.clone()).await.unwrap();
+        let proposer = Proposer::new(cfg.clone()).await?;
         let provider = proposer.rpc_provider.clone();
 
         for i in 0..3 {
-            assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await);
+            assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
 
-            evm_mine(provider.clone()).await;
-            proposer.fetch_and_propose().await.unwrap();
+            evm_mine(provider.clone()).await?;
+            proposer.fetch_and_propose().await?;
 
-            assert_ne!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await);
+            assert_ne!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
         }
+
+        Ok(())
     }
 
-    async fn evm_mine(client: ClientWithWallet) {
+    async fn evm_mine(client: ClientWithWallet) -> Result<()> {
         client
             .l1_provider
             .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
-            .await
-            .unwrap();
+            .await?;
+        Ok(())
     }
 
-    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> B256 {
-        client.shasta.inbox.getProposalHash(proposal_id).call().await.unwrap()
+    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> Result<B256> {
+        let hash = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
+        Ok(hash)
     }
 }

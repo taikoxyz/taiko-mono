@@ -229,10 +229,7 @@ impl ShastaEventIndexer {
             },
         );
 
-        info!(
-            "Cached propose input params: proposal={:?}, core_state={:?}, derivation={:?}",
-            proposal, coreState, derivation,
-        );
+        info!(?proposal, ?coreState, ?derivation, "cached propose input params");
 
         Ok(())
     }
@@ -256,7 +253,7 @@ impl ShastaEventIndexer {
         };
         self.proved_payloads.insert(proposal_id, payload);
 
-        info!("Cached proved event for proposal id {:?}", proposal_id);
+        info!(?proposal_id, "cached proved event for proposal");
 
         Ok(())
     }
@@ -419,6 +416,7 @@ mod tests {
     };
     use alloy_provider::{Identity, Provider, RootProvider};
     use alloy_signer_local::PrivateKeySigner;
+    use anyhow::anyhow;
     use bindings::{
         codec_optimized::{
             ICheckpointStore::Checkpoint,
@@ -528,8 +526,10 @@ mod tests {
 
         indexer.handle_proposed(log).await?;
 
-        let cached =
-            indexer.proposed_payloads.get(&U256::from(1u64)).expect("proposal should be cached");
+        let cached = indexer
+            .proposed_payloads
+            .get(&U256::from(1u64))
+            .ok_or_else(|| anyhow!("proposal should be cached"))?;
 
         assert_eq!(cached.proposal.id, binding_payload.proposal.id);
         Ok(())
@@ -577,7 +577,7 @@ mod tests {
         let cached = indexer
             .proved_payloads
             .get(&U256::from(binding_payload.proposalId.to::<u64>()))
-            .unwrap();
+            .ok_or_else(|| anyhow!("proved payload should be cached"))?;
 
         assert_eq!(cached.metadata.designatedProver, binding_payload.metadata.designatedProver);
         assert_eq!(
