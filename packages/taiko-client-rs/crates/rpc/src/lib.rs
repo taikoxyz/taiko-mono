@@ -31,17 +31,6 @@ pub enum SubscriptionSource {
     Ws(Url),
 }
 
-/// Convert a string to a `SubscriptionSource`.
-impl From<&str> for SubscriptionSource {
-    fn from(s: &str) -> Self {
-        if s.starts_with("ws://") || s.starts_with("wss://") {
-            SubscriptionSource::Ws(s.parse().expect("invalid websocket url"))
-        } else {
-            SubscriptionSource::Ipc(PathBuf::from(s))
-        }
-    }
-}
-
 impl SubscriptionSource {
     /// Return true if the source is an IPC endpoint.
     pub fn is_ipc(&self) -> bool {
