@@ -84,12 +84,16 @@ impl Proposer {
 
         info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
-        let transaction_request = self
+        let mut transaction_request = self
             .transaction_builder
             .build(pool_content)
             .await?
-            .with_to(self.cfg.inbox_address)
-            .with_gas_limit(2_000_000);
+            .with_to(self.cfg.inbox_address);
+
+        // Set gas limit if configured, otherwise let the provider estimate it.
+        if let Some(gas_limit) = self.cfg.gas_limit {
+            transaction_request = transaction_request.with_gas_limit(gas_limit);
+        }
 
         // Send transaction using provider with wallet filler.
         // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the transaction.
@@ -210,6 +214,7 @@ mod tests {
             .unwrap(),
             propose_interval: Duration::from_secs(0),
             l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY").unwrap().parse().unwrap(),
+            gas_limit: None,
         };
 
         let proposer = Proposer::new(cfg.clone()).await.unwrap();

@@ -24,4 +24,10 @@ pub struct ProposerArgs {
         help = "Interval (in seconds) between proposing L2 blocks"
     )]
     pub propose_interval: u64,
+    #[clap(
+        long = "propose.gasLimit",
+        env = "PROPOSE_GAS_LIMIT",
+        help = "Optional gas limit for proposal transactions. If not set, uses provider's estimation"
+    )]
+    pub gas_limit: Option<u64>,
 }
