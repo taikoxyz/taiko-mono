@@ -52,40 +52,63 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `proposal` object. The proposal structure is defined in the protocol's L1 smart contract as follows:
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `ProposedEventPayload` object containing the `proposal`, `derivation`, and `coreState`. The proposal structure is defined in the protocol's L1 smart contract as follows:
 
 ```solidity
 /// @notice Represents a proposal for L2 blocks.
 struct Proposal {
   /// @notice Unique identifier for the proposal.
   uint48 id;
-  /// @notice Address of the proposer.
-  address proposer;
   /// @notice The L1 block timestamp when the proposal was accepted.
   uint48 timestamp;
+  /// @notice The timestamp of the last slot where the current preconfer can propose.
+  uint48 endOfSubmissionWindowTimestamp;
+  /// @notice Address of the proposer.
+  address proposer;
+  /// @notice The current hash of coreState
+  bytes32 coreStateHash;
+  /// @notice Hash of the Derivation struct containing additional proposal data.
+  bytes32 derivationHash;
+}
+```
+
+The `Derivation` struct contains additional proposal data not needed during proving:
+
+```solidity
+/// @notice Contains derivation data for a proposal that is not needed during proving.
+/// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
+struct Derivation {
   /// @notice The L1 block number when the proposal was accepted.
   uint48 originBlockNumber;
-  /// @notice Whether the proposal is from a forced inclusion.
-  bool isForcedInclusion;
+  /// @notice The hash of the origin block.
+  bytes32 originBlockHash;
   /// @notice The percentage of base fee paid to coinbase.
   uint8 basefeeSharingPctg;
-  /// @notice Blobs that contains the proposal's manifest data.
+  /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+  DerivationSource[] sources;
+}
+
+/// @notice Represents a source of derivation data within a Derivation
+struct DerivationSource {
+  /// @notice Whether this source is from a forced inclusion.
+  bool isForcedInclusion;
+  /// @notice Blobs that contain the source's manifest data.
   LibBlobs.BlobSlice blobSlice;
 }
 ```
 
-The following metadata fields are directly extracted from the `proposal` object:
+The following metadata fields are extracted from the `proposal` and `derivation` objects:
 
-| Metadata Field                | Value Assignment              |
-| ----------------------------- | ----------------------------- |
-| `metadata.id`                 | `proposal.id`                 |
-| `metadata.proposer`           | `proposal.proposer`           |
-| `metadata.timestamp`          | `proposal.timestamp`          |
-| `metadata.originBlockNumber`  | `proposal.originBlockNumber`  |
-| `metadata.basefeeSharingPctg` | `proposal.basefeeSharingPctg` |
-| `metadata.isForcedInclusion`  | `proposal.isForcedInclusion`  |
+| Metadata Field                | Value Assignment                    |
+| ----------------------------- | ----------------------------------- |
+| `metadata.id`                 | `proposal.id`                      |
+| `metadata.proposer`           | `proposal.proposer`                 |
+| `metadata.timestamp`          | `proposal.timestamp`                |
+| `metadata.originBlockNumber`  | `derivation.originBlockNumber`      |
+| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`     |
+| `metadata.isForcedInclusion`  | `derivation.sources[i].isForcedInclusion` |
 
-The `blobSlice` field serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
+The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
 
 ```solidity
 /// @notice Represents a signed Ethereum transaction
@@ -240,13 +263,47 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are defined as follows:
+
+```solidity
+/// @notice Represents a bond instruction for processing in the anchor transaction
+struct BondInstruction {
+  uint48 proposalId;
+  BondType bondType;
+  address payer;
+  address payee;
+}
+
+/// @notice Types of bonds
+enum BondType {
+  NONE,
+  PROVABILITY,
+  LIVENESS
+}
+```
+
+Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
 
 A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is `BOND_PROCESSING_DELAY` proposals prior to the current one. If `BOND_PROCESSING_DELAY` is set to 1, it effectively processes the parent proposal's instructions.
 
 ### Designated Prover System
 
 The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `updateState` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+
+The `ProverAuth` structure used in Shasta for prover authentication:
+
+```solidity
+/// @notice Structure for prover authentication
+/// @dev Used in the proverAuthBytes field of ProposalManifest
+struct ProverAuth {
+  address prover;
+  address feeToken;
+  uint96 fee;
+  uint64 validUntil; // optional
+  uint64 batchId; // optional
+  bytes signature;
+}
+```
 
 #### Prover Designation Process
 
@@ -256,10 +313,10 @@ The `_validateProverAuth` function processes prover authentication data with the
 
 - **Signature Verification**:
 
-  - Validates minimum data length (161 bytes for a valid `ProverAuth` struct)
-  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFeeGwei`, and ECDSA `signature`
-  - Verifies the signature against the message hash `keccak256(abi.encode(proposalId, proposer, provingFeeGwei))`
-  - Returns the recovered signer address and proving fee
+  - Validates the `ProverAuth` struct from the provided bytes
+  - Decodes the `ProverAuth` containing: `prover`, `feeToken`, `fee`, `validUntil`, `batchId`, and ECDSA `signature`
+  - Verifies the signature against the computed message digest
+  - Returns the authenticated prover address and fee information
 
 - **Validation Failures**: If authentication fails (insufficient data length < 161 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
