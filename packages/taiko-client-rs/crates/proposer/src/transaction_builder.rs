@@ -82,7 +82,8 @@ impl ShastaProposalTransactionBuilder {
                         .as_secs(),
                     coinbase: self.l2_suggested_fee_recipient,
                     anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
-                    gas_limit: 0, // Use 0 for gas limit as it will be set as its parent's gas limit during derivation.
+                    gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
+                                   * limit during derivation. */
                     transactions: vec![tx.clone().into_inner()],
                 })
                 .collect::<Vec<_>>(),
