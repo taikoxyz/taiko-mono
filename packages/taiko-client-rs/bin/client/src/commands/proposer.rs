@@ -44,6 +44,8 @@ impl ProposerSubCommand {
 
     /// Run the proposer software.
     pub async fn run(&self) -> Result<()> {
+        self.init_logs(self.common_flags())?;
+
         let l1_provider =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
         let l2_provider =
