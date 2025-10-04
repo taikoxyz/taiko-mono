@@ -18,7 +18,7 @@ use crate::{
     transaction_builder::ShastaProposalTransactionBuilder,
 };
 
-// Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
+// Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
