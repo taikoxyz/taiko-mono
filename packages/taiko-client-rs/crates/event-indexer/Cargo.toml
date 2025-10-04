@@ -17,6 +17,7 @@ async-trait = { workspace = true }
 bindings = { path = "../bindings" }
 dashmap = { workspace = true }
 event-scanner = { workspace = true }
+metrics = { workspace = true }
 rpc = { path = "../rpc" }
 thiserror = { workspace = true }
 tokio = { workspace = true }

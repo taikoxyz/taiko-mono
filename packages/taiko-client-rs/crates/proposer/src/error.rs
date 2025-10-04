@@ -1,3 +1,5 @@
+//! Error types for proposer operations.
+
 use alloy::{
     providers::PendingTransactionError,
     transports::{RpcError, TransportErrorKind},

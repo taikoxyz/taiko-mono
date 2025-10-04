@@ -4,6 +4,7 @@ use std::time::Duration;
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use clap::Parser;
+use event_indexer::metrics::IndexerMetrics;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
@@ -58,7 +59,9 @@ impl ProposerSubCommand {
 
         let socket_addr: std::net::SocketAddr = metrics_addr.parse()?;
         PrometheusBuilder::new().with_http_listener(socket_addr).install()?;
+
         ProposerMetrics::init();
+        IndexerMetrics::init();
 
         info!(
             target: "metrics",

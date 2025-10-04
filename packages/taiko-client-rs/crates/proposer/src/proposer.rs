@@ -1,3 +1,5 @@
+//! Core proposer implementation for submitting block proposals.
+
 use alethia_reth::consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };

@@ -1,3 +1,5 @@
+//! Shasta inbox event indexer implementation.
+
 use std::{sync::Arc, time::SystemTime};
 
 use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
@@ -29,6 +31,7 @@ use tracing::{debug, error, info, instrument, trace, warn};
 use crate::{
     error::Result,
     interface::{ShastaProposeInput, ShastaProposeInputReader},
+    metrics::IndexerMetrics,
 };
 
 /// The payload body of a Shasta protocol Proposed event.
@@ -191,11 +194,13 @@ impl ShastaEventIndexer {
                     trace!(?log.transaction_hash, "received Proposed event log");
                     if let Err(err) = self.handle_proposed(log).await {
                         error!(?err, "failed to handle Proposed inbox event");
+                        metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
                     }
                 } else if *topic == Proved::SIGNATURE_HASH {
                     trace!(?log.transaction_hash, "received Proved event log");
                     if let Err(err) = self.handle_proved(log).await {
                         error!(?err, "failed to handle Proved inbox event");
+                        metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
                     }
                 } else {
                     warn!(?topic, "skipping unexpected inbox event signature");
@@ -227,9 +232,15 @@ impl ShastaEventIndexer {
                 proposal: proposal.clone(),
                 core_state: coreState.clone(),
                 derivation: derivation.clone(),
-                log,
+                log: log.clone(),
             },
         );
+
+        metrics::counter!(IndexerMetrics::PROPOSED_EVENTS).increment(1);
+        metrics::gauge!(IndexerMetrics::CACHED_PROPOSALS).set(self.proposed_payloads.len() as f64);
+        if let Some(block_number) = log.block_number {
+            metrics::gauge!(IndexerMetrics::LATEST_BLOCK).set(block_number as f64);
+        }
 
         info!(?proposal, ?coreState, ?derivation, "cached propose input params");
 
@@ -251,9 +262,15 @@ impl ShastaEventIndexer {
             transition,
             transition_record: transitionRecord,
             metadata,
-            log,
+            log: log.clone(),
         };
         self.proved_payloads.insert(proposal_id, payload);
+
+        metrics::counter!(IndexerMetrics::PROVED_EVENTS).increment(1);
+        metrics::gauge!(IndexerMetrics::CACHED_PROOFS).set(self.proved_payloads.len() as f64);
+        if let Some(block_number) = log.block_number {
+            metrics::gauge!(IndexerMetrics::LATEST_BLOCK).set(block_number as f64);
+        }
 
         info!(?proposal_id, "cached proved event for proposal");
 

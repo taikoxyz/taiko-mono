@@ -1,3 +1,5 @@
+//! Transaction builder for constructing proposal transactions.
+
 use std::{sync::Arc, time::SystemTime};
 
 use alloy::{

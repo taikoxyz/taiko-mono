@@ -1,3 +1,5 @@
+//! Configuration types for the proposer.
+
 use std::{path::PathBuf, time::Duration};
 
 use alloy::{

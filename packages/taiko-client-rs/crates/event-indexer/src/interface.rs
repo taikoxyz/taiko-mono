@@ -1,3 +1,5 @@
+//! Interfaces of the indexer.
+
 use bindings::codec_optimized::{
     ICheckpointStore::Checkpoint,
     IInbox::{CoreState, Proposal, TransitionRecord},

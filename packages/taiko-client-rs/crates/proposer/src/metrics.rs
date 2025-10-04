@@ -1,3 +1,5 @@
+//! Prometheus metrics for tracking proposer.
+
 #[derive(Debug, Clone)]
 pub struct ProposerMetrics;
 
