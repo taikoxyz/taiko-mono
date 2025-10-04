@@ -84,11 +84,8 @@ impl Proposer {
 
         info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
-        let mut transaction_request = self
-            .transaction_builder
-            .build(pool_content)
-            .await?
-            .with_to(self.cfg.inbox_address);
+        let mut transaction_request =
+            self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
@@ -96,7 +93,8 @@ impl Proposer {
         }
 
         // Send transaction using provider with wallet filler.
-        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the transaction.
+        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the
+        // transaction.
         let pending_tx =
             self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
 
@@ -154,9 +152,8 @@ impl Proposer {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
@@ -173,8 +170,7 @@ impl Proposer {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-    use std::{env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
+    use std::{borrow::Cow, env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
 
     use super::*;
     use alloy::{

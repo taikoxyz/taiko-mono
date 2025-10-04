@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use alloy::rpc::client::RpcClient;
-use alloy::transports::http::reqwest::Url;
+use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,

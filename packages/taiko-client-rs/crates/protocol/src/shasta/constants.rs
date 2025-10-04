@@ -14,19 +14,23 @@ pub const ANCHOR_MAX_OFFSET: u64 = 128;
 pub const ANCHOR_MIN_OFFSET: u64 = 2;
 
 /// The maximum timestamp offset from the proposal origin timestamp.
-/// NOTE: Should be same with `TIMESTAMP_MAX_OFFSET` in contracts/layer1/shasta/libs/LibManifest.sol.
+/// NOTE: Should be same with `TIMESTAMP_MAX_OFFSET` in
+/// contracts/layer1/shasta/libs/LibManifest.sol.
 pub const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
 
 /// The maximum block gas limit change per block, expressed in millionths.
-/// NOTE: Should be same with `BLOCK_GAS_LIMIT_MAX_CHANGE` in contracts/layer1/shasta/libs/LibManifest.sol.
+/// NOTE: Should be same with `BLOCK_GAS_LIMIT_MAX_CHANGE` in
+/// contracts/layer1/shasta/libs/LibManifest.sol.
 pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 10;
 
 /// The minimum block gas limit.
-/// NOTE: Should be same with `MIN_BLOCK_GAS_LIMIT` in contracts/layer1/shasta/libs/LibConstants.sol.
+/// NOTE: Should be same with `MIN_BLOCK_GAS_LIMIT` in
+/// contracts/layer1/shasta/libs/LibConstants.sol.
 pub const MIN_BLOCK_GAS_LIMIT: u64 = 15_000_000;
 
 /// The delay in processing bond instructions relative to the current proposal.
-/// NOTE: Should be same with `BOND_PROCESSING_DELAY` in contracts/layer1/shasta/libs/LibManifest.sol.
+/// NOTE: Should be same with `BOND_PROCESSING_DELAY` in
+/// contracts/layer1/shasta/libs/LibManifest.sol.
 pub const BOND_PROCESSING_DELAY: u64 = 6;
 
 /// The current version of the Shasta protocol payload format.

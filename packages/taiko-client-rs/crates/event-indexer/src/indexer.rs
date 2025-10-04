@@ -156,7 +156,8 @@ impl ShastaEventIndexer {
             }
         });
 
-        // Process incoming event logs on this task so the indexer instance remains callable elsewhere.
+        // Process incoming event logs on this task so the indexer instance remains callable
+        // elsewhere.
         while let Some(message) = stream.next().await {
             let logs = match message {
                 ScannerMessage::Data(logs) => logs,

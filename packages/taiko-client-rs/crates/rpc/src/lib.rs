@@ -65,7 +65,8 @@ impl SubscriptionSource {
         Ok(provider)
     }
 
-    /// Convert the `SubscriptionSource` into a `FillProvider` with wallet built via `ProviderBuilder::new()`.
+    /// Convert the `SubscriptionSource` into a `FillProvider` with wallet built via
+    /// `ProviderBuilder::new()`.
     pub async fn to_provider_with_wallet(
         &self,
         sender_private_key: B256,
