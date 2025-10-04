@@ -467,9 +467,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
         assertEq(decoded.coreState.nextProposalId, input.coreState.nextProposalId);
         assertEq(decoded.coreState.lastProposalBlockId, input.coreState.lastProposalBlockId);
         assertEq(decoded.coreState.lastFinalizedProposalId, input.coreState.lastFinalizedProposalId);
-        assertEq(
-            decoded.coreState.lastCheckpointTimestamp, input.coreState.lastCheckpointTimestamp
-        );
+        assertEq(decoded.coreState.lastCheckpointTimestamp, input.coreState.lastCheckpointTimestamp);
         assertEq(
             decoded.coreState.lastFinalizedTransitionHash,
             input.coreState.lastFinalizedTransitionHash
