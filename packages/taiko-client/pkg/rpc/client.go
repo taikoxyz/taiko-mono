@@ -159,8 +159,10 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
-	if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
-		return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+	if cfg.PacayaInboxAddress != (common.Address{}) {
+		if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
+			return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+		}
 	}
 
 	return c, nil

@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"compress/zlib"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/joho/godotenv"
 	"github.com/modern-go/reflect2"
-	"golang.org/x/exp/constraints"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
@@ -39,38 +37,9 @@ func LoadEnv() {
 	}
 }
 
-// RandUint64 returns a random uint64 number.
-func RandUint64(max *big.Int) uint64 {
-	if max == nil {
-		max = new(big.Int)
-		max.SetUint64(math.MaxUint64)
-	}
-	num, _ := rand.Int(rand.Reader, max)
-
-	return num.Uint64()
-}
-
-// RandUint32 returns a random uint32 number.
-func RandUint32(max *big.Int) uint32 {
-	if max == nil {
-		max = new(big.Int)
-		max.SetUint64(math.MaxUint32)
-	}
-	num, _ := rand.Int(rand.Reader, max)
-	return uint32(num.Uint64())
-}
-
 // IsNil checks if the interface is empty.
 func IsNil(i interface{}) bool {
 	return reflect2.IsNil(i)
-}
-
-// Min return the minimum value of two integers.
-func Min[T constraints.Integer](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
@@ -89,17 +58,33 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return compressed, nil
 }
 
-// EncodeAndCompressShastaProposal encodes and compresses the given Shasta proposal using RLP encoding
+// EncodeAndCompressDerivationSourceShasta encodes and compresses the given Shasta derivation source using RLP encoding
 // followed by zlib compression.
-func EncodeAndCompressShastaProposal(proposal manifest.ProtocolProposalManifest) ([]byte, error) {
+func EncodeAndCompressDerivationSourceShasta(proposal manifest.DerivationSourceManifest) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(proposal)
 	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode Shasta proposal: %w", err)
+		return nil, fmt.Errorf("failed to RLP encode Shasta derivation source manifest: %w", err)
 	}
 
 	compressed, err := Compress(b)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded Shasta proposal: %w", err)
+		return nil, fmt.Errorf("failed to compress RLP encoded Shasta derivation source manifest: %w", err)
+	}
+
+	return compressed, nil
+}
+
+// EncodeAndCompressProposalManifestShasta encodes and compresses the given Shasta proposal manifest using RLP encoding
+// followed by zlib compression.
+func EncodeAndCompressProposalManifestShasta(proposal manifest.ProposalManifest) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(proposal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode Shasta proposal manifest: %w", err)
+	}
+
+	compressed, err := Compress(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress RLP encoded Shasta proposal manifest: %w", err)
 	}
 
 	return compressed, nil
