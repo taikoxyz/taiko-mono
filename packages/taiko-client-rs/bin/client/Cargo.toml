@@ -10,16 +10,27 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-alloy = { workspace = true }
-alloy-primitives = { workspace = true, default-features = false }
-anyhow = { workspace = true }
+# async
+tokio = { workspace = true }
+
+# cli
 clap = { workspace = true }
-event-indexer = { path = "../../crates/event-indexer" }
+
+# observability
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
-proposer = { path = "../../crates/proposer" }
-rpc = { path = "../../crates/rpc" }
-tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# ethereum
+alloy = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+
+# taiko
+event-indexer = { path = "../../crates/event-indexer" }
+proposer = { path = "../../crates/proposer" }
+rpc = { path = "../../crates/rpc" }
+
+# types
+anyhow = { workspace = true }
 url = { workspace = true }

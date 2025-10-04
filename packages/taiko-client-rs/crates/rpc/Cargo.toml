@@ -5,7 +5,16 @@ edition = "2024"
 publish = false
 
 [dependencies]
-alethia-reth = { workspace = true }
+# observability
+tracing = { workspace = true }
+
+# web
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+tower = { workspace = true }
+
+# ethereum
 alloy = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
@@ -16,12 +25,14 @@ alloy-rpc-types-engine = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
 alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
-anyhow = { workspace = true }
+
+# taiko
+alethia-reth = { workspace = true }
 bindings = { path = "../bindings" }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
+
+# types
+anyhow = { workspace = true }
+
+# serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-tower = { workspace = true }
-tracing = { workspace = true }

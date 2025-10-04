@@ -4,6 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-trait = { workspace = true }
+# async
+tokio = { workspace = true }
+tokio-retry = { workspace = true }
+tokio-stream = { workspace = true }
+
+# observability
+metrics = { workspace = true }
+tracing = { workspace = true }
+
+# ethereum
 alloy = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-json-rpc = { workspace = true, default-features = false }
@@ -12,21 +23,22 @@ alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
 alloy-sol-types = { workspace = true }
-anyhow = { workspace = true }
-async-trait = { workspace = true }
+
+# taiko
 bindings = { path = "../bindings" }
-dashmap = { workspace = true }
 event-scanner = { workspace = true }
-metrics = { workspace = true }
 rpc = { path = "../rpc" }
+
+# types
+anyhow = { workspace = true }
+dashmap = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
-tokio-stream = { workspace = true }
-tokio-retry = { workspace = true }
-tracing = { workspace = true }
 
 [dev-dependencies]
+# observability
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# ethereum
 alloy-eips = { workspace = true }
 alloy-json-rpc = { workspace = true }
 alloy-signer-local = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
