@@ -63,3 +63,21 @@ impl ProposalManifest {
         Ok(output)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_proposal_manifest_encode() {
+        let manifest = ProposalManifest::default();
+        let encoded = manifest.encode().unwrap();
+
+        assert!(encoded.len() >= 64);
+        assert_eq!(encoded[31], SHASTA_PAYLOAD_VERSION,);
+
+        for i in 0..31 {
+            assert_eq!(encoded[i], 0);
+        }
+    }
+}

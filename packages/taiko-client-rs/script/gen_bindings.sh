@@ -3,7 +3,7 @@
 # Generate rust contract bindings.
 # ref: https://getfoundry.sh/forge/reference/bind/
 
-set -eou pipefail
+set -euo pipefail
 
 ALLOY_VERSION=1.0.36
 

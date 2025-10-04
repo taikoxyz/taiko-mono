@@ -161,7 +161,8 @@ impl ShastaEventIndexer {
 
         // Start the event scanner in a separate task.
         tokio::spawn(async move {
-            // TODO: change to fetch the last X events when the event scanner supports it in next release.
+            // TODO: change to fetch the last X events when the event scanner supports it in next
+            // release.
             if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Number(0), None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }

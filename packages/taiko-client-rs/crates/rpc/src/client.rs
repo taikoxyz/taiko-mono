@@ -111,3 +111,31 @@ pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_jwt_secret() {
+        let jwt_path =
+            PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/docker/jwt.hex"));
+
+        // Should successfully read the JWT secret
+        let secret = read_jwt_secret(jwt_path);
+        assert!(secret.is_some());
+
+        // Verify the secret is a valid 32-byte key
+        let secret = secret.unwrap();
+        assert_eq!(secret.as_bytes().len(), 32);
+    }
+
+    #[test]
+    fn test_read_jwt_secret_nonexistent() {
+        let jwt_path = PathBuf::from("/nonexistent/path/jwt.hex");
+
+        // Should return None for non-existent file
+        let secret = read_jwt_secret(jwt_path);
+        assert!(secret.is_none());
+    }
+}
