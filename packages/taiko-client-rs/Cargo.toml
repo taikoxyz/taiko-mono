@@ -41,10 +41,10 @@ alloy-consensus = { version = "1.0.36", default-features = false, features = [
 ] }
 alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-node-bindings = { version = "1.0.36" }
-alethia-reth = { package = "taiko-reth", git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
+alethia-reth = { package = "alethia-reth", git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
 async-trait = "0.1"
 anyhow = "1"
-event-scanner = "0.1.0-alpha.3"
+event-scanner = "=0.2.0-alpha"
 dashmap = "6.1.0"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"

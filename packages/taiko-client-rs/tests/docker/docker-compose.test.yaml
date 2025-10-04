@@ -23,7 +23,7 @@ services:
       - "28546:8546"
       - "28551:8551"
     entrypoint:
-      - ./taiko-reth
+      - ./alethia-reth
       - node
       - --http
       - --http.addr

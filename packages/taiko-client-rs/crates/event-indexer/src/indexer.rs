@@ -23,7 +23,11 @@ use bindings::{
     i_inbox::IInbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
-use event_scanner::{EventFilter, event_scanner::EventScanner};
+use event_scanner::{
+    EventFilter,
+    event_scanner::EventScanner,
+    types::{ScannerMessage, ScannerStatus},
+};
 use rpc::SubscriptionSource;
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
@@ -146,8 +150,8 @@ impl ShastaEventIndexer {
 
         let filter = EventFilter::new()
             .with_contract_address(self.config.inbox_address)
-            .with_event(Proposed::SIGNATURE);
-        // .with_event(Proved::SIGNATURE); // TODO: add this back when the filter supports multiple .with_event calls.
+            .with_event(Proposed::SIGNATURE)
+            .with_event(Proved::SIGNATURE);
 
         let mut stream = event_scanner.create_event_stream(filter);
 
@@ -159,7 +163,22 @@ impl ShastaEventIndexer {
         });
 
         // Process incoming event logs on this task so the indexer instance remains callable elsewhere.
-        while let Some(Ok(logs)) = stream.next().await {
+        while let Some(message) = stream.next().await {
+            let logs = match message {
+                ScannerMessage::Data(logs) => logs,
+                ScannerMessage::Error(err) => {
+                    error!(?err, "error receiving logs from event scanner");
+                    continue;
+                }
+                ScannerMessage::Status(status) => {
+                    info!(?status, "scanner status update");
+                    if matches!(status, ScannerStatus::ChainTipReached) {
+                        self.finished_historical_indexing.store(true, Ordering::Relaxed);
+                    }
+                    continue;
+                }
+            };
+
             for log in logs {
                 let Some(topic) = log.topic0() else {
                     debug!("skipping log without topic0");
@@ -167,7 +186,6 @@ impl ShastaEventIndexer {
                 };
 
                 info!(?topic, block_number = ?log.block_number, "received inbox event log");
-                self.finished_historical_indexing.store(true, Ordering::Relaxed);
 
                 if *topic == Proposed::SIGNATURE_HASH {
                     debug!("received Proposed event log");
@@ -302,7 +320,6 @@ impl ShastaEventIndexer {
     }
 
     /// Wait till the historical indexing finished.
-    /// TODO: update this after the next event indexer release.
     pub async fn wait_historical_indexing_finished(&self) {
         if self.finished_historical_indexing.load(Ordering::Relaxed) {
             return;
