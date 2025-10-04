@@ -16,6 +16,8 @@ metrics = { workspace = true }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 serde_json = { workspace = true }
+thiserror = "2.0"
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+url = { workspace = true }

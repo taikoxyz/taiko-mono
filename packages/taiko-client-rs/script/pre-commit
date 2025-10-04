@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Run fmt check (includes rustfmt and cargo-sort)
+echo "→ Checking code formatting and dependency order..."
+just fmt-check
+
+# Run clippy
+echo "→ Running clippy..."
+just clippy
+
+echo "✓ All pre-commit checks passed!"

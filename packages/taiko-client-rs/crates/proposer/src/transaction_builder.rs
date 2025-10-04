@@ -10,7 +10,6 @@ use alloy::{
     rpc::types::{Transaction, TransactionRequest},
 };
 use alloy_network::TransactionBuilder4844;
-use anyhow::{Result, anyhow};
 use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
@@ -20,10 +19,15 @@ use protocol::shasta::{
 use rpc::client::ClientWithWallet;
 use tracing::info;
 
+use crate::error::{ProposerError, Result};
+
 /// A transaction builder for Shasta `propose` transactions.
 pub struct ShastaProposalTransactionBuilder {
+    /// The RPC provider with wallet.
     pub rpc_provider: ClientWithWallet,
+    /// The address of the suggested fee recipient for the proposed L2 block.
     pub l2_suggested_fee_recipient: Address,
+    /// The event indexer to read cached propose input params.
     pub event_indexer: Arc<ShastaEventIndexer>,
 }
 
@@ -45,14 +49,14 @@ impl ShastaProposalTransactionBuilder {
         let cached_input_params = self
             .event_indexer
             .read_shasta_propose_input()
-            .ok_or(anyhow!("Failed to read propose input from event indexer"))?;
+            .ok_or(ProposerError::ProposeInputUnavailable)?;
 
         info!(
-            "Cached propose input params: core_state={:?}, proposals={:?}, transition_records={:?}, checkpoint={:?}",
-            cached_input_params.core_state,
-            cached_input_params.proposals,
-            cached_input_params.transition_records.len(),
-            cached_input_params.checkpoint,
+            core_state = ?cached_input_params.core_state,
+            proposals_count = cached_input_params.proposals.len(),
+            transition_records_count = cached_input_params.transition_records.len(),
+            checkpoint = ?cached_input_params.checkpoint,
+            "cached propose input params"
         );
 
         // Build the block manifests and proposal manifest.
@@ -76,15 +80,16 @@ impl ShastaProposalTransactionBuilder {
         // Ensure the current L1 head is sufficiently advanced.
         let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
         if current_l1_head <= ANCHOR_MIN_OFFSET {
-            return Err(anyhow!(
-                "Current L1 head {} is too low to propose, must be greater than {}",
-                current_l1_head,
-                ANCHOR_MIN_OFFSET
-            ));
+            return Err(ProposerError::L1HeadTooLow {
+                current: current_l1_head,
+                minimum: ANCHOR_MIN_OFFSET,
+            });
         }
 
         // Build the blob sidecar.
-        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?).build()?;
+        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)
+            .build()
+            .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
         // Build the propose input.
         let input = ProposeInput {

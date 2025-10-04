@@ -5,16 +5,18 @@ use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
 };
 use alloy_network::TransactionBuilder;
-use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
+use serde_json::from_value;
 use tokio::time::interval;
 use tracing::{error, info, instrument};
 
 use crate::{
-    config::ProposerConfigs, metrics::ProposerMetrics,
+    config::ProposerConfigs,
+    error::{ProposerError, Result},
+    metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
 };
 
@@ -135,7 +137,7 @@ impl Proposer {
     /// Fetch transaction pool content from the L2 execution engine.
     async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
         let base_fee_u64 = u64::try_from(self.calculate_next_block_base_fee().await?)
-            .map_err(|_| anyhow!("base fee exceeds u64"))?;
+            .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
         let pool_content = self
             .rpc_provider
@@ -155,7 +157,7 @@ impl Proposer {
         let transactions = pool_content
             .into_iter()
             .flat_map(|tx_list| tx_list.tx_list.into_iter())
-            .map(|tx| serde_json::from_value::<Transaction>(tx).map_err(anyhow::Error::from))
+            .map(|tx| from_value::<Transaction>(tx).map_err(ProposerError::from))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(transactions)
@@ -168,19 +170,18 @@ impl Proposer {
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await?
-            .ok_or(anyhow!("latest block not found"))?;
+            .ok_or(ProposerError::LatestBlockNotFound)?;
 
         if parent.number() <= 2 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
-                .ok_or_else(|| anyhow!("parent block {} not found", parent.number() - 1))?
+                .ok_or_else(|| ProposerError::ParentBlockNotFound(parent.number() - 1))?
                 .header
                 .timestamp;
 
@@ -214,7 +215,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn propose_shasta_batches() -> Result<()> {
+    async fn propose_shasta_batches() -> anyhow::Result<()> {
         init_tracing();
 
         let cfg = ProposerConfigs {
@@ -246,7 +247,7 @@ mod tests {
         Ok(())
     }
 
-    async fn evm_mine(client: ClientWithWallet) -> Result<()> {
+    async fn evm_mine(client: ClientWithWallet) -> anyhow::Result<()> {
         client
             .l1_provider
             .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
@@ -254,7 +255,7 @@ mod tests {
         Ok(())
     }
 
-    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> Result<B256> {
+    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> anyhow::Result<B256> {
         let hash = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
         Ok(hash)
     }

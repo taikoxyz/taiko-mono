@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 alloy = { workspace = true }
 alloy-contract = { workspace = true }
+alloy-json-rpc = { workspace = true, default-features = false }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
@@ -17,6 +18,7 @@ bindings = { path = "../bindings" }
 dashmap = { workspace = true }
 event-scanner = { workspace = true }
 rpc = { path = "../rpc" }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }

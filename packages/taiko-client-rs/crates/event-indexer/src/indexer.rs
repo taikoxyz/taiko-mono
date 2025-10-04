@@ -3,7 +3,6 @@ use std::{sync::Arc, time::SystemTime};
 use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
-use anyhow::Result;
 use bindings::{
     codec_optimized::{
         CodecOptimized::{self, CodecOptimizedInstance},
@@ -27,7 +26,10 @@ use tokio::{sync::Notify, task::JoinHandle};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::interface::{ShastaProposeInput, ShastaProposeInputReader};
+use crate::{
+    error::Result,
+    interface::{ShastaProposeInput, ShastaProposeInputReader},
+};
 
 /// The payload body of a Shasta protocol Proposed event.
 #[derive(Debug, Clone)]

@@ -1,32 +1,3 @@
-//! Prometheus metrics collection for Taiko proposer operations.
-//!
-//! Provides metric identifiers for monitoring proposer performance,
-//! transaction pool status, and proposal success rates.
-
-/// Metrics container with constants for Prometheus metric collection.
-///
-/// Contains identifiers for gauges, counters, and histograms used to monitor
-/// proposer operations. Metrics track:
-///
-/// - Transaction pool size from L2 execution engine
-/// - Proposal submission and success/failure rates
-/// - Gas usage for successful proposals
-///
-/// # Usage
-///
-/// ```rust,ignore
-/// use metrics::{counter, gauge, histogram};
-/// use proposer::metrics::ProposerMetrics;
-///
-/// // Track transaction pool size
-/// gauge!(ProposerMetrics::TX_POOL_SIZE).set(pool_size as f64);
-///
-/// // Count successful proposals
-/// counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
-///
-/// // Record gas usage
-/// histogram!(ProposerMetrics::GAS_USED).record(gas_used as f64);
-/// ```
 #[derive(Debug, Clone)]
 pub struct ProposerMetrics;
 

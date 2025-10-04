@@ -54,6 +54,7 @@ hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 metrics = "0.24"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = { version = "2.0.12", default-features = false }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tower = { version = "0.4", features = ["util"] }

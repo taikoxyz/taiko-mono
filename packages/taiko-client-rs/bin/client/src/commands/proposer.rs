@@ -64,6 +64,6 @@ impl ProposerSubCommand {
             gas_limit: self.proposer_flags.gas_limit,
         };
 
-        Proposer::new(cfg).await?.start().await
+        Proposer::new(cfg).await?.start().await.map_err(Into::into)
     }
 }
