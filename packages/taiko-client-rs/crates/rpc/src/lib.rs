@@ -14,6 +14,8 @@ use anyhow::Result;
 pub mod auth;
 pub mod client;
 
+pub use auth::TxPoolContentParams;
+
 /// Type alias for a provider with recommended fillers and a wallet.
 pub type JoinedRecommendedFillersWithWallet =
     JoinFill<JoinedRecommendedFillers, WalletFiller<EthereumWallet>>;

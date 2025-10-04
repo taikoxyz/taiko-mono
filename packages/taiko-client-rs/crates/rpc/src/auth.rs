@@ -16,29 +16,34 @@ pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
 /// Re-export of Taiko's L1 origin payload type.
 pub type L1Origin = RpcL1Origin;
 
+/// Parameters for fetching pre-built transaction lists with minimum tip.
+pub struct TxPoolContentParams {
+    pub beneficiary: Address,
+    pub base_fee: Option<u64>,
+    pub block_max_gas_limit: u64,
+    pub max_bytes_per_tx_list: u64,
+    pub locals: Vec<String>,
+    pub max_transactions_lists: u64,
+    pub min_tip: u64,
+}
+
 impl<P: Provider + Clone> Client<P> {
     /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
     pub async fn tx_pool_content_with_min_tip(
         &self,
-        beneficiary: Address,
-        base_fee: Option<u64>,
-        block_max_gas_limit: u64,
-        max_bytes_per_tx_list: u64,
-        locals: Vec<String>,
-        max_transactions_lists: u64,
-        min_tip: u64,
+        params: TxPoolContentParams,
     ) -> Result<Vec<PreBuiltTxList>> {
         self.l2_auth_provider
             .raw_request(
                 Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
                 (
-                    beneficiary,
-                    base_fee,
-                    block_max_gas_limit,
-                    max_bytes_per_tx_list,
-                    locals,
-                    max_transactions_lists,
-                    min_tip,
+                    params.beneficiary,
+                    params.base_fee,
+                    params.block_max_gas_limit,
+                    params.max_bytes_per_tx_list,
+                    params.locals,
+                    params.max_transactions_lists,
+                    params.min_tip,
                 ),
             )
             .await

@@ -117,15 +117,15 @@ impl Proposer {
 
         let pool_content = self
             .rpc_provider
-            .tx_pool_content_with_min_tip(
-                self.cfg.l2_suggested_fee_recipient,
-                Some(base_fee_u64),
-                MIN_BLOCK_GAS_LIMIT,
-                PROPOSAL_MAX_BLOB_BYTES as u64,
-                vec![],
-                1,
-                0,
-            )
+            .tx_pool_content_with_min_tip(rpc::TxPoolContentParams {
+                beneficiary: self.cfg.l2_suggested_fee_recipient,
+                base_fee: Some(base_fee_u64),
+                block_max_gas_limit: MIN_BLOCK_GAS_LIMIT,
+                max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
+                locals: vec![],
+                max_transactions_lists: 1,
+                min_tip: 0,
+            })
             .await?;
 
         info!("Fetched {} tx lists from L2 execution engine", pool_content.len());
