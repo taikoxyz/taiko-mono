@@ -7,12 +7,16 @@ use alloy::{
 use alloy_network::TransactionBuilder;
 use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
+use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use tokio::time::interval;
 use tracing::{error, info, instrument};
 
-use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransactionBuilder};
+use crate::{
+    config::ProposerConfigs, metrics::ProposerMetrics,
+    transaction_builder::ShastaProposalTransactionBuilder,
+};
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
@@ -83,6 +87,8 @@ impl Proposer {
         // Fetch mempool content from L2 execution engine.
         let pool_content = self.fetch_pool_content().await?;
 
+        // Record number of transactions in the pool
+        gauge!(ProposerMetrics::TX_POOL_SIZE).set(pool_content.len() as f64);
         info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
         let mut transaction_request =
@@ -100,12 +106,19 @@ impl Proposer {
             self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
 
         info!("Propose transaction sent: {}", pending_tx.tx_hash());
+        counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+
         let receipt = pending_tx.get_receipt().await?;
 
         if receipt.status() {
             info!("Propose transaction mined: {}", receipt.transaction_hash);
+            counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+
+            // Record gas used
+            histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
         } else {
             error!("Propose transaction failed: {}", receipt.transaction_hash);
+            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
         }
 
         Ok(())
@@ -153,9 +166,8 @@ impl Proposer {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?

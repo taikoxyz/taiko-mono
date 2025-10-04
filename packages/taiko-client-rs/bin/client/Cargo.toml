@@ -14,6 +14,7 @@ alloy = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
 anyhow = { workspace = true }
 clap = { workspace = true }
+metrics = { workspace = true }
 proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 tokio = { workspace = true }

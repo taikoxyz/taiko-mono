@@ -48,6 +48,7 @@ clap = { version = "4", features = ["derive", "env"] }
 dashmap = "6.1.0"
 event-scanner = "=0.2.0-alpha"
 flate2 = { version = "1.0", default-features = false, features = ["zlib"] }
+metrics = "0.24"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tracing = "0.1"
