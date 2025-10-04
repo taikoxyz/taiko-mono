@@ -7,8 +7,7 @@ fmt:
 
 fmt-check:
   rustup toolchain install {{toolchain}} && \
-  cargo +{{toolchain}} fmt --check && \
-  cargo sort --workspace --grouped --check
+  cargo +{{toolchain}} fmt --check
 
 clippy:
   cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings

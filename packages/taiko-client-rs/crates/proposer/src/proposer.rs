@@ -10,7 +10,7 @@ use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransactionBuilder};
 
@@ -23,6 +23,7 @@ pub struct Proposer {
 
 impl Proposer {
     /// Creates a new proposer instance.
+    #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
         info!("Initializing proposer with config: {:?}", cfg);
 
@@ -152,8 +153,9 @@ impl Proposer {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp -
-            self.rpc_provider
+        let parent_block_time = parent.header.timestamp
+            - self
+                .rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?

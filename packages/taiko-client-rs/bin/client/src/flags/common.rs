@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use alloy_primitives::Address;
 use clap::Parser;
+use tracing::Level;
 use url::Url;
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
@@ -28,7 +29,7 @@ pub struct CommonArgs {
     )]
     pub l2_auth_endpoint: Url,
     #[clap(
-        long = "jwtSecret",
+        long = "jwt.secret",
         env = "JWT_SECRET",
         required = true,
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
@@ -38,7 +39,28 @@ pub struct CommonArgs {
         long = "shastaInbox",
         env = "SHASTA_INBOX",
         required = true,
-        help = "Taiko Inbox contract address"
+        help = "Taiko Shasta protocol Inbox contract address"
     )]
     pub shasta_inbox_address: Address,
+    #[clap(
+        short = 'v',
+        long = "verbosity",
+        env = "VERBOSITY",
+        default_value = "2",
+        help = "Set the minimum log level. 0 = error, 1 = warn, 2 = info, 3 = debug, 4 = trace"
+    )]
+    pub verbosity: u8,
+}
+
+impl CommonArgs {
+    /// Convert verbosity level to tracing::Level
+    pub fn log_level(&self) -> Level {
+        match self.verbosity {
+            0 => Level::ERROR,
+            1 => Level::WARN,
+            2 => Level::INFO,
+            3 => Level::DEBUG,
+            _ => Level::TRACE,
+        }
+    }
 }

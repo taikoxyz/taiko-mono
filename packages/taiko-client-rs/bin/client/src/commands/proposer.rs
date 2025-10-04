@@ -25,9 +25,12 @@ pub struct ProposerSubCommand {
 
 impl ProposerSubCommand {
     /// Initializes the logging system based on global arguments.
-    pub fn init_logs(&self, _args: &CommonArgs) -> anyhow::Result<()> {
-        let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
+    pub fn init_logs(&self, args: &CommonArgs) -> anyhow::Result<()> {
+        let log_level = args.log_level();
+        let env_filter =
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                tracing_subscriber::EnvFilter::new(log_level.as_str().to_lowercase())
+            });
         let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
         Ok(())
     }
