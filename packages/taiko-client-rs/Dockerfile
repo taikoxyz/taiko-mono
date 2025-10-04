@@ -19,4 +19,4 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY --from=build /app/target/release/client ./
+COPY --from=build /app/target/release/taiko-client ./
