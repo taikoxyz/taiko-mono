@@ -298,6 +298,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to check message block number: %w", err)
 	}
 
+	s.tryPutEnvelopeIntoCache(msg, from)
+
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
 	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
 	if err != nil {
@@ -346,7 +348,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	metrics.DriverPreconfOnL2UnsafeResponseCounter.Inc()
 
 	// Ignore the message if it is in the cache already.
-	if s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+	if s.envelopesCache.hasExact(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
 			"Ignore already cached preconfirmation block response",
 			"peer", from,
@@ -382,6 +384,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		)
+		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -407,6 +410,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	if _, err := s.TryImportingPayload(ctx, headL1Origin, msg, from); err != nil {
 		return fmt.Errorf("failed to try importing payload: %w", err)
 	}
+
+	// Ensure the response envelope is cached for future orphan detection.
+	s.tryPutEnvelopeIntoCache(msg, from)
 
 	return nil
 }
@@ -546,6 +552,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		)
 	}
 
+	s.tryPutEnvelopeIntoCache(envelope, from)
+
 	s.responseSeenCache.Add(hash, time.Now().UTC())
 
 	return nil
@@ -641,6 +649,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 			"hash", hash.Hex(),
 		)
 	}
+
+	s.tryPutEnvelopeIntoCache(envelope, from)
 
 	return nil
 }
@@ -1058,14 +1068,13 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
-	parentInFork, err := s.rpc.L2.BlockByHash(ctx, msg.ExecutionPayload.ParentHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
-	}
+	cachedParent := s.envelopesCache.get(
+		uint64(msg.ExecutionPayload.BlockNumber-1),
+		msg.ExecutionPayload.ParentHash,
+	)
 
-	isOrphan := parentInFork != nil &&
-		parentInCanonical != nil &&
-		parentInFork.Hash() != parentInCanonical.Hash()
+	isOrphan := parentInCanonical != nil &&
+		parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash
 
 	if isOrphan {
 		log.Info("Block is building on an orphaned block",
@@ -1074,59 +1083,69 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"parentInCanonicalHash", parentInCanonical.Hash().Hex(),
-			"parentInForkHash", parentInFork.Hash().Hex(),
 		)
 
-		// we are building on an orphaned block. the parentInFork
-		// is not the same as the parentInCanonical. we are re-orging out the parent block here.
-		// this means we need to update the L1 Origin of the parent block, as the most recent one received
-		// will be cached, and it will fail a "isPreconfirmed" check later on.
-
-		rawTxsBytes, err := rlp.EncodeToBytes(parentInFork.Transactions())
-		if err != nil {
-			return false, fmt.Errorf("failed to encode transactions to bytes: %w", err)
-		}
+		// Update L1 Origin for the parent being reorged out using cached data.
 
 		var (
-			txListHash = crypto.Keccak256Hash(rawTxsBytes)
-			args       = &miner.BuildPayloadArgs{
-				Parent:       parentInFork.ParentHash(),
-				Timestamp:    parentInFork.NumberU64(),
-				FeeRecipient: parentInFork.Coinbase(),
-				Random:       parentInFork.MixDigest(),
+			payloadID engine.PayloadID
+			parentID  *big.Int
+		)
+
+		if cachedParent != nil {
+			if len(cachedParent.Payload.Transactions) == 0 {
+				return false, fmt.Errorf("cached parent envelope has empty transactions: %s", msg.ExecutionPayload.ParentHash)
+			}
+			decompressedTxs, err := utils.Decompress(cachedParent.Payload.Transactions[0])
+			if err != nil {
+				return false, fmt.Errorf("failed to decompress cached parent tx list: %w", err)
+			}
+			txListHash := crypto.Keccak256Hash(decompressedTxs)
+			args := &miner.BuildPayloadArgs{
+				Parent:       cachedParent.Payload.ParentHash,
+				Timestamp:    uint64(cachedParent.Payload.Timestamp),
+				FeeRecipient: cachedParent.Payload.FeeRecipient,
+				Random:       common.Hash(cachedParent.Payload.PrevRandao),
 				Withdrawals:  make([]*types.Withdrawal, 0),
 				Version:      engine.PayloadV2,
 				TxListHash:   &txListHash,
 			}
-		)
+			payloadID = args.Id()
+			parentID = new(big.Int).SetUint64(uint64(cachedParent.Payload.BlockNumber))
 
-		payloadID := args.Id()
-		var sig [65]byte
-		if msg.Signature != nil {
-			sig = *msg.Signature
-		}
-		// update L1 Origin if the parent block is in the fork chain, we are building
-		// on an orphaned block.
-		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
-			BuildPayloadArgsID: payloadID,
-			BlockID:            parentInFork.Number(),
-			L2BlockHash:        msg.ExecutionPayload.ParentHash,
-			IsForcedInclusion:  msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-			Signature:          sig,
-		})
-		if err != nil {
-			return false, fmt.Errorf("failed to update L1 origin: %w", err)
-		}
+			var sig [65]byte
+			if msg.Signature != nil {
+				sig = *msg.Signature
+			}
 
-		log.Info("Updated L1 Origin for the parent block in the fork chain",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"signature", common.Bytes2Hex(sig[:]),
-		)
+			// Update L1 Origin for the parent block via cached data.
+			if _, err := s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
+				BuildPayloadArgsID: payloadID,
+				BlockID:            parentID,
+				L2BlockHash:        msg.ExecutionPayload.ParentHash,
+				IsForcedInclusion:  msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+				Signature:          sig,
+			}); err != nil {
+				return false, fmt.Errorf("failed to update L1 origin: %w", err)
+			}
+
+			log.Info("Updated L1 Origin for orphan parent via cache",
+				"peer", from,
+				"parentID", parentID,
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+				"signature", common.Bytes2Hex(sig[:]),
+			)
+		} else {
+			log.Info("Orphan parent detected but not found in cache; skipping L1Origin update",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			)
+		}
 	}
 
-	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
+	// If the parent is not in the canonical chain at N-1, try to import ancients from cache
+	if parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash {
 		log.Info(
 			"Parent block not in L2 canonical / fork chain",
 			"peer", from,
@@ -1150,9 +1169,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				"reason", err,
 			)
 
-			if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				s.tryPutEnvelopeIntoCache(msg, from)
-			}
+			s.tryPutEnvelopeIntoCache(msg, from)
+
 			return true, nil
 		}
 	}
@@ -1253,21 +1271,25 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 
 // tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.
 func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
-	if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-		log.Info(
-			"Envelope is cached",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-		)
-
-		s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
-			Payload:           msg.ExecutionPayload,
-			Signature:         msg.Signature,
-			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-		})
+	id := uint64(msg.ExecutionPayload.BlockNumber)
+	h := msg.ExecutionPayload.BlockHash
+	if s.envelopesCache.hasExact(id, h) {
+		return
 	}
+
+	log.Info(
+		"Envelope is cached",
+		"peer", from,
+		"blockID", id,
+		"blockHash", h.Hex(),
+		"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+	)
+
+	s.envelopesCache.put(id, &preconf.Envelope{
+		Payload:           msg.ExecutionPayload,
+		Signature:         msg.Signature,
+		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+	})
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,
