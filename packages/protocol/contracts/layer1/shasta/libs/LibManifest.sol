@@ -70,9 +70,30 @@ library LibManifest {
         SignedTransaction[] transactions;
     }
 
-    /// @notice Represents a proposal manifest
+    /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
+    /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
+    /// The proverAuthBytes is proposal-level (one designated prover per proposal), while the
+    /// sources array contains per-source block data.
     struct ProposalManifest {
+        /// @notice Prover authentication data (proposal-level, shared across all sources).
         bytes proverAuthBytes;
+        /// @notice Array of derivation source manifests (one per DerivationSource).
+        DerivationSourceManifest[] sources;
+    }
+
+    /// @notice Represents a derivation source manifest containing blocks for one source
+    /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
+    /// If a DerivationSourceManifest is invalid, it is replaced with a default manifest
+    /// (single block with only an anchor transaction), but the entire proposal is NOT invalidated.
+    /// This design prevents
+    /// censorship of forced inclusions: a malicious proposer cannot invalidate their entire
+    /// proposal (including valid forced inclusions) by including bad data in one source.
+    ///
+    /// IMPORTANT: The _blockIndex parameter in updateState() must be globally monotonic across
+    /// all DerivationSourceManifests within a proposal (not reset per source). This ensures
+    /// proposal-level operations (prover designation, bond processing) execute exactly once.
+    struct DerivationSourceManifest {
+        /// @notice The blocks for this derivation source.
         BlockManifest[] blocks;
     }
 }
