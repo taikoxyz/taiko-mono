@@ -5,16 +5,16 @@ edition = "2024"
 publish = false
 
 [dependencies]
-bindings = { path = "../bindings" }
-rpc = { path = "../rpc" }
-event-indexer = { path = "../event-indexer" }
-anyhow = { workspace = true }
+alethia-reth = { workspace = true }
 alloy = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-network = { workspace = true }
-alethia-reth = { workspace = true }
-serde_json = "1"
-tracing = { workspace = true }
-tokio = { workspace = true }
+anyhow = { workspace = true }
+bindings = { path = "../bindings" }
+event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+serde_json = "1"
+tokio = { workspace = true }
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
