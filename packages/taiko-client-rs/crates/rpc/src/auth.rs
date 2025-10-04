@@ -106,10 +106,7 @@ impl<P: Provider + Clone> Client<P> {
     /// Update the head L1 origin pointer in the execution engine.
     pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed(TaikoAuthMethod::SetHeadL1Origin.as_str()),
-                (block_id,),
-            )
+            .raw_request(Cow::Borrowed(TaikoAuthMethod::SetHeadL1Origin.as_str()), (block_id,))
             .await
             .map_err(Into::into)
     }
