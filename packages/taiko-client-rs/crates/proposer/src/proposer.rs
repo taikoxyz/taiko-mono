@@ -3,15 +3,14 @@ use alethia_reth::consensus::eip4396::{
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
-    signers::local::PrivateKeySigner,
 };
-use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder};
+use alloy_network::TransactionBuilder;
 use anyhow::{Result, anyhow};
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use tokio::time::interval;
-use tracing::{info, warn};
+use tracing::{error, info};
 
 use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransactionBuilder};
 
@@ -19,7 +18,6 @@ use crate::{config::ProposerConfigs, transaction_builder::ShastaProposalTransact
 pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
-    wallet: EthereumWallet,
     cfg: ProposerConfigs,
 }
 
@@ -51,13 +49,10 @@ impl Proposer {
         indexer.wait_historical_indexing_finished().await;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
-        let signer = PrivateKeySigner::from_bytes(&cfg.l1_proposer_private_key)?;
-        let wallet = EthereumWallet::new(signer);
 
         Ok(Self {
             rpc_provider: rpc_provider.clone(),
             cfg,
-            wallet,
             transaction_builder: ShastaProposalTransactionBuilder::new(
                 rpc_provider,
                 indexer,
@@ -68,13 +63,13 @@ impl Proposer {
 
     /// Start the proposer main loop.
     pub async fn start(&self) -> Result<()> {
-        tracing::info!("Starting proposer");
+        info!("Starting proposer");
         let mut interval = interval(self.cfg.propose_interval);
         let mut epoch = 0;
 
         loop {
             interval.tick().await;
-            tracing::info!("Proposer epoch {}", epoch);
+            info!("Proposer epoch {}", epoch);
 
             self.fetch_and_propose().await?;
 
@@ -87,31 +82,27 @@ impl Proposer {
         // Fetch mempool content from L2 execution engine.
         let pool_content = self.fetch_pool_content().await?;
 
-        tracing::info!("Fetched tx pool content, length: {:#?}", pool_content.len());
+        info!("Fetched tx pool content, length: {:#?}", pool_content.len());
 
         let transaction_request = self
             .transaction_builder
             .build(pool_content)
             .await?
             .with_to(self.cfg.inbox_address)
-            .with_from(NetworkWallet::<Ethereum>::default_signer_address(&self.wallet));
+            .with_gas_limit(1_000_000); // TODO: add a flag
 
-        let pending_tx = self
-            .rpc_provider
-            .l1_provider
-            .send_transaction(
-                NetworkWallet::<Ethereum>::sign_request(&self.wallet, transaction_request)
-                    .await?
-                    .into(),
-            )
-            .await?;
+        // Send transaction using provider with wallet filler.
+        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the transaction.
+        let pending_tx =
+            self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
 
+        info!("Propose transaction sent: {}", pending_tx.tx_hash());
         let receipt = pending_tx.get_receipt().await?;
 
         if receipt.status() {
             info!("Propose transaction mined: {}", receipt.transaction_hash);
         } else {
-            warn!("Propose transaction not mined yet: {}", receipt.transaction_hash);
+            error!("Propose transaction failed: {}", receipt.transaction_hash);
         }
 
         Ok(())
@@ -174,23 +165,21 @@ impl Proposer {
             parent_block_time,
         )))
     }
-
-    /// Return a reference to the wallet used by the proposer.
-    pub fn wallet(&self) -> &EthereumWallet {
-        &self.wallet
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use std::{env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
 
     use super::*;
     use alloy::{
         primitives::{Address, B256, aliases::U48},
+        rpc::client::NoParams,
         transports::http::reqwest::Url,
     };
     use rpc::SubscriptionSource;
+    use tokio::time::{Sleep, sleep};
 
     fn init_tracing() {
         static INIT: OnceLock<()> = OnceLock::new();
@@ -227,12 +216,22 @@ mod tests {
         let proposer = Proposer::new(cfg.clone()).await.unwrap();
 
         for _ in 0..3 {
+            evm_mine(proposer.rpc_provider.clone()).await;
             proposer.fetch_and_propose().await.unwrap();
+            sleep(Duration::from_secs(3)).await;
         }
 
         assert_ne!(
             B256::ZERO,
             proposer.rpc_provider.shasta.inbox.getProposalHash(U48::from(2)).call().await.unwrap()
         );
+    }
+
+    async fn evm_mine(client: ClientWithWallet) {
+        client
+            .l1_provider
+            .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
+            .await
+            .unwrap();
     }
 }

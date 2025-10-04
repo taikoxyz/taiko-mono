@@ -18,6 +18,7 @@ use protocol::shasta::{
     manifest::{BlockManifest, ProposalManifest},
 };
 use rpc::client::ClientWithWallet;
+use tracing::info;
 
 /// A transaction builder for Shasta `propose` transactions.
 pub struct ShastaProposalTransactionBuilder {
@@ -45,6 +46,14 @@ impl ShastaProposalTransactionBuilder {
             .event_indexer
             .read_shasta_propose_input()
             .ok_or(anyhow!("Failed to read propose input from event indexer"))?;
+
+        info!(
+            "Cached propose input params: core_state={:?}, proposals={:?}, transition_records={:?}, checkpoint={:?}",
+            cached_input_params.core_state,
+            cached_input_params.proposals,
+            cached_input_params.transition_records.len(),
+            cached_input_params.checkpoint,
+        );
 
         // Build the block manifests and proposal manifest.
         let manifest = ProposalManifest {
