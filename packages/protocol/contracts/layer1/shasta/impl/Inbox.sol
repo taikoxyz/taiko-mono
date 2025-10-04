@@ -936,6 +936,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             || block.timestamp >= _coreState.lastCheckpointTimestamp + _minCheckpointDelay;
 
         if (syncCheckpoint) {
+            require(_checkpoint.blockHash != 0, InvalidCheckpoint());
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
@@ -1079,6 +1080,7 @@ error ForkNotActive();
 error InconsistentParams();
 error IncorrectProposalCount();
 error InsufficientBond();
+error InvalidCheckpoint();
 error InvalidLastProposalProof();
 error InvalidSpan();
 error InvalidState();
