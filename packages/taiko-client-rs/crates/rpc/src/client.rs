@@ -9,7 +9,6 @@ use alloy_provider::{
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
-use anyhow::Result;
 use bindings::{
     codec_optimized::CodecOptimized::CodecOptimizedInstance, i_inbox::IInbox::IInboxInstance,
 };
@@ -18,7 +17,10 @@ use hyper::body::Bytes;
 use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
 use tower::ServiceBuilder;
 
-use crate::{JoinedRecommendedFillersWithWallet, SubscriptionSource};
+use crate::{
+    JoinedRecommendedFillersWithWallet, SubscriptionSource,
+    error::{Result, RpcClientError},
+};
 
 /// Type alias for a Client with a provider that includes a wallet.
 pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
@@ -71,8 +73,9 @@ impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_provider_url);
-        let jwt_secret = read_jwt_secret(config.jwt_secret.clone())
-            .ok_or_else(|| anyhow::anyhow!("Failed to read JWT secret"))?;
+        let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
+            RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
+        })?;
         let l2_auth_provider =
             build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 

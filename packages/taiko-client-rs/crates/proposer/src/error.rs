@@ -5,6 +5,8 @@ use alloy::{
     transports::{RpcError, TransportErrorKind},
 };
 use event_indexer::error::IndexerError;
+use protocol::shasta::ProtocolError;
+use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -74,5 +76,19 @@ impl From<RpcError<TransportErrorKind>> for ProposerError {
 impl From<PendingTransactionError> for ProposerError {
     fn from(err: PendingTransactionError) -> Self {
         ProposerError::PendingTransaction(err.to_string())
+    }
+}
+
+// Manual From implementation for RpcClientError
+impl From<RpcClientError> for ProposerError {
+    fn from(err: RpcClientError) -> Self {
+        ProposerError::Rpc(err.to_string())
+    }
+}
+
+// Manual From implementation for ProtocolError
+impl From<ProtocolError> for ProposerError {
+    fn from(err: ProtocolError) -> Self {
+        ProposerError::Other(err.into())
     }
 }

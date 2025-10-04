@@ -11,12 +11,13 @@ use alloy_provider::{
     fillers::{FillProvider, JoinFill, WalletFiller},
     utils::JoinedRecommendedFillers,
 };
-use anyhow::Result;
 
 pub mod auth;
 pub mod client;
+pub mod error;
 
 pub use auth::TxPoolContentParams;
+pub use error::{Result, RpcClientError};
 
 /// Type alias for a provider with recommended fillers and a wallet.
 pub type JoinedRecommendedFillersWithWallet =
@@ -47,12 +48,14 @@ impl SubscriptionSource {
         &self,
     ) -> Result<FillProvider<JoinedRecommendedFillers, RootProvider>> {
         let provider = match self {
-            SubscriptionSource::Ipc(path) => {
-                ProviderBuilder::new().connect_ipc(IpcConnect::new(path.clone())).await?
-            }
-            SubscriptionSource::Ws(url) => {
-                ProviderBuilder::new().connect_ws(WsConnect::new(url.to_string())).await?
-            }
+            SubscriptionSource::Ipc(path) => ProviderBuilder::new()
+                .connect_ipc(IpcConnect::new(path.clone()))
+                .await
+                .map_err(|e| RpcClientError::Connection(e.to_string()))?,
+            SubscriptionSource::Ws(url) => ProviderBuilder::new()
+                .connect_ws(WsConnect::new(url.to_string()))
+                .await
+                .map_err(|e| RpcClientError::Connection(e.to_string()))?,
         };
 
         Ok(provider)
@@ -64,24 +67,70 @@ impl SubscriptionSource {
         &self,
         sender_private_key: B256,
     ) -> Result<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
-        let signer = PrivateKeySigner::from_bytes(&sender_private_key)?;
+        let signer = PrivateKeySigner::from_bytes(&sender_private_key)
+            .map_err(|e| RpcClientError::Other(e.into()))?;
         let wallet = EthereumWallet::new(signer);
 
         let provider = match self {
-            SubscriptionSource::Ipc(path) => {
-                ProviderBuilder::new()
-                    .wallet(wallet)
-                    .connect_ipc(IpcConnect::new(path.clone()))
-                    .await?
-            }
-            SubscriptionSource::Ws(url) => {
-                ProviderBuilder::new()
-                    .wallet(wallet)
-                    .connect_ws(WsConnect::new(url.to_string()))
-                    .await?
-            }
+            SubscriptionSource::Ipc(path) => ProviderBuilder::new()
+                .wallet(wallet)
+                .connect_ipc(IpcConnect::new(path.clone()))
+                .await
+                .map_err(|e| RpcClientError::Connection(e.to_string()))?,
+            SubscriptionSource::Ws(url) => ProviderBuilder::new()
+                .wallet(wallet)
+                .connect_ws(WsConnect::new(url.to_string()))
+                .await
+                .map_err(|e| RpcClientError::Connection(e.to_string()))?,
         };
 
         Ok(provider)
+    }
+}
+
+/// Try to convert a string to a `SubscriptionSource`.
+///
+/// Returns an error if the WebSocket URL is invalid.
+impl TryFrom<&str> for SubscriptionSource {
+    type Error = String;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        if s.starts_with("ws://") || s.starts_with("wss://") {
+            s.parse::<Url>()
+                .map(SubscriptionSource::Ws)
+                .map_err(|e| format!("invalid websocket url: {}", e))
+        } else {
+            Ok(SubscriptionSource::Ipc(PathBuf::from(s)))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_subscription_source_try_from_ipc() {
+        let source = SubscriptionSource::try_from("/path/to/ipc").unwrap();
+        assert!(source.is_ipc());
+        assert!(!source.is_ws());
+    }
+
+    #[test]
+    fn test_subscription_source_try_from_ws() {
+        let source = SubscriptionSource::try_from("ws://localhost:8546").unwrap();
+        assert!(source.is_ws());
+        assert!(!source.is_ipc());
+
+        let source = SubscriptionSource::try_from("wss://localhost:8546").unwrap();
+        assert!(source.is_ws());
+        assert!(!source.is_ipc());
+    }
+
+    #[test]
+    fn test_subscription_source_try_from_invalid_ws() {
+        let result = SubscriptionSource::try_from("ws://[invalid");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid websocket url"));
     }
 }

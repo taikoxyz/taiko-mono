@@ -7,10 +7,10 @@ use alethia_reth::{
 };
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
-use anyhow::Result;
 use serde_json::Value;
 
 use super::client::Client;
+use crate::error::Result;
 
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;

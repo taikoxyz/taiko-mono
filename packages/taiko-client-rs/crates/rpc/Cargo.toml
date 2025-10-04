@@ -32,6 +32,7 @@ bindings = { path = "../bindings" }
 
 # types
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 
 # serialization
 serde = { workspace = true }

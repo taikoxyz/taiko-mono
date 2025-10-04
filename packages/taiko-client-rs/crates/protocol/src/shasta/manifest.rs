@@ -5,11 +5,10 @@ use std::io::Write;
 use alloy::primitives::{Address, Bytes, U256};
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{self, RlpDecodable, RlpEncodable};
-use anyhow::Result;
 use flate2::{Compression, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
-use crate::shasta::constants::SHASTA_PAYLOAD_VERSION;
+use crate::shasta::{constants::SHASTA_PAYLOAD_VERSION, error::Result};
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
