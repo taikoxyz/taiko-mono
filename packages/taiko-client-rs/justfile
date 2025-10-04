@@ -9,7 +9,7 @@ fmt-check:
   cargo +{{toolchain}} fmt --check
 
 clippy:
-  cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings
+  cargo clippy --fix --workspace --all-features --no-deps --exclude bindings -- -D warnings
 
 test:
   ./tests/entrypoint.sh
