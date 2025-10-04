@@ -932,16 +932,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         // Check if checkpoint sync should occur:
         // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
         // 2. Forced: minimum delay elapsed since last checkpoint
-        bool syncCheckpoint;
-
-        if (block.timestamp >= _coreState.lastCheckpointTimestamp + _minCheckpointDelay) {
-            syncCheckpoint = true;
-            require(_checkpoint.blockHash != 0, InvalidCheckpoint());
-        } else if (_checkpoint.blockHash != 0) {
-            syncCheckpoint = true;
-        }
-
-        if (syncCheckpoint) {
+        if (_checkpoint.blockHash != 0) {
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
@@ -949,6 +940,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
                 _checkpointStorage, _checkpoint, _maxCheckpointHistory
             );
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+        } else {
+            require(
+                block.timestamp < _coreState.lastCheckpointTimestamp + _minCheckpointDelay,
+                CheckpointNotProvided()
+            );
         }
     }
 
@@ -1079,13 +1075,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
 error CannotProposeInCurrentBlock();
 error CheckpointMismatch();
+error CheckpointNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
 error ForkNotActive();
 error InconsistentParams();
 error IncorrectProposalCount();
 error InsufficientBond();
-error InvalidCheckpoint();
 error InvalidLastProposalProof();
 error InvalidSpan();
 error InvalidState();
