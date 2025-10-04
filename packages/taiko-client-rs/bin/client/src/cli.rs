@@ -10,7 +10,6 @@ use crate::commands::proposer::ProposerSubCommand;
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
     /// Run the proposer.
-    #[command(alias = "proposer")]
     Proposer(ProposerSubCommand),
 }
 

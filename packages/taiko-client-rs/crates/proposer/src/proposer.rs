@@ -30,7 +30,7 @@ impl Proposer {
         let rpc_provider = Client::new_with_wallet(
             ClientConfig {
                 l1_provider_source: cfg.l1_provider_source.clone(),
-                l2_provider_source: cfg.l2_provider_source.clone(),
+                l2_provider_url: cfg.l2_provider_url.clone(),
                 l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
                 jwt_secret: cfg.jwt_secret.clone(),
                 inbox_address: cfg.inbox_address,
@@ -198,9 +198,7 @@ mod tests {
             l1_provider_source: SubscriptionSource::Ws(
                 Url::from_str(&env::var("L1_WS").unwrap()).unwrap(),
             ),
-            l2_provider_source: SubscriptionSource::Ws(
-                Url::from_str(&env::var("L2_WS").unwrap()).unwrap(),
-            ),
+            l2_provider_url: Url::from_str(&env::var("L2_HTTP").unwrap()).unwrap(),
             l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH").unwrap()).unwrap(),
             jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET").unwrap()).unwrap(),
             inbox_address: Address::from_str(&env::var("SHASTA_INBOX").unwrap()).unwrap(),

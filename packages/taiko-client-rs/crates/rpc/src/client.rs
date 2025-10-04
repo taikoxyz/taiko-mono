@@ -41,7 +41,7 @@ pub struct Client<P: Provider + Clone> {
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
     pub l1_provider_source: SubscriptionSource,
-    pub l2_provider_source: SubscriptionSource,
+    pub l2_provider_url: Url,
     pub l2_auth_provider_url: Url,
     pub jwt_secret: PathBuf,
     pub inbox_address: Address,
@@ -68,8 +68,7 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider = config.l2_provider_source.to_provider().await?.root().clone();
-
+        let l2_provider = ProviderBuilder::default().connect_http(config.l2_provider_url);
         let jwt_secret = read_jwt_secret(config.jwt_secret.clone())
             .ok_or_else(|| anyhow::anyhow!("Failed to read JWT secret"))?;
         let l2_auth_provider =

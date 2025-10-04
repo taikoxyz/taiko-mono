@@ -46,14 +46,12 @@ impl ProposerSubCommand {
     pub async fn run(&self) -> Result<()> {
         self.init_logs(self.common_flags())?;
 
-        let l1_provider =
+        let l1_provider_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
-        let l2_provider =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?);
 
         let cfg = ProposerConfigs {
-            l1_provider_source: l1_provider,
-            l2_provider_source: l2_provider,
+            l1_provider_source,
+            l2_provider_url: RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?,
             l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
             jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,

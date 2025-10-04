@@ -12,8 +12,8 @@ pub struct ProposerConfigs {
     /// L1 provider connection source (WebSocket or IPC) for monitoring and submitting
     /// transactions.
     pub l1_provider_source: SubscriptionSource,
-    /// L2 provider connection source (WebSocket or IPC) for fetching execution data.
-    pub l2_provider_source: SubscriptionSource,
+    /// L2 provider URL for fetching execution data.
+    pub l2_provider_url: Url,
     /// L2 authenticated provider URL for accessing the execution engine's privileged APIs.
     pub l2_auth_provider_url: Url,
     /// Path to the JWT secret file for authenticating with the L2 execution engine.
