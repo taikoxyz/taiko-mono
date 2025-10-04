@@ -191,43 +191,28 @@ impl ShastaEventIndexer {
                     debug!(?log.transaction_hash, "skipping log without topic0");
                     continue;
                 };
-
                 info!(?topic, block_number = ?log.block_number, "received inbox event log");
 
+                // Retry handling the event with exponential backoff on failure.
                 let retry_strategy =
-                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12)).take(5);
-
-                if *topic == Proposed::SIGNATURE_HASH {
-                    trace!(?log.transaction_hash, "received Proposed event log");
-                    Retry::spawn(retry_strategy, || {
-                        let log = log.clone();
-                        let indexer = self.clone();
-                        async move {
-                            if let Err(err) = indexer.handle_proposed(log).await {
-                                error!(?err, "failed to handle Proposed inbox event");
-                                metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
-                            }
-                            Ok::<_, crate::error::IndexerError>(())
+                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+                let _ = Retry::spawn(retry_strategy, || {
+                    let log = log.clone();
+                    let indexer = self.clone();
+                    async move {
+                        if *topic == Proposed::SIGNATURE_HASH {
+                            trace!(?log.transaction_hash, "received Proposed event log");
+                            indexer.handle_proposed(log).await
+                        } else if *topic == Proved::SIGNATURE_HASH {
+                            trace!(?log.transaction_hash, "received Proved event log");
+                            indexer.handle_proved(log).await
+                        } else {
+                            warn!(?topic, "skipping unexpected inbox event signature");
+                            Ok(())
                         }
-                    })
-                    .await?;
-                } else if *topic == Proved::SIGNATURE_HASH {
-                    trace!(?log.transaction_hash, "received Proved event log");
-                    Retry::spawn(retry_strategy, || {
-                        let log = log.clone();
-                        let indexer = self.clone();
-                        async move {
-                            if let Err(err) = indexer.handle_proved(log).await {
-                                error!(?err, "failed to handle Proved inbox event");
-                                metrics::counter!(IndexerMetrics::EVENTS_FAILED).increment(1);
-                            }
-                            Ok::<_, crate::error::IndexerError>(())
-                        }
-                    })
-                    .await?;
-                } else {
-                    warn!(?topic, "skipping unexpected inbox event signature");
-                }
+                    }
+                })
+                .await;
             }
         }
 

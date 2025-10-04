@@ -10,9 +10,6 @@ impl IndexerMetrics {
     /// Counter for total Proved events received.
     pub const PROVED_EVENTS: &'static str = "taiko_indexer_proved_events_total";
 
-    /// Counter for events that failed to process.
-    pub const EVENTS_FAILED: &'static str = "taiko_indexer_events_failed_total";
-
     /// Gauge for current number of cached proposals.
     pub const CACHED_PROPOSALS: &'static str = "taiko_indexer_cached_proposals";
 
@@ -32,11 +29,6 @@ impl IndexerMetrics {
         metrics::describe_counter!(
             Self::PROVED_EVENTS,
             "Total number of Proved events received and processed"
-        );
-
-        metrics::describe_counter!(
-            Self::EVENTS_FAILED,
-            "Total number of events that failed to process"
         );
 
         metrics::describe_gauge!(
@@ -59,7 +51,6 @@ impl IndexerMetrics {
     fn zero() {
         metrics::counter!(Self::PROPOSED_EVENTS).absolute(0);
         metrics::counter!(Self::PROVED_EVENTS).absolute(0);
-        metrics::counter!(Self::EVENTS_FAILED).absolute(0);
         metrics::gauge!(Self::CACHED_PROPOSALS).set(0.0);
         metrics::gauge!(Self::CACHED_PROOFS).set(0.0);
         metrics::gauge!(Self::LATEST_BLOCK).set(0.0);
