@@ -1,11 +1,11 @@
 [workspace]
 members = [
-  "crates/bindings",
-  "crates/event-indexer",
-  "crates/proposer",
-  "crates/rpc",
-  "crates/protocol",
-  "bin/client",
+    "bin/client",
+    "crates/bindings",
+    "crates/event-indexer",
+    "crates/proposer",
+    "crates/protocol",
+    "crates/rpc",
 ]
 resolver = "2"
 
@@ -18,37 +18,37 @@ license = "MIT"
 repository = "https://github.com/taikoxyz/taiko-mono"
 
 [workspace.dependencies]
+alethia-reth = { git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
 alloy = "1.0.36"
-alloy-primitives = { version = "1.0.36", default-features = false }
-alloy-provider = { version = "1.0.36", default-features = false }
-alloy-rpc-types = { version = "1.0.36", default-features = false }
-alloy-rpc-client = { version = "1.0.36", default-features = false }
-alloy-rpc-types-engine = { version = "1.0.36", default-features = false }
-alloy-rpc-types-eth = { version = "1.0.36", default-features = false }
-alloy-transport = { version = "1.0.36", default-features = false }
-alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
+alloy-consensus = { version = "1.0.36", default-features = false, features = [
+  "serde",
+] }
+alloy-contract = { version = "1.0.36", default-features = false }
 alloy-eips = { version = "1.0.36", default-features = false }
 alloy-json-rpc = { version = "1.0.36", default-features = false }
-alloy-contract = { version = "1.0.36", default-features = false }
+alloy-network = { version = "1.0.36", default-features = false }
+alloy-node-bindings = { version = "1.0.36" }
+alloy-primitives = { version = "1.0.36", default-features = false }
+alloy-provider = { version = "1.0.36", default-features = false }
+alloy-rlp = { version = "0.3.12", default-features = false }
+alloy-rpc-client = { version = "1.0.36", default-features = false }
+alloy-rpc-types = { version = "1.0.36", default-features = false }
+alloy-rpc-types-engine = { version = "1.0.36", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.36", default-features = false }
+alloy-signer-local = { version = "1.0.36", default-features = false }
 alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
   "json",
 ] }
 alloy-sol-types = { version = "1.0.36", default-features = false }
-alloy-signer-local = { version = "1.0.36", default-features = false }
-alloy-network = { version = "1.0.36", default-features = false }
-alloy-consensus = { version = "1.0.36", default-features = false, features = [
-  "serde",
-] }
-alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-node-bindings = { version = "1.0.36" }
-alethia-reth = { git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
-async-trait = "0.1"
+alloy-transport = { version = "1.0.36", default-features = false }
+alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
 anyhow = "1"
-event-scanner = "=0.2.0-alpha"
+async-trait = "0.1"
+clap = { version = "4", features = ["derive", "env"] }
 dashmap = "6.1.0"
+event-scanner = "=0.2.0-alpha"
+flate2 = { version = "1.0", default-features = false, features = ["zlib"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tracing = "0.1"
-clap = { version = "4", features = ["derive", "env"] }
 url = "2.5.4"
-flate2 = { version = "1.0", default-features = false, features = ["zlib"] }

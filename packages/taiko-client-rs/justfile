@@ -2,14 +2,22 @@ toolchain := "nightly-2025-09-27"
 
 fmt:
   rustup toolchain install {{toolchain}} && \
-  cargo +{{toolchain}} fmt
+  cargo +{{toolchain}} fmt && \
+  cargo sort --workspace --grouped
 
 fmt-check:
   rustup toolchain install {{toolchain}} && \
-  cargo +{{toolchain}} fmt --check
+  cargo +{{toolchain}} fmt --check && \
+  cargo sort --workspace --grouped --check
 
 clippy:
-  cargo clippy --fix --workspace --all-features --no-deps --exclude bindings -- -D warnings
+  cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings
+
+clippy-fix:
+  cargo clippy --fix --workspace --all-features --no-deps --exclude bindings --allow-dirty --allow-staged -- -D warnings
+
+udeps:
+  cargo +{{toolchain}} udeps --all-targets
 
 test:
   ./tests/entrypoint.sh

@@ -45,6 +45,11 @@ jobs:
         with:
           just-version: 1.5.0
 
+      - name: Install cargo-sort
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sort
+
       - name: Check formatting
         working-directory: packages/taiko-client-rs
         run: just fmt-check
