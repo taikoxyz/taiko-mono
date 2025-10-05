@@ -321,12 +321,10 @@ contract ERC20Vault is BaseVault {
         external
         payable
         override
+        onlyFromNamed(LibNames.B_BRIDGE)
         whenNotPaused
         nonReentrant
     {
-        // `onlyFromBridge` checked in checkRecallMessageContext
-        checkRecallMessageContext();
-
         (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
