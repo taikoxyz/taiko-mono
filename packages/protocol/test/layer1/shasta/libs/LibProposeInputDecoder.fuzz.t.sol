@@ -40,6 +40,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: nextProposalId,
                 lastProposalBlockId: lastProposalBlockId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
@@ -95,6 +96,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: 100,
                 lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -152,6 +154,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 nextProposalId: 100,
                 lastProposalBlockId: 9999,
                 lastFinalizedProposalId: 95,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -195,6 +198,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             nextProposalId: 100,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
         });
@@ -363,6 +367,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             nextProposalId: 100,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 95,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
@@ -420,5 +425,53 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blockHash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")
         });
+    }
+
+    /// @notice Fuzz test for lastCheckpointTimestamp field
+    function testFuzz_encodeDecodeCoreState_lastCheckpointTimestamp(
+        uint48 nextProposalId,
+        uint48 lastProposalBlockId,
+        uint48 lastFinalizedProposalId,
+        uint48 lastCheckpointTimestamp,
+        bytes32 lastFinalizedTransitionHash,
+        bytes32 bondInstructionsHash
+    )
+        public
+        pure
+    {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 12_345,
+            coreState: IInbox.CoreState({
+                nextProposalId: nextProposalId,
+                lastProposalBlockId: lastProposalBlockId,
+                lastFinalizedProposalId: lastFinalizedProposalId,
+                lastCheckpointTimestamp: lastCheckpointTimestamp,
+                lastFinalizedTransitionHash: lastFinalizedTransitionHash,
+                bondInstructionsHash: bondInstructionsHash
+            }),
+            parentProposals: new IInbox.Proposal[](0),
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
+            numForcedInclusions: 0
+        });
+
+        bytes memory encoded = LibProposeInputDecoder.encode(input);
+        IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
+
+        // Verify all CoreState fields including lastCheckpointTimestamp
+        assertEq(decoded.coreState.nextProposalId, input.coreState.nextProposalId);
+        assertEq(decoded.coreState.lastProposalBlockId, input.coreState.lastProposalBlockId);
+        assertEq(decoded.coreState.lastFinalizedProposalId, input.coreState.lastFinalizedProposalId);
+        assertEq(decoded.coreState.lastCheckpointTimestamp, input.coreState.lastCheckpointTimestamp);
+        assertEq(
+            decoded.coreState.lastFinalizedTransitionHash,
+            input.coreState.lastFinalizedTransitionHash
+        );
+        assertEq(decoded.coreState.bondInstructionsHash, input.coreState.bondInstructionsHash);
     }
 }

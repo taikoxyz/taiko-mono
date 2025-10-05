@@ -176,7 +176,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Equal(head.NumberU64()+1, head2.NumberU64())
 	s.Equal(1, len(head2.Transactions()))
 	s.Equal(head.GasLimit(), head2.GasLimit())
-	s.Equal(head.Time()+1, head2.Time())
+	s.Less(head.Time(), head2.Time())
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)

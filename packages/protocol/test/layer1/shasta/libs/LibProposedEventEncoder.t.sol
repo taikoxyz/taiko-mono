@@ -44,6 +44,7 @@ contract LibProposedEventEncoderTest is Test {
             nextProposalId: 2,
             lastProposalBlockId: 1000,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
         });
@@ -147,6 +148,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 11,
                 lastProposalBlockId: 5000,
                 lastFinalizedProposalId: 9,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(0)
             })
@@ -201,6 +203,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 6,
                 lastProposalBlockId: 2500,
                 lastFinalizedProposalId: 4,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
                 bondInstructionsHash: bytes32(uint256(1616))
             })
@@ -254,6 +257,7 @@ contract LibProposedEventEncoderTest is Test {
                 nextProposalId: 2,
                 lastProposalBlockId: 1000,
                 lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             })
@@ -263,5 +267,105 @@ contract LibProposedEventEncoderTest is Test {
         bytes memory encoded2 = LibProposedEventEncoder.encode(payload);
 
         assertEq(keccak256(encoded1), keccak256(encoded2), "Encoding should be deterministic");
+    }
+
+    function test_encode_decode_lastCheckpointTimestamp() public pure {
+        // Test that lastCheckpointTimestamp is properly encoded and decoded
+        IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
+            proposal: IInbox.Proposal({
+                id: 42,
+                timestamp: 2000,
+                endOfSubmissionWindowTimestamp: 3000,
+                proposer: address(0xABCD),
+                coreStateHash: bytes32(uint256(4444)),
+                derivationHash: bytes32(uint256(5555))
+            }),
+            derivation: IInbox.Derivation({
+                originBlockNumber: 500,
+                originBlockHash: bytes32(uint256(500)),
+                basefeeSharingPctg: 75,
+                sources: new IInbox.DerivationSource[](0)
+            }),
+            coreState: IInbox.CoreState({
+                nextProposalId: 43,
+                lastProposalBlockId: 2000,
+                lastFinalizedProposalId: 41,
+                lastCheckpointTimestamp: 1_700_000_000, // Non-zero timestamp
+                lastFinalizedTransitionHash: bytes32(uint256(6666)),
+                bondInstructionsHash: bytes32(uint256(7777))
+            })
+        });
+
+        bytes memory encoded = LibProposedEventEncoder.encode(payload);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
+
+        // Verify all core state fields including lastCheckpointTimestamp
+        assertEq(
+            decoded.coreState.nextProposalId,
+            payload.coreState.nextProposalId,
+            "Next proposal ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastProposalBlockId,
+            payload.coreState.lastProposalBlockId,
+            "Last proposal block ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastFinalizedProposalId,
+            payload.coreState.lastFinalizedProposalId,
+            "Last finalized proposal ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp,
+            payload.coreState.lastCheckpointTimestamp,
+            "Last checkpoint timestamp mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastFinalizedTransitionHash,
+            payload.coreState.lastFinalizedTransitionHash,
+            "Last finalized transition hash mismatch"
+        );
+        assertEq(
+            decoded.coreState.bondInstructionsHash,
+            payload.coreState.bondInstructionsHash,
+            "Bond instructions hash mismatch"
+        );
+    }
+
+    function test_encode_decode_lastCheckpointTimestamp_maxValue() public pure {
+        // Test with maximum uint48 value for lastCheckpointTimestamp
+        IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
+            proposal: IInbox.Proposal({
+                id: 1,
+                timestamp: 1000,
+                endOfSubmissionWindowTimestamp: 2000,
+                proposer: address(0x1234),
+                coreStateHash: bytes32(uint256(1111)),
+                derivationHash: bytes32(uint256(2222))
+            }),
+            derivation: IInbox.Derivation({
+                originBlockNumber: 100,
+                originBlockHash: bytes32(uint256(100)),
+                basefeeSharingPctg: 50,
+                sources: new IInbox.DerivationSource[](0)
+            }),
+            coreState: IInbox.CoreState({
+                nextProposalId: 2,
+                lastProposalBlockId: 1000,
+                lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: type(uint48).max, // Maximum value
+                lastFinalizedTransitionHash: bytes32(uint256(3333)),
+                bondInstructionsHash: bytes32(uint256(4444))
+            })
+        });
+
+        bytes memory encoded = LibProposedEventEncoder.encode(payload);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
+
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp,
+            type(uint48).max,
+            "Max lastCheckpointTimestamp should be preserved"
+        );
     }
 }
