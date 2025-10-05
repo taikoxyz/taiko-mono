@@ -13,6 +13,7 @@ use alloy_provider::{
 };
 
 pub mod auth;
+pub mod blob;
 pub mod client;
 pub mod error;
 

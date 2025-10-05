@@ -87,6 +87,14 @@ impl<P: Provider + Clone> Client<P> {
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
     }
+
+    /// Fetch the execution engine's latest known L1 origin pointer.
+    pub async fn head_l1_origin(&self) -> Result<Option<crate::auth::L1Origin>> {
+        self.l2_provider
+            .raw_request(std::borrow::Cow::Borrowed("taiko_headL1Origin"), ())
+            .await
+            .map_err(Into::into)
+    }
 }
 
 /// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.

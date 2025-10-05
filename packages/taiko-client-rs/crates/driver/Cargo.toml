@@ -1,0 +1,33 @@
+[package]
+name = "driver"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+tokio = { workspace = true }
+tracing = { workspace = true }
+metrics = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-rlp = { workspace = true }
+flate2 = { workspace = true }
+url = { workspace = true }
+async-trait = { workspace = true }
+
+bindings = { path = "../bindings" }
+event-indexer = { path = "../event-indexer" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

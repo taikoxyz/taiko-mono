@@ -305,6 +305,11 @@ impl ShastaEventIndexer {
             .map(|entry| entry.value().clone())
     }
 
+    /// Return the cached proposal payload matching the provided identifier, if any.
+    pub fn get_proposal_by_id(&self, proposal_id: U256) -> Option<ProposedEventPayload> {
+        self.proposed_payloads.get(&proposal_id).map(|entry| entry.value().clone())
+    }
+
     /// Determine which proved transitions are eligible for finalization at the moment, given the
     /// last finalized proposal id and transition hash.
     #[instrument(skip(self), fields(?last_finalized_proposal_id, ?last_finalized_transition_hash))]

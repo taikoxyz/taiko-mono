@@ -29,6 +29,7 @@ alloy-primitives = { workspace = true, default-features = false }
 # taiko
 event-indexer = { path = "../../crates/event-indexer" }
 proposer = { path = "../../crates/proposer" }
+driver = { path = "../../crates/driver" }
 rpc = { path = "../../crates/rpc" }
 
 # types
