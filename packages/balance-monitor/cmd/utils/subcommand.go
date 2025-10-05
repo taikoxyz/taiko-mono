@@ -52,7 +52,6 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 		quitCh := make(chan os.Signal, 1)
 		signal.Notify(quitCh, []os.Signal{
 			os.Interrupt,
-			os.Kill,
 			syscall.SIGTERM,
 			syscall.SIGQUIT,
 		}...)
