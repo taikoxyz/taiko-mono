@@ -60,11 +60,6 @@ impl ShastaManifestFetcher {
     }
 }
 
-impl Default for ShastaManifestFetcher {
-    fn default() -> Self {
-        Self::new(BlobDataSource::new(None))
-    }
-}
 
 #[async_trait]
 impl ManifestFetcher for ShastaManifestFetcher {

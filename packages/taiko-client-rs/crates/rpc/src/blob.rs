@@ -12,9 +12,6 @@ use url::Url;
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
 pub enum BlobDataError {
-    /// No blob server or beacon endpoint was configured.
-    #[error("blob data source not configured")]
-    NotConfigured,
     /// The remote server responded with an unexpected status code.
     #[error("blob server returned status {status}")]
     HttpStatus { status: u16 },
@@ -37,14 +34,13 @@ struct BlobServerResponse {
 /// A data source capable of fetching blob sidecars from a public HTTP endpoint.
 #[derive(Debug, Clone)]
 pub struct BlobDataSource {
-    endpoint: Option<Url>,
+    endpoint: Url,
     client: OnceCell<HttpClient>,
 }
 
 impl BlobDataSource {
-    /// Create a new [`BlobDataSource`] targeting the given endpoint. Passing `None` results in a
-    /// data source that always returns [`BlobDataError::NotConfigured`].
-    pub fn new(endpoint: Option<Url>) -> Self {
+    /// Create a new [`BlobDataSource`] targeting the given endpoint.
+    pub fn new(endpoint: Url) -> Self {
         Self { endpoint, client: OnceCell::new() }
     }
 
@@ -57,12 +53,12 @@ impl BlobDataSource {
         &self,
         blob_hashes: &[B256],
     ) -> Result<Vec<BlobTransactionSidecar>, BlobDataError> {
-        let endpoint = self.endpoint.clone().ok_or(BlobDataError::NotConfigured)?;
         let mut blobs = Vec::with_capacity(blob_hashes.len());
         let client = self.http_client().clone();
 
         for hash in blob_hashes {
-            let url = endpoint
+            let url = self
+                .endpoint
                 .join(&format!("/blobs/{}", hash))
                 .map_err(|err| BlobDataError::Other(err.into()))?;
 
@@ -95,16 +91,19 @@ impl BlobDataSource {
     }
 }
 
+// Helper functions for parsing hex-encoded data from the blob server.
 fn parse_hash(value: &str) -> Result<B256, BlobDataError> {
     let bytes = decode_hex(value)?;
     Ok(B256::from_slice(bytes.as_slice()))
 }
 
+// Parses a hex-encoded KZG commitment into a `Bytes48`.
 fn parse_commitment(value: &str) -> Result<Bytes48, BlobDataError> {
     let bytes = decode_hex(value)?;
     Bytes48::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
 
+// Parses a hex-encoded blob into a `Blob`.
 fn parse_blob(value: &str) -> Result<Box<Blob>, BlobDataError> {
     let bytes = decode_hex(value)?;
     let blob =
@@ -112,6 +111,7 @@ fn parse_blob(value: &str) -> Result<Box<Blob>, BlobDataError> {
     Ok(Box::new(blob))
 }
 
+// Decodes a hex string, optionally prefixed with "0x", into a byte vector.
 fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
     let mut stripped = value.trim_start_matches("0x").to_owned();
     if stripped.len() % 2 == 1 {

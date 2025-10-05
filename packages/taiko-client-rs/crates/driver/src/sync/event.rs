@@ -24,6 +24,7 @@ use crate::{
     derivation::{DerivationOutcome, DerivationPipeline, ShastaDerivationPipeline},
     metrics::DriverMetrics,
 };
+use rpc::blob::BlobDataSource;
 use event_indexer::{
     indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
     interface::ShastaProposeInputReader,
@@ -65,7 +66,8 @@ where
     async fn run(&self) -> Result<(), SyncError> {
         let indexer = self.bootstrap_indexer().await?;
         let handle = indexer.clone().spawn();
-        let manifest_fetcher: Arc<dyn ManifestFetcher> = Arc::new(ShastaManifestFetcher::default());
+        let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
+        let manifest_fetcher: Arc<dyn ManifestFetcher> = Arc::new(ShastaManifestFetcher::new(blob_source));
         let derivation: Arc<dyn DerivationPipeline> =
             Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), manifest_fetcher));
 

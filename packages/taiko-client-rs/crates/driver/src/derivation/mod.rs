@@ -19,8 +19,7 @@ use thiserror::Error;
 use tracing::{debug, info, warn};
 
 use crate::metrics::DriverMetrics;
-use manifest::{ManifestError, ManifestFetcher};
-use rpc::blob::BlobDataError;
+use manifest::ManifestFetcher;
 
 pub mod manifest;
 
@@ -139,9 +138,6 @@ where
             match self.manifest_fetcher.fetch_manifest(payload, idx).await {
                 Ok(manifest) => {
                     debug!(index = idx, blocks = manifest.blocks.len(), "decoded shasta manifest");
-                }
-                Err(ManifestError::Blob(BlobDataError::NotConfigured)) => {
-                    debug!(index = idx, "blob source not configured; skipping manifest fetch");
                 }
                 Err(err) => {
                     warn!(index = idx, ?err, "failed to fetch shasta manifest");
