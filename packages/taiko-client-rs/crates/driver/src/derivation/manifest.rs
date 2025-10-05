@@ -60,7 +60,6 @@ impl ShastaManifestFetcher {
     }
 }
 
-
 #[async_trait]
 impl ManifestFetcher for ShastaManifestFetcher {
     async fn fetch_manifest(
@@ -102,7 +101,6 @@ impl ManifestFetcher for ShastaManifestFetcher {
         decode_manifest_bytes(&concatenated, offset)
     }
 }
-
 
 fn decode_manifest_bytes(bytes: &[u8], offset: usize) -> Result<ProposalManifest, ManifestError> {
     if bytes.len() < offset + 64 {

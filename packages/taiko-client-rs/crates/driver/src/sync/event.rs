@@ -18,17 +18,19 @@ use tokio::{
 use tracing::{debug, info, warn};
 
 use super::{SyncError, SyncStage};
-use crate::derivation::manifest::{ManifestFetcher, ShastaManifestFetcher};
 use crate::{
     config::DriverConfig,
-    derivation::{DerivationOutcome, DerivationPipeline, ShastaDerivationPipeline},
+    derivation::{
+        DerivationOutcome, DerivationPipeline, ShastaDerivationPipeline,
+        manifest::{ManifestFetcher, ShastaManifestFetcher},
+    },
     metrics::DriverMetrics,
 };
-use rpc::blob::BlobDataSource;
 use event_indexer::{
     indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
     interface::ShastaProposeInputReader,
 };
+use rpc::blob::BlobDataSource;
 
 /// Responsible for following inbox events and updating the execution engine accordingly.
 pub struct EventSyncer<P>
@@ -44,8 +46,8 @@ impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    pub fn new(rpc: rpc::client::Client<P>, cfg: DriverConfig) -> Self {
-        Self { rpc, cfg, last_processed_proposal: AtomicU64::new(0) }
+    pub fn new(cfg: &DriverConfig, rpc: rpc::client::Client<P>) -> Self {
+        Self { rpc, cfg: cfg.clone(), last_processed_proposal: AtomicU64::new(0) }
     }
 
     async fn bootstrap_indexer(&self) -> Result<Arc<ShastaEventIndexer>, SyncError> {
@@ -54,7 +56,7 @@ where
             inbox_address: self.cfg.client.inbox_address,
         };
 
-        ShastaEventIndexer::new(config).await.map_err(|err| SyncError::Event(err.to_string()))
+        ShastaEventIndexer::new(config).await.map_err(|err| SyncError::IndexerInit(err.to_string()))
     }
 }
 
@@ -67,7 +69,8 @@ where
         let indexer = self.bootstrap_indexer().await?;
         let handle = indexer.clone().spawn();
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
-        let manifest_fetcher: Arc<dyn ManifestFetcher> = Arc::new(ShastaManifestFetcher::new(blob_source));
+        let manifest_fetcher: Arc<dyn ManifestFetcher> =
+            Arc::new(ShastaManifestFetcher::new(blob_source));
         let derivation: Arc<dyn DerivationPipeline> =
             Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), manifest_fetcher));
 
@@ -98,13 +101,13 @@ where
                 result = &mut handle => {
                     match result {
                         Ok(Ok(())) => {
-                            return Err(SyncError::Event("event indexer task terminated unexpectedly".into()));
+                            return Err(SyncError::IndexerTerminated);
                         }
                         Ok(Err(err)) => {
-                            return Err(SyncError::Event(err.to_string()));
+                            return Err(SyncError::IndexerInit(err.to_string()));
                         }
                         Err(join_err) => {
-                            return Err(SyncError::Event(join_err.to_string()));
+                            return Err(SyncError::Other(join_err.to_string()));
                         }
                     }
                 }

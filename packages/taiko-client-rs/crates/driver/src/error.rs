@@ -13,9 +13,23 @@ pub enum DriverError {
     /// Errors originating from the RPC client layer.
     #[error("rpc error: {0}")]
     Rpc(#[from] rpc::error::RpcClientError),
+
     /// Sync subsystem reported a failure.
     #[error(transparent)]
     Sync(#[from] SyncError),
+
+    /// Block not found on remote node.
+    #[error("remote node missing block {0}")]
+    BlockNotFound(u64),
+
+    /// Engine API returned syncing status.
+    #[error("engine API returned SYNCING for block {0}")]
+    EngineSyncing(u64),
+
+    /// Engine API returned invalid payload.
+    #[error("engine API returned INVALID: {0}")]
+    EngineInvalidPayload(String),
+
     /// Generic boxed error.
     #[error(transparent)]
     Other(#[from] anyhow::Error),

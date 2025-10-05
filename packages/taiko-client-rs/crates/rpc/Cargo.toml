@@ -25,10 +25,10 @@ alloy-rpc-types-engine = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
 alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
+once_cell = { workspace = true }
+reqwest = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 url = { workspace = true }
-reqwest = { workspace = true }
-once_cell = { workspace = true }
 
 # taiko
 alethia-reth = { workspace = true }
