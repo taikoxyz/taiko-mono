@@ -3,7 +3,9 @@
 use std::path::PathBuf;
 
 use alloy::{
-    network::EthereumWallet, signers::local::PrivateKeySigner, transports::http::reqwest::Url,
+    network::{Ethereum, EthereumWallet},
+    signers::local::PrivateKeySigner,
+    transports::http::reqwest::Url,
 };
 use alloy_primitives::B256;
 use alloy_provider::{
@@ -11,6 +13,7 @@ use alloy_provider::{
     fillers::{FillProvider, JoinFill, WalletFiller},
     utils::JoinedRecommendedFillers,
 };
+use event_scanner::event_scanner::{Client as EventScannerClient, EventScanner};
 
 pub mod auth;
 pub mod blob;
@@ -86,6 +89,26 @@ impl SubscriptionSource {
         };
 
         Ok(provider)
+    }
+
+    /// Convert the `SubscriptionSource` into an `EventScannerClient` connected to the appropriate
+    /// endpoint.
+    pub async fn to_event_scanner(&self) -> Result<EventScannerClient<Ethereum>> {
+        let client = match self {
+            SubscriptionSource::Ipc(path) => {
+                let ipc_path = path.to_string_lossy().into_owned();
+                EventScanner::new()
+                    .connect_ipc(ipc_path)
+                    .await
+                    .map_err(|e| RpcClientError::Connection(e.to_string()))?
+            }
+            SubscriptionSource::Ws(url) => EventScanner::new()
+                .connect_ws::<Ethereum>(url.clone())
+                .await
+                .map_err(|e| RpcClientError::Connection(e.to_string()))?,
+        };
+
+        Ok(client)
     }
 }
 

@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
+use alloy::{eips::BlockNumberOrTag, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
@@ -23,7 +23,6 @@ use bindings::{
 use dashmap::DashMap;
 use event_scanner::{
     EventFilter,
-    event_scanner::EventScanner,
     types::{ScannerMessage, ScannerStatus},
 };
 use rpc::SubscriptionSource;
@@ -139,17 +138,13 @@ impl ShastaEventIndexer {
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
     #[instrument(skip(self), err)]
     async fn run_inner(self: Arc<Self>) -> Result<()> {
-        let mut event_scanner = match &self.config.l1_subscription_source {
-            SubscriptionSource::Ipc(path) => {
-                let ipc_path = path.to_string_lossy().into_owned();
-                info!(path = %ipc_path, "subscribing to L1 via IPC");
-                EventScanner::new().connect_ipc(ipc_path).await
-            }
-            SubscriptionSource::Ws(url) => {
-                info!(url = %url, "subscribing to L1 via WebSocket");
-                EventScanner::new().connect_ws::<Ethereum>(url.clone()).await
-            }
-        }?;
+        let source = &self.config.l1_subscription_source;
+        info!(
+            connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
+            "subscribing to L1"
+        );
+
+        let mut event_scanner = source.to_event_scanner().await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()

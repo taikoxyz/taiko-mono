@@ -37,9 +37,9 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Construct a new pipeline from the runtime configuration.
-    pub fn new(cfg: DriverConfig, rpc: Client<P>) -> Result<Self, DriverError> {
+    pub async fn new(cfg: DriverConfig, rpc: Client<P>) -> Result<Self, DriverError> {
         let beacon = BeaconSyncer::new(&cfg, rpc.clone());
-        let event = EventSyncer::new(&cfg, rpc);
+        let event = EventSyncer::new(&cfg, rpc).await?;
         Ok(Self { beacon, event })
     }
 

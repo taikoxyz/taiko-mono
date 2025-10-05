@@ -4,6 +4,7 @@ use std::{io::Read, sync::Arc};
 
 use alloy::primitives::B256;
 use alloy_rlp::Decodable;
+use bindings::codec_optimized::IInbox::ProposedEventPayload;
 use flate2::read::ZlibDecoder;
 use protocol::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
@@ -17,7 +18,6 @@ use thiserror::Error;
 use tracing::{debug, warn};
 
 use async_trait::async_trait;
-use event_indexer::indexer::ProposedEventPayload;
 
 /// Errors that can occur while fetching or decoding manifests.
 #[derive(Debug, Error)]

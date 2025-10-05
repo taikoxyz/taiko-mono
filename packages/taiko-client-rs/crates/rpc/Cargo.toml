@@ -33,6 +33,7 @@ url = { workspace = true }
 # taiko
 alethia-reth = { workspace = true }
 bindings = { path = "../bindings" }
+event-scanner = { workspace = true }
 
 # types
 anyhow = { workspace = true }

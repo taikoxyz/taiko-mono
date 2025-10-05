@@ -27,7 +27,7 @@ impl Driver {
     /// Start the driver until completion.
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
-        SyncPipeline::new(self.cfg.clone(), self.rpc.clone())?.run().await?;
+        SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?.run().await?;
         Ok(())
     }
 
