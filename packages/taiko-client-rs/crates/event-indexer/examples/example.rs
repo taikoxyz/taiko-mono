@@ -18,6 +18,7 @@ async fn main() -> anyhow::Result<()> {
     // Create and spawn the indexer.
     let indexer = ShastaEventIndexer::new(config).await?;
     indexer.clone().spawn();
+    indexer.wait_historical_indexing_finished().await;
 
     // Read the ShastaProposeInput events from the cache.
     let _ = indexer.read_shasta_propose_input();
