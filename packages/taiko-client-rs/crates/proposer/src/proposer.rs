@@ -30,6 +30,9 @@ pub struct Proposer {
     cfg: ProposerConfigs,
 }
 
+// Type alias for a list of transactions lists.
+pub type TransactionsLists = Vec<Vec<Transaction>>;
+
 impl Proposer {
     /// Creates a new proposer instance.
     #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
@@ -97,8 +100,9 @@ impl Proposer {
         let pool_content = self.fetch_pool_content().await?;
 
         // Record number of transactions in the pool
-        gauge!(ProposerMetrics::TX_POOL_SIZE).set(pool_content.len() as f64);
-        info!(tx_count = pool_content.len(), "fetched tx pool content");
+        let tx_count: usize = pool_content.iter().map(|list| list.len()).sum();
+        gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
+        info!(txs_lists = pool_content.len(), tx_count, "fetched transaction pool content");
 
         let mut transaction_request =
             self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
@@ -138,7 +142,7 @@ impl Proposer {
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
-    async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
+    async fn fetch_pool_content(&self) -> Result<TransactionsLists> {
         let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
             .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
@@ -155,15 +159,23 @@ impl Proposer {
             })
             .await?;
 
-        info!(tx_lists_count = pool_content.len(), "fetched tx lists from L2 execution engine");
+        info!(
+            txs_lists_count = pool_content.len(),
+            "fetched transactions lists from L2 execution engine"
+        );
 
-        let transactions = pool_content
+        let txs_lists = pool_content
             .into_iter()
-            .flat_map(|tx_list| tx_list.tx_list.into_iter())
-            .map(|tx| from_value::<Transaction>(tx).map_err(ProposerError::from))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|content| {
+                content
+                    .tx_list
+                    .into_iter()
+                    .map(|tx| from_value::<Transaction>(tx).map_err(ProposerError::from))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .collect::<Result<Vec<Vec<_>>>>()?;
 
-        Ok(transactions)
+        Ok(txs_lists)
     }
 
     /// Calculate the base fee for the next L2 block using EIP-4396 rules.

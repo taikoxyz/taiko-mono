@@ -9,7 +9,7 @@ use alloy::{
         aliases::{U24, U48},
     },
     providers::Provider,
-    rpc::types::{Transaction, TransactionRequest},
+    rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
 use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
@@ -21,7 +21,10 @@ use protocol::shasta::{
 use rpc::client::ClientWithWallet;
 use tracing::info;
 
-use crate::error::{ProposerError, Result};
+use crate::{
+    error::{ProposerError, Result},
+    proposer::TransactionsLists,
+};
 
 /// A transaction builder for Shasta `propose` transactions.
 pub struct ShastaProposalTransactionBuilder {
@@ -44,7 +47,7 @@ impl ShastaProposalTransactionBuilder {
     }
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
-    pub async fn build(&self, txs: Vec<Transaction>) -> Result<TransactionRequest> {
+    pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
         let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
 
         // Read cached propose input params from the event indexer.
@@ -70,24 +73,27 @@ impl ShastaProposalTransactionBuilder {
             });
         }
 
-        // Build the block manifest for the proposed L2 block.
-        let block_manifest = BlockManifest {
-            timestamp: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-            coinbase: self.l2_suggested_fee_recipient,
-            anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
-            gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                           * limit during derivation. */
-            transactions: txs.iter().map(|tx| tx.clone().into_inner()).collect(),
-        };
+        // Build the block manifests.
+        let block_manifests = txs_lists
+            .iter()
+            .map(|txs| BlockManifest {
+                timestamp: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                coinbase: self.l2_suggested_fee_recipient,
+                anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
+                gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
+                               * limit during derivation. */
+                transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+            })
+            .collect::<Vec<BlockManifest>>();
 
-        // Build the block manifests and proposal manifest.
+        // Build the proposal manifest.
         let manifest =
-            ProposalManifest { prover_auth_bytes: Bytes::new(), blocks: vec![block_manifest] };
+            ProposalManifest { prover_auth_bytes: Bytes::new(), blocks: block_manifests };
 
-        // Build the blob sidecar.
+        // Build the blob sidecar from the proposal manifest.
         let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)
             .build()
             .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
