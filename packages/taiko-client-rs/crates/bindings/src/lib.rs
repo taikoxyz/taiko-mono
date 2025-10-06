@@ -5,3 +5,4 @@
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#codec_optimized;
 pub mod r#i_inbox;
+pub mod r#taiko_anchor;

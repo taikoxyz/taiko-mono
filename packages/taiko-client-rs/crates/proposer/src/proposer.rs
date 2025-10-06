@@ -1,7 +1,8 @@
 //! Core proposer implementation for submitting block proposals.
 
-use alethia_reth::consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+use alethia_reth::consensus::{
+    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
+    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
@@ -22,8 +23,8 @@ use crate::{
     transaction_builder::ShastaProposalTransactionBuilder,
 };
 
-/// The number of blocks at the start of the chain that use the initial base fee.
-const INITIAL_BASE_FEE_BLOCKS: u64 = 2;
+// Type alias for a list of transactions lists.
+pub type TransactionsLists = Vec<Vec<Transaction>>;
 
 // Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
@@ -99,8 +100,9 @@ impl Proposer {
         let pool_content = self.fetch_pool_content().await?;
 
         // Record number of transactions in the pool
-        gauge!(ProposerMetrics::TX_POOL_SIZE).set(pool_content.len() as f64);
-        info!(tx_count = pool_content.len(), "fetched tx pool content");
+        let tx_count: usize = pool_content.iter().map(|list| list.len()).sum();
+        gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
+        info!(txs_lists = pool_content.len(), tx_count, "fetched transaction pool content");
 
         let mut transaction_request =
             self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
@@ -140,7 +142,7 @@ impl Proposer {
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
-    async fn fetch_pool_content(&self) -> Result<Vec<Transaction>> {
+    async fn fetch_pool_content(&self) -> Result<TransactionsLists> {
         let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
             .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
@@ -157,19 +159,28 @@ impl Proposer {
             })
             .await?;
 
-        info!(tx_lists_count = pool_content.len(), "fetched tx lists from L2 execution engine");
+        info!(
+            txs_lists_count = pool_content.len(),
+            "fetched transactions lists from L2 execution engine"
+        );
 
-        let transactions = pool_content
+        let txs_lists = pool_content
             .into_iter()
-            .flat_map(|tx_list| tx_list.tx_list.into_iter())
-            .map(|tx| from_value::<Transaction>(tx).map_err(ProposerError::from))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|content| {
+                content
+                    .tx_list
+                    .into_iter()
+                    .map(|tx| from_value::<Transaction>(tx).map_err(ProposerError::from))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .collect::<Result<Vec<Vec<_>>>>()?;
 
-        Ok(transactions)
+        Ok(txs_lists)
     }
 
     /// Calculate the base fee for the next L2 block using EIP-4396 rules.
     async fn calculate_next_shasta_block_base_fee(&self) -> Result<U256> {
+        // Get the latest block to calculate the next base fee.
         let parent = self
             .rpc_provider
             .l2_provider
@@ -177,14 +188,18 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first few Shasta blocks, return the initial base fee.
-        if parent.number() <= INITIAL_BASE_FEE_BLOCKS {
+        // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
+        // fee.
+        if parent.number() + 1 <
+            self.rpc_provider.shasta.anchor.shastaForkHeight().call().await? +
+                SHASTA_INITIAL_BASE_FEE_BLOCKS
+        {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?

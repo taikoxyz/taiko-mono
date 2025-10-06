@@ -1,16 +1,13 @@
 [package]
 name = "bindings"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2021"
 
 [lib]
 doctest = false
 
 [dependencies]
-# ethereum
 alloy = { version = "1.0.36", features = ["sol-types", "contract"] }
-
-# serialization
 serde = { version = "1.0", features = ["derive"] }
 
 [lints]
