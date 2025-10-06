@@ -1093,7 +1093,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 		if cachedParent != nil {
 			if len(cachedParent.Payload.Transactions) == 0 {
-				return false, fmt.Errorf("cached parent envelope has empty transactions: %s", msg.ExecutionPayload.ParentHash)
+				return false, fmt.Errorf("cached parent envelope has empty transactions: %s", msg.ExecutionPayload.ParentHash.Hex())
 			}
 			decompressedTxs, err := utils.Decompress(cachedParent.Payload.Transactions[0])
 			if err != nil {
