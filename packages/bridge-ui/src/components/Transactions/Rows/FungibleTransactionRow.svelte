@@ -10,7 +10,7 @@
   import { TokenType } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
-  import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
+  import { getBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { isDesktop, isMobile, isTablet } from '$libs/util/responsiveCheck';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { account } from '$stores/account';
@@ -31,7 +31,7 @@
 
   let timestamp: string;
   const getDate = async () => {
-    const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
+    const blockTimestamp = await getBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     timestamp = formatTimestamp(Number(blockTimestamp));
   };
 
