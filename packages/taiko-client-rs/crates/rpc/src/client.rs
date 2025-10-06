@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use alethia_reth::evm::handler::get_treasury_address;
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
@@ -11,11 +12,13 @@ use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
     codec_optimized::CodecOptimized::CodecOptimizedInstance, i_inbox::IInbox::IInboxInstance,
+    taiko_anchor::TaikoAnchor::TaikoAnchorInstance,
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
 use tower::ServiceBuilder;
+use tracing::info;
 
 use crate::{
     JoinedRecommendedFillersWithWallet, SubscriptionSource,
@@ -30,6 +33,7 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
     pub inbox: IInboxInstance<P>,
     pub codec: CodecOptimizedInstance<P>,
+    pub anchor: TaikoAnchorInstance<RootProvider>,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
@@ -82,8 +86,19 @@ impl<P: Provider + Clone> Client<P> {
         let inbox = IInboxInstance::new(config.inbox_address, l1_provider.clone());
         let codec =
             CodecOptimizedInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
+        let anchor = TaikoAnchorInstance::new(
+            get_treasury_address(l2_provider.get_chain_id().await?),
+            l2_auth_provider.clone(),
+        );
 
-        let shasta = ShastaProtocolInstance { inbox, codec };
+        info!(
+            inbox_address = ?config.inbox_address,
+            codec_address = ?codec.address(),
+            anchor_address = ?anchor.address(),
+            "Shasta protocol contract addresses"
+        );
+
+        let shasta = ShastaProtocolInstance { inbox, codec, anchor };
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
     }

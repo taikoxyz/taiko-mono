@@ -1,7 +1,8 @@
 //! Core proposer implementation for submitting block proposals.
 
-use alethia_reth::consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+use alethia_reth::consensus::{
+    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
+    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
@@ -21,9 +22,6 @@ use crate::{
     metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
 };
-
-/// The number of blocks at the start of the chain that use the initial base fee.
-const INITIAL_BASE_FEE_BLOCKS: u64 = 2;
 
 // Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
@@ -170,6 +168,7 @@ impl Proposer {
 
     /// Calculate the base fee for the next L2 block using EIP-4396 rules.
     async fn calculate_next_shasta_block_base_fee(&self) -> Result<U256> {
+        // Get the latest block to calculate the next base fee.
         let parent = self
             .rpc_provider
             .l2_provider
@@ -177,11 +176,16 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first few Shasta blocks, return the initial base fee.
-        if parent.number() <= INITIAL_BASE_FEE_BLOCKS {
+        // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
+        // fee.
+        if parent.number() + 1 <
+            self.rpc_provider.shasta.anchor.shastaForkHeight().call().await? +
+                SHASTA_INITIAL_BASE_FEE_BLOCKS
+        {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
+        // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
         let parent_block_time = parent.header.timestamp -
             self.rpc_provider
                 .l2_provider

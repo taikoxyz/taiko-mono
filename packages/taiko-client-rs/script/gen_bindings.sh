@@ -11,6 +11,7 @@ forge bind \
   --root ../protocol \
   --select '^IInbox$' \
   --select '^CodecOptimized$' \
+  --select '^TaikoAnchor$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \
