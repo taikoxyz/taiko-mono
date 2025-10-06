@@ -50,7 +50,7 @@ func (f *ShastaManifestFetcher) Fetch(
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
 ) (*manifest.ProposalManifest, error) {
-	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offest is invalid,
+	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offset is invalid,
 	// return the default manifest.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
 		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
