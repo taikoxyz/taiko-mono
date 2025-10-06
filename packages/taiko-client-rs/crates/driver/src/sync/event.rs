@@ -15,7 +15,7 @@ use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
     derivation::{
-        DerivationOutcome, DerivationPipeline, ShastaDerivationPipeline,
+        DerivationPipeline, ShastaDerivationPipeline,
         manifest::{ManifestFetcher, ShastaManifestFetcher},
     },
 };
@@ -94,17 +94,9 @@ where
                 .await
                 .map_err(|err| SyncError::Derivation(err.to_string()))?;
 
-                match result {
-                    DerivationOutcome::Applied { proposal_id } => {
-                        info!("successfully applied proposal {}", proposal_id);
-                    }
-                    DerivationOutcome::Preconfirmed { proposal_id } => {
-                        info!("preconfirmed proposal {}", proposal_id);
-                    }
-                }
+                info!("successfully processed proposal: {:#?}", result);
             }
         }
-
         Ok(())
     }
 }

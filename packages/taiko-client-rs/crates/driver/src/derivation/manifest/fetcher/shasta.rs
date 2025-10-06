@@ -19,7 +19,7 @@ impl ShastaManifestFetcher {
         Self { blob_source: Arc::new(blob_source) }
     }
 
-    /// Decode the manifest for the given sidecars, starting from the provided byte offset.
+    // Decode the manifest for the given sidecars with the specified offset.
     fn decode_with_offset(
         &self,
         sidecars: &[BlobTransactionSidecar],
@@ -45,40 +45,17 @@ impl ShastaManifestFetcher {
 impl ManifestFetcher for ShastaManifestFetcher {
     type Manifest = ProposalManifest;
 
+    // Access the blob data source used by this fetcher.
     fn blob_source(&self) -> &BlobDataSource {
         &self.blob_source
     }
 
+    // Decode the manifest for the given sidecars.
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
+        offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        self.decode_with_offset(sidecars, 0)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy::primitives::{Address, Bytes};
-    use protocol::shasta::manifest;
-
-    #[test]
-    fn decode_roundtrip_manifest() {
-        let manifest = ProposalManifest {
-            prover_auth_bytes: Bytes::from_static(b"auth"),
-            blocks: vec![manifest::BlockManifest {
-                timestamp: 1,
-                coinbase: Address::ZERO,
-                anchor_block_number: 10,
-                gas_limit: 100,
-                transactions: vec![],
-            }],
-        };
-
-        let encoded = manifest.encode_and_compress().unwrap();
-        let decoded = ProposalManifest::decompress_and_decode(&encoded, 0).unwrap();
-        assert_eq!(decoded.blocks.len(), 1);
-        assert_eq!(decoded.blocks[0].anchor_block_number, 10);
+        self.decode_with_offset(sidecars, offset)
     }
 }

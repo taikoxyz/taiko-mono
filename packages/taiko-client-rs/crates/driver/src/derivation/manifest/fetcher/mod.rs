@@ -48,5 +48,16 @@ pub trait ManifestFetcher: Send + Sync {
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
+        offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError>;
+
+    /// Fetch and decode the manifest for the given blob hashes.
+    async fn fetch_and_decode_manifest(
+        &self,
+        blob_hashes: &[B256],
+        offset: usize,
+    ) -> Result<Self::Manifest, ManifestFetcherError> {
+        let sidecars = self.fetch_blobs(blob_hashes).await?;
+        self.decode_manifest(&sidecars, offset).await
+    }
 }
