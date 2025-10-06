@@ -70,24 +70,22 @@ impl ShastaProposalTransactionBuilder {
             });
         }
 
-        // Build the block manifests and proposal manifest.
-        let manifest = ProposalManifest {
-            prover_auth_bytes: Bytes::new(),
-            blocks: txs
-                .iter()
-                .map(|tx| BlockManifest {
-                    timestamp: SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs(),
-                    coinbase: self.l2_suggested_fee_recipient,
-                    anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
-                    gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                                   * limit during derivation. */
-                    transactions: vec![tx.clone().into_inner()],
-                })
-                .collect::<Vec<_>>(),
+        // Build the block manifest for the proposed L2 block.
+        let block_manifest = BlockManifest {
+            timestamp: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            coinbase: self.l2_suggested_fee_recipient,
+            anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
+            gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
+                           * limit during derivation. */
+            transactions: txs.iter().map(|tx| tx.clone().into_inner()).collect(),
         };
+
+        // Build the block manifests and proposal manifest.
+        let manifest =
+            ProposalManifest { prover_auth_bytes: Bytes::new(), blocks: vec![block_manifest] };
 
         // Build the blob sidecar.
         let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)
