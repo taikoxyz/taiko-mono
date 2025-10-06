@@ -63,7 +63,6 @@ type ClientConfig struct {
 	PreconfWhitelistAddress     common.Address
 	ProverSetAddress            common.Address
 	SurgeProposerWrapperAddress common.Address
-	InboxAddress                common.Address
 	BridgeAddress               common.Address
 	L2EngineEndpoint            string
 	JwtSecret                   string

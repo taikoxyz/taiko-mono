@@ -284,7 +284,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 		l2BaseFee, err := s.RPCClient.L2.SuggestGasPrice(context.Background())
 		s.Nil(err)
 
-		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}, l2BaseFee))
+		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}, l2BaseFee, false))
 		s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	}
 

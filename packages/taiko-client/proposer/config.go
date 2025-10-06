@@ -27,7 +27,8 @@ type Config struct {
 	L2SuggestedFeeRecipient common.Address
 	ProposeInterval         time.Duration
 	MinTip                  uint64
-	MinProposingInternal    time.Duration
+	MinProposingInterval    time.Duration
+	ForceProposingDelay     time.Duration
 	AllowZeroTipInterval    uint64
 	MaxTxListsPerEpoch      uint64
 	ProposeBatchTxGasLimit  uint64
@@ -96,7 +97,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-			InboxAddress:                common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			BridgeAddress:               common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 			SurgeProposerWrapperAddress: common.HexToAddress(c.String(flags.SurgeProposerWrapperAddress.Name)),
 		},
@@ -104,7 +104,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
 		ProposeInterval:         c.Duration(flags.ProposeInterval.Name),
 		MinTip:                  minTip.Uint64(),
-		MinProposingInternal:    c.Duration(flags.MinProposingInternal.Name),
+		MinProposingInterval:    c.Duration(flags.MinProposingInterval.Name),
+		ForceProposingDelay:     c.Duration(flags.ForceProposingDelay.Name),
 		MaxTxListsPerEpoch:      maxTxListsPerEpoch,
 		AllowZeroTipInterval:    c.Uint64(flags.AllowZeroTipInterval.Name),
 		ProposeBatchTxGasLimit:  c.Uint64(flags.TxGasLimit.Name),

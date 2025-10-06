@@ -77,7 +77,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 		"TestNewConfigFromCliContextL2RecipErr",
 		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.ProposeInterval.Name, proposeInterval,
-		"--" + flags.MinProposingInternal.Name, proposeInterval,
+		"--" + flags.MinProposingInterval.Name, proposeInterval,
 		"--" + flags.L2SuggestedFeeRecipient.Name, "notAnAddress",
 	}), "invalid L2 suggested fee recipient address")
 }
@@ -92,7 +92,7 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProposerPrivKey.Name},
 		&cli.StringFlag{Name: flags.L2SuggestedFeeRecipient.Name},
-		&cli.DurationFlag{Name: flags.MinProposingInternal.Name},
+		&cli.DurationFlag{Name: flags.MinProposingInterval.Name},
 		&cli.DurationFlag{Name: flags.ProposeInterval.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 	}

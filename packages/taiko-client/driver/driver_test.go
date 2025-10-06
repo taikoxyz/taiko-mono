@@ -360,7 +360,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Nil(err)
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee, false))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -377,7 +377,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee, false))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)

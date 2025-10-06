@@ -155,13 +155,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
-	InboxAddress = &cli.StringFlag{
-		Name:     "inbox",
-		Usage:    "Inbox contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: commonCategory,
-		EnvVars:  []string{"INBOX"},
-	}
 	SurgeProposerWrapperAddress = &cli.StringFlag{
 		Name:     "surgeProposerWrapper",
 		Usage:    "SurgeProposerWrapper contract `address` - Wrapper for propose/prove operations to avoid nonce conflicts",
@@ -188,7 +181,6 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
-	InboxAddress,
 	SurgeProposerWrapperAddress,
 }
 

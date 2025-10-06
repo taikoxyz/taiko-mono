@@ -86,7 +86,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		MinProposingInternal:    0,
+		MinProposingInterval:    0,
 		ProposeInterval:         1024 * time.Hour,
 		MaxTxListsPerEpoch:      1,
 		ProposeBatchTxGasLimit:  10_000_000,
@@ -160,7 +160,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
 	s.Nil(err)
 
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash, l2BaseFee))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash, l2BaseFee, false))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -370,7 +370,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 
 	// Start proposer
 	p.ProposeInterval = time.Second
-	p.MinProposingInternal = time.Minute
+	p.MinProposingInterval = time.Minute
 	s.Nil(p.ProposeOp(context.Background()))
 }
 
@@ -409,7 +409,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
-	s.p.MinProposingInternal = 1 * time.Second
+	s.p.MinProposingInterval = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
 }
@@ -455,7 +455,7 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
 	s.Nil(err)
 
-	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}, l2BaseFee))
+	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}, l2BaseFee, false))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

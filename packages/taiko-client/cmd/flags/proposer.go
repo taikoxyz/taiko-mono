@@ -59,9 +59,10 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TIP"},
 	}
-	MinProposingInternal = &cli.DurationFlag{
-		Name:     "epoch.minProposingInterval",
-		Usage:    "Minimum time interval to force proposing a block, even if there are no transaction in mempool",
+	MinProposingInterval = &cli.DurationFlag{
+		Name: "epoch.minProposingInterval",
+		Usage: "Minimum time interval to force proposing a block, even if there are no transactions in mempool " +
+			"(set to 0 to disable empty block creation entirely)",
 		Category: proposerCategory,
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERVAL"},
@@ -109,6 +110,14 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"CHECK_PROFITABILITY"},
 	}
+	ForceProposingDelay = &cli.DurationFlag{
+		Name: "signal.forceProposingDelay",
+		Usage: "Time delay after SignalSent event to force propose a block even if mempool is empty " +
+			"(set to 0 to disable this feature)",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"SIGNAL_FORCE_PROPOSING_DELAY"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -124,11 +133,12 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BridgeAddress,
 	ProposeInterval,
 	MinTip,
-	MinProposingInternal,
+	MinProposingInterval,
 	AllowZeroTipInterval,
 	MaxTxListsPerEpoch,
 	BlobAllowed,
 	FallbackToCalldata,
 	RevertProtectionEnabled,
 	CheckProfitability,
+	ForceProposingDelay,
 }, TxmgrFlags)

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -63,7 +64,11 @@ type Proposer struct {
 
 	checkProfitability bool
 
-	forceProposeOnce bool // TODO: to verify that this works as expected
+	// Signal-based force proposing
+	signalServiceAddress      common.Address
+	lastSignalSentEventAt     time.Time
+	pendingSignalForcePropose bool
+	signalMu                  sync.RWMutex
 
 	// Bridge message monitoring
 	pendingBridgeMessages map[common.Hash]*types.Transaction
@@ -157,8 +162,9 @@ func (p *Proposer) InitFromConfig(
 		cfg.FallbackToCalldata,
 	)
 
-	if (cfg.ClientConfig.InboxAddress != common.Address{}) {
-		if err := p.subscribeToSignalSentEvent(); err != nil {
+	// Initialize SignalService address and subscription if ForceProposingDelay is enabled
+	if cfg.ForceProposingDelay > 0 {
+		if err := p.initSignalServiceSubscription(); err != nil {
 			return err
 		}
 	}
@@ -166,15 +172,41 @@ func (p *Proposer) InitFromConfig(
 	return nil
 }
 
-// subscribeToSignalSentEvent subscribes to SignalSent event on eth l1 RPC
-func (p *Proposer) subscribeToSignalSentEvent() error {
-	logChan := make(chan types.Log)
-	sub, err := p.rpc.L1.SubscribeFilterLogs(p.ctx, ethereum.FilterQuery{
-		Addresses: []common.Address{p.Config.InboxAddress},
-		Topics:    [][]common.Hash{{common.HexToHash("0x0ad2d108660a211f47bf7fb43a0443cae181624995d3d42b88ee6879d200e973")}},
-	}, logChan)
+// initSignalServiceSubscription initializes the SignalService address and subscribes to SignalSent events
+func (p *Proposer) initSignalServiceSubscription() error {
+	// Get SignalService address from TaikoInbox contract
+	signalServiceAddress, err := p.rpc.PacayaClients.TaikoInbox.SignalService(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
-		return fmt.Errorf("subscribe error: %w", err)
+		return fmt.Errorf("failed to get SignalService address from TaikoInbox: %w", err)
+	}
+
+	if signalServiceAddress == (common.Address{}) {
+		return fmt.Errorf("SignalService address is zero")
+	}
+
+	p.signalServiceAddress = signalServiceAddress
+	log.Info("SignalService address retrieved", "address", signalServiceAddress.Hex())
+
+	return p.subscribeToSignalSentEvent()
+}
+
+// subscribeToSignalSentEvent subscribes to SignalSent event on SignalService contract
+func (p *Proposer) subscribeToSignalSentEvent() error {
+	createSubscription := func() (chan types.Log, ethereum.Subscription, error) {
+		logChan := make(chan types.Log)
+		sub, err := p.rpc.L1.SubscribeFilterLogs(p.ctx, ethereum.FilterQuery{
+			Addresses: []common.Address{p.signalServiceAddress},
+			Topics: [][]common.Hash{{
+				crypto.Keccak256Hash([]byte("SignalSent(address,bytes32,bytes32,bytes32)")),
+			}},
+		}, logChan)
+		return logChan, sub, err
+	}
+
+	logChan, sub, err := createSubscription()
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to SignalSent events on SignalService %s: %w",
+			p.signalServiceAddress.Hex(), err)
 	}
 
 	p.wg.Add(1)
@@ -182,20 +214,108 @@ func (p *Proposer) subscribeToSignalSentEvent() error {
 		defer p.wg.Done()
 		defer sub.Unsubscribe()
 
+		log.Info("Started SignalSent event subscription",
+			"signalServiceAddress", p.signalServiceAddress.Hex(),
+			"forceProposingDelay", p.Config.ForceProposingDelay,
+		)
+
 		for {
 			select {
 			case <-p.ctx.Done():
+				log.Info("SignalSent event subscription stopped due to context cancellation")
 				return
 			case err := <-sub.Err():
-				log.Error("subscription error", "err", err)
-				return
+				log.Error("SignalSent event subscription error, attempting to reconnect", "err", err)
+
+				// Attempt to reconnect with exponential backoff, retrying indefinitely
+				_ = backoff.Retry(func() error {
+					newLogChan, newSub, err := createSubscription()
+					if err != nil {
+						log.Warn("Failed to reconnect to SignalSent events, retrying", "err", err)
+						return err
+					}
+
+					log.Info("Successfully reconnected to SignalSent events")
+					sub = newSub
+					logChan = newLogChan
+					return nil
+				}, backoff.WithContext(backoff.NewExponentialBackOff(), p.ctx))
 			case vLog := <-logChan:
-				log.Info("SignalSent event received", "log", vLog)
-				p.forceProposeOnce = true
+				p.handleSignalSentEvent(vLog)
 			}
 		}
 	}()
 	return nil
+}
+
+// handleSignalSentEvent processes a SignalSent event and schedules force propose if needed
+func (p *Proposer) handleSignalSentEvent(vLog types.Log) {
+	log.Info("SignalSent event received",
+		"txHash", vLog.TxHash.Hex(),
+		"blockNumber", vLog.BlockNumber,
+		"address", vLog.Address.Hex(),
+	)
+
+	p.signalMu.Lock()
+	defer p.signalMu.Unlock()
+
+	// Only process the first signal event if no pending force propose
+	if !p.pendingSignalForcePropose {
+		p.lastSignalSentEventAt = time.Now()
+		p.pendingSignalForcePropose = true
+
+		log.Debug("Scheduled force propose after SignalSent event",
+			"delay", p.Config.ForceProposingDelay,
+			"scheduledFor", time.Now().Add(p.Config.ForceProposingDelay),
+		)
+	} else {
+		log.Debug("Ignoring subsequent SignalSent event - force propose already pending",
+			"txHash", vLog.TxHash.Hex(),
+			"blockNumber", vLog.BlockNumber,
+		)
+	}
+}
+
+// shouldForcePropose checks if we should force propose based on SignalSent events
+func (p *Proposer) shouldForcePropose() (bool, string) {
+	// If feature is disabled, return false
+	if p.Config.ForceProposingDelay == 0 {
+		return false, "force proposing after signal disabled"
+	}
+
+	p.signalMu.RLock()
+	defer p.signalMu.RUnlock()
+
+	// If no pending signal force propose, return false
+	if !p.pendingSignalForcePropose {
+		return false, "no pending signal force propose"
+	}
+
+	// Check if enough time has passed since the SignalSent event
+	now := time.Now()
+	timeSinceSignal := now.Sub(p.lastSignalSentEventAt)
+
+	if timeSinceSignal >= p.Config.ForceProposingDelay {
+		return true, fmt.Sprintf("force proposing due to SignalSent event %v ago (delay: %v)",
+			timeSinceSignal, p.Config.ForceProposingDelay)
+	}
+
+	return false, fmt.Sprintf("signal received %v ago, waiting %v more",
+		timeSinceSignal, p.Config.ForceProposingDelay-timeSinceSignal)
+}
+
+// resetSignalForcePropose resets the pending signal force propose state and logs if it was actually a force propose
+func (p *Proposer) resetSignalForcePropose(isSignalForcePropose bool) {
+	p.signalMu.Lock()
+	defer p.signalMu.Unlock()
+	
+	hadPendingSignal := p.pendingSignalForcePropose
+	p.pendingSignalForcePropose = false
+
+	// Only log completion message if this was actually a force propose due to signal
+	if isSignalForcePropose && hadPendingSignal {
+		log.Info("Completed signal-based force propose")
+	}
 }
 
 // Start starts the proposer's main loop.
@@ -370,13 +490,14 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool, l2BaseFee *big.I
 	for _, txs := range preBuiltTxList {
 		txLists = append(txLists, txs.TxList)
 	}
-	// If the pool content is empty and the `--epoch.minProposingInterval` flag is set, we check
-	// whether the proposer should propose an empty block.
+	// If the pool content is empty and we should propose empty blocks (either due to
+	// `--epoch.minProposingInterval` timeout or signal-based force proposing), create an empty block.
 	if allowEmptyPoolContent && len(txLists) == 0 {
 		log.Info(
 			"Pool content is empty, proposing an empty block",
 			"lastProposedAt", p.lastProposedAt,
-			"minProposingInternal", p.MinProposingInternal,
+			"minProposingInterval", p.MinProposingInterval,
+			"forceProposingDelay", p.ForceProposingDelay,
 		)
 		txLists = append(txLists, types.Transactions{})
 	}
@@ -433,14 +554,24 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// TODO(@jmadibekov): Add a check that the transaction is valid and hasn't been mined already
 	// (whether by relayer or some other way) and include it in the proposed block
 
-	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
-	allowEmptyPoolContent := p.MinProposingInternal != 0 && time.Now().After(p.lastProposedAt.Add(p.MinProposingInternal))
+	// Check whether it's time to allow proposing empty pool content. Only allows empty blocks if
+	// `--epoch.minProposingInterval` is > 0 and enough time has passed since the last proposal.
+	allowEmptyPoolContent := p.MinProposingInterval != 0 && time.Now().After(p.lastProposedAt.Add(p.MinProposingInterval))
+
+	// Check if we should force propose due to SignalSent events
+	shouldForcePropose, forceReason := p.shouldForcePropose()
+	if shouldForcePropose {
+		log.Info("Force proposing triggered by SignalSent event", "reason", forceReason)
+		allowEmptyPoolContent = true // Allow empty blocks when force proposing due to signals
+	}
 
 	log.Info(
 		"Start fetching L2 execution engine's transaction pool content",
 		"proposer", p.proposerAddress.Hex(),
-		"minProposingInternal", p.MinProposingInternal,
+		"minProposingInterval", p.MinProposingInterval,
 		"allowEmpty", allowEmptyPoolContent,
+		"shouldForcePropose", shouldForcePropose,
+		"forceReason", forceReason,
 		"lastProposedAt", p.lastProposedAt,
 	)
 
@@ -463,7 +594,14 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists, parentMetaHash, l2BaseFee)
+	err = p.ProposeTxLists(ctx, txLists, parentMetaHash, l2BaseFee, shouldForcePropose)
+
+	// If proposal was successful, reset any pending signal force propose state
+	if err == nil {
+		p.resetSignalForcePropose(shouldForcePropose)
+	}
+
+	return err
 }
 
 // ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
@@ -472,8 +610,9 @@ func (p *Proposer) ProposeTxLists(
 	txLists []types.Transactions,
 	parentMetaHash common.Hash,
 	l2BaseFee *big.Int,
+	isSignalForcePropose bool,
 ) error {
-	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash, l2BaseFee); err != nil {
+	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash, l2BaseFee, isSignalForcePropose); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
@@ -486,6 +625,7 @@ func (p *Proposer) ProposeTxListPacaya(
 	txBatch []types.Transactions,
 	parentMetaHash common.Hash,
 	l2BaseFee *big.Int,
+	isSignalForcePropose bool,
 ) error {
 	var (
 		proposerAddress = p.proposerAddress
@@ -564,8 +704,8 @@ func (p *Proposer) ProposeTxListPacaya(
 		return err
 	}
 
-	// Check profitability if enabled
-	if p.checkProfitability {
+	// Check profitability if enabled, but bypass check when force proposing due to signal
+	if p.checkProfitability && !isSignalForcePropose {
 		profitable, err := p.isProfitable(ctx, txBatch, l2BaseFee, txCandidate, txs)
 		if err != nil {
 			return err
@@ -578,6 +718,8 @@ func (p *Proposer) ProposeTxListPacaya(
 			)
 			return nil
 		}
+	} else if isSignalForcePropose {
+		log.Info("Bypassing profitability check for signal-based force propose")
 	}
 
 	err = retryOnError(
@@ -590,9 +732,12 @@ func (p *Proposer) ProposeTxListPacaya(
 	if err != nil {
 		return err
 	}
-	p.forceProposeOnce = false
 
-	log.Info("📝 Propose blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
+	log.Info("📝 Propose blocks batch succeeded",
+		"blocksInBatch", len(txBatch),
+		"txs", txs,
+		"isSignalForcePropose", isSignalForcePropose,
+	)
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))
