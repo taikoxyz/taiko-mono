@@ -2,18 +2,20 @@
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
+use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
 use event_indexer::metrics::IndexerMetrics;
-use metrics_exporter_prometheus::PrometheusBuilder;
 use rpc::SubscriptionSource;
-use tracing::info;
 
-use crate::flags::{common::CommonArgs, driver::DriverArgs};
+use crate::{
+    commands::Subcommand,
+    flags::{common::CommonArgs, driver::DriverArgs},
+};
 
 /// Command-line interface for running the driver service.
 #[derive(Parser, Clone, Debug)]
-#[command(about = "Runs the Shasta driver")]
+#[command(about = "Runs the driver software")]
 pub struct DriverSubCommand {
     #[command(flatten)]
     pub common_flags: CommonArgs,
@@ -22,40 +24,7 @@ pub struct DriverSubCommand {
 }
 
 impl DriverSubCommand {
-    /// Initializes the logging system based on global arguments.
-    pub fn init_logs(&self) -> anyhow::Result<()> {
-        let log_level = self.common_flags.log_level();
-        let env_filter =
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new(log_level.as_str().to_lowercase())
-            });
-        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
-        Ok(())
-    }
-
-    /// Initialize Prometheus metrics server.
-    fn init_metrics(&self) -> Result<()> {
-        if !self.common_flags.metrics_enabled {
-            return Ok(());
-        }
-
-        let metrics_addr =
-            format!("{}:{}", self.common_flags.metrics_addr, self.common_flags.metrics_port);
-        let socket_addr: std::net::SocketAddr = metrics_addr.parse()?;
-        PrometheusBuilder::new().with_http_listener(socket_addr).install()?;
-
-        DriverMetrics::init();
-        IndexerMetrics::init();
-
-        info!(
-            target: "metrics",
-            "Prometheus metrics server started at http://{}",
-            metrics_addr
-        );
-
-        Ok(())
-    }
-
+    // Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
         let l1_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
@@ -82,6 +51,26 @@ impl DriverSubCommand {
 
     /// Run the driver.
     pub async fn run(&self) -> Result<()> {
+        <Self as Subcommand>::run(self).await
+    }
+}
+
+#[async_trait]
+impl Subcommand for DriverSubCommand {
+    // Return a reference to the common CLI arguments.
+    fn common_args(&self) -> &CommonArgs {
+        &self.common_flags
+    }
+
+    // Register driver and indexer metrics.
+    fn register_metrics(&self) -> Result<()> {
+        DriverMetrics::init();
+        IndexerMetrics::init();
+        Ok(())
+    }
+
+    // Run the driver.
+    async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;
 
