@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use alethia_reth::payload::attributes::TaikoPayloadAttributes;
-use alloy::{providers::Provider, rpc::types::Log};
+use alloy::{primitives::B256, providers::Provider, rpc::types::Log};
+use anyhow::Error;
 use async_trait::async_trait;
 use protocol::shasta::manifest::ProposalManifest;
+use rpc::client::Client;
 
 use crate::derivation::manifest::ManifestFetcher;
 
@@ -14,7 +16,7 @@ pub struct ShastaDerivationPipeline<P>
 where
     P: Provider + Clone,
 {
-    rpc: rpc::client::Client<P>,
+    rpc: Client<P>,
     manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
 }
 
@@ -24,7 +26,7 @@ where
 {
     /// Create a new derivation pipeline instance.
     pub fn new(
-        rpc: rpc::client::Client<P>,
+        rpc: Client<P>,
         manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
     ) -> Self {
         Self { rpc, manifest_fetcher }
@@ -36,11 +38,47 @@ impl<P> DerivationPipeline for ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    async fn process_proposal(
+    type Manifest = ProposalManifest;
+
+    async fn log_to_manifests(&self, log: &Log) -> Result<Vec<Self::Manifest>, DerivationError> {
+        let data = log.data().data.clone();
+        let payload = self
+            .rpc
+            .shasta
+            .codec
+            .decodeProposedEvent(data)
+            .call()
+            .await
+            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
+
+        let mut manifests = Vec::new();
+        for source in payload.derivation.sources.iter() {
+            let blob_hashes: Vec<B256> = source
+                .blobSlice
+                .blobHashes
+                .iter()
+                .map(|hash| B256::from_slice(hash.as_ref()))
+                .collect();
+
+            let manifest = self
+                .manifest_fetcher
+                .fetch_and_decode_manifest(
+                    &blob_hashes,
+                    source.blobSlice.offset.to::<u64>() as usize,
+                )
+                .await
+                .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
+
+            manifests.push(manifest);
+        }
+
+        Ok(manifests)
+    }
+
+    async fn manifests_to_payload_attributes(
         &self,
-        _log: &Log,
+        _manifests: &[Self::Manifest],
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
-        let _ = (&self.rpc, &self.manifest_fetcher);
-        todo!()
+        Ok(Vec::new())
     }
 }

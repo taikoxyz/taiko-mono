@@ -62,7 +62,7 @@ where
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
             Arc::new(ShastaManifestFetcher::new(blob_source));
-        let derivation: Arc<dyn DerivationPipeline> =
+        let derivation: Arc<dyn DerivationPipeline<Manifest = ProposalManifest>> =
             Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), manifest_fetcher));
 
         // Wait for historical indexing to complete before starting the derivation loop.
@@ -94,7 +94,7 @@ where
                 .await
                 .map_err(|err| SyncError::Derivation(err.to_string()))?;
 
-                info!("successfully processed proposal: {:#?}", result);
+                info!("successfully processed proposal payload attributes: {:#?}", result);
             }
         }
         Ok(())
