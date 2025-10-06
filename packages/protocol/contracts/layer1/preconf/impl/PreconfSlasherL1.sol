@@ -45,13 +45,16 @@ contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
         IPreconfSlasherL2.Preconfirmation memory preconfirmation =
             abi.decode(_commitment.payload, (IPreconfSlasherL2.Preconfirmation));
 
-        // Liveness faults are not slashed if the proposer's submission slot was potentially reorged
+        // If the fault computed on the L2 side is a liveness fault,
         if (fault == IPreconfSlasherL2.Fault.Liveness) {
-            require(
+            // but the preconfer has not missed its L1 proposal slot, then we actually have
+            // a safety fault.
+            if (
                 LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd)
-                    != bytes32(0),
-                MissedSlot()
-            );
+                    != bytes32(0)
+            ) {
+                fault = IPreconfSlasherL2.Fault.Safety;
+            }
         }
 
         IPreconfSlasher.SlashAmount memory amount = getSlashAmount();
@@ -80,8 +83,8 @@ contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IPreconfSlasher
-    function getSlashAmount() public pure returns (SlashAmount memory slashAmount) {
+    function getSlashAmount() public pure returns (SlashAmount memory) {
         // Note: These values will be changed
-        slashAmount = SlashAmount({ livenessFault: 0.5 ether, safetyFault: 1 ether });
+        return SlashAmount({ livenessFault: 0.5 ether, safetyFault: 1 ether });
     }
 }
