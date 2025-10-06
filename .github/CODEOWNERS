@@ -1,5 +1,5 @@
 # Root level files and workflows
-.github/CODEOWNERS              @ggonzalez94
+.github/CODEOWNERS              @ggonzalez94 @davidtaikocha
 .github/workflows/*             @ggonzalez94 @YoGhurt111 @davidtaikocha @RogerLamTd 
 
 # Protocol (core smart contracts - highest activity)
