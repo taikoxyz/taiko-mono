@@ -443,7 +443,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("Lookahead requesting end of sequencing for epoch",
+				log.Info(
+					"Lookahead requesting end of sequencing for epoch",
 					"epoch", epoch,
 					"slot", slot,
 				)
