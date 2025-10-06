@@ -1,0 +1,110 @@
+name: "Build and Push Multi-Arch Docker Image (custom runner)"
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/custom-runner
+  DOCKERFILE: packages/custom-runner/Dockerfile
+
+jobs:
+  build:
+    name: Build and push docker image (custom runner)
+    strategy:
+      matrix:
+        include:
+          - runner: arc-runner-set
+            platform: linux/amd64
+          - runner: arc-runner-set-arm64
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare Environment
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: latest
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          # push-by-digest: true lets us assemble a manifest later
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # (optional but fast) cache via GitHub Actions
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Create and push multi-arch manifest
+    runs-on: arc-runner-set
+    needs: [build]
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: latest
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY_IMAGE }}:latest \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:latest
