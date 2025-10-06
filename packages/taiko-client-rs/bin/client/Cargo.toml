@@ -17,11 +17,11 @@ tokio = { workspace = true }
 clap = { workspace = true }
 
 # observability
+async-trait = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-async-trait = { workspace = true }
 
 # ethereum
 alloy = { workspace = true }

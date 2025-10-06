@@ -90,7 +90,7 @@ impl ShastaProposalTransactionBuilder {
         };
 
         // Build the blob sidecar.
-        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)
+        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode_and_compress()?)
             .build()
             .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 

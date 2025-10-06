@@ -15,11 +15,13 @@ use alloy_rpc_types_engine::{
 };
 use async_trait::async_trait;
 use metrics::gauge;
+use rpc::auth::L1Origin;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
 use crate::metrics::DriverMetrics;
 use manifest::ManifestFetcher;
+use protocol::shasta::manifest::ProposalManifest;
 
 pub mod manifest;
 
@@ -62,7 +64,7 @@ where
     P: Provider + Clone,
 {
     rpc: rpc::client::Client<P>,
-    manifest_fetcher: Arc<dyn ManifestFetcher>,
+    manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -70,7 +72,10 @@ where
     P: Provider + Clone,
 {
     /// Create a new derivation pipeline instance.
-    pub fn new(rpc: rpc::client::Client<P>, manifest_fetcher: Arc<dyn ManifestFetcher>) -> Self {
+    pub fn new(
+        rpc: rpc::client::Client<P>,
+        manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
+    ) -> Self {
         Self { rpc, manifest_fetcher }
     }
 
@@ -82,8 +87,6 @@ where
         l1_block_hash: Option<B256>,
         is_forced_inclusion: bool,
     ) -> Result<(), DerivationError> {
-        use rpc::auth::L1Origin;
-
         let origin = L1Origin {
             block_id: U256::from(proposal_id),
             l2_block_hash,

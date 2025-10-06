@@ -20,6 +20,7 @@ use crate::{
     },
 };
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
+use protocol::shasta::manifest::ProposalManifest;
 use rpc::{blob::BlobDataSource, client::Client};
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -59,7 +60,7 @@ where
 {
     async fn run(&self) -> Result<(), SyncError> {
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
-        let manifest_fetcher: Arc<dyn ManifestFetcher> =
+        let manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
             Arc::new(ShastaManifestFetcher::new(blob_source));
         let derivation: Arc<dyn DerivationPipeline> =
             Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), manifest_fetcher));
