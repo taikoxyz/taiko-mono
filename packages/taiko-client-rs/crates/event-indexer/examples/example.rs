@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     indexer.clone().spawn();
     indexer.wait_historical_indexing_finished().await;
 
-    // Read the ShastaProposeInput events from the cache.
+    // Read cached input parameters from the indexer, for submitting a `propose` transaction to Shasta inbox.
     let _ = indexer.read_shasta_propose_input();
 
     Ok(())
