@@ -16,7 +16,7 @@ use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
     constants::ANCHOR_MIN_OFFSET,
-    manifest::{BlockManifest, ProposalManifest},
+    manifest::{BlockManifest, DerivationSourceManifest, ProposalManifest},
 };
 use rpc::client::ClientWithWallet;
 use tracing::info;
@@ -71,22 +71,19 @@ impl ShastaProposalTransactionBuilder {
         }
 
         // Build the block manifests and proposal manifest.
+        let block_manifest = BlockManifest {
+            timestamp: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            coinbase: self.l2_suggested_fee_recipient,
+            anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
+            gas_limit: 0, // Inherited from the parent block.
+            transactions: txs.iter().cloned().map(|tx| tx.into_inner()).collect(),
+        };
         let manifest = ProposalManifest {
             prover_auth_bytes: Bytes::new(),
-            blocks: txs
-                .iter()
-                .map(|tx| BlockManifest {
-                    timestamp: SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs(),
-                    coinbase: self.l2_suggested_fee_recipient,
-                    anchor_block_number: current_l1_head - (ANCHOR_MIN_OFFSET + 1),
-                    gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                                   * limit during derivation. */
-                    transactions: vec![tx.clone().into_inner()],
-                })
-                .collect::<Vec<_>>(),
+            sources: vec![DerivationSourceManifest { blocks: vec![block_manifest] }],
         };
 
         // Build the blob sidecar.

@@ -30,6 +30,14 @@ pub struct BlockManifest {
     pub transactions: Vec<TxEnvelope>,
 }
 
+/// Manifest for a derivation source, matching `LibManifest.DerivationSourceManifest`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
+#[serde(rename_all = "camelCase")]
+pub struct DerivationSourceManifest {
+    /// Blocks included in this source.
+    pub blocks: Vec<BlockManifest>,
+}
+
 /// Manifest for a proposal, matching `LibManifest.ProtocolProposalManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
@@ -37,16 +45,16 @@ pub struct ProposalManifest {
     /// Raw prover authentication payload.
     #[serde(default)]
     pub prover_auth_bytes: Bytes,
-    /// Blocks bundled in this proposal.
+    /// Derivation sources included in this proposal.
     #[serde(default)]
-    pub blocks: Vec<BlockManifest>,
+    pub sources: Vec<DerivationSourceManifest>,
 }
 
 impl Default for ProposalManifest {
     // Create the default proposal manifest.
     // Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     fn default() -> Self {
-        Self { prover_auth_bytes: Bytes::new(), blocks: Vec::new() }
+        Self { prover_auth_bytes: Bytes::new(), sources: Vec::new() }
     }
 }
 
@@ -112,7 +120,7 @@ impl ProposalManifest {
         let manifest = <ProposalManifest as Decodable>::decode(&mut bytes)
             .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
 
-        if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
+        if manifest.sources.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(ProposalManifest::default());
         }
 
@@ -138,6 +146,6 @@ mod tests {
 
         let decoded = ProposalManifest::decompress_and_decode(&encoded, 0).unwrap();
         assert_eq!(decoded.prover_auth_bytes, manifest.prover_auth_bytes);
-        assert_eq!(decoded.blocks.len(), manifest.blocks.len());
+        assert_eq!(decoded.sources.len(), manifest.sources.len());
     }
 }
