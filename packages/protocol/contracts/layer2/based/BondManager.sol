@@ -148,6 +148,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint256 _amount) external nonReentrant {
         Bond storage bond_ = bond[msg.sender];
+        require(_to != address(0), InvalidRecipient());
 
         if (
             bond_.withdrawalRequestedAt == 0
