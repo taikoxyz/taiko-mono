@@ -1086,7 +1086,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		)
 
 		// Update L1 Origin for the parent being reorged out using cached data.
-
 		var (
 			payloadID engine.PayloadID
 			parentID  *big.Int
