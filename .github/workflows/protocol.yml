@@ -37,15 +37,11 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Prepare environment
-        continue-on-error: true
-        run: sudo apt-get update && sudo apt-get install -y git wget
-
       - name: Fetch owner/repo of pull request
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # account for forked repos case
           ref: ${{ steps.comment-branch.outputs.head_ref }}
@@ -55,7 +51,7 @@ jobs:
           token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.4.0
+        uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
 
@@ -79,17 +75,17 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm clean && forge fmt
 
-      - name: Shared-Unit tests
+      - name: Test Shared contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm test:shared && pnpm layout:shared
+        run: pnpm test:shared && pnpm layout:shared
 
-      - name: L2-Unit tests
+      - name: Test L2 contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm compile:l2 && pnpm test:l2 && pnpm layout:l2
+        run: pnpm test:l2 && pnpm layout:l2
 
-      - name: L1-Unit tests
+      - name: Test L1 contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
+        run: pnpm snapshot:l1 && pnpm layout:l1
 
       - name: Check for changes
         id: git_status
@@ -132,7 +128,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 

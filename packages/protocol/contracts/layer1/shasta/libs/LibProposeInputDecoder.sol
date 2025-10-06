@@ -36,8 +36,9 @@ library LibProposeInputDecoder {
 
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _input.coreState.nextProposalBlockId);
+        ptr = P.packUint48(ptr, _input.coreState.lastProposalBlockId);
         ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
+        ptr = P.packUint48(ptr, _input.coreState.lastCheckpointTimestamp);
         ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
@@ -91,8 +92,9 @@ library LibProposeInputDecoder {
 
         // 2. Decode CoreState
         (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastCheckpointTimestamp, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
@@ -263,12 +265,12 @@ library LibProposeInputDecoder {
         unchecked {
             // Fixed sizes:
             // deadline: 6 bytes (uint48)
-            // CoreState: 6 + 6 + 6 + 32 + 32 = 82 bytes
+            // CoreState: 6 + 6 + 6 + 6 + 32 + 32 = 88 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 2 + 2 = 4 bytes
             // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
-            size_ = 101;
+            size_ = 107;
 
             // Add Checkpoint size if not empty
             bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)

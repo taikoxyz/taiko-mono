@@ -304,7 +304,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 func (s *ClientTestSuite) InitShastaGenesisProposal() {
 	var (
 		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
-		inbox = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+		inbox = common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	)
 	var l2HeadNumber *big.Int
 	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
@@ -328,7 +328,7 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		)
 		s.Nil(err)
 
-		data, err := encoding.ShastaInboxABI.Pack("initV3", common.Address{}, head.Hash())
+		data, err := encoding.ShastaInboxABI.Pack("activate", head.Hash())
 		s.Nil(err)
 		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
 		s.Nil(err)

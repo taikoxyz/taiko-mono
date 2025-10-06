@@ -393,7 +393,7 @@ func (p *Prover) initEventHandlers() error {
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,
 		BackOffRetryInterval:   p.cfg.BackOffRetryInterval,
-		BackOffMaxRetrys:       p.cfg.BackOffMaxRetries,
+		BackOffMaxRetries:      p.cfg.BackOffMaxRetries,
 		ProveUnassignedBlocks:  p.cfg.ProveUnassignedBlocks,
 	}
 	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)

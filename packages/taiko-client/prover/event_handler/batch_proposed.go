@@ -38,7 +38,7 @@ type BatchProposedEventHandler struct {
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
 	backOffRetryInterval   time.Duration
-	backOffMaxRetrys       uint64
+	backOffMaxRetries      uint64
 	proveUnassignedBlocks  bool
 }
 
@@ -53,7 +53,7 @@ type NewBatchProposedEventHandlerOps struct {
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
 	BackOffRetryInterval   time.Duration
-	BackOffMaxRetrys       uint64
+	BackOffMaxRetries      uint64
 	ProveUnassignedBlocks  bool
 }
 
@@ -69,7 +69,7 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
 		opts.BackOffRetryInterval,
-		opts.BackOffMaxRetrys,
+		opts.BackOffMaxRetries,
 		opts.ProveUnassignedBlocks,
 	}
 }
@@ -137,7 +137,7 @@ func (h *BatchProposedEventHandler) Handle(
 						"batchID", meta.Pacaya().GetBatchID(),
 						"numBlobs", len(meta.Pacaya().GetBlobHashes()),
 						"blocks", len(meta.Pacaya().GetBlocks()),
-						"maxRetrys", h.backOffMaxRetrys,
+						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)
 					return err
@@ -146,7 +146,7 @@ func (h *BatchProposedEventHandler) Handle(
 				return nil
 			},
 			backoff.WithContext(
-				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetrys),
+				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetries),
 				ctx,
 			),
 		); err != nil {

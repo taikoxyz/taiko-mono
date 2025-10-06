@@ -90,7 +90,7 @@ abstract contract AbstractCodecFuzzTest is Test {
 
     function testFuzz_hashCoreState(
         uint48 nextProposalId,
-        uint48 nextProposalBlockId,
+        uint48 lastProposalBlockId,
         uint48 lastFinalizedProposalId,
         bytes32 lastFinalizedTransitionHash,
         bytes32 bondInstructionsHash
@@ -100,8 +100,9 @@ abstract contract AbstractCodecFuzzTest is Test {
     {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: nextProposalId,
-            nextProposalBlockId: nextProposalBlockId,
+            lastProposalBlockId: lastProposalBlockId,
             lastFinalizedProposalId: lastFinalizedProposalId,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: lastFinalizedTransitionHash,
             bondInstructionsHash: bondInstructionsHash
         });

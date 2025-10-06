@@ -67,7 +67,8 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
@@ -118,7 +119,8 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		prop.ShastaIndexer(),
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -173,7 +175,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Equal(head.NumberU64()+1, head2.NumberU64())
 	s.Equal(1, len(head2.Transactions()))
 	s.Equal(head.GasLimit(), head2.GasLimit())
-	s.Equal(head.Time()+1, head2.Time())
+	s.Less(head.Time(), head2.Time())
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)
@@ -344,7 +346,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	b, err := builder.SplitToBlobs(proposalManifestBytes)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{

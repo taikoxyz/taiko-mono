@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
@@ -17,7 +16,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
 library LibForcedInclusion {
-    using LibAddress for address;
+    using LibMath for uint48;
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
@@ -45,7 +44,6 @@ library LibForcedInclusion {
     /// @dev See `IInbox.storeForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint16, /* _forcedInclusionDelay */
         uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
@@ -63,55 +61,6 @@ library LibForcedInclusion {
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
-    /// @dev Internal implementation of consuming forced inclusions
-    /// @notice Consumes up to _count forced inclusions from the queue
-    /// @param _feeRecipient The address to receive the fees from all consumed inclusions
-    /// @param _count The maximum number of forced inclusions to consume
-    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
-    /// has fewer)
-    function consumeForcedInclusions(
-        Storage storage $,
-        address _feeRecipient,
-        uint256 _count
-    )
-        public
-        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
-    {
-        unchecked {
-            // Early exit if no inclusions requested
-            if (_count == 0) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
-            }
-
-            (uint48 head, uint48 tail) = ($.head, $.tail);
-
-            // Early exit if  queue is empty
-            if (head == tail) {
-                return new IForcedInclusionStore.ForcedInclusion[](0);
-            }
-
-            // Calculate actual number to process (min of requested and available)
-            uint256 available = tail - head;
-            uint256 toProcess = _count > available ? available : _count;
-
-            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](toProcess);
-            uint256 totalFees;
-
-            for (uint256 i; i < toProcess; ++i) {
-                inclusions_[i] = $.queue[head + i];
-                totalFees += inclusions_[i].feeInGwei;
-            }
-
-            // Update head and lastProcessedAt after all processing
-            ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
-
-            // Send all fees in one transfer
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-            }
-        }
-    }
-
     /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
@@ -122,19 +71,39 @@ library LibForcedInclusion {
         returns (bool)
     {
         (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+        return isOldestForcedInclusionDue($, head, tail, lastProcessedAt, _forcedInclusionDelay);
+    }
 
-        // Early exit for empty queue (most common case)
-        if (head == tail) return false;
+    // ---------------------------------------------------------------
+    // Internal functions
+    // ---------------------------------------------------------------
 
-        uint256 timestamp = $.queue[head].blobSlice.timestamp;
-
-        // Early exit if slot is empty
-        if (timestamp == 0) return false;
-
-        // Only calculate deadline if we have a valid inclusion
+    /// @dev Checks if the oldest remaining forced inclusion is due (internal variant with
+    /// parameters)
+    /// @param $ Storage reference
+    /// @param _head Current queue head position
+    /// @param _tail Current queue tail position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _forcedInclusionDelay Delay in seconds before inclusion is due
+    /// @return True if the oldest remaining inclusion is due for processing
+    function isOldestForcedInclusionDue(
+        Storage storage $,
+        uint48 _head,
+        uint48 _tail,
+        uint48 _lastProcessedAt,
+        uint16 _forcedInclusionDelay
+    )
+        internal
+        view
+        returns (bool)
+    {
         unchecked {
-            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
-            return block.timestamp >= deadline;
+            if (_head == _tail) return false;
+
+            uint256 timestamp = $.queue[_head].blobSlice.timestamp;
+            if (timestamp == 0) return false;
+
+            return block.timestamp >= timestamp.max(_lastProcessedAt) + _forcedInclusionDelay;
         }
     }
 
