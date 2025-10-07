@@ -486,7 +486,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return fmt.Errorf("failed to fetch L1 origin for the block: %w", err)
 	}
 
-	log.Info("Fetched L1 Origin",
+	log.Info(
+		"Fetched L1 Origin",
 		"blockID", l1Origin.BlockID.Uint64(),
 		"l2BlockHash", l1Origin.L2BlockHash.Hex(),
 		"l1BlockHash", l1Origin.L1BlockHash.Hex(),
@@ -518,8 +519,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	case <-timer.C:
 		// If any response for this hash was seen recently, skip ours.
 		if ts, ok := s.responseSeenCache.Get(hash); ok && time.Since(ts) < 10*time.Second {
-			log.Debug("Skip responding; recent response already seen",
-				"peer", from, "hash", hash.Hex())
+			log.Debug(
+				"Skip responding; recent response already seen",
+				"peer", from,
+				"hash", hash.Hex(),
+			)
 			return nil
 		}
 	case <-ctx.Done():
@@ -539,7 +543,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return fmt.Errorf("failed to convert block to envelope: %w", err)
 	}
 
-	log.Info("Publish preconfirmation block response",
+	log.Info(
+		"Publish preconfirmation block response",
 		"blockID", block.NumberU64(),
 		"hash", hash.Hex(),
 		"signature", common.Bytes2Hex(sig[:]),
@@ -1079,7 +1084,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash
 
 	if isOrphan {
-		log.Info("Block is building on an orphaned block",
+		log.Info(
+			"Block is building on an orphaned block",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -1261,7 +1267,8 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
 	} else {
-		log.Info("Reorging highest unsafe L2 payload blockID",
+		log.Info(
+			"Reorging highest unsafe L2 payload blockID",
 			"blockID", blockID,
 			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
