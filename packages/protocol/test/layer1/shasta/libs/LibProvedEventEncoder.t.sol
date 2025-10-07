@@ -15,8 +15,8 @@ contract LibProvedEventEncoderTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: bytes32(uint256(123)),
             parentTransitionHash: bytes32(uint256(456)),
-            checkpointBlockNumber: 1000,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 1000,
                 blockHash: bytes32(uint256(789)),
                 stateRoot: bytes32(uint256(101_112))
             })
@@ -74,8 +74,8 @@ contract LibProvedEventEncoderTest is Test {
             "Parent transition hash mismatch"
         );
         assertEq(
-            decoded.transition.checkpointBlockNumber,
-            original.transition.checkpointBlockNumber,
+            decoded.transition.checkpoint.blockNumber,
+            original.transition.checkpoint.blockNumber,
             "Checkpoint block number mismatch"
         );
         assertEq(
@@ -157,8 +157,8 @@ contract LibProvedEventEncoderTest is Test {
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(2000)),
                 parentTransitionHash: bytes32(uint256(2001)),
-                checkpointBlockNumber: 2000,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 2000,
                     blockHash: bytes32(uint256(2002)),
                     stateRoot: bytes32(uint256(2003))
                 })
@@ -221,8 +221,8 @@ contract LibProvedEventEncoderTest is Test {
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(3000)),
                 parentTransitionHash: bytes32(uint256(3001)),
-                checkpointBlockNumber: 3000,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 3000,
                     blockHash: bytes32(uint256(3002)),
                     stateRoot: bytes32(uint256(3003))
                 })
@@ -258,8 +258,8 @@ contract LibProvedEventEncoderTest is Test {
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(10_000)),
                 parentTransitionHash: bytes32(uint256(10_001)),
-                checkpointBlockNumber: 10_000,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 10_000,
                     blockHash: bytes32(uint256(10_002)),
                     stateRoot: bytes32(uint256(10_003))
                 })
@@ -292,8 +292,8 @@ contract LibProvedEventEncoderTest is Test {
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(4200)),
                 parentTransitionHash: bytes32(uint256(4201)),
-                checkpointBlockNumber: 4200,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 4200,
                     blockHash: bytes32(uint256(4202)),
                     stateRoot: bytes32(uint256(4203))
                 })

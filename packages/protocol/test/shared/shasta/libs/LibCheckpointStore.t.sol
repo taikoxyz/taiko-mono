@@ -13,13 +13,8 @@ contract CheckpointStoreWrapper {
 
     LibCheckpointStore.Storage internal storage_;
 
-    function saveCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint memory _checkpoint
-    )
-        external
-    {
-        storage_.saveCheckpoint(_blockNumber, _checkpoint);
+    function saveCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint) external {
+        storage_.saveCheckpoint(_checkpoint);
     }
 
     function getCheckpoint(uint48 _blockNumber)
@@ -65,14 +60,16 @@ contract LibCheckpointStoreTest is CommonTest {
     function test_saveAndRetrieveSingleCheckpoint() public {
         uint48 blockNumber = 100;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
 
-        storage_.saveCheckpoint(blockNumber, checkpoint);
+        storage_.saveCheckpoint(checkpoint);
 
         // Retrieve and verify checkpoint
         ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
+        assertEq(retrieved.blockNumber, checkpoint.blockNumber);
         assertEq(retrieved.blockHash, checkpoint.blockHash);
         assertEq(retrieved.stateRoot, checkpoint.stateRoot);
     }
@@ -83,17 +80,19 @@ contract LibCheckpointStoreTest is CommonTest {
         for (uint48 i = 1; i <= numCheckpoints; i++) {
             uint48 blockNumber = i * 100;
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: blockNumber,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
-            storage_.saveCheckpoint(blockNumber, checkpoint);
+            storage_.saveCheckpoint(checkpoint);
         }
 
         // Verify retrieval of each checkpoint
         for (uint48 i = 1; i <= numCheckpoints; i++) {
             uint48 blockNumber = i * 100;
             ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
+            assertEq(retrieved.blockNumber, blockNumber);
             assertEq(retrieved.blockHash, bytes32(uint256(i)));
             assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }
@@ -105,20 +104,26 @@ contract LibCheckpointStoreTest is CommonTest {
 
     function test_revert_invalidCheckpoint_zeroStateRoot() public {
         uint48 blockNumber = 100;
-        ICheckpointStore.Checkpoint memory checkpoint =
-            ICheckpointStore.Checkpoint({ blockHash: bytes32(uint256(1)), stateRoot: bytes32(0) });
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
+            blockHash: bytes32(uint256(1)),
+            stateRoot: bytes32(0)
+        });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(blockNumber, checkpoint);
+        wrapper.saveCheckpoint(checkpoint);
     }
 
     function test_revert_invalidCheckpoint_zeroBlockHash() public {
         uint48 blockNumber = 100;
-        ICheckpointStore.Checkpoint memory checkpoint =
-            ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(uint256(1)) });
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(uint256(1))
+        });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        wrapper.saveCheckpoint(blockNumber, checkpoint);
+        wrapper.saveCheckpoint(checkpoint);
     }
 
     function test_revert_getCheckpoint_notFound() public {
@@ -128,10 +133,11 @@ contract LibCheckpointStoreTest is CommonTest {
         // Save a checkpoint at block 200
         uint48 blockNumber = 200;
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
-        storage_.saveCheckpoint(blockNumber, checkpoint);
+        storage_.saveCheckpoint(checkpoint);
 
         // Try to get a non-existent checkpoint
         vm.expectRevert(LibCheckpointStore.CheckpointNotFound.selector);
@@ -145,24 +151,27 @@ contract LibCheckpointStoreTest is CommonTest {
     function test_overwriteExistingCheckpoint() public {
         // Save initial checkpoint
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
+            blockNumber: 100,
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
-        storage_.saveCheckpoint(100, checkpoint1);
+        storage_.saveCheckpoint(checkpoint1);
 
         // Save new checkpoint at block 200
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
+            blockNumber: 200,
             blockHash: bytes32(uint256(3)),
             stateRoot: bytes32(uint256(4))
         });
-        storage_.saveCheckpoint(200, checkpoint2);
+        storage_.saveCheckpoint(checkpoint2);
 
         // Now update checkpoint at block 300 (should work fine)
         ICheckpointStore.Checkpoint memory checkpoint3 = ICheckpointStore.Checkpoint({
+            blockNumber: 300,
             blockHash: bytes32(uint256(5)),
             stateRoot: bytes32(uint256(6))
         });
-        storage_.saveCheckpoint(300, checkpoint3);
+        storage_.saveCheckpoint(checkpoint3);
 
         // Verify all checkpoints are stored correctly
         ICheckpointStore.Checkpoint memory retrieved1 = storage_.getCheckpoint(100);
@@ -191,12 +200,16 @@ contract LibCheckpointStoreTest is CommonTest {
         vm.assume(blockHash != bytes32(0));
         vm.assume(stateRoot != bytes32(0));
 
-        ICheckpointStore.Checkpoint memory checkpoint =
-            ICheckpointStore.Checkpoint({ blockHash: blockHash, stateRoot: stateRoot });
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            stateRoot: stateRoot
+        });
 
-        storage_.saveCheckpoint(blockNumber, checkpoint);
+        storage_.saveCheckpoint(checkpoint);
 
         ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(blockNumber);
+        assertEq(retrieved.blockNumber, blockNumber);
         assertEq(retrieved.blockHash, blockHash);
         assertEq(retrieved.stateRoot, stateRoot);
     }
@@ -208,17 +221,19 @@ contract LibCheckpointStoreTest is CommonTest {
         for (uint48 i = 1; i <= numCheckpoints; i++) {
             uint48 blockNum = i * 100;
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: blockNum,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
-            storage_.saveCheckpoint(blockNum, checkpoint);
+            storage_.saveCheckpoint(checkpoint);
             lastBlockNumber = blockNum;
         }
 
         // Verify all checkpoints are retrievable
         for (uint48 i = 1; i <= numCheckpoints; i++) {
             ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(i * 100);
+            assertEq(retrieved.blockNumber, i * 100);
             assertEq(retrieved.blockHash, bytes32(uint256(i)));
             assertEq(retrieved.stateRoot, bytes32(uint256(i * 10)));
         }
@@ -235,12 +250,13 @@ contract LibCheckpointStoreTest is CommonTest {
         // Measure gas for saving checkpoints
         for (uint48 i = 1; i <= 10; i++) {
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: i,
                 blockHash: bytes32(uint256(i)),
                 stateRoot: bytes32(uint256(i * 10))
             });
 
             startGas = gasleft();
-            storage_.saveCheckpoint(i, checkpoint);
+            storage_.saveCheckpoint(checkpoint);
             gasUsed = startGas - gasleft();
 
             // Gas usage for first write to a storage slot is higher (around 90k)
@@ -259,6 +275,7 @@ contract LibCheckpointStoreTest is CommonTest {
         returns (ICheckpointStore.Checkpoint memory)
     {
         return ICheckpointStore.Checkpoint({
+            blockNumber: blockNumber,
             blockHash: bytes32(uint256(blockNumber)),
             stateRoot: bytes32(uint256(blockNumber * 10))
         });

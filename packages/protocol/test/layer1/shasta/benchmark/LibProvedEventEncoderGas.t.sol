@@ -155,8 +155,8 @@ contract LibProvedEventEncoderGas is Test {
         payload_.proposalId = 12_345;
         payload_.transition.proposalHash = keccak256("proposal");
         payload_.transition.parentTransitionHash = keccak256("parent");
-        payload_.transition.checkpointBlockNumber = 999_999;
         payload_.transition.checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 999_999,
             blockHash: keccak256("block"),
             stateRoot: keccak256("state")
         });

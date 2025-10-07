@@ -24,20 +24,16 @@ library LibHashSimple {
     }
 
     /// @notice Simple hashing for Checkpoint structs
-    /// @dev Uses standard keccak256(abi.encode(...)) for the checkpoint with block number
-    /// @param _blockNumber The block number of the checkpoint
+    /// @dev Uses standard keccak256(abi.encode(...)) for the checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint memory _checkpoint
-    )
+    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_blockNumber, _checkpoint));
+        return keccak256(abi.encode(_checkpoint));
     }
 
     /// @notice Simple hashing for CoreState structs

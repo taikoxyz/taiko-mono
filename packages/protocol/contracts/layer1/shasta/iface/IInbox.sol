@@ -97,8 +97,6 @@ interface IInbox {
         /// transition to
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
-        /// @notice The block number associated with the checkpoint.
-        uint48 checkpointBlockNumber;
         /// @notice The end block header containing number, hash, and state root.
         ICheckpointStore.Checkpoint checkpoint;
     }
@@ -153,8 +151,6 @@ interface IInbox {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
-        /// @notice The block number associated with the checkpoint.
-        uint48 checkpointBlockNumber;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.

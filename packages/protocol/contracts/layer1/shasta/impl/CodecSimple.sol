@@ -103,15 +103,12 @@ contract CodecSimple is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
-    function hashCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint calldata _checkpoint
-    )
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         pure
         returns (bytes32)
     {
-        return LibHashSimple.hashCheckpoint(_blockNumber, _checkpoint);
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodec

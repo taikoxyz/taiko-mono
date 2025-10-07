@@ -257,8 +257,8 @@ abstract contract InboxTestHelper is CommonTest {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
-            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
@@ -282,8 +282,8 @@ abstract contract InboxTestHelper is CommonTest {
             blobReference: blobRef,
             transitionRecords: new IInbox.TransitionRecord[](0),
             numForcedInclusions: 0,
-            checkpointBlockNumber: uint48(block.number),
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             })

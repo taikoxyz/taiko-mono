@@ -60,16 +60,13 @@ library LibHashOptimized {
     /// @dev Efficiently hashes the 3 main fields of a checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint memory _checkpoint
-    )
+    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
+            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
         );
     }
 
@@ -163,7 +160,7 @@ library LibHashOptimized {
         return EfficientHashLib.hash(
             _transition.proposalHash,
             _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpointBlockNumber, _transition.checkpoint)
+            hashCheckpoint(_transition.checkpoint)
         );
     }
 
@@ -355,7 +352,7 @@ library LibHashOptimized {
         return EfficientHashLib.hash(
             _transition.proposalHash,
             _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpointBlockNumber, _transition.checkpoint),
+            hashCheckpoint(_transition.checkpoint),
             bytes32(uint256(uint160(_metadata.designatedProver))),
             bytes32(uint256(uint160(_metadata.actualProver)))
         );

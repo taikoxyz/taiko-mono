@@ -107,13 +107,9 @@ interface ICodec {
     // ---------------------------------------------------------------
 
     /// @notice Hashing for Checkpoint structs
-    /// @param _blockNumber The block number of the checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint calldata _checkpoint
-    )
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         pure
         returns (bytes32);

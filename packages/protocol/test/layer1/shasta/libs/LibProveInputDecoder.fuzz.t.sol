@@ -51,8 +51,11 @@ contract LibProveInputDecoderFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
-            checkpointBlockNumber: endBlockNumber,
-            checkpoint: ICheckpointStore.Checkpoint({ blockHash: endBlockHash, stateRoot: endStateRoot })
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: endBlockNumber,
+                blockHash: endBlockHash,
+                stateRoot: endStateRoot
+            })
         });
 
         // Create metadata array
@@ -88,7 +91,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Verify transition fields
         assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
         assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
-        assertEq(decoded.transitions[0].checkpointBlockNumber, transitions[0].checkpointBlockNumber);
+        assertEq(
+            decoded.transitions[0].checkpoint.blockNumber, transitions[0].checkpoint.blockNumber
+        );
         assertEq(decoded.transitions[0].checkpoint.blockHash, transitions[0].checkpoint.blockHash);
         assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
 
@@ -119,8 +124,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                checkpointBlockNumber: uint48(2_000_000 + i),
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: uint48(2_000_000 + i),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))
                 })
@@ -158,7 +163,7 @@ contract LibProveInputDecoderFuzzTest is Test {
             assertEq(decoded.proposals[i].proposer, proposals[i].proposer);
             assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
             assertEq(
-                decoded.transitions[i].checkpointBlockNumber, transitions[i].checkpointBlockNumber
+                decoded.transitions[i].checkpoint.blockNumber, transitions[i].checkpoint.blockNumber
             );
         }
     }
@@ -213,8 +218,8 @@ contract LibProveInputDecoderFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id1)),
             parentTransitionHash: keccak256(abi.encode("parent1")),
-            checkpointBlockNumber: timestamp1,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: timestamp1,
                 blockHash: keccak256(abi.encode("block1")),
                 stateRoot: keccak256(abi.encode("state1"))
             })
@@ -222,8 +227,8 @@ contract LibProveInputDecoderFuzzTest is Test {
         transitions[1] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id2)),
             parentTransitionHash: keccak256(abi.encode("parent2")),
-            checkpointBlockNumber: timestamp2,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: timestamp2,
                 blockHash: keccak256(abi.encode("block2")),
                 stateRoot: keccak256(abi.encode("state2"))
             })
@@ -274,8 +279,8 @@ contract LibProveInputDecoderFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
             parentTransitionHash: bytes32(type(uint256).max),
-            checkpointBlockNumber: type(uint48).max,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: type(uint48).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
             })
@@ -298,7 +303,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
         assertEq(decoded.proposals[0].id, type(uint48).max);
-        assertEq(decoded.transitions[0].checkpointBlockNumber, type(uint48).max);
+        assertEq(decoded.transitions[0].checkpoint.blockNumber, type(uint48).max);
     }
 
     /// @notice Helper function to create test data
@@ -327,8 +332,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             proveInput.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                checkpointBlockNumber: uint48(2_000_000 + i * 100),
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: uint48(2_000_000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))
                 })

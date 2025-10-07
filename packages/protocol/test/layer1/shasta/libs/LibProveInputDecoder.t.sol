@@ -25,8 +25,8 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(3)),
             parentTransitionHash: bytes32(uint256(4)),
-            checkpointBlockNumber: 100,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 100,
                 blockHash: bytes32(uint256(5)),
                 stateRoot: bytes32(uint256(6))
             })
@@ -70,7 +70,7 @@ contract LibProveInputDecoderTest is Test {
             "Parent transition hash mismatch"
         );
         assertEq(
-            decoded.transitions[0].checkpointBlockNumber, 100, "Checkpoint block number mismatch"
+            decoded.transitions[0].checkpoint.blockNumber, 100, "Checkpoint block number mismatch"
         );
 
         // Verify metadata array
@@ -105,8 +105,8 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(31)),
             parentTransitionHash: bytes32(uint256(32)),
-            checkpointBlockNumber: 1000,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 1000,
                 blockHash: bytes32(uint256(33)),
                 stateRoot: bytes32(uint256(34))
             })
@@ -114,8 +114,8 @@ contract LibProveInputDecoderTest is Test {
         transitions[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(41)),
             parentTransitionHash: bytes32(uint256(42)),
-            checkpointBlockNumber: 2000,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 2000,
                 blockHash: bytes32(uint256(43)),
                 stateRoot: bytes32(uint256(44))
             })
@@ -193,8 +193,8 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(uint256(3)),
             parentTransitionHash: bytes32(uint256(4)),
-            checkpointBlockNumber: 100,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 100,
                 blockHash: bytes32(uint256(5)),
                 stateRoot: bytes32(uint256(6))
             })

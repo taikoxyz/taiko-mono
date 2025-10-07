@@ -51,8 +51,11 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
             numForcedInclusions: 0
         });
 
@@ -100,8 +103,11 @@ contract LibProposeInputDecoderFuzzTest is Test {
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
             numForcedInclusions: 0
         });
 
@@ -155,8 +161,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
-            checkpointBlockNumber: 100,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 100,
                 blockHash: keccak256("block"),
                 stateRoot: keccak256("state")
             }),
@@ -242,8 +248,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpointBlockNumber: 2_000_000,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 2_000_000,
                 blockHash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
             }),
@@ -414,8 +420,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             });
         }
 
-        input.checkpointBlockNumber = 2_000_000;
         input.checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 2_000_000,
             blockHash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")
         });
@@ -446,8 +452,11 @@ contract LibProposeInputDecoderFuzzTest is Test {
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
             numForcedInclusions: 0
         });
 

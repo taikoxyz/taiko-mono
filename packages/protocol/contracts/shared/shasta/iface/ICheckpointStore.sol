@@ -11,6 +11,8 @@ interface ICheckpointStore {
 
     /// @notice Represents a synced checkpoint
     struct Checkpoint {
+        /// @notice The block number associated with the checkpoint.
+        uint48 blockNumber;
         /// @notice The block hash for the end (last) L2 block in this proposal.
         bytes32 blockHash;
         /// @notice The state root for the end (last) L2 block in this proposal.
@@ -32,9 +34,8 @@ interface ICheckpointStore {
     // ---------------------------------------------------------------
 
     /// @notice Saves a checkpoint
-    /// @param _blockNumber The block number associated with the checkpoint
     /// @param _checkpoint The checkpoint data to persist
-    function saveCheckpoint(uint48 _blockNumber, Checkpoint calldata _checkpoint) external;
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external;
 
     /// @notice Gets a checkpoint by its block number
     /// @param _blockNumber The block number associated with the checkpoint

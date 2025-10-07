@@ -176,8 +176,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data to signal service
             ICheckpointStore(address(signalService)).saveCheckpoint(
-                _anchorBlockNumber,
                 ICheckpointStore.Checkpoint({
+                    blockNumber: _anchorBlockNumber,
                     blockHash: _anchorBlockHash,
                     stateRoot: _anchorStateRoot
                 })

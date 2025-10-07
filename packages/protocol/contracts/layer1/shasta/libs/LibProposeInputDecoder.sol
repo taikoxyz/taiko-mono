@@ -24,10 +24,7 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.parentProposals,
-            _input.transitionRecords,
-            _input.checkpointBlockNumber,
-            _input.checkpoint
+            _input.parentProposals, _input.transitionRecords, _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
 
@@ -66,7 +63,7 @@ library LibProposeInputDecoder {
 
         // 6. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
-        bool isEmpty = _input.checkpointBlockNumber == 0
+        bool isEmpty = _input.checkpoint.blockNumber == 0
             && _input.checkpoint.blockHash == bytes32(0) && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
@@ -74,7 +71,7 @@ library LibProposeInputDecoder {
 
         // Only encode the full header if it's not empty
         if (!isEmpty) {
-            ptr = P.packUint48(ptr, _input.checkpointBlockNumber);
+            ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
             ptr = P.packBytes32(ptr, _input.checkpoint.blockHash);
             ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
@@ -129,7 +126,7 @@ library LibProposeInputDecoder {
         // If flag is 0, the header is empty, leave it as default (all zeros)
         // If flag is 1, decode the full header
         if (headerFlag == 1) {
-            (input_.checkpointBlockNumber, ptr) = P.unpackUint48(ptr);
+            (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
             (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
             (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
@@ -259,7 +256,6 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        uint48 _checkpointBlockNumber,
         ICheckpointStore.Checkpoint memory _checkpoint
     )
         private
@@ -277,7 +273,7 @@ library LibProposeInputDecoder {
             size_ = 107;
 
             // Add Checkpoint size if not empty
-            bool isEmpty = _checkpointBlockNumber == 0 && _checkpoint.blockHash == bytes32(0)
+            bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
                 && _checkpoint.stateRoot == bytes32(0);
 
             if (!isEmpty) {

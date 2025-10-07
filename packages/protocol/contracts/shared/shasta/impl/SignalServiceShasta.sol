@@ -132,16 +132,10 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     }
 
     /// @inheritdoc ICheckpointStore
-    function saveCheckpoint(
-        uint48 _blockNumber,
-        Checkpoint calldata _checkpoint
-    )
-        external
-        override
-    {
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
 
-        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _blockNumber, _checkpoint);
+        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint);
     }
 
     /// @inheritdoc ICheckpointStore

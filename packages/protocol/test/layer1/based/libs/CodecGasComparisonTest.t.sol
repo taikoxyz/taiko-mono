@@ -98,15 +98,14 @@ contract CodecGasComparisonTest is Test {
         uint256 optimizedGas;
 
         // Measure CodecSimple implementation
-        uint48 blockNumber = 12_345_678;
         gasBefore = gasleft();
-        codecSimple.hashCheckpoint(blockNumber, testCheckpoint);
+        codecSimple.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         simpleGas = gasBefore - gasAfter;
 
         // Measure CodecOptimized implementation
         gasBefore = gasleft();
-        codecOptimized.hashCheckpoint(blockNumber, testCheckpoint);
+        codecOptimized.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         optimizedGas = gasBefore - gasAfter;
 
@@ -275,14 +274,13 @@ contract CodecGasComparisonTest is Test {
         totalOptimizedGas += (gasBefore - gasAfter);
 
         // hashCheckpoint
-        uint48 blockNumber = 12_345_678;
         gasBefore = gasleft();
-        codecSimple.hashCheckpoint(blockNumber, testCheckpoint);
+        codecSimple.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         totalSimpleGas += (gasBefore - gasAfter);
 
         gasBefore = gasleft();
-        codecOptimized.hashCheckpoint(blockNumber, testCheckpoint);
+        codecOptimized.hashCheckpoint(testCheckpoint);
         gasAfter = gasleft();
         totalOptimizedGas += (gasBefore - gasAfter);
 
@@ -367,13 +365,12 @@ contract CodecGasComparisonTest is Test {
         );
 
         // Test hashCheckpoint consistency
-        uint48 blockNum = 12_345_678;
-        simpleHash1 = codecSimple.hashCheckpoint(blockNum, testCheckpoint);
-        simpleHash2 = codecSimple.hashCheckpoint(blockNum, testCheckpoint);
+        simpleHash1 = codecSimple.hashCheckpoint(testCheckpoint);
+        simpleHash2 = codecSimple.hashCheckpoint(testCheckpoint);
         assertEq(simpleHash1, simpleHash2, "CodecSimple hashCheckpoint should be deterministic");
 
-        optimizedHash1 = codecOptimized.hashCheckpoint(blockNum, testCheckpoint);
-        optimizedHash2 = codecOptimized.hashCheckpoint(blockNum, testCheckpoint);
+        optimizedHash1 = codecOptimized.hashCheckpoint(testCheckpoint);
+        optimizedHash2 = codecOptimized.hashCheckpoint(testCheckpoint);
         assertEq(
             optimizedHash1, optimizedHash2, "CodecOptimized hashCheckpoint should be deterministic"
         );
@@ -426,9 +423,11 @@ contract CodecGasComparisonTest is Test {
     /// @dev Ensures that different inputs produce different hash outputs for both implementations
     function test_hashUniqueness() external view {
         // Create modified test data
-        ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
-        modifiedCheckpoint.blockHash =
-            keccak256(abi.encodePacked(testCheckpoint.blockHash, "modified"));
+        ICheckpointStore.Checkpoint memory modifiedCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: testCheckpoint.blockNumber + 1,
+            blockHash: keccak256(abi.encodePacked(testCheckpoint.blockHash, "modified")),
+            stateRoot: testCheckpoint.stateRoot
+        });
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
         modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;
@@ -437,9 +436,8 @@ contract CodecGasComparisonTest is Test {
         modifiedProposal.id = testProposal.id + 1;
 
         // Verify different inputs produce different hashes for CodecSimple
-        uint48 blockNum2 = 12_345_678;
-        bytes32 originalCheckpointHash = codecSimple.hashCheckpoint(blockNum2, testCheckpoint);
-        bytes32 modifiedCheckpointHash = codecSimple.hashCheckpoint(blockNum2, modifiedCheckpoint);
+        bytes32 originalCheckpointHash = codecSimple.hashCheckpoint(testCheckpoint);
+        bytes32 modifiedCheckpointHash = codecSimple.hashCheckpoint(modifiedCheckpoint);
         assertTrue(
             originalCheckpointHash != modifiedCheckpointHash,
             "CodecSimple: Different checkpoints should produce different hashes"
@@ -460,8 +458,8 @@ contract CodecGasComparisonTest is Test {
         );
 
         // Verify different inputs produce different hashes for CodecOptimized
-        originalCheckpointHash = codecOptimized.hashCheckpoint(blockNum2, testCheckpoint);
-        modifiedCheckpointHash = codecOptimized.hashCheckpoint(blockNum2, modifiedCheckpoint);
+        originalCheckpointHash = codecOptimized.hashCheckpoint(testCheckpoint);
+        modifiedCheckpointHash = codecOptimized.hashCheckpoint(modifiedCheckpoint);
         assertTrue(
             originalCheckpointHash != modifiedCheckpointHash,
             "CodecOptimized: Different checkpoints should produce different hashes"
@@ -488,8 +486,8 @@ contract CodecGasComparisonTest is Test {
         testTransition = IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash"),
             parentTransitionHash: keccak256("test_parent_transition_hash"),
-            checkpointBlockNumber: 12_345_678,
             checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
             })
@@ -497,6 +495,7 @@ contract CodecGasComparisonTest is Test {
 
         // Initialize test checkpoint
         testCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 12_345_678,
             blockHash: keccak256("test_block_hash"),
             stateRoot: keccak256("test_state_root")
         });
@@ -527,8 +526,8 @@ contract CodecGasComparisonTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_2"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_2"),
-                checkpointBlockNumber: 12_345_679,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 12_345_679,
                     blockHash: keccak256("test_block_hash_2"),
                     stateRoot: keccak256("test_state_root_2")
                 })
@@ -538,8 +537,8 @@ contract CodecGasComparisonTest is Test {
             IInbox.Transition({
                 proposalHash: keccak256("test_proposal_hash_3"),
                 parentTransitionHash: keccak256("test_parent_transition_hash_3"),
-                checkpointBlockNumber: 12_345_680,
                 checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 12_345_680,
                     blockHash: keccak256("test_block_hash_3"),
                     stateRoot: keccak256("test_state_root_3")
                 })

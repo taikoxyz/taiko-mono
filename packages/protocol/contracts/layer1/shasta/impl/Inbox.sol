@@ -541,8 +541,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _provingWindow, _extendedProvingWindow, _proposal, _metadata
         );
         record.transitionHash = _hashTransition(_transition);
-        record.checkpointHash =
-            _hashCheckpoint(_transition.checkpointBlockNumber, _transition.checkpoint);
+        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
     }
 
     /// @dev Computes the hash and finalization deadline for a transition record.
@@ -657,16 +656,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(
-        uint48 _blockNumber,
-        ICheckpointStore.Checkpoint memory _checkpoint
-    )
+    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.hashCheckpoint(_blockNumber, _checkpoint);
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @dev Hashes a CoreState struct.
@@ -902,10 +898,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
-                    _input.checkpointBlockNumber,
-                    _input.checkpoint,
-                    lastFinalizedRecord.checkpointHash,
-                    coreState
+                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
                 );
             }
 
@@ -919,7 +912,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _expectedCheckpointHash The expected hash to validate against.
     /// @param _coreState Core state to update with new checkpoint timestamp.
     function _syncCheckpointIfNeeded(
-        uint48 _checkpointBlockNumber,
         ICheckpointStore.Checkpoint memory _checkpoint,
         bytes32 _expectedCheckpointHash,
         CoreState memory _coreState
@@ -930,10 +922,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
         // 2. Forced: minimum delay elapsed since last checkpoint
         if (_checkpoint.blockHash != 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_checkpointBlockNumber, _checkpoint);
+            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
-            signalService.saveCheckpoint(_checkpointBlockNumber, _checkpoint);
+            signalService.saveCheckpoint(_checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
         } else {
             require(
