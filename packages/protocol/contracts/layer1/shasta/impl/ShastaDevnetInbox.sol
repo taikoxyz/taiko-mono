@@ -45,13 +45,16 @@ contract ShastaDevnetInbox is InboxOptimized2 {
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 maxFinalizationCount: 16,
-                finalizationGracePeriod: 768 seconds,
+                finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 0,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             })
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                minCheckpointDelay: 384 seconds, // 1 epoch
+                permissionlessInclusionMultiplier: 5,
+                compositeKeyVersion: 1
+            })
         )
     { }
 

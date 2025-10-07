@@ -192,6 +192,41 @@ pnpm snapshot:l1
 pnpm layout  # CRITICAL: Run before and after changes to upgradeable contracts
 ```
 
+## 🔢 Unchecked Arithmetic Guidelines
+
+### Overview
+
+The Inbox contract and its subcontracts (InboxOptimized1, InboxOptimized2) use unchecked blocks aggressively for gas optimization. All unchecked operations have been verified safe through:
+
+- Bounded loop counters (limited by array lengths or configuration parameters)
+- Modulo operations (mathematically cannot overflow)
+- Increments with protocol invariant guarantees (e.g., proposal IDs, span counters)
+- Timestamp/block number arithmetic with practical overflow impossibility
+
+See inline comments for specific safety justifications on each unchecked block.
+
+### IMPORTANT - Type Conversions in Unchecked Blocks
+
+Due to aggressive use of unchecked blocks throughout these contracts, developers **MUST** explicitly cast values to their proper types before performing mathematical operations when mixing different numeric types. Without explicit casts, Solidity may perform implicit conversions that could lead to unexpected results within unchecked blocks.
+
+**Example:**
+
+```solidity
+// ✅ CORRECT - Explicit casting
+uint256(uint48Value) + uint256(anotherUint48)
+
+// ❌ WRONG - May cause unexpected behavior
+uint48Value + anotherUint48  // Could overflow in unchecked block
+```
+
+### Best Practices for Unchecked Blocks
+
+1. **Always document safety**: Add inline comments explaining why each unchecked operation is safe
+2. **Use explicit type casting**: Convert to the target type before operations
+3. **Verify bounds**: Ensure all values are within safe ranges before unchecked operations
+4. **Test edge cases**: Include tests for maximum values and boundary conditions
+5. **Review carefully**: All unchecked blocks should be reviewed by multiple developers
+
 ## 📋 Pre-Commit Checklist
 
 Before submitting any changes:

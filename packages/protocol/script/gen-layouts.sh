@@ -25,7 +25,6 @@ contracts_layer1=(
 "contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
-"contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
 "contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
 "contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
@@ -39,17 +38,15 @@ contracts_layer1=(
 "contracts/layer1/forced-inclusion/TaikoWrapper.sol:TaikoWrapper"
 "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
-"contracts/layer1/preconf/impl/PreconfRouter2.sol:PreconfRouter2"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
-"contracts/layer1/governance/TaikoDAOController.sol:TaikoDAOController"
+"contracts/layer1/mainnet/TaikoDAOController.sol:TaikoDAOController"
 )
 
 # Layer 2 contracts
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
 "contracts/layer2/mainnet/DelegateController.sol:DelegateController"
 "contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
 )

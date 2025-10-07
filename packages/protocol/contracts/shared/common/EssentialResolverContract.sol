@@ -45,6 +45,7 @@ abstract contract EssentialResolverContract is EssentialContract {
     // ---------------------------------------------------------------
 
     constructor(address _resolver) {
+        require(_resolver != address(0), RESOLVER_NOT_FOUND());
         __resolver = _resolver;
     }
 

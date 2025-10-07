@@ -75,6 +75,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 
 // ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
+// TODO: more param
 func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
@@ -488,7 +489,7 @@ func (c *Client) CalculateBaseFee(
 
 	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(c.ShastaClients.ForkHeight) >= 0 {
 		baseFee := new(big.Int).SetUint64(params.ShastaInitialBaseFee)
-		if l2Head.Number.Cmp(new(big.Int).Add(c.ShastaClients.ForkHeight, common.Big2)) > 0 {
+		if l2Head.Number.Uint64()+1 >= c.ShastaClients.ForkHeight.Uint64()+misc.ShastaInitialBaseFeeBlocks {
 			grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)

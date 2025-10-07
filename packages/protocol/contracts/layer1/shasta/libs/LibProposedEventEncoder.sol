@@ -65,8 +65,9 @@ library LibProposedEventEncoder {
 
         // Encode core state
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalBlockId);
+        ptr = P.packUint48(ptr, _payload.coreState.lastProposalBlockId);
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
+        ptr = P.packUint48(ptr, _payload.coreState.lastCheckpointTimestamp);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
@@ -121,8 +122,9 @@ library LibProposedEventEncoder {
 
         // Decode core state
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.nextProposalBlockId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.coreState.lastCheckpointTimestamp, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
@@ -136,17 +138,18 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 224 bytes (without blob data)
+            // Fixed size: 231 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
-            // CoreState: nextProposalId(6) + nextProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 82
-            // Total fixed: 38 + 39 + 2 + 64 + 82 = 225
+            // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
+            //           lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
+            //           bondInstructionsHash(32) = 88
+            // Total fixed: 38 + 39 + 2 + 64 + 88 = 231
 
-            size_ = 225;
+            size_ = 231;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {

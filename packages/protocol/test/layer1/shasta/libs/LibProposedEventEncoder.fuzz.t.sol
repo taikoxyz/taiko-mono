@@ -79,6 +79,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_encodeDecodeCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
+        uint48 _lastCheckpointTimestamp,
         bytes32 _lastFinalizedTransitionHash,
         bytes32 _bondInstructionsHash
     )
@@ -93,6 +94,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         payload.coreState.nextProposalId = _nextProposalId;
         payload.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        payload.coreState.lastCheckpointTimestamp = _lastCheckpointTimestamp;
         payload.coreState.lastFinalizedTransitionHash = _lastFinalizedTransitionHash;
         payload.coreState.bondInstructionsHash = _bondInstructionsHash;
 
@@ -102,6 +104,9 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
+        );
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp, payload.coreState.lastCheckpointTimestamp
         );
         assertEq(
             decoded.coreState.lastFinalizedTransitionHash,
