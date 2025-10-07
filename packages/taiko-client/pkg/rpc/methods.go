@@ -489,7 +489,7 @@ func (c *Client) CalculateBaseFee(
 
 	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(c.ShastaClients.ForkHeight) >= 0 {
 		baseFee := new(big.Int).SetUint64(params.ShastaInitialBaseFee)
-		if l2Head.Number.Cmp(new(big.Int).Add(c.ShastaClients.ForkHeight, common.Big2)) > 0 {
+		if l2Head.Number.Uint64()+1 >= c.ShastaClients.ForkHeight.Uint64()+misc.ShastaInitialBaseFeeBlocks {
 			grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
