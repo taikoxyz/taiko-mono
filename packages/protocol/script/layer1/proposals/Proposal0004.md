@@ -19,6 +19,13 @@ The following L1 actions will be executed by the DAOController:
 
 These actions aim to update the verifier configurations to support the latest proof systems and ensure secure block verification.
 
+### PreconfRouter updates (1 action)
+
+- Update PreconfRouter at `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a` to the version here:
+`https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/contracts/layer1/preconf/impl/PreconfRouter.sol`
+
+This action is to add the `Config` and `handoverSlots` onchain, rather than as a parameter to the driver.
+
 ## L2 Actions
 
 There are no L2 actions in this proposal.
