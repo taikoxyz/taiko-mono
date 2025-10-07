@@ -785,7 +785,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	)
 
 	// If all ancient envelopes are found, try to import them.
-	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
+	if _, err := s.insertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
@@ -819,7 +819,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	)
 
 	// Try to import all available child envelopes.
-	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
+	if _, err := s.insertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
@@ -1206,7 +1206,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(
+	if _, err := s.insertPreconfBlocksFromEnvelopes(
 		ctx,
 		[]*preconf.Envelope{
 			{
@@ -1291,6 +1291,70 @@ func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloa
 		Signature:         msg.Signature,
 		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
 	})
+}
+
+// insertPreconfBlocksFromEnvelopes inserts the given preconfirmation block envelopes into the L2 EE chain,
+// splitting them into Pacaya and Shasta batches based on the fork height.
+func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
+	ctx context.Context,
+	envelopes []*preconf.Envelope,
+	fromCache bool,
+) ([]*types.Header, error) {
+	if len(envelopes) == 0 {
+		return []*types.Header{}, nil
+	}
+
+	var (
+		pacayaBatch, shastaBatch = s.splitEnvelopesByFork(envelopes)
+		pacayaHeaders            = make([]*types.Header, 0)
+		shastaHeaders            = make([]*types.Header, 0)
+		result                   []*types.Header
+		err                      error
+	)
+
+	if len(pacayaBatch) != 0 {
+		if pacayaHeaders, err = s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(
+			ctx,
+			pacayaBatch,
+			fromCache,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(shastaBatch) != 0 {
+		if shastaHeaders, err = s.shastaChainSyncer.InsertPreconfBlocksFromEnvelopes(
+			ctx,
+			shastaBatch,
+			fromCache,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	result = append(result, pacayaHeaders...)
+	result = append(result, shastaHeaders...)
+	return result, nil
+}
+
+// splitEnvelopesByFork splits the given envelopes into two batches, one for Pacaya and one for Shasta,
+// based on the fork height.
+func (s *PreconfBlockAPIServer) splitEnvelopesByFork(
+	envelopes []*preconf.Envelope,
+) (pacaya []*preconf.Envelope, shasta []*preconf.Envelope) {
+	pacaya = []*preconf.Envelope{}
+	shasta = []*preconf.Envelope{}
+
+	for _, envelope := range envelopes {
+		if uint64(envelope.Payload.BlockNumber) < s.rpc.ShastaClients.ForkHeight.Uint64() {
+			pacaya = append(pacaya, envelope)
+			continue
+		}
+
+		shasta = append(shasta, envelope)
+	}
+
+	return pacaya, shasta
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,

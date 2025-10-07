@@ -236,14 +236,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		headers   []*types.Header
 		envelopes = []*preconf.Envelope{{Payload: executablePayload, Signature: nil, IsForcedInclusion: isForcedInclusion}}
 	)
-	if reqBody.ExecutableData.Number >= s.rpc.ShastaClients.ForkHeight.Uint64() {
-		if headers, err = s.shastaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
-	} else {
-		if headers, err = s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
+
+	if headers, err = s.insertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
 	if len(headers) == 0 {
