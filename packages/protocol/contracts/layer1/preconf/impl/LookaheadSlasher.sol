@@ -18,11 +18,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
     uint256[50] private __gap;
 
-    constructor(
-        address _urc,
-        address _lookaheadStore,
-        uint256 _slashAmount
-    ) {
+    constructor(address _urc, address _lookaheadStore, uint256 _slashAmount) {
         urc = _urc;
         lookaheadStore = _lookaheadStore;
         slashAmount = _slashAmount;
