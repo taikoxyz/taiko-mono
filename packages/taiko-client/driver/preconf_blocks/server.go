@@ -1285,7 +1285,7 @@ func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 		pacayaBatch, shastaBatch = s.splitEnvelopesByFork(envelopes)
 		pacayaHeaders            = make([]*types.Header, 0)
 		shastaHeaders            = make([]*types.Header, 0)
-		result                   = make([]*types.Header, 0)
+		result                   []*types.Header
 		err                      error
 	)
 
