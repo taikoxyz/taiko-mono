@@ -48,9 +48,8 @@ func NewChainConfig(
 
 // NetworkNames are user friendly names to use in the chain spec banner.
 var NetworkNames = map[uint64]string{
-	params.TaikoMainnetNetworkID.Uint64():     "Taiko Mainnet",
-	params.HeklaNetworkID.Uint64():            "Taiko Hekla Testnet",
-	params.TaikoInternalL2ANetworkID.Uint64(): "Taiko Internal Devnet",
+	params.TolbaNetworkID.Uint64():        "Taiko Tolba Testnet",
+	params.TaikoMainnetNetworkID.Uint64(): "Taiko Mainnet",
 }
 
 // Description returns a human-readable description of ChainConfig.
