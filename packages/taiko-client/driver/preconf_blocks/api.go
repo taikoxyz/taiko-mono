@@ -325,7 +325,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			}
 
 			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
-			s.tryPutEnvelopeIntoCache(env, "")
+			s.tryPutEnvelopeIntoCache(env, s.p2pNode.Host().ID())
 
 			if err := s.p2pNode.GossipOut().PublishL2Payload(ctx, env, s.p2pSigner); err != nil {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)

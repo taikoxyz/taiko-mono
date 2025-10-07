@@ -298,8 +298,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to check message block number: %w", err)
 	}
 
-	s.tryPutEnvelopeIntoCache(msg, from)
-
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
 	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
 	if err != nil {
@@ -308,6 +306,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if cached {
 		return nil
 	}
+
+	s.tryPutEnvelopeIntoCache(msg, from)
 
 	// If the envelope is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
@@ -407,12 +407,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	}
 
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
-	if _, err := s.TryImportingPayload(ctx, headL1Origin, msg, from); err != nil {
+	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
+	if err != nil {
 		return fmt.Errorf("failed to try importing payload: %w", err)
 	}
 
-	// Ensure the response envelope is cached for future orphan detection.
-	s.tryPutEnvelopeIntoCache(msg, from)
+	if !cached {
+		s.tryPutEnvelopeIntoCache(msg, from)
+	}
 
 	return nil
 }
@@ -1135,7 +1137,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				"signature", common.Bytes2Hex(sig[:]),
 			)
 		} else {
-			log.Info("Orphan parent detected but not found in cache; skipping L1Origin update",
+			log.Warn("Orphan parent detected but not found in cache; skipping L1Origin update",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),

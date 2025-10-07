@@ -1,20 +1,28 @@
 package preconfblocks
 
 import (
-	"testing"
-	"time"
+    "testing"
+    "time"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
+    "github.com/ethereum-optimism/optimism/op-service/eth"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+    "github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+    "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
+
+type CacheTestSuite struct {
+    suite.Suite
+}
+
+func TestCacheTestSuite(t *testing.T) {
+    suite.Run(t, new(CacheTestSuite))
+}
 
 // TestOrphanBlockDetectionWithoutGetBlockByHash verifies that we can detect
 // orphan blocks using only cache lookups, without calling eth_getBlockByHash.
-func TestOrphanBlockDetectionWithoutGetBlockByHash(t *testing.T) {
+func (s *CacheTestSuite) TestOrphanBlockDetectionWithoutGetBlockByHash() {
 	cache := newEnvelopeQueue()
 
 	// Create a chain: genesis -> block1 -> block2A (canonical) and block2B (orphan)
@@ -61,19 +69,19 @@ func TestOrphanBlockDetectionWithoutGetBlockByHash(t *testing.T) {
 
 	// Verify orphan detection works by checking cached parent
 	cachedParent := cache.get(2, block2BHash)
-	require.NotNil(t, cachedParent, "Orphan parent should be in cache")
-	require.Equal(t, block2BHash, cachedParent.Payload.BlockHash)
-	require.Equal(t, block1Hash, cachedParent.Payload.ParentHash)
+	s.NotNil(cachedParent, "Orphan parent should be in cache")
+	s.Equal(block2BHash, cachedParent.Payload.BlockHash)
+	s.Equal(block1Hash, cachedParent.Payload.ParentHash)
 
 	// Verify we can differentiate between canonical and orphan blocks at same height
 	cachedCanonical := cache.get(2, block2AHash)
-	require.NotNil(t, cachedCanonical)
-	require.NotEqual(t, cachedCanonical.Payload.BlockHash, cachedParent.Payload.BlockHash)
+	s.NotNil(cachedCanonical)
+	s.NotEqual(cachedCanonical.Payload.BlockHash, cachedParent.Payload.BlockHash)
 }
 
 // TestL1OriginUpdateUsingCachedData verifies that cached envelope data
 // contains all information needed to update L1Origin without eth_getBlockByHash.
-func TestL1OriginUpdateUsingCachedData(t *testing.T) {
+func (s *CacheTestSuite) TestL1OriginUpdateUsingCachedData() {
 	cache := newEnvelopeQueue()
 
 	parentBlockNum := uint64(100)
@@ -98,25 +106,25 @@ func TestL1OriginUpdateUsingCachedData(t *testing.T) {
 
 	// Verify cached data is retrievable
 	cached := cache.get(parentBlockNum, parentHash)
-	require.NotNil(t, cached)
-	require.Equal(t, parentHash, cached.Payload.BlockHash)
-	require.Equal(t, len(txData), len(cached.Payload.Transactions[0]))
-	require.Equal(t, parentEnv.Payload.Timestamp, cached.Payload.Timestamp)
-	require.Equal(t, parentEnv.Payload.FeeRecipient, cached.Payload.FeeRecipient)
-	require.Equal(t, parentEnv.Signature, cached.Signature)
-	require.Equal(t, parentEnv.IsForcedInclusion, cached.IsForcedInclusion)
+	s.NotNil(cached)
+	s.Equal(parentHash, cached.Payload.BlockHash)
+	s.Equal(len(txData), len(cached.Payload.Transactions[0]))
+	s.Equal(parentEnv.Payload.Timestamp, cached.Payload.Timestamp)
+	s.Equal(parentEnv.Payload.FeeRecipient, cached.Payload.FeeRecipient)
+	s.Equal(parentEnv.Signature, cached.Signature)
+	s.Equal(parentEnv.IsForcedInclusion, cached.IsForcedInclusion)
 
 	// Verify we have all data needed for L1Origin update without eth_getBlockByHash
-	require.NotEmpty(t, cached.Payload.Transactions, "Need transactions for txListHash")
-	require.NotNil(t, cached.Signature, "Need signature for L1Origin")
-	require.NotEmpty(t, cached.Payload.FeeRecipient, "Need fee recipient for BuildPayloadArgs")
-	require.NotZero(t, cached.Payload.Timestamp, "Need timestamp for BuildPayloadArgs")
-	require.NotEmpty(t, cached.Payload.PrevRandao, "Need PrevRandao for BuildPayloadArgs")
+	s.NotEmpty(cached.Payload.Transactions, "Need transactions for txListHash")
+	s.NotNil(cached.Signature, "Need signature for L1Origin")
+	s.NotEmpty(cached.Payload.FeeRecipient, "Need fee recipient for BuildPayloadArgs")
+	s.NotZero(cached.Payload.Timestamp, "Need timestamp for BuildPayloadArgs")
+	s.NotEmpty(cached.Payload.PrevRandao, "Need PrevRandao for BuildPayloadArgs")
 }
 
 // TestEnvelopeCachingFlow verifies that envelopes are properly cached
 // and retrieved in all scenarios.
-func TestEnvelopeCachingFlow(t *testing.T) {
+func (s *CacheTestSuite) TestEnvelopeCachingFlow() {
 	cache := newEnvelopeQueue()
 
 	blockNum := uint64(50)
@@ -134,7 +142,7 @@ func TestEnvelopeCachingFlow(t *testing.T) {
 		Signature: &[65]byte{1},
 	}
 	cache.put(blockNum, env1)
-	require.True(t, cache.hasExact(blockNum, blockHash))
+	s.True(cache.hasExact(blockNum, blockHash))
 
 	// Test: Cache another envelope at different height
 	blockNum2 := blockNum + 1
@@ -149,7 +157,7 @@ func TestEnvelopeCachingFlow(t *testing.T) {
 		Signature: &[65]byte{2},
 	}
 	cache.put(blockNum2, env2)
-	require.True(t, cache.hasExact(blockNum2, blockHash2))
+	s.True(cache.hasExact(blockNum2, blockHash2))
 
 	// Test: Cache third envelope
 	blockNum3 := blockNum2 + 1
@@ -164,20 +172,20 @@ func TestEnvelopeCachingFlow(t *testing.T) {
 		Signature: &[65]byte{3},
 	}
 	cache.put(blockNum3, env3)
-	require.True(t, cache.hasExact(blockNum3, blockHash3))
+	s.True(cache.hasExact(blockNum3, blockHash3))
 
 	// Verify all envelopes are retrievable
-	require.NotNil(t, cache.get(blockNum, blockHash))
-	require.NotNil(t, cache.get(blockNum2, blockHash2))
-	require.NotNil(t, cache.get(blockNum3, blockHash3))
+	s.NotNil(cache.get(blockNum, blockHash))
+	s.NotNil(cache.get(blockNum2, blockHash2))
+	s.NotNil(cache.get(blockNum3, blockHash3))
 
 	// Verify total count
-	require.Equal(t, uint64(3), cache.totalCached)
+	s.Equal(uint64(3), cache.totalCached)
 }
 
 // TestCachedParentForOrphanHandling verifies the complete orphan handling flow:
 // parent cached -> reorg happens -> child builds on orphan -> uses cached data.
-func TestCachedParentForOrphanHandling(t *testing.T) {
+func (s *CacheTestSuite) TestCachedParentForOrphanHandling() {
 	cache := newEnvelopeQueue()
 
 	parentBlockNum := uint64(50)
@@ -219,27 +227,27 @@ func TestCachedParentForOrphanHandling(t *testing.T) {
 
 	// Verify we can retrieve orphaned parent from cache
 	cachedOrphanParent := cache.get(parentBlockNum, parentHashB)
-	require.NotNil(t, cachedOrphanParent)
-	require.Equal(t, parentHashB, cachedOrphanParent.Payload.BlockHash)
-	require.Equal(t, parentEnvB.Payload.FeeRecipient, cachedOrphanParent.Payload.FeeRecipient)
-	require.Equal(t, parentEnvB.Payload.Timestamp, cachedOrphanParent.Payload.Timestamp)
-	require.NotEmpty(t, cachedOrphanParent.Payload.Transactions)
+	s.NotNil(cachedOrphanParent)
+	s.Equal(parentHashB, cachedOrphanParent.Payload.BlockHash)
+	s.Equal(parentEnvB.Payload.FeeRecipient, cachedOrphanParent.Payload.FeeRecipient)
+	s.Equal(parentEnvB.Payload.Timestamp, cachedOrphanParent.Payload.Timestamp)
+	s.NotEmpty(cachedOrphanParent.Payload.Transactions)
 
 	// This demonstrates the key point: we have all parent data needed
 	// to update L1Origin without calling eth_getBlockByHash
-	require.Equal(t, parentHashB, childParentHash)
-	require.NotNil(t, cachedOrphanParent.Payload.Transactions)
-	require.NotNil(t, cachedOrphanParent.Signature)
+	s.Equal(parentHashB, childParentHash)
+	s.NotNil(cachedOrphanParent.Payload.Transactions)
+	s.NotNil(cachedOrphanParent.Signature)
 
 	// Verify both versions (canonical and orphan) are in cache
-	require.NotNil(t, cache.get(parentBlockNum, parentHashA))
-	require.NotNil(t, cache.get(parentBlockNum, parentHashB))
-	require.NotEqual(t, parentHashA, parentHashB)
+	s.NotNil(cache.get(parentBlockNum, parentHashA))
+	s.NotNil(cache.get(parentBlockNum, parentHashB))
+	s.NotEqual(parentHashA, parentHashB)
 }
 
 // TestDuplicateCachingPrevention verifies that duplicate envelopes don't
 // increase the cache count unnecessarily.
-func TestDuplicateCachingPrevention(t *testing.T) {
+func (s *CacheTestSuite) TestDuplicateCachingPrevention() {
 	cache := newEnvelopeQueue()
 
 	blockNum := uint64(100)
@@ -257,8 +265,8 @@ func TestDuplicateCachingPrevention(t *testing.T) {
 	// First insertion
 	cache.put(blockNum, env)
 	initialCount := cache.totalCached
-	require.Equal(t, uint64(1), initialCount)
-	require.True(t, cache.hasExact(blockNum, blockHash))
+	s.Equal(uint64(1), initialCount)
+	s.True(cache.hasExact(blockNum, blockHash))
 
 	// Second insertion of same envelope (by blockNum, but different hash will add)
 	// Note: put() adds by blockNum, so same blockNum with different content would replace
@@ -273,5 +281,5 @@ func TestDuplicateCachingPrevention(t *testing.T) {
 	cache.put(blockNum, env2)
 
 	// hasExact should still work
-	require.True(t, cache.hasExact(blockNum, blockHash))
+	s.True(cache.hasExact(blockNum, blockHash))
 }
