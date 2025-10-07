@@ -31,7 +31,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
                 maxCheckpointHistory: maxCheckpointHistory,
                 minCheckpointDelay: 0,
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                compositeKeyVersion: 1
             })
         )
     { }
