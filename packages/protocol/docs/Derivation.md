@@ -31,7 +31,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
 | **numBlocks**            | The total number of blocks in this proposal                   |
 | **basefeeSharingPctg**   | The percentage of base fee paid to coinbase                   |
-| **isForcedInclusion**    | Indicates if the proposal is a forced inclusion               |
+| **isForcedInclusion**    | Flags blocks originating from forced inclusion sources        |
 | **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
 | **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
 
@@ -108,7 +108,12 @@ The following metadata fields are extracted from the `proposal` and `derivation`
 | `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`           |
 | `metadata.isForcedInclusion`  | `derivation.sources[i].isForcedInclusion` |
 
-The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
+The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
+
+- **Forced inclusion submitters** publish their `DerivationSourceManifest` blob on L1 directly as blobs.
+- **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted(without metadata being maniupalted).
+
+The manifest data structures are defined as follows:
 
 ```solidity
 /// @notice Represents a signed Ethereum transaction
@@ -147,9 +152,9 @@ struct BlockManifest {
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
-  /// @notice Prover authentication data (proposal-level, shared across all sources).
+  /// @notice Prover authentication data (proposal-level).
   bytes proverAuthBytes;
-  /// @notice Array of derivation source manifests (one per DerivationSource).
+  /// @notice Array of derivation source manifests (one per derivation source).
   DerivationSourceManifest[] sources;
 }
 
@@ -168,7 +173,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single empty block with no transactions.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -187,25 +192,21 @@ struct BlobSlice {
 }
 ```
 
-The `BlobSlice` struct represents binary data distributed across multiple blobs. Each `DerivationSource` in the `derivation.sources[]` array is processed independently to extract its `DerivationSourceManifest`.
-
-**TODO**: The proposal-level `proverAuthBytes` field needs a storage location. Current `Derivation` struct only has per-source `blobSlice` fields. Option: add dedicated `proposalBlob` field to `Derivation` struct (requires protocol change).?
+The `BlobSlice` struct represents binary data distributed across multiple blobs. `DerivationSource` entries are processed sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final manifest and cross-check data integrity.
 
 #### Per-Source Manifest Extraction
 
-For each `DerivationSource[i]`, the following steps are performed independently:
+For each `DerivationSource[i]`, the validator performs:
 
 1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
 2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
 3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
-6. **Decoding**: RLP decode the decompressed data:
-   - If `i == 0`: Decode into a structure containing `proverAuthBytes` and `DerivationSourceManifest[0]`
-   - If `i > 0`: Decode into `DerivationSourceManifest[i]`
+6. **Decoding**: RLP decode the decompressed data
 7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
 
-If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single empty block). Other sources are unaffected.
+If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
 #### Default Source Manifest
 
@@ -213,7 +214,7 @@ A default source manifest is used when validation fails for a specific source:
 
 ```solidity
 DerivationSourceManifest memory defaultSource;
-defaultSource.blocks = new BlockManifest[](1);  // Single empty block
+defaultSource.blocks = new BlockManifest[](1);  // // Single block
 ```
 
 #### ProposalManifest Construction
@@ -264,7 +265,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single empty block), penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposals that fail to provide proper L1 anchoring.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -278,7 +279,7 @@ The anchor hash and state root must maintain consistency with the anchor block n
 The L2 coinbase address determination follows a hierarchical priority system:
 
 1. **Forced inclusions**: Always use `proposal.proposer`
-2. **Regular proposals**: Use `manifest.blocks[i].coinbase` if non-zero
+2. **Regular proposals**: Use `orderedBlocks[i].coinbase` if non-zero
 3. **Fallback**: Use `proposal.proposer` if manifest coinbase is `address(0)`
 
 #### `gasLimit` Validation
