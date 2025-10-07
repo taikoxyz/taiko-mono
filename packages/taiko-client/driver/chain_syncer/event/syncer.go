@@ -315,7 +315,7 @@ func (s *Syncer) processShastaProposal(
 		proposalManifest.ParentBlock = parent
 
 		log.Info(
-			"Parent block info for shsata Proposal",
+			"Parent block info for Shasta Proposal",
 			"proposalID", meta.GetProposal().Id,
 			"blocks", len(proposalManifest.Blocks),
 			"parentBlockID", proposalManifest.ParentBlock.Number(),

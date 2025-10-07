@@ -353,7 +353,7 @@ func (d *Driver) reportStatus(maxNumProposals uint64) {
 
 	log.Info(
 		"📖 Pacaya protocol status",
-		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+		"lastVerifiedBatchID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
 	)
@@ -443,7 +443,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("Lookahead requesting end of sequencing for epoch",
+				log.Info(
+					"Lookahead requesting end of sequencing for epoch",
 					"epoch", epoch,
 					"slot", slot,
 				)
