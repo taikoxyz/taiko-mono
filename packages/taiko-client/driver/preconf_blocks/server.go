@@ -1319,8 +1319,8 @@ func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 func (s *PreconfBlockAPIServer) splitEnvelopesByFork(
 	envelopes []*preconf.Envelope,
 ) (pacaya []*preconf.Envelope, shasta []*preconf.Envelope) {
-	pacaya = make([]*preconf.Envelope, 0)
-	shasta = make([]*preconf.Envelope, 0)
+	pacaya = []*preconf.Envelope{}
+	shasta = []*preconf.Envelope{}
 
 	for _, envelope := range envelopes {
 		if uint64(envelope.Payload.BlockNumber) < s.rpc.ShastaClients.ForkHeight.Uint64() {
