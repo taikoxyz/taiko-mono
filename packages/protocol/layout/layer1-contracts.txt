@@ -548,6 +548,8 @@
 |
 | _shastaInitializer               | address                                                             | 251  | 0      | 20    |
 |
+| conflictingTransitionDetected    | bool                                                                | 251  | 20     | 1     |
+|
 | _proposalHashes                  | mapping(uint256 => bytes32)                                         | 252  | 0      | 32    |
 |
 | _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline)    | 253  | 0      | 32    |
