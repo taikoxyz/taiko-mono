@@ -370,7 +370,8 @@ abstract contract InboxTestHelper is CommonTest {
     /// or are well-tested externally (e.g. ERC20 tokens)
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        // Note: SignalService constructor requires authorizedSyncer (will be inbox) and remoteSignalService
+        // Note: SignalService constructor requires authorizedSyncer (will be inbox) and
+        // remoteSignalService
         // We use address(this) temporarily - this will be updated after inbox deployment if needed
         checkpointManager = ICheckpointStore(address(new SignalService(address(this), address(1))));
         proofVerifier = new MockProofVerifier();

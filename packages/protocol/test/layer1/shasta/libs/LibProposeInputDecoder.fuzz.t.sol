@@ -447,10 +447,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpointBlockNumber: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: ICheckpointStore.Checkpoint({ blockHash: bytes32(0), stateRoot: bytes32(0) }),
             numForcedInclusions: 0
         });
 

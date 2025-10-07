@@ -2,12 +2,12 @@
 
 ## Total Cost (Calldata + Decoding)
 
-| Scenario             | abi.encode + abi.decode | LibProposeInputDecoder | Savings |
-| -------------------- | ----------------------- | ---------------------- | ------- |
-| Simple (1P, 0C, 0B)  | 8,409 gas               | 4,807 gas              | 42%     |
-| Medium (2P, 1C, 0B)  | 13,160 gas              | 8,690 gas              | 33%     |
-| Complex (3P, 2C, 2B) | 20,276 gas              | 14,581 gas             | 28%     |
-| Large (5P, 5C, 10B)  | 41,808 gas              | 32,454 gas             | 22%     |
+| Scenario | abi.encode + abi.decode | LibProposeInputDecoder | Savings |
+|----------|-------------------------|----------------------|---------|
+| Simple (1P, 0C, 0B) | 8,409 gas | 4,807 gas | 42% |
+| Medium (2P, 1C, 0B) | 13,160 gas | 8,690 gas | 33% |
+| Complex (3P, 2C, 2B) | 20,276 gas | 14,581 gas | 28% |
+| Large (5P, 5C, 10B) | 41,808 gas | 32,454 gas | 22% |
 
 **Note**: P = Proposals, C = Transition Records, B = Bond Instructions
 **Note**: Gas measurements include both calldata and decode costs

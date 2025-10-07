@@ -902,7 +902,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
-                    _input.checkpointBlockNumber, _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
+                    _input.checkpointBlockNumber,
+                    _input.checkpoint,
+                    lastFinalizedRecord.checkpointHash,
+                    coreState
                 );
             }
 
@@ -927,12 +930,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
         // 2. Forced: minimum delay elapsed since last checkpoint
         if (_checkpoint.blockHash != 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_checkpointBlockNumber,_checkpoint);
+            bytes32 checkpointHash = _hashCheckpoint(_checkpointBlockNumber, _checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
             signalService.saveCheckpoint(_checkpointBlockNumber, _checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
-            
         } else {
             require(
                 block.timestamp < _coreState.lastCheckpointTimestamp + _minCheckpointDelay,

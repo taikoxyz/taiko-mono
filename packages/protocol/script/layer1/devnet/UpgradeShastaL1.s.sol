@@ -50,10 +50,12 @@ contract UpgradeShastaL1 is DeployCapability {
         address signalService = IResolver(vm.envAddress("SHARED_RESOLVER")).resolve(
             uint64(block.chainid), "signal_service", false
         );
-        
+
         address newFork = deployProxy({
             name: "shasta_inbox",
-            impl: address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
+            impl: address(
+                new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+            ),
             data: abi.encodeCall(Inbox.init, (address(0), shastaInitializer))
         });
 
