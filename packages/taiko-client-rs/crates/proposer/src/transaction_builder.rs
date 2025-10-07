@@ -90,11 +90,13 @@ impl ShastaProposalTransactionBuilder {
             .collect::<Vec<BlockManifest>>();
 
         // Build the proposal manifest.
-        let manifest =
-            ProposalManifest { prover_auth_bytes: Bytes::new(), blocks: block_manifests };
+        let manifest = ProposalManifest {
+            prover_auth_bytes: Bytes::new(),
+            sources: vec![DerivationSourceManifest { blocks: block_manifests }],
+        };
 
         // Build the blob sidecar from the proposal manifest.
-        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode()?)
+        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode_and_compress()?)
             .build()
             .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
