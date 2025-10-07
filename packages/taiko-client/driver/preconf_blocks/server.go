@@ -1278,7 +1278,7 @@ func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 	fromCache bool,
 ) ([]*types.Header, error) {
 	if len(envelopes) == 0 {
-		return nil, nil
+		return []*types.Header{}, nil
 	}
 
 	var (
