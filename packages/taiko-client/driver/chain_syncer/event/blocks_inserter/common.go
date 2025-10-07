@@ -979,28 +979,5 @@ func IsBasedOnCanonicalChain(
 		return true, nil
 	}
 
-	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
-	currentParent, err := cli.L2.HeaderByHash(ctx, envelope.Payload.ParentHash)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", envelope.Payload.ParentHash, err)
-	}
-	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
-		if currentParent, err = cli.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
-			return false, fmt.Errorf("failed to fetch current parent block (%s): %w", currentParent.ParentHash, err)
-		}
-	}
-
-	// If the current parent block hash matches the L2 block hash in the head L1 origin, it is in the canonical chain.
-	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
-
-	log.Debug(
-		"Check if block is based on canonical chain",
-		"blockID", uint64(envelope.Payload.BlockNumber),
-		"blockHash", envelope.Payload.BlockHash,
-		"parentHash", envelope.Payload.ParentHash,
-		"headL1OriginBlockID", headL1Origin.BlockID,
-		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
-	)
-
-	return isBasedOnCanonicalChain, nil
+	return false, nil
 }
