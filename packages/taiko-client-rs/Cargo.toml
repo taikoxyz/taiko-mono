@@ -2,7 +2,10 @@
 members = [
     "bin/client",
     "crates/bindings",
+<<<<<<< HEAD
     "crates/driver",
+=======
+>>>>>>> origin/main
     "crates/event-indexer",
     "crates/proposer",
     "crates/protocol",

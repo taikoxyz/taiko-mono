@@ -16,11 +16,13 @@ use crate::{
     config::DriverConfig,
     derivation::{
         DerivationPipeline, ShastaDerivationPipeline,
-        manifest::{ManifestFetcher, ShastaManifestFetcher},
+        manifest::{
+            ManifestFetcher, ShastaProposalManifestFetcher, ShastaSourceManifestFetcher,
+        },
     },
 };
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
-use protocol::shasta::manifest::ProposalManifest;
+use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
 use rpc::{blob::BlobDataSource, client::Client};
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -60,10 +62,17 @@ where
 {
     async fn run(&self) -> Result<(), SyncError> {
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
-        let manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
-            Arc::new(ShastaManifestFetcher::new(blob_source));
-        let derivation: Arc<dyn DerivationPipeline<Manifest = ProposalManifest>> =
-            Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), manifest_fetcher));
+        let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
+            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
+        let proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
+            Arc::new(ShastaProposalManifestFetcher::new(blob_source));
+        let derivation: Arc<dyn DerivationPipeline<Manifest = ProposalManifest>> = Arc::new(
+            ShastaDerivationPipeline::new(
+                self.rpc.clone(),
+                source_manifest_fetcher,
+                proposal_manifest_fetcher,
+            ),
+        );
 
         // Wait for historical indexing to complete before starting the derivation loop.
         self.indexer.wait_historical_indexing_finished().await;
