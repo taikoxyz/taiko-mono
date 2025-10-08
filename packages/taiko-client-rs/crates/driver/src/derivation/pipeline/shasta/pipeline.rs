@@ -9,11 +9,14 @@ use bindings::{
     i_inbox::IInbox::Proposed,
 };
 use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
-use rpc::client::Client;
+use rpc::{blob::BlobDataSource, client::Client};
 
-use crate::derivation::manifest::ManifestFetcher;
+use crate::derivation::manifest::{
+    ManifestFetcher,
+    fetcher::shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher},
+};
 
-use super::{DerivationError, DerivationPipeline};
+use super::super::{DerivationError, DerivationPipeline};
 
 /// Shasta-specific derivation pipeline.
 pub struct ShastaDerivationPipeline<P>
@@ -21,7 +24,8 @@ where
     P: Provider + Clone,
 {
     rpc: Client<P>,
-    source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
+    derivation_source_manifest_fetcher:
+        Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
 }
 
@@ -30,12 +34,22 @@ where
     P: Provider + Clone,
 {
     /// Create a new derivation pipeline instance.
-    pub fn new(
-        rpc: Client<P>,
-        source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
-        proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
-    ) -> Self {
-        Self { rpc, source_manifest_fetcher, proposal_manifest_fetcher }
+    pub fn new(rpc: Client<P>, blob_source: BlobDataSource) -> Self {
+        let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
+            Arc::new(ShastaSourceManifestFetcher::new(
+                blob_source.clone(),
+                DerivationSourceManifest::decompress_and_decode,
+            ));
+        let proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
+            Arc::new(ShastaProposalManifestFetcher::new(
+                blob_source,
+                ProposalManifest::decompress_and_decode,
+            ));
+        Self {
+            rpc,
+            derivation_source_manifest_fetcher: source_manifest_fetcher,
+            proposal_manifest_fetcher,
+        }
     }
 
     // Extract blob hashes from a derivation source.
@@ -57,6 +71,7 @@ where
             .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))
     }
 
+    // Fetch and decode a single manifest from a derivation source.
     async fn fetch_and_decode_source_manifest<M>(
         &self,
         fetcher: &dyn ManifestFetcher<Manifest = M>,
@@ -82,6 +97,7 @@ where
 {
     type Manifest = ProposalManifest;
 
+    // Convert a proposal log into a manifest for processing.
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
         let sources = &payload.derivation.sources;
@@ -97,7 +113,7 @@ where
         for source in forced_inclusion_sources {
             combined_sources.push(
                 self.fetch_and_decode_source_manifest(
-                    self.source_manifest_fetcher.as_ref(),
+                    self.derivation_source_manifest_fetcher.as_ref(),
                     source,
                 )
                 .await?,
@@ -109,15 +125,17 @@ where
             .fetch_and_decode_source_manifest(self.proposal_manifest_fetcher.as_ref(), last_source)
             .await?;
 
+        // Add the proposal manifest sources to the end of the combined sources.
         combined_sources.extend(final_manifest.sources);
         final_manifest.sources = combined_sources;
 
         Ok(final_manifest)
     }
 
+    // Convert a manifest into payload attributes for block production.
     async fn manifest_to_payload_attributes(
         &self,
-        _manifests: Self::Manifest,
+        _manifest: Self::Manifest,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
         Ok(Vec::new())
     }

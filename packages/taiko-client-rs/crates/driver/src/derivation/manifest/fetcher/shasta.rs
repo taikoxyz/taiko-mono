@@ -2,17 +2,25 @@ use std::sync::Arc;
 
 use alloy_consensus::BlobTransactionSidecar;
 use async_trait::async_trait;
-use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
+use protocol::shasta::{
+    error::Result as ProtocolResult,
+    manifest::{DerivationSourceManifest, ProposalManifest},
+};
 use rpc::blob::BlobDataSource;
 
 use super::{ManifestFetcher, ManifestFetcherError};
 
-fn decode_proposal_manifest_from_sidecars(
+// Helper to decode a manifest from sidecars using the provided decoder function.
+fn decode_manifest_from_sidecars<M>(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
-) -> Result<ProposalManifest, ManifestFetcherError> {
+    decoder: fn(&[u8], usize) -> ProtocolResult<M>,
+) -> Result<M, ManifestFetcherError>
+where
+    M: Default,
+{
     if sidecars.is_empty() {
-        return Ok(ProposalManifest::default());
+        return Ok(M::default());
     }
 
     let mut concatenated = Vec::new();
@@ -22,71 +30,52 @@ fn decode_proposal_manifest_from_sidecars(
         }
     }
 
-    ProposalManifest::decompress_and_decode(&concatenated, offset)
-        .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
+    decoder(&concatenated, offset).map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
 }
 
-/// Fetcher capable of retrieving proposal manifests.
 #[derive(Clone)]
-pub struct ShastaProposalManifestFetcher {
+pub struct ShastaManifestFetcher<M>
+where
+    M: Send + Default + 'static,
+{
     blob_source: Arc<BlobDataSource>,
+    decoder: fn(&[u8], usize) -> ProtocolResult<M>,
 }
 
-impl ShastaProposalManifestFetcher {
-    /// Create a new fetcher backed by the provided [`BlobDataSource`].
-    pub fn new(blob_source: BlobDataSource) -> Self {
-        Self { blob_source: Arc::new(blob_source) }
+impl<M> ShastaManifestFetcher<M>
+where
+    M: Send + Default + 'static,
+{
+    // Create a new Shasta manifest fetcher with the given blob source and decoder function.
+    pub fn new(
+        blob_source: BlobDataSource,
+        decoder: fn(&[u8], usize) -> ProtocolResult<M>,
+    ) -> Self {
+        Self { blob_source: Arc::new(blob_source), decoder }
     }
 }
 
 #[async_trait]
-impl ManifestFetcher for ShastaProposalManifestFetcher {
-    type Manifest = ProposalManifest;
+impl<M> ManifestFetcher for ShastaManifestFetcher<M>
+where
+    M: Send + Default + 'static,
+{
+    type Manifest = M;
 
+    // Access the underlying blob data source.
     fn blob_source(&self) -> &BlobDataSource {
         &self.blob_source
     }
 
+    // Decode a manifest from the provided sidecars and offset.
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
         offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        decode_proposal_manifest_from_sidecars(sidecars, offset)
+        decode_manifest_from_sidecars(sidecars, offset, self.decoder)
     }
 }
 
-/// Fetcher capable of retrieving individual derivation source manifests.
-#[derive(Clone)]
-pub struct ShastaSourceManifestFetcher {
-    blob_source: Arc<BlobDataSource>,
-}
-
-impl ShastaSourceManifestFetcher {
-    /// Create a new fetcher backed by the provided [`BlobDataSource`].
-    pub fn new(blob_source: BlobDataSource) -> Self {
-        Self { blob_source: Arc::new(blob_source) }
-    }
-}
-
-#[async_trait]
-impl ManifestFetcher for ShastaSourceManifestFetcher {
-    type Manifest = DerivationSourceManifest;
-
-    fn blob_source(&self) -> &BlobDataSource {
-        &self.blob_source
-    }
-
-    async fn decode_manifest(
-        &self,
-        sidecars: &[BlobTransactionSidecar],
-        offset: usize,
-    ) -> Result<Self::Manifest, ManifestFetcherError> {
-        let manifest = decode_proposal_manifest_from_sidecars(sidecars, offset)?;
-        manifest
-            .sources
-            .into_iter()
-            .next()
-            .ok_or_else(|| ManifestFetcherError::Invalid("proposal manifest missing derivation source".into()))
-    }
-}
+pub type ShastaProposalManifestFetcher = ShastaManifestFetcher<ProposalManifest>;
+pub type ShastaSourceManifestFetcher = ShastaManifestFetcher<DerivationSourceManifest>;

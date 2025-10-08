@@ -5,6 +5,7 @@ pub mod derivation;
 pub mod driver;
 pub mod error;
 pub mod metrics;
+pub mod signer;
 pub mod sync;
 
 pub use config::DriverConfig;

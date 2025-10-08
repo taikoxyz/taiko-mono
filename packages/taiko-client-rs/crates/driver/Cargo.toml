@@ -5,6 +5,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+alethia-reth = { workspace = true }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
@@ -13,11 +14,11 @@ alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
-alethia-reth = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 flate2 = { workspace = true }
+k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 metrics = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

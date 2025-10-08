@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 
 use alloy::primitives::{Address, Bytes, U256};
 use alloy_consensus::TxEnvelope;
-use alloy_rlp::{self, Decodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{self, Decodable, Encodable, RlpDecodable, RlpEncodable};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +45,32 @@ impl Default for DerivationSourceManifest {
     }
 }
 
+impl DerivationSourceManifest {
+    /// Encode and compress the derivation srouce manifest following the Shasta protocol payload
+    /// format. Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
+    pub fn encode_and_compress(&self) -> Result<Vec<u8>> {
+        encode_manifest_payload(self)
+    }
+
+    /// Decompress and decode a derivation srouce manifest from the Shasta protocol payload bytes.
+    /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
+    pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
+        let Some(decoded) = decode_manifest_payload(bytes, offset)? else {
+            return Ok(DerivationSourceManifest::default());
+        };
+
+        let mut decoded_slice = decoded.as_slice();
+        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
+            .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
+
+        if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
+            return Ok(DerivationSourceManifest::default());
+        }
+
+        Ok(manifest)
+    }
+}
+
 /// Manifest for a proposal, matching `LibManifest.ProtocolProposalManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
@@ -68,62 +94,18 @@ impl ProposalManifest {
     /// Encode and compress the protocol proposal manifest following the Shasta protocol payload
     /// format. Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn encode_and_compress(&self) -> Result<Vec<u8>> {
-        let rlp_encoded = alloy_rlp::encode(self);
-
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&rlp_encoded)?;
-        let compressed = encoder.finish()?;
-
-        let mut output = Vec::with_capacity(64 + compressed.len());
-
-        let mut version_bytes = [0u8; 32];
-        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
-        output.extend_from_slice(&version_bytes);
-
-        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
-        output.extend_from_slice(&len_bytes);
-        output.extend_from_slice(&compressed);
-
-        Ok(output)
+        encode_manifest_payload(self)
     }
 
     /// Decompress and decode a protocol proposal manifest from the Shasta protocol payload bytes.
     /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
-        if bytes.len() < offset + 64 {
-            return Err(ProtocolError::InvalidPayload("blob payload shorter than header".into()));
-        }
-
-        let version = u32::from_be_bytes(
-            bytes[offset + 28..offset + 32]
-                .try_into()
-                .map_err(|_| ProtocolError::InvalidPayload("malformed manifest version".into()))?,
-        );
-        if version != SHASTA_PAYLOAD_VERSION as u32 {
+        let Some(decoded) = decode_manifest_payload(bytes, offset)? else {
             return Ok(ProposalManifest::default());
-        }
+        };
 
-        let size = u64::from_be_bytes(
-            bytes[offset + 56..offset + 64]
-                .try_into()
-                .map_err(|_| ProtocolError::InvalidPayload("malformed manifest size".into()))?,
-        ) as usize;
-
-        if bytes.len() < offset + 64 + size {
-            return Err(ProtocolError::InvalidPayload(
-                "blob payload shorter than declared size".into(),
-            ));
-        }
-
-        let compressed = &bytes[offset + 64..offset + 64 + size];
-        let mut decoder = ZlibDecoder::new(compressed);
-        let mut decoded = Vec::new();
-        decoder
-            .read_to_end(&mut decoded)
-            .map_err(|err| ProtocolError::Compression(err.to_string()))?;
-
-        let mut bytes = decoded.as_slice();
-        let manifest = <ProposalManifest as Decodable>::decode(&mut bytes)
+        let mut decoded_slice = decoded.as_slice();
+        let manifest = <ProposalManifest as Decodable>::decode(&mut decoded_slice)
             .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
 
         if manifest.sources.len() > PROPOSAL_MAX_BLOCKS {
@@ -132,6 +114,65 @@ impl ProposalManifest {
 
         Ok(manifest)
     }
+}
+
+// Encode a manifest into the Shasta protocol payload format.
+fn encode_manifest_payload<T>(manifest: &T) -> Result<Vec<u8>>
+where
+    T: Encodable,
+{
+    let rlp_encoded = alloy_rlp::encode(manifest);
+
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&rlp_encoded)?;
+    let compressed = encoder.finish()?;
+
+    let mut output = Vec::with_capacity(64 + compressed.len());
+
+    let mut version_bytes = [0u8; 32];
+    version_bytes[31] = SHASTA_PAYLOAD_VERSION;
+    output.extend_from_slice(&version_bytes);
+
+    let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
+    output.extend_from_slice(&len_bytes);
+    output.extend_from_slice(&compressed);
+
+    Ok(output)
+}
+
+// Decode a manifest from the Shasta protocol payload format.
+fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>>> {
+    if bytes.len() < offset + 64 {
+        return Err(ProtocolError::InvalidPayload("blob payload shorter than header".into()));
+    }
+
+    let version = u32::from_be_bytes(
+        bytes[offset + 28..offset + 32]
+            .try_into()
+            .map_err(|_| ProtocolError::InvalidPayload("malformed manifest version".into()))?,
+    );
+    if version != SHASTA_PAYLOAD_VERSION as u32 {
+        return Ok(None);
+    }
+
+    let size = u64::from_be_bytes(
+        bytes[offset + 56..offset + 64]
+            .try_into()
+            .map_err(|_| ProtocolError::InvalidPayload("malformed manifest size".into()))?,
+    ) as usize;
+
+    if bytes.len() < offset + 64 + size {
+        return Err(ProtocolError::InvalidPayload(
+            "blob payload shorter than declared size".into(),
+        ));
+    }
+
+    let compressed = &bytes[offset + 64..offset + 64 + size];
+    let mut decoder = ZlibDecoder::new(compressed);
+    let mut decoded = Vec::new();
+    decoder.read_to_end(&mut decoded).map_err(|err| ProtocolError::Compression(err.to_string()))?;
+
+    Ok(Some(decoded))
 }
 
 #[cfg(test)]
@@ -153,5 +194,17 @@ mod tests {
         let decoded = ProposalManifest::decompress_and_decode(&encoded, 0).unwrap();
         assert_eq!(decoded.prover_auth_bytes, manifest.prover_auth_bytes);
         assert_eq!(decoded.sources.len(), manifest.sources.len());
+    }
+
+    #[test]
+    fn test_derivation_source_manifest_encode_decode() {
+        let manifest = DerivationSourceManifest::default();
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        assert!(encoded.len() >= 64);
+        assert_eq!(encoded[31], SHASTA_PAYLOAD_VERSION);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), manifest.blocks.len());
     }
 }
