@@ -42,11 +42,21 @@ func InitFromConfig(ctx context.Context, b *BalanceMonitor, cfg *Config) (err er
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil && l1EthClient != nil {
+			l1EthClient.Close()
+		}
+	}()
 
 	l2EthClient, err := ethclient.Dial(cfg.L2RPCUrl)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil && l2EthClient != nil {
+			l2EthClient.Close()
+		}
+	}()
 
 	b.l1EthClient = l1EthClient
 	b.l2EthClient = l2EthClient
@@ -64,6 +74,12 @@ func (b *BalanceMonitor) Name() string {
 }
 
 func (b *BalanceMonitor) Close(ctx context.Context) {
+	if b.l1EthClient != nil {
+		b.l1EthClient.Close()
+	}
+	if b.l2EthClient != nil {
+		b.l2EthClient.Close()
+	}
 }
 
 func (b *BalanceMonitor) Start() error {
