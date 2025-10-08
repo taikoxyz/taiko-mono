@@ -72,7 +72,7 @@ where
     }
 
     // Fetch and decode a single manifest from a derivation source.
-    async fn fetch_and_decode_source_manifest<M>(
+    async fn fetch_and_decode_manifest<M>(
         &self,
         fetcher: &dyn ManifestFetcher<Manifest = M>,
         source: &DerivationSource,
@@ -112,7 +112,7 @@ where
         let mut combined_sources = Vec::new();
         for source in forced_inclusion_sources {
             combined_sources.push(
-                self.fetch_and_decode_source_manifest(
+                self.fetch_and_decode_manifest(
                     self.derivation_source_manifest_fetcher.as_ref(),
                     source,
                 )
@@ -122,7 +122,7 @@ where
 
         // Fetch the proposal manifest last.
         let mut final_manifest: ProposalManifest = self
-            .fetch_and_decode_source_manifest(self.proposal_manifest_fetcher.as_ref(), last_source)
+            .fetch_and_decode_manifest(self.proposal_manifest_fetcher.as_ref(), last_source)
             .await?;
 
         // Add the proposal manifest sources to the end of the combined sources.

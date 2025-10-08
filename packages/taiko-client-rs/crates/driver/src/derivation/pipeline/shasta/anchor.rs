@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use alethia_reth::evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+use alethia_reth::{
+    consensus::validation::ANCHOR_V3_GAS_LIMIT, evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS,
+};
 use alloy::{
     primitives::{Address, B256, Bytes, TxKind, U256},
     sol_types::private::primitives::aliases::U48,
@@ -18,7 +20,18 @@ use tracing::info;
 
 use crate::signer::{FixedKSigner, FixedKSignerError};
 
-const UPDATE_STATE_GAS_LIMIT: u64 = 1_000_000;
+/// Errors emitted by the anchor transaction constructor.
+#[derive(Debug, Error)]
+pub enum AnchorTxConstructorError {
+    #[error(transparent)]
+    Signer(#[from] FixedKSignerError),
+    #[error("provider error: {0}")]
+    Provider(String),
+    #[error("nonce exceeds u64 range")]
+    NonceOverflow,
+    #[error("fee cap exceeds u128 range")]
+    FeeOverflow,
+}
 
 /// Parameters required to assemble an `updateState` transaction.
 #[derive(Debug)]
@@ -99,9 +112,9 @@ where
             )
             .await
             .map_err(|err| AnchorTxConstructorError::Provider(err.to_string()))?;
+
         let nonce: u64 =
             u64::try_from(&nonce).map_err(|_| AnchorTxConstructorError::NonceOverflow)?;
-
         let gas_fee_cap: u128 =
             u128::try_from(&base_fee).map_err(|_| AnchorTxConstructorError::FeeOverflow)?;
 
@@ -131,7 +144,7 @@ where
             .from(self.golden_touch_address)
             .chain_id(self.chain_id)
             .nonce(nonce)
-            .gas(UPDATE_STATE_GAS_LIMIT)
+            .gas(ANCHOR_V3_GAS_LIMIT)
             .max_fee_per_gas(gas_fee_cap)
             .max_priority_fee_per_gas(0);
 
@@ -141,7 +154,7 @@ where
         let tx = TxEip1559 {
             chain_id: self.chain_id,
             nonce,
-            gas_limit: UPDATE_STATE_GAS_LIMIT,
+            gas_limit: ANCHOR_V3_GAS_LIMIT,
             max_fee_per_gas: gas_fee_cap,
             max_priority_fee_per_gas: 0,
             to: TxKind::Call(anchor_address),
@@ -161,17 +174,4 @@ where
             sighash,
         ))
     }
-}
-
-/// Errors emitted by the anchor transaction constructor.
-#[derive(Debug, Error)]
-pub enum AnchorTxConstructorError {
-    #[error(transparent)]
-    Signer(#[from] FixedKSignerError),
-    #[error("provider error: {0}")]
-    Provider(String),
-    #[error("nonce exceeds u64 range")]
-    NonceOverflow,
-    #[error("fee cap exceeds u128 range")]
-    FeeOverflow,
 }
