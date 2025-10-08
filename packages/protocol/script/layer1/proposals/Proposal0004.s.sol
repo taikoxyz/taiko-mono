@@ -15,7 +15,7 @@ contract Proposal0004 is BuildProposal {
     address public constant RISC0_VERIFIER = 0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE;
     address public constant RISC0_VERIFIER_NEW_IMPL = 0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36;
     address public constant PRECONF_ROUTER = 0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a;
-    address public constant PRECONF_ROUTER_NEW_IMPL = 0x1234; // TODO: deploy new impl
+    address public constant PRECONF_ROUTER_NEW_IMPL = 0x64F6C711F00d146c4df808eE2bFEfA146BE05EB4;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](8);
