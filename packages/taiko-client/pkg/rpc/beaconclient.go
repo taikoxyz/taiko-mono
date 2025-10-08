@@ -86,7 +86,8 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	log.Info("L1 beacon info",
+	log.Info(
+		"L1 beacon info",
 		"secondsPerSlot", secondsPerSlot,
 		"slotsPerEpoch", slotsPerEpoch,
 		"genesisTime", genesisTime,
