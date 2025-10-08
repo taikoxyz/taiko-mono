@@ -9,6 +9,8 @@ import "./libs/LibFasterReentryLock.sol";
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
 /// @notice See the documentation in {TaikoInbox}.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
     constructor(

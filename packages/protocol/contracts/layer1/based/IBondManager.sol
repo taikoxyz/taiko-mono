@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
     /// @notice Emitted when tokens are deposited into a user's bond balance.

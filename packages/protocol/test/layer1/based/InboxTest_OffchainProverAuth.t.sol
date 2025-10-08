@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+// ═══════════════════════════════════════════════════════════════════════
+// DEPRECATED: This file is deprecated as of 2025-10-08.
+// Please use the Shasta Inbox implementation instead.
+// See: test/layer1/shasta/inbox/suite2/ for current tests
+// ═══════════════════════════════════════════════════════════════════════
+
 import "./InboxTestBase.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";

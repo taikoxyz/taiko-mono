@@ -5,6 +5,8 @@ import "./ComposeVerifier.sol";
 
 /// @title AnyTwoVerifier
 /// @notice (SGX + RISC0) or (RISC0 + SP1) or (SGX + SP1) verifier
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract AnyTwoVerifier is ComposeVerifier {
     uint256[50] private __gap;

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// ═══════════════════════════════════════════════════════════════════════
+// DEPRECATED: This file is deprecated as of 2025-10-08.
+// Please use the Shasta implementation instead.
+// ═══════════════════════════════════════════════════════════════════════
+
 import "test/layer2/Layer2Test.sol";
 import "src/layer2/based/libs/LibEIP1559.sol";
 

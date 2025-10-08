@@ -26,6 +26,8 @@ import "./IProposeBatch.sol";
 /// delegated to IVerifier contracts.
 ///
 /// @dev Registered in the address resolver as "taiko".
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
     using LibMath for uint256;
