@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.31.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.1...docs-site-v1.31.2) (2025-10-07)
+
+
+### Bug Fixes
+
+* **docs-site:** incorrect type definition for `pages` ([#20134](https://github.com/taikoxyz/taiko-mono/issues/20134)) ([5bde0b1](https://github.com/taikoxyz/taiko-mono/commit/5bde0b1a21650df0ce404577528e0f0f2c94142f))
+
+
+### Chores
+
+* **docs-site:** add supra oracle ([#20358](https://github.com/taikoxyz/taiko-mono/issues/20358)) ([51e6ebc](https://github.com/taikoxyz/taiko-mono/commit/51e6ebc9343d27b075d6ac0bcb54b09b808d0f15))
+
 ## [1.31.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.0...docs-site-v1.31.1) (2025-09-25)
 
 

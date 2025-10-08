@@ -103,7 +103,7 @@ func (s *Indexer) Start() error {
 	// Fetch historical transition records from the last finalized proposal.
 	if s.proposals.Count() != 0 {
 		log.Info("Last indexed Shasta proposal", "proposal", s.GetLastProposal().Proposal.Id)
-		lastFinializedProposal, ok := s.proposals.Get(
+		lastFinalizedProposal, ok := s.proposals.Get(
 			s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64(),
 		)
 		if !ok {
@@ -112,13 +112,13 @@ func (s *Indexer) Start() error {
 
 		log.Info(
 			"Last finalized Shasta proposal",
-			"proposalId", lastFinializedProposal.Proposal.Id,
-			"proposedAt", lastFinializedProposal.RawBlockHeight,
+			"proposalId", lastFinalizedProposal.Proposal.Id,
+			"proposedAt", lastFinalizedProposal.RawBlockHeight,
 		)
 
-		from, err := s.rpc.L1.HeaderByNumber(s.ctx, lastFinializedProposal.RawBlockHeight)
+		from, err := s.rpc.L1.HeaderByNumber(s.ctx, lastFinalizedProposal.RawBlockHeight)
 		if err != nil {
-			return fmt.Errorf("failed to get header at height %d: %w", lastFinializedProposal.RawBlockHeight, err)
+			return fmt.Errorf("failed to get header at height %d: %w", lastFinalizedProposal.RawBlockHeight, err)
 		}
 		if err := s.fetchHistoricalTransitionRecords(from, head); err != nil {
 			return fmt.Errorf("failed to fetch historical Shasta transition records: %w", err)

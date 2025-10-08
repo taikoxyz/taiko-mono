@@ -17,7 +17,7 @@ func DialClientWithBackoff(
 	ctx context.Context,
 	url string,
 	retryInterval time.Duration,
-	maxRetrys uint64) (*ethclient.Client, error) {
+	maxRetries uint64) (*ethclient.Client, error) {
 	var client *ethclient.Client
 	if err := backoff.Retry(
 		func() (err error) {
@@ -32,7 +32,7 @@ func DialClientWithBackoff(
 
 			return nil
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryInterval), maxRetrys),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryInterval), maxRetries),
 	); err != nil {
 		return nil, err
 	}
