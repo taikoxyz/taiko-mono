@@ -12,7 +12,9 @@ import "./ICheckpointStore.sol";
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalServiceShasta is ICheckpointStore {
-    struct HopProof {
+    /// @dev Proof struct for signal verification
+    /// Maintains the same structure as the original `ISignalService.HopProof` for compatibility
+    struct Proof {
         /// @notice Deprecated. Kept here for abi compatibility.
         /// @dev In a two chain message system, this is not needed.
         uint64 chainId;
