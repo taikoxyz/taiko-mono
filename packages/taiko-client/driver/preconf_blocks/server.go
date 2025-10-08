@@ -299,11 +299,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
-	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
+	quit, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
 	if err != nil {
 		return fmt.Errorf("failed to try importing payload: %w", err)
 	}
-	if cached {
+	if quit {
 		return nil
 	}
 
