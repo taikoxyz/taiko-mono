@@ -7,8 +7,6 @@ import "src/shared/common/ResolverBase.sol";
 
 /// @title SharedResolver
 /// @dev Resolver used by multiple based rollups.
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract SharedResolver is ResolverBase {
     function getAddress(uint256 _chainId, bytes32 _name) internal pure override returns (address) {

@@ -7,8 +7,6 @@ import "src/shared/governance/Controller.sol";
 /// the TaikoDAO. This architecture allows the TaikoDAO to seamlessly transition from one DAO to
 /// another by simply changing the owner of this contract. In essence, the TaikoDAO does not
 /// directly own contracts or any assets.
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 
 contract TaikoDAOController is Controller {
