@@ -115,7 +115,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Get the stored deadline before conflict
-        (uint48 firstDeadline, bytes26 firstRecordHash) =
+        (, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
         // Create second prove input with different checkpoint (causes conflict)
@@ -248,7 +248,6 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Verify all proposals are stored in ring buffer
         for (uint256 i = 0; i < 3; i++) {
-            uint256 slot = proposals[i].id % ringBufferSize;
             (, bytes26 recordHash) =
                 inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash());
             assertTrue(recordHash != bytes26(0), "Each proposal should be in ring buffer");
