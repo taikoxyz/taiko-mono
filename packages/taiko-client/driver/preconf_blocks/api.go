@@ -394,6 +394,9 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	endOfSequencingBlockHash := common.Hash{}
 
 	if s.rpc.L1Beacon != nil {
