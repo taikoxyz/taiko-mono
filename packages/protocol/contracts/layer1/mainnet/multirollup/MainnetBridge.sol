@@ -17,6 +17,8 @@ import "../libs/LibFasterReentryLock.sol";
 /// occurred.
 /// The combined balance of the L1 and L2 bridges must be no less than 999,999,800 Ether.
 /// @notice See the documentation in {Bridge}.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetBridge is Bridge {
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash

@@ -10,6 +10,8 @@ import "../IVerifier.sol";
 /// proofs.
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;

@@ -5,6 +5,8 @@ import "../based/TaikoInbox.sol";
 
 /// @title DevnetInbox
 /// @dev Labeled in address resolver as "taiko"
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is TaikoInbox {
     uint64 internal immutable chainId;
