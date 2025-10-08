@@ -1,30 +1,51 @@
-# Verifier Configuration Update
+# Verifier and PreconfRouter Contract Upgrade
 
-This proposal updates the verifier configurations for the Taiko protocol's proof systems on Layer 1.
+This proposal updates the verifier configurations for the Taiko protocol's proof systems and upgrades the PreconfRouter implementation on Layer 1.
 
 ## L1 Actions
 
-The following L1 actions will be executed by the DAOController:
+This proposal executes 8 actions on Layer 1 through the DAOController:
 
 ### SP1 Verifier Updates (4 actions)
 
-- Configure SP1 verifier at `0xbee1040D0Aab17AE19454384904525aE4A3602B9` with new parameters
-- Update program verification keys for SP1 proof verification
+**Target**: `0xbee1040D0Aab17AE19454384904525aE4A3602B9`
+
+- Action 0: `setProgramTrusted(0x008f96447139673b3f2d29b30ad4b43fe6ccb3f31d40f6e61478ac5640201d9e, true)`
+- Action 1: `setProgramTrusted(0x47cb22384e59cecf65a536612d4b43fe36659f987503db9828f158ac40201d9e, true)`
+- Action 2: `setProgramTrusted(0x004775b86041915596830bbc5464584165b2641a277b6758e83723954946bee2, true)`
+- Action 3: `setProgramTrusted(0x23badc30106455655061778a464584162d9320d11ded9d63506e472a4946bee2, true)`
+
+
+All these image ids can be found here: https://github.com/taikoxyz/raiko/blob/7db0044e932ac76aae190ee8f53c0ee2fdda2d8f/RELEASE.md
+
+Enables support for updated SP1 proof generation systems.
 
 ### Risc0 Verifier Updates (3 actions)
 
-- Configure Risc0 verifier at `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE` with new parameters
-- Update image IDs for RISC0 proof verification
-- Upgrade proxy to the latest RISC0 verifier implementation
+**Target**: `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
 
-These actions aim to update the verifier configurations to support the latest proof systems and ensure secure block verification.
+- Action 4: `setImageIdTrusted(0x3d933868e2ac698df98209b45e6c34c435df2d3c97754bb6739d541d5fd312e3, true)`
+- Action 5: `setImageIdTrusted(0x326ce3b6f13708a0691ed4bc56e8c14d6ee4e1197c533c129b441e263350b87e, true)`
+- Action 6: `upgradeTo(0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36)`
 
-### PreconfRouter updates (1 action)
+All these image ids can be found here: https://github.com/taikoxyz/raiko/blob/7db0044e932ac76aae190ee8f53c0ee2fdda2d8f/RELEASE.md
 
-- Update PreconfRouter at `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a` to the version here:
-`https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/contracts/layer1/preconf/impl/PreconfRouter.sol` at implementation `0xafcedde020db8d431fa86df6b14c20f327382709`.
 
-This action is to add the `Config` and `handoverSlots` onchain, rather than as a parameter to the driver.
+Enables support for updated RISC0 proof generation systems.
+
+### PreconfRouter Upgrade (1 action)
+
+**Target**: `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
+
+- Action 7: `upgradeTo(0xafCEDDe020dB8D431Fa86dF6B14C20f327382709)`
+
+This upgrade adds a new pure function for onchain configuration:
+
+```solidity
+function getConfig() external pure returns (IPreconfRouter.Config memory) {
+    return IPreconfRouter.Config({ handOverSlots: 8 });
+}
+```
 
 ## L2 Actions
 
@@ -40,24 +61,7 @@ https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/script/layer1
 
 Please review the `buildL1Actions()` function for logic verification.
 
-### buildL1Actions()
-
-This function generates all L1 transactions targeting the SP1 and Risc0 verifier contracts. Each action contains specific calldata for updating verifier configurations:
-
-**SP1 Verifier** (4 configuration calls):
-
-- Action 0: setProgramTrusted(008f96447139673b3f2d29b30ad4b43fe6ccb3f31d40f6e61478ac5640201d9e, true)
-- Action 1: setProgramTrusted(47cb22384e59cecf65a536612d4b43fe36659f987503db9828f158ac40201d9e, true)
-- Action 2: setProgramTrusted(004775b86041915596830bbc5464584165b2641a277b6758e83723954946bee2, true)
-- Action 3: setProgramTrusted(23badc30106455655061778a464584162d9320d11ded9d63506e472a4946bee2, true)
-
-**Risc0 Verifier** (3 configuration calls):
-
-- Action 4: setImageIdTrusted(0xed7615813d933868e2ac698df98209b45e6c34c435df2d3c97754bb6739d541d5fd312e3, true)
-- Action 5: setImageIdTrusted(0xed761581326ce3b6f13708a0691ed4bc56e8c14d6ee4e1197c533c129b441e263350b87e, true)
-- Action 6: upgradeTo(0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36)
-
-### Action Bytecode Verification
+### Bytecode Verification
 
 To confirm the action data matches this proposal, clone the Taiko [monorepo](https://github.com/taikoxyz/taiko-mono), navigate to `packages/protocol`, run `pnpm install`, then:
 
@@ -79,6 +83,8 @@ If the execution ends in a revert with `DryrunSucceeded`, this indicates the cur
 
 ## Risks and Contingencies
 
-Despite thorough testing, execution risks remain. Should the actions fail, a follow-up proposal will be submitted. This process contributes to continuous improvement in proposal reliability and infrastructure resilience.
+Despite thorough testing, execution risks remain. Should the actions fail, a follow-up proposal will be submitted.
 
-The verifier updates are critical for maintaining the security and functionality of the Taiko protocol's proof verification system. These changes enable support for updated proof generation systems and ensure continued protocol operation.
+### Rollback
+
+All contracts use UUPS upgradeable pattern. In case of critical issues, the contracts can be upgraded again through a new governance proposal to revert to previous implementations or deploy fixes.
