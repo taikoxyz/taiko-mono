@@ -421,15 +421,17 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	latestL2Block := uint64(0)
 
 	latestSeenProposal := s.latestSeenProposal
-	if latestSeenProposal.IsPacaya() {
-		latestL2Block = latestSeenProposal.Pacaya().GetLastBlockID()
-	} else {
-		latestShastaTransitionBlockID, err := s.shastaIndexer.GetLatestL2BlockID()
-		if err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
+	if latestSeenProposal != nil {
+		if latestSeenProposal.IsPacaya() {
+			latestL2Block = latestSeenProposal.Pacaya().GetLastBlockID()
+		} else {
+			latestShastaTransitionBlockID, err := s.shastaIndexer.GetLatestL2BlockID()
+			if err != nil {
+				return s.returnError(c, http.StatusInternalServerError, err)
+			}
 
-		latestL2Block = latestShastaTransitionBlockID.Uint64()
+			latestL2Block = latestShastaTransitionBlockID.Uint64()
+		}
 	}
 
 	return c.JSON(http.StatusOK, Status{
