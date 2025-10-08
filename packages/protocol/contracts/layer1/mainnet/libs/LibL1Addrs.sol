@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 /// @title LibL1Addrs
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;

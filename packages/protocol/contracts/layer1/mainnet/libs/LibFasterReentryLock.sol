@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 /// @title LibFasterReentryLock
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 library LibFasterReentryLock {
     /// @dev The slot in transient storage of the reentry lock.
