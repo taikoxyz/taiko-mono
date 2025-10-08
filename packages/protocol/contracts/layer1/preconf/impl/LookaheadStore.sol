@@ -160,15 +160,19 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         if (_data.commitmentSignature.length == 0) {
             // Fallback preconfer case
             require(_context.isFallback, ProposerIsNotFallbackPreconfer());
-            _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
         } else {
             // Opted-in Operator case
             ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
-            _validateLookaheadPoster(
-                _nextEpochTimestamp, _data.registrationRoot, commitment, _data.commitmentSignature
-            );
-            _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
+            IRegistry.SlasherCommitment memory slasherCommitment =
+                urc.getSlasherCommitment(_data.registrationRoot, lookaheadSlasher);
+
+            // Validate the lookahead poster's signed commitment
+            address committer =
+                ECDSA.recover(keccak256(abi.encode(commitment)), _data.commitmentSignature);
+            require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
         }
+
+        _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
     }
 
     /// @dev Determines the proposer's slot and submission window based on lookahead state.
@@ -526,29 +530,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
             && blacklistTimestamps.unBlacklistedAt < prevEpochTimestamp;
         require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
-    }
-
-    function _validateLookaheadPoster(
-        uint256 _nextEpochTimestamp,
-        bytes32 _registrationRoot,
-        ISlasher.Commitment memory _commitment,
-        bytes memory _commitmentSignature
-    )
-        internal
-        view
-    {
-        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
-
-        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            prevEpochTimestamp,
-            _registrationRoot,
-            getLookaheadStoreConfig().minCollateralForPosting,
-            lookaheadSlasher
-        );
-
-        // Validate the lookahead poster's signed commitment
-        address committer = ECDSA.recover(keccak256(abi.encode(_commitment)), _commitmentSignature);
-        require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
     }
 
     /// @dev Validates if the operator is allowed to post a lookahead, or be present within a
