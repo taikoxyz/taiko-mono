@@ -17,6 +17,8 @@ interface IHasRecipient {
 /// @title ProverSetBase
 /// @notice A contract that holds TAIKO token and acts as a Taiko prover. This contract will simply
 /// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TAIKO.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ProverSetBase is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;

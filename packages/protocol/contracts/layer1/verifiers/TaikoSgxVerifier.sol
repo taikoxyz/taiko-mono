@@ -16,6 +16,8 @@ import "./IVerifier.sol";
 /// @dev Please see references below:
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoSgxVerifier is EssentialContract, IVerifier {
     /// @dev Each public-private key pair (Ethereum address) is generated within

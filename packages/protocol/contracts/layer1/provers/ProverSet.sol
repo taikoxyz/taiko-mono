@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "./ProverSetBase.sol";
 import "../based/IProposeBatch.sol";
 
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
