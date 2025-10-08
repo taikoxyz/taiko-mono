@@ -11,9 +11,10 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 
 ## Metadata Architecture
 
-Block construction requires a comprehensive collection of metadata, organized into two distinct categories:
+Block construction requires a comprehensive collection of metadata, organized into three distinct categories:
 
-- **Proposal-level metadata**: Shared across all blocks within a proposal
+- **Proposal-level metadata**: Shared across all blocks and sources within a proposal
+- **Derivation source-level metadata**: Specific to each derivation source within a proposal
 - **Block-level metadata**: Unique to each individual block
 
 Throughout this document, metadata references follow the notation `metadata.fieldName`.
@@ -29,11 +30,16 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **timestamp**            | The timestamp when the proposal was accepted on L1            |
 | **originBlockNumber**    | The L1 block number in which the proposal was accepted        |
 | **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
-| **numBlocks**            | The total number of blocks in this proposal                   |
 | **basefeeSharingPctg**   | The percentage of base fee paid to coinbase                   |
-| **isForcedInclusion**    | Indicates if the proposal is a forced inclusion               |
 | **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
 | **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
+
+### Derivation Source-level Metadata
+
+| **Metadata Component** | **Description**                                    |
+| ---------------------- | -------------------------------------------------- |
+| **isForcedInclusion**  | Flags whether this source is from forced inclusion |
+| **numBlocks**          | The number of blocks in this derivation source     |
 
 ### Block-level Metadata
 
@@ -97,18 +103,30 @@ struct DerivationSource {
 }
 ```
 
-The following metadata fields are extracted from the `proposal` and `derivation` objects:
+The following metadata fields are extracted from the `proposal`, `derivation`, and `derivation.sources[i]` objects:
 
-| Metadata Field                | Value Assignment                    |
-| ----------------------------- | ----------------------------------- |
-| `metadata.id`                 | `proposal.id`                      |
-| `metadata.proposer`           | `proposal.proposer`                 |
-| `metadata.timestamp`          | `proposal.timestamp`                |
-| `metadata.originBlockNumber`  | `derivation.originBlockNumber`      |
-| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`     |
-| `metadata.isForcedInclusion`  | `derivation.sources[i].isForcedInclusion` |
+**Proposal-level assignments:**
 
-The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
+| Metadata Field                | Value Assignment                |
+| ----------------------------- | ------------------------------- |
+| `metadata.id`                 | `proposal.id`                   |
+| `metadata.proposer`           | `proposal.proposer`             |
+| `metadata.timestamp`          | `proposal.timestamp`            |
+| `metadata.originBlockNumber`  | `derivation.originBlockNumber`  |
+| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg` |
+
+**Derivation source-level assignments (for source `i`):**
+
+| Metadata Field               | Value Assignment                          |
+| ---------------------------- | ----------------------------------------- |
+| `metadata.isForcedInclusion` | `derivation.sources[i].isForcedInclusion` |
+
+The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
+
+- **Forced inclusion submitters** publish their `DerivationSourceManifest` blob on L1 directly as blobs.
+- **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted(without metadata being maniupalted).
+
+The manifest data structures are defined as follows:
 
 ```solidity
 /// @notice Represents a signed Ethereum transaction
@@ -144,9 +162,19 @@ struct BlockManifest {
   SignedTransaction[] transactions;
 }
 
-/// @notice Represents a proposal manifest
+/// @notice Represents a proposal manifest containing proposal-level metadata and all sources
+/// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
+  /// @notice Prover authentication data (proposal-level).
   bytes proverAuthBytes;
+  /// @notice Array of derivation source manifests (one per derivation source).
+  DerivationSourceManifest[] sources;
+}
+
+/// @notice Represents a derivation source manifest containing blocks for one source
+/// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
+struct DerivationSourceManifest {
+  /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
 ```
@@ -158,7 +186,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single empty block with no transactions.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -177,37 +205,60 @@ struct BlobSlice {
 }
 ```
 
-The `BlobSlice` struct represents binary data distributed across multiple blobs. Processing involves the following steps:
+The `BlobSlice` struct represents binary data distributed across multiple blobs. `DerivationSource` entries are processed sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final manifest and cross-check data integrity.
 
-1. **Blob Concatenation**: Concatenate blobs in the order specified by the `blobHashes` array
-2. **Version Extraction**: Extract the version number from bytes `[offset, offset+32)` (only version `0x1` is valid for Shasta)
-3. **Size Extraction**: Extract the data size from bytes `[offset+32, offset+64)`
-4. **Decompression**: Apply ZLIB decompression to the extracted data slice (bytes `[offset+64, offset+64+size)`)
-5. **Decoding**: RLP decode the decompressed data into a `ProposalManifest` struct
+#### Per-Source Manifest Extraction
 
-#### Default Manifest Conditions
+For each `DerivationSource[i]`, the validator performs:
 
-A default manifest is returned when any of the following validation criteria fail:
+1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
+2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
+3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
+4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
+5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
+6. **Decoding**: RLP decode the decompressed data
+7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
 
-- **Blob validation**: `blobHashes.length` is zero
-- **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
-- **Version validation**: Version number is not `0x1`
-- **Decompression failure**: ZLIB decompression fails
-- **Decoding failure**: RLP decoding fails
-- **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
+If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
-The default manifest is one initialized as:
+#### Default Source Manifest
+
+A default source manifest is used when validation fails for a specific source:
 
 ```solidity
-ProposalManifest memory default;
-default.blocks = new BlockManifest[](1) ;
+DerivationSourceManifest memory defaultSource;
+defaultSource.blocks = new BlockManifest[](1);  // // Single block
 ```
 
-A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid proposals.
+#### ProposalManifest Construction
+
+After processing all sources, the `ProposalManifest` is constructed:
+
+```solidity
+ProposalManifest memory manifest;
+manifest.proverAuthBytes = proverAuthBytesFromProposerSource;
+manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults for failed sources
+```
+
+**Censorship Resistance**: This per-source validation design prevents a malicious proposer from invalidating valid forced inclusions by including invalid data in other sources. Each source is isolated: failures only affect that specific source, not the entire proposal.
+
+#### Forced Inclusion Submission Requirements
+
+Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
+
+| Field               | Required Value | Reason                                                  |
+| ------------------- | -------------- | ------------------------------------------------------- |
+| `timestamp`         | `0`            | Protocol assigns based on proposal timing               |
+| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions |
+| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                     |
+| `gasLimit`          | `0`            | Protocol inherits from parent block                     |
+| `transactions`      | User-provided  | The actual transactions to be forcibly included         |
+
+This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
 ### Metadata Validation and Computation
 
-With the extracted manifest, metadata computation proceeds using both the manifest data and the parent block's metadata (`parent.metadata`). The following sections detail the validation rules for each metadata component:
+With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
 
 #### `timestamp` Validation
 
@@ -227,7 +278,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -241,7 +292,7 @@ The anchor hash and state root must maintain consistency with the anchor block n
 The L2 coinbase address determination follows a hierarchical priority system:
 
 1. **Forced inclusions**: Always use `proposal.proposer`
-2. **Regular proposals**: Use `manifest.blocks[i].coinbase` if non-zero
+2. **Regular proposals**: Use `orderedBlocks[i].coinbase` if non-zero
 3. **Fallback**: Use `proposal.proposer` if manifest coinbase is `address(0)`
 
 #### `gasLimit` Validation
@@ -294,7 +345,7 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 
 ```solidity
 /// @notice Structure for prover authentication
-/// @dev Used in the proverAuthBytes field of ProposalManifest
+/// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
 struct ProverAuth {
   address prover;
   address feeToken;
@@ -306,6 +357,8 @@ struct ProverAuth {
 ```
 
 #### Prover Designation Process
+
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `updateState` function designates the prover for the entire proposal.
 
 ##### 1. Authentication and Validation
 
@@ -355,7 +408,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Default Manifest Replacement**: When `isLowBondProposal = true`, the entire manifest is replaced with the default manifest (containing a single empty block with no transactions), minimizing proving costs and disincentivizing spam
+- **Default Manifest Replacement**: When `isLowBondProposal = true`, the **only the proposer's manifest** is replaced with the default manifest, minimizing proving costs and disincentivizing spam. Forced inclusion manifests are still processed.
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
@@ -382,16 +435,49 @@ Several enhancements are under consideration to address current limitations:
 
 The remaining metadata fields follow straightforward assignment patterns:
 
-| Metadata Field             | Value Assignment                                                  |
-| -------------------------- | ----------------------------------------------------------------- |
-| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                  |
-| `metadata.number`          | `parent.metadata.number + 1`                                      |
-| `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
-| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                        |
-| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                        |
-| `metadata.transactions`    | `manifest.blocks[i].transactions`                                 |
+**Block-level assignments:**
 
-**Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
+| Metadata Field          | Value Assignment                                                  |
+| ----------------------- | ----------------------------------------------------------------- |
+| `metadata.index`        | `parent.metadata.index + 1` (abbreviated as `i`)                  |
+| `metadata.number`       | `parent.metadata.number + 1`                                      |
+| `metadata.difficulty`   | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
+| `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)     |
+
+**Proposal-level assignments:**
+
+| Metadata Field             | Value Assignment                   |
+| -------------------------- | ---------------------------------- |
+| `metadata.proverAuthBytes` | `proposalManifest.proverAuthBytes` |
+
+**Derivation source-level assignments:**
+
+| Metadata Field       | Value Assignment                                                                  |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `metadata.numBlocks` | Total blocks from current source `sourceManifest.blocks.length` (post-validation) |
+
+**Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count within that source.
+
+#### Block Index Monotonicity
+
+The `_blockIndex` parameter in the anchor transaction's `updateState` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+
+- First source's blocks: `_blockIndex = 0, 1, 2, ...`
+- Second source's blocks: `_blockIndex` continues from where the first source ended
+- Third source's blocks: `_blockIndex` continues sequentially, etc.
+
+**Why this is critical**: The check `if (_blockIndex == 0)` gates proposal-level operations that must execute exactly once per proposal:
+
+1. **Prover designation** - ONE designated prover per proposal
+2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
+
+If `_blockIndex` were to reset per source (e.g., each source starting from 0), these operations would execute multiple times, causing:
+
+- Financial incorrectness (bond instructions processed multiple times)
+- Multiple prover designations (violating the one-prover-per-proposal design)
+- Hash chain integrity violations
+
+Therefore, `_blockIndex` **must** be globally monotonic across all sources in a proposal. This is not a design choice—it's a correctness requirement.
 
 ## Metadata Application
 
