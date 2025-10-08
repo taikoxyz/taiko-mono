@@ -13,6 +13,7 @@ import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { SignalServiceShasta } from "src/shared/shasta/impl/SignalServiceShasta.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
 /// @title InboxTestHelper
@@ -56,8 +57,11 @@ abstract contract InboxTestHelper is CommonTest {
     /// @notice Mock bond token for testing
     IERC20 internal bondToken;
 
-    /// @notice Mock checkpoint manager (unused but required for interface compatibility)
+    /// @notice Signal service interface used for checkpoint management
     ICheckpointStore internal checkpointManager;
+
+    /// @notice Signal service proxy used as checkpoint manager
+    SignalServiceShasta internal signalService;
 
     /// @notice Mock proof verifier for testing
     IProofVerifier internal proofVerifier;
@@ -359,6 +363,8 @@ abstract contract InboxTestHelper is CommonTest {
             address(proposerChecker)
         );
 
+        _upgradeDependencies();
+
         _initializeContractName(inboxDeployer.getTestContractName());
 
         // Advance block to ensure we have block history
@@ -371,12 +377,6 @@ abstract contract InboxTestHelper is CommonTest {
     /// or are well-tested externally (e.g. ERC20 tokens)
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        // Note: SignalService constructor requires authorizedSyncer (will be inbox) and
-        // remoteSignalService
-        // We use address(this) temporarily - this will be updated after inbox deployment if needed
-        checkpointManager = ICheckpointStore(
-            address(new SignalServiceShasta(address(this), MOCK_REMOTE_SIGNAL_SERVICE))
-        );
         proofVerifier = new MockProofVerifier();
     }
 
@@ -385,6 +385,33 @@ abstract contract InboxTestHelper is CommonTest {
     function _setupDependencies() internal virtual {
         // Deploy PreconfWhitelist as the proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
+
+        // Deploy signal service behind a proxy so it can be upgraded once inbox is available
+        SignalServiceShasta signalServiceImpl =
+            new SignalServiceShasta(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+
+        signalService = SignalServiceShasta(
+            address(
+                new ERC1967Proxy(
+                    address(signalServiceImpl),
+                    abi.encodeCall(SignalServiceShasta.init, (owner))
+                )
+            )
+        );
+
+        checkpointManager = ICheckpointStore(address(signalService));
+    }
+
+    /// @notice Upgrade dependencies that need the deployed inbox reference
+    function _upgradeDependencies() internal virtual {
+        require(address(signalService) != address(0), "Signal service not deployed");
+        require(address(inbox) != address(0), "Inbox not deployed");
+
+        SignalServiceShasta upgradedSignalServiceImpl =
+            new SignalServiceShasta(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
+
+        vm.prank(owner);
+        signalService.upgradeTo(address(upgradedSignalServiceImpl));
     }
 
     /// @notice Helper function to select and whitelist a proposer
