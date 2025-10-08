@@ -66,8 +66,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function run() external broadcast {
-        addressNotNull(vm.envAddress("TAIKO_ANCHOR_ADDRESS"), "TAIKO_ANCHOR_ADDRESS");
-        addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
         addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
 
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
