@@ -11,7 +11,7 @@ import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
 /// @title InboxTestHelper
@@ -53,9 +53,6 @@ abstract contract InboxTestHelper is CommonTest {
 
     /// @notice Mock bond token for testing
     IERC20 internal bondToken;
-
-    /// @notice Mock checkpoint manager (unused but required for interface compatibility)
-    ICheckpointStore internal checkpointManager;
 
     /// @notice Mock proof verifier for testing
     IProofVerifier internal proofVerifier;
@@ -369,7 +366,6 @@ abstract contract InboxTestHelper is CommonTest {
     /// or are well-tested externally (e.g. ERC20 tokens)
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        checkpointManager = new MockCheckpointProvider();
         proofVerifier = new MockProofVerifier();
     }
 
