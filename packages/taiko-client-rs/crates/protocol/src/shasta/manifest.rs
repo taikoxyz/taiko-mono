@@ -31,11 +31,18 @@ pub struct BlockManifest {
 }
 
 /// Manifest for a derivation source, matching `LibManifest.DerivationSourceManifest`.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
+#[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
 pub struct DerivationSourceManifest {
     /// Blocks included in this source.
     pub blocks: Vec<BlockManifest>,
+}
+
+impl Default for DerivationSourceManifest {
+    // Create the default derivation source manifest.
+    fn default() -> Self {
+        Self { blocks: vec![BlockManifest::default()] }
+    }
 }
 
 /// Manifest for a proposal, matching `LibManifest.ProtocolProposalManifest`.
@@ -52,9 +59,8 @@ pub struct ProposalManifest {
 
 impl Default for ProposalManifest {
     // Create the default proposal manifest.
-    // Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     fn default() -> Self {
-        Self { prover_auth_bytes: Bytes::new(), sources: Vec::new() }
+        Self { prover_auth_bytes: Bytes::new(), sources: vec![DerivationSourceManifest::default()] }
     }
 }
 

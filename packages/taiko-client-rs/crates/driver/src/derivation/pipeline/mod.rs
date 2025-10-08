@@ -16,13 +16,13 @@ pub trait DerivationPipeline: Send + Sync {
     /// Fork-specific manifest type produced by the decoder.
     type Manifest: Send;
 
-    /// Convert a proposal log into one or more manifests for processing.
-    async fn log_to_manifests(&self, log: &Log) -> Result<Vec<Self::Manifest>, DerivationError>;
+    /// Convert a proposal log into a manifest for processing.
+    async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError>;
 
     /// Convert a set of manifests into payload attributes for block production.
-    async fn manifests_to_payload_attributes(
+    async fn manifest_to_payload_attributes(
         &self,
-        manifests: &[Self::Manifest],
+        manifests: Self::Manifest,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError>;
 
     /// Process the provided proposal log, returning payload attributes to deliver to the engine.
@@ -30,7 +30,7 @@ pub trait DerivationPipeline: Send + Sync {
         &self,
         log: &Log,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
-        let manifests = self.log_to_manifests(log).await?;
-        self.manifests_to_payload_attributes(&manifests).await
+        let manifest = self.log_to_manifest(log).await?;
+        self.manifest_to_payload_attributes(manifest).await
     }
 }

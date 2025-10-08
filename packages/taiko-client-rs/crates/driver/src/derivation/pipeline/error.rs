@@ -18,6 +18,9 @@ pub enum DerivationError {
     /// Failure decoding the L1 proposal event payload.
     #[error(transparent)]
     ProposalDecode(#[from] SolTypeError),
+    /// The proposal contains no derivation sources, which is invalid.
+    #[error("proposal contains no derivation sources")]
+    EmptyDerivationSources(u64),
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),
