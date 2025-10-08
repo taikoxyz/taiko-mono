@@ -739,3 +739,29 @@ func (s *Indexer) IsHistoricalFetchCompleted() bool {
 	defer s.mutex.RUnlock()
 	return s.historicalFetchCompleted
 }
+
+// GetLatestL2BlockID returns the highest L2 block number from the latest transition record
+func (s *Indexer) GetLatestL2BlockID() (*big.Int, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	var (
+		maxProposalID    uint64
+		latestTransition *TransitionPayload
+	)
+
+	for _, key := range s.transitionRecords.Keys() {
+		if key > maxProposalID {
+			if t, ok := s.transitionRecords.Get(key); ok {
+				maxProposalID = key
+				latestTransition = t
+			}
+		}
+	}
+
+	if latestTransition == nil {
+		return nil, fmt.Errorf("no transition records found")
+	}
+
+	return latestTransition.Transition.Checkpoint.BlockNumber, nil
+}

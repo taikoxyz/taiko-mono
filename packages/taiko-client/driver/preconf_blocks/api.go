@@ -369,16 +369,18 @@ func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 
 // Status represents the current status of the preconfirmation block server.
 type Status struct {
-	// @param lookahead the current lookahead information.
+	// @param Lookahead the current lookahead information.
 	Lookahead *Lookahead `json:"lookahead"`
-	// @param totalCached uint64 the total number of cached envelopes after the start of the server.
+	// @param TotalCached uint64 the total number of cached envelopes after the start of the server.
 	TotalCached uint64 `json:"totalCached"`
-	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
+	// @param HighestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
 	// @param has received from the P2P network, if its zero, it means the current server has not received
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
-	// @param whether the current epoch has received an end of sequencing block marker
+	// @param EndOfSequencingBlockHash whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
+	// @param The latest onchain L2 proposed block
+	LatestOnchainProposedBlockID uint64 `json:"latestOnchainProposedBlockID"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -413,11 +415,26 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
 	)
 
+	latestL2Block := uint64(0)
+
+	latestSeenProposal := s.latestSeenProposal
+	if latestSeenProposal.IsPacaya() {
+		latestL2Block = latestSeenProposal.Pacaya().GetLastBlockID()
+	} else {
+		latestShastaTransitionBlockID, err := s.shastaIndexer.GetLatestL2BlockID()
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+
+		latestL2Block = latestShastaTransitionBlockID.Uint64()
+	}
+
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.envelopesCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
+		LatestOnchainProposedBlockID:  latestL2Block,
 	})
 }
 
