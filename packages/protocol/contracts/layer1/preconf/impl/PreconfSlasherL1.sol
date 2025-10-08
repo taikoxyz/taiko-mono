@@ -45,15 +45,16 @@ contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
         IPreconfSlasherL2.Preconfirmation memory preconfirmation =
             abi.decode(_commitment.payload, (IPreconfSlasherL2.Preconfirmation));
 
-        // If the fault computed on the L2 side is a liveness fault,
-        if (fault == IPreconfSlasherL2.Fault.Liveness) {
-            // but the preconfer has not missed its L1 proposal slot, then we actually have
-            // a safety fault.
+        if (fault == IPreconfSlasherL2.Fault.PotentialLiveness) {
+            // A potential liveness fault is a safety fault if the preconfer
+            // did not miss its L1 slot.
             if (
                 LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd)
                     != bytes32(0)
             ) {
                 fault = IPreconfSlasherL2.Fault.Safety;
+            } else {
+                fault = IPreconfSlasherL2.Fault.Liveness;
             }
         }
 

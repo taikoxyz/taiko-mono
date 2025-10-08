@@ -24,6 +24,9 @@ interface IPreconfSlasherL2 {
 
     // The slashing reason forwarded to the L1 preconfirmation slasher
     enum Fault {
+        // Every "liveness fault" computed on L2 is a "potential" liveness fault.
+        // It is the L1 contract that further confirms it.
+        PotentialLiveness,
         Liveness,
         Safety
     }
