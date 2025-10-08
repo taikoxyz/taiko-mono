@@ -147,8 +147,11 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+
+	if cfg.ShastaInboxAddress != ZeroAddress {
+		if err := c.initShastaClients(ctx, cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+		}
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
