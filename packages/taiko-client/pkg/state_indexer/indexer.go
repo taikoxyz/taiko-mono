@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -58,6 +59,7 @@ type Indexer struct {
 	mutex                    sync.RWMutex
 	lastIndexedBlock         *types.Header
 	historicalFetchCompleted bool
+	latestL2BlockID          atomic.Uint64
 }
 
 // New creates a new Shasta state indexer instance.
@@ -289,6 +291,20 @@ func (s *Indexer) onProvedEvent(
 		RawBlockHeight:    new(big.Int).SetUint64(eventLog.BlockNumber),
 		RawBlockTimeStamp: header.Time,
 	})
+
+	if bn := transition.Checkpoint.BlockNumber; bn != nil {
+		for {
+			cur := s.latestL2BlockID.Load()
+			newv := bn.Uint64()
+			if newv <= cur {
+				break
+			}
+			if s.latestL2BlockID.CompareAndSwap(cur, newv) {
+				break
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -638,6 +654,17 @@ func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 		removedTransitions++
 	}
 
+	var maxL2 uint64
+	s.transitionRecords.IterCb(func(_ uint64, t *TransitionPayload) {
+		if t != nil && t.Transition != nil && t.Transition.Checkpoint.BlockNumber != nil {
+			if v := t.Transition.Checkpoint.BlockNumber.Uint64(); v > maxL2 {
+				maxL2 = v
+			}
+		}
+	})
+
+	s.latestL2BlockID.Store(maxL2)
+
 	log.Debug(
 		"Cleaned up invalid data after reorg",
 		"safeHeight", safeHeight,
@@ -740,28 +767,11 @@ func (s *Indexer) IsHistoricalFetchCompleted() bool {
 	return s.historicalFetchCompleted
 }
 
-// GetLatestL2BlockID returns the highest L2 block number from the latest transition record
 func (s *Indexer) GetLatestL2BlockID() (*big.Int, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var (
-		maxProposalID    uint64
-		latestTransition *TransitionPayload
-	)
-
-	for _, key := range s.transitionRecords.Keys() {
-		if key > maxProposalID {
-			if t, ok := s.transitionRecords.Get(key); ok {
-				maxProposalID = key
-				latestTransition = t
-			}
-		}
-	}
-
-	if latestTransition == nil {
+	v := s.latestL2BlockID.Load()
+	if v == 0 {
 		return nil, fmt.Errorf("no transition records found")
 	}
 
-	return latestTransition.Transition.Checkpoint.BlockNumber, nil
+	return new(big.Int).SetUint64(v), nil
 }
