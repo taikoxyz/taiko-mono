@@ -8,7 +8,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{ProviderBuilder, RootProvider};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
-    PayloadAttributes, PayloadStatus, PayloadStatusEnum,
+    PayloadStatusEnum,
 };
 use metrics::gauge;
 use rpc::{auth::L1Origin, client::Client};
@@ -84,13 +84,9 @@ where
 
         let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
 
-        let payload_status: PayloadStatus = self
+        let payload_status = self
             .rpc
-            .l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("engine_newPayloadV2"),
-                (payload_input, Vec::<B256>::new(), None::<B256>),
-            )
+            .engine_new_payload_v2(payload_input, Vec::<B256>::new(), None)
             .await
             .map_err(|err| SyncError::Rpc(err.to_string()))?;
 
@@ -112,11 +108,7 @@ where
 
         let _: ForkchoiceUpdated = self
             .rpc
-            .l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("engine_forkchoiceUpdatedV2"),
-                (forkchoice_state, Option::<PayloadAttributes>::None),
-            )
+            .engine_forkchoice_updated_v2(forkchoice_state, None)
             .await
             .map_err(|err| SyncError::Rpc(err.to_string()))?;
 

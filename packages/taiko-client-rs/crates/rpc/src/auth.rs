@@ -4,12 +4,13 @@ use std::borrow::Cow;
 
 use alethia_reth::{
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
-    rpc::{engine::types::TaikoExecutionData, eth::auth::PreBuiltTxList as TaikoPreBuiltTxList},
+    rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList,
 };
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, B256, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
-    ExecutionPayloadEnvelopeV2, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
+    ExecutionPayloadEnvelopeV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
+    PayloadId, PayloadStatus,
 };
 use serde_json::Value;
 
@@ -155,10 +156,15 @@ impl<P: Provider + Clone> Client<P> {
     /// Submit a new payload via the execution engine API.
     pub async fn engine_new_payload_v2(
         &self,
-        payload: TaikoExecutionData,
+        payload: ExecutionPayloadInputV2,
+        versioned_hashes: Vec<B256>,
+        parent_beacon_block_root: Option<B256>,
     ) -> Result<PayloadStatus> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()), (payload,))
+            .raw_request(
+                Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()),
+                (payload, versioned_hashes, parent_beacon_block_root),
+            )
             .await
             .map_err(Into::into)
     }
