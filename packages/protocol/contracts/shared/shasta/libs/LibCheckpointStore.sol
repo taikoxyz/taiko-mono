@@ -38,7 +38,6 @@ library LibCheckpointStore {
     )
         internal
     {
-        require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
         $.checkpoints[_checkpoint.blockNumber] =
@@ -62,7 +61,7 @@ library LibCheckpointStore {
         returns (ICheckpointStore.Checkpoint memory checkpoint)
     {
         CheckpointRecord storage record = $.checkpoints[_blockNumber];
-        if (record.stateRoot == bytes32(0)) revert CheckpointNotFound();
+        if (record.blockHash == bytes32(0)) revert CheckpointNotFound();
 
         checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: _blockNumber,

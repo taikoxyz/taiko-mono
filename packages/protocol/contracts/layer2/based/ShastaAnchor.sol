@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { ISignalServiceShasta } from "src/shared/shasta/iface/ISignalServiceShasta.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
@@ -175,7 +176,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Process new L1 anchor data
         if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data to signal service
-            ICheckpointStore(address(signalService)).saveCheckpoint(
+            ISignalServiceShasta(address(signalService)).saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: _anchorBlockNumber,
                     blockHash: _anchorBlockHash,

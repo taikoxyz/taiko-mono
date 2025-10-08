@@ -8,11 +8,11 @@ import "../iface/ICheckpointStore.sol";
 import "../libs/LibCheckpointStore.sol";
 import "../iface/ISignalServiceShasta.sol";
 
-/// @title SignalService
-/// @notice See the documentation in {ISignalService} for more details.
+/// @title ShastaSignalService
+/// @notice See the documentation in {ISignalServiceShasta} for more details.
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
+contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
@@ -68,12 +68,12 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ISignalService
+    /// @inheritdoc ISignalServiceShasta
     function sendSignal(bytes32 _signal) external returns (bytes32) {
         return _sendSignal(msg.sender, _signal, _signal);
     }
 
-    /// @inheritdoc ISignalService
+    /// @inheritdoc ISignalServiceShasta
     /// @dev This function may revert.
     function proveSignalReceived(
         uint64 _chainId,
@@ -82,7 +82,6 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         bytes calldata _proof
     )
         external
-        virtual
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
@@ -90,7 +89,7 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         return 0;
     }
 
-    /// @inheritdoc ISignalService
+    /// @inheritdoc ISignalServiceShasta
     /// @dev This function may revert.
     function verifySignalReceived(
         uint64 _chainId,
@@ -104,12 +103,12 @@ contract SignalService is EssentialContract, ISignalService, ICheckpointStore {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
 
-    /// @inheritdoc ISignalService
+    /// @inheritdoc ISignalServiceShasta
     function isSignalSent(address _app, bytes32 _signal) public view returns (bool) {
         return _loadSignalValue(_app, _signal) != 0;
     }
 
-    /// @inheritdoc ISignalService
+    /// @inheritdoc ISignalServiceShasta
     function isSignalSent(bytes32 _signalSlot) public view returns (bool) {
         return _loadSignalValue(_signalSlot) != 0;
     }

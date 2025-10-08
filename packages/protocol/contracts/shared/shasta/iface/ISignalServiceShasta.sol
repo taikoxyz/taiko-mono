@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title ISignalService
+import "./ICheckpointStore.sol";
+
+/// @title ISignalServiceShasta
 /// @notice The SignalService contract serves as a secure cross-chain message
 /// passing system. It defines methods for sending and verifying signals with
 /// merkle proofs. The trust assumption is that the target chain has secure
@@ -9,7 +11,7 @@ pragma solidity ^0.8.24;
 /// transaction). With this, verifying a signal is reduced to simply verifying
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
-interface ISignalService {
+interface ISignalServiceShasta is ICheckpointStore {
     struct HopProof {
         /// @notice Deprecated. Kept here for abi compatibility.
         /// @dev In a two chain message system, this is not needed.

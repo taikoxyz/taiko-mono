@@ -22,6 +22,7 @@ abstract contract InboxTestHelper is CommonTest {
     // Constants
     // ---------------------------------------------------------------
 
+    address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
@@ -373,7 +374,9 @@ abstract contract InboxTestHelper is CommonTest {
         // Note: SignalService constructor requires authorizedSyncer (will be inbox) and
         // remoteSignalService
         // We use address(this) temporarily - this will be updated after inbox deployment if needed
-        checkpointManager = ICheckpointStore(address(new SignalService(address(this), address(1))));
+        checkpointManager = ICheckpointStore(
+            address(new SignalServiceShasta(address(this), MOCK_REMOTE_SIGNAL_SERVICE))
+        );
         proofVerifier = new MockProofVerifier();
     }
 
