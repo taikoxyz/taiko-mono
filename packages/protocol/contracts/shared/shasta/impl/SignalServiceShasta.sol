@@ -211,7 +211,9 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 
         Proof memory proof = proofs[0];
 
-        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) revert SS_EMPTY_PROOF();
+        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
+            revert SS_EMPTY_PROOF();
+        }
 
         ICheckpointStore.Checkpoint memory checkpoint =
             LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(proof.blockId));

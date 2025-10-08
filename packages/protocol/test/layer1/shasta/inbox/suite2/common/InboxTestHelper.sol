@@ -393,8 +393,7 @@ abstract contract InboxTestHelper is CommonTest {
         signalService = SignalServiceShasta(
             address(
                 new ERC1967Proxy(
-                    address(signalServiceImpl),
-                    abi.encodeCall(SignalServiceShasta.init, (owner))
+                    address(signalServiceImpl), abi.encodeCall(SignalServiceShasta.init, (owner))
                 )
             )
         );
