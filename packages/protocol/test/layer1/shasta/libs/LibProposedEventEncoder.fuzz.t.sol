@@ -13,7 +13,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
     uint256 constant MAX_BLOB_HASHES = 100;
     uint48 constant MAX_UINT48 = type(uint48).max;
     uint24 constant MAX_UINT24 = type(uint24).max;
-    uint8 constant MAX_UINT8 = type(uint8).max;
 
     function testFuzz_encodeDecodeProposal_basicFields(
         uint48 _id,

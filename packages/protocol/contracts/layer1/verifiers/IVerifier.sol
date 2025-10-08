@@ -5,6 +5,8 @@ import "../based/ITaikoInbox.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 interface IVerifier {
     struct Context {

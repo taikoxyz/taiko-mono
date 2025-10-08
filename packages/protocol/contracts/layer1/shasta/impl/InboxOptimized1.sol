@@ -95,6 +95,9 @@ contract InboxOptimized1 is Inbox {
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
+        // horizon is negligible.
+        // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
         if (record.proposalId != _proposalId) {

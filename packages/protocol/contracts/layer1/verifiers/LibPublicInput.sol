@@ -6,6 +6,8 @@ import "../../layer1/based/ITaikoInbox.sol";
 /// @title LibPublicInput
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk
 /// proofs.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 library LibPublicInput {
     /// @notice Hashes the public input for the proof verification.

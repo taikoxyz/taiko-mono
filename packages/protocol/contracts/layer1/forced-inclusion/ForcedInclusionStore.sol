@@ -12,6 +12,8 @@ import "./IForcedInclusionStore.sol";
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
 /// users to pay a fee to ensure their transactions are included in a block. The contract maintains
 /// a FIFO queue of inclusion requests.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;

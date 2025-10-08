@@ -30,6 +30,8 @@ import "./ForcedInclusionStore.sol";
 ///    - Proposers can reconstruct requests as needed, minimizing on-chain storage and gas
 /// consumption.
 ///
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed.

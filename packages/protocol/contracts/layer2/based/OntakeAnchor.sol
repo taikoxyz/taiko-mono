@@ -6,7 +6,8 @@ import { IBlockHashProvider } from "./IBlockHashProvider.sol";
 
 /// @title OntakeAnchor
 /// @notice Anchoring functions for the Ontake and pre-Ontake fork.
-/// @custom:deprecated This contract is deprecated and should not be used in new implementations
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     // -------------------------------------------------------------------
