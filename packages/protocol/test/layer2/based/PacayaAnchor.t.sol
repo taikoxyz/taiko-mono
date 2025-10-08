@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// ═══════════════════════════════════════════════════════════════════════
+// DEPRECATED: This file is deprecated as of 2025-10-08.
+// Please use the Shasta Anchor implementation instead.
+// See: contracts/layer2/based/ShastaAnchor.sol for current implementation
+// ═══════════════════════════════════════════════════════════════════════
+
 import "test/layer2/Layer2Test.sol";
 import "test/layer2/helpers/TaikoAnchor_NoBaseFeeCheck.sol";
 import "src/layer2/based/OntakeAnchor.sol";

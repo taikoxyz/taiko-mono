@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
     using SignatureChecker for address;

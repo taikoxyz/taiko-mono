@@ -13,9 +13,11 @@ contract Proposal0004 is BuildProposal {
     address public constant SP1_VERIFIER = 0xbee1040D0Aab17AE19454384904525aE4A3602B9;
     address public constant RISC0_VERIFIER = 0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE;
     address public constant RISC0_VERIFIER_NEW_IMPL = 0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36;
+    address public constant PRECONF_ROUTER = 0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a;
+    address public constant PRECONF_ROUTER_NEW_IMPL = 0xafCEDDe020dB8D431Fa86dF6B14C20f327382709;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](7);
+        actions = new Controller.Action[](8);
 
         // SP1 Verifier Actions (4 calls)
         actions[0] = Controller.Action({
@@ -76,6 +78,9 @@ contract Proposal0004 is BuildProposal {
 
         // Upgrade Risc0 Verifier to new implementation
         actions[6] = buildUpgradeAction(RISC0_VERIFIER, RISC0_VERIFIER_NEW_IMPL);
+
+        // Upgrade PreconfRouter
+        actions[7] = buildUpgradeAction(PRECONF_ROUTER, PRECONF_ROUTER_NEW_IMPL);
     }
 
     function buildL2Actions()

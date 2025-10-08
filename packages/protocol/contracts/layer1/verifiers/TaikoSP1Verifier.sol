@@ -9,6 +9,8 @@ import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
 /// @title TaikoSP1Verifier
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoSP1Verifier is EssentialContract, IVerifier {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");

@@ -375,7 +375,7 @@ func (s *Indexer) onProposedEvent(
 		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),
 	)
-	s.cleanupFinazliedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
+	s.cleanupFinalizedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
 	s.cleanupLegacyProposals(proposal.Id.Uint64())
 
 	return nil
@@ -497,9 +497,9 @@ func (s *Indexer) TransitionRecords() cmap.ConcurrentMap[uint64, *TransitionPayl
 	return s.transitionRecords
 }
 
-// cleanupFinazliedTransitionRecords cleans up transition records that are older than the last finalized proposal ID
+// cleanupFinalizedTransitionRecords cleans up transition records that are older than the last finalized proposal ID
 // minus the buffer size.
-func (s *Indexer) cleanupFinazliedTransitionRecords(lastFinalizedProposalId uint64) {
+func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint64) {
 	// We keep two times the buffer size of transition records to avoid future reorg handling.
 	for _, key := range s.transitionRecords.Keys() {
 		if key+(s.bufferSize*2) < lastFinalizedProposalId {
@@ -663,14 +663,14 @@ func (s *Indexer) GetProposalByID(proposalID uint64) (*ProposalPayload, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	propsoal, ok := s.proposals.Get(proposalID)
+	proposal, ok := s.proposals.Get(proposalID)
 	if !ok {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
-	if proposalID != propsoal.Proposal.Id.Uint64() {
+	if proposalID != proposal.Proposal.Id.Uint64() {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
-	return propsoal, nil
+	return proposal, nil
 }
 
 // GetProposalsInput returns the last proposal and the transitions needed for finalization.
