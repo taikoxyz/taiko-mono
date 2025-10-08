@@ -663,14 +663,14 @@ func (s *Indexer) GetProposalByID(proposalID uint64) (*ProposalPayload, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	propsoal, ok := s.proposals.Get(proposalID)
+	proposal, ok := s.proposals.Get(proposalID)
 	if !ok {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
-	if proposalID != propsoal.Proposal.Id.Uint64() {
+	if proposalID != proposal.Proposal.Id.Uint64() {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
-	return propsoal, nil
+	return proposal, nil
 }
 
 // GetProposalsInput returns the last proposal and the transitions needed for finalization.
