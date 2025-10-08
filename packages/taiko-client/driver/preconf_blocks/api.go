@@ -379,7 +379,7 @@ type Status struct {
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param EndOfSequencingBlockHash whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
-	// @param The latest onchain L2 proposed block
+	// @param LatestOnchainProposedBlockID the latest onchain L2 proposed block
 	LatestOnchainProposedBlockID uint64 `json:"latestOnchainProposedBlockID"`
 }
 
