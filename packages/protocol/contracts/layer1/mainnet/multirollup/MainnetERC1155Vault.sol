@@ -9,8 +9,6 @@ import "../libs/LibFasterReentryLock.sol";
 /// mainnet to reduce gas cost. In theory, the contract can also be deployed on Taiko L2 but this is
 /// not well testee nor necessary.
 /// @notice See the documentation in {ER1155Vault}.
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC1155Vault is ERC1155Vault {
     constructor(address _resolver) ERC1155Vault(_resolver) { }
