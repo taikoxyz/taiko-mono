@@ -173,7 +173,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single block with only an anchor transaction.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -223,7 +223,7 @@ After processing all sources, the `ProposalManifest` is constructed:
 
 ```solidity
 ProposalManifest memory manifest;
-manifest.proverAuthBytes = proverAuthBytesFromSource0;  // Empty if source 0 failed
+manifest.proverAuthBytes = proverAuthBytesFromProposerSource;
 manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults for failed sources
 ```
 
@@ -395,7 +395,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Default Manifest Replacement**: When `isLowBondProposal = true`, the entire manifest is replaced with the default manifest (containing a single empty block with no transactions), minimizing proving costs and disincentivizing spam
+- **Default Manifest Replacement**: When `isLowBondProposal = true`, the **only the proposer's manifest** is replaced with the default manifest, minimizing proving costs and disincentivizing spam. Forced inclusion manifests are still processed.
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
