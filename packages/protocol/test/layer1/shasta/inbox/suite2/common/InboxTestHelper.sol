@@ -12,7 +12,7 @@ import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
-import { SignalService } from "src/shared/shasta/impl/SignalServiceShasta.sol";
+import { SignalServiceShasta } from "src/shared/shasta/impl/SignalServiceShasta.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
 /// @title InboxTestHelper

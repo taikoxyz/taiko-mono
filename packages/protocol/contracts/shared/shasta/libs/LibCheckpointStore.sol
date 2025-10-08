@@ -38,6 +38,7 @@ library LibCheckpointStore {
     )
         internal
     {
+        require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
         $.checkpoints[_checkpoint.blockNumber] =
