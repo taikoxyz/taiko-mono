@@ -3,10 +3,14 @@
 use std::borrow::Cow;
 
 use alethia_reth::{
-    payload::attributes::RpcL1Origin, rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList,
+    payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
+    rpc::{engine::types::TaikoExecutionData, eth::auth::PreBuiltTxList as TaikoPreBuiltTxList},
 };
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
+use alloy_rpc_types_engine::{
+    ExecutionPayloadEnvelopeV2, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
+};
 use serde_json::Value;
 
 use super::client::Client;
@@ -42,6 +46,28 @@ impl TaikoAuthMethod {
             Self::SetL1OriginSignature => "taikoAuth_setL1OriginSignature",
             Self::SetHeadL1Origin => "taikoAuth_setHeadL1Origin",
             Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
+        }
+    }
+}
+
+/// Taiko engine API method names.
+#[derive(Debug, Clone, Copy)]
+pub enum TaikoEngineMethod {
+    /// Submit a new execution payload.
+    NewPayloadV2,
+    /// Update forkchoice state and optionally request payload building.
+    ForkchoiceUpdatedV2,
+    /// Retrieve a built payload by id.
+    GetPayloadV2,
+}
+
+impl TaikoEngineMethod {
+    /// Get the RPC method name as a string.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NewPayloadV2 => "engine_newPayloadV2",
+            Self::ForkchoiceUpdatedV2 => "engine_forkchoiceUpdatedV2",
+            Self::GetPayloadV2 => "engine_getPayloadV2",
         }
     }
 }
@@ -122,6 +148,43 @@ impl<P: Provider + Clone> Client<P> {
                 Cow::Borrowed(TaikoAuthMethod::SetBatchToLastBlock.as_str()),
                 (batch_id, block_id),
             )
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Submit a new payload via the execution engine API.
+    pub async fn engine_new_payload_v2(
+        &self,
+        payload: TaikoExecutionData,
+    ) -> Result<PayloadStatus> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()), (payload,))
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Update the forkchoice state and optionally request a new payload build.
+    pub async fn engine_forkchoice_updated_v2(
+        &self,
+        forkchoice_state: ForkchoiceState,
+        payload_attributes: Option<TaikoPayloadAttributes>,
+    ) -> Result<ForkchoiceUpdated> {
+        self.l2_auth_provider
+            .raw_request(
+                Cow::Borrowed(TaikoEngineMethod::ForkchoiceUpdatedV2.as_str()),
+                (forkchoice_state, payload_attributes),
+            )
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Retrieve a built payload from the execution engine.
+    pub async fn engine_get_payload_v2(
+        &self,
+        payload_id: PayloadId,
+    ) -> Result<ExecutionPayloadEnvelopeV2> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed(TaikoEngineMethod::GetPayloadV2.as_str()), (payload_id,))
             .await
             .map_err(Into::into)
     }
