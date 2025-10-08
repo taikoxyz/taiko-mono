@@ -11,9 +11,10 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 
 ## Metadata Architecture
 
-Block construction requires a comprehensive collection of metadata, organized into two distinct categories:
+Block construction requires a comprehensive collection of metadata, organized into three distinct categories:
 
-- **Proposal-level metadata**: Shared across all blocks within a proposal
+- **Proposal-level metadata**: Shared across all blocks and sources within a proposal
+- **Derivation source-level metadata**: Specific to each derivation source within a proposal
 - **Block-level metadata**: Unique to each individual block
 
 Throughout this document, metadata references follow the notation `metadata.fieldName`.
@@ -29,11 +30,16 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **timestamp**            | The timestamp when the proposal was accepted on L1            |
 | **originBlockNumber**    | The L1 block number in which the proposal was accepted        |
 | **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
-| **numBlocks**            | The total number of blocks in this proposal                   |
 | **basefeeSharingPctg**   | The percentage of base fee paid to coinbase                   |
-| **isForcedInclusion**    | Flags blocks originating from forced inclusion sources        |
 | **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
 | **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
+
+### Derivation Source-level Metadata
+
+| **Metadata Component** | **Description**                                    |
+| ---------------------- | -------------------------------------------------- |
+| **isForcedInclusion**  | Flags whether this source is from forced inclusion |
+| **numBlocks**          | The number of blocks in this derivation source     |
 
 ### Block-level Metadata
 
@@ -97,16 +103,23 @@ struct DerivationSource {
 }
 ```
 
-The following metadata fields are extracted from the `proposal` and `derivation` objects:
+The following metadata fields are extracted from the `proposal`, `derivation`, and `derivation.sources[i]` objects:
 
-| Metadata Field                | Value Assignment                          |
-| ----------------------------- | ----------------------------------------- |
-| `metadata.id`                 | `proposal.id`                             |
-| `metadata.proposer`           | `proposal.proposer`                       |
-| `metadata.timestamp`          | `proposal.timestamp`                      |
-| `metadata.originBlockNumber`  | `derivation.originBlockNumber`            |
-| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg`           |
-| `metadata.isForcedInclusion`  | `derivation.sources[i].isForcedInclusion` |
+**Proposal-level assignments:**
+
+| Metadata Field                | Value Assignment                |
+| ----------------------------- | ------------------------------- |
+| `metadata.id`                 | `proposal.id`                   |
+| `metadata.proposer`           | `proposal.proposer`             |
+| `metadata.timestamp`          | `proposal.timestamp`            |
+| `metadata.originBlockNumber`  | `derivation.originBlockNumber`  |
+| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg` |
+
+**Derivation source-level assignments (for source `i`):**
+
+| Metadata Field               | Value Assignment                          |
+| ---------------------------- | ----------------------------------------- |
+| `metadata.isForcedInclusion` | `derivation.sources[i].isForcedInclusion` |
 
 The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
@@ -265,7 +278,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -422,16 +435,28 @@ Several enhancements are under consideration to address current limitations:
 
 The remaining metadata fields follow straightforward assignment patterns:
 
-| Metadata Field             | Value Assignment                                                                  |
-| -------------------------- | --------------------------------------------------------------------------------- |
-| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                                  |
-| `metadata.number`          | `parent.metadata.number + 1`                                                      |
-| `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))`                 |
-| `metadata.numBlocks`       | Total blocks from current source `sourceManifest.blocks.length` (post-validation) |
-| `metadata.proverAuthBytes` | `proposalManifest.proverAuthBytes`                                                |
-| `metadata.transactions`    | `sourceManifest.blocks[i].transactions` (from current source)                     |
+**Block-level assignments:**
 
-**Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
+| Metadata Field          | Value Assignment                                                  |
+| ----------------------- | ----------------------------------------------------------------- |
+| `metadata.index`        | `parent.metadata.index + 1` (abbreviated as `i`)                  |
+| `metadata.number`       | `parent.metadata.number + 1`                                      |
+| `metadata.difficulty`   | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
+| `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)     |
+
+**Proposal-level assignments:**
+
+| Metadata Field             | Value Assignment                   |
+| -------------------------- | ---------------------------------- |
+| `metadata.proverAuthBytes` | `proposalManifest.proverAuthBytes` |
+
+**Derivation source-level assignments:**
+
+| Metadata Field       | Value Assignment                                                                  |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `metadata.numBlocks` | Total blocks from current source `sourceManifest.blocks.length` (post-validation) |
+
+**Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count within that source.
 
 #### Block Index Monotonicity
 
