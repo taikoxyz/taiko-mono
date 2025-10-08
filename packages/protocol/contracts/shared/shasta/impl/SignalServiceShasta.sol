@@ -206,17 +206,16 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
             return;
         }
 
-        Proof[] memory hopProofs = abi.decode(_proof, (Proof[]));
-        if (hopProofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
+        Proof[] memory proofs = abi.decode(_proof, (Proof[]));
+        if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 
-        Proof memory hop = hopProofs[0];
-        // TODO: do we need to support the case where accountProof=0 like the original SS?
-        // If so, who pushes the trusted account root of the SS?
-        if (hop.accountProof.length == 0 || hop.storageProof.length == 0) revert SS_EMPTY_PROOF();
+        Proof memory proof = proofs[0];
+
+        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) revert SS_EMPTY_PROOF();
 
         ICheckpointStore.Checkpoint memory checkpoint =
-            LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(hop.blockId));
-        if (checkpoint.stateRoot != hop.rootHash) {
+            LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(proof.blockId));
+        if (checkpoint.stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
 
@@ -225,8 +224,8 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
             _remoteSignalService,
             slot,
             _signal,
-            hop.accountProof,
-            hop.storageProof
+            proof.accountProof,
+            proof.storageProof
         );
     }
 }
