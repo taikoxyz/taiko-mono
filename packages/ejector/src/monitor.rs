@@ -15,11 +15,14 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use ::beacon::BeaconClient;
-use ::bindings::TaikoWrapper;
-use ::utils::{
-    eject::eject_operator,
-    lookahead::{Responsibility, responsibility_for_slot},
+use crate::{
+    beacon::BeaconClient,
+    bindings::TaikoWrapper,
+    metrics,
+    utils::{
+        eject::eject_operator,
+        lookahead::{Responsibility, responsibility_for_slot},
+    },
 };
 
 pub struct Monitor {

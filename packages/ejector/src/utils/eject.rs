@@ -7,9 +7,12 @@ use alloy::{
 };
 use tracing::{info, warn};
 
-use crate::receipt::poll_receipt_until;
+use crate::{bindings, metrics};
 
-use super::lookahead::Lookahead;
+use super::{
+    lookahead::Lookahead,
+    receipt::poll_receipt_until,
+};
 
 pub async fn eject_operator(
     l1_http_url: Url,

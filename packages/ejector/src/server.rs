@@ -3,6 +3,8 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use axum::{Router, http::StatusCode, routing::get};
 use tracing::info;
 
+use crate::metrics;
+
 pub async fn spawn_server(
     port: u64,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,

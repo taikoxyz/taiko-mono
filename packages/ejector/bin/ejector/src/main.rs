@@ -13,10 +13,13 @@ use tokio::signal::unix::{SignalKind, signal as unix_signal};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 use url::Url;
-// project crates
-use config::Config;
-use monitor::Monitor;
-use server::spawn_server;
+// project modules
+use ejector::{
+    beacon::BeaconClient,
+    config::Config,
+    monitor::Monitor,
+    server::spawn_server,
+};
 
 fn load_env_for_dev() {
     if std::env::var_os("KUBERNETES_SERVICE_HOST").is_some() {
@@ -60,7 +63,7 @@ async fn main() -> Result<()> {
 
     let beacon_url = Url::parse(&config.beacon_url).expect("Invalid Beacon URL");
 
-    let beacon_client = beacon::BeaconClient::new(beacon_url.clone()).await?;
+    let beacon_client = BeaconClient::new(beacon_url.clone()).await?;
 
     let handover_slots = config.handover_slots;
 
