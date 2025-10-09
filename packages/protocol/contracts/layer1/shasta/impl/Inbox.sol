@@ -129,8 +129,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    /// @notice Signal service responsible for checkpoints
-    ICheckpointStore public immutable signalService;
+    /// @notice Checkpoint store responsible for checkpoints
+    ICheckpointStore public immutable checkpointStore;
 
     uint256[37] private __gap;
 
@@ -148,7 +148,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        signalService = ICheckpointStore(_config.signalService);
+        checkpointStore = ICheckpointStore(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
@@ -326,7 +326,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         config_ = IInbox.Config({
             codec: _codec,
             bondToken: address(_bondToken),
-            signalService: address(signalService),
+            signalService: address(checkpointStore),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -925,7 +925,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
-            signalService.saveCheckpoint(_checkpoint);
+            checkpointStore.saveCheckpoint(_checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
         } else {
             require(

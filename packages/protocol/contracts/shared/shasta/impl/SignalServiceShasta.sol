@@ -41,11 +41,8 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     /// @dev Deprecated slots used by the old SignalService
     // - `topBlockId`
     // - `authorized`
-    uint256[2] private _slotsUsedByPacaya;
-
-    /// @dev Cache for received signals.
-    /// @dev Once written, subsequent verifications can skip the merkle proof validation.
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+    // - `_receivedSignals`
+    uint256[3] private _slotsUsedByPacaya;
 
     // ---------------------------------------------------------------
     // Post shasta storage variables
@@ -86,22 +83,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 
     /// @inheritdoc ISignalServiceShasta
     /// @dev This function may revert.
-    function proveSignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        external
-        returns (uint256)
-    {
-        _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
-        return 0;
-    }
-
-    /// @inheritdoc ISignalServiceShasta
-    /// @dev This function may revert.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -110,8 +91,34 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     )
         external
         view
+        nonZeroAddr(_app)
+        nonZeroBytes32(_signal)
     {
-        _verifySignalReceived(_chainId, _app, _signal, _proof);
+        bytes32 slot = getSignalSlot(_chainId, _app, _signal);
+
+        Proof[] memory proofs = abi.decode(_proof, (Proof[]));
+        if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
+
+        Proof memory proof = proofs[0];
+
+        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
+            revert SS_EMPTY_PROOF();
+        }
+
+        CheckpointRecord storage checkpoint = _getCheckpoint(uint48(proof.blockId));
+        bytes32 stateRoot = checkpoint.stateRoot;
+        if (stateRoot != proof.rootHash) {
+            revert SS_INVALID_CHECKPOINT();
+        }
+
+        LibTrieProof.verifyMerkleProof(
+            stateRoot,
+            _remoteSignalService,
+            slot,
+            _signal,
+            proof.accountProof,
+            proof.storageProof
+        );
     }
 
     /// @inheritdoc ISignalServiceShasta
@@ -160,7 +167,12 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         override
         returns (Checkpoint memory checkpoint)
     {
-        return _getCheckpoint(_blockNumber);
+        CheckpointRecord storage record = _getCheckpoint(_blockNumber);
+        checkpoint = Checkpoint({
+            blockNumber: _blockNumber,
+            blockHash: record.blockHash,
+            stateRoot: record.stateRoot
+        });
     }
 
     // ---------------------------------------------------------------
@@ -169,21 +181,14 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
-    /// @return checkpoint The checkpoint
+    /// @return record_ The checkpoint record
     function _getCheckpoint(uint48 _blockNumber)
         private
         view
-        returns (Checkpoint memory checkpoint)
+        returns (CheckpointRecord storage record_)
     {
-        CheckpointRecord storage record = _checkpoints[_blockNumber];
-        bytes32 blockHash = record.blockHash;
-        if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
-
-        checkpoint = Checkpoint({
-            blockNumber: _blockNumber,
-            blockHash: blockHash,
-            stateRoot: record.stateRoot
-        });
+        record_ = _checkpoints[_blockNumber];
+        if (record_.blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
     }
 
     function _sendSignal(
@@ -223,47 +228,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
             value_ := sload(_signalSlot)
         }
     }
-
-    function _verifySignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        private
-        view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-    {
-        bytes32 slot = getSignalSlot(_chainId, _app, _signal);
-        if (_proof.length == 0) {
-            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
-            return;
-        }
-
-        Proof[] memory proofs = abi.decode(_proof, (Proof[]));
-        if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
-
-        Proof memory proof = proofs[0];
-
-        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
-            revert SS_EMPTY_PROOF();
-        }
-
-        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
-        if (checkpoint.stateRoot != proof.rootHash) {
-            revert SS_INVALID_CHECKPOINT();
-        }
-
-        LibTrieProof.verifyMerkleProof(
-            checkpoint.stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
-        );
-    }
 }
 
 // ---------------------------------------------------------------
@@ -274,4 +238,3 @@ error SS_INVALID_PROOF_LENGTH();
 error SS_INVALID_CHECKPOINT();
 error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
-error SS_SIGNAL_NOT_RECEIVED();

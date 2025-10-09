@@ -54,27 +54,7 @@ interface ISignalServiceShasta is ICheckpointStore {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
-    /// @return numCacheOps_ The number of newly cached items.
-    function proveSignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        external
-        returns (uint256 numCacheOps_);
-
-    /// @notice Verifies if a signal has been received on the target chain.
-    /// This is the "readonly" version of proveSignalReceived.
-    /// @param _chainId The identifier for the source chain from which the
-    /// signal originated.
-    /// @param _app The address that initiated the signal.
-    /// @param _signal The signal (message) to send.
-    /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
+    /// source chain.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
