@@ -174,7 +174,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     // Internal Functions
     // ---------------------------------------------------------------
 
-
     function _sendSignal(
         address _app,
         bytes32 _signal,
@@ -244,12 +243,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         require(stateRoot == proof.rootHash, SS_INVALID_CHECKPOINT());
 
         LibTrieProof.verifyMerkleProof(
-            stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
         );
     }
 }
