@@ -7,9 +7,9 @@ import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
-/// @title ShastaRisc0Verifier
+/// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaRisc0Verifier is IProofVerifier, Ownable2Step {
+contract Risc0Verifier is IProofVerifier, Ownable2Step {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len

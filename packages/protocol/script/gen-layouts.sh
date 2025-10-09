@@ -19,13 +19,13 @@ contracts_shared=(
 # Layer 1 contracts
 contracts_layer1=(
 "contracts/layer1/token/TaikoToken.sol:TaikoToken"
-"contracts/layer1/verifiers/ShastaRisc0Verifier.sol:ShastaRisc0Verifier"
-"contracts/layer1/verifiers/ShastaSP1Verifier.sol:ShastaSP1Verifier"
-"contracts/layer1/verifiers/ShastaSgxVerifier.sol:ShastaSgxVerifier"
-"contracts/layer1/verifiers/compose/ShastaSgxAndZkVerifier.sol:SgxAndZkVerifier"
+"contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
+"contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
+"contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
+"contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/impl/Inbox.sol:Inbox"
-"contracts/layer1/impl/ShastaDevnetInbox.sol:ShastaDevnetInbox"
+"contracts/layer1/devnet/ShastaDevnetInbox.sol:ShastaDevnetInbox"
 "contracts/layer1/impl/ShastaMainnetInbox.sol:ShastaMainnetInbox"
 "contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"

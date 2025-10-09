@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ShastaComposeVerifier.sol";
+import "../verifiers/compose/ComposeVerifier.sol";
 
-/// @title ShastaDevnetVerifier
+/// @title DevnetVerifier
 /// @notice SGX + (OP or RISC0 or SP1) verifier for devnet
-/// @dev In production, use ShastaAnyTwoVerifier. This is for testing with OpVerifier support.
+/// @dev In production, use AnyTwoVerifier. This is for testing with OpVerifier support.
 /// @custom:security-contact security@taiko.xyz
-contract ShastaDevnetVerifier is ShastaComposeVerifier {
+contract DevnetVerifier is ComposeVerifier {
     constructor(
         address _opVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
-        ShastaComposeVerifier(
+        ComposeVerifier(
             address(0), // No Geth verifiers
             address(0),
             _opVerifier,

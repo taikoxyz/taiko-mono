@@ -7,9 +7,9 @@ import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
 import "../iface/IProofVerifier.sol";
 
-/// @title ShastaSP1Verifier
+/// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaSP1Verifier is IProofVerifier, Ownable2Step {
+contract SP1Verifier is IProofVerifier, Ownable2Step {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;

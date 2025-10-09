@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "../../iface/IProofVerifier.sol";
 
-/// @title ShastaComposeVerifier
+/// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate
 /// proofs.
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaComposeVerifier is IProofVerifier {
+abstract contract ComposeVerifier is IProofVerifier {
     struct SubProof {
         address verifier;
         bytes proof;

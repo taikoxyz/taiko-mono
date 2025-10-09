@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ShastaComposeVerifier.sol";
+import "./ComposeVerifier.sol";
 
-/// @title ShastaAnyVerifier.sol
+/// @title AnyVerifier
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
-contract ShastaAnyVerifier is ShastaComposeVerifier {
+contract AnyVerifier is ComposeVerifier {
     constructor(
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
-        ShastaComposeVerifier(
+        ComposeVerifier(
             address(0),
             address(0),
             address(0),

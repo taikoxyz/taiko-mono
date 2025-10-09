@@ -19,13 +19,13 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/ShastaRisc0Verifier.sol";
-import "src/layer1/verifiers/ShastaSP1Verifier.sol";
-import "src/layer1/verifiers/ShastaSgxVerifier.sol";
-import "src/layer1/verifiers/ShastaOpVerifier.sol";
-import "src/layer1/verifiers/compose/ShastaDevnetVerifier.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/devnet/OpVerifier.sol";
+import "src/layer1/devnet/DevnetVerifier.sol";
 import { Inbox } from "src/layer1/impl/Inbox.sol";
-import { ShastaDevnetInbox } from "src/layer1/impl/ShastaDevnetInbox.sol";
+import { ShastaDevnetInbox } from "src/layer1/devnet/ShastaDevnetInbox.sol";
 import { CodecOptimized } from "src/layer1/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
@@ -68,8 +68,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         VerifierAddresses memory verifiers = deployVerifiers(contractOwner);
 
         // Deploy OpVerifier (always deployed, available in both modes)
-        address opVerifier = address(new ShastaOpVerifier());
-        console2.log("Deployed ShastaOpVerifier:", opVerifier);
+        address opVerifier = address(new OpVerifier());
+        console2.log("Deployed OpVerifier:", opVerifier);
 
         // Upgrade proof verifier based on mode (matching old DevnetVerifier behavior)
         if (vm.envBool("DUMMY_VERIFIERS")) {
@@ -77,7 +77,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             // Accepts: OP (as "sgx") + (OP or RISC0 or SP1)
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
-                    new ShastaDevnetVerifier(
+                    new DevnetVerifier(
                         opVerifier,
                         opVerifier, // OpVerifier in SGX slot (dummy anchor)
                         verifiers.risc0RethVerifier,
@@ -89,7 +89,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             // Accepts: SGX + (OP or RISC0 or SP1)
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
-                    new ShastaDevnetVerifier(
+                    new DevnetVerifier(
                         opVerifier,
                         verifiers.sgxRethVerifier,
                         verifiers.risc0RethVerifier,
@@ -258,7 +258,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Proof verifier (placeholder - will be upgraded later with real verifiers)
         proofVerifier = deployProxy({
             name: "proof_verifier",
-            impl: address(new ShastaDevnetVerifier(address(0), address(0), address(0), address(0))),
+            impl: address(new DevnetVerifier(address(0), address(0), address(0), address(0))),
             data: ""
         });
 
@@ -312,8 +312,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy SGX Reth verifier (always deployed)
         verifiers.sgxRethVerifier =
-            address(new ShastaSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), owner, automataProxy));
-        console2.log("Deployed ShastaSgxVerifier:", verifiers.sgxRethVerifier);
+            address(new SgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), owner, automataProxy));
+        console2.log("Deployed SgxVerifier:", verifiers.sgxRethVerifier);
 
         // Deploy ZK verifiers (RISC0 and SP1) - always deployed in both modes
         // Note: Even in DUMMY mode, we deploy real ZK verifiers (matching old behavior)
@@ -328,18 +328,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId
     )
         private
-        returns (address shastaRisc0Verifier, address shastaSP1Verifier)
+        returns (address risc0Verifier, address sp1Verifier)
     {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
 
-        shastaRisc0Verifier = address(new ShastaRisc0Verifier(l2ChainId, address(verifier), owner));
+        risc0Verifier = address(new Risc0Verifier(l2ChainId, address(verifier), owner));
 
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
 
-        shastaSP1Verifier = address(new ShastaSP1Verifier(l2ChainId, address(succinctVerifier), owner));
+        sp1Verifier = address(new SP1Verifier(l2ChainId, address(succinctVerifier), owner));
     }
 
     function deployAuxContracts() private {
