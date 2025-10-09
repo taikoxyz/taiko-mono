@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
 use alloy_provider::Provider;
+use anyhow::anyhow;
 use bindings::i_inbox::IInbox::Proposed;
 use event_scanner::{EventFilter, types::ScannerMessage};
 use tokio::spawn;
@@ -39,9 +40,7 @@ where
             l1_subscription_source: cfg.client.l1_provider_source.clone(),
             inbox_address: cfg.client.inbox_address,
         };
-        let indexer = ShastaEventIndexer::new(indexer_config)
-            .await
-            .map_err(|err| SyncError::IndexerInit(err.to_string()))?;
+        let indexer = ShastaEventIndexer::new(indexer_config).await?;
 
         indexer.clone().spawn();
 
@@ -59,8 +58,7 @@ where
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let derivation_pipeline =
             ShastaDerivationPipeline::new(self.rpc.clone(), blob_source, self.indexer.clone())
-                .await
-                .map_err(|err| SyncError::Derivation(err.to_string()))?;
+                .await?;
         let derivation: Arc<
             dyn DerivationPipeline<
                 Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
@@ -72,7 +70,7 @@ where
 
         let mut scanner =
             self.cfg.client.l1_provider_source.to_event_scanner().await.map_err(|err| {
-                SyncError::Rpc(format!("failed to create event scanner: {}", err.to_string()))
+                SyncError::Other(anyhow!("failed to create event scanner: {err}"))
             })?;
         let filter = EventFilter::new()
             .with_contract_address(self.cfg.client.inbox_address)
@@ -93,8 +91,7 @@ where
                 let result = Retry::spawn(retry_strategy, || async {
                     derivation.process_proposal(&log).await
                 })
-                .await
-                .map_err(|err| SyncError::Derivation(err.to_string()))?;
+                .await?;
 
                 info!("successfully processed proposal payload attributes: {:#?}", result);
             }

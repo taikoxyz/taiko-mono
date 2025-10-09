@@ -11,7 +11,7 @@ use alloy_rpc_types_engine::{
     PayloadStatusEnum,
 };
 use metrics::gauge;
-use rpc::{client::Client, l1_origin::L1Origin};
+use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{info, warn};
 
@@ -44,7 +44,7 @@ where
     }
 
     /// Query the checkpoint node for its head L1 origin block number.
-    async fn checkpoint_head(&self) -> Result<Option<u64>, DriverError> {
+    async fn checkpoint_head(&self) -> Result<Option<u64>, RpcClientError> {
         let Some(provider) = &self.checkpoint else {
             return Ok(None);
         };
@@ -52,7 +52,7 @@ where
         let response: Option<L1Origin> = provider
             .raw_request(Cow::Borrowed("taiko_headL1Origin"), ())
             .await
-            .map_err(|err| SyncError::Rpc(err.to_string()))?;
+            .map_err(RpcClientError::from)?;
 
         Ok(response.map(|origin| origin.block_id.to::<u64>()))
     }
@@ -67,7 +67,7 @@ where
         let block = provider
             .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await
-            .map_err(|err| SyncError::Rpc(err.to_string()))?;
+            .map_err(RpcClientError::from)?;
 
         let Some(block) = block else {
             return Err(DriverError::BlockNotFound(block_number));
@@ -84,11 +84,8 @@ where
 
         let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
 
-        let payload_status = self
-            .rpc
-            .engine_new_payload_v2(payload_input, Vec::<B256>::new(), None)
-            .await
-            .map_err(|err| SyncError::Rpc(err.to_string()))?;
+        let payload_status =
+            self.rpc.engine_new_payload_v2(payload_input, Vec::<B256>::new(), None).await?;
 
         match payload_status.status {
             PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
@@ -106,11 +103,8 @@ where
             finalized_block_hash: block.header.parent_hash,
         };
 
-        let _: ForkchoiceUpdated = self
-            .rpc
-            .engine_forkchoice_updated_v2(forkchoice_state, None)
-            .await
-            .map_err(|err| SyncError::Rpc(err.to_string()))?;
+        let _: ForkchoiceUpdated =
+            self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
 
         Ok(())
     }
@@ -131,10 +125,8 @@ where
         }
 
         // If the checkpoint node has no L1 origin, we cannot proceed.
-        let Some(mut checkpoint_head) = self
-            .checkpoint_head()
-            .await
-            .map_err(|err| SyncError::CheckpointQuery(err.to_string()))?
+        let Some(mut checkpoint_head) =
+            self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
         else {
             return Err(SyncError::CheckpointNoOrigin);
         };
@@ -155,21 +147,22 @@ where
         loop {
             ticker.tick().await;
 
-            let local_head = match self.rpc.l2_provider.get_block_number().await {
-                Ok(block_id) => {
-                    gauge!(DriverMetrics::BEACON_HEAD_BLOCK_ID).set(block_id as f64);
-                    block_id
-                }
-                Err(err) => {
-                    warn!(?err, "failed to query execution engine head");
-                    continue;
-                }
-            };
+            let local_head =
+                match self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from) {
+                    Ok(block_id) => {
+                        gauge!(DriverMetrics::BEACON_HEAD_BLOCK_ID).set(block_id as f64);
+                        block_id
+                    }
+                    Err(err) => {
+                        warn!(error = %err, "failed to query execution engine head");
+                        continue;
+                    }
+                };
 
             checkpoint_head = self
                 .checkpoint_head()
                 .await
-                .map_err(|err| SyncError::CheckpointQuery(err.to_string()))?
+                .map_err(SyncError::CheckpointQuery)?
                 .ok_or(SyncError::CheckpointNoOrigin)?;
 
             if checkpoint_head > local_head {
@@ -181,7 +174,7 @@ where
                     .await
                     .map_err(|err| SyncError::RemoteBlockSubmit {
                         block_number: checkpoint_head,
-                        error: err.to_string(),
+                        error: err.into(),
                     })?;
             } else {
                 info!(
