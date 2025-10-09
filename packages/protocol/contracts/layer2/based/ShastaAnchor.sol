@@ -30,7 +30,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
+        uint48 submissionWindowEnd; // The timestamp of the last slot where the current
             // preconfer can submit preconf-ed blocks to the L2 network.
     }
 
@@ -41,6 +41,32 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         address proposer; // The original proposer address
         uint48 provingFeeGwei; // Fee in Gwei that prover will receive
         bytes signature; // ECDSA signature from the designated prover
+    }
+
+    /// @notice Preconfirmation metadata for a given L2 block.
+    struct PreconfMeta {
+        uint48 anchorBlockNumber;
+        uint48 submissionWindowEnd;
+        uint48 parentSubmissionWindowEnd;
+        bytes32 parentRawTxListHash;
+        bytes32 rawTxListHash;
+    }
+
+    /// @notice Parameters for updating the anchor state for a specific block within a proposal.
+    struct UpdateStateParams {
+        // Proposal level fields - define the overall batch
+        uint48 proposalId;
+        address proposer;
+        bytes proverAuth;
+        bytes32 bondInstructionsHash;
+        LibBonds.BondInstruction[] bondInstructions;
+        // Block level fields - specific to this block in the proposal
+        uint16 blockIndex;
+        uint48 anchorBlockNumber;
+        bytes32 anchorBlockHash;
+        bytes32 anchorStateRoot;
+        uint48 submissionWindowEnd;
+        bytes32 rawTxListHash;
     }
 
     // ---------------------------------------------------------------
@@ -70,12 +96,12 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @dev 3 slots used to store the state:
     State private _state;
 
-    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
-        blockIdToEndOfSubmissionWindowTimeStamp;
-
     /// @dev Storage for checkpoint management
     /// @dev 2 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
+
+    /// @notice Maps L2 block id to preconfirmation metadata.
+    mapping(uint256 blockId => PreconfMeta meta) public blockIdToPreconfMeta;
 
     /// @notice Storage gap for upgrade safety.
     uint256[44] private __gap;
@@ -125,35 +151,10 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     ///      2. Processes bond transfers with cumulative hash verification
     ///      3. Anchors L1 block data for cross-chain verification
     ///      4. Tracks parent block hash to prevent duplicate calls
-    /// @param _proposalId Unique identifier of the proposal being anchored.
-    /// @param _proposer Address of the entity that proposed this batch of blocks.
-    /// @param _proverAuth Encoded ProverAuth for prover designation (empty after block 0).
-    /// @param _bondInstructionsHash Bond instructions hash in the (-BOND_PROCESSING_DELAY) ancestor
-    /// proposal. This value must be zero if _proposalId <= BOND_PROCESSING_DELAY.
-    /// @param _bondInstructions Bond credit instructions to process for this block.
-    /// @param _blockIndex Current block index within the proposal (0-based).
-    /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
-    /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
-    /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
-    /// preconfer
-    /// can propose.
+    /// @param _params Struct containing all parameters for state update.
     /// @return previousState_ The previous state of the anchor. This value make proving easier.
     /// @return newState_ The new state of the anchor.
-    function updateState(
-        // Proposal level fields - define the overall batch
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth,
-        bytes32 _bondInstructionsHash,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        // Block level fields - specific to this block in the proposal
-        uint16 _blockIndex,
-        uint48 _anchorBlockNumber,
-        bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot,
-        uint48 _endOfSubmissionWindowTimestamp
-    )
+    function updateState(UpdateStateParams calldata _params)
         external
         onlyGoldenTouch
         nonReentrant
@@ -169,42 +170,49 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         _trackParentBlockHash(block.number - 1);
 
         // Handle prover designation on first block
-        if (_blockIndex == 0) {
+        if (_params.blockIndex == 0) {
             uint256 proverFee;
             (newState_.isLowBondProposal, newState_.designatedProver, proverFee) =
-                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+                _getDesignatedProver(_params.proposalId, _params.proposer, _params.proverAuth);
 
             if (proverFee > 0) {
-                bondManager.debitBond(_proposer, proverFee);
+                bondManager.debitBond(_params.proposer, proverFee);
                 bondManager.creditBond(newState_.designatedProver, proverFee);
             }
 
             // Process bond instructions with hash verification and assign atomically
             newState_.bondInstructionsHash =
-                _processBondInstructions(_bondInstructions, _bondInstructionsHash);
+                _processBondInstructions(_params.bondInstructions, _params.bondInstructionsHash);
         }
 
         // Process new L1 anchor data
-        if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
+        if (_params.anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data
             LibCheckpointStore.saveCheckpoint(
                 _checkpointStorage,
                 ICheckpointStore.Checkpoint({
-                    blockNumber: _anchorBlockNumber,
-                    blockHash: _anchorBlockHash,
-                    stateRoot: _anchorStateRoot
+                    blockNumber: _params.anchorBlockNumber,
+                    blockHash: _params.anchorBlockHash,
+                    stateRoot: _params.anchorStateRoot
                 }),
                 maxCheckpointHistory
             );
 
             // Update state atomically
-            newState_.anchorBlockNumber = _anchorBlockNumber;
+            newState_.anchorBlockNumber = _params.anchorBlockNumber;
         }
 
-        newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        newState_.submissionWindowEnd = _params.submissionWindowEnd;
         _state = newState_;
 
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
+        PreconfMeta memory parentPreconfMeta = blockIdToPreconfMeta[block.number - 1];
+        blockIdToPreconfMeta[block.number] = PreconfMeta({
+            anchorBlockNumber: _params.anchorBlockNumber,
+            parentSubmissionWindowEnd: parentPreconfMeta.submissionWindowEnd,
+            submissionWindowEnd: _params.submissionWindowEnd,
+            rawTxListHash: _params.rawTxListHash,
+            parentRawTxListHash: parentPreconfMeta.rawTxListHash
+        });
     }
 
     // ---------------------------------------------------------------
@@ -250,6 +258,14 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @inheritdoc ICheckpointStore
     function getNumberOfCheckpoints() external view returns (uint48) {
         return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
+    }
+
+    /// @notice Returns preconfirmation metadata for a given L2 block id.
+    /// @param _blockId The L2 block id.
+    /// @return meta_ The preconfirmation metadata containing submissionWindowEnd and rawTxListHash.
+    function getPreconfMeta(uint256 _blockId) external view returns (PreconfMeta memory meta_) {
+        meta_ = blockIdToPreconfMeta[_blockId];
+        require(meta_.anchorBlockNumber != 0, InvalidBlockId());
     }
 
     // ---------------------------------------------------------------
@@ -399,7 +415,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
 
     error BlockHashAlreadySet();
     error BondInstructionsHashMismatch();
-    error InvalidBlockIndex();
+    error InvalidBlockId();
     error InvalidAnchorBlockNumber();
     error InvalidForkHeight();
     error NonZeroAnchorBlockHash();
