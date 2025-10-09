@@ -34,11 +34,6 @@ contract TestGenerateGenesis is Test {
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
 
-    function setUp() public {
-        // Skip all genesis tests - these require specific deployment configuration
-        vm.skip(true);
-    }
-
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
 
@@ -61,7 +56,7 @@ contract TestGenerateGenesis is Test {
         checkProxyImplementation("SignalService");
         checkProxyImplementation("SharedResolver");
 
-        // // check proxies
+        // check proxies
         checkDeployedCode("ERC20Vault");
         checkDeployedCode("ERC721Vault");
         checkDeployedCode("ERC1155Vault");
