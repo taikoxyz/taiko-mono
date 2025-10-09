@@ -31,7 +31,9 @@ tokio = { workspace = true, features = ["sync"] }
 url = { workspace = true }
 
 # taiko
-alethia-reth = { workspace = true }
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alethia-reth-rpc = { workspace = true }
 bindings = { path = "../bindings" }
 event-scanner = { workspace = true }
 
