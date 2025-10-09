@@ -1,47 +1,85 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/iface/IBlacklist.sol";
+import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/lib/MerkleTree.sol";
+import "@eth-fabric/urc/ISlasher.sol";
+import "@eth-fabric/urc/IRegistry.sol";
+import "@solady/src/utils/ext/ithaca/BLS.sol";
 
 /// @title LookaheadSlasher
+/// @dev This contract is inherited by the `UnifiedSlasher`
+/// @dev The lookahead contained within the beacon state is referred to
+/// as the "beacon lookahead"
+/// whereas, the lookahead maintained by the preconfing protocol is referred to
+/// as the "preconf lookahead"
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
-    address public immutable urc;
-    address public immutable lookaheadStore;
-    uint256 public immutable slashAmount;
+abstract contract LookaheadSlasher {
+    /// @dev Evidence for the problematic slot in the preconfer lookahead.
+    struct EvidenceLookahead {
+        // Timestamp of the problematic slot
+        uint256 slotTimestamp;
+        // Index of the associated entry in the `lookaheadSlots` array
+        uint256 lookaheadSlotsIndex;
+    }
 
-    uint256[50] private __gap;
+    /// @dev Evidence containing the proof of inclusion of `beaconLookaheadValPubKey` at the
+    /// problematic slot in beacon lookahead.
+    struct EvidenceBeaconValidator {
+        // BLS pub key of the validator present within beacon lookahead
+        // at `EvidenceLookahead.slotTimestamp`
+        BLS.G1Point beaconLookaheadValPubKey;
+        // Inclusion proof for the beacon validator pub key in the beacon lookahead
+        LibEIP4788.InclusionProof beaconValidatorInclusionProof;
+    }
 
-    constructor(address _urc, address _lookaheadStore, uint256 _slashAmount) {
-        urc = _urc;
+    /// @dev Evidence suggesting that `preconfLookaheadValPubKey` was inserted into the
+    /// preconf lookahead at the problematic slot.
+    struct EvidenceInvalidOperator {
+        // BLS pub key of the validator present within preconfer lookahead
+        // at `EvidenceLookahead.slotTimestamp`
+        BLS.G1Point preconfLookaheadValPubKey;
+        // Used to build the merkle proof to verify that preconf validator belongs to the operator
+        // within the preconf lookahead
+        IRegistry.SignedRegistration[] operatorRegistrations;
+    }
+
+    /// @dev Evidence suggesting that `beaconLookaheadValPubKey` is registered to a valid
+    /// opted-in operator in the URC
+    struct EvidenceMissingOperator {
+        // URC registration proof signifying that `EvidenceBeaconValidator.beaconLookaheadValPubKey`
+        // belongs to a valid opted-in URC operator
+        IRegistry.RegistrationProof operatorRegistrationProof;
+    }
+
+    error InvalidLookaheadSlotsIndex();
+    error InvalidRegistrationProofValidator();
+    error LookaheadHashMismatch();
+    error PreconfValidatorIsSameAsBeaconValidator();
+    error PreconfValidatorIsNotRegistered();
+    error RegistrationRootMismatch();
+
+    address internal immutable lookaheadStore;
+
+    constructor(address _lookaheadStore) {
         lookaheadStore = _lookaheadStore;
-        slashAmount = _slashAmount;
     }
 
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
+    // Slashing logic
+    // --------------------------------------------------------------------------
 
-    /// @inheritdoc ISlasher
-    function slash(
-        Delegation calldata, /*_delegation*/
-        Commitment calldata _commitment,
-        address, /*_committer*/
-        bytes calldata _evidence,
-        address /*_challenger*/
+    /// @dev This is invoked internally by the `UnifiedSlasher` contract
+    function _validateLookaheadSlashingEvidence(
+        address _urc,
+        ISlasher.Commitment calldata _commitment,
+        bytes calldata _evidence
     )
-        external
-        nonReentrant
-        onlyFrom(urc)
-        returns (uint256)
+        internal
+        view
     {
-        // Todo: move to calldata
         ILookaheadStore.LookaheadSlot[] memory lookaheadSlots =
             abi.decode(_commitment.payload, (ILookaheadStore.LookaheadSlot[]));
 
@@ -71,17 +109,18 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             // operator, but is assigned to the wrong operator i.e the beacon validator is
             // not registered to the operator in the URC.
             _validateInvalidOperatorEvidence(
-                lookaheadSlot, beaconLookaheadValPubKey, evidenceInvalidOrMissingOperator
+                _urc, lookaheadSlot, beaconLookaheadValPubKey, evidenceInvalidOrMissingOperator
             );
         } else {
             // This condition is executed when the problematic slot has no assigned operator i.e
             // when it is an advanced proposal slot, or when the lookahead is empty.
             _validateMissingOperatorEvidence(
-                previousEpochTimestamp, beaconLookaheadValPubKey, evidenceInvalidOrMissingOperator
+                _urc,
+                previousEpochTimestamp,
+                beaconLookaheadValPubKey,
+                evidenceInvalidOrMissingOperator
             );
         }
-
-        return slashAmount;
     }
 
     // Evidence validation
@@ -169,6 +208,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     }
 
     function _validateInvalidOperatorEvidence(
+        address _urc,
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot,
         BLS.G1Point calldata _beaconLookaheadValPubKey,
         bytes calldata _evidenceInvalidOperatorBytes
@@ -201,7 +241,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify the correctness of `evidenceInvalidOperator.operatorRegistrations`
         IRegistry.OperatorData memory operatorData =
-            IRegistry(urc).getOperatorData(_lookaheadSlot.registrationRoot);
+            IRegistry(_urc).getOperatorData(_lookaheadSlot.registrationRoot);
         bytes32[] memory leaves = MerkleTree.hashToLeaves(
             evidenceInvalidOperator.operatorRegistrations, operatorData.owner
         );
@@ -211,6 +251,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     }
 
     function _validateMissingOperatorEvidence(
+        address _urc,
         uint256 _previousEpochTimestamp,
         BLS.G1Point calldata _beaconLookaheadValPubKey,
         bytes calldata _evidenceMissingOperatorBytes
@@ -231,7 +272,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             InvalidRegistrationProofValidator()
         );
 
-        IRegistry(urc).verifyMerkleProof(registrationProof);
+        IRegistry(_urc).verifyMerkleProof(registrationProof);
 
         // This is the same reference timestamp that is used in the lookahead store
         uint256 referenceTimestamp =
@@ -244,7 +285,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         );
     }
 
-    // Internal helpers
+    // Helpers
     // --------------------------------------------------------------------------
 
     function _isG1Equal(

@@ -16,8 +16,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, EssentialContract {
     IRegistry public immutable urc;
-    address public immutable lookaheadSlasher;
-    address public immutable preconfSlasher;
+    address public immutable unifiedSlasher;
     address public immutable inbox;
     address public immutable preconfWhitelist;
 
@@ -29,8 +28,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     constructor(
         address _urc,
-        address _lookaheadSlasher,
-        address _preconfSlasher,
+        address _unifiedSlasher,
         address _inbox,
         address _preconfWhitelist,
         address[] memory _overseers
@@ -38,8 +36,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         Blacklist(_overseers)
     {
         urc = IRegistry(_urc);
-        lookaheadSlasher = _lookaheadSlasher;
-        preconfSlasher = _preconfSlasher;
+        unifiedSlasher = _unifiedSlasher;
         inbox = _inbox;
         preconfWhitelist = _preconfWhitelist;
     }
@@ -350,7 +347,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             referenceTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPreconfing,
-            preconfSlasher
+            unifiedSlasher
         );
 
         return true;
@@ -371,7 +368,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             referenceTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPosting,
-            lookaheadSlasher
+            unifiedSlasher
         );
 
         return true;
@@ -462,7 +459,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
                     _nextEpochTimestamp,
                     lookaheadSlot.registrationRoot,
                     minCollateralForPreconfing,
-                    preconfSlasher
+                    unifiedSlasher
                 );
 
                 require(
@@ -543,7 +540,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             prevEpochTimestamp,
             _registrationRoot,
             getLookaheadStoreConfig().minCollateralForPosting,
-            lookaheadSlasher
+            unifiedSlasher
         );
 
         // Validate the lookahead poster's signed commitment
@@ -639,7 +636,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         return ISlasher.Commitment({
             commitmentType: 0,
             payload: abi.encode(_lookahead),
-            slasher: lookaheadSlasher
+            slasher: unifiedSlasher
         });
     }
 }
