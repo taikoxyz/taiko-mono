@@ -1,11 +1,11 @@
 [workspace]
 members = [
-    "bin/client",
-    "crates/bindings",
-    "crates/event-indexer",
-    "crates/proposer",
-    "crates/protocol",
-    "crates/rpc",
+  "bin/client",
+  "crates/bindings",
+  "crates/event-indexer",
+  "crates/proposer",
+  "crates/protocol",
+  "crates/rpc",
 ]
 resolver = "2"
 
@@ -63,7 +63,7 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.2.0-alpha"
+event-scanner = "=0.2.1-alpha"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
