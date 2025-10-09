@@ -184,7 +184,9 @@ mod tests {
 
         let base = Url::parse(&server.uri()).expect("Invalid mock server URL");
         let err = match BeaconClient::new(base).await {
-            Ok(_) => panic!("BeaconClient::new should fail when the genesis endpoint returns non-200"),
+            Ok(_) => {
+                panic!("BeaconClient::new should fail when the genesis endpoint returns non-200")
+            }
             Err(err) => err,
         };
         let msg = format!("{err}");
