@@ -237,8 +237,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         require(proof.accountProof.length != 0 && proof.storageProof.length != 0, SS_EMPTY_PROOF());
 
         CheckpointRecord storage checkpoint = _checkpoints[uint48(proof.blockId)];
-        require(checkpoint.blockHash != 0, SS_CHECKPOINT_NOT_FOUND());
-
         bytes32 stateRoot = checkpoint.stateRoot;
         require(stateRoot == proof.rootHash, SS_INVALID_CHECKPOINT());
 
