@@ -323,9 +323,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             });
         }
         address codec = address(new CodecOptimized());
+        address signalService =
+            IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
+
         shastaInboxAddr = deployProxy({
             name: "shasta_inbox",
-            impl: address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken)),
+            impl: address(
+                new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+            ),
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
