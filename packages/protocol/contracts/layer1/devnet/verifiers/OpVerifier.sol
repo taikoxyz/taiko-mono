@@ -9,6 +9,8 @@ import "../../verifiers/IVerifier.sol";
 /// @title OpVerifier
 /// @notice This contract is the implementation of verifying optimism signature proofs
 /// onchain.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract OpVerifier is EssentialContract, IVerifier {
     address public immutable taikoInbox;

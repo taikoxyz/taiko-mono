@@ -14,20 +14,13 @@ import "@eth-fabric/urc/lib/MerkleTree.sol";
 contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     address public immutable urc;
     address public immutable lookaheadStore;
-    address public immutable preconfSlasher;
     uint256 public immutable slashAmount;
 
     uint256[50] private __gap;
 
-    constructor(
-        address _urc,
-        address _lookaheadStore,
-        address _preconfSlasher,
-        uint256 _slashAmount
-    ) {
+    constructor(address _urc, address _lookaheadStore, uint256 _slashAmount) {
         urc = _urc;
         lookaheadStore = _lookaheadStore;
-        preconfSlasher = _preconfSlasher;
         slashAmount = _slashAmount;
     }
 

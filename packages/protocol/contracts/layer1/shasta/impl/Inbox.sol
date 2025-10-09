@@ -100,12 +100,20 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
+    /// @notice Version identifier for composite key generation
+    /// @dev Used to invalidate all proved but unfinalized transition records to recover from
+    /// potential proof verifier bugs
+    uint16 internal immutable _compositeKeyVersion;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
     /// @dev The address responsible for calling `activate` on the inbox.
     address internal _shastaInitializer;
+
+    /// @notice Flag indicating whether a conflicting transition record has been detected
+    bool public conflictingTransitionDetected;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -157,6 +165,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _maxCheckpointHistory = _config.maxCheckpointHistory;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
+        _compositeKeyVersion = _config.compositeKeyVersion;
     }
 
     // ---------------------------------------------------------------
@@ -322,7 +331,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         config_ = IInbox.Config({
             codec: _codec,
             bondToken: address(_bondToken),
-            maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -334,8 +342,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            maxCheckpointHistory: _maxCheckpointHistory,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
+            compositeKeyVersion: _compositeKeyVersion
         });
     }
 
@@ -440,10 +450,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        bool stored = _storeTransitionRecord(
+        _storeTransitionRecord(
             _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
         );
-        if (!stored) return;
 
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: _proposalId,
@@ -461,7 +470,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-    /// @return stored_ True if storage was updated and caller should emit the Proved event.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -470,19 +478,22 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     )
         internal
         virtual
-        returns (bool stored_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
+        bytes26 recordHash = entry.recordHash;
 
-        if (entry.recordHash == _recordHash) return false;
-
-        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
-
-        entry.recordHash = _hashAndDeadline.recordHash;
-        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        return true;
+        if (recordHash == 0) {
+            entry.recordHash = _recordHash;
+            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        } else if (recordHash == _recordHash) {
+            emit TransitionDuplicateDetected();
+        } else {
+            emit TransitionConflictDetected();
+            conflictingTransitionDetected = true;
+            entry.finalizationDeadline = type(uint48).max;
+        }
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -571,10 +582,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         }
     }
 
-    // ---------------------------------------------------------------
-    // Internal Pure Functions
-    // ---------------------------------------------------------------
-
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
     /// @param _proposalId The ID of the proposal
@@ -585,11 +592,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bytes32 _parentTransitionHash
     )
         internal
-        pure
+        view
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashSimple.composeTransitionKey(
+            _proposalId, _compositeKeyVersion, _parentTransitionHash
+        );
     }
 
     // ---------------------------------------------------------------
@@ -1099,5 +1108,4 @@ error RingBufferSizeZero();
 error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
-error TransitionWithSameParentHashAlreadyProved();
 error UnprocessedForcedInclusionIsDue();

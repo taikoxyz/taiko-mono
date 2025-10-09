@@ -17,6 +17,8 @@ import "./IProveBatches.sol";
 ///   delegated to IVerifier contracts.
 ///
 /// @dev Registered in the address resolver as "taiko".
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {

@@ -9,6 +9,8 @@ import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
 /// @title TaikoRisc0Verifier
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoRisc0Verifier is EssentialContract, IVerifier {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");

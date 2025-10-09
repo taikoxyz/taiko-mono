@@ -12,8 +12,6 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 contract LibProvedEventEncoderFuzzTest is Test {
     uint256 constant MAX_BOND_INSTRUCTIONS = 100;
     uint48 constant MAX_UINT48 = type(uint48).max;
-    uint16 constant MAX_UINT16 = type(uint16).max;
-    uint8 constant MAX_UINT8 = type(uint8).max;
 
     function testFuzz_encodeDecodeBasicFields(
         uint48 _proposalId,

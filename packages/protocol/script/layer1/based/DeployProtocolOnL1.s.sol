@@ -66,8 +66,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function run() external broadcast {
-        addressNotNull(vm.envAddress("TAIKO_ANCHOR_ADDRESS"), "TAIKO_ANCHOR_ADDRESS");
-        addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
         addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
 
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
@@ -298,7 +296,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
+            data: abi.encodeCall(PreconfWhitelist.init, (owner, 0, 0))
         });
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
@@ -328,8 +326,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         shastaInboxAddr = deployProxy({
             name: "shasta_inbox",
             impl: address(new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken)),
-            data: abi.encodeCall(Inbox.init, (address(0), owner))
+            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
+
+        Inbox(payable(shastaInboxAddr)).activate(vm.envBytes32("L2_GENESIS_HASH"));
 
         console2.log("  pacaya_inbox       :", pacayaInboxAddr);
         console2.log("  shasta_inbox       :", shastaInboxAddr);
