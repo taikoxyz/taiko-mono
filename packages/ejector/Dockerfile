@@ -11,7 +11,7 @@ COPY src ./src
 COPY bin ./bin
 
 # Build the ejector binary
-RUN cargo build --release
+RUN cargo build --release --bin ejector
 
 FROM debian:bookworm-slim AS runtime
 RUN useradd -m -u 10001 appuser && \
