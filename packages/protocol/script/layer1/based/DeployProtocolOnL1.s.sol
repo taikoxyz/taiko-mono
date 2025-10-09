@@ -289,10 +289,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("  shasta_inbox       :", shastaInboxAddr);
     }
 
-    function deployVerifiers(address owner)
-        private
-        returns (VerifierAddresses memory)
-    {
+    function deployVerifiers(address owner) private returns (VerifierAddresses memory) {
         VerifierAddresses memory verifiers;
 
         // Deploy automata attestation for SGX verifier (always deployed)
