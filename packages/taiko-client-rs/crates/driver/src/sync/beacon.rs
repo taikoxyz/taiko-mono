@@ -11,7 +11,7 @@ use alloy_rpc_types_engine::{
     PayloadStatusEnum,
 };
 use metrics::gauge;
-use rpc::{auth::L1Origin, client::Client};
+use rpc::{client::Client, l1_origin::L1Origin};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{info, warn};
 

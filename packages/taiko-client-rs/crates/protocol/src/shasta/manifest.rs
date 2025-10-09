@@ -162,9 +162,7 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>
     ) as usize;
 
     if bytes.len() < offset + 64 + size {
-        return Err(ProtocolError::InvalidPayload(
-            "blob payload shorter than declared size".into(),
-        ));
+        return Err(ProtocolError::InvalidPayload("blob payload shorter than declared size".into()));
     }
 
     let compressed = &bytes[offset + 64..offset + 64 + size];

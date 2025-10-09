@@ -20,9 +20,6 @@ use crate::error::Result;
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
 
-/// Re-export of Taiko's L1 origin payload type.
-pub type L1Origin = RpcL1Origin;
-
 /// Taiko authenticated RPC method names.
 #[derive(Debug, Clone, Copy)]
 pub enum TaikoAuthMethod {
@@ -108,7 +105,7 @@ impl<P: Provider + Clone> Client<P> {
     }
 
     /// Update the execution engine's L1 origin metadata for a given block.
-    pub async fn update_l1_origin(&self, origin: &L1Origin) -> Result<Option<L1Origin>> {
+    pub async fn update_l1_origin(&self, origin: &RpcL1Origin) -> Result<Option<RpcL1Origin>> {
         self.l2_auth_provider
             .raw_request(Cow::Borrowed(TaikoAuthMethod::UpdateL1Origin.as_str()), (origin,))
             .await
@@ -120,7 +117,7 @@ impl<P: Provider + Clone> Client<P> {
         &self,
         block_id: U256,
         signature: FixedBytes<65>,
-    ) -> Result<Option<L1Origin>> {
+    ) -> Result<Option<RpcL1Origin>> {
         self.l2_auth_provider
             .raw_request(
                 Cow::Borrowed(TaikoAuthMethod::SetL1OriginSignature.as_str()),

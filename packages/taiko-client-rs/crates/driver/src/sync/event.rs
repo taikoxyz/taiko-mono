@@ -17,7 +17,6 @@ use crate::{
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
 };
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
-use protocol::shasta::manifest::ProposalManifest;
 use rpc::{blob::BlobDataSource, client::Client};
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -57,8 +56,15 @@ where
 {
     async fn run(&self) -> Result<(), SyncError> {
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
-        let derivation: Arc<dyn DerivationPipeline<Manifest = ProposalManifest>> =
-            Arc::new(ShastaDerivationPipeline::new(self.rpc.clone(), blob_source));
+        let derivation_pipeline =
+            ShastaDerivationPipeline::new(self.rpc.clone(), blob_source, self.indexer.clone())
+                .await
+                .map_err(|err| SyncError::Derivation(err.to_string()))?;
+        let derivation: Arc<
+            dyn DerivationPipeline<
+                Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
+            >,
+        > = Arc::new(derivation_pipeline);
 
         // Wait for historical indexing to complete before starting the derivation loop.
         self.indexer.wait_historical_indexing_finished().await;
