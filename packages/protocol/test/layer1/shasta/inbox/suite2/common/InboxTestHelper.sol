@@ -2,17 +2,17 @@
 pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ICodec } from "src/layer1/iface/ICodec.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
-import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { IProofVerifier } from "src/layer1/iface/IProofVerifier.sol";
+import { IProposerChecker } from "src/layer1/iface/IProposerChecker.sol";
+import { Inbox } from "src/layer1/impl/Inbox.sol";
+import { LibBlobs } from "src/layer1/libs/LibBlobs.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
-import { SignalServiceShasta } from "src/shared/shasta/impl/SignalServiceShasta.sol";
+import { SignalServiceShasta } from "src/shared/signal/SignalServiceShasta.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
+import { IProposerChecker } from "src/layer1/iface/IProposerChecker.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 

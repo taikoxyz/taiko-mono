@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxDeployer } from "../deployers/InboxDeployer.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxTransitionRecord

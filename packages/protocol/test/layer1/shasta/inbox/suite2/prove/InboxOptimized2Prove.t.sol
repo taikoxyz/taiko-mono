@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProve.t.sol";
 import { InboxOptimized2Deployer } from "../deployers/InboxOptimized2Deployer.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
 // Import errors from Inbox implementation
-import "src/layer1/shasta/impl/Inbox.sol";
+import "src/layer1/impl/Inbox.sol";
 
 /// @title InboxOptimized2Prove
 /// @notice Test suite for prove functionality on InboxOptimized2 implementation

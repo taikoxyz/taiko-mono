@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { AbstractProposeTest } from "./AbstractPropose.t.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
 
 /// @title InboxOptimized1MultipleBlobsTest
 /// @notice Isolated test for multiple blobs functionality on Optimized1 Inbox

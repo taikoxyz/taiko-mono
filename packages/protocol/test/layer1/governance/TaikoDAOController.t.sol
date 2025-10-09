@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "src/layer1/mainnet/TaikoDAOController.sol";
-import "../Layer1Test.sol";
+import "test/shared/CommonTest.sol";
 
 contract DummyContract {
     function someFunction() public pure returns (string memory) {
@@ -23,7 +23,7 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract TestTaikoDAOController is Layer1Test {
+contract TestTaikoDAOController is CommonTest {
     TaikoDAOController internal daoController;
     address owner = Alice;
     address newOwner = Bob;

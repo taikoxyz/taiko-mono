@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "./ERC20Vault.h.sol";
 import "../helpers/FreeMintERC20Token.sol";
-import "src/layer1/based/ITaikoInbox.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
