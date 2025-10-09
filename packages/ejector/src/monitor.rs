@@ -232,6 +232,7 @@ pub async fn are_preconfs_enabled(
     taiko_wrapper_address: Address,
 ) -> Result<bool> {
     let provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+
     let taiko_wrapper = TaikoWrapper::new(taiko_wrapper_address, provider);
 
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
