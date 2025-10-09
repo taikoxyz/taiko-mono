@@ -232,9 +232,10 @@
 ### taiko_anchor
 
 - proxy: `0x1670120000000000000000000000000000010001`
-- impl: `0x0167012000000000000000000000000000010001`
+- impl: `0xb0B91d09a8aE60f3a66D0A2Baf6f242c62AF40B7`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
+  - upgraded on Oct 9, 2025 at commit `7217552`
 
 ### rollup_resolver
 
