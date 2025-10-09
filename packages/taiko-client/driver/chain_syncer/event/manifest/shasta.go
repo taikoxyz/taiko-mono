@@ -147,6 +147,11 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 			log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 			return defaultPayload, err
 		}
+		for _, block := range derivationSourceManifest.Blocks {
+			// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
+			block.AnchorBlockNumber = 0
+			block.Timestamp = 0
+		}
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
