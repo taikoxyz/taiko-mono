@@ -112,12 +112,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         }
 
         LibTrieProof.verifyMerkleProof(
-            stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
         );
     }
 
