@@ -11,6 +11,7 @@ sol! {
     }
 }
 
+// Calculate the Shasta difficulty for a new block based on the parent randao and block number.
 pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
         parentDifficulty: parent_randao,
@@ -19,18 +20,21 @@ pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64
     B256::from(keccak256(params.abi_encode()))
 }
 
+// Estimate the gas used by a set of transactions, capping it to the provided gas limit
 pub(super) fn estimate_gas_used(transactions: &[TxEnvelope], gas_limit: u64) -> u64 {
     let used: u128 = transactions.iter().fold(0u128, |acc, tx| acc + tx.gas_limit() as u128);
     let capped = used.min(gas_limit as u128);
     capped.max(ANCHOR_V3_GAS_LIMIT.min(gas_limit) as u128).min(gas_limit as u128) as u64
 }
 
+// Encode a list of transactions into the format expected by the execution engine.
 pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
     encode_list(transactions, &mut buf);
     Bytes::from(buf.freeze())
 }
 
+// Encode the extra data field for a Shasta block header.
 pub(super) fn encode_extra_data(
     basefee_sharing_pctg: u8,
     is_low_bond_proposal: bool,

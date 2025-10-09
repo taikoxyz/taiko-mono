@@ -25,6 +25,7 @@ impl<P> ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
 {
+    // Process all manifest segments in order, producing a flat list of payload attributes.
     pub(super) fn build_payloads_from_sources(
         &self,
         sources: Vec<SourceManifestSegment>,
@@ -53,6 +54,7 @@ where
         Ok(payloads)
     }
 
+    // Process a single manifest segment, producing one or more payload attributes.
     fn process_manifest_segment(
         &self,
         segment: SourceManifestSegment,

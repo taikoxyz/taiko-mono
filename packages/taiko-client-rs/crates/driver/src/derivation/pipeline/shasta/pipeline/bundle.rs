@@ -22,7 +22,7 @@ pub struct ShastaProposalBundle {
     pub(super) sources: Vec<SourceManifestSegment>,
 }
 
-/// Reduced metadata extracted from a proposal bundle that is required throughout
+/// Metadata extracted from a proposal bundle that is required throughout
 /// payload construction.
 #[derive(Debug, Clone)]
 pub(super) struct BundleMeta {
@@ -36,8 +36,7 @@ pub(super) struct BundleMeta {
 }
 
 impl ShastaProposalBundle {
-    /// Split the bundle into reusable metadata and manifest segments while dropping
-    /// fields that are only relevant to RPC consumers.
+    /// Split the bundle into reusable metadata and manifest segments.
     pub(super) fn into_meta_and_sources(self) -> (BundleMeta, Vec<SourceManifestSegment>) {
         let ShastaProposalBundle {
             proposal_id,
