@@ -55,7 +55,6 @@ export async function deployTaikoAnchor(
         config.livenessBondGwei,
         config.provabilityBondGwei,
         config.withdrawalDelay,
-        config.maxCheckpointHistory,
         config.minBond,
         config.bondToken,
     );
@@ -134,7 +133,6 @@ async function generateContractConfigs(
     livenessBondGwei: number,
     provabilityBondGwei: number,
     withdrawalDelay: number,
-    maxCheckpointHistory: number,
     minBond: number,
     bondToken: string,
 ): Promise<any> {
@@ -241,7 +239,6 @@ async function generateContractConfigs(
         getImmutableReference("ShastaAnchor", ["livenessBondGwei"]),
         getImmutableReference("ShastaAnchor", ["provabilityBondGwei"]),
         getImmutableReference("ShastaAnchor", ["bondManager"]),
-        getImmutableReference("ShastaAnchor", ["maxCheckpointHistory"]),
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -771,13 +768,6 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.bondManager.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.BondManager,
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.maxCheckpointHistory.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(maxCheckpointHistory),
                             32,
                         ),
                     },
