@@ -79,8 +79,16 @@
     },
     "packages/taiko-client-rs": {
       "package-name": "taiko-alethia-client-rs",
-      "release-type": "rust",
-      "extra-files": ["Cargo.toml", "bin/client/Cargo.toml"]
+      "release-type": "simple",
+      "release-as": "2.0.0",
+      "component": "taiko-alethia-client-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        }
+      ]
     },
     "packages/ui-lib": {}
   }
