@@ -41,6 +41,7 @@ jobs:
             nfts
             ui-lib
             taiko-client
+            taiko-client-rs
             supplementary-contracts
             balance-monitor
           requireScope: true
