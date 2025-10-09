@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,7 +10,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/libs/LibMath.sol";
-import "../provers/ProverSet.sol";
+
+interface IProverSetInitializer {
+    function init(address owner, address admin) external;
+}
 
 /// @title TokenUnlock
 /// @notice Manages the linear unlocking of Taiko tokens over a four-year period.
@@ -130,7 +134,7 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Create a new prover set.
     function createProverSet() external onlyRecipient returns (address proverSet_) {
-        bytes memory data = abi.encodeCall(ProverSetBase.init, (owner(), address(this)));
+        bytes memory data = abi.encodeCall(IProverSetInitializer.init, (owner(), address(this)));
         proverSet_ = address(new ERC1967Proxy(proverSetImpl, data));
 
         isProverSet[proverSet_] = true;
