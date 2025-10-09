@@ -114,7 +114,6 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @inheritdoc Inbox
-    /// @dev Uses LibHashing for efficient checkpoint hashing
     function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure

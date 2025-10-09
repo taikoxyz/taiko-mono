@@ -62,11 +62,12 @@ library LibCheckpointStore {
         returns (ICheckpointStore.Checkpoint memory checkpoint)
     {
         CheckpointRecord storage record = $.checkpoints[_blockNumber];
-        if (record.blockHash == bytes32(0)) revert CheckpointNotFound();
+        bytes32 blockHash = record.blockHash;
+        if (blockHash == bytes32(0)) revert CheckpointNotFound();
 
         checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: _blockNumber,
-            blockHash: record.blockHash,
+            blockHash: blockHash,
             stateRoot: record.stateRoot
         });
     }
