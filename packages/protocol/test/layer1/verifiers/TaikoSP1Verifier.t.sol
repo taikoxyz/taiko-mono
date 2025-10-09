@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// ═══════════════════════════════════════════════════════════════════════
+// DEPRECATED: This file is deprecated as of 2025-10-08.
+// Please use the Shasta Inbox implementation instead.
+// See: test/layer1/shasta/inbox/suite2/ for current tests
+// ═══════════════════════════════════════════════════════════════════════
+
 import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
 import "../Layer1Test.sol";
 

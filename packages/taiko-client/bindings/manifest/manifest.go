@@ -4,8 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
@@ -31,9 +29,9 @@ const (
 	BondProcessingDelay = 6
 )
 
-// BlockManifest represents a block manifest
-// Should be same with LibManifest.BlockManifest
-type ProtocolBlockManifest struct {
+// BlockManifest represents the blocks inside a derivation source.
+// Should be same with LibManifest.BlockManifest.
+type BlockManifest struct {
 	// The timestamp of the block
 	Timestamp uint64 `json:"timestamp"`
 	// The coinbase of the block
@@ -47,27 +45,15 @@ type ProtocolBlockManifest struct {
 	Transactions types.Transactions `json:"transactions"`
 }
 
-// BlockManifest represents a block manifest with extra information.
-type BlockManifest struct {
-	ProtocolBlockManifest
-	// Extra information
-	BondInstructionsHash common.Hash                              `json:"bondInstructionsHash"`
-	BondInstructions     []shastaBindings.LibBondsBondInstruction `json:"bondInstructions"`
+// DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
+// Should be same with LibManifest.DerivationSourceManifest.
+type DerivationSourceManifest struct {
+	Blocks []*BlockManifest `json:"blocks"`
 }
 
-// ProtocolProposalManifest represents a proposal manifest
-// Should be same with LibManifest.ProposalManifest
-type ProtocolProposalManifest struct {
-	ProverAuthBytes []byte                   `json:"proverAuthBytes"`
-	Blocks          []*ProtocolBlockManifest `json:"blocks"`
-}
-
-// ProposalManifest represents a proposal manifest with extra information.
+// ProposalManifest represents a proposal manifest containing proposal-level metadata and sources.
+// Should be same with LibManifest.ProposalManifest.
 type ProposalManifest struct {
-	ProverAuthBytes []byte           `json:"proverAuthBytes"`
-	Blocks          []*BlockManifest `json:"blocks"`
-	// Extra information
-	Default           bool         `json:"default"`
-	ParentBlock       *types.Block `json:"parentBlock"`
-	IsLowBondProposal bool         `json:"isLowBondProposal"`
+	ProverAuthBytes []byte                      `json:"proverAuthBytes"`
+	Sources         []*DerivationSourceManifest `json:"sources"`
 }

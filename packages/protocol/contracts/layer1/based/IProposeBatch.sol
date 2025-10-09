@@ -6,6 +6,8 @@ import "./ITaikoInbox.sol";
 /// @title IProposeBatch
 /// @notice This interface defines the v4ProposeBatch function that is also part of the ITaikoInbox
 /// interface.
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 interface IProposeBatch {
     /// @notice Proposes a batch of blocks.
