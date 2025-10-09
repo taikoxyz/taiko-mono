@@ -160,7 +160,9 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         override
         returns (Checkpoint memory checkpoint)
     {
-        CheckpointRecord storage record = _getCheckpoint(_blockNumber);
+        CheckpointRecord storage record = _checkpoints[_blockNumber];
+        require(record.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
+
         checkpoint = Checkpoint({
             blockNumber: _blockNumber,
             blockHash: record.blockHash,
@@ -171,18 +173,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-
-    /// @dev Gets a checkpoint by block number
-    /// @param _blockNumber The block number of the checkpoint
-    /// @return record_ The checkpoint record
-    function _getCheckpoint(uint48 _blockNumber)
-        private
-        view
-        returns (CheckpointRecord storage record_)
-    {
-        record_ = _checkpoints[_blockNumber];
-        require(record_.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
-    }
 
     function _sendSignal(
         address _app,
@@ -246,17 +236,14 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 
         require(proof.accountProof.length != 0 && proof.storageProof.length != 0, SS_EMPTY_PROOF());
 
-        CheckpointRecord storage checkpoint = _getCheckpoint(uint48(proof.blockId));
+        CheckpointRecord storage checkpoint = _checkpoints[uint48(proof.blockId)];
+        require(checkpoint.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
+
         bytes32 stateRoot = checkpoint.stateRoot;
         require(stateRoot == proof.rootHash, SS_INVALID_CHECKPOINT());
 
         LibTrieProof.verifyMerkleProof(
-            stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
         );
     }
 }
