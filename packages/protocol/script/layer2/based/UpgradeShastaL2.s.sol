@@ -23,8 +23,12 @@ contract UpgradeShastaL2 is DeployCapability {
     }
 
     function run() external broadcast {
-         UUPSUpgradeable(taikoAnchor).upgradeTo(
-             address(new TaikoAnchor(125e9, 125e9,signalService, pacayaForkHeight, shastaForkHeight, bondManager))
-         );
+        UUPSUpgradeable(taikoAnchor).upgradeTo(
+            address(
+                new TaikoAnchor(
+                    125e9, 125e9, signalService, pacayaForkHeight, shastaForkHeight, bondManager
+                )
+            )
+        );
     }
 }
