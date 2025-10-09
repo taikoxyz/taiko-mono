@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy ejector package files (build context is packages/ejector)
 COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 COPY bin ./bin
 
 # Build the ejector binary
