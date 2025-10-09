@@ -101,6 +101,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// potential proof verifier bugs
     uint16 internal immutable _compositeKeyVersion;
 
+    /// @notice Checkpoint store responsible for checkpoints
+    ICheckpointStore internal immutable _checkpointStore;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -128,9 +131,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
-
-    /// @notice Checkpoint store responsible for checkpoints
-    ICheckpointStore internal immutable _checkpointStore;
 
     uint256[37] private __gap;
 
