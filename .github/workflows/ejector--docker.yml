@@ -17,8 +17,7 @@ concurrency:
 env:
   # where to push
   REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/ejector
-  # build context MUST be repo root for cargo workspace
-  BUILD_CONTEXT: .
+  BUILD_CONTEXT: packages/ejector
   DOCKERFILE: packages/ejector/Dockerfile
 
 jobs:
