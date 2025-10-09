@@ -2,9 +2,8 @@
 
 use std::borrow::Cow;
 
-use alethia_reth::{
-    payload::attributes::RpcL1Origin, rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList,
-};
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
+use alethia_reth_rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList;
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use serde_json::Value;
