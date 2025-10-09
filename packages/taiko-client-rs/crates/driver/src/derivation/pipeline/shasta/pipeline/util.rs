@@ -1,4 +1,4 @@
-use alethia_reth::consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alloy::primitives::{B256, Bytes, U256, keccak256};
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_rlp::{BytesMut, encode_list};

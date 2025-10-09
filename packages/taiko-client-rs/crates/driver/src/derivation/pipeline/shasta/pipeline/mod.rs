@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use alethia_reth::{
-    consensus::eip4396::SHASTA_INITIAL_BASE_FEE, payload::attributes::TaikoPayloadAttributes,
-};
+use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::BlockNumberOrTag,
     primitives::{B256, U256},

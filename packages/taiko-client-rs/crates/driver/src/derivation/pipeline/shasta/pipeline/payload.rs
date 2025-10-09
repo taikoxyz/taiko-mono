@@ -1,4 +1,6 @@
-use alethia_reth::payload::attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes};
+use alethia_reth_primitives::payload::attributes::{
+    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+};
 use alloy::{
     primitives::{B256, U256},
     providers::Provider,

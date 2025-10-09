@@ -5,7 +5,9 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-alethia-reth = { workspace = true }
+alethia-reth-consensus = { workspace = true }
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }

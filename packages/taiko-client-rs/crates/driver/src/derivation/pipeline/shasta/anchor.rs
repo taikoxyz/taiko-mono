@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 
-use alethia_reth::{
-    consensus::validation::ANCHOR_V3_GAS_LIMIT, evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS,
-};
+use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy::{
     primitives::{Address, B256, Bytes, TxKind, U256},
     sol_types::private::primitives::aliases::U48,

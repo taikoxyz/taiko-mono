@@ -1,6 +1,6 @@
 //! Derivation pipeline abstractions shared across protocol forks.
 
-use alethia_reth::payload::attributes::TaikoPayloadAttributes;
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::rpc::types::Log;
 use async_trait::async_trait;
 

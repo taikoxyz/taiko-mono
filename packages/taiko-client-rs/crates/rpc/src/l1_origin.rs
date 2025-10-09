@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use alethia_reth::payload::attributes::RpcL1Origin;
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 

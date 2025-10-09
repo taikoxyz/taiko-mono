@@ -1,4 +1,4 @@
-use alethia_reth::consensus::{
+use alethia_reth_consensus::{
     eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
     validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
 };
