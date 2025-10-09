@@ -1,3 +1,8 @@
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use alloy::{
     primitives::Address,
     providers::{Provider, ProviderBuilder, WsConnect},
@@ -5,10 +10,6 @@ use alloy::{
 };
 use eyre::Result;
 use futures_util::StreamExt;
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
 use tokio::{
     sync::Mutex,
     time::{interval, sleep},

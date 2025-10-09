@@ -1,25 +1,19 @@
 // std lib deps
 use std::{path::PathBuf, str::FromStr};
 
-use alloy::primitives::Address;
-use alloy::signers::local::PrivateKeySigner;
+use alloy::{primitives::Address, signers::local::PrivateKeySigner};
 // external deps
 use clap::Parser;
 use color_eyre::Result;
 use dotenvy::{dotenv, from_path};
+// project modules
+use ejector::{beacon::BeaconClient, config::Config, monitor::Monitor, server::spawn_server};
 use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal as unix_signal};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 use url::Url;
-// project modules
-use ejector::{
-    beacon::BeaconClient,
-    config::Config,
-    monitor::Monitor,
-    server::spawn_server,
-};
 
 fn load_env_for_dev() {
     if std::env::var_os("KUBERNETES_SERVICE_HOST").is_some() {

@@ -123,10 +123,13 @@ struct Spec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
 
     #[tokio::test]
     async fn new_fetches_and_parses_genesis_and_spec() -> Result<()> {
