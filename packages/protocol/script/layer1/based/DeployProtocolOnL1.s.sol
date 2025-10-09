@@ -22,7 +22,8 @@ import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/ShastaRisc0Verifier.sol";
 import "src/layer1/verifiers/ShastaSP1Verifier.sol";
 import "src/layer1/verifiers/ShastaSgxVerifier.sol";
-import "src/layer1/verifiers/compose/ShastaAnyVerifier.sol";
+import "src/layer1/verifiers/ShastaOpVerifier.sol";
+import "src/layer1/verifiers/compose/ShastaDevnetVerifier.sol";
 import { Inbox } from "src/layer1/impl/Inbox.sol";
 import { ShastaDevnetInbox } from "src/layer1/impl/ShastaDevnetInbox.sol";
 import { CodecOptimized } from "src/layer1/impl/CodecOptimized.sol";
@@ -63,19 +64,40 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address shastaInboxAddr, address proofVerifier, address whitelist) =
             deployRollupContracts(sharedResolver, contractOwner);
 
-        // Deploy verifiers
+        // Deploy verifiers (always deploys all verifiers: SGX, RISC0, SP1)
         VerifierAddresses memory verifiers = deployVerifiers(contractOwner);
 
-        // Upgrade proof verifier to use the deployed verifiers
-        UUPSUpgradeable(proofVerifier).upgradeTo({
-            newImplementation: address(
-                new ShastaAnyVerifier(
-                    verifiers.sgxRethVerifier,
-                    verifiers.risc0RethVerifier,
-                    verifiers.sp1RethVerifier
+        // Deploy OpVerifier (always deployed, available in both modes)
+        address opVerifier = address(new ShastaOpVerifier());
+        console2.log("Deployed ShastaOpVerifier:", opVerifier);
+
+        // Upgrade proof verifier based on mode (matching old DevnetVerifier behavior)
+        if (vm.envBool("DUMMY_VERIFIERS")) {
+            // DUMMY MODE: Use OpVerifier for SGX slot (allows fast testing)
+            // Accepts: OP (as "sgx") + (OP or RISC0 or SP1)
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new ShastaDevnetVerifier(
+                        opVerifier,
+                        opVerifier, // OpVerifier in SGX slot (dummy anchor)
+                        verifiers.risc0RethVerifier,
+                        verifiers.sp1RethVerifier
+                    )
                 )
-            )
-        });
+            });
+        } else {
+            // Accepts: SGX + (OP or RISC0 or SP1)
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new ShastaDevnetVerifier(
+                        opVerifier,
+                        verifiers.sgxRethVerifier,
+                        verifiers.risc0RethVerifier,
+                        verifiers.sp1RethVerifier
+                    )
+                )
+            });
+        }
 
         Ownable2StepUpgradeable(proofVerifier).transferOwnership(contractOwner);
         // ---------------------------------------------------------------
@@ -233,10 +255,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        // Proof verifier
+        // Proof verifier (placeholder - will be upgraded later with real verifiers)
         proofVerifier = deployProxy({
             name: "proof_verifier",
-            impl: address(new ShastaAnyVerifier(address(0), address(0), address(0))),
+            impl: address(new ShastaDevnetVerifier(address(0), address(0), address(0), address(0))),
             data: ""
         });
 
@@ -273,7 +295,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         VerifierAddresses memory verifiers;
 
-        // Deploy automata attestation for SGX verifier
+        // Deploy automata attestation for SGX verifier (always deployed)
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
         // Log addresses for the user to register sgx instance
@@ -288,11 +310,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        // Deploy SGX Reth verifier
+        // Deploy SGX Reth verifier (always deployed)
         verifiers.sgxRethVerifier =
             address(new ShastaSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), owner, automataProxy));
+        console2.log("Deployed ShastaSgxVerifier:", verifiers.sgxRethVerifier);
 
-        // Deploy ZK verifiers (RISC0 and SP1)
+        // Deploy ZK verifiers (RISC0 and SP1) - always deployed in both modes
+        // Note: Even in DUMMY mode, we deploy real ZK verifiers (matching old behavior)
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
             deployZKVerifiers(owner, uint64(vm.envUint("L2_CHAIN_ID")));
 
