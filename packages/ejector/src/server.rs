@@ -13,7 +13,8 @@ pub async fn spawn_server(
 
     let router = health_router.merge(metrics::router());
 
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port as u16);
+    let port = u16::try_from(port).map_err(|_| eyre::eyre!("port out of range: {port}"))?;
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
 
     let listener = tokio::net::TcpListener::bind(socket).await.expect("Could not bind to socket");
 

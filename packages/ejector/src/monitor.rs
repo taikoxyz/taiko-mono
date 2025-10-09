@@ -54,7 +54,8 @@ impl Monitor {
         min_operators: u64,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
-        let eject_after = target_block_time * eject_after_n_slots_missed as u32;
+        let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
+        let eject_after = Duration::from_secs(eject_after_secs);
 
         Self {
             beacon_client,
