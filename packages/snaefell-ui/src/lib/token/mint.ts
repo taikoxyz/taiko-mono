@@ -42,7 +42,8 @@ export async function mint({
     onTransaction(tx);
   }
 
-  let nounId: number = 0;
+  // tokenId of the minted NFT(s); renamed from nounId for clarity
+  let tokenId: number = 0;
 
   const receipt = await waitForTransactionReceipt(config, { hash: tx });
 
@@ -61,8 +62,8 @@ export async function mint({
           to: string;
           tokenId: bigint;
         } = decoded.args as any;
-        nounId = parseInt(args.tokenId.toString());
-        tokenIds.push(nounId);
+        tokenId = parseInt(args.tokenId.toString());
+        tokenIds.push(tokenId);
       }
     } catch (e: any) {
       throw new FilterLogsError(e.message);
