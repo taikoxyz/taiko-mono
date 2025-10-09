@@ -1,8 +1,7 @@
 use std::time::{Duration, Instant};
 
-use tokio::time::sleep;
-
 use alloy::{primitives::B256, providers::Provider};
+use tokio::time::sleep;
 use tracing::warn;
 
 pub async fn poll_receipt_until<P>(
