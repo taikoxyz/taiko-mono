@@ -85,7 +85,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     }
 
     /// @inheritdoc ISignalServiceShasta
-    /// @dev This function may revert.
     function proveSignalReceived(
         uint64 _chainId,
         address _app,
@@ -144,8 +143,8 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         require(msg.sender == _authorizedSyncer, SS_UNAUTHORIZED());
-        require(_checkpoint.stateRoot != bytes32(0), SS_INVALID_CHECKPOINT());
-        require(_checkpoint.blockHash != bytes32(0), SS_INVALID_CHECKPOINT());
+        require(_checkpoint.stateRoot != 0, SS_INVALID_CHECKPOINT());
+        require(_checkpoint.blockHash != 0, SS_INVALID_CHECKPOINT());
 
         _checkpoints[_checkpoint.blockNumber] =
             CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
@@ -161,11 +160,12 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         returns (Checkpoint memory checkpoint)
     {
         CheckpointRecord storage record = _checkpoints[_blockNumber];
-        require(record.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
+        bytes32 blockHash = record.blockHash;
+        require(blockHash != 0, SS_CHECKPOINT_NOT_FOUND());
 
         checkpoint = Checkpoint({
             blockNumber: _blockNumber,
-            blockHash: record.blockHash,
+            blockHash: blockHash,
             stateRoot: record.stateRoot
         });
     }
@@ -237,7 +237,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         require(proof.accountProof.length != 0 && proof.storageProof.length != 0, SS_EMPTY_PROOF());
 
         CheckpointRecord storage checkpoint = _checkpoints[uint48(proof.blockId)];
-        require(checkpoint.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
+        require(checkpoint.blockHash != 0, SS_CHECKPOINT_NOT_FOUND());
 
         bytes32 stateRoot = checkpoint.stateRoot;
         require(stateRoot == proof.rootHash, SS_INVALID_CHECKPOINT());
