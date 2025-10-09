@@ -13,10 +13,9 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -28,7 +27,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
+contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
@@ -90,9 +89,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
-    /// @notice The maximum number of checkpoints to store in ring buffer.
-    uint16 internal immutable _maxCheckpointHistory;
-
     /// @notice The minimum delay between checkpoints in seconds.
     uint16 internal immutable _minCheckpointDelay;
 
@@ -133,9 +129,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    /// @dev Storage for checkpoint management
-    /// @dev 2 slots used
-    LibCheckpointStore.Storage private _checkpointStorage;
+    /// @notice Signal service responsible for checkpoints
+    ICheckpointStore public immutable signalService;
 
     uint256[37] private __gap;
 
@@ -146,13 +141,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
+        require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
+        signalService = ICheckpointStore(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
@@ -162,7 +158,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
-        _maxCheckpointHistory = _config.maxCheckpointHistory;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
         _compositeKeyVersion = _config.compositeKeyVersion;
@@ -331,6 +326,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         config_ = IInbox.Config({
             codec: _codec,
             bondToken: address(_bondToken),
+            signalService: address(signalService),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -342,26 +338,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
-            maxCheckpointHistory: _maxCheckpointHistory,
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             compositeKeyVersion: _compositeKeyVersion
         });
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointBlockNumber() external view returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getNumberOfCheckpoints() external view returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------
@@ -945,9 +925,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage, _checkpoint, _maxCheckpointHistory
-            );
+            signalService.saveCheckpoint(_checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
         } else {
             require(

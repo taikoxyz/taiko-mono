@@ -210,6 +210,7 @@ See inline comments for specific safety justifications on each unchecked block.
 Due to aggressive use of unchecked blocks throughout these contracts, developers **MUST** explicitly cast values to their proper types before performing mathematical operations when mixing different numeric types. Without explicit casts, Solidity may perform implicit conversions that could lead to unexpected results within unchecked blocks.
 
 **Example:**
+
 ```solidity
 // ✅ CORRECT - Explicit casting
 uint256(uint48Value) + uint256(anotherUint48)

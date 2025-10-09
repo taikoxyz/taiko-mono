@@ -55,7 +55,6 @@ export async function deployTaikoAnchor(
         config.livenessBondGwei,
         config.provabilityBondGwei,
         config.withdrawalDelay,
-        config.maxCheckpointHistory,
         config.minBond,
         config.bondToken,
     );
@@ -134,7 +133,6 @@ async function generateContractConfigs(
     livenessBondGwei: number,
     provabilityBondGwei: number,
     withdrawalDelay: number,
-    maxCheckpointHistory: number,
     minBond: number,
     bondToken: string,
 ): Promise<any> {
@@ -192,12 +190,6 @@ async function generateContractConfigs(
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
         ),
-        LibCheckpointStore: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./LibCheckpointStore.sol/LibCheckpointStore.json",
-            ),
-        ),
         LibBonds: require(
             path.join(ARTIFACTS_PATH, "./LibBonds.sol/LibBonds.json"),
         ),
@@ -247,7 +239,6 @@ async function generateContractConfigs(
         getImmutableReference("ShastaAnchor", ["livenessBondGwei"]),
         getImmutableReference("ShastaAnchor", ["provabilityBondGwei"]),
         getImmutableReference("ShastaAnchor", ["bondManager"]),
-        getImmutableReference("ShastaAnchor", ["maxCheckpointHistory"]),
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -780,13 +771,6 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
-                    {
-                        id: taikoAnchorReferencesMap.maxCheckpointHistory.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(maxCheckpointHistory),
-                            32,
-                        ),
-                    },
                 ]),
                 addressMap,
             ),
@@ -878,11 +862,6 @@ async function generateContractConfigs(
             address: addressMap.LibNetwork,
             deployedBytecode:
                 contractArtifacts.LibNetwork.deployedBytecode.object,
-        },
-        LibCheckpointStore: {
-            address: addressMap.LibCheckpointStore,
-            deployedBytecode:
-                contractArtifacts.LibCheckpointStore.deployedBytecode.object,
         },
         LibBonds: {
             address: addressMap.LibBonds,

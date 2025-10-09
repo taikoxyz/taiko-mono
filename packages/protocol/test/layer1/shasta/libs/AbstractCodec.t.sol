@@ -157,7 +157,7 @@ abstract contract AbstractCodecTest is Test {
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 99_999,
+            blockNumber: 23_456,
             blockHash: bytes32(uint256(0xeeee)),
             stateRoot: bytes32(uint256(0xffff))
         });
@@ -213,7 +213,7 @@ abstract contract AbstractCodecTest is Test {
         assertNotEq(hash, bytes32(0), "Empty transitions array hash should not be zero");
     }
 
-    function test_hashTransitionsWithMetadata_Single() public view {
+    function test_hashTransitionsArray_Single() public view {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),
@@ -236,7 +236,7 @@ abstract contract AbstractCodecTest is Test {
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
     }
 
-    function test_hashTransitionsWithMetadata_Two() public view {
+    function test_hashTransitionsArray_Two() public view {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 12_345,
             blockHash: bytes32(uint256(0xabcd)),

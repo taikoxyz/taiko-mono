@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "./BuildProposal.sol";
-import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
 import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
 

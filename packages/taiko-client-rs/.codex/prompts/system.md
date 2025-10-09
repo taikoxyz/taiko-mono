@@ -458,6 +458,7 @@ let custom_provider = ProviderBuilder::new()
 Alloy provides a rich type system for blockchain interactions through two main crates:
 
 #### Consensus Types (`alloy-consensus`)
+
 Core blockchain primitives that represent the actual on-chain data structures:
 
 ```rust
@@ -494,6 +495,7 @@ let eip1559_tx = TxEip1559 {
 ```
 
 #### RPC Types (`alloy-rpc-types`)
+
 JSON-RPC API types for interacting with Ethereum nodes:
 
 ```rust
@@ -717,7 +719,7 @@ let op_tx_request = OpTransactionRequest {
 
 ### OP-Stack Network Configuration
 
-```rust
+````rust
 use op_alloy_network::Optimism;
 use alloy::providers::ProviderBuilder;
 
@@ -794,7 +796,7 @@ async fn deploy_to_all_op_chains(
 
     Ok(addresses)
 }
-```
+````
 
 </op_stack_support>
 
@@ -1242,32 +1244,32 @@ clap = { version = "4.0", features = ["derive"] }
 </configuration_examples>
 
 <user_prompt>
+
 # alloy
 
 ## v1.0 Changes
 
 #### Revamping the `sol!` macro bindings
 
-* [Contract and RPC codegen made cleaner by removal of the `T` transport generic](/migrating-to-core-v1/sol!-changes/removing-T-generic)
-* [Improving the function return types by removing the need for `_0`](/migrating-to-core-v1/sol!-changes/improving-function-return-types)
-* [Changes to function call bindings e.g `pub struct balanceOfCall { _0: Address }` to `pub struct balanceOfCall(pub Address)`](/migrating-to-core-v1/sol!-changes/changes-to-function-call-bindings)
-* [Changes to event bindings](/migrating-to-core-v1/sol!-changes/changes-to-event-bindings)
-* [Changes to error bindings](/migrating-to-core-v1/sol!-changes/changes-to-error-bindings)
+- [Contract and RPC codegen made cleaner by removal of the `T` transport generic](/migrating-to-core-v1/sol!-changes/removing-T-generic)
+- [Improving the function return types by removing the need for `_0`](/migrating-to-core-v1/sol!-changes/improving-function-return-types)
+- [Changes to function call bindings e.g `pub struct balanceOfCall { _0: Address }` to `pub struct balanceOfCall(pub Address)`](/migrating-to-core-v1/sol!-changes/changes-to-function-call-bindings)
+- [Changes to event bindings](/migrating-to-core-v1/sol!-changes/changes-to-event-bindings)
+- [Changes to error bindings](/migrating-to-core-v1/sol!-changes/changes-to-error-bindings)
 
 #### Simplify ABI encoding and decoding
 
-* [ABI encoding function return structs](/migrating-to-core-v1/encoding-decoding-changes/encoding-return-structs)
-* [Removing `validate: bool` from the `abi_decode` methods](/migrating-to-core-v1/encoding-decoding-changes/removing-validate-bool)
+- [ABI encoding function return structs](/migrating-to-core-v1/encoding-decoding-changes/encoding-return-structs)
+- [Removing `validate: bool` from the `abi_decode` methods](/migrating-to-core-v1/encoding-decoding-changes/removing-validate-bool)
 
 #### Other breaking changes
 
-* [Removal of the deprecated `Signature` type. `PrimitiveSignature` is now aliased to `Signature`](https://github.com/alloy-rs/core/pull/899)
-* [Renaming methods in User-defined types (UDT)'s bindings and implementing `From` and `Into` traits for UDT's](https://github.com/alloy-rs/core/pull/905)
-* [Bumping `getrandom` and `rand`](https://github.com/alloy-rs/core/pull/869)
-* [Removal of `From<String>` for `Bytes`](https://github.com/alloy-rs/core/pull/907)
+- [Removal of the deprecated `Signature` type. `PrimitiveSignature` is now aliased to `Signature`](https://github.com/alloy-rs/core/pull/899)
+- [Renaming methods in User-defined types (UDT)'s bindings and implementing `From` and `Into` traits for UDT's](https://github.com/alloy-rs/core/pull/905)
+- [Bumping `getrandom` and `rand`](https://github.com/alloy-rs/core/pull/869)
+- [Removal of `From<String>` for `Bytes`](https://github.com/alloy-rs/core/pull/907)
 
 If you'd like to dive into the details of each change, please take a look at this [PR](https://github.com/alloy-rs/core/pull/895)
-
 
 ### Querying Contracts
 
@@ -1288,7 +1290,6 @@ If you'd like to dive into the details of each change, please take a look at thi
 ```rust
 // [!include ~/snippets/queries/examples/query_logs.rs]
 ```
-
 
 ### Reading a contract
 
@@ -1328,7 +1329,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
-
 
 ### Using the sol! macro
 
@@ -1503,7 +1503,6 @@ The bytecode is also loaded from Foundry-style JSON artifact files.
 
 You can find a full list of attributes [here](https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html#attributes).
 
-
 ### Writing to a contract
 
 The `sol!` macro also helps up building transactions and submit them to the chain seamless.
@@ -1564,7 +1563,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-
 ## Building a High-Priority Transaction Queue with Alloy Fillers
 
 In this guide, we will explore more advanced use cases of Alloy Providers APIs. We will cover non-standard ways to instantiate and customize providers and deep dive into custom layers and fillers implementations. We have a lot to cover, so let's get started!
@@ -1576,16 +1574,17 @@ Fillers decorate a Provider, and hook into the transaction lifecycle filling det
 Since, [alloy `v0.11.0`](https://github.com/alloy-rs/alloy/releases/tag/v0.11.0) the most essential fillers are enabled by default when building a provider using `ProviderBuilder::new()`.
 These core fillers are termed as [`RecommendedFillers`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/type.RecommendedFiller.html) and consists of the following:
 
-* [`NonceFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.NonceFiller.html): Fills the `nonce` field of a transaction with the next available nonce.
-* [`ChainIdFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.ChainIdFiller.html): Fills the `chain_id` field of a transaction with the chain ID of the provider.
-* [`GasFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.GasFiller.html): Fills the gas related fields such as `gas_price`, `gas_limit`, `max_fee_per_gas` and `max_priority_fee_per_gas` fields of a transaction with the current gas price.
-* [`BlobGasFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.BlobGasFiller.html): Fills the `max_fee_per_blob_gas` field for EIP-4844 transactions.
+- [`NonceFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.NonceFiller.html): Fills the `nonce` field of a transaction with the next available nonce.
+- [`ChainIdFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.ChainIdFiller.html): Fills the `chain_id` field of a transaction with the chain ID of the provider.
+- [`GasFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.GasFiller.html): Fills the gas related fields such as `gas_price`, `gas_limit`, `max_fee_per_gas` and `max_priority_fee_per_gas` fields of a transaction with the current gas price.
+- [`BlobGasFiller`](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.BlobGasFiller.html): Fills the `max_fee_per_blob_gas` field for EIP-4844 transactions.
 
 In a world without the above fillers, sending a simple transfer transaction looks like the following:
 
 [ `examples/basic_provider.rs`](/examples/providers/basic_provider)
 
 :::code-group
+
 ```rust [basic_provider.rs]
 // [!include ~/snippets/providers/examples/basic_provider.rs]
 ```
@@ -1594,6 +1593,7 @@ In a world without the above fillers, sending a simple transfer transaction look
 Balance before: 0
 Balance after: 1
 ```
+
 :::
 
 In this example, we sent 1 wei from `alice` (default anvil account) to `bob`. You can see that a lot of boilerplate is involved in building the transaction data. We must manually check the account's current `nonce`, network fees, `gas_limit`, and `chain_id`.
@@ -1640,13 +1640,13 @@ In case you want you want to disable the default fillers you can do so by callin
 
 Alloy comes with builder methods for automatically applying fillers to providers:
 
-* [ `wallet`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.wallet) - set `from` based on the wallet's signer address
-* [ `fetch_chain_id`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.fetch_chain_id) - automatically set `chain_id` based on data from the provider
-* [ `with_chain_id`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_chain_id) - automatically set `chain_id` based on provided value
-* [ `with_simple_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_simple_nonce_management) - set `nonce` based on txs count from provider
-* [ `with_cached_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_cached_nonce_management) - like above but with caching
-* [ `with_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_nonce_management) - provided custom `nonce` management strategy
-* [ `with_gas_estimation`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_gas_estimation) - set gas prices based on data from the provider
+- [ `wallet`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.wallet) - set `from` based on the wallet's signer address
+- [ `fetch_chain_id`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.fetch_chain_id) - automatically set `chain_id` based on data from the provider
+- [ `with_chain_id`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_chain_id) - automatically set `chain_id` based on provided value
+- [ `with_simple_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_simple_nonce_management) - set `nonce` based on txs count from provider
+- [ `with_cached_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_cached_nonce_management) - like above but with caching
+- [ `with_nonce_management`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_nonce_management) - provided custom `nonce` management strategy
+- [ `with_gas_estimation`](https://docs.rs/alloy/latest/alloy/providers/struct.ProviderBuilder.html#method.with_gas_estimation) - set gas prices based on data from the provider
 
 Let's go beyond the basics and implement a custom filler to better understand the inner workings.
 
@@ -1659,6 +1659,7 @@ We will query the free [Blocknative Gas API](https://docs.blocknative.com/gas-pr
 We will be working with the following API output:
 
 :::code-group
+
 ```bash [request]
 curl https://api.blocknative.com/gasprices/blockprices
 ```
@@ -1713,6 +1714,7 @@ curl https://api.blocknative.com/gasprices/blockprices
   ]
 }
 ```
+
 :::
 
 It shows gas prices needed to commit tx in the next block, with a specified confidence.
@@ -1819,7 +1821,6 @@ The rest of the example remains the same. It shows a great feature of fillers, i
 
 Fillers are helpful in reworking txs submission logic, depending on any custom conditions. The presented `UrgentQueue` implementation is relatively basic, but should serve you as a starting point for building your custom fillers.
 
-
 ## Interacting with multiple networks
 
 The provider trait is generic over the network type, `Provider<N: Network = Ethereum>`, with the default network set to `Ethereum`.
@@ -1916,7 +1917,6 @@ let provider = ProviderBuilder::new()
     .connect_http("http://localhost:8545");
 ```
 
-
 ## Customizing RPC Communication with Alloy's Layers
 
 In the [previous guide](/guides/fillers), we covered [Alloy fillers](/rpc-providers/understanding-fillers). This time we'll discuss how to use [Alloy layers](https://alloy.rs/examples/layers/README) to customize HTTP-related aspects of RPC client communication.
@@ -1989,13 +1989,14 @@ where
 }
 ```
 
-It's a bit verbose for its minimal functionality. Please refer to the [*inventing the service layer* post](https://tokio.rs/blog/2021-05-14-inventing-the-service-trait) to understand the origin of this boilerplate better.
+It's a bit verbose for its minimal functionality. Please refer to the [_inventing the service layer_ post](https://tokio.rs/blog/2021-05-14-inventing-the-service-trait) to understand the origin of this boilerplate better.
 
 The core functionality of our layer is implemented in the `call` method. You can see that it wraps the unresolved future and delays it by calling `sleep`. This implementation is similar to how we can modify the alloy `Request/Response` cycle. It's worth noting that the `DelayLayer` is generic over the `Service` allowing composibilty/layering with other services.
 
 Here's our `DelayLayer` being added added to a basic tower service:
 
 :::code-group
+
 ```rust [tower_basic.rs]
 #[tokio::main]
 async fn main() {
@@ -2028,9 +2029,10 @@ impl Service<String> for MyService {
     }
 }
 ```
+
 :::
 
-Running this example outputs *"Hello Alice!"* after a 5-second delay.
+Running this example outputs _"Hello Alice!"_ after a 5-second delay.
 
 Layers might sound similar to the fillers, but there's a crucial difference. Fillers can be used to modify the `TransactionRequest` object before it is submitted. Layers work within the `Request/Response` scope, allowing us to customize logic before and after sending the RPC request. If you're familiar with the Alloy predecessor Ethers.rs, you've probably noticed that it used [middleware](https://www.gakonst.com/ethers-rs/middleware/middleware.html) to achieve the same result.
 
@@ -2178,7 +2180,6 @@ You can see that layers provide powerful low-level control over how the provider
 
 Alloy layers combined with fillers allow for elaborate customization of transaction dispatch logic. Mastering these APIs could save you a lot of manual tweaking and enable building robust provider pipelines fine-tuned to your application requirements.
 
-
 ## Multicall and Multicall Batching layer
 
 ### What is Multicall?
@@ -2187,9 +2188,9 @@ Multicall is a smart contract and pattern that allows you to batch multiple read
 
 ### When should I use Multicall ?
 
-* To read multiple contract states e.g. fetching balances, allowances, or prices across multiple contracts
-* To reduce request count e.g. working with public RPC endpoints that have rate limits
-* To ensure data consistency e.g. when you need multiple values from the same blockchain state
+- To read multiple contract states e.g. fetching balances, allowances, or prices across multiple contracts
+- To reduce request count e.g. working with public RPC endpoints that have rate limits
+- To ensure data consistency e.g. when you need multiple values from the same blockchain state
 
 Note that Multicall is not suitable for write operations (transactions that change state) and sequential operations where each call depends on the result of the previous one.
 
@@ -2221,10 +2222,10 @@ You can find the complete example [here](/examples/providers/multicall)
 
 This approach is suitable when:
 
-* You know exactly which calls you want to batch together
-* You need to explicitly collect related data in a single request
-* You need fine-grained control over the order of results
-* You are working with varied contract types in a single batch
+- You know exactly which calls you want to batch together
+- You need to explicitly collect related data in a single request
+- You need fine-grained control over the order of results
+- You are working with varied contract types in a single batch
 
 #### 2. Multicall Batching Layer
 
@@ -2260,13 +2261,12 @@ async fn f(url: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 Find the complete example [here](/examples/providers/multicall_batching). This approach is suitable when:
 
-* You want to optimize existing code without restructuring it
-* You need to batch calls that are made from different parts of your codebase
-
+- You want to optimize existing code without restructuring it
+- You need to batch calls that are made from different parts of your codebase
 
 ## RPC Provider Abstractions
 
-Alloy offers *Provider Wrapping* as a design pattern that lets you extend or customize the behavior of a Provider by encapsulating it inside another object.
+Alloy offers _Provider Wrapping_ as a design pattern that lets you extend or customize the behavior of a Provider by encapsulating it inside another object.
 
 There are several reasons why you would want create your own RPC provider abstractions, for example to simplify complex workflows, or build more intuitive interfaces for particular use cases (like deployment, data indexing, or trading).
 
@@ -2325,7 +2325,6 @@ struct MyProvider<P: Provider + Clone> {
 
 This eliminates common boilerplate and prevents potential performance issues from double Arc-ing.
 
-
 ## Signers vs Ethereum Wallet
 
 ### Signer
@@ -2382,7 +2381,6 @@ let mut wallet = EthereumWallet::from(pk_signer)
 // Changes the default signer to `aws_signer`
 wallet.register_default_signer(aws_signer);
 ```
-
 
 ## Build a fast MEV bot with Alloy's Primitive Types
 
@@ -2453,7 +2451,7 @@ pub fn get_amount_in(
 //...
 ```
 
-*Implemenation details are omitted for brevity.*
+_Implemenation details are omitted for brevity._
 
 `UniV2Pair` struct represents pools that we will be working with. `get_amount_out` is a standard calculation for determining how much of a given ERC20 you can buy from the pool after paying the protocol fees. `get_amount_in` is the profitable input amount formula that we borrow from Flashbots repo.
 
@@ -2463,9 +2461,9 @@ It's worth noting that we use handy `address!` and `uint!` macros to generate th
 
 Let's consider the following example: your MEV bot wants to score an arbitrage between UniswapV2 and Sushiswap WETH/DAI pools. Here's how you can calculate the arbitrage in a standard way:
 
-* calculate how much DAI you can buy from the UniswapV2 pool for a sample WETH input amount
-* calculate how much WETH you can buy back from Sushi pool for the previously calculated DAI amount
-* repeat the process for multiple values to determine which yields the best profit
+- calculate how much DAI you can buy from the UniswapV2 pool for a sample WETH input amount
+- calculate how much WETH you can buy back from Sushi pool for the previously calculated DAI amount
+- repeat the process for multiple values to determine which yields the best profit
 
 The above algorithm is iterative. There are ways to minimize the number of iterations, but this topic is outside the scope of this tutorial.
 
@@ -2799,7 +2797,6 @@ We've managed to simulate exactly the same profit of \~`0.00614` ETH that we've 
 
 Rewriting your ethers-rs project could be a significant time investment. But Alloy is here to stay. Starting a migration from the calculations layer will let you reap performance benefits with minimal development effort.
 
-
 ## Performant Static and Dynamic ABI Encoding
 
 In this guide, we will discuss new ways to work with blockchain ABIs introduced in [Alloy](https://alloy.rs). We will showcase basic smart contract interactions and how they compare to [ethers-rs](https://github.com/gakonst/ethers-rs). We will also discuss more advanced ways to interact with runtime-constructed dynamic ABIs.
@@ -2884,6 +2881,7 @@ let calldata = setStructCall {
 We've just imported a Solidity struct straight into the Rust code. You can use [`cast interface`](https://book.getfoundry.sh/reference/cast/cast-interface) CLI to generate Solidity snippets for any verified contract:
 
 :::code-group
+
 ```bash [cast]
 cast interface 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2 --etherscan-api-key API_KEY
 ```
@@ -2908,6 +2906,7 @@ interface WETH9 {
     // ...
 }
 ```
+
 :::
 
 #### Performance benchmark ethers-rs vs. Alloy
@@ -2963,7 +2962,7 @@ sol!(
 
 #### Deploying Smart Contract with `sol!` macro
 
-To deploy a smart contract, you must use its *"build artifact file"*. It's a JSON file you can generate by running the [`forge build` command](https://book.getfoundry.sh/reference/forge/forge-build):
+To deploy a smart contract, you must use its _"build artifact file"_. It's a JSON file you can generate by running the [`forge build` command](https://book.getfoundry.sh/reference/forge/forge-build):
 
 ```shell
 forge build contracts/FlashBotsMultiCall.sol
@@ -3073,17 +3072,16 @@ This time difference is not as dramatic as in static encoding. But Alloy is stil
 
 We've discussed common ways to interact with smart contracts ABI using the new Alloy stack.
 
-
 ## Getting Started \[The simplest, fastest Rust toolkit to interact with any EVM chain]
 
 ### Overview
 
 Alloy is a high-performance Rust toolkit for Ethereum and EVM-based blockchains providing developers with:
 
-* **High Performance**: Optimized primitives with up to 60% faster U256 operations and 10x faster ABI encoding
-* **Developer Experience**: Intuitive API for interacting with Smart contracts via the `sol!` macro
-* **Chain-Agnostic Type System**: Multi-chain support without feature flags or type casting
-* **Extensibility**: Customizable provider architecture with layers and fillers
+- **High Performance**: Optimized primitives with up to 60% faster U256 operations and 10x faster ABI encoding
+- **Developer Experience**: Intuitive API for interacting with Smart contracts via the `sol!` macro
+- **Chain-Agnostic Type System**: Multi-chain support without feature flags or type casting
+- **Extensibility**: Customizable provider architecture with layers and fillers
 
 ### Installation
 
@@ -3231,6 +3229,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 This example shows how to monitor blocks and track the [WETH](https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2) balance of a [Uniswap V3 WETH-USDC](https://etherscan.io/address/0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8) contract in real-time:
 
 :::code-group
+
 ```rust [subscribe_blocks.rs]
 use alloy::{
     primitives::{address, utils::format_ether},
@@ -3301,6 +3300,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 🧱 Block #22445384: 0xc29957a5d4d981dfb02416e7bec45546678914b3e9660fcb7635d0a679bce635
 💰 Uniswap V3 ETH-USDC Pool balance: 7496.034522333161564023 ETH
 ```
+
 :::
 
 ### Crate Features
@@ -3363,11 +3363,10 @@ Most of the crates in Alloy are not `no_std` as they are primarily network-focus
 
 Check out our Guides to see more practical use cases, including:
 
-* [Building MEV bots with Alloy primitives](/guides/speed-up-using-u256)
-* [Seamless contract interaction with the sol! macro](/guides/static-dynamic-abi-in-alloy)
-* [Creating custom transaction fillers for setting priority fees](/guides/fillers)
-* [Using multicall for aggregating RPC requests](/guides/multicall)
-
+- [Building MEV bots with Alloy primitives](/guides/speed-up-using-u256)
+- [Seamless contract interaction with the sol! macro](/guides/static-dynamic-abi-in-alloy)
+- [Creating custom transaction fillers for setting priority fees](/guides/fillers)
+- [Using multicall for aggregating RPC requests](/guides/multicall)
 
 ### Installation
 
@@ -3406,35 +3405,35 @@ The [`alloy`](https://github.com/alloy-rs/alloy/tree/main/crates/alloy) meta-cra
 
 Default
 
-* `std`
-* `reqwest`
-* `alloy-core/default`
-* `essentials`
+- `std`
+- `reqwest`
+- `alloy-core/default`
+- `essentials`
 
 Essentials
 
-* `essentials`:
-  * `contract`
-  * `provider-http`
-  * `rpc-types`
-  * `signer-local`
+- `essentials`:
+  - `contract`
+  - `provider-http`
+  - `rpc-types`
+  - `signer-local`
 
 Full, a set of the most commonly used flags to get started with `alloy`.
 
-* `full`:
-  * `consensus`
-  * `eips`
-  * `essentials`
-  * `k256`
-  * `kzg`
-  * `network`
-  * `provider-ws`
-  * `provider-ipc`
-  * `provider-trace-api`
-  * `provider-txpool-api`
-  * `provider-debug-api`
-  * `provider-anvil-api`
-  * `pubsub`
+- `full`:
+  - `consensus`
+  - `eips`
+  - `essentials`
+  - `k256`
+  - `kzg`
+  - `network`
+  - `provider-ws`
+  - `provider-ipc`
+  - `provider-trace-api`
+  - `provider-txpool-api`
+  - `provider-debug-api`
+  - `provider-anvil-api`
+  - `pubsub`
 
 By default `alloy` uses [`reqwest`](https://crates.io/crates/reqwest) as HTTP client. Alternatively one can switch to [`hyper`](https://crates.io/crates/hyper).
 The `reqwest` and `hyper` feature flags are mutually exclusive.
@@ -3447,53 +3446,52 @@ The feature flags largely correspond with and enable features from the following
 
 `alloy` consists out of the following crates:
 
-* [alloy](https://github.com/alloy-rs/alloy/tree/main/crates/alloy) - Meta-crate for the entire project, including [`alloy-core`](https://docs.rs/alloy-core)
-* [alloy-consensus](https://github.com/alloy-rs/alloy/tree/main/crates/consensus) - Ethereum consensus interface
-* [alloy-contract](https://github.com/alloy-rs/alloy/tree/main/crates/contract) - Interact with on-chain contracts
-* [alloy-eips](https://github.com/alloy-rs/alloy/tree/main/crates/eips) - Ethereum Improvement Proposal (EIP) implementations
-* [alloy-genesis](https://github.com/alloy-rs/alloy/tree/main/crates/genesis) - Ethereum genesis file definitions
-* [alloy-json-rpc](https://github.com/alloy-rs/alloy/tree/main/crates/json-rpc) - Core data types for JSON-RPC 2.0 clients
-* [alloy-network](https://github.com/alloy-rs/alloy/tree/main/crates/network) - Network abstraction for RPC types
-  * [alloy-network-primitives](https://github.com/alloy-rs/alloy/tree/main/crates/network-primitives) - Primitive types for the network abstraction
-* [alloy-node-bindings](https://github.com/alloy-rs/alloy/tree/main/crates/node-bindings) - Ethereum execution-layer client bindings
-* [alloy-provider](https://github.com/alloy-rs/alloy/tree/main/crates/provider) - Interface with an Ethereum blockchain
-* [alloy-pubsub](https://github.com/alloy-rs/alloy/tree/main/crates/pubsub) - Ethereum JSON-RPC [publish-subscribe](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) tower service and type definitions
-* [alloy-rpc-client](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-client) - Low-level Ethereum JSON-RPC client implementation
-* [alloy-rpc-types](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types) - Meta-crate for all Ethereum JSON-RPC types
-  * [alloy-rpc-types-admin](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-admin) - Types for the `admin` Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-anvil](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-anvil) - Types for the [Anvil](https://github.com/foundry-rs/foundry) development node's Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-beacon](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-beacon) - Types for the [Ethereum Beacon Node API](https://ethereum.github.io/beacon-APIs)
-  * [alloy-rpc-types-debug](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-debug) - Types for the `debug` Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-engine](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-engine) - Types for the `engine` Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-eth](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth) - Types for the `eth` Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-mev](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-mev) - Types for the MEV bundle JSON-RPC namespace.
-  * [alloy-rpc-types-trace](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-trace) - Types for the `trace` Ethereum JSON-RPC namespace
-  * [alloy-rpc-types-txpool](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-txpool) - Types for the `txpool` Ethereum JSON-RPC namespace
-* [alloy-serde](https://github.com/alloy-rs/alloy/tree/main/crates/serde) - [Serde](https://serde.rs)-related utilities
-* [alloy-signer](https://github.com/alloy-rs/alloy/tree/main/crates/signer) - Ethereum signer abstraction
-  * [alloy-signer-aws](https://github.com/alloy-rs/alloy/tree/main/crates/signer-aws) - [AWS KMS](https://aws.amazon.com/kms) signer implementation
-  * [alloy-signer-gcp](https://github.com/alloy-rs/alloy/tree/main/crates/signer-gcp) - [GCP KMS](https://cloud.google.com/kms) signer implementation
-  * [alloy-signer-ledger](https://github.com/alloy-rs/alloy/tree/main/crates/signer-ledger) - [Ledger](https://www.ledger.com) signer implementation
-  * [alloy-signer-local](https://github.com/alloy-rs/alloy/tree/main/crates/signer-local) - Local (private key, keystore, mnemonic, YubiHSM) signer implementations
-  * [alloy-signer-trezor](https://github.com/alloy-rs/alloy/tree/main/crates/signer-trezor) - [Trezor](https://trezor.io) signer implementation
-* [alloy-transport](https://github.com/alloy-rs/alloy/tree/main/crates/transport) - Low-level Ethereum JSON-RPC transport abstraction
-  * [alloy-transport-http](https://github.com/alloy-rs/alloy/tree/main/crates/transport-http) - HTTP transport implementation
-  * [alloy-transport-ipc](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ipc) - IPC transport implementation
-  * [alloy-transport-ws](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ws) - WS transport implementation
+- [alloy](https://github.com/alloy-rs/alloy/tree/main/crates/alloy) - Meta-crate for the entire project, including [`alloy-core`](https://docs.rs/alloy-core)
+- [alloy-consensus](https://github.com/alloy-rs/alloy/tree/main/crates/consensus) - Ethereum consensus interface
+- [alloy-contract](https://github.com/alloy-rs/alloy/tree/main/crates/contract) - Interact with on-chain contracts
+- [alloy-eips](https://github.com/alloy-rs/alloy/tree/main/crates/eips) - Ethereum Improvement Proposal (EIP) implementations
+- [alloy-genesis](https://github.com/alloy-rs/alloy/tree/main/crates/genesis) - Ethereum genesis file definitions
+- [alloy-json-rpc](https://github.com/alloy-rs/alloy/tree/main/crates/json-rpc) - Core data types for JSON-RPC 2.0 clients
+- [alloy-network](https://github.com/alloy-rs/alloy/tree/main/crates/network) - Network abstraction for RPC types
+  - [alloy-network-primitives](https://github.com/alloy-rs/alloy/tree/main/crates/network-primitives) - Primitive types for the network abstraction
+- [alloy-node-bindings](https://github.com/alloy-rs/alloy/tree/main/crates/node-bindings) - Ethereum execution-layer client bindings
+- [alloy-provider](https://github.com/alloy-rs/alloy/tree/main/crates/provider) - Interface with an Ethereum blockchain
+- [alloy-pubsub](https://github.com/alloy-rs/alloy/tree/main/crates/pubsub) - Ethereum JSON-RPC [publish-subscribe](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) tower service and type definitions
+- [alloy-rpc-client](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-client) - Low-level Ethereum JSON-RPC client implementation
+- [alloy-rpc-types](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types) - Meta-crate for all Ethereum JSON-RPC types
+  - [alloy-rpc-types-admin](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-admin) - Types for the `admin` Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-anvil](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-anvil) - Types for the [Anvil](https://github.com/foundry-rs/foundry) development node's Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-beacon](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-beacon) - Types for the [Ethereum Beacon Node API](https://ethereum.github.io/beacon-APIs)
+  - [alloy-rpc-types-debug](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-debug) - Types for the `debug` Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-engine](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-engine) - Types for the `engine` Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-eth](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth) - Types for the `eth` Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-mev](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-mev) - Types for the MEV bundle JSON-RPC namespace.
+  - [alloy-rpc-types-trace](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-trace) - Types for the `trace` Ethereum JSON-RPC namespace
+  - [alloy-rpc-types-txpool](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-txpool) - Types for the `txpool` Ethereum JSON-RPC namespace
+- [alloy-serde](https://github.com/alloy-rs/alloy/tree/main/crates/serde) - [Serde](https://serde.rs)-related utilities
+- [alloy-signer](https://github.com/alloy-rs/alloy/tree/main/crates/signer) - Ethereum signer abstraction
+  - [alloy-signer-aws](https://github.com/alloy-rs/alloy/tree/main/crates/signer-aws) - [AWS KMS](https://aws.amazon.com/kms) signer implementation
+  - [alloy-signer-gcp](https://github.com/alloy-rs/alloy/tree/main/crates/signer-gcp) - [GCP KMS](https://cloud.google.com/kms) signer implementation
+  - [alloy-signer-ledger](https://github.com/alloy-rs/alloy/tree/main/crates/signer-ledger) - [Ledger](https://www.ledger.com) signer implementation
+  - [alloy-signer-local](https://github.com/alloy-rs/alloy/tree/main/crates/signer-local) - Local (private key, keystore, mnemonic, YubiHSM) signer implementations
+  - [alloy-signer-trezor](https://github.com/alloy-rs/alloy/tree/main/crates/signer-trezor) - [Trezor](https://trezor.io) signer implementation
+- [alloy-transport](https://github.com/alloy-rs/alloy/tree/main/crates/transport) - Low-level Ethereum JSON-RPC transport abstraction
+  - [alloy-transport-http](https://github.com/alloy-rs/alloy/tree/main/crates/transport-http) - HTTP transport implementation
+  - [alloy-transport-ipc](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ipc) - IPC transport implementation
+  - [alloy-transport-ws](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ws) - WS transport implementation
 
 `alloy-core` consists out of the following crates:
 
-* [alloy-core](https://github.com/alloy-rs/core/tree/main/crates/core) - Meta-crate for the entire project
-* [alloy-dyn-abi](https://github.com/alloy-rs/core/tree/main/crates/dyn-abi) - Run-time [ABI](https://docs.soliditylang.org/en/latest/abi-spec.html) and [EIP-712](https://eips.ethereum.org/EIPS/eip-712) implementations
-* [alloy-json-abi](https://github.com/alloy-rs/core/tree/main/crates/json-abi) - Full Ethereum [JSON-ABI](https://docs.soliditylang.org/en/latest/abi-spec.html#json) implementation
-* [alloy-primitives](https://github.com/alloy-rs/core/tree/main/crates/primitives) - Primitive integer and byte types
-* [alloy-sol-macro-expander](https://github.com/alloy-rs/core/tree/main/crates/sol-macro-expander) - Expander used in the Solidity to Rust procedural macro
-* [alloy-sol-macro-input](https://github.com/alloy-rs/core/tree/main/crates/sol-macro-input) - Input types for [`sol!`](https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html)-like macros
-* [alloy-sol-macro](https://github.com/alloy-rs/core/tree/main/crates/sol-macro) - The [`sol!`](https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html) procedural macro
-* [alloy-sol-type-parser](https://github.com/alloy-rs/core/tree/main/crates/sol-type-parser) - A simple parser for Solidity type strings
-* [alloy-sol-types](https://github.com/alloy-rs/core/tree/main/crates/sol-types) - Compile-time [ABI](https://docs.soliditylang.org/en/latest/abi-spec.html) and [EIP-712](https://eips.ethereum.org/EIPS/eip-712) implementations
-* [syn-solidity](https://github.com/alloy-rs/core/tree/main/crates/syn-solidity) - [`syn`](https://github.com/dtolnay/syn)-powered Solidity parser
-
+- [alloy-core](https://github.com/alloy-rs/core/tree/main/crates/core) - Meta-crate for the entire project
+- [alloy-dyn-abi](https://github.com/alloy-rs/core/tree/main/crates/dyn-abi) - Run-time [ABI](https://docs.soliditylang.org/en/latest/abi-spec.html) and [EIP-712](https://eips.ethereum.org/EIPS/eip-712) implementations
+- [alloy-json-abi](https://github.com/alloy-rs/core/tree/main/crates/json-abi) - Full Ethereum [JSON-ABI](https://docs.soliditylang.org/en/latest/abi-spec.html#json) implementation
+- [alloy-primitives](https://github.com/alloy-rs/core/tree/main/crates/primitives) - Primitive integer and byte types
+- [alloy-sol-macro-expander](https://github.com/alloy-rs/core/tree/main/crates/sol-macro-expander) - Expander used in the Solidity to Rust procedural macro
+- [alloy-sol-macro-input](https://github.com/alloy-rs/core/tree/main/crates/sol-macro-input) - Input types for [`sol!`](https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html)-like macros
+- [alloy-sol-macro](https://github.com/alloy-rs/core/tree/main/crates/sol-macro) - The [`sol!`](https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html) procedural macro
+- [alloy-sol-type-parser](https://github.com/alloy-rs/core/tree/main/crates/sol-type-parser) - A simple parser for Solidity type strings
+- [alloy-sol-types](https://github.com/alloy-rs/core/tree/main/crates/sol-types) - Compile-time [ABI](https://docs.soliditylang.org/en/latest/abi-spec.html) and [EIP-712](https://eips.ethereum.org/EIPS/eip-712) implementations
+- [syn-solidity](https://github.com/alloy-rs/core/tree/main/crates/syn-solidity) - [`syn`](https://github.com/dtolnay/syn)-powered Solidity parser
 
 ## Prompting
 
@@ -5163,25 +5161,24 @@ async fn main() -> eyre::Result<()> {
 </migrate_from_ethers>
 ````
 
-
 ## Why Alloy?
 
 Alloy is the next-generation Rust toolkit for Ethereum development and a complete rewrite of [ethers-rs](https://www.gakonst.com/ethers-rs/getting-started/intro.html). Alloy offers a modular, high-performance, and developer-friendly experience for building on EVM-compatible chains.
 It addresses the various pain points of existing tooling in the Rust Ethereum ecosystem, such as perfomance bottlenecks, cumbersome APIs and having to deal with feature flag that bloat your application.
 
-***
+---
 
 It provides a complete toolkit for Ethereum development in Rust:
 
-* **Seamless smart contract interactions**: The `sol!` macro enables you to parse Solidity syntax directly in Rust code, simplifying contract interactions.
+- **Seamless smart contract interactions**: The `sol!` macro enables you to parse Solidity syntax directly in Rust code, simplifying contract interactions.
 
-* **Simplified RPC Provider Usage**: Alloy enables you to connect to an EVM node in a simple and intuitive way.
+- **Simplified RPC Provider Usage**: Alloy enables you to connect to an EVM node in a simple and intuitive way.
 
-* **Multi-Chain Support**: The `Network` trait allows seamless integration with any EVM-compatible chain without feature flags.
+- **Multi-Chain Support**: The `Network` trait allows seamless integration with any EVM-compatible chain without feature flags.
 
-* **Layered Architecture**: Replaces monolithic middleware with composable layers and fillers, enhancing modularity and clarity.
+- **Layered Architecture**: Replaces monolithic middleware with composable layers and fillers, enhancing modularity and clarity.
 
-* **Optimized Primitives**: Alloy's rewritten core components deliver major performance gains across key Ethereum operations such as ABI encoding/decoding, U256 operations, and RLP encoding and decoding.
+- **Optimized Primitives**: Alloy's rewritten core components deliver major performance gains across key Ethereum operations such as ABI encoding/decoding, U256 operations, and RLP encoding and decoding.
 
 ### Benchmarks
 
@@ -5205,7 +5202,7 @@ Alloy's performance improvements are demonstrated through several key benchmarks
    |             | Ethers    | Alloy      | Speedup       |
    | :---------- | :-------- | :--------- | :------------ |
    | **Static**  | `1.12 μs` | `90.89 ns` | 🚀 **12.32x** |
-   | **Dynamic** | `2.20 μs` | `1.88 μs`  | ✅ **1.17x**   |
+   | **Dynamic** | `2.20 μs` | `1.88 μs`  | ✅ **1.17x**  |
 
 2. **U256 Operations: Uniswap V2 Swap Calculations**: U256 Math is fairly common in EVM land, specially when interacting with DeFi protocols. For this benchmark we shall calculate the token `amountIn` and `amountOut` necessary for swapping.
 
@@ -5240,7 +5237,6 @@ Alloy's performance improvements are demonstrated through several key benchmarks
 Complete benchmarks and their source code can be found [here](https://github.com/alloy-rs/examples/tree/main/benches).
 
 Alloy is already powering major projects like [Foundry](https://github.com/foundry-rs/foundry), [Reth](https://github.com/paradigmxyz/reth), [Arbitrum Stylus](https://github.com/OffchainLabs/stylus-sdk-rs), [OP Kona](https://github.com/op-rs/kona) and many more. It's designed to be the performant and stable foundation for the Rust Ethereum ecosystem.
-
 
 ### Conversions
 
@@ -5455,7 +5451,6 @@ impl ToEthers for BlockNumberOrTag {
 }
 ```
 
-
 ### Reference
 
 [ethers-rs](https://github.com/gakonst/ethers-rs/) has been deprecated in favor of [Alloy](https://github.com/alloy-rs/) and [Foundry](https://github.com/foundry-rs/).
@@ -5464,57 +5459,57 @@ The following is a reference guide for finding the migration path for your speci
 
 #### Documentation
 
-* Book: [`ethers-rs/book`](https://github.com/gakonst/ethers-rs/tree/master/book) `->` [`alloy-rs/book`](https://github.com/alloy-rs/book)
+- Book: [`ethers-rs/book`](https://github.com/gakonst/ethers-rs/tree/master/book) `->` [`alloy-rs/book`](https://github.com/alloy-rs/book)
 
 #### Examples
 
-* Examples: [`ethers-rs/examples`](https://github.com/gakonst/ethers-rs/tree/master/examples) `->` [`alloy-rs/examples`](https://github.com/alloy-rs/examples)
+- Examples: [`ethers-rs/examples`](https://github.com/gakonst/ethers-rs/tree/master/examples) `->` [`alloy-rs/examples`](https://github.com/alloy-rs/examples)
 
 #### Crates
 
-* Meta-crate: [`ethers`](https://github.com/gakonst/ethers-rs/tree/master/ethers) `->` [`alloy`](https://github.com/alloy-rs/alloy/tree/main/crates/alloy)
-* Address book: [`ethers::addressbook`](https://github.com/gakonst/ethers-rs/tree/master/ethers-addressbook) `->` Not planned
-* Compilers: [`ethers::solc`](https://github.com/gakonst/ethers-rs/tree/master/ethers-solc) `->` [`foundry-compilers`](https://github.com/foundry-rs/compilers)
-* Contract: [`ethers::contract`](https://github.com/gakonst/ethers-rs/tree/master/ethers-contract) `->` [`alloy::contract`](https://github.com/alloy-rs/alloy/tree/main/crates/contract)
-* Core: [`ethers::core`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core) `->` [`alloy::core`](https://github.com/alloy-rs/core)
-  * Types: [`ethers::core::types::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types) `->` See [Types](#types) section
-* Etherscan: [`ethers::etherscan`](https://github.com/gakonst/ethers-rs/tree/master/ethers-etherscan) `->` [`foundry-block-explorers`](https://github.com/foundry-rs/block-explorers)
-* Middleware: [`ethers::middleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware) `->` Fillers [`alloy::provider::{fillers, layers}`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src)
-  * Gas oracle: [`ethers::middleware::GasOracleMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/gas_oracle/middleware.rs) `->` Gas filler [`alloy::provider::GasFiller`](https://github.com/alloy-rs/examples/tree/main/examples/fillers/examples/gas_filler.rs)
-  * Gas escalator: [`ethers::middleware::GasEscalatorMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/gas_escalator) `->` Not planned
-  * Transformer: [`ethers::middleware::TransformerMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/transformer) `->` Not planned
-  * Policy: [`ethers::middleware::policy::*`](https://github.com/gakonst/ethers-rs/blob/master/ethers-middleware/src/policy.rs) `->` Not planned
-  * Timelag: [`ethers::middleware::timelag::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/timelag) `->` Not planned
-  * Nonce manager: [`ethers::middleware::NonceManagerMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/nonce_manager.rs) `->` Nonce filler [`alloy::provider::NonceFiller`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src/fillers/nonce.rs)
-  * Signer: [`ethers::middleware::Signer`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/signer.rs) `->` Wallet filler [`alloy::provider::WalletFiller`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src/fillers/wallet.rs)
-* Providers: [`ethers::providers`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers) `->` Provider [`alloy::providers`](https://github.com/alloy-rs/alloy/tree/main/crates/provider)
-* Transports: [`ethers::providers::transports`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports) `->` [`alloy::transports`](https://github.com/alloy-rs/alloy/tree/main/crates/transport)
-  * HTTP: [`ethers::providers::Http`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/http.rs) `->` [`alloy::transports::http`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-http)
-  * IPC: [`ethers::providers::Ipc`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/ipc.rs) `->` [`alloy::transports::ipc`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ipc)
-  * WS: [`ethers::providers::Ws`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/ws) `->` [`alloy::transports::ws`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ws)
-* Signers: [`ethers::signers`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers) `->` Signer [`alloy::signers`](https://github.com/alloy-rs/alloy/tree/main/crates/signer)
-  * AWS: [`ethers::signers::aws::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/aws) `->` [`alloy::signers::aws`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-aws)
-  * Ledger: [`ethers::signers::ledger::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/ledger) `->` [`alloy::signers::ledger`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-ledger)
-  * Trezor: [`ethers::signers::trezor::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/trezor) `->` [`alloy::signer::trezor`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-trezor)
-  * Wallet: [`ethers::signers::wallet::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/wallet) `->` [`alloy::signer::local`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-local)
+- Meta-crate: [`ethers`](https://github.com/gakonst/ethers-rs/tree/master/ethers) `->` [`alloy`](https://github.com/alloy-rs/alloy/tree/main/crates/alloy)
+- Address book: [`ethers::addressbook`](https://github.com/gakonst/ethers-rs/tree/master/ethers-addressbook) `->` Not planned
+- Compilers: [`ethers::solc`](https://github.com/gakonst/ethers-rs/tree/master/ethers-solc) `->` [`foundry-compilers`](https://github.com/foundry-rs/compilers)
+- Contract: [`ethers::contract`](https://github.com/gakonst/ethers-rs/tree/master/ethers-contract) `->` [`alloy::contract`](https://github.com/alloy-rs/alloy/tree/main/crates/contract)
+- Core: [`ethers::core`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core) `->` [`alloy::core`](https://github.com/alloy-rs/core)
+  - Types: [`ethers::core::types::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types) `->` See [Types](#types) section
+- Etherscan: [`ethers::etherscan`](https://github.com/gakonst/ethers-rs/tree/master/ethers-etherscan) `->` [`foundry-block-explorers`](https://github.com/foundry-rs/block-explorers)
+- Middleware: [`ethers::middleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware) `->` Fillers [`alloy::provider::{fillers, layers}`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src)
+  - Gas oracle: [`ethers::middleware::GasOracleMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/gas_oracle/middleware.rs) `->` Gas filler [`alloy::provider::GasFiller`](https://github.com/alloy-rs/examples/tree/main/examples/fillers/examples/gas_filler.rs)
+  - Gas escalator: [`ethers::middleware::GasEscalatorMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/gas_escalator) `->` Not planned
+  - Transformer: [`ethers::middleware::TransformerMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/transformer) `->` Not planned
+  - Policy: [`ethers::middleware::policy::*`](https://github.com/gakonst/ethers-rs/blob/master/ethers-middleware/src/policy.rs) `->` Not planned
+  - Timelag: [`ethers::middleware::timelag::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/timelag) `->` Not planned
+  - Nonce manager: [`ethers::middleware::NonceManagerMiddleware`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/nonce_manager.rs) `->` Nonce filler [`alloy::provider::NonceFiller`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src/fillers/nonce.rs)
+  - Signer: [`ethers::middleware::Signer`](https://github.com/gakonst/ethers-rs/tree/master/ethers-middleware/src/signer.rs) `->` Wallet filler [`alloy::provider::WalletFiller`](https://github.com/alloy-rs/alloy/tree/main/crates/provider/src/fillers/wallet.rs)
+- Providers: [`ethers::providers`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers) `->` Provider [`alloy::providers`](https://github.com/alloy-rs/alloy/tree/main/crates/provider)
+- Transports: [`ethers::providers::transports`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports) `->` [`alloy::transports`](https://github.com/alloy-rs/alloy/tree/main/crates/transport)
+  - HTTP: [`ethers::providers::Http`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/http.rs) `->` [`alloy::transports::http`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-http)
+  - IPC: [`ethers::providers::Ipc`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/ipc.rs) `->` [`alloy::transports::ipc`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ipc)
+  - WS: [`ethers::providers::Ws`](https://github.com/gakonst/ethers-rs/tree/master/ethers-providers/src/rpc/transports/ws) `->` [`alloy::transports::ws`](https://github.com/alloy-rs/alloy/tree/main/crates/transport-ws)
+- Signers: [`ethers::signers`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers) `->` Signer [`alloy::signers`](https://github.com/alloy-rs/alloy/tree/main/crates/signer)
+  - AWS: [`ethers::signers::aws::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/aws) `->` [`alloy::signers::aws`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-aws)
+  - Ledger: [`ethers::signers::ledger::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/ledger) `->` [`alloy::signers::ledger`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-ledger)
+  - Trezor: [`ethers::signers::trezor::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/trezor) `->` [`alloy::signer::trezor`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-trezor)
+  - Wallet: [`ethers::signers::wallet::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-signers/src/wallet) `->` [`alloy::signer::local`](https://github.com/alloy-rs/alloy/tree/main/crates/signer-local)
 
 #### Types
 
 ##### Primitives
 
-* Address: [`ethers::types::Address`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::Address`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* U64: [`ethers::types::U64`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U64`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* U128: [`ethers::types::U128`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U128`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* U256: [`ethers::types::U256`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U256`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* U512: [`ethers::types::U512`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U512`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H32: [`ethers::types::H32`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::aliases::B32`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H64: [`ethers::types::H64`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B64`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H128: [`ethers::types::H128`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B128`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H160: [`ethers::types::H160`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B160`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H256: [`ethers::types::H256`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B256`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* H512: [`ethers::types::H512`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B512`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* Bloom: [`ethers::types::Bloom`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::Bloom`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* TxHash: [`ethers::types::TxHash`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::TxHash`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- Address: [`ethers::types::Address`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::Address`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- U64: [`ethers::types::U64`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U64`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- U128: [`ethers::types::U128`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U128`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- U256: [`ethers::types::U256`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U256`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- U512: [`ethers::types::U512`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::U512`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H32: [`ethers::types::H32`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::aliases::B32`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H64: [`ethers::types::H64`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B64`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H128: [`ethers::types::H128`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B128`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H160: [`ethers::types::H160`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B160`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H256: [`ethers::types::H256`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B256`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- H512: [`ethers::types::H512`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::B512`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- Bloom: [`ethers::types::Bloom`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::Bloom`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- TxHash: [`ethers::types::TxHash`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) `->` [`alloy::primitives::TxHash`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
 
 Due to a [limitation](https://github.com/alloy-rs/core/issues/554#issuecomment-1978620017) in `ruint`, BigEndianHash [`ethers::types::BigEndianHash`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/mod.rs) can be expressed as follows:
 
@@ -5551,28 +5546,26 @@ let z = num.to::<u8>();
 
 ##### RPC
 
-* Bytes: [`ethers::types::bytes::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/bytes.rs) `->` [`alloy::primitives::Bytes`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
-* Chains: [`ethers::types::Chain`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/chain.rs) `->` [`alloy-rs/chains`](https://github.com/alloy-rs/chains)
-* ENS: [`ethers::types::ens`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/ens.rs) `->` [`alloy-ens`](https://github.com/alloy-rs/alloy/blob/main/crates/ens/src/lib.rs)
-* Trace: [`ethers::types::trace::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/trace) `->` [`alloy::rpc::types::trace`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-trace)
-* {Block, Fee, Filter, Log, Syncing, Transaction, TxPool}: [`ethers::types::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types) `->` [`alloy::rpc::types::eth::*`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth/src/lib.rs)
-* Proof: [`ethers::types::proof::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/proof.rs) `->` Account [`alloy::rpc::types::eth::account::*`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth/src/lib.rs)
-* Signature: [`ethers::types::signature::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/signature.rs) `->` [`alloy::primitives::Signature*`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/signature/mod.rs)
-* Withdrawal [`ethers::types::withdrawal::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/withdrawal.rs) `->` EIP4895 [`alloy::eips::eip4895`](https://github.com/alloy-rs/alloy/tree/main/crates/eips/src/eip4895.rs)
-* Opcode: [`ethers::types::opcode::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/opcode.rs) `->` [`syn-solidity`](https://github.com/alloy-rs/core/tree/main/crates/syn-solidity)
+- Bytes: [`ethers::types::bytes::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/bytes.rs) `->` [`alloy::primitives::Bytes`](https://github.com/alloy-rs/core/tree/main/crates/primitives/src/lib.rs)
+- Chains: [`ethers::types::Chain`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/chain.rs) `->` [`alloy-rs/chains`](https://github.com/alloy-rs/chains)
+- ENS: [`ethers::types::ens`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/ens.rs) `->` [`alloy-ens`](https://github.com/alloy-rs/alloy/blob/main/crates/ens/src/lib.rs)
+- Trace: [`ethers::types::trace::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/trace) `->` [`alloy::rpc::types::trace`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-trace)
+- {Block, Fee, Filter, Log, Syncing, Transaction, TxPool}: [`ethers::types::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types) `->` [`alloy::rpc::types::eth::*`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth/src/lib.rs)
+- Proof: [`ethers::types::proof::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/proof.rs) `->` Account [`alloy::rpc::types::eth::account::*`](https://github.com/alloy-rs/alloy/tree/main/crates/rpc-types-eth/src/lib.rs)
+- Signature: [`ethers::types::signature::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/signature.rs) `->` [`alloy::primitives::Signature*`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/signature/mod.rs)
+- Withdrawal [`ethers::types::withdrawal::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/withdrawal.rs) `->` EIP4895 [`alloy::eips::eip4895`](https://github.com/alloy-rs/alloy/tree/main/crates/eips/src/eip4895.rs)
+- Opcode: [`ethers::types::opcode::*`](https://github.com/gakonst/ethers-rs/tree/master/ethers-core/src/types/opcode.rs) `->` [`syn-solidity`](https://github.com/alloy-rs/core/tree/main/crates/syn-solidity)
 
 #### ABI
 
-* Bindings: [`abigen!`](https://github.com/gakonst/ethers-rs/tree/51fe937f6515689b17a3a83b74a05984ad3a7f11/ethers-contract/ethers-contract-abigen) `->` [`sol!`](https://github.com/alloy-rs/core/tree/main/crates/sol-types), available on [`alloy::sol`](https://github.com/alloy-rs/alloy/blob/aea7e07b4b335a3a35e3870a6c277d397d0f3932/crates/alloy/src/lib.rs#L52-L64).
-
+- Bindings: [`abigen!`](https://github.com/gakonst/ethers-rs/tree/51fe937f6515689b17a3a83b74a05984ad3a7f11/ethers-contract/ethers-contract-abigen) `->` [`sol!`](https://github.com/alloy-rs/core/tree/main/crates/sol-types), available on [`alloy::sol`](https://github.com/alloy-rs/alloy/blob/aea7e07b4b335a3a35e3870a6c277d397d0f3932/crates/alloy/src/lib.rs#L52-L64).
 
 ### Other breaking changes
 
-* [Removal of the deprecated `Signature` type. `PrimitiveSignature` is now aliased to `Signature`](https://github.com/alloy-rs/core/pull/899)
-* [Renaming methods in User-defined types (UDT)'s bindings and implementing `From` and `Into` traits for UDT's](https://github.com/alloy-rs/core/pull/905)
-* [Bumping `getrandom` and `rand`](https://github.com/alloy-rs/core/pull/869)
-* [Removal of `From<String>` for `Bytes`](https://github.com/alloy-rs/core/pull/907)
-
+- [Removal of the deprecated `Signature` type. `PrimitiveSignature` is now aliased to `Signature`](https://github.com/alloy-rs/core/pull/899)
+- [Renaming methods in User-defined types (UDT)'s bindings and implementing `From` and `Into` traits for UDT's](https://github.com/alloy-rs/core/pull/905)
+- [Bumping `getrandom` and `rand`](https://github.com/alloy-rs/core/pull/869)
+- [Removal of `From<String>` for `Bytes`](https://github.com/alloy-rs/core/pull/907)
 
 ### HTTP Provider
 
@@ -5599,7 +5592,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
-
 
 ### RPC Provider
 
@@ -5632,7 +5624,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 In order to instantiate a provider in synchronous settings use [`connect_http`](/rpc-providers/http-provider).
 
-
 ### IPC Provider
 
 The [IPC (Inter-Process Communication)](https://en.wikipedia.org/wiki/Inter-process_communication) transport allows our program to communicate with a node over a local [Unix domain socket](https://en.wikipedia.org/wiki/Unix_domain_socket) or [Windows named pipe](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipes).
@@ -5661,7 +5652,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
-
 
 ### Understanding `Fillers`
 
@@ -5692,7 +5682,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 ```rust
 // [!include ~/snippets/fillers/examples/wallet_filler.rs]
 ```
-
 
 ### WS Provider
 
@@ -5729,7 +5718,6 @@ Similar to the other providers, you can also establish an authorized connection 
 // [!include ~/snippets/providers/examples/ws_with_auth.rs]
 ```
 
-
 ### Crafting Transactions
 
 The simplest way to craft transactions is by using the [TransactionRequest](https://docs.rs/alloy-rpc-types/latest/alloy_rpc_types/transaction/struct.TransactionRequest.html) builder with the help of the [TransactionBuilder](https://docs.rs/alloy-network/latest/alloy_network/trait.TransactionBuilder.html). The `TransactionBuilder` provides a convenient interface for setting transaction fields such as recipient, value, gas, data and more, allowing you to easily construct different types of transactions whether you're sending ETH, calling a contract, or deploying a new contract.
@@ -5754,11 +5742,11 @@ This approach ensures your transaction is correctly structured and ready to be s
 
 Alloy supports building a transaction request for all types of transactions via the same `TransactionRequest` builder we used above for crafting an ETH transfer. By default, the `TransactionRequest` attempts to build an [EIP1559](https://eips.ethereum.org/EIPS/eip-1559) transaction. However, you can also build other types of transactions by specifying the required type-specific fields or using specialized builders:
 
-* **Legacy transactions:** Set the `gas_price` field. Omit EIP-1559 fields like `max_fee_per_gas` and `max_priority_fee_per_gas`.
-* **EIP-2930 transactions:** Set the `access_list` field. This creates an access-list transaction.
-* **EIP-1559 transactions:** Set the `max_fee_per_gas` and `max_priority_fee_per_gas` fields. Omit the `gas_price` field.
-* **EIP-4844 transaction:** Use the `TransactionBuilder4844` to set blob specific fields using the `.with_blob_sidecar(..)` method.
-* **EIP-7702 transaction:** Use the `TransactionBuilder7702` to set the authorization list using the `.with_authorization_list(..)` method.
+- **Legacy transactions:** Set the `gas_price` field. Omit EIP-1559 fields like `max_fee_per_gas` and `max_priority_fee_per_gas`.
+- **EIP-2930 transactions:** Set the `access_list` field. This creates an access-list transaction.
+- **EIP-1559 transactions:** Set the `max_fee_per_gas` and `max_priority_fee_per_gas` fields. Omit the `gas_price` field.
+- **EIP-4844 transaction:** Use the `TransactionBuilder4844` to set blob specific fields using the `.with_blob_sidecar(..)` method.
+- **EIP-7702 transaction:** Use the `TransactionBuilder7702` to set the authorization list using the `.with_authorization_list(..)` method.
 
 #### Legacy Transactions
 
@@ -5867,10 +5855,9 @@ Find the full example [here](/transactions/sending-an-EIP-7702-transaction).
 
 The `TransactionBuilder` provides methods inspect the transaction type while building it:
 
-* **`.complete_type(tx_type: TxType)`**: Check if all necessary keys are present to build the specified type, returning a list of missing keys.
-* **`.output_tx_type()`**: Returns the transaction type that this builder will attempt to build. This does not imply that the builder is ready to build.
-* **`.output_tx_type_checked()`**: Like `.output_tx_type()`, Returns `None` if the builder is not ready to build.
-
+- **`.complete_type(tx_type: TxType)`**: Check if all necessary keys are present to build the specified type, returning a list of missing keys.
+- **`.output_tx_type()`**: Returns the transaction type that this builder will attempt to build. This does not imply that the builder is ready to build.
+- **`.output_tx_type_checked()`**: Like `.output_tx_type()`, Returns `None` if the builder is not ready to build.
 
 ### Sending a legacy transaction
 
@@ -5880,7 +5867,6 @@ Send a [pre-EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) legacy transactio
 // [!include ~/snippets/transactions/examples/send_legacy_transaction.rs]
 ```
 
-
 ### Sending an EIP-1559 transaction
 
 Send an [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) transaction by specifying the `max_fee_per_gas` and `max_priority_fee_per_gas` fields. This is also known as a dynamic or priority fee transaction.
@@ -5888,7 +5874,6 @@ Send an [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) transaction by speci
 ```rust
 // [!include ~/snippets/transactions/examples/send_eip1559_transaction.rs]
 ```
-
 
 ### Sending an EIP-4844 transaction
 
@@ -5898,7 +5883,6 @@ Send an [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) transaction by speci
 // [!include ~/snippets/transactions/examples/send_eip4844_transaction.rs]
 ```
 
-
 ### Sending an EIP-7702 transaction
 
 Send an [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction by specifying the `authorization_list` field. This is also known as a set code transaction.
@@ -5906,7 +5890,6 @@ Send an [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction by speci
 ```rust
 // [!include ~/snippets/transactions/examples/send_eip7702_transaction.rs]
 ```
-
 
 ### The transaction lifecycle
 
@@ -5981,10 +5964,10 @@ Let's modify our original `TransactionRequest` to make use of the [RecommendedFi
 
 The `RecommendedFillers` includes the following fillers:
 
-* [GasFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.GasFiller.html)
-* [BlobGasFiller](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.BlobGasFiller.html)
-* [NonceFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.NonceFiller.html)
-* [ChainIdFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.ChainIdFiller.html)
+- [GasFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.GasFiller.html)
+- [BlobGasFiller](https://docs.rs/alloy-provider/latest/alloy_provider/fillers/struct.BlobGasFiller.html)
+- [NonceFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.NonceFiller.html)
+- [ChainIdFiller](https://docs.rs/alloy/latest/alloy/providers/fillers/struct.ChainIdFiller.html)
 
 Because we are using `RecommendedFillers` for filling the `TransactionRequest` we only need a subset of the original fields:
 
@@ -6120,7 +6103,6 @@ This completes the journey of broadcasting a signed transaction. Once the transa
 // [!include ~/snippets/transactions/examples/transfer_eth.rs]
 ```
 
-
 ### Using access lists
 
 Send an [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) access list transaction by specifying the `access_list` field.
@@ -6129,21 +6111,20 @@ Send an [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) access list transact
 // [!include ~/snippets/transactions/examples/with_access_list.rs]
 ```
 
-
 ### Using the `TransactionBuilder`
 
 The [`TransactionBuilder`](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html) is a network specific transaction builder configurable with `.with_*` methods.
 
 Common fields one can configure are:
 
-* [with\_from](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_from)
-* [with\_to](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_to)
-* [with\_nonce](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_nonce)
-* [with\_chain\_id](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_chain_id)
-* [with\_value](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_value)
-* [with\_gas\_limit](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_gas_limit)
-* [with\_max\_priority\_fee\_per\_gas](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_max_priority_fee_per_gas)
-* [with\_max\_fee\_per\_gas](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_max_fee_per_blob_gas)
+- [with_from](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_from)
+- [with_to](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_to)
+- [with_nonce](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_nonce)
+- [with_chain_id](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_chain_id)
+- [with_value](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_value)
+- [with_gas_limit](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_gas_limit)
+- [with_max_priority_fee_per_gas](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_max_priority_fee_per_gas)
+- [with_max_fee_per_gas](https://docs.rs/alloy/latest/alloy/network/trait.TransactionBuilder.html#method.with_max_fee_per_blob_gas)
 
 It is generally recommended to use the builder pattern, as shown, rather than directly setting values (`with_to` versus `set_to`).
 
@@ -6159,13 +6140,11 @@ let tx = TransactionRequest::default()
         .with_max_fee_per_gas(20_000_000_000);
 ```
 
-
 ### Initializing Big Numbers
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/create_instances.rs]
 ```
-
 
 ### Common conversions
 
@@ -6173,13 +6152,11 @@ let tx = TransactionRequest::default()
 // [!include ~/snippets/big-numbers/examples/conversion.rs]
 ```
 
-
 ### Comparisons and equivalence
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/comparison_equivalence.rs]
 ```
-
 
 ### Basic hash and address types
 
@@ -6194,7 +6171,6 @@ let tx = TransactionRequest::default()
 ```rust
 // [!include ~/snippets/primitives/examples/hashing_functions.rs]
 ```
-
 
 ### Primitives
 
@@ -6267,7 +6243,7 @@ This type allows us to more tightly control serialization, deserialization. rlp 
 
 Users looking to prevent type-confusion between byte arrays of different lengths should use the `wrap_fixed_bytes!` macro to create a new fixed-length byte array type.
 
-For example the aforementioned `Address` type is a wrapper around `FixedBytes<20>` built using the [wrap\_fixed\_bytes](https://docs.rs/alloy-primitives/latest/alloy_primitives/macro.wrap_fixed_bytes.html) macro.
+For example the aforementioned `Address` type is a wrapper around `FixedBytes<20>` built using the [wrap_fixed_bytes](https://docs.rs/alloy-primitives/latest/alloy_primitives/macro.wrap_fixed_bytes.html) macro.
 
 ```rust
 use alloy::primitives::{FixedBytes, fixed_bytes, b256};
@@ -6283,7 +6259,6 @@ let b256 = b256!("0xda7f09ac9b43acb4eb7d7c74dd5de20906ddd33fd4d82d8cb96997694b2d
 assert_eq!(byte_array, b256);
 ```
 
-
 ### Using big numbers
 
 Ethereum uses big numbers (also known as "bignums" or "arbitrary-precision integers") to represent certain values in its codebase and in blockchain transactions. This is necessary because the [EVM](https://ethereum.org/en/developers/docs/evm) operates on a 256-bit word size, which is different from the usual 32-bit or 64-bit of modern machines. This was chosen for the ease of use with 256-bit cryptography (such as [Keccak-256](https://github.com/ethereum/eth-hash) hashes or [secp256k1](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm) signatures).
@@ -6292,7 +6267,7 @@ It is worth noting that Ethereum is not the only blockchain or cryptocurrency th
 
 #### Utilities
 
-In order to create an application, it is often necessary to convert between the representation of values that is easily understood by humans (such as ether) and the machine-readable form that is used by contracts and math functions (such as wei). This is particularly important when working with Ethereum, as certain values, such as balances and gas prices, must be expressed in wei when sending transactions, even if they are displayed to the user in a different format, such as ether or gwei. To help with this conversion, `alloy::primitives::utils` provides two functions, [`parse_units`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/utils/units.rs) and [`format_units`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/utils/units.rs), which allow you to easily convert between human-readable and machine-readable forms of values. parse\_units can be used to convert a string representing a value in ether, such as "1.1", into a big number in wei, which can be used in contracts and math functions. format\_units can be used to convert a big number value into a human-readable string, which is useful for displaying values to users.
+In order to create an application, it is often necessary to convert between the representation of values that is easily understood by humans (such as ether) and the machine-readable form that is used by contracts and math functions (such as wei). This is particularly important when working with Ethereum, as certain values, such as balances and gas prices, must be expressed in wei when sending transactions, even if they are displayed to the user in a different format, such as ether or gwei. To help with this conversion, `alloy::primitives::utils` provides two functions, [`parse_units`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/utils/units.rs) and [`format_units`](https://github.com/alloy-rs/core/blob/main/crates/primitives/src/utils/units.rs), which allow you to easily convert between human-readable and machine-readable forms of values. parse_units can be used to convert a string representing a value in ether, such as "1.1", into a big number in wei, which can be used in contracts and math functions. format_units can be used to convert a big number value into a human-readable string, which is useful for displaying values to users.
 
 #### Math Operations
 
@@ -6306,24 +6281,22 @@ In order to create an application, it is often necessary to convert between the 
 // [!include ~/snippets/big-numbers/examples/math_utilities.rs]
 ```
 
-
 import Template from '../../templates/advanced/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `any_network`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example any_network`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example any_network`
 
 ```rust
 // [!include ~/snippets/advanced/examples/any_network.rs]
@@ -6331,19 +6304,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/any_network.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `decoding_json_abi`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example decoding_json_abi`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example decoding_json_abi`
 
 ```rust
 // [!include ~/snippets/advanced/examples/decoding_json_abi.rs]
@@ -6351,19 +6323,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/decoding_json_abi.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `encoding_dyn_abi`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example encoding_dyn_abi`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example encoding_dyn_abi`
 
 ```rust
 // [!include ~/snippets/advanced/examples/encoding_dyn_abi.rs]
@@ -6371,19 +6342,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/encoding_dyn_abi.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `encoding_sol_static`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example encoding_sol_static`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example encoding_sol_static`
 
 ```rust
 // [!include ~/snippets/advanced/examples/encoding_sol_static.rs]
@@ -6391,19 +6361,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/encoding_sol_static.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `foundry_fork_db`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example foundry_fork_db`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example foundry_fork_db`
 
 ```rust
 // [!include ~/snippets/advanced/examples/foundry_fork_db.rs]
@@ -6411,19 +6380,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/foundry_fork_db.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `reth_db_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example reth_db_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example reth_db_layer`
 
 ```rust
 // [!include ~/snippets/advanced/examples/reth_db_layer.rs]
@@ -6431,19 +6399,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/reth_db_layer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/advanced/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `reth_db_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example reth_db_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example reth_db_provider`
 
 ```rust
 // [!include ~/snippets/advanced/examples/reth_db_provider.rs]
@@ -6451,24 +6418,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/advanced/examples/reth_db_provider.rs).
 
-
 import Template from '../../templates/big-numbers/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `comparison_equivalence`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example comparison_equivalence`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example comparison_equivalence`
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/comparison_equivalence.rs]
@@ -6476,19 +6441,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/big-numbers/examples/comparison_equivalence.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `conversion`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example conversion`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example conversion`
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/conversion.rs]
@@ -6496,19 +6460,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/big-numbers/examples/conversion.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `create_instances`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example create_instances`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example create_instances`
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/create_instances.rs]
@@ -6516,19 +6479,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/big-numbers/examples/create_instances.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `math_operations`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example math_operations`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example math_operations`
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/math_operations.rs]
@@ -6536,19 +6498,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/big-numbers/examples/math_operations.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/big-numbers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `math_utilities`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example math_utilities`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example math_utilities`
 
 ```rust
 // [!include ~/snippets/big-numbers/examples/math_utilities.rs]
@@ -6556,24 +6517,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/big-numbers/examples/math_utilities.rs).
 
-
 import Template from '../../templates/comparison/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/comparison/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/comparison/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `compare_new_heads`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example compare_new_heads`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example compare_new_heads`
 
 ```rust
 // [!include ~/snippets/comparison/examples/compare_new_heads.rs]
@@ -6581,19 +6540,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/comparison/examples/compare_new_heads.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/comparison/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/comparison/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `compare_pending_txs`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example compare_pending_txs`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example compare_pending_txs`
 
 ```rust
 // [!include ~/snippets/comparison/examples/compare_pending_txs.rs]
@@ -6601,24 +6559,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/comparison/examples/compare_pending_txs.rs).
 
-
 import Template from '../../templates/contracts/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `arb_profit_calc`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example arb_profit_calc`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example arb_profit_calc`
 
 ```rust
 // [!include ~/snippets/contracts/examples/arb_profit_calc.rs]
@@ -6626,19 +6582,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/arb_profit_calc.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `deploy_and_link_library`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example deploy_and_link_library`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example deploy_and_link_library`
 
 ```rust
 // [!include ~/snippets/contracts/examples/deploy_and_link_library.rs]
@@ -6646,19 +6601,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/deploy_and_link_library.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `deploy_from_artifact`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example deploy_from_artifact`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example deploy_from_artifact`
 
 ```rust
 // [!include ~/snippets/contracts/examples/deploy_from_artifact.rs]
@@ -6666,19 +6620,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/deploy_from_artifact.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `deploy_from_bytecode`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example deploy_from_bytecode`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example deploy_from_bytecode`
 
 ```rust
 // [!include ~/snippets/contracts/examples/deploy_from_bytecode.rs]
@@ -6686,19 +6639,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/deploy_from_bytecode.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `deploy_from_contract`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example deploy_from_contract`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example deploy_from_contract`
 
 ```rust
 // [!include ~/snippets/contracts/examples/deploy_from_contract.rs]
@@ -6706,19 +6658,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/deploy_from_contract.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `helpers`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example helpers`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example helpers`
 
 ```rust
 // [!include ~/snippets/contracts/examples/helpers.rs]
@@ -6726,19 +6677,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/helpers.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `interact_with_abi`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example interact_with_abi`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example interact_with_abi`
 
 ```rust
 // [!include ~/snippets/contracts/examples/interact_with_abi.rs]
@@ -6746,19 +6696,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/interact_with_abi.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `interact_with_contract_instance`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example interact_with_contract_instance`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example interact_with_contract_instance`
 
 ```rust
 // [!include ~/snippets/contracts/examples/interact_with_contract_instance.rs]
@@ -6766,19 +6715,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/interact_with_contract_instance.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `jsonrpc_error_decoding`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example jsonrpc_error_decoding`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example jsonrpc_error_decoding`
 
 ```rust
 // [!include ~/snippets/contracts/examples/jsonrpc_error_decoding.rs]
@@ -6786,19 +6734,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/jsonrpc_error_decoding.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `revert_decoding`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example revert_decoding`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example revert_decoding`
 
 ```rust
 // [!include ~/snippets/contracts/examples/revert_decoding.rs]
@@ -6806,19 +6753,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/revert_decoding.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `simulation_uni_v2`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example simulation_uni_v2`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example simulation_uni_v2`
 
 ```rust
 // [!include ~/snippets/contracts/examples/simulation_uni_v2.rs]
@@ -6826,19 +6772,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/simulation_uni_v2.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `unknown_return_types`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example unknown_return_types`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example unknown_return_types`
 
 ```rust
 // [!include ~/snippets/contracts/examples/unknown_return_types.rs]
@@ -6846,24 +6791,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/unknown_return_types.rs).
 
-
 import Template from '../../templates/fillers/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `gas_filler`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example gas_filler`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example gas_filler`
 
 ```rust
 // [!include ~/snippets/fillers/examples/gas_filler.rs]
@@ -6871,19 +6814,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/fillers/examples/gas_filler.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `nonce_filler`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example nonce_filler`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example nonce_filler`
 
 ```rust
 // [!include ~/snippets/fillers/examples/nonce_filler.rs]
@@ -6891,19 +6833,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/fillers/examples/nonce_filler.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `recommended_fillers`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example recommended_fillers`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example recommended_fillers`
 
 ```rust
 // [!include ~/snippets/fillers/examples/recommended_fillers.rs]
@@ -6911,19 +6852,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/fillers/examples/recommended_fillers.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `urgent_filler`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example urgent_filler`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example urgent_filler`
 
 ```rust
 // [!include ~/snippets/fillers/examples/urgent_filler.rs]
@@ -6931,19 +6871,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/fillers/examples/urgent_filler.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/fillers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `wallet_filler`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example wallet_filler`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example wallet_filler`
 
 ```rust
 // [!include ~/snippets/fillers/examples/wallet_filler.rs]
@@ -6951,24 +6890,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/fillers/examples/wallet_filler.rs).
 
-
 import Template from '../../templates/layers/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `delay_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example delay_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example delay_layer`
 
 ```rust
 // [!include ~/snippets/layers/examples/delay_layer.rs]
@@ -6976,19 +6913,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/layers/examples/delay_layer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `fallback_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example fallback_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example fallback_layer`
 
 ```rust
 // [!include ~/snippets/layers/examples/fallback_layer.rs]
@@ -6996,19 +6932,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/layers/examples/fallback_layer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `hyper_http_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example hyper_http_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example hyper_http_layer`
 
 ```rust
 // [!include ~/snippets/layers/examples/hyper_http_layer.rs]
@@ -7016,19 +6951,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/layers/examples/hyper_http_layer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `logging_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example logging_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example logging_layer`
 
 ```rust
 // [!include ~/snippets/layers/examples/logging_layer.rs]
@@ -7036,19 +6970,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/layers/examples/logging_layer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/layers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `retry_layer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example retry_layer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example retry_layer`
 
 ```rust
 // [!include ~/snippets/layers/examples/retry_layer.rs]
@@ -7056,24 +6989,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/layers/examples/retry_layer.rs).
 
-
 import Template from '../../templates/node-bindings/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_deploy_contract`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_deploy_contract`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_deploy_contract`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_deploy_contract.rs]
@@ -7081,19 +7012,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_deploy_contract.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_fork_instance`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_fork_instance`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_fork_instance`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_fork_instance.rs]
@@ -7101,19 +7031,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_fork_instance.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_fork_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_fork_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_fork_provider`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_fork_provider.rs]
@@ -7121,19 +7050,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_fork_provider.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_local_instance`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_local_instance`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_local_instance`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_local_instance.rs]
@@ -7141,19 +7069,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_local_instance.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_local_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_local_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_local_provider`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_local_provider.rs]
@@ -7161,19 +7088,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_local_provider.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `anvil_set_storage_at`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example anvil_set_storage_at`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example anvil_set_storage_at`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/anvil_set_storage_at.rs]
@@ -7181,19 +7107,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/anvil_set_storage_at.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `geth_local_instance`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example geth_local_instance`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example geth_local_instance`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/geth_local_instance.rs]
@@ -7201,19 +7126,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/geth_local_instance.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/node-bindings/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `reth_local_instance`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example reth_local_instance`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example reth_local_instance`
 
 ```rust
 // [!include ~/snippets/node-bindings/examples/reth_local_instance.rs]
@@ -7221,24 +7145,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/node-bindings/examples/reth_local_instance.rs).
 
-
 import Template from '../../templates/primitives/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/primitives/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/primitives/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `bytes_and_address_types`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example bytes_and_address_types`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example bytes_and_address_types`
 
 ```rust
 // [!include ~/snippets/primitives/examples/bytes_and_address_types.rs]
@@ -7246,19 +7168,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/primitives/examples/bytes_and_address_types.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/primitives/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/primitives/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `hashing_functions`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example hashing_functions`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example hashing_functions`
 
 ```rust
 // [!include ~/snippets/primitives/examples/hashing_functions.rs]
@@ -7266,24 +7187,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/primitives/examples/hashing_functions.rs).
 
-
 import Template from '../../templates/providers/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `basic_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example basic_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example basic_provider`
 
 ```rust
 // [!include ~/snippets/providers/examples/basic_provider.rs]
@@ -7291,19 +7210,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/basic_provider.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `batch_rpc`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example batch_rpc`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example batch_rpc`
 
 ```rust
 // [!include ~/snippets/providers/examples/batch_rpc.rs]
@@ -7311,19 +7229,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/batch_rpc.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `builder`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example builder`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example builder`
 
 ```rust
 // [!include ~/snippets/providers/examples/builder.rs]
@@ -7331,19 +7248,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/builder.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `builtin`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example builtin`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example builtin`
 
 ```rust
 // [!include ~/snippets/providers/examples/builtin.rs]
@@ -7351,19 +7267,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/builtin.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `dyn_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example dyn_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example dyn_provider`
 
 ```rust
 // [!include ~/snippets/providers/examples/dyn_provider.rs]
@@ -7371,19 +7286,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/dyn_provider.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `embed_consensus_rpc`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example embed_consensus_rpc`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example embed_consensus_rpc`
 
 ```rust
 // [!include ~/snippets/providers/examples/embed_consensus_rpc.rs]
@@ -7391,19 +7305,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/embed_consensus_rpc.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `http`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example http`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example http`
 
 ```rust
 // [!include ~/snippets/providers/examples/http.rs]
@@ -7411,19 +7324,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/http.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `http_with_auth`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example http_with_auth`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example http_with_auth`
 
 ```rust
 // [!include ~/snippets/providers/examples/http_with_auth.rs]
@@ -7431,19 +7343,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/http_with_auth.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `ipc`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example ipc`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example ipc`
 
 ```rust
 // [!include ~/snippets/providers/examples/ipc.rs]
@@ -7451,19 +7362,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/ipc.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `mocking`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example mocking`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example mocking`
 
 ```rust
 // [!include ~/snippets/providers/examples/mocking.rs]
@@ -7471,19 +7381,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/mocking.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `multicall`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example multicall`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example multicall`
 
 ```rust
 // [!include ~/snippets/providers/examples/multicall.rs]
@@ -7491,19 +7400,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/multicall.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `multicall_batching`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example multicall_batching`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example multicall_batching`
 
 ```rust
 // [!include ~/snippets/providers/examples/multicall_batching.rs]
@@ -7511,19 +7419,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/multicall_batching.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `wrapped_provider`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example wrapped_provider`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example wrapped_provider`
 
 ```rust
 // [!include ~/snippets/providers/examples/wrapped_provider.rs]
@@ -7531,19 +7438,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/wrapped_provider.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `ws`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example ws`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example ws`
 
 ```rust
 // [!include ~/snippets/providers/examples/ws.rs]
@@ -7551,19 +7457,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/ws.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/providers/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `ws_with_auth`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example ws_with_auth`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example ws_with_auth`
 
 ```rust
 // [!include ~/snippets/providers/examples/ws_with_auth.rs]
@@ -7571,24 +7476,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/providers/examples/ws_with_auth.rs).
 
-
 import Template from '../../templates/queries/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `query_contract_storage`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example query_contract_storage`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example query_contract_storage`
 
 ```rust
 // [!include ~/snippets/queries/examples/query_contract_storage.rs]
@@ -7596,19 +7499,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/queries/examples/query_contract_storage.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `query_deployed_bytecode`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example query_deployed_bytecode`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example query_deployed_bytecode`
 
 ```rust
 // [!include ~/snippets/queries/examples/query_deployed_bytecode.rs]
@@ -7616,19 +7518,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/queries/examples/query_deployed_bytecode.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/queries/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `query_logs`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example query_logs`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example query_logs`
 
 ```rust
 // [!include ~/snippets/queries/examples/query_logs.rs]
@@ -7636,24 +7537,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/queries/examples/query_logs.rs).
 
-
 import Template from '../../templates/sol-macro/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `all_derives`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example all_derives`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example all_derives`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/all_derives.rs]
@@ -7661,19 +7560,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/all_derives.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/contracts/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `deploy_from_contract`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example deploy_from_contract`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example deploy_from_contract`
 
 ```rust
 // [!include ~/snippets/contracts/examples/deploy_from_contract.rs]
@@ -7681,19 +7579,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/contracts/examples/deploy_from_contract.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `decode_returns`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example decode_returns`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example decode_returns`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/decode_returns.rs]
@@ -7701,19 +7598,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/decode_returns.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `events_errors`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example events_errors`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example events_errors`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/events_errors.rs]
@@ -7721,19 +7617,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/events_errors.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `extra_derives`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example extra_derives`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example extra_derives`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/extra_derives.rs]
@@ -7741,19 +7636,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/extra_derives.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `structs_enums`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example structs_enums`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example structs_enums`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/structs_enums.rs]
@@ -7761,19 +7655,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/structs_enums.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/sol-macro/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `user_defined_types`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example user_defined_types`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example user_defined_types`
 
 ```rust
 // [!include ~/snippets/sol-macro/examples/user_defined_types.rs]
@@ -7781,24 +7674,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/sol-macro/examples/user_defined_types.rs).
 
-
 import Template from '../../templates/subscriptions/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `event_multiplexer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example event_multiplexer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example event_multiplexer`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/event_multiplexer.rs]
@@ -7806,19 +7697,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/event_multiplexer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `poll_logs`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example poll_logs`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example poll_logs`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/poll_logs.rs]
@@ -7826,19 +7716,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/poll_logs.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `subscribe_all_logs`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example subscribe_all_logs`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example subscribe_all_logs`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/subscribe_all_logs.rs]
@@ -7846,19 +7735,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/subscribe_all_logs.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `subscribe_blocks`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example subscribe_blocks`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example subscribe_blocks`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/subscribe_blocks.rs]
@@ -7866,19 +7754,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/subscribe_blocks.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `subscribe_logs`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example subscribe_logs`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example subscribe_logs`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/subscribe_logs.rs]
@@ -7886,19 +7773,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/subscribe_logs.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/subscriptions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `subscribe_pending_transactions`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example subscribe_pending_transactions`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example subscribe_pending_transactions`
 
 ```rust
 // [!include ~/snippets/subscriptions/examples/subscribe_pending_transactions.rs]
@@ -7906,24 +7792,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/subscriptions/examples/subscribe_pending_transactions.rs).
 
-
 import Template from '../../templates/transactions/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `debug_trace_call_many`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example debug_trace_call_many`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example debug_trace_call_many`
 
 ```rust
 // [!include ~/snippets/transactions/examples/debug_trace_call_many.rs]
@@ -7931,19 +7815,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/debug_trace_call_many.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `decode_input`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example decode_input`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example decode_input`
 
 ```rust
 // [!include ~/snippets/transactions/examples/decode_input.rs]
@@ -7951,19 +7834,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/decode_input.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `decode_receipt_log`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example decode_receipt_log`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example decode_receipt_log`
 
 ```rust
 // [!include ~/snippets/transactions/examples/decode_receipt_log.rs]
@@ -7971,19 +7853,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/decode_receipt_log.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `encode_decode_eip1559`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example encode_decode_eip1559`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example encode_decode_eip1559`
 
 ```rust
 // [!include ~/snippets/transactions/examples/encode_decode_eip1559.rs]
@@ -7991,19 +7872,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/encode_decode_eip1559.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `gas_price_usd`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example gas_price_usd`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example gas_price_usd`
 
 ```rust
 // [!include ~/snippets/transactions/examples/gas_price_usd.rs]
@@ -8011,19 +7891,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/blob/main/examples/transactions/examples/gas_price_usd.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `permit2_signature_transfer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example permit2_signature_transfer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example permit2_signature_transfer`
 
 ```rust
 // [!include ~/snippets/transactions/examples/permit2_signature_transfer.rs]
@@ -8031,19 +7910,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/permit2_signature_transfer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_eip1559_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_eip1559_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_eip1559_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_eip1559_transaction.rs]
@@ -8051,19 +7929,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_eip1559_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_eip4844_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_eip4844_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_eip4844_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_eip4844_transaction.rs]
@@ -8071,19 +7948,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_eip4844_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_eip7702_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_eip7702_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_eip7702_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_eip7702_transaction.rs]
@@ -8091,19 +7967,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_eip7702_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_legacy_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_legacy_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_legacy_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_legacy_transaction.rs]
@@ -8111,19 +7986,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_legacy_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_private_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_private_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_private_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_private_transaction.rs]
@@ -8131,19 +8005,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_private_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `send_raw_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example send_raw_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example send_raw_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/send_raw_transaction.rs]
@@ -8151,19 +8024,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/send_raw_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `trace_call`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example trace_call`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example trace_call`
 
 ```rust
 // [!include ~/snippets/transactions/examples/trace_call.rs]
@@ -8171,19 +8043,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/trace_call.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `trace_call_many`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example trace_call_many`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example trace_call_many`
 
 ```rust
 // [!include ~/snippets/transactions/examples/trace_call_many.rs]
@@ -8191,19 +8062,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/trace_call_many.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `trace_transaction`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example trace_transaction`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example trace_transaction`
 
 ```rust
 // [!include ~/snippets/transactions/examples/trace_transaction.rs]
@@ -8211,19 +8081,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/trace_transaction.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `transfer_erc20`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example transfer_erc20`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example transfer_erc20`
 
 ```rust
 // [!include ~/snippets/transactions/examples/transfer_erc20.rs]
@@ -8231,19 +8100,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/transfer_erc20.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `transfer_eth`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example transfer_eth`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example transfer_eth`
 
 ```rust
 // [!include ~/snippets/transactions/examples/transfer_eth.rs]
@@ -8251,19 +8119,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/transfer_eth.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/transactions/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `with_access_list`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example with_access_list`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example with_access_list`
 
 ```rust
 // [!include ~/snippets/transactions/examples/with_access_list.rs]
@@ -8271,24 +8138,22 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/transactions/examples/with_access_list.rs).
 
-
 import Template from '../../templates/wallets/README.mdx'
 
 <Template />
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `aws_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example aws_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example aws_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/aws_signer.rs]
@@ -8296,19 +8161,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/aws_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `create_keystore`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example create_keystore`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example create_keystore`
 
 ```rust
 // [!include ~/snippets/wallets/examples/create_keystore.rs]
@@ -8316,19 +8180,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/create_keystore.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `ethereum_wallet`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example ethereum_wallet`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example ethereum_wallet`
 
 ```rust
 // [!include ~/snippets/wallets/examples/ethereum_wallet.rs]
@@ -8336,19 +8199,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/ethereum_wallet.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `gcp_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example gcp_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example gcp_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/gcp_signer.rs]
@@ -8356,19 +8218,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/gcp_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `keystore_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example keystore_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example keystore_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/keystore_signer.rs]
@@ -8376,19 +8237,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/keystore_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `ledger_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example ledger_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example ledger_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/ledger_signer.rs]
@@ -8396,19 +8256,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/ledger_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `mnemonic_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example mnemonic_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example mnemonic_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/mnemonic_signer.rs]
@@ -8416,19 +8275,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/mnemonic_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `private_key_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example private_key_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example private_key_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/private_key_signer.rs]
@@ -8436,19 +8294,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/private_key_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `sign_message`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example sign_message`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example sign_message`
 
 ```rust
 // [!include ~/snippets/wallets/examples/sign_message.rs]
@@ -8456,19 +8313,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/sign_message.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `sign_permit_hash`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example sign_permit_hash`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example sign_permit_hash`
 
 ```rust
 // [!include ~/snippets/wallets/examples/sign_permit_hash.rs]
@@ -8476,19 +8332,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/sign_permit_hash.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `trezor_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example trezor_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example trezor_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/trezor_signer.rs]
@@ -8496,19 +8351,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/trezor_signer.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `verify_message`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example verify_message`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example verify_message`
 
 ```rust
 // [!include ~/snippets/wallets/examples/verify_message.rs]
@@ -8516,19 +8370,18 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/verify_message.rs).
 
-
-{/*DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
-  ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
-  EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
-  LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
-  */}
+{/_DO NOT EDIT THIS FILE. IT IS GENERATED BY RUNNING `./scripts/update.sh`
+ANY CHANGES MADE TO THIS FILE WILL BE OVERWRITTEN
+EDIT OR CREATE THIS TEMPLATE INSTEAD: ./vocs/docs/pages/templates/wallets/README.mdx
+LATEST UPDATE: https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1
+_/}
 
 ### Example: `yubi_signer`
 
 To run this example:
 
-* Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
-* Run: `cargo run --example yubi_signer`
+- Clone the [examples](https://github.com/alloy-rs/examples) repository: `git clone git@github.com:alloy-rs/examples.git`
+- Run: `cargo run --example yubi_signer`
 
 ```rust
 // [!include ~/snippets/wallets/examples/yubi_signer.rs]
@@ -8536,12 +8389,10 @@ To run this example:
 
 Find the source code on Github [here](https://github.com/alloy-rs/examples/tree/15c1d3e6e758d6a9dfe747200b5c8d12f5a027f1/examples/wallets/examples/yubi_signer.rs).
 
-
 ### Simply ABI encoding and decoding
 
-* [ABI encoding function return structs](./encoding-return-structs.md)
-* [Removing `validate: bool` from the `abi_decode` methods](./removing-validate-bool.md)
-
+- [ABI encoding function return structs](./encoding-return-structs.md)
+- [Removing `validate: bool` from the `abi_decode` methods](./removing-validate-bool.md)
 
 ### Encoding return structs
 
@@ -8571,20 +8422,17 @@ One can now pass the return struct directly without deconstructing it as a tuple
 let encoding = somethingCall::abi_encode_returns(&somethingReturn);
 ```
 
-
 ### Removing the `validate: bool` from the `abi_decode` methods
 
 [core#863](https://github.com/alloy-rs/core/pull/863) removes the `validate: bool` parameter from the `abi_decode_*` methods. The behavior of these `abi_decode_*` methods is now equivalent to passing `validate = false`.
 
-
 ### sol! changes
 
-* [Removing the `T` transport generic](./removing-T-generic.md)
-* [Improving function return type](./improving-function-return-types.md)
-* [Changes to function call bindings](./changes-to-function-call-bindings.md)
-* [Changes to event bindings](./changes-to-event-bindings.md)
-* [Changes to error bindings](./changes-to-error-bindings.md)
-
+- [Removing the `T` transport generic](./removing-T-generic.md)
+- [Improving function return type](./improving-function-return-types.md)
+- [Changes to function call bindings](./changes-to-function-call-bindings.md)
+- [Changes to event bindings](./changes-to-event-bindings.md)
+- [Changes to error bindings](./changes-to-error-bindings.md)
 
 ### Changes to error bindings
 
@@ -8636,7 +8484,6 @@ pub struct AnotherError(pub U256);
 
 Bindings remain **unchanged** for errors with **multiple params** and **single but named param**.
 
-
 ### Changes to event bindings
 
 [core#885](https://github.com/alloy-rs/core/pull/885) makes changes to the event bindings in a breaking but very minimal way.
@@ -8667,7 +8514,6 @@ pub struct Incremented;
 ```
 
 Bindings for events with parameters remain **unchanged**.
-
 
 ### Changes to function call bindings
 
@@ -8730,10 +8576,9 @@ pub struct balanceOfCall { owner: Address };
 
 Bindings for function calls with **multiple parameters** are **unchanged**.
 
-
 ### Improving function call return types
 
-With the inclusion of [core#855](https://github.com/alloy-rs/core/pull/855) return values of function calls with a *singular* value is more intuitive and easier to work with.
+With the inclusion of [core#855](https://github.com/alloy-rs/core/pull/855) return values of function calls with a _singular_ value is more intuitive and easier to work with.
 
 Consider the following example of reading the balance of an ERC20:
 
@@ -8785,7 +8630,6 @@ pub struct multiValuesReturn {
 }
 ```
 
-
 ### Removing the `T` transport generic
 
 Since [alloy#1859](https://github.com/alloy-rs/alloy/pull/1859) the `Provider` is independent of the `Transport`, making it easier to roll types that wrap the `Provider`. This improvement was reflected in the [`CallBuilder`](https://docs.rs/alloy-contract/latest/alloy_contract/struct.CallBuilder.html) type but not carried to the `sol!` macro bindings.
@@ -8810,157 +8654,143 @@ struct Erc20<P: Provider> {
 }
 ```
 
-
 ### Advanced
 
-* [Using `AnyNetwork`](/examples/advanced/any_network)
-* [Decoding with `json_abi`](/examples/advanced/decoding_json_abi)
-* [Encoding with `dyn_abi`](/examples/advanced/encoding_dyn_abi)
-* [Static encoding with `sol!`](/examples/advanced/encoding_sol_static)
-* [Using `foundry-fork-db`](/examples/advanced/foundry_fork_db)
-* [Wrapping `Provider` trait over `reth-db`](/examples/advanced/reth_db_provider)
-
+- [Using `AnyNetwork`](/examples/advanced/any_network)
+- [Decoding with `json_abi`](/examples/advanced/decoding_json_abi)
+- [Encoding with `dyn_abi`](/examples/advanced/encoding_dyn_abi)
+- [Static encoding with `sol!`](/examples/advanced/encoding_sol_static)
+- [Using `foundry-fork-db`](/examples/advanced/foundry_fork_db)
+- [Wrapping `Provider` trait over `reth-db`](/examples/advanced/reth_db_provider)
 
 ### Big numbers
 
-* [Comparison and equivalence](/examples/big-numbers/comparison_equivalence)
-* [Conversion](/examples/big-numbers/conversion)
-* [Creating instances](/examples/big-numbers/create_instances)
-* [Math operations](/examples/big-numbers/math_operations)
-* [Math utilities](/examples/big-numbers/math_utilities)
-
+- [Comparison and equivalence](/examples/big-numbers/comparison_equivalence)
+- [Conversion](/examples/big-numbers/conversion)
+- [Creating instances](/examples/big-numbers/create_instances)
+- [Math operations](/examples/big-numbers/math_operations)
+- [Math utilities](/examples/big-numbers/math_utilities)
 
 ### Comparison
 
-* [Compare block headers between providers](/examples/comparison/compare_new_heads)
-* [Compare pending transactions between providers](/examples/comparison/compare_pending_txs)
-
+- [Compare block headers between providers](/examples/comparison/compare_new_heads)
+- [Compare pending transactions between providers](/examples/comparison/compare_pending_txs)
 
 ### Contracts
 
-* [Deploy from artifact](/examples/contracts/deploy_from_artifact)
-* [Deploy from bytecode](/examples/contracts/deploy_from_bytecode)
-* [Deploy from contract](/examples/contracts/deploy_from_contract)
-* [Deploy and link library](/examples/contracts/deploy_and_link_library)
-* [Interact with ABI](/examples/contracts/interact_with_abi)
-* [Interact with contract instance](/examples/contracts/interact_with_contract_instance)
-* [Handling unknown return types](/examples/contracts/unknown_return_types)
-* [Decode revert](/examples/contracts/revert_decoding)
-
+- [Deploy from artifact](/examples/contracts/deploy_from_artifact)
+- [Deploy from bytecode](/examples/contracts/deploy_from_bytecode)
+- [Deploy from contract](/examples/contracts/deploy_from_contract)
+- [Deploy and link library](/examples/contracts/deploy_and_link_library)
+- [Interact with ABI](/examples/contracts/interact_with_abi)
+- [Interact with contract instance](/examples/contracts/interact_with_contract_instance)
+- [Handling unknown return types](/examples/contracts/unknown_return_types)
+- [Decode revert](/examples/contracts/revert_decoding)
 
 ### Fillers
 
-* [Gas estimation filler](/examples/fillers/gas_filler)
-* [Nonce management filler](/examples/fillers/nonce_filler)
-* [Recommended fillers](/examples/fillers/recommended_fillers)
-* [Wallet management filler](/examples/fillers/wallet_filler)
-
+- [Gas estimation filler](/examples/fillers/gas_filler)
+- [Nonce management filler](/examples/fillers/nonce_filler)
+- [Recommended fillers](/examples/fillers/recommended_fillers)
+- [Wallet management filler](/examples/fillers/wallet_filler)
 
 ### Layers
 
-* [Fallback layer](/examples/layers/fallback_layer)
-* [Hyper layer transport](/examples/layers/hyper_http_layer)
-* [Request / response logging layer](/examples/layers/logging_layer)
-* [Retry-backoff layer](/examples/layers/retry_layer)
-
+- [Fallback layer](/examples/layers/fallback_layer)
+- [Hyper layer transport](/examples/layers/hyper_http_layer)
+- [Request / response logging layer](/examples/layers/logging_layer)
+- [Retry-backoff layer](/examples/layers/retry_layer)
 
 ### Node bindings
 
-* [Deploy contract on local Anvil instance](/examples/node-bindings/anvil_deploy_contract)
-* [Fork instance on Anvil](/examples/node-bindings/anvil_fork_instance)
-* [Fork provider on Anvil](/examples/node-bindings/anvil_fork_provider)
-* [Local instance on Anvil](/examples/node-bindings/anvil_local_instance)
-* [Local provider on Anvil](/examples/node-bindings/anvil_local_provider)
-* [Local provider on Geth](/examples/node-bindings/geth_local_instance)
-* [Local provider on Reth](/examples/node-bindings/reth_local_instance)
-* [Mock WETH balance with Anvil](/examples/node-bindings/anvil_set_storage_at)
-
+- [Deploy contract on local Anvil instance](/examples/node-bindings/anvil_deploy_contract)
+- [Fork instance on Anvil](/examples/node-bindings/anvil_fork_instance)
+- [Fork provider on Anvil](/examples/node-bindings/anvil_fork_provider)
+- [Local instance on Anvil](/examples/node-bindings/anvil_local_instance)
+- [Local provider on Anvil](/examples/node-bindings/anvil_local_provider)
+- [Local provider on Geth](/examples/node-bindings/geth_local_instance)
+- [Local provider on Reth](/examples/node-bindings/reth_local_instance)
+- [Mock WETH balance with Anvil](/examples/node-bindings/anvil_set_storage_at)
 
 ### Primitives
 
-* [Bytes and address types](/examples/primitives/bytes_and_address_types)
-* [Hashing functions](/examples/primitives/hashing_functions)
-
+- [Bytes and address types](/examples/primitives/bytes_and_address_types)
+- [Hashing functions](/examples/primitives/hashing_functions)
 
 ### Providers
 
-* [Builder](/examples/providers/builder)
-* [Builtin](/examples/providers/builtin)
-* [HTTP](/examples/providers/http)
-* [HTTP with authentication](/examples/providers/http_with_auth)
-* [Wrapping a Provider](/examples/providers/wrapped_provider)
-* [WS](/examples/providers/ws)
-* [IPC](/examples/providers/ipc)
-* [Multicall Builder](/examples/providers/multicall)
-* [Multicall Batch Layer](/examples/providers/multicall_batching)
-* [Mocking a Provider](/examples/providers/mocking)
-* [WS with authentication](/examples/providers/ws_with_auth)
-* [JSON-RPC Batch Request](/examples/providers/batch_rpc)
-* [DynProvider](/examples/providers/dyn_provider)
-
+- [Builder](/examples/providers/builder)
+- [Builtin](/examples/providers/builtin)
+- [HTTP](/examples/providers/http)
+- [HTTP with authentication](/examples/providers/http_with_auth)
+- [Wrapping a Provider](/examples/providers/wrapped_provider)
+- [WS](/examples/providers/ws)
+- [IPC](/examples/providers/ipc)
+- [Multicall Builder](/examples/providers/multicall)
+- [Multicall Batch Layer](/examples/providers/multicall_batching)
+- [Mocking a Provider](/examples/providers/mocking)
+- [WS with authentication](/examples/providers/ws_with_auth)
+- [JSON-RPC Batch Request](/examples/providers/batch_rpc)
+- [DynProvider](/examples/providers/dyn_provider)
 
 ### Queries
 
-* [Query contract storage](/examples/queries/query_contract_storage)
-* [Query contract deployed bytecode](/examples/queries/query_deployed_bytecode)
-* [Query logs](/examples/queries/query_logs)
-
+- [Query contract storage](/examples/queries/query_contract_storage)
+- [Query contract deployed bytecode](/examples/queries/query_deployed_bytecode)
+- [Query logs](/examples/queries/query_logs)
 
 ### The `sol!` macro
 
-* [Contract](/examples/sol-macro/contract)
-* [Events and errors](/examples/sol-macro/events_errors)
-* [Structs and enums](/examples/sol-macro/structs_enums)
-* [User defined types](/examples/sol-macro/user_defined_types)
-* [`all_derives` attribute](/examples/sol-macro/all_derives)
-* [`extra_derives` attribute](/examples/sol-macro/extra_derives)
-
+- [Contract](/examples/sol-macro/contract)
+- [Events and errors](/examples/sol-macro/events_errors)
+- [Structs and enums](/examples/sol-macro/structs_enums)
+- [User defined types](/examples/sol-macro/user_defined_types)
+- [`all_derives` attribute](/examples/sol-macro/all_derives)
+- [`extra_derives` attribute](/examples/sol-macro/extra_derives)
 
 ### Subscriptions
 
-* [Watch and poll for contract event logs](/examples/subscriptions/poll_logs)
-* [Subscribe and watch blocks](/examples/subscriptions/subscribe_blocks)
-* [Subscribe and listen for specific contract event logs](/examples/subscriptions/subscribe_logs)
-* [Subscribe and listen for all contract event logs](/examples/subscriptions/subscribe_all_logs)
-* [Subscribe and listen to pending transactions in the public mempool](/examples/subscriptions/subscribe_pending_transactions)
-
+- [Watch and poll for contract event logs](/examples/subscriptions/poll_logs)
+- [Subscribe and watch blocks](/examples/subscriptions/subscribe_blocks)
+- [Subscribe and listen for specific contract event logs](/examples/subscriptions/subscribe_logs)
+- [Subscribe and listen for all contract event logs](/examples/subscriptions/subscribe_all_logs)
+- [Subscribe and listen to pending transactions in the public mempool](/examples/subscriptions/subscribe_pending_transactions)
 
 ### Transactions
 
-* [Decode input](/examples/transactions/decode_input)
-* [Encode and decode EIP-1559 transaction](/examples/transactions/encode_decode_eip1559)
-* [Get gas price in USD](/examples/transactions/gas_price_usd)
-* [Decode logs from transaction receipt](/examples/transactions/decode_receipt_log)
-* [Send EIP-1559 transaction](/examples/transactions/send_eip1559_transaction)
-* [Send EIP-4844 transaction](/examples/transactions/send_eip4844_transaction)
-* [Send EIP-7702 transaction](/examples/transactions/send_eip7702_transaction)
-* [Send legacy transaction](/examples/transactions/send_legacy_transaction)
-* [Send private transaction using Flashbots Protect](/examples/transactions/send_private_transaction)
-* [Sign and send a raw transaction](/examples/transactions/send_raw_transaction)
-* [Simulate using `debug_traceCallMany`](/examples/transactions/debug_trace_call_many)
-* [Simulate using `trace_callMany`](/examples/transactions/trace_call_many)
-* [Trace call](/examples/transactions/trace_call)
-* [Trace transaction](/examples/transactions/trace_transaction)
-* [Transfer ERC20 token](/examples/transactions/transfer_erc20)
-* [Transfer ETH](/examples/transactions/transfer_eth)
-* [Send transaction with access list](/examples/transactions/with_access_list)
-* [Transfer ERC20 token using a signed permit](/examples/transactions/permit2_signature_transfer)
-
+- [Decode input](/examples/transactions/decode_input)
+- [Encode and decode EIP-1559 transaction](/examples/transactions/encode_decode_eip1559)
+- [Get gas price in USD](/examples/transactions/gas_price_usd)
+- [Decode logs from transaction receipt](/examples/transactions/decode_receipt_log)
+- [Send EIP-1559 transaction](/examples/transactions/send_eip1559_transaction)
+- [Send EIP-4844 transaction](/examples/transactions/send_eip4844_transaction)
+- [Send EIP-7702 transaction](/examples/transactions/send_eip7702_transaction)
+- [Send legacy transaction](/examples/transactions/send_legacy_transaction)
+- [Send private transaction using Flashbots Protect](/examples/transactions/send_private_transaction)
+- [Sign and send a raw transaction](/examples/transactions/send_raw_transaction)
+- [Simulate using `debug_traceCallMany`](/examples/transactions/debug_trace_call_many)
+- [Simulate using `trace_callMany`](/examples/transactions/trace_call_many)
+- [Trace call](/examples/transactions/trace_call)
+- [Trace transaction](/examples/transactions/trace_transaction)
+- [Transfer ERC20 token](/examples/transactions/transfer_erc20)
+- [Transfer ETH](/examples/transactions/transfer_eth)
+- [Send transaction with access list](/examples/transactions/with_access_list)
+- [Transfer ERC20 token using a signed permit](/examples/transactions/permit2_signature_transfer)
 
 ### Wallets
 
-* [AWS signer](/examples/wallets/aws_signer)
-* [GCP signer](/examples/wallets/gcp_signer)
-* [Ledger signer](/examples/wallets/ledger_signer)
-* [Private key signer](/examples/wallets/private_key_signer)
-* [Mnemonic signer](/examples/wallets/mnemonic_signer)
-* [Sign message](/examples/wallets/sign_message)
-* [Verify message](/examples/wallets/verify_message)
-* [Sign permit hash](/examples/wallets/sign_permit_hash)
-* [Trezor signer](/examples/wallets/trezor_signer)
-* [Yubi signer](/examples/wallets/yubi_signer)
-* [Keystore signer](/examples/wallets/keystore_signer)
-* [Create keystore](/examples/wallets/create_keystore)
+- [AWS signer](/examples/wallets/aws_signer)
+- [GCP signer](/examples/wallets/gcp_signer)
+- [Ledger signer](/examples/wallets/ledger_signer)
+- [Private key signer](/examples/wallets/private_key_signer)
+- [Mnemonic signer](/examples/wallets/mnemonic_signer)
+- [Sign message](/examples/wallets/sign_message)
+- [Verify message](/examples/wallets/verify_message)
+- [Sign permit hash](/examples/wallets/sign_permit_hash)
+- [Trezor signer](/examples/wallets/trezor_signer)
+- [Yubi signer](/examples/wallets/yubi_signer)
+- [Keystore signer](/examples/wallets/keystore_signer)
+- [Create keystore](/examples/wallets/create_keystore)
 
 </user_prompt>
 
@@ -8977,6 +8807,7 @@ This guide provides comprehensive context for building Ethereum applications wit
 ### Crate Mapping
 
 #### Core Components
+
 ```rust
 // ethers-rs -> Alloy migration
 
@@ -9009,6 +8840,7 @@ use alloy::rpc::types::eth::{Block, Transaction, TransactionReceipt};  // NEW
 #### Major Architectural Changes
 
 **Providers and Middleware** → **Providers with Fillers**
+
 ```rust
 // ethers-rs middleware pattern (OLD)
 use ethers::{
@@ -9036,6 +8868,7 @@ let provider = ProviderBuilder::new()
 ```
 
 **Contract Bindings** - `abigen!` → `sol!`
+
 ```rust
 // ethers-rs abigen (OLD)
 use ethers::contract::abigen;
@@ -9069,6 +8902,7 @@ sol! {
 ### Type Migrations
 
 #### Primitive Types
+
 ```rust
 // Hash types: H* -> B*
 use ethers::types::{H32, H64, H128, H160, H256, H512};  // OLD
@@ -9098,6 +8932,7 @@ let u256_back = U256::from_be_bytes(b256.into());  // Alternative
 ```
 
 #### RPC Types
+
 ```rust
 // Block types
 use ethers::types::{Block, Transaction, TransactionReceipt};  // OLD
@@ -9175,6 +9010,7 @@ let back_to_ethers: ethers::types::H160 = alloy_addr.to_ethers();
 ### Complete Migration Examples
 
 #### Basic Provider Setup
+
 ```rust
 // ethers-rs (OLD)
 use ethers::{
@@ -9208,6 +9044,7 @@ async fn main() -> eyre::Result<()> {
 ```
 
 #### Contract Interaction
+
 ```rust
 // ethers-rs (OLD)
 use ethers::{
@@ -9259,6 +9096,7 @@ async fn main() -> eyre::Result<()> {
 ```
 
 #### Transaction Sending
+
 ```rust
 // ethers-rs (OLD)
 use ethers::{
@@ -9312,6 +9150,7 @@ async fn main() -> eyre::Result<()> {
 ### Migration Checklist
 
 1. **Update Dependencies**
+
    ```toml
    # Remove
    # ethers = "2.0"
@@ -9322,22 +9161,26 @@ async fn main() -> eyre::Result<()> {
    ```
 
 2. **Update Imports**
+
    - Replace `ethers::types::*` with `alloy::primitives::*` for basic types
    - Replace `ethers::providers::*` with `alloy::providers::*`
    - Replace `ethers::signers::*` with `alloy::signers::*`
    - Replace `ethers::contract::*` with `alloy::contract::*`
 
 3. **Update Type Names**
+
    - `H160`, `H256`, etc. → `B160`, `B256`, etc.
    - `BlockNumber` → `BlockNumberOrTag`
    - Update address and hash type usage
 
 4. **Update Provider Pattern**
+
    - Replace middleware stack with `ProviderBuilder` and fillers
    - Use `with_recommended_fillers()` for common functionality
    - Add wallet to provider with `.wallet(signer)`
 
 5. **Update Contract Bindings**
+
    - Replace `abigen!` with `sol!` macro
    - Add `#[sol(rpc)]` attribute for contract generation
    - Update contract instantiation pattern
