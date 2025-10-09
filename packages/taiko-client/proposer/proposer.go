@@ -95,6 +95,9 @@ func (p *Proposer) InitFromConfig(
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
 
+	/ Seed the global PRNG once to avoid predictable jitter across restarts.
+    rand.Seed(time.Now().UnixNano())
+	
 	// RPC clients
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("initialize rpc clients error: %w", err)
