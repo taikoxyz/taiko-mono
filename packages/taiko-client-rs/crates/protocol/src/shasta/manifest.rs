@@ -60,11 +60,17 @@ impl DerivationSourceManifest {
         };
 
         let mut decoded_slice = decoded.as_slice();
-        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
+        let mut manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
             .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(DerivationSourceManifest::default());
+        }
+
+        // For all forced-inclusion blocks, we override the gas limit and anchor block number to 0.
+        for block in manifest.blocks.iter_mut() {
+            block.gas_limit = 0;
+            block.anchor_block_number = 0;
         }
 
         Ok(manifest)

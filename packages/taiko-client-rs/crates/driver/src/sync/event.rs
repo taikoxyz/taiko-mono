@@ -54,6 +54,7 @@ impl<P> SyncStage for EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Start the event syncer.
     async fn run(&self) -> Result<(), SyncError> {
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let derivation_pipeline =

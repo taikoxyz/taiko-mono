@@ -15,7 +15,6 @@ use alloy::{
     sol_types::SolEvent,
 };
 use alloy_consensus::{Header, Transaction, TxEnvelope};
-use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{
     Transaction as RpcTransaction,
@@ -23,7 +22,7 @@ use alloy_rpc_types::{
 };
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use alloy_sol_types::{SolValue, sol};
-use anyhow::Error;
+use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{
     codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
@@ -74,6 +73,7 @@ pub struct ShastaProposalBundle {
     sources: Vec<SourceManifestSegment>,
 }
 
+#[derive(Debug, Clone)]
 struct BundleMeta {
     proposal_id: u64,
     proposal_timestamp: u64,
@@ -84,6 +84,7 @@ struct BundleMeta {
     prover_auth_bytes: Bytes,
 }
 
+#[derive(Debug, Clone)]
 struct ParentState {
     header: Header,
     timestamp: u64,
@@ -126,9 +127,7 @@ where
                 blob_source,
                 ProposalManifest::decompress_and_decode,
             ));
-        let anchor_constructor = AnchorTxConstructor::new(rpc.clone())
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
+        let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
         Ok(Self {
             rpc,
             _indexer: indexer,
@@ -146,49 +145,25 @@ where
         &self,
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
-        if let Some(origin) = self
-            .rpc
-            .last_l1_origin_by_batch_id(U256::from(proposal_id))
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?
-        {
+        if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO {
-                if let Some(block) = self
-                    .rpc
-                    .l2_provider
-                    .get_block_by_hash(origin.l2_block_hash)
-                    .await
-                    .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?
-                {
-                    return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
-                }
-            }
-
-            // Fall back to the block height hinted by the origin payload if the hash is absent.
-            let number = origin.block_id.to::<u64>();
-            if number != 0 {
-                if let Some(block) = self
-                    .rpc
-                    .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Number(number))
-                    .await
-                    .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?
+                if let Some(block) =
+                    self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
                 {
                     return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
                 }
             }
         }
 
-        // As a final fallback, use the latest canonical block (common after beacon sync or at
+        // Use the latest canonical block (common after beacon sync or at
         // startup when only genesis is present).
         self.rpc
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?
+            .await?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-            .ok_or_else(|| DerivationError::Other(Error::msg("latest L2 block not found")))
+            .ok_or_else(|| DerivationError::Other(anyhow!("latest L2 block not found")))
     }
 
     // Extract blob hashes from a derivation source.
@@ -201,13 +176,13 @@ where
         &self,
         log: &Log,
     ) -> Result<ProposedEventPayload, DerivationError> {
-        self.rpc
+        Ok(self
+            .rpc
             .shasta
             .codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))
+            .await?)
     }
 
     // Fetch and decode a single manifest from a derivation source.
@@ -219,53 +194,22 @@ where
     where
         M: Send,
     {
-        fetcher
+        Ok(fetcher
             .fetch_and_decode_manifest(
                 &self.derivation_source_to_blob_hashes(source),
                 source.blobSlice.offset.to::<u64>() as usize,
             )
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))
+            .await?)
     }
 
-    async fn fetch_origin_block_hash(
-        &self,
-        origin_block_number: u64,
-    ) -> Result<Option<B256>, DerivationError> {
-        self.rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(origin_block_number))
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))
-            .map(|origin_block| origin_block.as_ref().map(|block| block.hash()))
-    }
-
+    // Initialize the parent state from the parent block.
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
     ) -> Result<(ParentState, u64), DerivationError> {
         let parent_hash = parent_block.hash();
-        let anchor_state = self
-            .rpc
-            .shasta
-            .anchor
-            .getState()
-            .block(BlockId::Hash(RpcBlockHash {
-                block_hash: parent_hash,
-                require_canonical: Some(false),
-            }))
-            .call()
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
-
-        let shasta_fork_height = self
-            .rpc
-            .shasta
-            .anchor
-            .shastaForkHeight()
-            .call()
-            .await
-            .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
+        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_hash).await?;
+        let shasta_fork_height = self.rpc.shasta.anchor.shastaForkHeight().call().await?;
 
         let mut header = parent_block.header.inner.clone();
         if header.base_fee_per_gas.is_none() {
@@ -329,7 +273,7 @@ where
             Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
                 decoded_manifest = DerivationSourceManifest::default();
                 validate_source_manifest(&mut decoded_manifest, &ctx)
-                    .map_err(|err| DerivationError::Other(Error::msg(err.to_string())))?;
+                    .map_err(DerivationError::from)?;
             }
         }
 
@@ -534,7 +478,7 @@ where
         } = manifest;
 
         let parent_block = self.load_parent_block(proposal_id).await?;
-        let origin_block_hash = self.fetch_origin_block_hash(origin_block_number).await?;
+        let origin_block_hash = self.rpc.l1_block_hash_by_number(origin_block_number).await?;
         let (mut parent_state, shasta_fork_height) =
             self.initialize_parent_state(&parent_block).await?;
 
