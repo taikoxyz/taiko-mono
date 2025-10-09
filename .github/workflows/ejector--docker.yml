@@ -17,7 +17,7 @@ concurrency:
 env:
   # where to push
   REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/ejector
-  BUILD_CONTEXT: packages/ejector/
+  BUILD_CONTEXT: packages/ejector
   DOCKERFILE: packages/ejector/Dockerfile
 
 jobs:
