@@ -42,6 +42,10 @@ use state::ParentState;
 pub use bundle::ShastaProposalBundle;
 
 /// Shasta-specific derivation pipeline.
+///
+/// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
+/// referenced manifests, and converts them into `TaikoPayloadAttributes` batches that
+/// can be submitted to the execution engine.
 pub struct ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
@@ -59,6 +63,9 @@ where
     P: Provider + Clone + 'static,
 {
     /// Create a new derivation pipeline instance.
+    ///
+    /// Manifests are fetched via the supplied blob source while the driver client is
+    /// reused to query both L1 contracts and L2 execution state.
     pub async fn new(
         rpc: Client<P>,
         blob_source: BlobDataSource,
@@ -75,6 +82,7 @@ where
                 ProposalManifest::decompress_and_decode,
             ));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
+
         Ok(Self {
             rpc,
             _indexer: indexer,
@@ -113,12 +121,13 @@ where
             .ok_or_else(|| DerivationError::Other(anyhow!("latest L2 block not found")))
     }
 
-    // Extract blob hashes from a derivation source.
+    /// Extract blob hashes from a derivation source, preserving the order expected by
+    /// the decoder.
     fn derivation_source_to_blob_hashes(&self, source: &DerivationSource) -> Vec<B256> {
         source.blobSlice.blobHashes.iter().map(|hash| B256::from_slice(hash.as_ref())).collect()
     }
 
-    // Decode a proposal log into its event payload.
+    /// Decode a proposal log into the event payload.
     async fn decode_log_to_event_payload(
         &self,
         log: &Log,
@@ -132,7 +141,10 @@ where
             .await?)
     }
 
-    // Fetch and decode a single manifest from a derivation source.
+    /// Fetch and decode a single manifest from the blob store.
+    ///
+    /// The caller is responsible for providing the correct fetcher implementation for
+    /// the manifest type.
     async fn fetch_and_decode_manifest<M>(
         &self,
         fetcher: &dyn ManifestFetcher<Manifest = M>,
@@ -149,7 +161,7 @@ where
             .await?)
     }
 
-    // Initialize the parent state from the parent block.
+    /// Initialize the rolling parent state used while constructing payload attributes.
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
@@ -219,6 +231,7 @@ where
             });
         }
 
+        // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
             proposal_id: payload.proposal.id.to::<u64>(),
             proposal_timestamp: payload.proposal.timestamp.to::<u64>(),

@@ -13,16 +13,16 @@ pub use shasta::ShastaDerivationPipeline;
 /// Trait implemented by derivation pipelines for different protocol forks.
 #[async_trait]
 pub trait DerivationPipeline: Send + Sync {
-    /// Fork-specific manifest type produced by the decoder.
+    /// Fork-specific manifest types.
     type Manifest: Send;
 
     /// Convert a proposal log into a manifest for processing.
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError>;
 
-    /// Convert a set of manifests into payload attributes for block production.
+    /// Convert a manifest into payload attributes for block production.
     async fn manifest_to_payload_attributes(
         &self,
-        manifests: Self::Manifest,
+        manifest: Self::Manifest,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError>;
 
     /// Process the provided proposal log, returning payload attributes to deliver to the engine.

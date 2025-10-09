@@ -33,6 +33,7 @@ where
         shasta_fork_height: u64,
         state: &mut ParentState,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
+        // Each source can expand into multiple payloads; accumulate them in order.
         let segments_total = sources.len();
         let mut payloads = Vec::new();
 
@@ -62,6 +63,7 @@ where
         segment_index: usize,
         segments_total: usize,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
+        // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
         let ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
 
@@ -96,6 +98,8 @@ where
         Ok(payloads)
     }
 
+    /// Convert the manifest block into a payload attribute while keeping track of the
+    /// running parent state.
     fn process_block_manifest(
         &self,
         block: &BlockManifest,
@@ -135,6 +139,8 @@ where
         payload
     }
 
+    /// Construct the `TaikoPayloadAttributes` structure that gets sent to the execution
+    /// engine.
     fn create_payload_attributes(
         &self,
         block: &BlockManifest,

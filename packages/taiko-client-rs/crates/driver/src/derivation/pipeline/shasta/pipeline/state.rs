@@ -8,6 +8,7 @@ use protocol::shasta::manifest::BlockManifest;
 
 use super::{super::validation::ValidationContext, bundle::BundleMeta};
 
+/// Rolling view of the parent block used when deriving successive payloads.
 #[derive(Debug, Clone)]
 pub(super) struct ParentState {
     pub(super) header: Header,
@@ -19,11 +20,14 @@ pub(super) struct ParentState {
 }
 
 impl ParentState {
+    /// Advance the cached block number before deriving the next payload.
     pub(super) fn advance_block_number(&mut self) -> u64 {
         self.block_number = self.block_number.saturating_add(1);
         self.block_number
     }
 
+    /// Compute the target base fee for the next payload, falling back to the fixed
+    /// Shasta base fee while the fork warm-up window is active.
     pub(super) fn compute_block_base_fee(
         &self,
         block_number: u64,
@@ -37,6 +41,7 @@ impl ParentState {
         }
     }
 
+    /// Update the cached parent header after committing a derived block.
     pub(super) fn apply_block_updates(
         &mut self,
         block: &BlockManifest,
@@ -56,6 +61,7 @@ impl ParentState {
         self.anchor_block_number = block.anchor_block_number;
     }
 
+    /// Build the validation context used to sanity-check manifest contents.
     pub(super) fn build_validation_context(
         &self,
         meta: &BundleMeta,
