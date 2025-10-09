@@ -1,11 +1,11 @@
 [workspace]
 members = [
-  "bin/client",
-  "crates/bindings",
-  "crates/event-indexer",
-  "crates/proposer",
-  "crates/protocol",
-  "crates/rpc",
+    "bin/client",
+    "crates/bindings",
+    "crates/event-indexer",
+    "crates/proposer",
+    "crates/protocol",
+    "crates/rpc",
 ]
 resolver = "2"
 
