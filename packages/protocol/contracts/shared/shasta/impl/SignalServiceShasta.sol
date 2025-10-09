@@ -5,7 +5,6 @@ import "../../common/EssentialContract.sol";
 import "../../libs/LibTrieProof.sol";
 import "../../libs/LibNames.sol";
 import "../iface/ICheckpointStore.sol";
-import "../libs/LibCheckpointStore.sol";
 import "../iface/ISignalServiceShasta.sol";
 
 /// @title ShastaSignalService
@@ -13,6 +12,18 @@ import "../iface/ISignalServiceShasta.sol";
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Storage-optimized checkpoint record with only persisted fields
+    struct CheckpointRecord {
+        /// @notice The block hash for the end (last) block in this proposal.
+        bytes32 blockHash;
+        /// @notice The state root for the end (last) block in this proposal.
+        bytes32 stateRoot;
+    }
+
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
@@ -41,8 +52,8 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     // ---------------------------------------------------------------
 
     /// @notice Storage for checkpoints persisted via the SignalService.
-    /// @dev 1 slot used
-    LibCheckpointStore.Storage private _checkpointStorage;
+    /// @dev Maps block number to checkpoint data
+    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
 
     uint256[44] private __gap;
 
@@ -133,8 +144,13 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+        if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        LibCheckpointStore.saveCheckpoint(_checkpointStorage, _checkpoint);
+        _checkpoints[_checkpoint.blockNumber] =
+            CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
+
+        emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
 
     /// @inheritdoc ICheckpointStore
@@ -142,14 +158,33 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         external
         view
         override
-        returns (Checkpoint memory)
+        returns (Checkpoint memory checkpoint)
     {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _blockNumber);
+        return _getCheckpoint(_blockNumber);
     }
 
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Gets a checkpoint by block number
+    /// @param _blockNumber The block number of the checkpoint
+    /// @return checkpoint The checkpoint
+    function _getCheckpoint(uint48 _blockNumber)
+        private
+        view
+        returns (Checkpoint memory checkpoint)
+    {
+        CheckpointRecord storage record = _checkpoints[_blockNumber];
+        bytes32 blockHash = record.blockHash;
+        if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
+
+        checkpoint = Checkpoint({
+            blockNumber: _blockNumber,
+            blockHash: blockHash,
+            stateRoot: record.stateRoot
+        });
+    }
 
     function _sendSignal(
         address _app,
@@ -215,8 +250,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
             revert SS_EMPTY_PROOF();
         }
 
-        ICheckpointStore.Checkpoint memory checkpoint =
-            LibCheckpointStore.getCheckpoint(_checkpointStorage, uint48(proof.blockId));
+        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
         if (checkpoint.stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
@@ -238,5 +272,6 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 error SS_EMPTY_PROOF();
 error SS_INVALID_PROOF_LENGTH();
 error SS_INVALID_CHECKPOINT();
+error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
