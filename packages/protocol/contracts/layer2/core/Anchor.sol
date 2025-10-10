@@ -206,14 +206,7 @@ contract Anchor is EssentialContract {
         State memory state = _loadState();
 
         if (_blockParams.blockIndex == 0) {
-            _handleFirstBlock(
-                state,
-                _proposalParams.proposalId,
-                _proposalParams.proposer,
-                _proposalParams.proverAuth,
-                _proposalParams.bondInstructions,
-                _proposalParams.bondInstructionsHash
-            );
+            _handleFirstBlock(state, _proposalParams);
         }
 
         _maybeAnchorCheckpoint(state, _blockParams);
@@ -308,32 +301,25 @@ contract Anchor is EssentialContract {
 
     /// @dev Handles all logic that must only run on the first block of a proposal.
     /// @param _state Working state snapshot to mutate.
-    /// @param _proposalId The proposal being processed.
-    /// @param _proposer The proposer for the batch.
-    /// @param _proverAuth ABI-encoded designation payload.
-    /// @param _bondInstructions Bond instructions to process.
-    /// @param _expectedBondInstructionsHash Expected hash of the processed instructions.
-    function _handleFirstBlock(
-        State memory _state,
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _expectedBondInstructionsHash
-    )
-        private
-    {
+    /// @param _proposalParams Proposal-level parameters containing all proposal data.
+    function _handleFirstBlock(State memory _state, ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
-        (_state.isLowBondProposal, _state.designatedProver, proverFee) =
-            _getDesignatedProver(_proposalId, _proposer, _proverAuth, _state.designatedProver);
+        (_state.isLowBondProposal, _state.designatedProver, proverFee) = _getDesignatedProver(
+            _proposalParams.proposalId,
+            _proposalParams.proposer,
+            _proposalParams.proverAuth,
+            _state.designatedProver
+        );
 
         if (proverFee > 0) {
-            bondManager.debitBond(_proposer, proverFee);
+            bondManager.debitBond(_proposalParams.proposer, proverFee);
             bondManager.creditBond(_state.designatedProver, proverFee);
         }
 
         _state.bondInstructionsHash = _processBondInstructions(
-            _state.bondInstructionsHash, _bondInstructions, _expectedBondInstructionsHash
+            _state.bondInstructionsHash,
+            _proposalParams.bondInstructions,
+            _proposalParams.bondInstructionsHash
         );
     }
 
