@@ -18,7 +18,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
 
     /// @notice Storage-optimized checkpoint record with only persisted fields
     struct CheckpointRecord {
-        /// @notice The block hash for he end (last) block in this proposal.
+        /// @notice The block hash for the end (last) block in this proposal.
         bytes32 blockHash;
         /// @notice The state root for the end (last) block in this proposal.
         bytes32 stateRoot;
