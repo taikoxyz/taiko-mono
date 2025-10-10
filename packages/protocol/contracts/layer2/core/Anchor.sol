@@ -7,7 +7,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
+import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Anchor
@@ -68,7 +68,7 @@ contract Anchor is EssentialContract {
     uint48 public immutable provabilityBondGwei;
 
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
-    IShastaBondManager public immutable bondManager;
+    IBondManager public immutable bondManager;
 
     /// @notice Checkpoint store for storing L1 block data.
     ICheckpointStore public immutable checkpointStore;
@@ -153,7 +153,7 @@ contract Anchor is EssentialContract {
         address _checkpointStore,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        IShastaBondManager _bondManager,
+        IBondManager _bondManager,
         uint64 _l1ChainId
     ) {
         require(
