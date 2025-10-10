@@ -141,14 +141,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        require(_config.signalService != address(0), ZERO_ADDRESS());
+        require(_config.checkpointStore != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _checkpointStore = ICheckpointStore(_config.signalService);
+        _checkpointStore = ICheckpointStore(_config.checkpointStore);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
@@ -326,7 +326,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         config_ = IInbox.Config({
             codec: _codec,
             bondToken: address(_bondToken),
-            signalService: address(_checkpointStore),
+            checkpointStore: address(_checkpointStore),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,

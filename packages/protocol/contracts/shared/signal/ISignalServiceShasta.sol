@@ -55,7 +55,8 @@ interface ISignalServiceShasta is ICheckpointStore {
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received before. This happens if someone previously called `proveSignalReceived` for the same message.
+    /// received before. This happens if someone previously called `proveSignalReceived` for the
+    /// same message.
     /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
@@ -74,7 +75,8 @@ interface ISignalServiceShasta is ICheckpointStore {
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received before. This happens if someone previously called `proveSignalReceived` for the same message.
+    /// received before. This happens if someone previously called `proveSignalReceived` for the
+    /// same message.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
