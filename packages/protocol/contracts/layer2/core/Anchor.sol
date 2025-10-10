@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {EssentialContract} from "src/shared/common/EssentialContract.sol";
-import {LibAddress} from "src/shared/libs/LibAddress.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -60,7 +60,7 @@ contract Anchor is EssentialContract {
     // Immutables
     // ---------------------------------------------------------------
 
-      /// @notice Contract managing bond deposits, withdrawals, and transfers.
+    /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IBondManager public immutable bondManager;
 
     /// @notice Checkpoint store for storing L1 block data.
@@ -71,8 +71,6 @@ contract Anchor is EssentialContract {
 
     /// @notice Bond amount in Gwei for provability guarantees.
     uint48 public immutable provabilityBondGwei;
-
-  
 
     /// @notice Block height at which the Shasta fork is activated.
     uint64 public immutable shastaForkHeight;
