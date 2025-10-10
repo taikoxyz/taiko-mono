@@ -16,7 +16,7 @@ import "src/layer1/mainnet/MainnetBridge.sol";
 import "src/layer1/mainnet/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
-import "src/layer1/mainnet/MainnetSignalService.sol";
+import "src/shared/signal/SignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -100,30 +100,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy rollup contracts
         (address shastaInboxAddr,) =
             deployRollupContracts(sharedResolver, contractOwner, proofVerifier);
-        // Signal service need to authorize the new rollup
+
+        // Upgrade SignalService with actual inbox address
         address signalServiceAddr = IResolver(sharedResolver).resolve(
             uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
         );
-        SignalService signalService = SignalService(signalServiceAddr);
+        address remoteSignalService = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        address newImpl = address(new SignalService(shastaInboxAddr, remoteSignalService));
 
-        if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
-            SignalService(signalServiceAddr).authorize(shastaInboxAddr, true);
-        }
+        SignalService(signalServiceAddr).upgradeTo(newImpl);
 
-        console2.log("------------------------------------------");
-        console2.log("msg.sender: ", msg.sender);
-        console2.log("signalService.owner(): ", signalService.owner());
-        console2.log("------------------------------------------");
-
-        if (signalService.owner() == msg.sender) {
-            signalService.transferOwnership(contractOwner);
-        } else {
-            console2.log("------------------------------------------");
-            console2.log("Warning - you need to transact manually:");
-            console2.log("signalService.authorize(taikoInboxAddr, bytes32(block.chainid))");
-            console2.log("- signalService : ", signalServiceAddr);
-            console2.log("- shastaInboxAddr   : ", shastaInboxAddr);
-            console2.log("- chainId       : ", block.chainid);
+        if (SignalService(signalServiceAddr).owner() == msg.sender) {
+            SignalService(signalServiceAddr).transferOwnership(contractOwner);
         }
 
         // ---------------------------------------------------------------
@@ -167,13 +155,22 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         register(sharedResolver, "bond_token", taikoToken);
 
-        // Deploy Bridging contracts
-        address signalService = deployProxy({
-            name: "signal_service",
-            impl: address(new MainnetSignalService(address(sharedResolver))),
-            data: abi.encodeCall(SignalService.init, (address(0))),
-            registerTo: sharedResolver
-        });
+        // Deploy SignalService with dummy inbox address
+        address remoteSignalService = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+
+        address signalService;
+        try IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        ) returns (address existing) {
+            signalService = existing;
+        } catch {
+            signalService = deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService(address(1), remoteSignalService)),
+                data: abi.encodeCall(SignalService.init, owner),
+                registerTo: sharedResolver
+            });
+        }
 
         address bridge = deployProxy({
             name: "bridge",
