@@ -10,22 +10,22 @@ import "src/shared/libs/LibNetwork.sol";
 
 /// @title PreconfSlasherL2
 /// @notice PreconfSlasherL2 is a smart contract that validates preconfirmations on Layer 2
-/// and forwards slashing requests to the L1 preconfirmation slasher contract when violations
+/// and forwards slashing requests to the L1 unified slasher contract when violations
 /// are detected. It handles liveness and safety preconfirmation faults.
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
 contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialResolverContract {
-    address public immutable preconfSlasherL1;
+    address public immutable unifiedSlasher;
     address public immutable taikoAnchor;
 
     constructor(
         address _resolver,
-        address _preconfSlasherL1,
+        address _unifiedSlasher,
         address _taikoAnchor
     )
         EssentialResolverContract(_resolver)
     {
-        preconfSlasherL1 = _preconfSlasherL1;
+        unifiedSlasher = _unifiedSlasher;
         taikoAnchor = _taikoAnchor;
     }
 
@@ -64,7 +64,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialResolverContract {
             _validateSafetyFault(preconfirmation, preconfMeta);
         }
 
-        _invokePreconfSlasherL1(_fault, _registrationRoot, _signedCommitment);
+        _invokeUnifiedSlasher(_fault, _registrationRoot, _signedCommitment);
     }
 
     // Internal functions
@@ -149,8 +149,10 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialResolverContract {
         }
     }
 
-    /// @dev Invokes a call to L1 preconf slasher's onMessageInvocation(bytes) via the bridge
-    function _invokePreconfSlasherL1(
+    /// @dev Invokes a call to the `UnifiedSlasher` contract's onMessageInvocation(bytes)
+    /// via the bridge.
+    /// @dev `UhifiedSlasher` inherits `PreconfSlasherL1`
+    function _invokeUnifiedSlasher(
         Fault _fault,
         bytes32 _registrationRoot,
         SignedCommitment memory _signedCommitment
@@ -171,7 +173,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialResolverContract {
             srcOwner: msg.sender,
             destChainId: uint64(LibNetwork.ETHEREUM_MAINNET),
             destOwner: msg.sender,
-            to: preconfSlasherL1,
+            to: unifiedSlasher,
             value: 0,
             data: callData
         });

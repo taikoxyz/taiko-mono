@@ -22,7 +22,7 @@ interface IPreconfSlasherL2 {
         uint256 submissionWindowEnd;
     }
 
-    // The slashing reason forwarded to the L1 preconfirmation slasher
+    // The slashing reason forwarded to the L1 `UnifiedSlasher`
     enum Fault {
         // Every "liveness fault" computed on L2 is a "potential" liveness fault.
         // It is the L1 contract that further confirms it.
@@ -60,7 +60,7 @@ interface IPreconfSlasherL2 {
     error UnexpectedExtraProposalsInPreviousWindow();
 
     /// @notice Validates if a preconfirmation is slashable and forwards the fault to the
-    /// L1 preconfirmation slasher.
+    /// L1 slasher.
     /// @param _fault The fault that needs to be checked
     /// @param _registrationRoot The urc registration root of the operator being slashed
     /// @param _signedCommitment The signed preconfirmation commitment to slash
