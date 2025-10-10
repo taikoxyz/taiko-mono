@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -402,7 +401,8 @@ func (p *Processor) Start() error {
 			slog.Error(err.Error())
 		}
 
-		os.Exit(0)
+		// Exit early after single-target processing; caller controls process lifecycle.
+		return nil
 	}
 
 	// otherwise, we can start the queue, and process messages from it
