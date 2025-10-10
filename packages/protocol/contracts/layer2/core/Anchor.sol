@@ -253,10 +253,11 @@ contract Anchor is EssentialContract {
     // Public View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Returns the designated prover
+    /// @notice Returns the designated prover for a proposal.
     /// @param _proposalId The proposal ID.
     /// @param _proposer The proposer address.
     /// @param _proverAuth Encoded prover authentication data.
+    /// @param _currentDesignatedProver The current designated prover from state.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
     /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
@@ -264,13 +265,35 @@ contract Anchor is EssentialContract {
     function getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
-        bytes calldata _proverAuth
+        bytes calldata _proverAuth,
+        address _currentDesignatedProver
     )
         public
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
-        return _getDesignatedProver(_proposalId, _proposer, _proverAuth, designatedProver);
+        // Determine prover and fee
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
+
+        // Convert proving fee from Gwei to Wei
+        provingFee *= 1e9;
+
+        // Check bond sufficiency (convert provingFeeGwei to Wei)
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
+
+        // Handle low bond proposals
+        if (isLowBondProposal_) {
+            // Use previous designated prover
+            designatedProver_ = _currentDesignatedProver;
+        } else if (designatedProver_ != _proposer) {
+            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
+                // Fallback to proposer if designated prover has insufficient bonds
+                designatedProver_ = _proposer;
+            } else {
+                provingFeeToTransfer_ = provingFee;
+            }
+        }
     }
 
     // ---------------------------------------------------------------
@@ -304,7 +327,7 @@ contract Anchor is EssentialContract {
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _handleFirstBlock(State memory _state, ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
-        (_state.isLowBondProposal, _state.designatedProver, proverFee) = _getDesignatedProver(
+        (_state.isLowBondProposal, _state.designatedProver, proverFee) = getDesignatedProver(
             _proposalParams.proposalId,
             _proposalParams.proposer,
             _proposalParams.proverAuth,
@@ -376,49 +399,6 @@ contract Anchor is EssentialContract {
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
             newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
-        }
-    }
-
-    /// @dev Returns the designated prover with provided current designatedProver.
-    /// @param _proposalId The proposal ID.
-    /// @param _proposer The proposer address.
-    /// @param _proverAuth Encoded prover authentication data.
-    /// @param _currentDesignatedProver The current designated prover from state.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
-    /// @return designatedProver_ The designated prover address.
-    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
-    /// designated prover.
-    function _getDesignatedProver(
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth,
-        address _currentDesignatedProver
-    )
-        private
-        view
-        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-    {
-        // Determine prover and fee
-        uint256 provingFee;
-        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
-
-        // Convert proving fee from Gwei to Wei
-        provingFee *= 1e9;
-
-        // Check bond sufficiency (convert provingFeeGwei to Wei)
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
-
-        // Handle low bond proposals
-        if (isLowBondProposal_) {
-            // Use previous designated prover
-            designatedProver_ = _currentDesignatedProver;
-        } else if (designatedProver_ != _proposer) {
-            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
-                // Fallback to proposer if designated prover has insufficient bonds
-                designatedProver_ = _proposer;
-            } else {
-                provingFeeToTransfer_ = provingFee;
-            }
         }
     }
 
