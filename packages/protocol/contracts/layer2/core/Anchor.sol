@@ -196,7 +196,10 @@ contract Anchor is EssentialContract {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchor(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
+    function anchor(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
         external
         onlyValidSenderAndHeight
         nonReentrant
