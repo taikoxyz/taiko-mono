@@ -23,7 +23,7 @@ library LibPublicInput {
         pure
         returns (bytes32)
     {
-        require(_aggregatedProvingHash != bytes32(0), InvalidAggratedProvingHash());
+        require(_aggregatedProvingHash != bytes32(0), InvalidAggregatedProvingHash());
         return keccak256(
             abi.encode(
                 "VERIFY_PROOF", _chainId, _verifierContract, _aggregatedProvingHash, _newInstance
@@ -35,5 +35,5 @@ library LibPublicInput {
     // Errors
     // ---------------------------------------------------------------
 
-    error InvalidAggratedProvingHash();
+    error InvalidAggregatedProvingHash();
 }
