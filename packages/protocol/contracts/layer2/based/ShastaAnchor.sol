@@ -28,6 +28,16 @@ contract ShastaAnchor is EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
+    /// @notice State containing all non-mapping state variables.
+    struct State {
+        bytes32 publicInputHash;
+        bytes32 bondInstructionsHash;
+        address designatedProver;
+        uint48 anchorBlockNumber;
+        uint48 endOfSubmissionWindowTimestamp;
+        bool isLowBondProposal;
+    }
+
     /// @notice Authentication data for prover designation.
     /// @dev Used to allow a proposer to designate another address as the prover.
     struct ProverAuth {
@@ -104,6 +114,15 @@ contract ShastaAnchor is EssentialContract {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    event Anchored(
+        bytes32 publicInputHash,
+        bytes32 bondInstructionsHash,
+        address designatedProver,
+        uint48 anchorBlockNumber,
+        uint48 endOfSubmissionWindowTimestamp,
+        bool isLowBondProposal
+    );
 
     event Withdrawn(address token, address to, uint256 amount);
 
@@ -202,28 +221,44 @@ contract ShastaAnchor is EssentialContract {
         onlyGoldenTouch
         nonReentrant
     {
+        // ============================================================
+        // PHASE 1: READ - Load current state into memory
+        // ============================================================
+        State memory state = State({
+            publicInputHash: publicInputHash,
+            bondInstructionsHash: bondInstructionsHash,
+            designatedProver: designatedProver,
+            anchorBlockNumber: anchorBlockNumber,
+            endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+            isLowBondProposal: isLowBondProposal
+        });
+
+        // ============================================================
+        // PHASE 2: VALIDATE & COMPUTE - All validation and computation
+        // ============================================================
+
         // Fork validation
         require(block.number >= shastaForkHeight, ForkError());
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
             uint256 _proverFee;
-            (isLowBondProposal, designatedProver, _proverFee) =
-                getDesignatedProver(_proposalId, _proposer, _proverAuth);
+            (state.isLowBondProposal, state.designatedProver, _proverFee) =
+                _getDesignatedProver(_proposalId, _proposer, _proverAuth, state.designatedProver);
 
             if (_proverFee > 0) {
                 bondManager.debitBond(_proposer, _proverFee);
-                bondManager.creditBond(designatedProver, _proverFee);
+                bondManager.creditBond(state.designatedProver, _proverFee);
             }
 
-            // Process bond instructions with hash verification and assign atomically
-            bondInstructionsHash =
+            // Process bond instructions with hash verification
+            state.bondInstructionsHash =
                 _processBondInstructions(_bondInstructions, _bondInstructionsHash);
         }
 
         // Process new L1 anchor data
-        if (_anchorBlockNumber > anchorBlockNumber) {
-            // Save L1 block data to checkpoint store
+        if (_anchorBlockNumber > state.anchorBlockNumber) {
+            // Save L1 block data to checkpoint store (external call before state write)
             checkpointStore.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: _anchorBlockNumber,
@@ -232,11 +267,36 @@ contract ShastaAnchor is EssentialContract {
                 })
             );
 
-            anchorBlockNumber = _anchorBlockNumber;
+            state.anchorBlockNumber = _anchorBlockNumber;
         }
 
-        endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
+        // Update submission window timestamp
+        state.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+
+        // ============================================================
+        // PHASE 3: WRITE - Write all state to storage atomically
+        // ============================================================
+        publicInputHash = state.publicInputHash;
+        bondInstructionsHash = state.bondInstructionsHash;
+        designatedProver = state.designatedProver;
+        anchorBlockNumber = state.anchorBlockNumber;
+        endOfSubmissionWindowTimestamp = state.endOfSubmissionWindowTimestamp;
+        isLowBondProposal = state.isLowBondProposal;
+
+        // Update mapping separately
+        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = state.endOfSubmissionWindowTimestamp;
+
+        // ============================================================
+        // PHASE 4: EMIT - Emit event with final state
+        // ============================================================
+        emit Anchored(
+            state.publicInputHash,
+            state.bondInstructionsHash,
+            state.designatedProver,
+            state.anchorBlockNumber,
+            state.endOfSubmissionWindowTimestamp,
+            state.isLowBondProposal
+        );
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -285,28 +345,7 @@ contract ShastaAnchor is EssentialContract {
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
-        // Determine prover and fee
-        uint256 provingFee;
-        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
-
-        // Convert proving fee from Gwei to Wei
-        provingFee *= 1e9;
-
-        // Check bond sufficiency (convert provingFeeGwei to Wei)
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
-
-        // Handle low bond proposals
-        if (isLowBondProposal_) {
-            // Use previous designated prover
-            designatedProver_ = designatedProver;
-        } else if (designatedProver_ != _proposer) {
-            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
-                // Fallback to proposer if designated prover has insufficient bonds
-                designatedProver_ = _proposer;
-            } else {
-                provingFeeToTransfer_ = provingFee;
-            }
-        }
+        return _getDesignatedProver(_proposalId, _proposer, _proverAuth, designatedProver);
     }
 
     // ---------------------------------------------------------------
@@ -352,6 +391,49 @@ contract ShastaAnchor is EssentialContract {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Returns the designated prover with provided current designatedProver.
+    /// @param _proposalId The proposal ID.
+    /// @param _proposer The proposer address.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @param _currentDesignatedProver The current designated prover from state.
+    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
+    /// @return designatedProver_ The designated prover address.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
+    function _getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth,
+        address _currentDesignatedProver
+    )
+        private
+        view
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+    {
+        // Determine prover and fee
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
+
+        // Convert proving fee from Gwei to Wei
+        provingFee *= 1e9;
+
+        // Check bond sufficiency (convert provingFeeGwei to Wei)
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
+
+        // Handle low bond proposals
+        if (isLowBondProposal_) {
+            // Use previous designated prover
+            designatedProver_ = _currentDesignatedProver;
+        } else if (designatedProver_ != _proposer) {
+            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
+                // Fallback to proposer if designated prover has insufficient bonds
+                designatedProver_ = _proposer;
+            } else {
+                provingFeeToTransfer_ = provingFee;
+            }
+        }
+    }
 
     /// @dev Processes bond instructions with cumulative hash verification.
     /// @param _bondInstructions Bond instructions to process.
