@@ -76,7 +76,18 @@ contract Anchor is EssentialContract {
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
     /// @dev Minimum calldata length for decoding a `ProverAuth` payload safely.
+    /// This equals the ABI-encoded size of:
+    ///   - uint48 proposalId: 32 bytes (padded)
+    ///   - address proposer: 32 bytes (padded)
+    ///   - uint48 provingFeeGwei: 32 bytes (padded)
+    ///   - bytes offset: 32 bytes
+    ///   - bytes length: 32 bytes
+    ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
+    /// Total: 32 + 32 + 32 + 32 + 32 + 65 = 225 bytes
     uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
+
+    /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
+    uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
     // ---------------------------------------------------------------
     // Immutables
@@ -325,7 +336,8 @@ contract Anchor is EssentialContract {
             return (_proposer, 0);
         }
 
-        if (proverAuth.signature.length != 65) {
+        // Verify signature has correct length for ECDSA (r: 32 bytes, s: 32 bytes, v: 1 byte)
+        if (proverAuth.signature.length != ECDSA_SIGNATURE_LENGTH) {
             return (_proposer, 0);
         }
 
