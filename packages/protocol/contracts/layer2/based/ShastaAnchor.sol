@@ -1,37 +1,46 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { PacayaAnchor } from "./PacayaAnchor.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { ISignalServiceShasta } from "src/shared/shasta/iface/ISignalServiceShasta.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title ShastaAnchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev This contract extends PacayaAnchor to add:
+/// @dev This contract directly inherits EssentialContract:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
 ///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaAnchor is PacayaAnchor {
+contract ShastaAnchor is EssentialContract {
+    using LibAddress for address;
+    using SafeERC20 for IERC20;
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    event Withdrawn(address token, address to, uint256 amount);
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Stores the current state of an anchor proposal being processed.
-    /// @dev This state is updated incrementally as each block in a proposal is processed.
+    /// @notice State snapshot for return values.
     struct State {
-        bytes32 bondInstructionsHash; // Latest known bond instructions hash
-        uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
-        address designatedProver; // The prover designated for the current batch
-        bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
-            // preconfer can submit preconf-ed blocks to the L2 network.
+        bytes32 bondInstructionsHash;
+        uint48 anchorBlockNumber;
+        address designatedProver;
+        bool isLowBondProposal;
+        uint48 endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Authentication data for prover designation.
@@ -47,6 +56,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Constants and Immutables
     // ---------------------------------------------------------------
 
+    /// @notice Golden touch address is the only address that can do the anchor transaction.
+    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
@@ -59,19 +71,53 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
 
+    /// @notice Checkpoint store for storing L1 block data.
+    ICheckpointStore public immutable checkpointStore;
+
+    /// @notice Block height at which the Pacaya fork is activated.
+    uint64 public immutable pacayaForkHeight;
+
+    /// @notice Block height at which the Shasta fork is activated.
+    uint64 public immutable shastaForkHeight;
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
 
-    /// @notice Current state of the anchor proposal being processed.
-    /// @dev 3 slots used to store the state:
-    State private _state;
-
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
+    /// @notice A hash to check the integrity of public inputs.
+    bytes32 public publicInputHash;
+
+    /// @notice Latest known bond instructions hash.
+    bytes32 public bondInstructionsHash;
+
+    /// @notice The designated prover for the current batch.
+    /// @dev Packed in slot with anchorBlockNumber and endOfSubmissionWindowTimestamp.
+    address public designatedProver;
+    /// @notice Latest L1 block number anchored to L2.
+    uint48 public anchorBlockNumber;
+    /// @notice The timestamp of the last slot where the current preconfer can propose.
+    uint48 public endOfSubmissionWindowTimestamp;
+
+    /// @notice The L1's chain ID.
+    /// @dev Packed in slot with isLowBondProposal.
+    uint64 public l1ChainId;
+    /// @notice Indicates if the proposal has insufficient bonds.
+    bool public isLowBondProposal;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[46] private __gap;
+    uint256[45] private __gap;
+
+    // ---------------------------------------------------------------
+    // Modifiers
+    // ---------------------------------------------------------------
+
+    modifier onlyGoldenTouch() {
+        require(msg.sender == GOLDEN_TOUCH_ADDRESS, InvalidSender());
+        _;
+    }
 
     // ---------------------------------------------------------------
     // Constructor
@@ -80,20 +126,18 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Initializes the ShastaAnchor contract.
     /// @param _livenessBondGwei The liveness bond amount in Gwei.
     /// @param _provabilityBondGwei The provability bond amount in Gwei.
-    /// @param _signalService The address of the signal service.
+    /// @param _checkpointStore The address of the checkpoint store.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _bondManager The address of the bond manager.
     constructor(
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
-        address _signalService,
+        address _checkpointStore,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         IShastaBondManager _bondManager
-    )
-        PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
-    {
+    ) {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
@@ -101,11 +145,37 @@ abstract contract ShastaAnchor is PacayaAnchor {
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
         bondManager = _bondManager;
+        checkpointStore = ICheckpointStore(_checkpointStore);
+        pacayaForkHeight = _pacayaForkHeight;
+        shastaForkHeight = _shastaForkHeight;
     }
 
     // ---------------------------------------------------------------
-    // External Functions (Non-View)
+    // External Functions
     // ---------------------------------------------------------------
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _l1ChainId The ID of the base layer.
+    function init(address _owner, uint64 _l1ChainId) external initializer {
+        __Essential_init(_owner);
+
+        require(_l1ChainId != 0, InvalidL1ChainId());
+        require(_l1ChainId != block.chainid, InvalidL1ChainId());
+        require(block.chainid > 1, InvalidL2ChainId());
+        require(block.chainid <= type(uint64).max, InvalidL2ChainId());
+
+        if (block.number == 0) {
+            // This is the case in real L2 genesis
+        } else if (block.number == 1) {
+            // This is the case in tests
+        } else {
+            revert TooLate();
+        }
+
+        l1ChainId = _l1ChainId;
+        (publicInputHash,) = _calcPublicInputHash(block.number);
+    }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
@@ -113,7 +183,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ///      1. Designates prover on first block (blockIndex == 0)
     ///      2. Processes bond transfers with cumulative hash verification
     ///      3. Anchors L1 block data for cross-chain verification
-    ///      4. Tracks parent block hash to prevent duplicate calls
     /// @param _proposalId Unique identifier of the proposal being anchored.
     /// @param _proposer Address of the entity that proposed this batch of blocks.
     /// @param _proverAuth Encoded ProverAuth for prover designation (empty after block 0).
@@ -125,11 +194,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
     /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
-    /// preconfer
-    /// can propose.
+    /// preconfer can propose.
     /// @return previousState_ The previous state of the anchor. This value make proving easier.
     /// @return newState_ The new state of the anchor.
-    function updateState(
+    function anchor(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
         address _proposer,
@@ -149,34 +217,35 @@ abstract contract ShastaAnchor is PacayaAnchor {
         returns (State memory previousState_, State memory newState_)
     {
         // Fork validation
-        require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+        require(block.number >= shastaForkHeight, ForkError());
 
-        previousState_ = _state;
-        newState_ = previousState_;
-
-        // Prevent duplicate calls within same block
-        _trackParentBlockHash(block.number - 1);
+        // Capture previous state
+        previousState_.bondInstructionsHash = bondInstructionsHash;
+        previousState_.anchorBlockNumber = anchorBlockNumber;
+        previousState_.designatedProver = designatedProver;
+        previousState_.isLowBondProposal = isLowBondProposal;
+        previousState_.endOfSubmissionWindowTimestamp = endOfSubmissionWindowTimestamp;
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
-            uint256 proverFee;
-            (newState_.isLowBondProposal, newState_.designatedProver, proverFee) =
-                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+            uint256 _proverFee;
+            (isLowBondProposal, designatedProver, _proverFee) =
+                getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
-            if (proverFee > 0) {
-                bondManager.debitBond(_proposer, proverFee);
-                bondManager.creditBond(newState_.designatedProver, proverFee);
+            if (_proverFee > 0) {
+                bondManager.debitBond(_proposer, _proverFee);
+                bondManager.creditBond(designatedProver, _proverFee);
             }
 
             // Process bond instructions with hash verification and assign atomically
-            newState_.bondInstructionsHash =
+            bondInstructionsHash =
                 _processBondInstructions(_bondInstructions, _bondInstructionsHash);
         }
 
         // Process new L1 anchor data
-        if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
-            // Save L1 block data to signal service
-            ISignalServiceShasta(address(signalService)).saveCheckpoint(
+        if (_anchorBlockNumber > anchorBlockNumber) {
+            // Save L1 block data to checkpoint store
+            checkpointStore.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: _anchorBlockNumber,
                     blockHash: _anchorBlockHash,
@@ -184,25 +253,49 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 })
             );
 
-            // Update state atomically
-            newState_.anchorBlockNumber = _anchorBlockNumber;
+            anchorBlockNumber = _anchorBlockNumber;
         }
 
-        newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
-        _state = newState_;
-
+        endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
         blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
+
+        // Capture new state
+        newState_.bondInstructionsHash = bondInstructionsHash;
+        newState_.anchorBlockNumber = anchorBlockNumber;
+        newState_.designatedProver = designatedProver;
+        newState_.isLowBondProposal = isLowBondProposal;
+        newState_.endOfSubmissionWindowTimestamp = endOfSubmissionWindowTimestamp;
+    }
+
+    /// @notice Withdraw token or Ether from this address.
+    /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
+    /// L2 block's coinbase address.
+    /// @param _token Token address or address(0) if Ether.
+    /// @param _to Withdraw to address.
+    function withdraw(
+        address _token,
+        address _to
+    )
+        external
+        nonZeroAddr(_to)
+        whenNotPaused
+        onlyOwner
+        nonReentrant
+    {
+        uint256 amount;
+        if (_token == address(0)) {
+            amount = address(this).balance;
+            _to.sendEtherAndVerify(amount);
+        } else {
+            amount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(_to, amount);
+        }
+        emit Withdrawn(_token, _to, amount);
     }
 
     // ---------------------------------------------------------------
-    // External View Functions
+    // Public View Functions
     // ---------------------------------------------------------------
-
-    /// @notice Returns the current state of the anchor.
-    /// @return The current state containing bond hash, anchor block, and designated prover.
-    function getState() external view returns (State memory) {
-        return _state;
-    }
 
     /// @notice Returns the designated prover
     /// @param _proposalId The proposal ID.
@@ -217,38 +310,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address _proposer,
         bytes calldata _proverAuth
     )
-        external
-        view
-        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-    {
-        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
-    }
-
-    // ---------------------------------------------------------------
-    // Private functions
-    // ---------------------------------------------------------------
-
-    /// @dev Tracks parent block hash to prevent duplicate updateState calls within same block.
-    /// @param _parentId The parent block number (current block - 1).
-    function _trackParentBlockHash(uint256 _parentId) private {
-        require(_blockhashes[_parentId] == 0, BlockHashAlreadySet());
-        _blockhashes[_parentId] = blockhash(_parentId);
-    }
-
-    /// @dev Returns the designated prover
-    /// @param _proposalId The proposal ID.
-    /// @param _proposer The proposer address.
-    /// @param _proverAuth Encoded prover authentication data.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
-    /// @return designatedProver_ The designated prover address.
-    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
-    /// designated prover.
-    function _getDesignatedProver(
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth
-    )
-        private
+        public
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
@@ -265,7 +327,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Handle low bond proposals
         if (isLowBondProposal_) {
             // Use previous designated prover
-            designatedProver_ = _state.designatedProver;
+            designatedProver_ = designatedProver;
         } else if (designatedProver_ != _proposer) {
             if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
                 // Fallback to proposer if designated prover has insufficient bonds
@@ -275,6 +337,50 @@ abstract contract ShastaAnchor is PacayaAnchor {
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Calculates the aggregated ancestor block hash for the given block ID.
+    /// @dev This function computes two public input hashes: one for the previous state and one for
+    /// the new state.
+    /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
+    /// @param _blockId The ID of the block for which the public input hash is calculated.
+    /// @return currPublicInputHash_ The public input hash for the previous state.
+    /// @return newPublicInputHash_ The public input hash for the new state.
+    function _calcPublicInputHash(uint256 _blockId)
+        internal
+        view
+        returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
+    {
+        // 255 bytes32 ring buffer + 1 bytes32 for chainId
+        bytes32[256] memory inputs;
+        inputs[255] = bytes32(block.chainid);
+
+        // Unchecked is safe because it cannot overflow.
+        unchecked {
+            // Put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
+                uint256 j = _blockId - i - 1;
+                inputs[j % 255] = blockhash(j);
+            }
+        }
+
+        assembly {
+            currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+        }
+
+        inputs[_blockId % 255] = blockhash(_blockId);
+        assembly {
+            newPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
 
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
@@ -336,7 +442,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         returns (bytes32 newHash_)
     {
         // Start with current cumulative hash
-        newHash_ = _state.bondInstructionsHash;
+        newHash_ = bondInstructionsHash;
 
         // Process each instruction
         uint256 length = _bondInstructions.length;
@@ -369,15 +475,20 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Errors
     // ---------------------------------------------------------------
 
-    error BlockHashAlreadySet();
     error BondInstructionsHashMismatch();
-    error InvalidBlockIndex();
+    error ForkError();
     error InvalidAnchorBlockNumber();
+    error InvalidBlockIndex();
     error InvalidForkHeight();
+    error InvalidL1ChainId();
+    error InvalidL2ChainId();
+    error InvalidSender();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
-    error ZeroBlockCount();
     error ProposalIdMismatch();
     error ProposerMismatch();
+    error PublicInputHashMismatch();
+    error TooLate();
+    error ZeroBlockCount();
 }

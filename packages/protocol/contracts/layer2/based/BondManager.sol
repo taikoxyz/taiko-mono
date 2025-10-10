@@ -29,7 +29,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @dev WARNING: In theory operations can remain unfinalized indefinitely, but in practice
     /// after
     ///      the `extendedProvingWindow` the incentives are very strong for finalization.
-    ///      A safe value for this is `extendedProvingWindow` + buffer.
+    ///      A safe value for this is `extendedProvingWindow` + buffer, for example, 7 days.
     uint48 public immutable withdrawalDelay;
 
     /// @notice Per-account bond state

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ShastaAnchor.sol";
-import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
+import "./PacayaAnchor.sol";
 
 /// @title TaikoAnchor
 /// @notice TaikoAnchor is a smart contract that handles cross-layer message
@@ -13,7 +12,20 @@ import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 /// @dev This contract receives a portion of L2 base fees, while the remainder is directed to
 /// L2 block's coinbase address.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoAnchor is ShastaAnchor {
+contract TaikoAnchor is PacayaAnchor {
+    // -------------------------------------------------------------------
+    // Immutables (for compatibility, unused in PacayaAnchor)
+    // -------------------------------------------------------------------
+
+    /// @notice Bond amount in Gwei for liveness guarantees (stored for compatibility).
+    uint48 public immutable livenessBondGwei;
+
+    /// @notice Bond amount in Gwei for provability guarantees (stored for compatibility).
+    uint48 public immutable provabilityBondGwei;
+
+    /// @notice Bond manager address (stored for compatibility).
+    address public immutable bondManager;
+
     // -------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------
@@ -25,15 +37,12 @@ contract TaikoAnchor is ShastaAnchor {
         uint64 _shastaForkHeight,
         address _bondManager
     )
-        ShastaAnchor(
-            _livenessBondGwei,
-            _provabilityBondGwei,
-            _signalService,
-            _pacayaForkHeight,
-            _shastaForkHeight,
-            IShastaBondManager(_bondManager)
-        )
-    { }
+        PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
+    {
+        livenessBondGwei = _livenessBondGwei;
+        provabilityBondGwei = _provabilityBondGwei;
+        bondManager = _bondManager;
+    }
 
     // -------------------------------------------------------------------
     // External functions
