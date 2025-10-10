@@ -3,6 +3,7 @@ name = "proposer"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 # async
@@ -19,7 +20,7 @@ alloy-eips = { workspace = true }
 alloy-network = { workspace = true }
 
 # taiko
-alethia-reth = { workspace = true }
+alethia-reth-consensus = { workspace = true }
 bindings = { path = "../bindings" }
 event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }

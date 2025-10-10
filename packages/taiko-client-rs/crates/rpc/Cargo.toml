@@ -3,6 +3,7 @@ name = "rpc"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 # observability
@@ -27,7 +28,9 @@ alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
 
 # taiko
-alethia-reth = { workspace = true }
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alethia-reth-rpc = { workspace = true }
 bindings = { path = "../bindings" }
 
 # types

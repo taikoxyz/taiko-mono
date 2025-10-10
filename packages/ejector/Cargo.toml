@@ -1,17 +1,5 @@
-[workspace]
-members = [
-    "bin/ejector",
-    "crates/beacon",
-    "crates/bindings", 
-    "crates/config",
-    "crates/metrics",
-    "crates/monitor",
-    "crates/server",
-    "crates/utils",
-]
-resolver = "2"
-
-[workspace.package]
+[package]
+name = "ejector"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
@@ -19,19 +7,13 @@ authors = ["Taiko Labs"]
 license = "MIT"
 repository = "https://github.com/taikoxyz/taiko-mono"
 
-[workspace.dependencies]
-# internal crates
-beacon = { path = "crates/beacon" }
-bindings = { path = "crates/bindings" }
-config = { path = "crates/config" }
-metrics = { path = "crates/metrics" }
-monitor = { path = "crates/monitor" }
-server = { path = "crates/server" }
-utils = { path = "crates/utils" }
+[[bin]]
+name = "ejector"
+path = "bin/ejector/src/main.rs"
 
-# async
+[dependencies]
+# async runtime + utilities
 tokio = { version = "1.45", default-features = false, features = ["full"] }
-tokio-util = { version = "0.7" }
 futures-util = "0.3.0"
 
 # cli
@@ -61,7 +43,10 @@ url = { version = "2.5.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-[workspace.lints.clippy]
+[dev-dependencies]
+wiremock = "0.6"
+
+[lints.clippy]
 cast_lossless = "deny"
 cast_possible_truncation = "deny"
 cast_possible_wrap = "deny"
