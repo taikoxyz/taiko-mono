@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
-    "clean": "rm -rf out abis cache* && forge clean",
+    "clean": "rm -rf out abis cache* cache-* && (forge clean || true)",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
@@ -45,7 +45,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
     "solc": "0.8.24",
-    "solhint": "^5.0.4",
+    "solhint": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   },
