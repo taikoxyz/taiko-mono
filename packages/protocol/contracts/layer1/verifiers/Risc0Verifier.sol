@@ -5,7 +5,7 @@ import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
-import "../iface/IProofVerifier.sol";
+import "src/layer1/core/iface/IProofVerifier.sol";
 
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
@@ -49,7 +49,7 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
             abi.decode(_proof, (bytes, bytes32, bytes32));
@@ -60,7 +60,7 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
         require(isImageTrusted[blockImageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
 
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            _transitionsHash, address(this), address(0), taikoChainId
+            _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
         // journalDigest is the sha256 hash of the hashed public input

@@ -5,7 +5,7 @@ import "@sp1-contracts/src/ISP1Verifier.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "src/shared/libs/LibNames.sol";
 import "./LibPublicInput.sol";
-import "../iface/IProofVerifier.sol";
+import "src/layer1/core/iface/IProofVerifier.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
@@ -46,8 +46,8 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
-        require(_transitionsHash != bytes32(0) && _proof.length > 64, SP1_INVALID_PARAMS());
+    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+        require(_proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof[0:32]);
         bytes32 blockProvingProgram = bytes32(_proof[32:64]);
@@ -58,7 +58,7 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
         require(isProgramTrusted[blockProvingProgram], SP1_INVALID_PROGRAM_VKEY());
 
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            _transitionsHash, address(this), address(0), taikoChainId
+            _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
         // _proof[64:] is the succinct's proof position
