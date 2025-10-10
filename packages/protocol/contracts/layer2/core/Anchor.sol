@@ -206,7 +206,7 @@ contract Anchor is EssentialContract {
         State memory state = _loadState();
 
         if (_blockParams.blockIndex == 0) {
-            state = _handleFirstBlock(
+            _handleFirstBlock(
                 state,
                 _proposalParams.proposalId,
                 _proposalParams.proposer,
@@ -313,7 +313,6 @@ contract Anchor is EssentialContract {
     /// @param _proverAuth ABI-encoded designation payload.
     /// @param _bondInstructions Bond instructions to process.
     /// @param _expectedBondInstructionsHash Expected hash of the processed instructions.
-    /// @return Updated state reflecting prover designation and bond processing.
     function _handleFirstBlock(
         State memory _state,
         uint48 _proposalId,
@@ -323,7 +322,6 @@ contract Anchor is EssentialContract {
         bytes32 _expectedBondInstructionsHash
     )
         private
-        returns (State memory)
     {
         uint256 proverFee;
         (_state.isLowBondProposal, _state.designatedProver, proverFee) =
@@ -337,8 +335,6 @@ contract Anchor is EssentialContract {
         _state.bondInstructionsHash = _processBondInstructions(
             _state.bondInstructionsHash, _bondInstructions, _expectedBondInstructionsHash
         );
-
-        return _state;
     }
 
     /// @dev Anchors checkpoint data when a fresher L1 block is provided.
