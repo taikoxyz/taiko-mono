@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibAddress.sol";
-import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
-import {IBondManager} from "./IBondManager.sol";
-import {LibBonds} from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IBondManager } from "./IBondManager.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -196,15 +196,21 @@ contract Anchor is EssentialContract {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot
-    ) external onlyValidSenderAndHeight nonReentrant {
+    )
+        external
+        onlyValidSenderAndHeight
+        nonReentrant
+    {
         State memory state = _loadState();
 
         if (_blockIndex == 0) {
-            state =
-                _handleFirstBlock(state, _proposalId, _proposer, _proverAuth, _bondInstructions, _bondInstructionsHash);
+            state = _handleFirstBlock(
+                state, _proposalId, _proposer, _proverAuth, _bondInstructions, _bondInstructionsHash
+            );
         }
 
-        state = _maybeAnchorCheckpoint(state, _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
+        state =
+            _maybeAnchorCheckpoint(state, _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
         state.ancestorsHash = _verifyAndUpdateAncestorsHash(block.number - 1, state.ancestorsHash);
 
         _persistState(state);
@@ -223,7 +229,15 @@ contract Anchor is EssentialContract {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(address _token, address _to) external nonZeroAddr(_to) onlyOwner nonReentrant {
+    function withdraw(
+        address _token,
+        address _to
+    )
+        external
+        nonZeroAddr(_to)
+        onlyOwner
+        nonReentrant
+    {
         uint256 amount;
         if (_token == address(0)) {
             amount = address(this).balance;
@@ -247,7 +261,11 @@ contract Anchor is EssentialContract {
     /// @return designatedProver_ The designated prover address.
     /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
     /// designated prover.
-    function getDesignatedProver(uint48 _proposalId, address _proposer, bytes calldata _proverAuth)
+    function getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
         public
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
@@ -296,7 +314,10 @@ contract Anchor is EssentialContract {
         bytes calldata _proverAuth,
         LibBonds.BondInstruction[] calldata _bondInstructions,
         bytes32 _expectedBondInstructionsHash
-    ) private returns (State memory) {
+    )
+        private
+        returns (State memory)
+    {
         uint256 proverFee;
         (_state.isLowBondProposal, _state.designatedProver, proverFee) =
             _getDesignatedProver(_proposalId, _proposer, _proverAuth, _state.designatedProver);
@@ -306,8 +327,9 @@ contract Anchor is EssentialContract {
             bondManager.creditBond(_state.designatedProver, proverFee);
         }
 
-        _state.bondInstructionsHash =
-            _processBondInstructions(_state.bondInstructionsHash, _bondInstructions, _expectedBondInstructionsHash);
+        _state.bondInstructionsHash = _processBondInstructions(
+            _state.bondInstructionsHash, _bondInstructions, _expectedBondInstructionsHash
+        );
 
         return _state;
     }
@@ -323,7 +345,10 @@ contract Anchor is EssentialContract {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot
-    ) private returns (State memory) {
+    )
+        private
+        returns (State memory)
+    {
         if (_anchorBlockNumber <= _state.anchorBlockNumber) {
             return _state;
         }
@@ -390,7 +415,11 @@ contract Anchor is EssentialContract {
         address _proposer,
         bytes calldata _proverAuth,
         address _currentDesignatedProver
-    ) private view returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_) {
+    )
+        private
+        view
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+    {
         // Determine prover and fee
         uint256 provingFee;
         (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
@@ -424,7 +453,10 @@ contract Anchor is EssentialContract {
         bytes32 _currentHash,
         LibBonds.BondInstruction[] calldata _bondInstructions,
         bytes32 _expectedHash
-    ) private returns (bytes32 newHash_) {
+    )
+        private
+        returns (bytes32 newHash_)
+    {
         // Start with current cumulative hash
         newHash_ = _currentHash;
 
@@ -459,7 +491,10 @@ contract Anchor is EssentialContract {
     /// @param _parentId The ID of the parent block.
     /// @param _currentAncestorsHash The hash stored in contract state.
     /// @return newAncestorsHash_ The newly computed hash to persist.
-    function _verifyAndUpdateAncestorsHash(uint256 _parentId, bytes32 _currentAncestorsHash)
+    function _verifyAndUpdateAncestorsHash(
+        uint256 _parentId,
+        bytes32 _currentAncestorsHash
+    )
         private
         view
         returns (bytes32 newAncestorsHash_)
@@ -475,7 +510,11 @@ contract Anchor is EssentialContract {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
     /// @return provingFeeGwei_ The proving fee in Gwei (0 if validation fails).
-    function _validateProverAuth(uint48 _proposalId, address _proposer, bytes calldata _proverAuth)
+    function _validateProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
         private
         pure
         returns (address signer_, uint48 provingFeeGwei_)
@@ -496,8 +535,11 @@ contract Anchor is EssentialContract {
         }
 
         // Verify ECDSA signature
-        bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFeeGwei));
-        (address recovered, ECDSA.RecoverError error) = ECDSA.tryRecover(message, proverAuth.signature);
+        bytes32 message = keccak256(
+            abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFeeGwei)
+        );
+        (address recovered, ECDSA.RecoverError error) =
+            ECDSA.tryRecover(message, proverAuth.signature);
 
         // Return recovered signer or fallback to proposer
         if (error == ECDSA.RecoverError.NoError && recovered != address(0)) {
