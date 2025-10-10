@@ -71,46 +71,42 @@
 
 ## Anchor
 
-╭-----------------------------------------+-----------------------------+------+--------+-------+-----------------------------------------╮
-| Name                                    | Type                        | Slot | Offset | Bytes |
-+=========================================================================================================================================+
-| _initialized                            | uint8                       | 0    | 0      | 1     |
+╭-----------------------------+-------------+------+--------+-------+-----------------------------------------╮
+| Name                        | Type        | Slot | Offset | Bytes |
++=============================================================================================================+
+| _initialized                | uint8       | 0    | 0      | 1     |
 |
-| _initializing                           | bool                        | 0    | 1      | 1     |
+| _initializing               | bool        | 0    | 1      | 1     |
 |
-| __gap                                   | uint256[50]                 | 1    | 0      | 1600  |
+| __gap                       | uint256[50] | 1    | 0      | 1600  |
 |
-| _owner                                  | address                     | 51   | 0      | 20    |
+| _owner                      | address     | 51   | 0      | 20    |
 |
-| __gap                                   | uint256[49]                 | 52   | 0      | 1568  |
+| __gap                       | uint256[49] | 52   | 0      | 1568  |
 |
-| _pendingOwner                           | address                     | 101  | 0      | 20    |
+| _pendingOwner               | address     | 101  | 0      | 20    |
 |
-| __gap                                   | uint256[49]                 | 102  | 0      | 1568  |
+| __gap                       | uint256[49] | 102  | 0      | 1568  |
 |
-| __gapFromOldAddressResolver             | uint256[50]                 | 151  | 0      | 1600  |
+| __gapFromOldAddressResolver | uint256[50] | 151  | 0      | 1600  |
 |
-| __reentry                               | uint8                       | 201  | 0      | 1     |
+| __reentry                   | uint8       | 201  | 0      | 1     |
 |
-| __paused                                | uint8                       | 201  | 1      | 1     |
+| __paused                    | uint8       | 201  | 1      | 1     |
 |
-| __gap                                   | uint256[49]                 | 202  | 0      | 1568  |
+| __gap                       | uint256[49] | 202  | 0      | 1568  |
 |
-| blockIdToEndOfSubmissionWindowTimeStamp | mapping(uint256 => uint256) | 251  | 0      | 32    |
+| bondInstructionsHash        | bytes32     | 251  | 0      | 32    |
 |
-| publicInputHash                         | bytes32                     | 252  | 0      | 32    |
+| designatedProver            | address     | 252  | 0      | 20    |
 |
-| bondInstructionsHash                    | bytes32                     | 253  | 0      | 32    |
+| isLowBondProposal           | bool        | 252  | 20     | 1     |
 |
-| designatedProver                        | address                     | 254  | 0      | 20    |
+| anchorBlockNumber           | uint48      | 252  | 21     | 6     |
 |
-| anchorBlockNumber                       | uint48                      | 254  | 20     | 6     |
+| ancestorsHash               | bytes32     | 253  | 0      | 32    |
 |
-| endOfSubmissionWindowTimestamp          | uint48                      | 254  | 26     | 6     |
-|
-| isLowBondProposal                       | bool                        | 255  | 0      | 1     |
-|
-| __gap                                   | uint256[44]                 | 256  | 0      | 1408  |
-╰-----------------------------------------+-----------------------------+------+--------+-------+-----------------------------------------╯
+| __gap                       | uint256[47] | 254  | 0      | 1504  |
+╰-----------------------------+-------------+------+--------+-------+-----------------------------------------╯
 
 
