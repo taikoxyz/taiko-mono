@@ -75,6 +75,9 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
+    /// @dev Minimum calldata length for decoding a `ProverAuth` payload safely.
+    uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
+
     // ---------------------------------------------------------------
     // Immutables
     // ---------------------------------------------------------------
@@ -405,13 +408,7 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes block-level data.
     /// @param _state Working state snapshot to mutate.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(
-        State memory _state,
-        BlockParams calldata _blockParams
-    )
-        private
-        view
-    {
+    function _validateBlock(State memory _state, BlockParams calldata _blockParams) private view {
         // Anchor checkpoint data if a fresher L1 block is provided
         if (_blockParams.anchorBlockNumber > _state.anchorBlockNumber) {
             checkpointStore.saveCheckpoint(
