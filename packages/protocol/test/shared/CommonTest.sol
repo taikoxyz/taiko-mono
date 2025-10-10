@@ -20,7 +20,7 @@ import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/mainnet/TaikoToken.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {

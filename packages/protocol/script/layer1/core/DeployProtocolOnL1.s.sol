@@ -18,7 +18,7 @@ import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";

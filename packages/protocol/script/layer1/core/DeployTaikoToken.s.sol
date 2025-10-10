@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "test/shared/DeployCapability.sol";
-import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/mainnet/TaikoToken.sol";
 
 contract DeployTaikoToken is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
