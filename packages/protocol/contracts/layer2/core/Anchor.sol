@@ -304,17 +304,7 @@ contract Anchor is EssentialContract {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Loads the current contract state into memory for processing.
-    /// @return state_ Snapshot of all non-gap storage variables.
-    function _loadState() private view returns (State memory state_) {
-        state_ = State({
-            bondInstructionsHash: bondInstructionsHash,
-            designatedProver: designatedProver,
-            isLowBondProposal: isLowBondProposal,
-            anchorBlockNumber: anchorBlockNumber,
-            ancestorsHash: ancestorsHash
-        });
-    }
+    // Transactional functions (modify state)
 
     /// @dev Writes a fully processed state back to storage.
     /// @param _state The state snapshot to persist.
@@ -353,6 +343,63 @@ contract Anchor is EssentialContract {
             _proposalParams.bondInstructions,
             _proposalParams.bondInstructionsHash
         );
+    }
+
+    /// @dev Processes bond instructions with cumulative hash verification.
+    /// @param _currentHash Current cumulative hash from storage.
+    /// @param _bondInstructions Bond instructions to process.
+    /// @param _expectedHash Expected cumulative hash after processing.
+    /// @return newHash_ The new cumulative hash.
+    function _processBondInstructions(
+        bytes32 _currentHash,
+        LibBonds.BondInstruction[] calldata _bondInstructions,
+        bytes32 _expectedHash
+    )
+        private
+        returns (bytes32 newHash_)
+    {
+        // Start with current cumulative hash
+        newHash_ = _currentHash;
+
+        // Process each instruction
+        uint256 length = _bondInstructions.length;
+        for (uint256 i; i < length; ++i) {
+            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
+
+            // Determine bond amount based on type
+            uint48 bond;
+            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
+                bond = livenessBondGwei;
+            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
+                bond = provabilityBondGwei;
+            }
+
+            // Transfer bond from payer to receiver
+            if (bond != 0) {
+                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
+                bondManager.creditBond(instruction.payee, bondDebited);
+            }
+
+            // Update cumulative hash
+            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
+        }
+
+        // Verify hash integrity
+        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
+    }
+
+    // View functions (read state)
+
+    /// @dev Loads the current contract state into memory for processing.
+    /// @return state_ Snapshot of all non-gap storage variables.
+    function _loadState() private view returns (State memory state_) {
+        state_ = State({
+            bondInstructionsHash: bondInstructionsHash,
+            designatedProver: designatedProver,
+            isLowBondProposal: isLowBondProposal,
+            anchorBlockNumber: anchorBlockNumber,
+            ancestorsHash: ancestorsHash
+        });
     }
 
     /// @dev Validates and processes block-level data.
@@ -422,48 +469,7 @@ contract Anchor is EssentialContract {
         }
     }
 
-    /// @dev Processes bond instructions with cumulative hash verification.
-    /// @param _currentHash Current cumulative hash from storage.
-    /// @param _bondInstructions Bond instructions to process.
-    /// @param _expectedHash Expected cumulative hash after processing.
-    /// @return newHash_ The new cumulative hash.
-    function _processBondInstructions(
-        bytes32 _currentHash,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _expectedHash
-    )
-        private
-        returns (bytes32 newHash_)
-    {
-        // Start with current cumulative hash
-        newHash_ = _currentHash;
-
-        // Process each instruction
-        uint256 length = _bondInstructions.length;
-        for (uint256 i; i < length; ++i) {
-            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
-
-            // Determine bond amount based on type
-            uint48 bond;
-            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
-                bond = livenessBondGwei;
-            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
-                bond = provabilityBondGwei;
-            }
-
-            // Transfer bond from payer to receiver
-            if (bond != 0) {
-                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
-                bondManager.creditBond(instruction.payee, bondDebited);
-            }
-
-            // Update cumulative hash
-            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
-        }
-
-        // Verify hash integrity
-        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
+    // Pure functions (no state access)
 
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
