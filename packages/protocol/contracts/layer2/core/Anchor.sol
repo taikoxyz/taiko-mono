@@ -30,11 +30,10 @@ contract Anchor is EssentialContract {
 
     /// @notice State containing all non-mapping state variables.
     struct State {
-        bytes32 publicInputHash;
+        bytes32 ancestorsHash;
         bytes32 bondInstructionsHash;
         address designatedProver;
         uint48 anchorBlockNumber;
-        uint48 endOfSubmissionWindowTimestamp;
         bool isLowBondProposal;
     }
 
@@ -73,9 +72,6 @@ contract Anchor is EssentialContract {
     /// @notice Checkpoint store for storing L1 block data.
     ICheckpointStore public immutable checkpointStore;
 
-    /// @notice Block height at which the Pacaya fork is activated.
-    uint64 public immutable pacayaForkHeight;
-
     /// @notice Block height at which the Shasta fork is activated.
     uint64 public immutable shastaForkHeight;
 
@@ -86,41 +82,33 @@ contract Anchor is EssentialContract {
     // State variables
     // ---------------------------------------------------------------
 
-    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
-        blockIdToEndOfSubmissionWindowTimeStamp;
-
     /// @notice A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash;
+    bytes32 public ancestorsHash;
 
     /// @notice Latest known bond instructions hash.
     bytes32 public bondInstructionsHash;
 
     /// @notice The designated prover for the current batch.
-    /// @dev Packed in slot with anchorBlockNumber and endOfSubmissionWindowTimestamp.
     address public designatedProver;
 
     /// @notice Latest L1 block number anchored to L2.
     uint48 public anchorBlockNumber;
 
-    /// @notice The timestamp of the last slot where the current preconfer can propose.
-    uint48 public endOfSubmissionWindowTimestamp;
-
     /// @notice Indicates if the proposal has insufficient bonds.
     bool public isLowBondProposal;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[44] private __gap;
+    uint256[47] private __gap;
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
     event Anchored(
-        bytes32 publicInputHash,
+        bytes32 ancestorsHash,
         bytes32 bondInstructionsHash,
         address designatedProver,
         uint48 anchorBlockNumber,
-        uint48 endOfSubmissionWindowTimestamp,
         bool isLowBondProposal
     );
 
@@ -130,8 +118,9 @@ contract Anchor is EssentialContract {
     // Modifiers
     // ---------------------------------------------------------------
 
-    modifier onlyGoldenTouch() {
+    modifier onlyValidSenderAndHeight() {
         require(msg.sender == GOLDEN_TOUCH_ADDRESS, InvalidSender());
+        require(block.number >= shastaForkHeight, InvalidForkHeight());
         _;
     }
 
@@ -143,7 +132,6 @@ contract Anchor is EssentialContract {
     /// @param _livenessBondGwei The liveness bond amount in Gwei.
     /// @param _provabilityBondGwei The provability bond amount in Gwei.
     /// @param _checkpointStore The address of the checkpoint store.
-    /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _bondManager The address of the bond manager.
     /// @param _l1ChainId The L1 chain ID.
@@ -151,14 +139,10 @@ contract Anchor is EssentialContract {
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
         address _checkpointStore,
-        uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         IBondManager _bondManager,
         uint64 _l1ChainId
     ) {
-        require(
-            _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
-        );
         require(_l1ChainId != 0, InvalidL1ChainId());
         require(_l1ChainId != block.chainid, InvalidL1ChainId());
 
@@ -169,7 +153,6 @@ contract Anchor is EssentialContract {
         provabilityBondGwei = _provabilityBondGwei;
         bondManager = _bondManager;
         checkpointStore = ICheckpointStore(_checkpointStore);
-        pacayaForkHeight = _pacayaForkHeight;
         shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
     }
@@ -182,7 +165,7 @@ contract Anchor is EssentialContract {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
-        (publicInputHash,) = _calcPublicInputHash(block.number);
+        (ancestorsHash,) = _calcAncestorsHash(block.number);
     }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
@@ -201,7 +184,6 @@ contract Anchor is EssentialContract {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
     /// preconfer can propose.
     function anchor(
         // Proposal level fields - define the overall batch
@@ -214,31 +196,27 @@ contract Anchor is EssentialContract {
         uint16 _blockIndex,
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot,
-        uint48 _endOfSubmissionWindowTimestamp
+        bytes32 _anchorStateRoot
     )
         external
-        onlyGoldenTouch
+        onlyValidSenderAndHeight
         nonReentrant
     {
+        // Fork validation
         // ============================================================
         // PHASE 1: READ - Load current state into memory
         // ============================================================
         State memory state = State({
-            publicInputHash: publicInputHash,
+            ancestorsHash: ancestorsHash,
             bondInstructionsHash: bondInstructionsHash,
             designatedProver: designatedProver,
             anchorBlockNumber: anchorBlockNumber,
-            endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
             isLowBondProposal: isLowBondProposal
         });
 
         // ============================================================
         // PHASE 2: VALIDATE & COMPUTE - All validation and computation
         // ============================================================
-
-        // Fork validation
-        require(block.number >= shastaForkHeight, ForkError());
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
@@ -270,31 +248,25 @@ contract Anchor is EssentialContract {
             state.anchorBlockNumber = _anchorBlockNumber;
         }
 
-        // Update submission window timestamp
-        state.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        _verifyAndUpdateancestorsHash(block.number - 1, state);
 
         // ============================================================
         // PHASE 3: WRITE - Write all state to storage atomically
         // ============================================================
-        publicInputHash = state.publicInputHash;
+        ancestorsHash = state.ancestorsHash;
         bondInstructionsHash = state.bondInstructionsHash;
         designatedProver = state.designatedProver;
         anchorBlockNumber = state.anchorBlockNumber;
-        endOfSubmissionWindowTimestamp = state.endOfSubmissionWindowTimestamp;
         isLowBondProposal = state.isLowBondProposal;
-
-        // Update mapping separately
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = state.endOfSubmissionWindowTimestamp;
 
         // ============================================================
         // PHASE 4: EMIT - Emit event with final state
         // ============================================================
         emit Anchored(
-            state.publicInputHash,
+            state.ancestorsHash,
             state.bondInstructionsHash,
             state.designatedProver,
             state.anchorBlockNumber,
-            state.endOfSubmissionWindowTimestamp,
             state.isLowBondProposal
         );
     }
@@ -357,12 +329,12 @@ contract Anchor is EssentialContract {
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
     /// @param _blockId The ID of the block for which the public input hash is calculated.
-    /// @return currPublicInputHash_ The public input hash for the previous state.
-    /// @return newPublicInputHash_ The public input hash for the new state.
-    function _calcPublicInputHash(uint256 _blockId)
+    /// @return oldAncestorsHash_ The public input hash for the previous state.
+    /// @return newAncestorsHash_ The public input hash for the new state.
+    function _calcAncestorsHash(uint256 _blockId)
         internal
         view
-        returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
+        returns (bytes32 oldAncestorsHash_, bytes32 newAncestorsHash_)
     {
         // 255 bytes32 ring buffer + 1 bytes32 for chainId
         bytes32[256] memory inputs;
@@ -379,12 +351,12 @@ contract Anchor is EssentialContract {
         }
 
         assembly {
-            currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[_blockId % 255] = blockhash(_blockId);
         assembly {
-            newPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
@@ -476,6 +448,19 @@ contract Anchor is EssentialContract {
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
     }
 
+    /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
+    /// @param _parentId The ID of the parent block.
+    function _verifyAndUpdateancestorsHash(uint256 _parentId, State memory _state) internal view {
+        // Calculate the current and new ancestor hashes based on the parent block ID.
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
+
+        // Ensure the current ancestor block hash matches the expected value.
+        require(_state.ancestorsHash == oldAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
+
+        // Update the ancestor block hash to the new calculated value.
+        _state.ancestorsHash = newAncestorsHash;
+    }
+
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
     /// @param _proposer The proposer address to validate against.
@@ -529,10 +514,9 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     error BondInstructionsHashMismatch();
-    error ForkError();
+    error InvalidForkHeight();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
-    error InvalidForkHeight();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
@@ -541,6 +525,7 @@ contract Anchor is EssentialContract {
     error NonZeroBlockIndex();
     error ProposalIdMismatch();
     error ProposerMismatch();
-    error PublicInputHashMismatch();
+    error ancestorsHashMismatch();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error ZeroBlockCount();
 }
