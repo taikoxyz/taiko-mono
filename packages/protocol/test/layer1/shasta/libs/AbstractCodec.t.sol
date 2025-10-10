@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { ICodec } from "src/layer1/shasta/iface/ICodec.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
-import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { ICodec } from "src/layer1/iface/ICodec.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibBlobs } from "src/layer1/libs/LibBlobs.sol";
 
 /// @title AbstractCodecTest
 /// @notice Abstract base test for ICodec implementations

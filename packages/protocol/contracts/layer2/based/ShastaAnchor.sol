@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibAddress.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
-import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title ShastaAnchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,

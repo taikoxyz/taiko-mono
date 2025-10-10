@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibPackUnpack } from "src/layer1/shasta/libs/LibPackUnpack.sol";
+import { LibPackUnpack } from "src/layer1/libs/LibPackUnpack.sol";
 
 /// @title LibPackUnpackTest
 /// @notice Comprehensive tests for LibPackUnpack functions

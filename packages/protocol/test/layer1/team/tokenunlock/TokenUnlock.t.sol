@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "src/layer1/team/TokenUnlock.sol";
-import "../../Layer1Test.sol";
+import "test/shared/CommonTest.sol";
 
 contract MyERC20 is ERC20, ERC20Votes {
     constructor(address owner) ERC20("Taiko Token", "TKO") ERC20Permit("Taiko Token") {
@@ -30,7 +30,17 @@ contract MyERC20 is ERC20, ERC20Votes {
     }
 }
 
-contract TestTokenUnlock is Layer1Test {
+contract MockProverSet is IProverSetInitializer {
+    address public owner;
+    address public admin;
+
+    function init(address _owner, address _admin) external override {
+        owner = _owner;
+        admin = _admin;
+    }
+}
+
+contract TestTokenUnlock is CommonTest {
     uint64 private constant TGE = 1_000_000;
 
     address private taikoL1 = randAddress();
@@ -41,7 +51,7 @@ contract TestTokenUnlock is Layer1Test {
     function setUpOnEthereum() internal override {
         taikoToken = new MyERC20(Alice);
 
-        address proverSetImpl = address(new ProverSet(taikoL1, address(taikoToken), taikoL1));
+        address proverSetImpl = address(new MockProverSet());
 
         target = TokenUnlock(
             deploy({

@@ -3,23 +3,12 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
-import "src/layer1/based/ITaikoInbox.sol";
 
 contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld {
     constructor(address _erc20Vault) BridgedERC20V2(_erc20Vault) { }
 }
 
-contract PrankTaikoInbox {
-    ITaikoInbox.Batch internal batch;
-
-    function setBatch(ITaikoInbox.Batch memory _batch) external {
-        batch = _batch;
-    }
-
-    function v4GetBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
-        return batch;
-    }
-}
+contract PrankTaikoInbox { }
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,

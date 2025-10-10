@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { LibProposedEventEncoder } from "src/layer1/libs/LibProposedEventEncoder.sol";
+import { LibBlobs } from "src/layer1/libs/LibBlobs.sol";
 
 /// @title LibProposedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode

@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "../../Layer1Test.sol";
+import "src/layer1/team/ERC20Airdrop.sol";
+import "test/shared/CommonTest.sol";
 
 contract ERC20AirdropNoVerify is ERC20Airdrop {
     function _verifyMerkleProof(
@@ -63,7 +64,7 @@ contract SimpleERC20Vault is OwnableUpgradeable {
     }
 }
 
-contract TestERC20Airdrop is Layer1Test {
+contract TestERC20Airdrop is CommonTest {
     uint64 private claimStart;
 
     BridgedERC20 private token;
