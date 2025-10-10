@@ -175,7 +175,7 @@ async function generateContractConfigs(
         ),
         // Rollup Contracts
         TaikoAnchorImpl: require(
-            path.join(ARTIFACTS_PATH, "./TaikoAnchor.sol/TaikoAnchor.json"),
+            path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
         ),
         RollupResolverImpl: require(
             path.join(
@@ -233,12 +233,15 @@ async function generateContractConfigs(
     // );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
-        getImmutableReference("PacayaAnchor", ["signalService"]),
-        getImmutableReference("PacayaAnchor", ["pacayaForkHeight"]),
-        getImmutableReference("PacayaAnchor", ["shastaForkHeight"]),
-        getImmutableReference("ShastaAnchor", ["livenessBondGwei"]),
-        getImmutableReference("ShastaAnchor", ["provabilityBondGwei"]),
-        getImmutableReference("ShastaAnchor", ["bondManager"]),
+        getImmutableReference("Anchor", [
+            "checkpointStore",
+            "pacayaForkHeight",
+            "shastaForkHeight",
+            "livenessBondGwei",
+            "provabilityBondGwei",
+            "bondManager",
+            "l1ChainId",
+        ]),
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -730,7 +733,7 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.signalService.id,
+                        id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
                             32,
@@ -768,6 +771,13 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.bondManager.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.BondManager,
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.l1ChainId.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(l1ChainId),
                             32,
                         ),
                     },
