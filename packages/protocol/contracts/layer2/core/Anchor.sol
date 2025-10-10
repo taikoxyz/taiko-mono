@@ -30,11 +30,13 @@ contract Anchor is EssentialContract {
 
     /// @notice State containing all non-mapping state variables.
     struct State {
-        bytes32 ancestorsHash;
+        // Proposal-level state
         bytes32 bondInstructionsHash;
         address designatedProver;
-        uint48 anchorBlockNumber;
         bool isLowBondProposal;
+        // Block-level state
+        uint48 anchorBlockNumber;
+        bytes32 ancestorsHash;
     }
 
     /// @notice Authentication data for prover designation.
@@ -99,8 +101,7 @@ contract Anchor is EssentialContract {
     // State variables
     // ---------------------------------------------------------------
 
-    /// @notice A hash to check the integrity of public inputs.
-    bytes32 public ancestorsHash;
+    // Proposal-level state (set on first block of proposal)
 
     /// @notice Latest known bond instructions hash.
     bytes32 public bondInstructionsHash;
@@ -108,11 +109,16 @@ contract Anchor is EssentialContract {
     /// @notice The designated prover for the current batch.
     address public designatedProver;
 
+    /// @notice Indicates if the proposal has insufficient bonds.
+    bool public isLowBondProposal;
+
+    // Block-level state (updated per block)
+
     /// @notice Latest L1 block number anchored to L2.
     uint48 public anchorBlockNumber;
 
-    /// @notice Indicates if the proposal has insufficient bonds.
-    bool public isLowBondProposal;
+    /// @notice A hash to check the integrity of public inputs.
+    bytes32 public ancestorsHash;
 
     /// @notice Storage gap for upgrade safety.
     uint256[47] private __gap;
@@ -122,11 +128,11 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     event Anchored(
-        bytes32 ancestorsHash,
         bytes32 bondInstructionsHash,
         address designatedProver,
+        bool isLowBondProposal,
         uint48 anchorBlockNumber,
-        bool isLowBondProposal
+        bytes32 ancestorsHash
     );
 
     event Withdrawn(address token, address to, uint256 amount);
@@ -216,11 +222,11 @@ contract Anchor is EssentialContract {
         _persistState(state);
 
         emit Anchored(
-            state.ancestorsHash,
             state.bondInstructionsHash,
             state.designatedProver,
+            state.isLowBondProposal,
             state.anchorBlockNumber,
-            state.isLowBondProposal
+            state.ancestorsHash
         );
     }
 
@@ -304,22 +310,22 @@ contract Anchor is EssentialContract {
     /// @return state_ Snapshot of all non-gap storage variables.
     function _loadState() private view returns (State memory state_) {
         state_ = State({
-            ancestorsHash: ancestorsHash,
             bondInstructionsHash: bondInstructionsHash,
             designatedProver: designatedProver,
+            isLowBondProposal: isLowBondProposal,
             anchorBlockNumber: anchorBlockNumber,
-            isLowBondProposal: isLowBondProposal
+            ancestorsHash: ancestorsHash
         });
     }
 
     /// @dev Writes a fully processed state back to storage.
     /// @param _state The state snapshot to persist.
     function _persistState(State memory _state) private {
-        ancestorsHash = _state.ancestorsHash;
         bondInstructionsHash = _state.bondInstructionsHash;
         designatedProver = _state.designatedProver;
-        anchorBlockNumber = _state.anchorBlockNumber;
         isLowBondProposal = _state.isLowBondProposal;
+        anchorBlockNumber = _state.anchorBlockNumber;
+        ancestorsHash = _state.ancestorsHash;
     }
 
     /// @dev Handles all logic that must only run on the first block of a proposal.
@@ -526,6 +532,7 @@ contract Anchor is EssentialContract {
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
+    error AncestorsHashMismatch();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
