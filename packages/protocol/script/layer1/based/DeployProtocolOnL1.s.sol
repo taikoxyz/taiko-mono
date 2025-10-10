@@ -6,9 +6,9 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
-import "src/shared/vault/BridgedERC1155.sol";
-import "src/shared/vault/BridgedERC20.sol";
-import "src/shared/vault/BridgedERC721.sol";
+import "src/shared/tokenvault/BridgedERC1155.sol";
+import "src/shared/tokenvault/BridgedERC20.sol";
+import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
