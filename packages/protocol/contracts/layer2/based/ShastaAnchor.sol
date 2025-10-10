@@ -492,9 +492,9 @@ contract ShastaAnchor is EssentialContract {
         returns (address signer_, uint48 provingFeeGwei_)
     {
         // Check if _proverAuth has minimum required length for ProverAuth struct
-        // ProverAuth: uint48 (6) + address (20) + uint48 (6) + dynamic bytes offset (32) +
-        // bytes length (32) + minimum signature data (65) = 161 bytes minimum
-        if (_proverAuth.length < 161) {
+        // ABI-encoded ProverAuth: uint48 (32 padded) + address (32 padded) + uint48 (32 padded) +
+        // bytes offset (32) + bytes length (32) + minimum signature data (65) = 225 bytes minimum
+        if (_proverAuth.length < 225) {
             return (_proposer, 0);
         }
 
