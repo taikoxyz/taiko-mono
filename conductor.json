@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "setup": "cd packages/protocol && pnpm install"
+  }
+}
