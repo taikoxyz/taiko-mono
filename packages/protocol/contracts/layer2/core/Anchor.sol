@@ -220,7 +220,7 @@ contract Anchor is EssentialContract {
             state, _blockParams.anchorBlockNumber, _blockParams.anchorBlockHash, _blockParams.anchorStateRoot
         );
 
-        _verifyAndUpdateAncestorsHash(block.number - 1, state);
+        _verifyAndUpdateAncestorsHash(state);
 
         _persistState(state);
 
@@ -371,18 +371,19 @@ contract Anchor is EssentialContract {
         _state.anchorBlockNumber = _anchorBlockNumber;
     }
 
-    /// @dev Calculates the aggregated ancestor block hash for the given block ID.
+    /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
     /// @dev This function computes two public input hashes: one for the previous state and one for
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
-    /// @param _blockId The ID of the block for which the public input hash is calculated.
     /// @return oldAncestorsHash_ The public input hash for the previous state.
     /// @return newAncestorsHash_ The public input hash for the new state.
-    function _calcAncestorsHash(uint256 _blockId)
+    function _calcAncestorsHash()
         private
         view
         returns (bytes32 oldAncestorsHash_, bytes32 newAncestorsHash_)
     {
+        uint256 parentId = block.number - 1;
+
         // 255 bytes32 ring buffer + 1 bytes32 for chainId
         bytes32[256] memory inputs;
         inputs[255] = bytes32(block.chainid);
@@ -391,8 +392,8 @@ contract Anchor is EssentialContract {
         unchecked {
             // Put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
-            for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
-                uint256 j = _blockId - i - 1;
+            for (uint256 i; i < 255 && parentId >= i + 1; ++i) {
+                uint256 j = parentId - i - 1;
                 inputs[j % 255] = blockhash(j);
             }
         }
@@ -401,7 +402,7 @@ contract Anchor is EssentialContract {
             oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
-        inputs[_blockId % 255] = blockhash(_blockId);
+        inputs[parentId % 255] = blockhash(parentId);
         assembly {
             newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
@@ -494,10 +495,9 @@ contract Anchor is EssentialContract {
     }
 
     /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
-    /// @param _parentId The ID of the parent block.
     /// @param _state The state struct to verify and update.
-    function _verifyAndUpdateAncestorsHash(uint256 _parentId, State memory _state) private view {
-        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
+    function _verifyAndUpdateAncestorsHash(State memory _state) private view {
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =
             block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
         require(_state.ancestorsHash == expectedCurrAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
