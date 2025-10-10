@@ -109,7 +109,7 @@ contract Anchor is EssentialContract {
     bool public isLowBondProposal;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[46] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Events
