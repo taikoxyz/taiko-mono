@@ -28,23 +28,12 @@ contract Anchor is EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice State containing all non-mapping state variables.
-    struct State {
-        // Proposal-level state
-        bytes32 bondInstructionsHash;
-        address designatedProver;
-        bool isLowBondProposal;
-        // Block-level state
-        uint48 anchorBlockNumber;
-        bytes32 ancestorsHash;
-    }
-
     /// @notice Authentication data for prover designation.
     /// @dev Used to allow a proposer to designate another address as the prover.
     struct ProverAuth {
         uint48 proposalId; // The proposal ID this auth is for
         address proposer; // The original proposer address
-        uint48 provingFeeGwei; // Fee in Gwei that prover will receive
+        uint256 provingFee; // Fee (Wei) that prover will receive
         bytes signature; // ECDSA signature from the designated prover
     }
 
@@ -65,6 +54,19 @@ contract Anchor is EssentialContract {
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
     }
 
+    /// @notice Stored proposal-level state for the ongoing batch.
+    struct ProposalState {
+        bytes32 bondInstructionsHash;
+        address designatedProver;
+        bool isLowBondProposal;
+    }
+
+    /// @notice Stored block-level state for the latest anchor.
+    struct BlockState {
+        uint48 anchorBlockNumber;
+        bytes32 ancestorsHash;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -79,7 +81,7 @@ contract Anchor is EssentialContract {
     /// This equals the ABI-encoded size of:
     ///   - uint48 proposalId: 32 bytes (padded)
     ///   - address proposer: 32 bytes (padded)
-    ///   - uint48 provingFeeGwei: 32 bytes (padded)
+    ///   - uint256 provingFee: 32 bytes (padded)
     ///   - bytes offset: 32 bytes
     ///   - bytes length: 32 bytes
     ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
@@ -117,22 +119,11 @@ contract Anchor is EssentialContract {
 
     // Proposal-level state (set on first block of proposal)
 
-    /// @notice Latest known bond instructions hash.
-    bytes32 public bondInstructionsHash;
+    /// @notice Latest proposal-level state, updated only on the first block of a proposal.
+    ProposalState internal _proposalState;
 
-    /// @notice The designated prover for the current batch.
-    address public designatedProver;
-
-    /// @notice Indicates if the proposal has insufficient bonds.
-    bool public isLowBondProposal;
-
-    // Block-level state (updated per block)
-
-    /// @notice Latest L1 block number anchored to L2.
-    uint48 public anchorBlockNumber;
-
-    /// @notice A hash to check the integrity of public inputs.
-    bytes32 public ancestorsHash;
+    /// @notice Latest block-level state, updated on every processed block.
+    BlockState internal _blockState;
 
     /// @notice Storage gap for upgrade safety.
     uint256[47] private __gap;
@@ -223,22 +214,18 @@ contract Anchor is EssentialContract {
         onlyValidSenderAndHeight
         nonReentrant
     {
-        State memory state = _loadState();
-
         if (_blockParams.blockIndex == 0) {
-            _validateProposal(state, _proposalParams);
+            _validateProposal(_proposalState, _proposalParams);
         }
 
-        _validateBlock(state, _blockParams);
-
-        _persistState(state);
+        _validateBlock(_blockState, _blockParams);
 
         emit Anchored(
-            state.bondInstructionsHash,
-            state.designatedProver,
-            state.isLowBondProposal,
-            state.anchorBlockNumber,
-            state.ancestorsHash
+            _proposalState.bondInstructionsHash,
+            _proposalState.designatedProver,
+            _proposalState.isLowBondProposal,
+            _blockState.anchorBlockNumber,
+            _blockState.ancestorsHash
         );
     }
 
@@ -278,7 +265,7 @@ contract Anchor is EssentialContract {
     /// @param _currentDesignatedProver The current designated prover from state.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// @return provingFeeToTransfer_ The proving fee (Wei) to transfer from the proposer to the
     /// designated prover.
     function getDesignatedProver(
         uint48 _proposalId,
@@ -290,11 +277,10 @@ contract Anchor is EssentialContract {
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
-        (address candidate, uint48 provingFeeGwei) =
+        (address candidate, uint256 provingFee) =
             validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        uint256 provingFeeWei = uint256(provingFeeGwei) * 1e9;
-        bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFeeWei);
+        bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFee);
 
         if (!proposerHasBond) {
             return (true, _currentDesignatedProver, 0);
@@ -308,7 +294,17 @@ contract Anchor is EssentialContract {
             return (false, _proposer, 0);
         }
 
-        return (false, candidate, provingFeeWei);
+        return (false, candidate, provingFee);
+    }
+
+    /// @notice Returns the current proposal-level state snapshot.
+    function getProposalState() external view returns (ProposalState memory state_) {
+        state_ = _proposalState;
+    }
+
+    /// @notice Returns the current block-level state snapshot.
+    function getBlockState() external view returns (BlockState memory state_) {
+        state_ = _blockState;
     }
 
     /// @dev Validates prover authentication and extracts signer.
@@ -316,7 +312,7 @@ contract Anchor is EssentialContract {
     /// @param _proposer The proposer address to validate against.
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
-    /// @return provingFeeGwei_ The proving fee in Gwei (0 if validation fails).
+    /// @return provingFee_ The proving fee in Wei (0 if validation fails).
     function validateProverAuth(
         uint48 _proposalId,
         address _proposer,
@@ -324,7 +320,7 @@ contract Anchor is EssentialContract {
     )
         public
         pure
-        returns (address signer_, uint48 provingFeeGwei_)
+        returns (address signer_, uint256 provingFee_)
     {
         if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
             return (_proposer, 0);
@@ -350,7 +346,7 @@ contract Anchor is EssentialContract {
 
         signer_ = recovered;
         if (signer_ != _proposer) {
-            provingFeeGwei_ = proverAuth.provingFeeGwei;
+            provingFee_ = proverAuth.provingFee;
         }
     }
 
@@ -359,47 +355,51 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev Validates and processes proposal-level data on the first block.
-    /// @param _state Working state snapshot to mutate.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(
-        State memory _state,
+        ProposalState storage _proposalState,
         ProposalParams calldata _proposalParams
     )
         private
     {
         uint256 proverFee;
-        (_state.isLowBondProposal, _state.designatedProver, proverFee) = getDesignatedProver(
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
+        getDesignatedProver(
             _proposalParams.proposalId,
             _proposalParams.proposer,
             _proposalParams.proverAuth,
-            _state.designatedProver
+            _proposalState.designatedProver
         );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
-            bondManager.creditBond(_state.designatedProver, proverFee);
+            bondManager.creditBond(_proposalState.designatedProver, proverFee);
         }
 
-        _state.bondInstructionsHash = _processBondInstructions(
-            _state.bondInstructionsHash,
+        _proposalState.bondInstructionsHash = _processBondInstructions(
+            _proposalState.bondInstructionsHash,
             _proposalParams.bondInstructions,
             _proposalParams.bondInstructionsHash
         );
     }
 
     /// @dev Validates and processes block-level data.
-    /// @param _state Working state snapshot to mutate.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(State memory _state, BlockParams calldata _blockParams) private {
+    function _validateBlock(
+        BlockState storage _blockState,
+        BlockParams calldata _blockParams
+    )
+        private
+    {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =
             block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
-        _state.ancestorsHash = newAncestorsHash;
+        require(_blockState.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
+        _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
-        if (_blockParams.anchorBlockNumber > _state.anchorBlockNumber) {
+        if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
             checkpointStore.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: _blockParams.anchorBlockNumber,
@@ -407,7 +407,7 @@ contract Anchor is EssentialContract {
                     stateRoot: _blockParams.anchorStateRoot
                 })
             );
-            _state.anchorBlockNumber = _blockParams.anchorBlockNumber;
+            _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
     }
 
@@ -440,28 +440,6 @@ contract Anchor is EssentialContract {
         }
 
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
-
-    /// @dev Writes a fully processed state back to storage.
-    /// @param _state The state snapshot to persist.
-    function _persistState(State memory _state) private {
-        bondInstructionsHash = _state.bondInstructionsHash;
-        designatedProver = _state.designatedProver;
-        isLowBondProposal = _state.isLowBondProposal;
-        anchorBlockNumber = _state.anchorBlockNumber;
-        ancestorsHash = _state.ancestorsHash;
-    }
-
-    /// @dev Loads the current contract state into memory for processing.
-    /// @return state_ Snapshot of all non-gap storage variables.
-    function _loadState() private view returns (State memory state_) {
-        state_ = State({
-            bondInstructionsHash: bondInstructionsHash,
-            designatedProver: designatedProver,
-            isLowBondProposal: isLowBondProposal,
-            anchorBlockNumber: anchorBlockNumber,
-            ancestorsHash: ancestorsHash
-        });
     }
 
     /// @dev Maps a bond type to the configured bond amount in Gwei.
@@ -527,7 +505,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
     function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
-        return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFeeGwei));
+        return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFee));
     }
 
     // ---------------------------------------------------------------

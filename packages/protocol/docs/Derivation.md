@@ -347,11 +347,9 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 /// @notice Structure for prover authentication
 /// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
 struct ProverAuth {
-  address prover;
-  address feeToken;
-  uint96 fee;
-  uint64 validUntil; // optional
-  uint64 batchId; // optional
+  uint48 proposalId;
+  address proposer;
+  uint256 provingFee; // denominated in Wei
   bytes signature;
 }
 ```
@@ -367,11 +365,11 @@ The `_validateProverAuth` function processes prover authentication data with the
 - **Signature Verification**:
 
   - Validates the `ProverAuth` struct from the provided bytes
-  - Decodes the `ProverAuth` containing: `prover`, `feeToken`, `fee`, `validUntil`, `batchId`, and ECDSA `signature`
+  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
   - Returns the authenticated prover address and fee information
 
-- **Validation Failures**: If authentication fails (insufficient data length < 161 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
+- **Validation Failures**: If authentication fails (insufficient data length < 225 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
