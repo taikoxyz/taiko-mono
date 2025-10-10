@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/core/DelegateController.sol";
+import "src/layer2/governance/DelegateController.sol";
 import "src/layer2/core/Anchor.sol";
 import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";

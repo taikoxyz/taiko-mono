@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "src/layer2/core/BridgedTaikoToken.sol";
+import "src/layer2/mainnet/BridgedTaikoToken.sol";
 import "src/shared/common/EssentialContract.sol";
-import "../../CommonTest.sol";
+import "../../shared/CommonTest.sol";
 
 contract BridgedTaikoTokenTest is CommonTest {
     BridgedTaikoToken token;
