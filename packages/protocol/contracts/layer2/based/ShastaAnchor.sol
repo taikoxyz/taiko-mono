@@ -25,23 +25,8 @@ contract ShastaAnchor is EssentialContract {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event Withdrawn(address token, address to, uint256 amount);
-
-    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
-
-    /// @notice State snapshot for return values.
-    struct State {
-        bytes32 bondInstructionsHash;
-        uint48 anchorBlockNumber;
-        address designatedProver;
-        bool isLowBondProposal;
-        uint48 endOfSubmissionWindowTimestamp;
-    }
 
     /// @notice Authentication data for prover designation.
     /// @dev Used to allow a proposer to designate another address as the prover.
@@ -53,7 +38,7 @@ contract ShastaAnchor is EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Constants and Immutables
+    // Constants
     // ---------------------------------------------------------------
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
@@ -61,6 +46,10 @@ contract ShastaAnchor is EssentialContract {
 
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
+
+    // ---------------------------------------------------------------
+    // Immutables
+    // ---------------------------------------------------------------
 
     /// @notice Bond amount in Gwei for liveness guarantees.
     uint48 public immutable livenessBondGwei;
@@ -80,6 +69,9 @@ contract ShastaAnchor is EssentialContract {
     /// @notice Block height at which the Shasta fork is activated.
     uint64 public immutable shastaForkHeight;
 
+    /// @notice The L1's chain ID.
+    uint64 public immutable l1ChainId;
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -96,19 +88,24 @@ contract ShastaAnchor is EssentialContract {
     /// @notice The designated prover for the current batch.
     /// @dev Packed in slot with anchorBlockNumber and endOfSubmissionWindowTimestamp.
     address public designatedProver;
+
     /// @notice Latest L1 block number anchored to L2.
     uint48 public anchorBlockNumber;
+
     /// @notice The timestamp of the last slot where the current preconfer can propose.
     uint48 public endOfSubmissionWindowTimestamp;
 
-    /// @notice The L1's chain ID.
-    /// @dev Packed in slot with isLowBondProposal.
-    uint64 public l1ChainId;
     /// @notice Indicates if the proposal has insufficient bonds.
     bool public isLowBondProposal;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[45] private __gap;
+    uint256[46] private __gap;
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    event Withdrawn(address token, address to, uint256 amount);
 
     // ---------------------------------------------------------------
     // Modifiers
@@ -130,17 +127,24 @@ contract ShastaAnchor is EssentialContract {
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _bondManager The address of the bond manager.
+    /// @param _l1ChainId The L1 chain ID.
     constructor(
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
         address _checkpointStore,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        IShastaBondManager _bondManager
+        IShastaBondManager _bondManager,
+        uint64 _l1ChainId
     ) {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
+        require(_l1ChainId != 0, InvalidL1ChainId());
+        require(_l1ChainId != block.chainid, InvalidL1ChainId());
+
+        require(block.chainid > 1, InvalidL2ChainId());
+        require(block.chainid <= type(uint64).max, InvalidL2ChainId());
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
@@ -148,6 +152,7 @@ contract ShastaAnchor is EssentialContract {
         checkpointStore = ICheckpointStore(_checkpointStore);
         pacayaForkHeight = _pacayaForkHeight;
         shastaForkHeight = _shastaForkHeight;
+        l1ChainId = _l1ChainId;
     }
 
     // ---------------------------------------------------------------
@@ -156,24 +161,8 @@ contract ShastaAnchor is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _l1ChainId The ID of the base layer.
-    function init(address _owner, uint64 _l1ChainId) external initializer {
+    function init(address _owner) external initializer {
         __Essential_init(_owner);
-
-        require(_l1ChainId != 0, InvalidL1ChainId());
-        require(_l1ChainId != block.chainid, InvalidL1ChainId());
-        require(block.chainid > 1, InvalidL2ChainId());
-        require(block.chainid <= type(uint64).max, InvalidL2ChainId());
-
-        if (block.number == 0) {
-            // This is the case in real L2 genesis
-        } else if (block.number == 1) {
-            // This is the case in tests
-        } else {
-            revert TooLate();
-        }
-
-        l1ChainId = _l1ChainId;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
@@ -195,8 +184,6 @@ contract ShastaAnchor is EssentialContract {
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
     /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
     /// preconfer can propose.
-    /// @return previousState_ The previous state of the anchor. This value make proving easier.
-    /// @return newState_ The new state of the anchor.
     function anchor(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
@@ -214,17 +201,9 @@ contract ShastaAnchor is EssentialContract {
         external
         onlyGoldenTouch
         nonReentrant
-        returns (State memory previousState_, State memory newState_)
     {
         // Fork validation
         require(block.number >= shastaForkHeight, ForkError());
-
-        // Capture previous state
-        previousState_.bondInstructionsHash = bondInstructionsHash;
-        previousState_.anchorBlockNumber = anchorBlockNumber;
-        previousState_.designatedProver = designatedProver;
-        previousState_.isLowBondProposal = isLowBondProposal;
-        previousState_.endOfSubmissionWindowTimestamp = endOfSubmissionWindowTimestamp;
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
@@ -258,13 +237,6 @@ contract ShastaAnchor is EssentialContract {
 
         endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
         blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
-
-        // Capture new state
-        newState_.bondInstructionsHash = bondInstructionsHash;
-        newState_.anchorBlockNumber = anchorBlockNumber;
-        newState_.designatedProver = designatedProver;
-        newState_.isLowBondProposal = isLowBondProposal;
-        newState_.endOfSubmissionWindowTimestamp = endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -278,7 +250,6 @@ contract ShastaAnchor is EssentialContract {
     )
         external
         nonZeroAddr(_to)
-        whenNotPaused
         onlyOwner
         nonReentrant
     {
@@ -382,6 +353,47 @@ contract ShastaAnchor is EssentialContract {
     // Private Functions
     // ---------------------------------------------------------------
 
+    /// @dev Processes bond instructions with cumulative hash verification.
+    /// @param _bondInstructions Bond instructions to process.
+    /// @param _expectedHash Expected cumulative hash after processing.
+    /// @return newHash_ The new cumulative hash.
+    function _processBondInstructions(
+        LibBonds.BondInstruction[] calldata _bondInstructions,
+        bytes32 _expectedHash
+    )
+        private
+        returns (bytes32 newHash_)
+    {
+        // Start with current cumulative hash
+        newHash_ = bondInstructionsHash;
+
+        // Process each instruction
+        uint256 length = _bondInstructions.length;
+        for (uint256 i; i < length; ++i) {
+            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
+
+            // Determine bond amount based on type
+            uint48 bond;
+            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
+                bond = livenessBondGwei;
+            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
+                bond = provabilityBondGwei;
+            }
+
+            // Transfer bond from payer to receiver
+            if (bond != 0) {
+                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
+                bondManager.creditBond(instruction.payee, bondDebited);
+            }
+
+            // Update cumulative hash
+            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
+        }
+
+        // Verify hash integrity
+        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
+    }
+
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
     /// @param _proposer The proposer address to validate against.
@@ -430,47 +442,6 @@ contract ShastaAnchor is EssentialContract {
         }
     }
 
-    /// @dev Processes bond instructions with cumulative hash verification.
-    /// @param _bondInstructions Bond instructions to process.
-    /// @param _expectedHash Expected cumulative hash after processing.
-    /// @return newHash_ The new cumulative hash.
-    function _processBondInstructions(
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _expectedHash
-    )
-        private
-        returns (bytes32 newHash_)
-    {
-        // Start with current cumulative hash
-        newHash_ = bondInstructionsHash;
-
-        // Process each instruction
-        uint256 length = _bondInstructions.length;
-        for (uint256 i; i < length; ++i) {
-            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
-
-            // Determine bond amount based on type
-            uint48 bond;
-            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
-                bond = livenessBondGwei;
-            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
-                bond = provabilityBondGwei;
-            }
-
-            // Transfer bond from payer to receiver
-            if (bond != 0) {
-                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
-                bondManager.creditBond(instruction.payee, bondDebited);
-            }
-
-            // Update cumulative hash
-            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
-        }
-
-        // Verify hash integrity
-        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
-
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
@@ -489,6 +460,5 @@ contract ShastaAnchor is EssentialContract {
     error ProposalIdMismatch();
     error ProposerMismatch();
     error PublicInputHashMismatch();
-    error TooLate();
     error ZeroBlockCount();
 }
