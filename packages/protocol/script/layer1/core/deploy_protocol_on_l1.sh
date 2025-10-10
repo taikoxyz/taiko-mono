@@ -30,7 +30,7 @@ export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc \
 
 
 FOUNDRY_PROFILE="layer1" \
-forge script ./script/layer1/based/DeployTaikoToken.s.sol:DeployTaikoToken \
+forge script ./script/layer1/core/DeployTaikoToken.s.sol:DeployTaikoToken \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
@@ -39,7 +39,7 @@ forge script ./script/layer1/based/DeployTaikoToken.s.sol:DeployTaikoToken \
     --block-gas-limit 200000000
 
 FOUNDRY_PROFILE="layer1" \
-forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+forge script ./script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \

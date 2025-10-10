@@ -59,48 +59,47 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy shared contracts
         address sharedResolver = deploySharedContracts(contractOwner);
         console2.log("sharedResolver: ", sharedResolver);
-        // ---------------------------------------------------------------
-        // Deploy rollup contracts
-        (address shastaInboxAddr, address proofVerifier,) =
-            deployRollupContracts(sharedResolver, contractOwner);
 
-        // Deploy verifiers (always deploys all verifiers: SGX, RISC0, SP1)
+        // ---------------------------------------------------------------
+        // Deploy verifiers first
         VerifierAddresses memory verifiers = deployVerifiers(contractOwner);
 
         // Deploy OpVerifier (always deployed, available in both modes)
         address opVerifier = address(new OpVerifier());
         console2.log("Deployed OpVerifier:", opVerifier);
 
-        // Upgrade proof verifier based on mode (matching old DevnetVerifier behavior)
+        // Deploy proof verifier based on mode
+        // Note: DevnetVerifier is stateless with immutable verifier addresses,
+        // so no proxy is needed (cannot be upgraded anyway)
+        address proofVerifier;
         if (vm.envBool("DUMMY_VERIFIERS")) {
             // DUMMY MODE: Use OpVerifier for SGX slot (allows fast testing)
             // Accepts: OP (as "sgx") + (OP or RISC0 or SP1)
-            UUPSUpgradeable(proofVerifier).upgradeTo({
-                newImplementation: address(
-                    new DevnetVerifier(
-                        opVerifier,
-                        opVerifier, // OpVerifier in SGX slot (dummy anchor)
-                        verifiers.risc0RethVerifier,
-                        verifiers.sp1RethVerifier
-                    )
+            proofVerifier = address(
+                new DevnetVerifier(
+                    opVerifier,
+                    opVerifier, // OpVerifier in SGX slot (dummy anchor)
+                    verifiers.risc0RethVerifier,
+                    verifiers.sp1RethVerifier
                 )
-            });
+            );
         } else {
             // Accepts: SGX + (OP or RISC0 or SP1)
-            UUPSUpgradeable(proofVerifier).upgradeTo({
-                newImplementation: address(
-                    new DevnetVerifier(
-                        opVerifier,
-                        verifiers.sgxRethVerifier,
-                        verifiers.risc0RethVerifier,
-                        verifiers.sp1RethVerifier
-                    )
+            proofVerifier = address(
+                new DevnetVerifier(
+                    opVerifier,
+                    verifiers.sgxRethVerifier,
+                    verifiers.risc0RethVerifier,
+                    verifiers.sp1RethVerifier
                 )
-            });
+            );
         }
+        console2.log("Deployed DevnetVerifier:", proofVerifier);
 
-        Ownable2StepUpgradeable(proofVerifier).transferOwnership(contractOwner);
         // ---------------------------------------------------------------
+        // Deploy rollup contracts
+        (address shastaInboxAddr,) =
+            deployRollupContracts(sharedResolver, contractOwner, proofVerifier);
         // Signal service need to authorize the new rollup
         address signalServiceAddr = IResolver(sharedResolver).resolve(
             uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
@@ -245,22 +244,16 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployRollupContracts(
         address _sharedResolver,
-        address owner
+        address owner,
+        address _proofVerifier
     )
         internal
-        returns (address shastaInboxAddr, address proofVerifier, address whitelist)
+        returns (address shastaInboxAddr, address whitelist)
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
+        addressNotNull(_proofVerifier, "proofVerifier");
         address proposer = vm.envAddress("PROPOSER_ADDRESS");
-
-        // Initializable the proxy for proofVerifier to get the contract address at first.
-        // Proof verifier (placeholder - will be upgraded later with real verifiers)
-        proofVerifier = deployProxy({
-            name: "proof_verifier",
-            impl: address(new DevnetVerifier(address(0), address(0), address(0), address(0))),
-            data: ""
-        });
 
         whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -278,7 +271,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         shastaInboxAddr = deployProxy({
             name: "shasta_inbox",
-            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
+            impl: address(new DevnetInbox(codec, _proofVerifier, whitelist, bondToken, signalService)),
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
