@@ -46,6 +46,23 @@ contract Anchor is EssentialContract {
         bytes signature; // ECDSA signature from the designated prover
     }
 
+    /// @notice Proposal-level data that applies to the entire batch of blocks.
+    struct ProposalParams {
+        uint48 proposalId; // Unique identifier of the proposal
+        address proposer; // Address of the entity that proposed this batch
+        bytes proverAuth; // Encoded ProverAuth for prover designation
+        bytes32 bondInstructionsHash; // Expected hash of bond instructions
+        LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
+    }
+
+    /// @notice Block-level data specific to a single block within a proposal.
+    struct BlockParams {
+        uint16 blockIndex; // Current block index within the proposal (0-based)
+        uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
+        bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
+        bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -177,43 +194,32 @@ contract Anchor is EssentialContract {
     ///      1. Designates prover on first block (blockIndex == 0)
     ///      2. Processes bond transfers with cumulative hash verification
     ///      3. Anchors L1 block data for cross-chain verification
-    /// @param _proposalId Unique identifier of the proposal being anchored.
-    /// @param _proposer Address of the entity that proposed this batch of blocks.
-    /// @param _proverAuth Encoded ProverAuth for prover designation (empty after block 0).
-    /// @param _bondInstructionsHash Bond instructions hash in the (-BOND_PROCESSING_DELAY) ancestor
-    /// proposal. This value must be zero if _proposalId <= BOND_PROCESSING_DELAY.
-    /// @param _bondInstructions Bond credit instructions to process for this block.
-    /// @param _blockIndex Current block index within the proposal (0-based).
-    /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
-    /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
-    /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    function anchor(
-        // Proposal level fields - define the overall batch
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth,
-        bytes32 _bondInstructionsHash,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        // Block level fields - specific to this block in the proposal
-        uint16 _blockIndex,
-        uint48 _anchorBlockNumber,
-        bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot
-    )
+    /// @param _proposalParams Proposal-level parameters that define the overall batch.
+    /// @param _blockParams Block-level parameters specific to this block in the proposal.
+    function anchor(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
         external
         onlyValidSenderAndHeight
         nonReentrant
     {
         State memory state = _loadState();
 
-        if (_blockIndex == 0) {
+        if (_blockParams.blockIndex == 0) {
             state = _handleFirstBlock(
-                state, _proposalId, _proposer, _proverAuth, _bondInstructions, _bondInstructionsHash
+                state,
+                _proposalParams.proposalId,
+                _proposalParams.proposer,
+                _proposalParams.proverAuth,
+                _proposalParams.bondInstructions,
+                _proposalParams.bondInstructionsHash
             );
         }
 
-        state =
-            _maybeAnchorCheckpoint(state, _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
+        state = _maybeAnchorCheckpoint(
+            state,
+            _blockParams.anchorBlockNumber,
+            _blockParams.anchorBlockHash,
+            _blockParams.anchorStateRoot
+        );
         state.ancestorsHash = _verifyAndUpdateAncestorsHash(block.number - 1, state.ancestorsHash);
 
         _persistState(state);
