@@ -53,6 +53,9 @@ async fn main() -> Result<()> {
     let taiko_wrapper_address =
         Address::from_str(&config.taiko_wrapper_address).expect("Invalid taiko wrapper address");
 
+    let preconf_router_address =
+        Address::from_str(&config.preconf_router_address).expect("Invalid preconf router address");
+
     let l2_ws_url = Url::parse(&config.l2_ws_url).expect("Invalid L2 WS URL");
 
     let beacon_url = Url::parse(&config.beacon_url).expect("Invalid Beacon URL");
@@ -81,6 +84,7 @@ async fn main() -> Result<()> {
         taiko_wrapper_address,
         whitelist_address,
         handover_slots,
+        preconf_router_address,
         config.min_operators,
     );
 
