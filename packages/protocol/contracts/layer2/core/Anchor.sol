@@ -185,7 +185,6 @@ contract Anchor is EssentialContract {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
-        (ancestorsHash,) = _calcAncestorsHash(block.number);
     }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
@@ -223,7 +222,8 @@ contract Anchor is EssentialContract {
             _blockParams.anchorBlockHash,
             _blockParams.anchorStateRoot
         );
-        state.ancestorsHash = _verifyAndUpdateAncestorsHash(block.number - 1, state.ancestorsHash);
+
+        _verifyAndUpdateAncestorsHash(block.number - 1, state);
 
         _persistState(state);
 
@@ -501,19 +501,13 @@ contract Anchor is EssentialContract {
 
     /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
     /// @param _parentId The ID of the parent block.
-    /// @param _currentAncestorsHash The hash stored in contract state.
-    /// @return newAncestorsHash_ The newly computed hash to persist.
-    function _verifyAndUpdateAncestorsHash(
-        uint256 _parentId,
-        bytes32 _currentAncestorsHash
-    )
-        private
-        view
-        returns (bytes32 newAncestorsHash_)
-    {
-        (bytes32 oldAncestorsHash, bytes32 computedNewHash) = _calcAncestorsHash(_parentId);
-        require(_currentAncestorsHash == oldAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
-        return computedNewHash;
+    /// @param _state The state struct to verify and update.
+    function _verifyAndUpdateAncestorsHash(uint256 _parentId, State memory _state) private view {
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
+        bytes32 expectedCurrAncestorsHash =
+            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
+        require(_state.ancestorsHash == expectedCurrAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        _state.ancestorsHash = newAncestorsHash;
     }
 
     /// @dev Validates prover authentication and extracts signer.
