@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibAddress.sol";
+import {EssentialContract} from "src/shared/common/EssentialContract.sol";
+import {LibAddress} from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -60,17 +60,19 @@ contract Anchor is EssentialContract {
     // Immutables
     // ---------------------------------------------------------------
 
+      /// @notice Contract managing bond deposits, withdrawals, and transfers.
+    IBondManager public immutable bondManager;
+
+    /// @notice Checkpoint store for storing L1 block data.
+    ICheckpointStore public immutable checkpointStore;
+
     /// @notice Bond amount in Gwei for liveness guarantees.
     uint48 public immutable livenessBondGwei;
 
     /// @notice Bond amount in Gwei for provability guarantees.
     uint48 public immutable provabilityBondGwei;
 
-    /// @notice Contract managing bond deposits, withdrawals, and transfers.
-    IBondManager public immutable bondManager;
-
-    /// @notice Checkpoint store for storing L1 block data.
-    ICheckpointStore public immutable checkpointStore;
+  
 
     /// @notice Block height at which the Shasta fork is activated.
     uint64 public immutable shastaForkHeight;
@@ -129,30 +131,33 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Anchor contract.
+    /// @param _checkpointStore The address of the checkpoint store.
+    /// @param _bondManager The address of the bond manager.
     /// @param _livenessBondGwei The liveness bond amount in Gwei.
     /// @param _provabilityBondGwei The provability bond amount in Gwei.
-    /// @param _checkpointStore The address of the checkpoint store.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
-    /// @param _bondManager The address of the bond manager.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
+        ICheckpointStore _checkpointStore,
+        IBondManager _bondManager,
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
-        address _checkpointStore,
         uint64 _shastaForkHeight,
-        IBondManager _bondManager,
         uint64 _l1ChainId
     ) {
-        require(_l1ChainId != 0, InvalidL1ChainId());
-        require(_l1ChainId != block.chainid, InvalidL1ChainId());
+        // Validate addresses
+        require(address(_checkpointStore) != address(0), InvalidAddress());
+        require(address(_bondManager) != address(0), InvalidAddress());
 
-        require(block.chainid > 1, InvalidL2ChainId());
-        require(block.chainid <= type(uint64).max, InvalidL2ChainId());
+        // Validate chain IDs
+        require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
+        require(block.chainid > 1 && block.chainid <= type(uint64).max, InvalidL2ChainId());
 
+        // Assign immutables
+        checkpointStore = _checkpointStore;
+        bondManager = _bondManager;
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
-        bondManager = _bondManager;
-        checkpointStore = ICheckpointStore(_checkpointStore);
         shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
     }
@@ -557,6 +562,7 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     error BondInstructionsHashMismatch();
+    error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
     error InvalidForkHeight();
