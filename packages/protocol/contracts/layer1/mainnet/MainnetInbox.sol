@@ -1,58 +1,65 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/TaikoInbox.sol";
-import "src/shared/libs/LibNetwork.sol";
-import "./libs/LibFasterReentryLock.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
+import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
-/// @title MainnetInbox
-/// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
-/// mainnet to reduce gas cost.
-/// @notice See the documentation in {TaikoInbox}.
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
+/// @title ShastaMainnetInbox
+/// @dev This contract extends the base Inbox contract for mainnet deployment
+/// with optimized reentrancy lock implementation and efficient hashing.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is TaikoInbox {
+contract MainnetInbox is InboxOptimized2 {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+    /// @dev Ring buffer size for storing proposal hashes.
+    /// Assumptions:
+    /// - D = 2: Proposals may continue without finalization for up to 2 days.
+    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
+    ///
+    /// Calculation:
+    ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
+    ///                     = (86400 * 2) / 12 / 6
+    ///                     = 2400
+    uint64 private constant _RING_BUFFER_SIZE = 2400;
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
     constructor(
-        address _wrapper,
-        address _verifier,
-        address _bondToken,
-        address _signalService
+        address _codec,
+        address _proofVerifier,
+        address _proposerChecker
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        InboxOptimized2(
+            IInbox.Config({
+                bondToken: LibL1Addrs.TAIKO_TOKEN,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
+                codec: _codec,
+                proofVerifier: _proofVerifier,
+                proposerChecker: _proposerChecker,
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                finalizationGracePeriod: 768 seconds, // 2 epochs
+                ringBufferSize: _RING_BUFFER_SIZE,
+                basefeeSharingPctg: 0,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                minCheckpointDelay: 384 seconds, // 1 epoch
+                permissionlessInclusionMultiplier: 5,
+                compositeKeyVersion: 1
+            })
+        )
     { }
 
-    function _getConfig() internal pure virtual override returns (ITaikoInbox.Config memory) {
-        // All hard-coded configurations:
-        // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 1_000_000
-
-        (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_) = _getRingbufferConfig();
-        return ITaikoInbox.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
-            // Ring buffers are being reused on the mainnet, therefore the following two
-            // configuration values must NEVER be changed!!!
-            maxUnverifiedBatches: maxUnverifiedBatches_,
-            batchRingBufferSize: batchRingBufferSize_,
-            maxBatchesToVerify: 16,
-            blockMaxGasLimit: 32_000_000,
-            livenessBond: 25e18, // 25 Taiko token per batch
-            stateRootSyncInternal: 4,
-            maxAnchorHeightOffset: 96,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 40,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 1_000_000,
-                minGasExcess: 1_440_000_000,
-                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-             }),
-            provingWindow: 2 hours,
-            cooldownWindow: 2 hours,
-            maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 768,
-            forkHeights: _getForkHeights()
-        });
-    }
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
@@ -62,25 +69,9 @@ contract MainnetInbox is TaikoInbox {
         return LibFasterReentryLock.loadReentryLock();
     }
 
-    function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
-        return ITaikoInbox.ForkHeights({
-            ontake: 538_304,
-            pacaya: 1_166_000,
-            shasta: 0,
-            unzen: 0,
-            etna: 0,
-            fuji: 0
-        });
-    }
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
 
-    /// @dev Never change the following two values!!!
-    function _getRingbufferConfig()
-        internal
-        pure
-        virtual
-        returns (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_)
-    {
-        maxUnverifiedBatches_ = 324_000;
-        batchRingBufferSize_ = 360_000;
-    }
+    error InvalidCoreState();
 }
