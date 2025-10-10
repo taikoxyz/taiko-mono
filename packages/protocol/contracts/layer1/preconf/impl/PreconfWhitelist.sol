@@ -6,7 +6,7 @@ import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/layer1/shasta/iface/IProposerChecker.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
 
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
