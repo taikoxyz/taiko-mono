@@ -357,8 +357,11 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(contractOwner);
 
+        address authorizedSyncer = getPredeployedContractAddress("TaikoAnchor");
+        address remoteSignalService = contractOwner;
+
         signalServiceProxy.upgradeTo(
-            address(new SignalService(getPredeployedContractAddress("SharedResolver")))
+            address(new SignalService(authorizedSyncer, remoteSignalService))
         );
 
         vm.stopPrank();
