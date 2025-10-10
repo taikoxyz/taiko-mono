@@ -13,8 +13,8 @@ import "src/shared/vault/BridgedERC20.sol";
 import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/layer2/based/TaikoAnchor.sol";
-import "src/layer2/based/BondManager.sol";
+import "src/layer2/core/Anchor.sol";
+import "src/layer2/core/BondManager.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -145,7 +145,7 @@ contract TestGenerateGenesis is Test {
     }
 
     function testTaikoAnchor() public {
-        TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
+        Anchor taikoAnchorProxy = Anchor(getPredeployedContractAddress("TaikoAnchor"));
 
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
@@ -153,7 +153,7 @@ contract TestGenerateGenesis is Test {
         assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
         assertEq(
             getPredeployedContractAddress("SignalService"),
-            address(taikoAnchorProxy.signalService())
+            address(taikoAnchorProxy.checkpointStore())
         );
         assertEq(
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
@@ -165,13 +165,14 @@ contract TestGenerateGenesis is Test {
 
         taikoAnchorProxy.upgradeTo(
             address(
-                new TaikoAnchor(
+                new Anchor(
                     10_000_000, // livenessBondGwei
                     10_000_000, // provabilityBondGwei
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    address(0) // bondManager - to be set later
+                    IBondManager(address(0)), // bondManager - to be set later
+                    uint64(l1ChainId)
                 )
             )
         );
