@@ -215,9 +215,7 @@ contract Anchor is EssentialContract {
             _validateProposal(state, _proposalParams);
         }
 
-        _maybeAnchorCheckpoint(state, _blockParams);
-
-        _verifyAndUpdateAncestorsHash(state);
+        _validateBlock(state, _blockParams);
 
         _persistState(state);
 
@@ -357,28 +355,34 @@ contract Anchor is EssentialContract {
         );
     }
 
-    /// @dev Anchors checkpoint data when a fresher L1 block is provided.
+    /// @dev Validates and processes block-level data.
     /// @param _state Working state snapshot to mutate.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _maybeAnchorCheckpoint(
+    function _validateBlock(
         State memory _state,
         BlockParams calldata _blockParams
     )
         private
+        view
     {
-        if (_blockParams.anchorBlockNumber <= _state.anchorBlockNumber) {
-            return;
+        // Anchor checkpoint data if a fresher L1 block is provided
+        if (_blockParams.anchorBlockNumber > _state.anchorBlockNumber) {
+            checkpointStore.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: _blockParams.anchorBlockNumber,
+                    blockHash: _blockParams.anchorBlockHash,
+                    stateRoot: _blockParams.anchorStateRoot
+                })
+            );
+            _state.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
 
-        checkpointStore.saveCheckpoint(
-            ICheckpointStore.Checkpoint({
-                blockNumber: _blockParams.anchorBlockNumber,
-                blockHash: _blockParams.anchorBlockHash,
-                stateRoot: _blockParams.anchorStateRoot
-            })
-        );
-
-        _state.anchorBlockNumber = _blockParams.anchorBlockNumber;
+        // Verify and update ancestors hash
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
+        bytes32 expectedCurrAncestorsHash =
+            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
+        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
+        _state.ancestorsHash = newAncestorsHash;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
@@ -459,16 +463,6 @@ contract Anchor is EssentialContract {
 
         // Verify hash integrity
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
-
-    /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
-    /// @param _state The state struct to verify and update.
-    function _verifyAndUpdateAncestorsHash(State memory _state) private view {
-        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        bytes32 expectedCurrAncestorsHash =
-            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
-        _state.ancestorsHash = newAncestorsHash;
     }
 
     /// @dev Validates prover authentication and extracts signer.
