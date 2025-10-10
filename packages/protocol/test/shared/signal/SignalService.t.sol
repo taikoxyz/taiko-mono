@@ -8,13 +8,12 @@ import "src/shared/signal/ICheckpointStore.sol";
 contract TestSignalService is CommonTest {
     address private constant AUTHORIZED_SYNCER =
         address(uint160(uint256(keccak256("authorized_syncer"))));
-    address private constant REMOTE_SIGNAL_SERVICE =
-        0x604C61d6618AaCdF7a7A2Fe4c42E35Ecba32AE75;
+    address private constant REMOTE_SIGNAL_SERVICE = 0x604C61d6618AaCdF7a7A2Fe4c42E35Ecba32AE75;
     address private constant REMOTE_APP = 0xde5B0e8a8034eF30a8b71d78e658C85dFE3FC657;
 
     // Captured from an actual signal proven on chain 32_382, block 5,570.
     uint64 private constant SOURCE_CHAIN_ID = 32_382;
-    uint64 private constant VALID_PROOF_BLOCK_ID = 5_570;
+    uint64 private constant VALID_PROOF_BLOCK_ID = 5570;
     bytes32 private constant VALID_PROOF_STATE_ROOT =
         0x7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819;
     bytes32 private constant VALID_SIGNAL =
@@ -115,10 +114,7 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(SS_INVALID_PROOF_LENGTH.selector);
         signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            abi.encode(proofs)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
     }
 
@@ -131,10 +127,7 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(SS_EMPTY_PROOF.selector);
         signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            abi.encode(proofs)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
     }
 
@@ -149,10 +142,7 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            abi.encode(proofs)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
     }
 
@@ -169,10 +159,7 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
         signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            abi.encode(proofs)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
     }
 
@@ -183,10 +170,7 @@ contract TestSignalService is CommonTest {
         vm.chainId(167_001);
 
         uint256 cacheOps = signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            VALID_SIGNAL_PROOF
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
         assertEq(cacheOps, 0);
 

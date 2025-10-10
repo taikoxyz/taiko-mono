@@ -119,11 +119,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         address automataProxy = _deployAutomataAttestation(config.contractOwner);
 
         // Deploy SGX verifier
-        verifiers.sgx = address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+        verifiers.sgx =
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
         // Deploy ZK verifiers (RISC0 and SP1)
-        (verifiers.risc0, verifiers.sp1) = _deployZKVerifiers(config.contractOwner, config.l2ChainId);
+        (verifiers.risc0, verifiers.sp1) =
+            _deployZKVerifiers(config.contractOwner, config.l2ChainId);
     }
 
     function _deployProofVerifier(
@@ -146,8 +148,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
 
         console2.log(
-            useDummyVerifiers ? "DevnetVerifier (DUMMY MODE):" : "DevnetVerifier:",
-            proofVerifier
+            useDummyVerifiers ? "DevnetVerifier (DUMMY MODE):" : "DevnetVerifier:", proofVerifier
         );
     }
 
@@ -169,12 +170,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
         // Get dependencies
-        address bondToken = IResolver(sharedResolver).resolve(
-            uint64(block.chainid), "bond_token", false
-        );
-        address signalService = IResolver(sharedResolver).resolve(
-            uint64(block.chainid), "signal_service", false
-        );
+        address bondToken =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
+        address signalService =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
         address codec = address(new CodecOptimized());
 
         // Deploy inbox
