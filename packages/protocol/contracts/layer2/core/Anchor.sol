@@ -325,7 +325,12 @@ contract Anchor is EssentialContract {
     /// @dev Handles all logic that must only run on the first block of a proposal.
     /// @param _state Working state snapshot to mutate.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _handleFirstBlock(State memory _state, ProposalParams calldata _proposalParams) private {
+    function _handleFirstBlock(
+        State memory _state,
+        ProposalParams calldata _proposalParams
+    )
+        private
+    {
         uint256 proverFee;
         (_state.isLowBondProposal, _state.designatedProver, proverFee) = getDesignatedProver(
             _proposalParams.proposalId,
@@ -349,7 +354,12 @@ contract Anchor is EssentialContract {
     /// @dev Anchors checkpoint data when a fresher L1 block is provided.
     /// @param _state Working state snapshot to mutate.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _maybeAnchorCheckpoint(State memory _state, BlockParams calldata _blockParams) private {
+    function _maybeAnchorCheckpoint(
+        State memory _state,
+        BlockParams calldata _blockParams
+    )
+        private
+    {
         if (_blockParams.anchorBlockNumber <= _state.anchorBlockNumber) {
             return;
         }
@@ -451,7 +461,7 @@ contract Anchor is EssentialContract {
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =
             block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_state.ancestorsHash == expectedCurrAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
         _state.ancestorsHash = newAncestorsHash;
     }
 
@@ -507,6 +517,7 @@ contract Anchor is EssentialContract {
     // Errors
     // ---------------------------------------------------------------
 
+    error AncestorsHashMismatch();
     error BondInstructionsHashMismatch();
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
@@ -515,7 +526,6 @@ contract Anchor is EssentialContract {
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
-    error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
