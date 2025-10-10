@@ -216,11 +216,8 @@ contract Anchor is EssentialContract {
             );
         }
 
-        state = _maybeAnchorCheckpoint(
-            state,
-            _blockParams.anchorBlockNumber,
-            _blockParams.anchorBlockHash,
-            _blockParams.anchorStateRoot
+        _maybeAnchorCheckpoint(
+            state, _blockParams.anchorBlockNumber, _blockParams.anchorBlockHash, _blockParams.anchorStateRoot
         );
 
         _verifyAndUpdateAncestorsHash(block.number - 1, state);
@@ -351,7 +348,6 @@ contract Anchor is EssentialContract {
     /// @param _anchorBlockNumber L1 block number being anchored.
     /// @param _anchorBlockHash Hash of the referenced L1 block.
     /// @param _anchorStateRoot State root of the referenced L1 block.
-    /// @return Updated state with the latest anchored block number.
     function _maybeAnchorCheckpoint(
         State memory _state,
         uint48 _anchorBlockNumber,
@@ -359,10 +355,9 @@ contract Anchor is EssentialContract {
         bytes32 _anchorStateRoot
     )
         private
-        returns (State memory)
     {
         if (_anchorBlockNumber <= _state.anchorBlockNumber) {
-            return _state;
+            return;
         }
 
         checkpointStore.saveCheckpoint(
@@ -374,7 +369,6 @@ contract Anchor is EssentialContract {
         );
 
         _state.anchorBlockNumber = _anchorBlockNumber;
-        return _state;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the given block ID.
