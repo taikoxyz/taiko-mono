@@ -212,7 +212,7 @@ contract Anchor is EssentialContract {
         State memory state = _loadState();
 
         if (_blockParams.blockIndex == 0) {
-            _handleFirstBlock(state, _proposalParams);
+            _validateProposal(state, _proposalParams);
         }
 
         _maybeAnchorCheckpoint(state, _blockParams);
@@ -328,10 +328,10 @@ contract Anchor is EssentialContract {
         ancestorsHash = _state.ancestorsHash;
     }
 
-    /// @dev Handles all logic that must only run on the first block of a proposal.
+    /// @dev Validates and processes proposal-level data on the first block.
     /// @param _state Working state snapshot to mutate.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _handleFirstBlock(
+    function _validateProposal(
         State memory _state,
         ProposalParams calldata _proposalParams
     )
