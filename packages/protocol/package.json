@@ -45,7 +45,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
     "solc": "0.8.24",
-    "solhint": "^5.0.4",
+    "solhint": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   },
