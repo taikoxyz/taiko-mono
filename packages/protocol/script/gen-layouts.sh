@@ -32,7 +32,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
-"contracts/layer1/mainnet/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
@@ -42,7 +41,7 @@ contracts_layer1=(
 # Layer 2 contracts
 contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/core/DelegateController.sol:DelegateController"
+"contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
 )
 
