@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
-    "clean": "rm -rf out abis cache* && forge clean",
+    "clean": "rm -rf out abis cache* cache-* && (forge clean || true)",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
