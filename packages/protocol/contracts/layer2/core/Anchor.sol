@@ -279,45 +279,72 @@ contract Anchor is EssentialContract {
         view
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
-        // Determine prover and fee
-        uint256 provingFee;
-        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
+        (address candidate, uint48 provingFeeGwei) =
+            validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        // Convert proving fee from Gwei to Wei
-        provingFee *= 1e9;
+        uint256 provingFeeWei = uint256(provingFeeGwei) * 1e9;
+        bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFeeWei);
 
-        // Check bond sufficiency (convert provingFeeGwei to Wei)
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
+        if (!proposerHasBond) {
+            return (true, _currentDesignatedProver, 0);
+        }
 
-        // Handle low bond proposals
-        if (isLowBondProposal_) {
-            // Use previous designated prover
-            designatedProver_ = _currentDesignatedProver;
-        } else if (designatedProver_ != _proposer) {
-            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
-                // Fallback to proposer if designated prover has insufficient bonds
-                designatedProver_ = _proposer;
-            } else {
-                provingFeeToTransfer_ = provingFee;
-            }
+        if (candidate == _proposer) {
+            return (false, _proposer, 0);
+        }
+
+        if (!bondManager.hasSufficientBond(candidate, 0)) {
+            return (false, _proposer, 0);
+        }
+
+        return (false, candidate, provingFeeWei);
+    }
+
+    /// @dev Validates prover authentication and extracts signer.
+    /// @param _proposalId The proposal ID to validate against.
+    /// @param _proposer The proposer address to validate against.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @return signer_ The recovered signer address (proposer if validation fails).
+    /// @return provingFeeGwei_ The proving fee in Gwei (0 if validation fails).
+    function validateProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        public
+        pure
+        returns (address signer_, uint48 provingFeeGwei_)
+    {
+        if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
+            return (_proposer, 0);
+        }
+
+        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
+
+        if (!_isMatchingProverAuthContext(proverAuth, _proposalId, _proposer)) {
+            return (_proposer, 0);
+        }
+
+        if (proverAuth.signature.length != 65) {
+            return (_proposer, 0);
+        }
+
+        (address recovered, ECDSA.RecoverError error) =
+            ECDSA.tryRecover(_hashProverAuthMessage(proverAuth), proverAuth.signature);
+
+        if (error != ECDSA.RecoverError.NoError || recovered == address(0)) {
+            return (_proposer, 0);
+        }
+
+        signer_ = recovered;
+        if (signer_ != _proposer) {
+            provingFeeGwei_ = proverAuth.provingFeeGwei;
         }
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    // Transactional functions (modify state)
-
-    /// @dev Writes a fully processed state back to storage.
-    /// @param _state The state snapshot to persist.
-    function _persistState(State memory _state) private {
-        bondInstructionsHash = _state.bondInstructionsHash;
-        designatedProver = _state.designatedProver;
-        isLowBondProposal = _state.isLowBondProposal;
-        anchorBlockNumber = _state.anchorBlockNumber;
-        ancestorsHash = _state.ancestorsHash;
-    }
 
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _state Working state snapshot to mutate.
@@ -348,6 +375,30 @@ contract Anchor is EssentialContract {
         );
     }
 
+    /// @dev Validates and processes block-level data.
+    /// @param _state Working state snapshot to mutate.
+    /// @param _blockParams Block-level parameters containing anchor data.
+    function _validateBlock(State memory _state, BlockParams calldata _blockParams) private {
+        // Verify and update ancestors hash
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
+        bytes32 expectedCurrAncestorsHash =
+            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
+        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
+        _state.ancestorsHash = newAncestorsHash;
+
+        // Anchor checkpoint data if a fresher L1 block is provided
+        if (_blockParams.anchorBlockNumber > _state.anchorBlockNumber) {
+            checkpointStore.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: _blockParams.anchorBlockNumber,
+                    blockHash: _blockParams.anchorBlockHash,
+                    stateRoot: _blockParams.anchorStateRoot
+                })
+            );
+            _state.anchorBlockNumber = _blockParams.anchorBlockNumber;
+        }
+    }
+
     /// @dev Processes bond instructions with cumulative hash verification.
     /// @param _currentHash Current cumulative hash from storage.
     /// @param _bondInstructions Bond instructions to process.
@@ -361,37 +412,33 @@ contract Anchor is EssentialContract {
         private
         returns (bytes32 newHash_)
     {
-        // Start with current cumulative hash
         newHash_ = _currentHash;
 
-        // Process each instruction
         uint256 length = _bondInstructions.length;
         for (uint256 i; i < length; ++i) {
-            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
+            LibBonds.BondInstruction calldata instruction = _bondInstructions[i];
 
-            // Determine bond amount based on type
-            uint48 bond;
-            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
-                bond = livenessBondGwei;
-            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
-                bond = provabilityBondGwei;
-            }
-
-            // Transfer bond from payer to receiver
-            if (bond != 0) {
-                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
+            uint256 bondAmount = _bondAmountFor(instruction.bondType);
+            if (bondAmount != 0) {
+                uint256 bondDebited = bondManager.debitBond(instruction.payer, bondAmount);
                 bondManager.creditBond(instruction.payee, bondDebited);
             }
 
-            // Update cumulative hash
             newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
         }
 
-        // Verify hash integrity
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
     }
 
-    // View functions (read state)
+    /// @dev Writes a fully processed state back to storage.
+    /// @param _state The state snapshot to persist.
+    function _persistState(State memory _state) private {
+        bondInstructionsHash = _state.bondInstructionsHash;
+        designatedProver = _state.designatedProver;
+        isLowBondProposal = _state.isLowBondProposal;
+        anchorBlockNumber = _state.anchorBlockNumber;
+        ancestorsHash = _state.ancestorsHash;
+    }
 
     /// @dev Loads the current contract state into memory for processing.
     /// @return state_ Snapshot of all non-gap storage variables.
@@ -405,28 +452,15 @@ contract Anchor is EssentialContract {
         });
     }
 
-    /// @dev Validates and processes block-level data.
-    /// @param _state Working state snapshot to mutate.
-    /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(State memory _state, BlockParams calldata _blockParams) private view {
-        // Anchor checkpoint data if a fresher L1 block is provided
-        if (_blockParams.anchorBlockNumber > _state.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(
-                ICheckpointStore.Checkpoint({
-                    blockNumber: _blockParams.anchorBlockNumber,
-                    blockHash: _blockParams.anchorBlockHash,
-                    stateRoot: _blockParams.anchorStateRoot
-                })
-            );
-            _state.anchorBlockNumber = _blockParams.anchorBlockNumber;
+    /// @dev Maps a bond type to the configured bond amount in Gwei.
+    function _bondAmountFor(LibBonds.BondType _bondType) private view returns (uint256) {
+        if (_bondType == LibBonds.BondType.LIVENESS) {
+            return livenessBondGwei;
         }
-
-        // Verify and update ancestors hash
-        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        bytes32 expectedCurrAncestorsHash =
-            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_state.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
-        _state.ancestorsHash = newAncestorsHash;
+        if (_bondType == LibBonds.BondType.PROVABILITY) {
+            return provabilityBondGwei;
+        }
+        return 0;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
@@ -466,54 +500,22 @@ contract Anchor is EssentialContract {
         }
     }
 
-    // Pure functions (no state access)
-
-    /// @dev Validates prover authentication and extracts signer.
-    /// @param _proposalId The proposal ID to validate against.
-    /// @param _proposer The proposer address to validate against.
-    /// @param _proverAuth Encoded prover authentication data.
-    /// @return signer_ The recovered signer address (proposer if validation fails).
-    /// @return provingFeeGwei_ The proving fee in Gwei (0 if validation fails).
-    function _validateProverAuth(
+    /// @dev Checks whether a decoded `ProverAuth` payload targets the expected proposal context.
+    function _isMatchingProverAuthContext(
+        ProverAuth memory _auth,
         uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth
+        address _proposer
     )
         private
         pure
-        returns (address signer_, uint48 provingFeeGwei_)
+        returns (bool)
     {
-        // Check if _proverAuth has minimum required length for ProverAuth struct
-        // ABI-encoded ProverAuth: uint48 (32 padded) + address (32 padded) + uint48 (32 padded) +
-        // bytes offset (32) + bytes length (32) + minimum signature data (65) = 225 bytes minimum
-        if (_proverAuth.length < 225) {
-            return (_proposer, 0);
-        }
+        return _auth.proposalId == _proposalId && _auth.proposer == _proposer;
+    }
 
-        // Decode ProverAuth safely without try-catch
-        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
-
-        // Validate proposal and proposer match
-        if (proverAuth.proposalId != _proposalId || proverAuth.proposer != _proposer) {
-            return (_proposer, 0);
-        }
-
-        // Verify ECDSA signature
-        bytes32 message = keccak256(
-            abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFeeGwei)
-        );
-        (address recovered, ECDSA.RecoverError error) =
-            ECDSA.tryRecover(message, proverAuth.signature);
-
-        // Return recovered signer or fallback to proposer
-        if (error == ECDSA.RecoverError.NoError && recovered != address(0)) {
-            signer_ = recovered;
-            if (signer_ != _proposer) {
-                provingFeeGwei_ = proverAuth.provingFeeGwei;
-            }
-        } else {
-            signer_ = _proposer;
-        }
+    /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
+    function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
+        return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFeeGwei));
     }
 
     // ---------------------------------------------------------------
@@ -529,7 +531,6 @@ contract Anchor is EssentialContract {
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
-    error AncestorsHashMismatch();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
