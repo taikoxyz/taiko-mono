@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICodec } from "src/layer1/iface/ICodec.sol";
-import { CodecOptimized } from "src/layer1/impl/CodecOptimized.sol";
+import { ICodec } from "src/layer1/core/iface/ICodec.sol";
+import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { AbstractCodecFuzzTest } from "./AbstractCodec.fuzz.t.sol";
 
 /// @title CodecOptimizedFuzzTest

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/iface/IInbox.sol";
-import { LibBlobs } from "src/layer1/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
-import { IProposerChecker } from "src/layer1/iface/IProposerChecker.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
-import "src/layer1/impl/Inbox.sol";
+import "src/layer1/core/impl/Inbox.sol";
 
 /// @title AbstractProposeTest
 /// @notice All propose tests for Inbox implementations

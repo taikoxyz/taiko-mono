@@ -5,10 +5,10 @@ import "forge-std/src/Script.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/mainnet/TaikoDAOController.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
 import "src/shared/bridge/IBridge.sol";
-import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
-import { LibL2Addrs as L2 } from "src/layer2/mainnet/libs/LibL2Addrs.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 
 abstract contract BuildProposal is Script {
     error TargetIsZeroAddress();

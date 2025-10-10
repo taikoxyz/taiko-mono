@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProposedEventEncoder } from "src/layer1/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/libs/LibBlobs.sol";
-import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 
 /// @title LibProposedEventEncoderTest
 /// @notice Tests for LibProposedEventEncoder

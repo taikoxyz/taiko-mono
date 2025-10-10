@@ -6,17 +6,17 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
-import "src/shared/tokenvault/BridgedERC1155.sol";
-import "src/shared/tokenvault/BridgedERC20.sol";
-import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/BridgedERC20.sol";
+import "src/shared/vault/BridgedERC721.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
+import "src/layer1/mainnet/MainnetBridge.sol";
+import "src/layer1/mainnet/MainnetERC1155Vault.sol";
+import "src/layer1/mainnet/MainnetERC20Vault.sol";
+import "src/layer1/mainnet/MainnetERC721Vault.sol";
+import "src/layer1/mainnet/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -24,9 +24,9 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
-import { Inbox } from "src/layer1/impl/Inbox.sol";
-import { ShastaDevnetInbox } from "src/layer1/devnet/ShastaDevnetInbox.sol";
-import { CodecOptimized } from "src/layer1/impl/CodecOptimized.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
+import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -61,7 +61,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address shastaInboxAddr, address proofVerifier, address whitelist) =
+        (address shastaInboxAddr, address proofVerifier,) =
             deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers (always deploys all verifiers: SGX, RISC0, SP1)
@@ -278,9 +278,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         shastaInboxAddr = deployProxy({
             name: "shasta_inbox",
-            impl: address(
-                new ShastaDevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
-            ),
+            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 

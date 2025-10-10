@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/IProofVerifier.sol";
+import "src/layer1/core/iface/IProofVerifier.sol";
 
 /// @title OpVerifier
 /// @notice This contract is a dummy verifier that accepts all proofs without verification.

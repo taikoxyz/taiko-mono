@@ -24,25 +24,25 @@ contracts_layer1=(
 "contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
 "contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/impl/Inbox.sol:Inbox"
-"contracts/layer1/devnet/ShastaDevnetInbox.sol:ShastaDevnetInbox"
-"contracts/layer1/impl/ShastaMainnetInbox.sol:ShastaMainnetInbox"
-"contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
-"contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
+"contracts/layer1/core/impl/Inbox.sol:Inbox"
+"contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
+"contracts/layer1/core/impl/ShastaMainnetInbox.sol:ShastaMainnetInbox"
+"contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
+"contracts/layer1/mainnet/MainnetSignalService.sol:MainnetSignalService"
+"contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
+"contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
+"contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
-"contracts/layer1/mainnet/TaikoDAOController.sol:TaikoDAOController"
+"contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
 # Layer 2 contracts
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/mainnet/DelegateController.sol:DelegateController"
+"contracts/layer2/core/DelegateController.sol:DelegateController"
 "contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
 )
 

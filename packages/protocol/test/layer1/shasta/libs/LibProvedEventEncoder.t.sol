@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProvedEventEncoder } from "src/layer1/libs/LibProvedEventEncoder.sol";
+import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProvedEventEncoderTest

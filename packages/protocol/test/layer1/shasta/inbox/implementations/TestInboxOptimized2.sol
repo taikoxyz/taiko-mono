@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized2 } from "src/layer1/impl/InboxOptimized2.sol";
-import { IInbox } from "src/layer1/iface/IInbox.sol";
+import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 
 /// @title TestInboxOptimized2
 /// @notice Test wrapper for TestInboxOptimized2 contract with configurable behavior
