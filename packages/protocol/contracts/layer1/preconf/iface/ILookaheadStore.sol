@@ -31,10 +31,8 @@ interface ILookaheadStore {
     struct LookaheadStoreConfig {
         // The size of the lookahead buffer.
         uint16 lookaheadBufferSize;
-        // The minimum collateral for a registered operator to post the lookahead.
-        uint80 minCollateralForPosting;
-        // The minimum collateral for a registered operator to preconf.
-        uint80 minCollateralForPreconfing;
+        // The minimum collateral required to be present within the lookahead as a preconfer.
+        uint80 minCollateral;
     }
 
     struct LookaheadData {
@@ -98,7 +96,7 @@ interface ILookaheadStore {
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
-        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots
+        uint256 indexed epochTimestamp, bytes26 lookaheadHash, LookaheadSlot[] lookaheadSlots
     );
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
@@ -145,19 +143,6 @@ interface ILookaheadStore {
     /// @param _registrationRoot The URC registration root of the operator.
     /// @return True if the operator is valid
     function isLookaheadOperatorValid(
-        uint256 _epochTimestamp,
-        bytes32 _registrationRoot
-    )
-        external
-        view
-        returns (bool);
-
-    /// @notice Checks if a lookahead poster is valid for the next epoch.
-    /// @dev Reverts if the operator is not valid
-    /// @param _epochTimestamp The timestamp of the next epoch.
-    /// @param _registrationRoot The URC registration root of the poster.
-    /// @return True if the poster is valid
-    function isLookaheadPosterValid(
         uint256 _epochTimestamp,
         bytes32 _registrationRoot
     )
