@@ -36,102 +36,203 @@ import "test/shared/DeployCapability.sol";
 /// initializing the rollup.
 contract DeployProtocolOnL1 is DeployCapability {
     struct VerifierAddresses {
-        address sgxRethVerifier;
-        address risc0RethVerifier;
-        address sp1RethVerifier;
+        address sgx;
+        address risc0;
+        address sp1;
+        address op;
+    }
+
+    struct DeploymentConfig {
+        address contractOwner;
+        bytes32 l2GenesisHash;
+        uint64 l2ChainId;
+        address sharedResolver;
+        address remoteSigSvc;
+        address taikoToken;
+        address taikoTokenPremintRecipient;
+        address proposerAddress;
+        bool useDummyVerifiers;
+        bool pauseBridge;
     }
 
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
-        require(privateKey != 0, "invalid private key");
+        require(privateKey != 0, "PRIVATE_KEY not set or invalid");
         vm.startBroadcast();
         _;
         vm.stopBroadcast();
     }
 
     function run() external broadcast {
-        addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
+        DeploymentConfig memory config = _loadConfig();
 
-        require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
-        address contractOwner = vm.envAddress("CONTRACT_OWNER");
+        // Deploy shared infrastructure
+        address sharedResolver = deploySharedContracts(config);
+        console2.log("SharedResolver deployed:", sharedResolver);
 
-        // ---------------------------------------------------------------
-        // Deploy shared contracts
-        address sharedResolver = deploySharedContracts(contractOwner);
-        console2.log("sharedResolver: ", sharedResolver);
+        // Deploy all verifiers
+        VerifierAddresses memory verifiers = _deployAllVerifiers(config);
 
-        // ---------------------------------------------------------------
-        // Deploy verifiers first
-        VerifierAddresses memory verifiers = deployVerifiers(contractOwner);
+        // Deploy main proof verifier (DevnetVerifier)
+        address proofVerifier = _deployProofVerifier(verifiers, config.useDummyVerifiers);
 
-        // Deploy OpVerifier (always deployed, available in both modes)
-        address opVerifier = address(new OpVerifier());
-        console2.log("Deployed OpVerifier:", opVerifier);
-
-        // Deploy proof verifier based on mode
-        // Note: DevnetVerifier is stateless with immutable verifier addresses,
-        // so no proxy is needed (cannot be upgraded anyway)
-        address proofVerifier;
-        if (vm.envBool("DUMMY_VERIFIERS")) {
-            // DUMMY MODE: Use OpVerifier for SGX slot (allows fast testing)
-            // Accepts: OP (as "sgx") + (OP or RISC0 or SP1)
-            proofVerifier = address(
-                new DevnetVerifier(
-                    opVerifier,
-                    opVerifier, // OpVerifier in SGX slot (dummy anchor)
-                    verifiers.risc0RethVerifier,
-                    verifiers.sp1RethVerifier
-                )
-            );
-        } else {
-            // Accepts: SGX + (OP or RISC0 or SP1)
-            proofVerifier = address(
-                new DevnetVerifier(
-                    opVerifier,
-                    verifiers.sgxRethVerifier,
-                    verifiers.risc0RethVerifier,
-                    verifiers.sp1RethVerifier
-                )
-            );
-        }
-        console2.log("Deployed DevnetVerifier:", proofVerifier);
-
-        // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address shastaInboxAddr,) =
-            deployRollupContracts(sharedResolver, contractOwner, proofVerifier);
+        address shastaInbox = _deployRollupContracts(sharedResolver, config, proofVerifier);
 
-        // Upgrade SignalService with actual inbox address
-        address signalServiceAddr = IResolver(sharedResolver).resolve(
-            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
-        );
-        address remoteSignalService = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
-        address newImpl = address(new SignalService(shastaInboxAddr, remoteSignalService));
+        // Finalize SignalService with actual inbox address
+        _upgradeSignalService(sharedResolver, shastaInbox, config);
 
-        SignalService(signalServiceAddr).upgradeTo(newImpl);
-
-        if (SignalService(signalServiceAddr).owner() == msg.sender) {
-            SignalService(signalServiceAddr).transferOwnership(contractOwner);
-        }
-
-        // ---------------------------------------------------------------
-        // Deploy other contracts
+        // Deploy test tokens on non-mainnet chains
         if (block.chainid != 1) {
             deployAuxContracts();
         }
 
-        if (DefaultResolver(sharedResolver).owner() == msg.sender) {
-            DefaultResolver(sharedResolver).transferOwnership(contractOwner);
-            console2.log("** sharedResolver ownership transferred to:", contractOwner);
-        }
-
-        Ownable2StepUpgradeable(shastaInboxAddr).transferOwnership(contractOwner);
+        // Transfer ownership to contract owner
+        _transferOwnerships(sharedResolver, shastaInbox, config.contractOwner);
     }
 
-    function deploySharedContracts(address owner) internal returns (address sharedResolver) {
-        addressNotNull(owner, "owner");
+    function _loadConfig() private view returns (DeploymentConfig memory config) {
+        config.contractOwner = vm.envAddress("CONTRACT_OWNER");
+        config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
+        config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
+        config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
+        config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.taikoToken = vm.envAddress("TAIKO_TOKEN");
+        config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+        config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
+        config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
+        config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
-        sharedResolver = vm.envAddress("SHARED_RESOLVER");
+        require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
+        require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
+    }
+
+    function _deployAllVerifiers(DeploymentConfig memory config)
+        private
+        returns (VerifierAddresses memory verifiers)
+    {
+        // Deploy OpVerifier (used in all configurations)
+        verifiers.op = address(new OpVerifier());
+        console2.log("OpVerifier deployed:", verifiers.op);
+
+        // Deploy automata attestation for SGX
+        address automataProxy = _deployAutomataAttestation(config.contractOwner);
+
+        // Deploy SGX verifier
+        verifiers.sgx = address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+        console2.log("SgxVerifier deployed:", verifiers.sgx);
+
+        // Deploy ZK verifiers (RISC0 and SP1)
+        (verifiers.risc0, verifiers.sp1) = _deployZKVerifiers(config.contractOwner, config.l2ChainId);
+    }
+
+    function _deployProofVerifier(
+        VerifierAddresses memory verifiers,
+        bool useDummyVerifiers
+    )
+        private
+        returns (address proofVerifier)
+    {
+        // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
+        address sgxSlot = useDummyVerifiers ? verifiers.op : verifiers.sgx;
+
+        proofVerifier = address(
+            new DevnetVerifier(
+                verifiers.op,
+                sgxSlot, // OpVerifier for dummy mode, SgxVerifier for real mode
+                verifiers.risc0,
+                verifiers.sp1
+            )
+        );
+
+        console2.log(
+            useDummyVerifiers ? "DevnetVerifier (DUMMY MODE):" : "DevnetVerifier:",
+            proofVerifier
+        );
+    }
+
+    function _deployRollupContracts(
+        address sharedResolver,
+        DeploymentConfig memory config,
+        address proofVerifier
+    )
+        private
+        returns (address shastaInbox)
+    {
+        // Deploy whitelist
+        address whitelist = deployProxy({
+            name: "preconf_whitelist",
+            impl: address(new PreconfWhitelist()),
+            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 0))
+        });
+
+        PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
+
+        // Get dependencies
+        address bondToken = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), "bond_token", false
+        );
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), "signal_service", false
+        );
+        address codec = address(new CodecOptimized());
+
+        // Deploy inbox
+        shastaInbox = deployProxy({
+            name: "shasta_inbox",
+            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
+            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
+        });
+
+        Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        console2.log("ShastaInbox deployed:", shastaInbox);
+    }
+
+    function _upgradeSignalService(
+        address sharedResolver,
+        address shastaInbox,
+        DeploymentConfig memory config
+    )
+        private
+    {
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
+
+        // Upgrade with actual inbox address
+        address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc));
+        SignalService(signalService).upgradeTo(newImpl);
+
+        // Transfer ownership if needed
+        if (SignalService(signalService).owner() == msg.sender) {
+            SignalService(signalService).transferOwnership(config.contractOwner);
+        }
+    }
+
+    function _transferOwnerships(
+        address sharedResolver,
+        address shastaInbox,
+        address newOwner
+    )
+        private
+    {
+        if (DefaultResolver(sharedResolver).owner() == msg.sender) {
+            DefaultResolver(sharedResolver).transferOwnership(newOwner);
+            console2.log("SharedResolver ownership transferred to:", newOwner);
+        }
+
+        Ownable2StepUpgradeable(shastaInbox).transferOwnership(newOwner);
+        console2.log("ShastaInbox ownership transferred to:", newOwner);
+    }
+
+    function deploySharedContracts(DeploymentConfig memory config)
+        internal
+        returns (address sharedResolver)
+    {
+        require(config.contractOwner != address(0), "Invalid owner address");
+
+        // Deploy or reuse resolver
+        sharedResolver = config.sharedResolver;
         if (sharedResolver == address(0)) {
             sharedResolver = deployProxy({
                 name: "shared_resolver",
@@ -140,37 +241,72 @@ contract DeployProtocolOnL1 is DeployCapability {
             });
         }
 
-        address taikoToken = vm.envAddress("TAIKO_TOKEN");
+        // Deploy or register Taiko token
+        _deployOrRegisterTaikoToken(sharedResolver, config);
+
+        // Deploy SignalService (with dummy inbox, will be upgraded later)
+        _deploySignalServiceIfNeeded(sharedResolver, config.contractOwner, config.remoteSigSvc);
+
+        // Deploy bridge
+        _deployBridge(sharedResolver, config);
+
+        // Deploy vaults
+        _deployVaults(sharedResolver, config.contractOwner);
+    }
+
+    function _deployOrRegisterTaikoToken(
+        address sharedResolver,
+        DeploymentConfig memory config
+    )
+        private
+    {
+        address taikoToken = config.taikoToken;
+
         if (taikoToken == address(0)) {
             taikoToken = deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
+                    TaikoToken.init, (config.contractOwner, config.taikoTokenPremintRecipient)
                 ),
                 registerTo: sharedResolver
             });
         } else {
             register(sharedResolver, "taiko_token", taikoToken);
         }
+
+        // Register as bond token as well
         register(sharedResolver, "bond_token", taikoToken);
+    }
 
-        // Deploy SignalService with dummy inbox address
-        address remoteSignalService = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
-
-        address signalService;
+    function _deploySignalServiceIfNeeded(
+        address sharedResolver,
+        address owner,
+        address remoteSignalService
+    )
+        private
+    {
+        // Check if SignalService already exists
         try IResolver(sharedResolver).resolve(
             uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
-        ) returns (address existing) {
-            signalService = existing;
+        ) returns (address) {
+            // Already exists, skip deployment
+            return;
         } catch {
-            signalService = deployProxy({
+            // Deploy with dummy inbox address (will be upgraded later with actual inbox)
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService(address(1), remoteSignalService)),
                 data: abi.encodeCall(SignalService.init, owner),
                 registerTo: sharedResolver
             });
         }
+    }
+
+    function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
 
         address bridge = deployProxy({
             name: "bridge",
@@ -179,22 +315,15 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
-        if (vm.envBool("PAUSE_BRIDGE")) {
+        if (config.pauseBridge) {
             Bridge(payable(bridge)).pause();
         }
 
-        Bridge(payable(bridge)).transferOwnership(owner);
+        Bridge(payable(bridge)).transferOwnership(config.contractOwner);
+    }
 
-        console2.log("------------------------------------------");
-        console2.log(
-            "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
-        );
-        console2.log(
-            "sharedResolver.registerAddress(remoteChainId, 'bridge', address(remoteBridge))"
-        );
-        console2.log("- sharedResolver : ", sharedResolver);
-
-        // Deploy Vaults
+    function _deployVaults(address sharedResolver, address owner) private {
+        // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
             impl: address(new MainnetERC20Vault(address(sharedResolver))),
@@ -202,6 +331,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
+        // Deploy ERC721 Vault
         address erc721Vault = deployProxy({
             name: "erc721_vault",
             impl: address(new MainnetERC721Vault(address(sharedResolver))),
@@ -209,6 +339,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
+        // Deploy ERC1155 Vault
         address erc1155Vault = deployProxy({
             name: "erc1155_vault",
             impl: address(new MainnetERC1155Vault(address(sharedResolver))),
@@ -216,22 +347,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
-        console2.log("------------------------------------------");
-        console2.log(
-            "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
-        );
-        console2.log(
-            "sharedResolver.registerAddress(remoteChainId, 'erc20_vault', address(remoteERC20Vault))"
-        );
-        console2.log(
-            "sharedResolver.registerAddress(remoteChainId, 'erc721_vault', address(remoteERC721Vault))"
-        );
-        console2.log(
-            "sharedResolver.registerAddress(remoteChainId, 'erc1155_vault', address(remoteERC1155Vault))"
-        );
-        console2.log("- sharedResolver : ", sharedResolver);
-
-        // Deploy Bridged token implementations
+        // Deploy bridged token implementations
         register(sharedResolver, "bridged_erc20", address(new BridgedERC20(erc20Vault)));
         register(sharedResolver, "bridged_erc721", address(new BridgedERC721(address(erc721Vault))));
         register(
@@ -239,104 +355,50 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function deployRollupContracts(
-        address _sharedResolver,
-        address owner,
-        address _proofVerifier
-    )
-        internal
-        returns (address shastaInboxAddr, address whitelist)
-    {
-        addressNotNull(_sharedResolver, "sharedResolver");
-        addressNotNull(owner, "owner");
-        addressNotNull(_proofVerifier, "proofVerifier");
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
-
-        whitelist = deployProxy({
-            name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 0, 0))
-        });
-        PreconfWhitelist(whitelist).addOperator(proposer, proposer);
-
-        address bondToken =
-            IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
-
-        address codec = address(new CodecOptimized());
-        address signalService =
-            IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
-
-        shastaInboxAddr = deployProxy({
-            name: "shasta_inbox",
-            impl: address(new DevnetInbox(codec, _proofVerifier, whitelist, bondToken, signalService)),
-            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
-        });
-
-        Inbox(payable(shastaInboxAddr)).activate(vm.envBytes32("L2_GENESIS_HASH"));
-
-        console2.log("  shasta_inbox       :", shastaInboxAddr);
-    }
-
-    function deployVerifiers(address owner) private returns (VerifierAddresses memory) {
-        VerifierAddresses memory verifiers;
-
-        // Deploy automata attestation for SGX verifier (always deployed)
+    function _deployAutomataAttestation(address owner) private returns (address automataProxy) {
+        // Deploy library dependencies
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-        // Log addresses for the user to register sgx instance
-        console2.log("SigVerifyLib", address(sigVerifyLib));
-        console2.log("PemCertChainLib", address(pemCertChainLib));
-        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
-        address automataProxy = deployProxy({
+
+        console2.log("SigVerifyLib deployed:", address(sigVerifyLib));
+        console2.log("PEMCertChainLib deployed:", address(pemCertChainLib));
+
+        // Deploy automata attestation proxy
+        automataProxy = deployProxy({
             name: "automata_dcap_attestation",
-            impl: automataDcapV3AttestationImpl,
+            impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
-
-        // Deploy SGX Reth verifier (always deployed)
-        verifiers.sgxRethVerifier =
-            address(new SgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), owner, automataProxy));
-        console2.log("Deployed SgxVerifier:", verifiers.sgxRethVerifier);
-
-        // Deploy ZK verifiers (RISC0 and SP1) - always deployed in both modes
-        // Note: Even in DUMMY mode, we deploy real ZK verifiers (matching old behavior)
-        (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
-            deployZKVerifiers(owner, uint64(vm.envUint("L2_CHAIN_ID")));
-
-        return verifiers;
     }
 
-    function deployZKVerifiers(
+    function _deployZKVerifiers(
         address owner,
         uint64 l2ChainId
     )
         private
         returns (address risc0Verifier, address sp1Verifier)
     {
-        // Deploy r0 groth16 verifier
-        RiscZeroGroth16Verifier verifier =
+        // Deploy RISC0 verifier
+        RiscZeroGroth16Verifier risc0Groth16 =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        risc0Verifier = address(new Risc0Verifier(l2ChainId, address(risc0Groth16), owner));
+        console2.log("Risc0Verifier deployed:", risc0Verifier);
 
-        risc0Verifier = address(new Risc0Verifier(l2ChainId, address(verifier), owner));
-
-        // Deploy sp1 plonk verifier
-        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
-
-        sp1Verifier = address(new SP1Verifier(l2ChainId, address(succinctVerifier), owner));
+        // Deploy SP1 verifier
+        SuccinctVerifier sp1Plonk = new SuccinctVerifier();
+        sp1Verifier = address(new SP1Verifier(l2ChainId, address(sp1Plonk), owner));
+        console2.log("SP1Verifier deployed:", sp1Verifier);
     }
 
     function deployAuxContracts() private {
         address horseToken = address(new FreeMintERC20Token("Horse Token", "HORSE"));
-        console2.log("HorseToken", horseToken);
-
         address bullToken =
             address(new FreeMintERC20Token_With50PctgMintAndTransferFailure("Bull Token", "BULL"));
-        console2.log("BullToken", bullToken);
-    }
 
-    function addressNotNull(address addr, string memory err) private pure {
-        require(addr != address(0), err);
+        console2.log("Test tokens deployed:");
+        console2.log("  HorseToken:", horseToken);
+        console2.log("  BullToken:", bullToken);
     }
 }
