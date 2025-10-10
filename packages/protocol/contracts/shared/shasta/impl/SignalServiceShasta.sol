@@ -161,7 +161,7 @@ contract SignalServiceShasta is EssentialContract, ISignalServiceShasta {
         override
         returns (Checkpoint memory checkpoint)
     {
-        CheckpointRecord storage record = _checkpoints[_blockNumber];
+        CheckpointRecord memory record = _checkpoints[_blockNumber];
         require(record.blockHash != bytes32(0), SS_CHECKPOINT_NOT_FOUND());
 
         checkpoint = Checkpoint({
