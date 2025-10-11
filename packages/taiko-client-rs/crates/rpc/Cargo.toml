@@ -3,6 +3,7 @@ name = "rpc"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 # observability

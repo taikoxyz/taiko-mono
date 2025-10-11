@@ -1241,32 +1241,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 
 [[package]]
-name = "beacon"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-serde 0.11.1",
- "eyre",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "url",
- "wiremock",
-]
-
-[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230c5f1ca6a325a32553f8640d31ac9b49f2411e901e427570154868b46da4f7"
-
-[[package]]
-name = "bindings"
-version = "0.1.0"
-dependencies = [
- "alloy",
-]
 
 [[package]]
 name = "bit-set"
@@ -1486,14 +1464,6 @@ name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
-
-[[package]]
-name = "config"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dotenvy",
-]
 
 [[package]]
 name = "const-hex"
@@ -1830,21 +1800,23 @@ name = "ejector"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "beacon",
- "bindings",
+ "alloy-serde 0.11.1",
+ "axum",
  "clap",
  "color-eyre",
- "config",
  "dotenvy",
  "eyre",
- "metrics",
- "monitor",
- "server",
+ "futures-util",
+ "once_cell",
+ "prometheus",
+ "reqwest",
+ "serde",
+ "serde_json",
  "tokio",
- "tokio-util",
  "tracing",
  "tracing-subscriber",
  "url",
+ "wiremock",
 ]
 
 [[package]]
@@ -2802,16 +2774,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
-name = "metrics"
-version = "0.1.0"
-dependencies = [
- "axum",
- "once_cell",
- "prometheus",
- "tracing",
-]
-
-[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2835,22 +2797,6 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "monitor"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "beacon",
- "bindings",
- "eyre",
- "futures-util",
- "metrics",
- "tokio",
- "tokio-util",
- "tracing",
- "utils",
 ]
 
 [[package]]
@@ -3950,17 +3896,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "eyre",
- "metrics",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4675,19 +4610,6 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
-
-[[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "bindings",
- "eyre",
- "futures-util",
- "metrics",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "valuable"
