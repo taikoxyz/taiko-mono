@@ -115,7 +115,7 @@ where
 {
     // Advertise the next payload attributes so the execution engine can build the block body.
     let fc_response =
-        rpc.engine_forkchoice_updated_v2(forkchoice_state.clone(), Some(payload.clone())).await?;
+        rpc.engine_forkchoice_updated_v2(*forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
 
