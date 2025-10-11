@@ -37,12 +37,16 @@ impl DriverSubCommand {
             None
         };
 
+        let client_cfg = rpc::client::ClientConfig {
+            l1_provider_source: l1_source,
+            l2_provider_url: l2_http,
+            l2_auth_provider_url: l2_auth,
+            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
+            inbox_address: self.common_flags.shasta_inbox_address,
+        };
+
         Ok(DriverConfig::new(
-            l1_source,
-            l2_http,
-            l2_auth,
-            self.common_flags.l2_auth_jwt_secret.clone(),
-            self.common_flags.shasta_inbox_address,
+            client_cfg,
             self.driver_flags.retry_interval(),
             l1_beacon,
             l2_checkpoint,

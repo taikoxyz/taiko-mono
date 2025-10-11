@@ -102,12 +102,11 @@ where
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO {
-                if let Some(block) =
+            if origin.l2_block_hash != B256::ZERO &&
+                let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
-                {
-                    return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
-                }
+            {
+                return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
             }
         }
 
@@ -236,7 +235,7 @@ where
             proposal_id: payload.proposal.id.to::<u64>(),
             proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
             origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
-            proposer: payload.proposal.proposer.into(),
+            proposer: payload.proposal.proposer,
             basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
             bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
             prover_auth_bytes,

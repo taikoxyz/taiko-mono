@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub mod beacon;
+pub mod engine;
 pub mod error;
 pub mod event;
 

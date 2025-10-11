@@ -54,3 +54,26 @@ pub enum SyncError {
     #[error(transparent)]
     Other(#[from] AnyhowError),
 }
+
+/// Errors that can occur while submitting payload attributes to the execution engine.
+#[derive(Debug, Error)]
+pub enum EngineSubmissionError {
+    /// Failure communicating with Taiko RPC wrappers.
+    #[error(transparent)]
+    Rpc(#[from] RpcClientError),
+    /// Failure communicating with the execution engine's public RPC.
+    #[error("execution engine provider error: {0}")]
+    Provider(String),
+    /// Unable to determine the latest canonical L2 block.
+    #[error("latest L2 block not found")]
+    MissingParent,
+    /// Execution engine is syncing and cannot accept the provided block.
+    #[error("execution engine syncing while inserting block {0}")]
+    EngineSyncing(u64),
+    /// Execution engine rejected the block payload.
+    #[error("execution engine rejected block {0}: {1}")]
+    InvalidBlock(u64, String),
+    /// Engine did not return a payload identifier after forkchoice update.
+    #[error("forkchoice update returned no payload id")]
+    MissingPayloadId,
+}

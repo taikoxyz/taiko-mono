@@ -21,11 +21,82 @@ use super::{
     },
 };
 
+/// Context describing a manifest segment during payload derivation.
+struct SegmentContext<'a> {
+    meta: &'a BundleMeta,
+    origin_block_hash: Option<B256>,
+    shasta_fork_height: u64,
+    position: SegmentPosition,
+}
+
+/// Tracks the absolute position of a segment within the proposal bundle.
+#[derive(Clone, Copy)]
+struct SegmentPosition {
+    index: usize,
+    total: usize,
+}
+
+/// Position metadata passed down to block-level processing.
+#[derive(Clone, Copy)]
+struct BlockPosition {
+    segment_index: usize,
+    segments_total: usize,
+    block_index: usize,
+    blocks_len: usize,
+    forced_inclusion: bool,
+}
+
+/// Shared inputs required when converting a manifest block into payload attributes.
+struct BlockContext<'a> {
+    meta: &'a BundleMeta,
+    origin_block_hash: Option<B256>,
+    shasta_fork_height: u64,
+    position: BlockPosition,
+}
+
+/// Aggregate of per-block data forwarded to `create_payload_attributes`.
+struct PayloadContext<'a> {
+    block: &'a BlockManifest,
+    meta: &'a BundleMeta,
+    origin_block_hash: Option<B256>,
+    block_base_fee: u64,
+    difficulty: B256,
+    block_number: u64,
+    position: BlockPosition,
+}
+
+impl SegmentPosition {
+    fn to_block_position(
+        &self,
+        block_index: usize,
+        blocks_len: usize,
+        forced_inclusion: bool,
+    ) -> BlockPosition {
+        BlockPosition {
+            segment_index: self.index,
+            segments_total: self.total,
+            block_index,
+            blocks_len,
+            forced_inclusion,
+        }
+    }
+}
+
+impl BlockPosition {
+    fn is_final(&self) -> bool {
+        self.segment_index + 1 == self.segments_total && self.block_index + 1 == self.blocks_len
+    }
+
+    fn is_forced_inclusion(&self) -> bool {
+        self.forced_inclusion
+    }
+}
+
 impl<P> ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
 {
-    // Process all manifest segments in order, producing a flat list of payload attributes.
+    /// Process all manifest segments in order, producing a flat list of payload attributes.
     pub(super) fn build_payloads_from_sources(
         &self,
         sources: Vec<SourceManifestSegment>,
@@ -39,32 +110,28 @@ where
         let mut payloads = Vec::new();
 
         for (segment_index, segment) in sources.into_iter().enumerate() {
-            let segment_payloads = self.process_manifest_segment(
-                segment,
+            let segment_ctx = SegmentContext {
                 meta,
                 origin_block_hash,
                 shasta_fork_height,
-                state,
-                segment_index,
-                segments_total,
-            )?;
+                position: SegmentPosition { index: segment_index, total: segments_total },
+            };
+            let segment_payloads = self.process_manifest_segment(segment, state, segment_ctx)?;
             payloads.extend(segment_payloads);
         }
 
         Ok(payloads)
     }
 
-    // Process a single manifest segment, producing one or more payload attributes.
+    /// Process a single manifest segment, producing one or more payload attributes.
     fn process_manifest_segment(
         &self,
         segment: SourceManifestSegment,
-        meta: &BundleMeta,
-        origin_block_hash: Option<B256>,
-        shasta_fork_height: u64,
         state: &mut ParentState,
-        segment_index: usize,
-        segments_total: usize,
+        ctx: SegmentContext<'_>,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
+        let SegmentContext { meta, origin_block_hash, shasta_fork_height, position } = ctx;
+
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
         let ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
@@ -82,39 +149,32 @@ where
         let mut payloads = Vec::with_capacity(blocks_len);
 
         for (block_index, block) in decoded_manifest.blocks.iter().enumerate() {
-            let payload = self.process_block_manifest(
-                block,
+            let block_ctx = BlockContext {
                 meta,
                 origin_block_hash,
                 shasta_fork_height,
-                state,
-                segment.is_forced_inclusion,
-                segment_index,
-                segments_total,
-                block_index,
-                blocks_len,
-            );
+                position: position.to_block_position(
+                    block_index,
+                    blocks_len,
+                    segment.is_forced_inclusion,
+                ),
+            };
+            let payload = self.process_block_manifest(block, state, block_ctx);
             payloads.push(payload);
         }
 
         Ok(payloads)
     }
 
-    /// Convert the manifest block into a payload attribute while keeping track of the
-    /// running parent state.
+    /// Convert a manifest block into payload attributes while updating the rolling parent state.
     fn process_block_manifest(
         &self,
         block: &BlockManifest,
-        meta: &BundleMeta,
-        origin_block_hash: Option<B256>,
-        shasta_fork_height: u64,
         state: &mut ParentState,
-        is_forced_inclusion: bool,
-        segment_index: usize,
-        segments_total: usize,
-        block_index: usize,
-        blocks_len: usize,
+        ctx: BlockContext<'_>,
     ) -> TaikoPayloadAttributes {
+        let BlockContext { meta, origin_block_hash, shasta_fork_height, position } = ctx;
+
         let block_number = state.advance_block_number();
         let block_time = block.timestamp.saturating_sub(state.timestamp).max(1);
         let block_base_fee =
@@ -122,18 +182,15 @@ where
         let difficulty = calculate_shasta_difficulty(state.prev_randao, block_number);
         state.prev_randao = difficulty;
 
-        let is_final_payload = segment_index + 1 == segments_total && block_index + 1 == blocks_len;
-
-        let payload = self.create_payload_attributes(
+        let payload = self.create_payload_attributes(PayloadContext {
             block,
             meta,
             origin_block_hash,
             block_base_fee,
             difficulty,
             block_number,
-            is_forced_inclusion,
-            is_final_payload,
-        );
+            position,
+        });
 
         let estimated_gas_used = estimate_gas_used(&block.transactions, block.gas_limit);
         state.apply_block_updates(block, block_base_fee, difficulty, estimated_gas_used);
@@ -143,17 +200,17 @@ where
 
     /// Construct the `TaikoPayloadAttributes` structure that gets sent to the execution
     /// engine.
-    fn create_payload_attributes(
-        &self,
-        block: &BlockManifest,
-        meta: &BundleMeta,
-        origin_block_hash: Option<B256>,
-        block_base_fee: u64,
-        difficulty: B256,
-        block_number: u64,
-        is_forced_inclusion: bool,
-        is_final_payload: bool,
-    ) -> TaikoPayloadAttributes {
+    fn create_payload_attributes(&self, ctx: PayloadContext<'_>) -> TaikoPayloadAttributes {
+        let PayloadContext {
+            block,
+            meta,
+            origin_block_hash,
+            block_base_fee,
+            difficulty,
+            block_number,
+            position,
+        } = ctx;
+
         let tx_list = encode_transactions(&block.transactions);
         let extra_data =
             encode_extra_data(meta.basefee_sharing_pctg, false, meta.bond_instructions_hash);
@@ -164,7 +221,7 @@ where
         signature[..copy_len].copy_from_slice(&prover_slice[..copy_len]);
 
         let mut build_payload_args_id = [0u8; 8];
-        if is_final_payload {
+        if position.is_final() {
             build_payload_args_id = meta.proposal_id.to_be_bytes();
         }
 
@@ -174,7 +231,7 @@ where
             l1_block_height: Some(U256::from(meta.origin_block_number)),
             l1_block_hash: origin_block_hash,
             build_payload_args_id,
-            is_forced_inclusion,
+            is_forced_inclusion: position.is_forced_inclusion(),
             signature,
         };
 

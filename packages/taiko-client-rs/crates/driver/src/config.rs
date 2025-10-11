@@ -1,9 +1,9 @@
 //! Driver configuration.
 
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
-use alloy::{primitives::Address, transports::http::reqwest::Url};
-use rpc::{SubscriptionSource, client::ClientConfig};
+use alloy::transports::http::reqwest::Url;
+use rpc::client::ClientConfig;
 
 /// Configuration for the Shasta driver.
 #[derive(Clone, Debug)]
@@ -20,24 +20,15 @@ pub struct DriverConfig {
 
 impl DriverConfig {
     /// Build a [`DriverConfig`] from raw parameters.
+    ///
+    /// The `client` argument bundles all RPC endpoints and contract metadata, while the remaining
+    /// parameters control retry behaviour and optional checkpointing resources.
     pub fn new(
-        l1_source: SubscriptionSource,
-        l2_http_endpoint: Url,
-        l2_auth_endpoint: Url,
-        jwt_secret: PathBuf,
-        inbox_address: Address,
+        client: ClientConfig,
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
     ) -> Self {
-        let client = ClientConfig {
-            l1_provider_source: l1_source,
-            l2_provider_url: l2_http_endpoint,
-            l2_auth_provider_url: l2_auth_endpoint,
-            jwt_secret,
-            inbox_address,
-        };
-
         Self { client, retry_interval, l1_beacon_endpoint, l2_checkpoint_url }
     }
 }

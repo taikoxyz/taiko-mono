@@ -99,7 +99,7 @@ impl FixedKSigner {
         let x_bytes = k_point.x();
         let y_is_odd = bool::from(k_point.y_is_odd());
 
-        let raw_r = Scalar::from_repr(x_bytes.clone());
+        let raw_r = Scalar::from_repr(x_bytes);
         let overflow = !bool::from(raw_r.is_some());
         let r = raw_r.unwrap_or_else(|| <Scalar as Reduce<ScalarModulus>>::reduce_bytes(&x_bytes));
 
@@ -174,7 +174,7 @@ impl Signer for FixedKSigner {
 impl SignerSync for FixedKSigner {
     /// Synchronously sign a 32-byte hash.
     fn sign_hash_sync(&self, hash: &B256) -> SignerResult<AlloySignature> {
-        self.sign_hash_internal(hash).map_err(|err| alloy::signers::Error::other(err))
+        self.sign_hash_internal(hash).map_err(alloy::signers::Error::other)
     }
 
     /// Return the signer's Ethereum address.

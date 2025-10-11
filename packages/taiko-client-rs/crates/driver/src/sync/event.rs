@@ -12,7 +12,7 @@ use tokio_retry::Retry;
 use tokio_stream::StreamExt;
 use tracing::info;
 
-use super::{SyncError, SyncStage};
+use super::{SyncError, SyncStage, engine::PayloadApplier};
 use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
@@ -88,12 +88,23 @@ where
                     .take(5);
 
                 let derivation = derivation.clone();
-                let result = Retry::spawn(retry_strategy, || async {
+                let payloads = Retry::spawn(retry_strategy, || async {
                     derivation.process_proposal(&log).await
                 })
                 .await?;
 
-                info!("successfully processed proposal payload attributes: {:#?}", result);
+                let outcomes = self
+                    .rpc
+                    .attributes_to_blocks(&payloads)
+                    .await
+                    .map_err(|err| SyncError::Other(err.into()))?;
+
+                info!(
+                    block_count = outcomes.len(),
+                    last_block = outcomes.last().map(|outcome| outcome.block_number),
+                    last_hash = ?outcomes.last().map(|outcome| outcome.block_hash),
+                    "successfully processed proposal into L2 blocks",
+                );
             }
         }
         Ok(())
