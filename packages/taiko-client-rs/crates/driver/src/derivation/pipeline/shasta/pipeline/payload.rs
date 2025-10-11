@@ -3,10 +3,11 @@ use alethia_reth_primitives::payload::attributes::{
 };
 use alloy::{
     eips::BlockNumberOrTag,
-    primitives::{B256, U256},
+    primitives::{Address, B256, U256},
     providers::Provider,
 };
 use alloy_consensus::{Transaction as _, TxEnvelope};
+use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::Bytes;
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
@@ -16,6 +17,8 @@ use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
+
+use alloy_primitives::aliases::U48;
 
 use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::UpdateStateInput},
@@ -66,6 +69,7 @@ struct BlockContext<'a> {
     origin_block_hash: B256,
     shasta_fork_height: u64,
     position: BlockPosition,
+    is_low_bond_proposal: bool,
 }
 
 /// Aggregate of per-block data forwarded to `create_payload_attributes`.
@@ -77,12 +81,26 @@ struct PayloadContext<'a> {
     difficulty: B256,
     block_number: u64,
     position: BlockPosition,
+    is_low_bond_proposal: bool,
 }
 
 /// Aggregated bond instruction data for a derived block.
 struct BondInstructionData {
     instructions: Vec<BondInstruction>,
     next_hash: B256,
+}
+
+fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
+    if manifest.blocks.len() != 1 {
+        return false;
+    }
+
+    let block = &manifest.blocks[0];
+    block.timestamp == 0 &&
+        block.coinbase == Address::ZERO &&
+        block.anchor_block_number == 0 &&
+        block.gas_limit == 0 &&
+        block.transactions.is_empty()
 }
 
 impl SegmentPosition {
@@ -170,6 +188,14 @@ where
             blocks_before += blocks_len;
         }
 
+        if state.bond_instructions_hash != meta.bond_instructions_hash {
+            return Err(DerivationError::Other(anyhow!(
+                "bond instructions hash mismatch after processing proposal: expected {:?}, computed {:?}",
+                meta.bond_instructions_hash,
+                state.bond_instructions_hash
+            )));
+        }
+
         Ok(outcomes)
     }
 
@@ -186,13 +212,22 @@ where
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
-        let ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
+        let mut is_low_bond_proposal = false;
 
-        match validate_source_manifest(&mut decoded_manifest, &ctx) {
+        if !segment.is_forced_inclusion && !manifest_is_default(&decoded_manifest) {
+            is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
+            if is_low_bond_proposal {
+                decoded_manifest = DerivationSourceManifest::default();
+            }
+        }
+
+        let validation_ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
+
+        match validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
             Ok(()) => {}
             Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
                 decoded_manifest = DerivationSourceManifest::default();
-                validate_source_manifest(&mut decoded_manifest, &ctx)
+                validate_source_manifest(&mut decoded_manifest, &validation_ctx)
                     .map_err(DerivationError::from)?;
             }
         }
@@ -210,6 +245,7 @@ where
                     blocks_len,
                     segment.is_forced_inclusion,
                 ),
+                is_low_bond_proposal,
             };
             let outcome = self
                 .process_block_manifest(block, state, block_ctx, applier, forkchoice_state)
@@ -229,7 +265,13 @@ where
         applier: &(dyn PayloadApplier + Send + Sync),
         forkchoice_state: &mut ForkchoiceState,
     ) -> Result<EngineBlockOutcome, DerivationError> {
-        let BlockContext { meta, origin_block_hash, shasta_fork_height, position } = ctx;
+        let BlockContext {
+            meta,
+            origin_block_hash,
+            shasta_fork_height,
+            position,
+            is_low_bond_proposal,
+        } = ctx;
 
         let block_number = state.advance_block_number();
         let block_base_fee = state.compute_block_base_fee(
@@ -270,6 +312,7 @@ where
                 difficulty,
                 block_number,
                 position,
+                is_low_bond_proposal,
             },
         );
 
@@ -294,11 +337,11 @@ where
             difficulty,
             block_number,
             position,
+            is_low_bond_proposal,
         } = ctx;
 
         let tx_list = encode_transactions(transactions);
-        let extra_data =
-            encode_extra_data(meta.basefee_sharing_pctg, false, meta.bond_instructions_hash);
+        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, is_low_bond_proposal);
 
         let mut signature = [0u8; 65];
         let prover_slice = meta.prover_auth_bytes.as_ref();
@@ -343,6 +386,27 @@ where
             block_metadata,
             l1_origin,
         }
+    }
+
+    async fn detect_low_bond_proposal(
+        &self,
+        state: &ParentState,
+        meta: &BundleMeta,
+    ) -> Result<bool, DerivationError> {
+        let call = self.rpc.shasta.anchor.getDesignatedProver(
+            U48::from(meta.proposal_id),
+            meta.proposer,
+            meta.prover_auth_bytes.clone(),
+        );
+        let response = call
+            .block(BlockId::Hash(RpcBlockHash {
+                block_hash: state.block_hash,
+                require_canonical: Some(false),
+            }))
+            .call()
+            .await?;
+
+        Ok(response.isLowBondProposal_)
     }
 
     async fn assemble_bond_instructions(
