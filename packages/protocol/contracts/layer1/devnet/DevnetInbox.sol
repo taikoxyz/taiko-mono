@@ -33,12 +33,12 @@ contract DevnetInbox is InboxOptimized2 {
         address _proofVerifier,
         address _proposerChecker,
         address _taikoToken,
-        address _signalService
+        address _checkpointStore
     )
         InboxOptimized2(
             IInbox.Config({
                 bondToken: _taikoToken,
-                signalService: _signalService,
+                checkpointStore: _checkpointStore,
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
