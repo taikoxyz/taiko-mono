@@ -53,7 +53,6 @@ module.exports = {
   },
   // Option to pre-deploy an ERC-20 token.
   predeployERC20: true,
-  pacayaForkHeight: 1024,
   shastaForkHeight: 2048,
   livenessBondGwei: 128_000_000_000,
   provabilityBondGwei: 128_000_000_000,

@@ -26,7 +26,6 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
     uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
     uint48 private livenessBondGwei = uint48(configJSON.readUint(".livenessBondGwei"));
     uint48 private provabilityBondGwei = uint48(configJSON.readUint(".provabilityBondGwei"));
