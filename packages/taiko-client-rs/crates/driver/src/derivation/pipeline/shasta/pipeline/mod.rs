@@ -250,9 +250,11 @@ where
         let ShastaProposalBundle { meta, sources, .. } = manifest;
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
-        let origin_block_hash =
+        let proposal_origin_block_hash =
             self.rpc.l1_block_hash_by_number(meta.origin_block_number).await?.ok_or(
-                DerivationError::OriginBlockHashMissing { block_number: meta.origin_block_number },
+                DerivationError::ProposalOriginBlockHashMissing {
+                    block_number: meta.origin_block_number,
+                },
             )?;
 
         let (mut parent_state, shasta_fork_height) =
@@ -261,7 +263,7 @@ where
         self.build_payloads_from_sources(
             sources,
             &meta,
-            origin_block_hash,
+            proposal_origin_block_hash,
             shasta_fork_height,
             &mut parent_state,
             applier,

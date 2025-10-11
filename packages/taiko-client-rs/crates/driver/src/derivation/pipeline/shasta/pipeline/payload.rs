@@ -38,7 +38,7 @@ struct SegmentContext<'a> {
     /// Proposal metadata shared across all segments.
     meta: &'a BundleMeta,
     /// Hash of the proposal's L1 origin block.
-    origin_block_hash: B256,
+    proposal_origin_block_hash: B256,
     /// Fork height for Shasta activation.
     shasta_fork_height: u64,
     /// Positional data describing where the segment sits within the proposal.
@@ -122,11 +122,11 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     }
 
     let block = &manifest.blocks[0];
-    block.timestamp == 0 &&
-        block.coinbase == Address::ZERO &&
-        block.anchor_block_number == 0 &&
-        block.gas_limit == 0 &&
-        block.transactions.is_empty()
+    block.timestamp == 0
+        && block.coinbase == Address::ZERO
+        && block.anchor_block_number == 0
+        && block.gas_limit == 0
+        && block.transactions.is_empty()
 }
 
 impl SegmentPosition {
@@ -174,7 +174,7 @@ where
         &self,
         sources: Vec<SourceManifestSegment>,
         meta: &BundleMeta,
-        origin_block_hash: B256,
+        proposal_origin_block_hash: B256,
         shasta_fork_height: u64,
         state: &mut ParentState,
         applier: &(dyn PayloadApplier + Send + Sync),
@@ -186,15 +186,15 @@ where
         let parent_hash = state.header.hash_slow();
         let mut forkchoice_state = ForkchoiceState {
             head_block_hash: parent_hash,
-            safe_block_hash: parent_hash,
-            finalized_block_hash: state.header.parent_hash,
+            safe_block_hash: B256::ZERO,
+            finalized_block_hash: B256::ZERO,
         };
 
         for (segment_index, segment) in sources.into_iter().enumerate() {
             let blocks_len = segment.manifest.blocks.len();
             let segment_ctx = SegmentContext {
                 meta,
-                origin_block_hash,
+                proposal_origin_block_hash,
                 shasta_fork_height,
                 position: SegmentPosition {
                     index: segment_index,
@@ -235,7 +235,7 @@ where
         applier: &(dyn PayloadApplier + Send + Sync),
         forkchoice_state: &mut ForkchoiceState,
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
-        let SegmentContext { meta, origin_block_hash, shasta_fork_height, position } = ctx;
+        let SegmentContext { meta, proposal_origin_block_hash, shasta_fork_height, position } = ctx;
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
@@ -265,7 +265,7 @@ where
         for (block_index, block) in decoded_manifest.blocks.iter().enumerate() {
             let block_ctx = BlockContext {
                 meta,
-                origin_block_hash,
+                origin_block_hash: proposal_origin_block_hash,
                 shasta_fork_height,
                 position: position.to_block_position(
                     block_index,
@@ -420,13 +420,15 @@ where
         state: &ParentState,
         meta: &BundleMeta,
     ) -> Result<bool, DerivationError> {
-        let call = self.rpc.shasta.anchor.getDesignatedProver(
-            U48::from(meta.proposal_id),
-            meta.proposer,
-            meta.prover_auth_bytes.clone(),
-        );
-        // Use the parent hash to mirror the exact context the Go client queries against.
-        let response = call
+        let designated_prover_info = self
+            .rpc
+            .shasta
+            .anchor
+            .getDesignatedProver(
+                U48::from(meta.proposal_id),
+                meta.proposer,
+                meta.prover_auth_bytes.clone(),
+            )
             .block(BlockId::Hash(RpcBlockHash {
                 block_hash: state.header.hash_slow(),
                 require_canonical: Some(false),
@@ -434,7 +436,7 @@ where
             .call()
             .await?;
 
-        Ok(response.isLowBondProposal_)
+        Ok(designated_prover_info.isLowBondProposal_)
     }
 
     /// Assemble bond instructions that must be embedded into the next anchor transaction.
@@ -448,9 +450,9 @@ where
         let mut instructions = Vec::new();
 
         // Only the first block of a proposal needs to incorporate delayed bond instructions.
-        if position.segment_index == 0 &&
-            position.block_index == 0 &&
-            meta.proposal_id > BOND_PROCESSING_DELAY
+        if position.segment_index == 0
+            && position.block_index == 0
+            && meta.proposal_id > BOND_PROCESSING_DELAY
         {
             let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
             let target_payload = self

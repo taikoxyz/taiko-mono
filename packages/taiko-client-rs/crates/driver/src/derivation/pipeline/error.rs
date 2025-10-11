@@ -51,7 +51,7 @@ pub enum DerivationError {
     LatestL2BlockMissing,
     /// Missing origin block hash for the proposal.
     #[error("origin block hash {block_number} not found")]
-    OriginBlockHashMissing { block_number: u64 },
+    ProposalOriginBlockHashMissing { block_number: u64 },
     /// Bond instruction hash mismatched after processing a proposal.
     #[error("bond instructions hash mismatch: expected {expected:?}, actual {actual:?}")]
     BondInstructionsMismatch { expected: B256, actual: B256 },
