@@ -3,7 +3,7 @@
   "packages/docs-site": "1.31.2",
   "packages/eventindexer": "0.13.0",
   "packages/fork-diff": "0.7.0",
-  "packages/protocol": "2.3.0",
+  "packages/protocol": "2.4.0",
   "packages/relayer": "0.12.0",
   "packages/snaefell-ui": "1.1.0",
   "packages/supplementary-contracts": "1.0.0",
