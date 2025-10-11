@@ -109,8 +109,8 @@ func (q *envelopeQueue) getChildren(parentID uint64, parentHash common.Hash) []*
 	return longestChildren
 }
 
-// has checks if a particular envelope is already tracked.
-func (q *envelopeQueue) has(id uint64, hash common.Hash) bool {
+// hasExact checks if a particular envelope (by id and hash) is already tracked.
+func (q *envelopeQueue) hasExact(id uint64, hash common.Hash) bool {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 

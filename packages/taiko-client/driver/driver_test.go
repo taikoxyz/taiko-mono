@@ -905,22 +905,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	ok, err := blocksInserter.IsBasedOnCanonicalChain(
-		context.Background(),
-		s.RPCClient,
-		&preconf.Envelope{
-			Payload: &eth.ExecutionPayload{
-				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
-				BlockHash:   forkB[len(forkB)-1].Hash(),
-				ParentHash:  forkB[len(forkB)-1].ParentHash(),
-			},
-		},
-		headL1Origin,
-	)
-	s.Nil(err)
-	s.True(ok)
-
-	ok, err = blocksInserter.IsBasedOnCanonicalChain(
+	isForkALastBlockCanonical, err := blocksInserter.IsBasedOnCanonicalChain(
 		context.Background(),
 		s.RPCClient,
 		&preconf.Envelope{
@@ -930,41 +915,30 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 				ParentHash:  forkA[len(forkA)-1].ParentHash(),
 			},
 		},
-		headL1Origin,
+		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
 	)
 	s.Nil(err)
-	s.True(ok)
+
+	isForkBLastBlockCanonical, err := blocksInserter.IsBasedOnCanonicalChain(
+		context.Background(),
+		s.RPCClient,
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+				BlockHash:   forkB[len(forkB)-1].Hash(),
+				ParentHash:  forkB[len(forkB)-1].ParentHash(),
+			},
+		},
+		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+	)
+	s.Nil(err)
 
 	if isInForkA {
-		ok, err = blocksInserter.IsBasedOnCanonicalChain(
-			context.Background(),
-			s.RPCClient,
-			&preconf.Envelope{
-				Payload: &eth.ExecutionPayload{
-					BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
-					BlockHash:   forkB[len(forkB)-1].Hash(),
-					ParentHash:  forkB[len(forkB)-1].ParentHash(),
-				},
-			},
-			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
-		)
-		s.Nil(err)
-		s.False(ok)
+		s.True(isForkALastBlockCanonical)
+		s.False(isForkBLastBlockCanonical)
 	} else {
-		ok, err = blocksInserter.IsBasedOnCanonicalChain(
-			context.Background(),
-			s.RPCClient,
-			&preconf.Envelope{
-				Payload: &eth.ExecutionPayload{
-					BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
-					BlockHash:   forkA[len(forkA)-1].Hash(),
-					ParentHash:  forkA[len(forkA)-1].ParentHash(),
-				},
-			},
-			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
-		)
-		s.Nil(err)
-		s.False(ok)
+		s.True(isForkBLastBlockCanonical)
+		s.False(isForkALastBlockCanonical)
 	}
 }
 
