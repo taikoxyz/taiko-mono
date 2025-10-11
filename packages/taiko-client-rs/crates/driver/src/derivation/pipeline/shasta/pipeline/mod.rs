@@ -9,7 +9,6 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{
     codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
@@ -118,7 +117,7 @@ where
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-            .ok_or_else(|| DerivationError::Other(anyhow!("latest L2 block not found")))
+            .ok_or(DerivationError::LatestL2BlockMissing)
     }
 
     /// Extract blob hashes from a derivation source, preserving the order expected by
@@ -170,13 +169,8 @@ where
 
         let state = ParentState {
             header: parent_block.header.inner.clone(),
-            block_hash: parent_block.hash(),
             bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
-            timestamp: parent_block.header.timestamp,
-            gas_limit: parent_block.header.gas_limit,
-            block_number: parent_block.number(),
             anchor_block_number: anchor_state.anchorBlockNumber.to::<u64>(),
-            prev_randao: parent_block.header.mix_hash,
         };
 
         Ok((state, self.rpc.shasta.anchor.shastaForkHeight().call().await?))
@@ -257,10 +251,9 @@ where
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
         let origin_block_hash =
-            self.rpc
-                .l1_block_hash_by_number(meta.origin_block_number)
-                .await?
-                .ok_or(DerivationError::Other(anyhow!("origin block hash not found")))?;
+            self.rpc.l1_block_hash_by_number(meta.origin_block_number).await?.ok_or(
+                DerivationError::OriginBlockHashMissing { block_number: meta.origin_block_number },
+            )?;
 
         let (mut parent_state, shasta_fork_height) =
             self.initialize_parent_state(&parent_block).await?;

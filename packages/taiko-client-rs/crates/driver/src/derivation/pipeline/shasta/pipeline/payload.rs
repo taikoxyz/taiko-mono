@@ -8,17 +8,14 @@ use alloy::{
 };
 use alloy_consensus::{Transaction as _, TxEnvelope};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
-use alloy_primitives::Bytes;
+use alloy_primitives::{Bytes, aliases::U48};
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
-use anyhow::anyhow;
 use bindings::taiko_anchor::LibBonds::BondInstruction;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
-
-use alloy_primitives::aliases::U48;
 
 use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::UpdateStateInput},
@@ -38,58 +35,87 @@ use super::{
 
 /// Context describing a manifest segment during payload derivation.
 struct SegmentContext<'a> {
+    /// Proposal metadata shared across all segments.
     meta: &'a BundleMeta,
+    /// Hash of the proposal's L1 origin block.
     origin_block_hash: B256,
+    /// Fork height for Shasta activation.
     shasta_fork_height: u64,
+    /// Positional data describing where the segment sits within the proposal.
     position: SegmentPosition,
 }
 
 /// Tracks the absolute position of a segment within the proposal bundle.
 #[derive(Clone, Copy)]
 struct SegmentPosition {
+    /// Index of the segment within the proposal bundle.
     index: usize,
+    /// Total number of segments in the proposal bundle.
     total: usize,
+    /// Number of blocks included prior to this segment.
     blocks_before: usize,
 }
 
 /// Position metadata passed down to block-level processing.
 #[derive(Clone, Copy)]
 struct BlockPosition {
+    /// Index of the segment containing the block.
     segment_index: usize,
+    /// Total number of segments in the bundle.
     segments_total: usize,
+    /// Index of the block within its segment.
     block_index: usize,
+    /// Total number of blocks in the segment.
     blocks_len: usize,
+    /// Global offset of the first block in the segment.
     blocks_before_segment: usize,
+    /// Whether the block originates from a forced inclusion segment.
     forced_inclusion: bool,
 }
 
 /// Shared inputs required when converting a manifest block into payload attributes.
 struct BlockContext<'a> {
+    /// Immutable metadata describing the entire proposal bundle.
     meta: &'a BundleMeta,
+    /// Hash of the proposal's L1 origin block.
     origin_block_hash: B256,
+    /// Fork height governing Shasta base-fee transitions.
     shasta_fork_height: u64,
+    /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
+    /// Indicates whether the proposal is a low-bond proposal (falls back to default manifest).
     is_low_bond_proposal: bool,
 }
 
 /// Aggregate of per-block data forwarded to `create_payload_attributes`.
 struct PayloadContext<'a> {
+    /// Manifest-provided block metadata.
     block: &'a BlockManifest,
+    /// Proposal-level metadata reused for payload construction.
     meta: &'a BundleMeta,
+    /// Hash of the proposal's L1 origin block.
     origin_block_hash: B256,
+    /// Base fee target for the upcoming block.
     block_base_fee: u64,
+    /// Difficulty used when sealing the block.
     difficulty: B256,
+    /// Height of the block being built.
     block_number: u64,
+    /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
+    /// Indicates whether the low-bond flag should be encoded.
     is_low_bond_proposal: bool,
 }
 
 /// Aggregated bond instruction data for a derived block.
 struct BondInstructionData {
+    /// Instructions that must be embedded into the anchor transaction.
     instructions: Vec<BondInstruction>,
+    /// Rolling hash after applying the block's bond instructions.
     next_hash: B256,
 }
 
+/// Return true when the manifest represents the protocol-defined default payload.
 fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     if manifest.blocks.len() != 1 {
         return false;
@@ -157,9 +183,10 @@ where
         let segments_total = sources.len();
         let mut blocks_before = 0usize;
         let mut outcomes = Vec::new();
+        let parent_hash = state.header.hash_slow();
         let mut forkchoice_state = ForkchoiceState {
-            head_block_hash: state.block_hash,
-            safe_block_hash: state.block_hash,
+            head_block_hash: parent_hash,
+            safe_block_hash: parent_hash,
             finalized_block_hash: state.header.parent_hash,
         };
 
@@ -188,12 +215,12 @@ where
             blocks_before += blocks_len;
         }
 
+        // Ensure the derived bond instruction hash matches what the proposal advertised.
         if state.bond_instructions_hash != meta.bond_instructions_hash {
-            return Err(DerivationError::Other(anyhow!(
-                "bond instructions hash mismatch after processing proposal: expected {:?}, computed {:?}",
-                meta.bond_instructions_hash,
-                state.bond_instructions_hash
-            )));
+            return Err(DerivationError::BondInstructionsMismatch {
+                expected: meta.bond_instructions_hash,
+                actual: state.bond_instructions_hash,
+            });
         }
 
         Ok(outcomes)
@@ -273,14 +300,13 @@ where
             is_low_bond_proposal,
         } = ctx;
 
-        let block_number = state.advance_block_number();
+        let block_number = state.next_block_number();
         let block_base_fee = state.compute_block_base_fee(
             block_number,
-            block.timestamp.saturating_sub(state.timestamp),
+            block.timestamp.saturating_sub(state.header.timestamp),
             shasta_fork_height,
         );
-        let difficulty = calculate_shasta_difficulty(state.prev_randao, block_number);
-        state.prev_randao = difficulty;
+        let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
 
@@ -317,7 +343,7 @@ where
         );
 
         let applied = applier.apply_payload(&payload, forkchoice_state).await?;
-        state.apply_execution_payload(block, &applied.payload, bond_data.next_hash)?;
+        *state = state.advance(block, &applied.payload, bond_data.next_hash)?;
 
         Ok(applied.outcome)
     }
@@ -388,6 +414,7 @@ where
         }
     }
 
+    /// Query the anchor contract to determine if the proposal is designated as low-bond.
     async fn detect_low_bond_proposal(
         &self,
         state: &ParentState,
@@ -398,9 +425,10 @@ where
             meta.proposer,
             meta.prover_auth_bytes.clone(),
         );
+        // Use the parent hash to mirror the exact context the Go client queries against.
         let response = call
             .block(BlockId::Hash(RpcBlockHash {
-                block_hash: state.block_hash,
+                block_hash: state.header.hash_slow(),
                 require_canonical: Some(false),
             }))
             .call()
@@ -409,6 +437,7 @@ where
         Ok(response.isLowBondProposal_)
     }
 
+    /// Assemble bond instructions that must be embedded into the next anchor transaction.
     async fn assemble_bond_instructions(
         &self,
         state: &ParentState,
@@ -418,6 +447,7 @@ where
         let mut aggregated_hash = state.bond_instructions_hash;
         let mut instructions = Vec::new();
 
+        // Only the first block of a proposal needs to incorporate delayed bond instructions.
         if position.segment_index == 0 &&
             position.block_index == 0 &&
             meta.proposal_id > BOND_PROCESSING_DELAY
@@ -432,36 +462,31 @@ where
                 B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
 
             if aggregated_hash != expected_hash {
-                let tx_hash = target_payload.log.transaction_hash.ok_or_else(|| {
-                    DerivationError::Other(anyhow!(
-                        "missing transaction hash for proposal {}",
-                        target_id
-                    ))
-                })?;
+                let tx_hash = target_payload
+                    .log
+                    .transaction_hash
+                    .ok_or(DerivationError::MissingProposeTxHash { proposal_id: target_id })?;
 
                 let tx = self
                     .rpc
                     .l1_provider
                     .get_transaction_by_hash(tx_hash)
                     .await
-                    .map_err(|err| {
-                        DerivationError::Other(anyhow!(
-                            "failed to fetch propose transaction for proposal {target_id}: {err}"
-                        ))
+                    .map_err(|err| DerivationError::ProposeTransactionQuery {
+                        proposal_id: target_id,
+                        reason: err.to_string(),
                     })?
-                    .ok_or_else(|| {
-                        DerivationError::Other(anyhow!(
-                            "propose transaction {tx_hash:?} not found for proposal {target_id}"
-                        ))
+                    .ok_or_else(|| DerivationError::MissingProposeTransaction {
+                        proposal_id: target_id,
+                        tx_hash,
                     })?;
 
                 let input: Bytes = tx.input().clone();
                 let decoded =
                     self.rpc.shasta.codec.decodeProposeInput(input).call().await.map_err(
-                        |err| {
-                            DerivationError::Other(anyhow!(
-                                "failed to decode propose input for proposal {target_id}: {err}"
-                            ))
+                        |err| DerivationError::ProposeInputDecode {
+                            proposal_id: target_id,
+                            reason: err.to_string(),
                         },
                     )?;
 
@@ -484,11 +509,10 @@ where
                 }
 
                 if aggregated_hash != expected_hash {
-                    return Err(DerivationError::Other(anyhow!(
-                        "bond instructions hash mismatch for proposal {target_id}: calculated {:?}, expected {:?}",
-                        aggregated_hash,
-                        expected_hash
-                    )));
+                    return Err(DerivationError::BondInstructionsMismatch {
+                        expected: expected_hash,
+                        actual: aggregated_hash,
+                    });
                 }
             }
         }
@@ -512,12 +536,12 @@ where
             self.resolve_anchor_block_fields(block.anchor_block_number, parent_state).await?;
 
         let block_index = u16::try_from(position.global_index())
-            .map_err(|_| DerivationError::Other(anyhow!("block index exceeds u16 range")))?;
+            .map_err(|_| DerivationError::BlockIndexOverflow { index: position.global_index() })?;
 
         let tx = self
             .anchor_constructor
             .assemble_update_state_tx(
-                parent_state.block_hash,
+                parent_state.header.hash_slow(),
                 UpdateStateInput {
                     proposal_id: meta.proposal_id,
                     proposer: meta.proposer,
@@ -553,14 +577,11 @@ where
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Number(anchor_block_number))
             .await
-            .map_err(|err| {
-                DerivationError::Other(anyhow!(
-                    "failed to fetch anchor block {anchor_block_number}: {err}"
-                ))
+            .map_err(|err| DerivationError::AnchorBlockQuery {
+                block_number: anchor_block_number,
+                reason: err.to_string(),
             })?
-            .ok_or_else(|| {
-                DerivationError::Other(anyhow!("anchor block {anchor_block_number} not found"))
-            })?;
+            .ok_or(DerivationError::AnchorBlockMissing { block_number: anchor_block_number })?;
 
         let block_hash = block.header.hash;
         let state_root = block.header.inner.state_root;
