@@ -123,10 +123,13 @@ struct Spec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
 
     #[tokio::test]
     async fn new_fetches_and_parses_genesis_and_spec() -> Result<()> {
@@ -180,7 +183,12 @@ mod tests {
             .await;
 
         let base = Url::parse(&server.uri()).expect("Invalid mock server URL");
-        let err = BeaconClient::new(base).await.unwrap_err();
+        let err = match BeaconClient::new(base).await {
+            Ok(_) => {
+                panic!("BeaconClient::new should fail when the genesis endpoint returns non-200")
+            }
+            Err(err) => err,
+        };
         let msg = format!("{err}");
         assert!(msg.contains("Failed to fetch genesis data"));
     }

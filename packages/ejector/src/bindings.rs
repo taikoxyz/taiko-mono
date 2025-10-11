@@ -18,3 +18,11 @@ sol! {
         address public immutable preconfRouter;
     }
 }
+
+sol! {
+    #[sol(rpc)]
+    interface PreconfRouter {
+        // Note: returns tuple with a single uint256 field
+        function getConfig() pure returns (uint256 handOverSlots);
+    }
+}

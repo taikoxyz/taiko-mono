@@ -1,3 +1,8 @@
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use alloy::{
     primitives::Address,
     providers::{Provider, ProviderBuilder, WsConnect},
@@ -5,21 +10,20 @@ use alloy::{
 };
 use eyre::Result;
 use futures_util::StreamExt;
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
 use tokio::{
     sync::Mutex,
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
 
-use ::beacon::BeaconClient;
-use ::bindings::TaikoWrapper;
-use ::utils::{
-    eject::eject_operator,
-    lookahead::{Responsibility, responsibility_for_slot},
+use crate::{
+    beacon::BeaconClient,
+    bindings::TaikoWrapper,
+    metrics,
+    utils::{
+        eject::eject_operator,
+        lookahead::{Responsibility, responsibility_for_slot},
+    },
 };
 
 pub struct Monitor {
@@ -32,6 +36,7 @@ pub struct Monitor {
     taiko_wrapper_address: Address,
     whitelist_address: Address,
     handover_slots: u64,
+    preconf_router_address: Address,
     min_operators: u64,
 }
 
@@ -47,10 +52,12 @@ impl Monitor {
         taiko_wrapper_address: Address,
         whitelist_address: Address,
         handover_slots: u64,
+        preconf_router_address: Address,
         min_operators: u64,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
-        let eject_after = target_block_time * eject_after_n_slots_missed as u32;
+        let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
+        let eject_after = Duration::from_secs(eject_after_secs);
 
         Self {
             beacon_client,
@@ -62,6 +69,7 @@ impl Monitor {
             taiko_wrapper_address,
             whitelist_address,
             handover_slots,
+            preconf_router_address,
             min_operators,
         }
     }
@@ -83,7 +91,10 @@ impl Monitor {
         let signer = self.l1_signer.clone();
 
         let slots_per_epoch = self.beacon_client.slots_per_epoch;
-        let handover_slots = self.handover_slots;
+        let mut handover_slots = self.handover_slots;
+
+        // Track when we've last reloaded config from chain
+        let mut last_config_reload_epoch = self.beacon_client.current_epoch();
 
         // get current operator responsibility
         let mut prev_resp = self.responsibility_now();
@@ -93,6 +104,11 @@ impl Monitor {
         // we only eject if we have at least min_operators in the whitelist.
         // that way in case of an error with the ejector we don't eject down to 0 operators.
         let min_operators = self.min_operators;
+
+        // Reuse a single HTTP provider and PreconfRouter binding
+        let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let preconf_router =
+            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider);
 
         // watchdog task
         let _watchdog = tokio::spawn(async move {
@@ -104,6 +120,32 @@ impl Monitor {
                 let curr_epoch = beacon_client.current_epoch();
                 let curr_slot = beacon_client.current_slot();
                 let slot_in_epoch = beacon_client.slot_in_epoch();
+                // Reload handover config from chain at epoch transitions (best-effort)
+                if curr_epoch > last_config_reload_epoch {
+                    tracing::info!(
+                        "Epoch transition detected; reloading handover config; last_config_reload_epoch={last_config_reload_epoch}, curr_epoch={curr_epoch}",
+                    );
+                    match preconf_router.getConfig().call().await {
+                        Ok(onchain_slots) => {
+                            // Convert uint256 -> u64 (use low 64 bits)
+                            let new_slots: u64 = onchain_slots.as_limbs()[0];
+                            if new_slots != handover_slots {
+                                tracing::info!(
+                                    "Updated handover slots from on-chain config; old={handover_slots}, new={new_slots}"
+                                );
+                                handover_slots = new_slots;
+                            }
+                        }
+                        Err(e) => {
+                            // Allow failure: contract upgrade may not be deployed yet
+                            tracing::warn!(
+                                "Failed to fetch PreconfRouter config; keeping current handover slots; error={e:?}; current={handover_slots}",
+                            );
+                        }
+                    }
+                    last_config_reload_epoch = curr_epoch;
+                }
+
                 let curr_resp = responsibility_for_slot(curr_slot, slots_per_epoch, handover_slots);
 
                 info!(

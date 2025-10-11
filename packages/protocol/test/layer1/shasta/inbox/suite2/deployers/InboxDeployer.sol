@@ -18,7 +18,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
-        uint16 maxCheckpointHistory,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
@@ -26,9 +26,8 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address codec = address(new CodecSimple());
-        address impl = address(
-            new TestInbox(codec, bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
-        );
+        address impl =
+            address(new TestInbox(codec, bondToken, signalService, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
             deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice, Alice)) })

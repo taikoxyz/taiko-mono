@@ -115,7 +115,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Get the stored deadline before conflict
-        (uint48 firstDeadline, bytes26 firstRecordHash) =
+        (, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
         // Create second prove input with different checkpoint (causes conflict)
@@ -458,7 +458,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         return abi.encode("valid_proof");
     }
 
-    function _computeTransitionHash(uint256 _index) internal view returns (bytes32) {
+    function _computeTransitionHash(uint256 _index) internal pure returns (bytes32) {
         // Simplified - would need actual transition data in real scenario
         return keccak256(abi.encode("transition", _index));
     }

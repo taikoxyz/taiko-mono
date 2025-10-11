@@ -25,8 +25,6 @@ contract ShastaMainnetInbox is InboxOptimized2 {
     ///                     = 2400
     uint64 private constant _RING_BUFFER_SIZE = 2400;
 
-    uint16 private constant _MAX_CHECKPOINT_HISTORY = 256;
-
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
@@ -39,6 +37,7 @@ contract ShastaMainnetInbox is InboxOptimized2 {
         InboxOptimized2(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
@@ -51,7 +50,6 @@ contract ShastaMainnetInbox is InboxOptimized2 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
-                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1

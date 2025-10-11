@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use alethia_reth::evm::handler::get_treasury_address;
+use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{

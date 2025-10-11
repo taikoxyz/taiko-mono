@@ -88,15 +88,22 @@
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
 
-### taikoInbox
+### PacayaInbox
 
 - proxy: `0x50A576435E2D9c179124D657d804eb56A10b6999`
-- impl: `0xe15F21bc54c10A6fad932F86e9a9D179b01b9105`
+- impl: `0xa31bE1018f1B34a1Fc7BAcF20cA31bC23D535f29`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- oldFork: `0x414ec209fcafcDA82d6dBB7bEc99b29c299AB8E9` at commit `1852eb5`
-- newFork: `0x3f96b32E98bb0FE797aE1293A8EbF3278882aE55` at commit `1852eb5`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - upgraded on Oct 9, 2025 at commit `7217552`
+
+### ShastaInbox
+
+- proxy: `0x3769B2fD59F1b5192E83F364d85249C6FBb6e2e6`
+- impl: `0x00252a8373147089140F4e409B48bBBc2ed94F7c`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Oct 9, 2025 at commit `5be2cbf`
 
 ### forced_inclusion_store
 
@@ -250,4 +257,3 @@
 
 - impl: `0x0167012000000000000000000000000000010098`
 - logs:
-
