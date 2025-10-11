@@ -12,7 +12,7 @@ use tokio_retry::Retry;
 use tokio_stream::StreamExt;
 use tracing::info;
 
-use super::{SyncError, SyncStage, engine::PayloadApplier};
+use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
@@ -88,16 +88,15 @@ where
                     .take(5);
 
                 let derivation = derivation.clone();
-                let payloads = Retry::spawn(retry_strategy, || async {
-                    derivation.process_proposal(&log).await
+                let rpc = self.rpc.clone();
+                let proposal_log = log.clone();
+                let outcomes = Retry::spawn(retry_strategy, move || {
+                    let derivation = derivation.clone();
+                    let rpc = rpc.clone();
+                    let log = proposal_log.clone();
+                    async move { derivation.process_proposal(&log, &rpc).await }
                 })
                 .await?;
-
-                let outcomes = self
-                    .rpc
-                    .attributes_to_blocks(&payloads)
-                    .await
-                    .map_err(|err| SyncError::Other(err.into()))?;
 
                 info!(
                     block_count = outcomes.len(),

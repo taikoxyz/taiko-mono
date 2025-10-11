@@ -4,14 +4,21 @@ use alethia_reth_consensus::{
 };
 use alloy::primitives::B256;
 use alloy_consensus::Header;
+use alloy_rpc_types_engine::ExecutionPayloadInputV2;
+use anyhow::anyhow;
 use protocol::shasta::manifest::BlockManifest;
 
 use super::{super::validation::ValidationContext, bundle::BundleMeta};
+use crate::derivation::DerivationError;
 
 /// Rolling view of the parent block used when deriving successive payloads.
 #[derive(Debug, Clone)]
 pub(super) struct ParentState {
     pub(super) header: Header,
+    /// Hash of the latest parent block committed to the execution engine.
+    pub(super) block_hash: B256,
+    /// Hash of the bond instructions accumulated up to the parent block.
+    pub(super) bond_instructions_hash: B256,
     pub(super) timestamp: u64,
     pub(super) gas_limit: u64,
     pub(super) block_number: u64,
@@ -41,24 +48,43 @@ impl ParentState {
         }
     }
 
-    /// Update the cached parent header after committing a derived block.
-    pub(super) fn apply_block_updates(
+    /// Update the cached parent header after committing a derived block using the execution
+    /// payload returned by the engine.
+    pub(super) fn apply_execution_payload(
         &mut self,
-        block: &BlockManifest,
-        block_base_fee: u64,
-        difficulty: B256,
-        estimated_gas_used: u64,
-    ) {
-        self.header.gas_limit = block.gas_limit;
-        self.header.gas_used = estimated_gas_used;
-        self.header.base_fee_per_gas = Some(block_base_fee);
-        self.header.timestamp = block.timestamp;
-        self.header.number = self.block_number;
-        self.header.mix_hash = difficulty;
+        manifest_block: &BlockManifest,
+        payload: &ExecutionPayloadInputV2,
+        next_bond_instructions_hash: B256,
+    ) -> Result<(), DerivationError> {
+        let execution_payload = payload.execution_payload.clone();
+        let header = execution_payload
+            .clone()
+            .into_block_raw()
+            .map_err(|err| {
+                DerivationError::Other(anyhow!(
+                    "failed to convert execution payload into header: {err}"
+                ))
+            })?
+            .into_header();
 
-        self.timestamp = block.timestamp;
-        self.gas_limit = block.gas_limit;
-        self.anchor_block_number = block.anchor_block_number;
+        if execution_payload.block_number != self.block_number {
+            return Err(DerivationError::Other(anyhow!(
+                "engine returned block {} but derivation expected {}",
+                execution_payload.block_number,
+                self.block_number,
+            )));
+        }
+
+        self.header = header;
+        self.block_hash = execution_payload.block_hash;
+        self.bond_instructions_hash = next_bond_instructions_hash;
+        self.timestamp = execution_payload.timestamp;
+        self.gas_limit = execution_payload.gas_limit;
+        self.block_number = execution_payload.block_number;
+        self.anchor_block_number = manifest_block.anchor_block_number;
+        self.prev_randao = execution_payload.prev_randao;
+
+        Ok(())
     }
 
     /// Build the validation context used to sanity-check manifest contents.

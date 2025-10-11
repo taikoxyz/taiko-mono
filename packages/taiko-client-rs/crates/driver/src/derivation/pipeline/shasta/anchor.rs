@@ -11,7 +11,6 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use alloy_rpc_types::eth::Header;
 use bindings::taiko_anchor::LibBonds::BondInstruction;
 use rpc::client::Client;
 use thiserror::Error;
@@ -81,7 +80,7 @@ where
     /// Assemble an `updateState` transaction for the given parent header and parameters.
     pub async fn assemble_update_state_tx(
         &self,
-        parent: &Header,
+        parent_hash: B256,
         params: UpdateStateInput,
     ) -> Result<TxEnvelope, AnchorTxConstructorError> {
         let UpdateStateInput {
@@ -101,7 +100,7 @@ where
 
         // Fetch golden touch nonce at the parent header via EIP-1898 hash reference.
         let block_id =
-            BlockId::Hash(RpcBlockHash { block_hash: parent.hash, require_canonical: Some(false) });
+            BlockId::Hash(RpcBlockHash { block_hash: parent_hash, require_canonical: Some(false) });
         let nonce: U256 = self
             .rpc
             .l2_provider

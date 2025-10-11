@@ -1,8 +1,11 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
-use alloy::primitives::{B256, Bytes, U256, keccak256};
-use alloy_consensus::{Transaction, TxEnvelope};
+use alloy::{
+    primitives::{B256, Bytes, U256, keccak256},
+    sol_types::{SolValue, sol},
+};
+use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
-use alloy_sol_types::{SolValue, sol};
+
+use bindings::taiko_anchor::LibBonds::BondInstruction;
 
 sol! {
     struct ShastaDifficultyInput {
@@ -18,13 +21,6 @@ pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64
         blockNumber: U256::from(block_number),
     };
     B256::from(keccak256(params.abi_encode()))
-}
-
-// Estimate the gas used by a set of transactions, capping it to the provided gas limit
-pub(super) fn estimate_gas_used(transactions: &[TxEnvelope], gas_limit: u64) -> u64 {
-    let used: u128 = transactions.iter().fold(0u128, |acc, tx| acc + tx.gas_limit() as u128);
-    let capped = used.min(gas_limit as u128);
-    capped.max(ANCHOR_V3_GAS_LIMIT.min(gas_limit) as u128).min(gas_limit as u128) as u64
 }
 
 // Encode a list of transactions into the format expected by the execution engine.
@@ -45,4 +41,21 @@ pub(super) fn encode_extra_data(
     data.push(u8::from(is_low_bond_proposal));
     data.extend_from_slice(bond_hash.as_slice());
     Bytes::from(data)
+}
+
+/// Calculate the rolling bond instruction hash for a new instruction.
+pub(super) fn calculate_bond_instruction_hash(
+    previous_hash: B256,
+    instruction: &BondInstruction,
+) -> B256 {
+    if instruction.proposalId.to::<u64>() == 0 || instruction.bondType == 0 {
+        return previous_hash;
+    }
+
+    let encoded = instruction.abi_encode();
+    let mut data = Vec::with_capacity(previous_hash.as_slice().len() + encoded.len());
+    data.extend_from_slice(previous_hash.as_slice());
+    data.extend_from_slice(&encoded);
+
+    B256::from_slice(keccak256(&data).as_slice())
 }

@@ -1,6 +1,5 @@
 //! Derivation pipeline abstractions shared across protocol forks.
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::rpc::types::Log;
 use async_trait::async_trait;
 
@@ -9,6 +8,8 @@ pub mod shasta;
 
 pub use error::DerivationError;
 pub use shasta::ShastaDerivationPipeline;
+
+use crate::sync::engine::{EngineBlockOutcome, PayloadApplier};
 
 /// Trait implemented by derivation pipelines for different protocol forks.
 #[async_trait]
@@ -19,18 +20,21 @@ pub trait DerivationPipeline: Send + Sync {
     /// Convert a proposal log into a manifest for processing.
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError>;
 
-    /// Convert a manifest into payload attributes for block production.
-    async fn manifest_to_payload_attributes(
+    /// Convert a manifest into execution engine blocks for block production.
+    async fn manifest_to_engine_blocks(
         &self,
         manifest: Self::Manifest,
-    ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError>;
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError>;
 
-    /// Process the provided proposal log, returning payload attributes to deliver to the engine.
+    /// Process the provided proposal log, materialising the derived blocks in the execution
+    /// engine.
     async fn process_proposal(
         &self,
         log: &Log,
-    ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let manifest = self.log_to_manifest(log).await?;
-        self.manifest_to_payload_attributes(manifest).await
+        self.manifest_to_engine_blocks(manifest, applier).await
     }
 }

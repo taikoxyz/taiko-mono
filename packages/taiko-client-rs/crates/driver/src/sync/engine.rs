@@ -38,6 +38,16 @@ pub trait PayloadApplier {
         &self,
         payloads: &[TaikoPayloadAttributes],
     ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>;
+
+    /// Submit a single payload to the execution engine while managing forkchoice state.
+    ///
+    /// The provided forkchoice state is used for the announcement phase and updated to the new
+    /// head on success so that subsequent calls can continue the chain.
+    async fn apply_payload(
+        &self,
+        payload: &TaikoPayloadAttributes,
+        forkchoice_state: &mut ForkchoiceState,
+    ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
 #[async_trait]
@@ -53,7 +63,7 @@ where
             return Ok(Vec::new());
         }
 
-        let parent_block = self
+        let parent_block: RpcBlock<TxEnvelope> = self
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
@@ -61,87 +71,103 @@ where
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
             .ok_or(EngineSubmissionError::MissingParent)?;
 
-        submit_payloads_to_engine(self, &parent_block, payloads).await
+        let mut outcomes = Vec::with_capacity(payloads.len());
+        let mut forkchoice_state = ForkchoiceState {
+            head_block_hash: parent_block.hash(),
+            safe_block_hash: parent_block.hash(),
+            finalized_block_hash: parent_block.header.parent_hash,
+        };
+
+        for payload in payloads {
+            let applied = apply_payload_internal(self, payload, &mut forkchoice_state).await?;
+            outcomes.push(applied.outcome);
+        }
+
+        Ok(outcomes)
+    }
+
+    async fn apply_payload(
+        &self,
+        payload: &TaikoPayloadAttributes,
+        forkchoice_state: &mut ForkchoiceState,
+    ) -> Result<AppliedPayload, EngineSubmissionError> {
+        apply_payload_internal(self, payload, forkchoice_state).await
     }
 }
 
-async fn submit_payloads_to_engine<P>(
+/// Description of a payload inserted into the execution engine, including the constructed
+/// execution payload.
+#[derive(Debug, Clone)]
+pub struct AppliedPayload {
+    /// Outcome metadata describing the inserted block.
+    pub outcome: EngineBlockOutcome,
+    /// The execution payload returned by the engine when building the block.
+    pub payload: ExecutionPayloadInputV2,
+}
+
+async fn apply_payload_internal<P>(
     rpc: &Client<P>,
-    parent_block: &RpcBlock<TxEnvelope>,
-    payloads: &[TaikoPayloadAttributes],
-) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>
+    payload: &TaikoPayloadAttributes,
+    forkchoice_state: &mut ForkchoiceState,
+) -> Result<AppliedPayload, EngineSubmissionError>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    let mut outcomes = Vec::with_capacity(payloads.len());
+    // Advertise the next payload attributes so the execution engine can build the block body.
+    let fc_response =
+        rpc.engine_forkchoice_updated_v2(forkchoice_state.clone(), Some(payload.clone())).await?;
 
-    // Track forkchoice hashes as we build a contiguous chain starting from the provided parent.
-    let mut head_hash = parent_block.hash();
-    let mut safe_hash = parent_block.hash();
-    let mut finalized_hash = parent_block.header.parent_hash;
+    let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
 
-    for payload in payloads {
-        // Advertise the next payload attributes so the execution engine can build the block body.
-        let fc_state = ForkchoiceState {
-            head_block_hash: head_hash,
-            safe_block_hash: safe_hash,
-            finalized_block_hash: finalized_hash,
-        };
-
-        let fc_response = rpc.engine_forkchoice_updated_v2(fc_state, Some(payload.clone())).await?;
-
-        let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
-
-        let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
-        if expected_payload_id != payload_id {
-            warn!(
-                expected = %expected_payload_id,
-                received = %payload_id,
-                "payload id mismatch between derivation and engine response",
-            );
-        }
-
-        // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input
-        // shape.
-        let envelope = rpc.engine_get_payload_v2(payload_id).await?;
-        let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
-
-        // Submit the new block to the execution engine and bail out on unrecoverable statuses.
-        let payload_status = rpc.engine_new_payload_v2(payload_input, Vec::new(), None).await?;
-
-        match payload_status.status {
-            PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
-            PayloadStatusEnum::Syncing => {
-                return Err(EngineSubmissionError::EngineSyncing(block_number));
-            }
-            PayloadStatusEnum::Invalid { validation_error } => {
-                return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
-            }
-        }
-
-        // Update forkchoice to promote the freshly inserted block as the new head and safe block.
-        let fc_state = ForkchoiceState {
-            head_block_hash: block_hash,
-            safe_block_hash: head_hash,
-            finalized_block_hash: safe_hash,
-        };
-        rpc.engine_forkchoice_updated_v2(fc_state, None).await?;
-
-        head_hash = block_hash;
-        safe_hash = block_hash;
-        finalized_hash = payload.l1_origin.l1_block_hash.unwrap_or(block_hash);
-
-        info!(
-            block_number,
-            block_hash = ?block_hash,
-            payload_id = %payload_id,
-            "inserted l2 block via payload applier",
+    let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
+    if expected_payload_id != payload_id {
+        warn!(
+            expected = %expected_payload_id,
+            received = %payload_id,
+            "payload id mismatch between derivation and engine response",
         );
-
-        outcomes.push(EngineBlockOutcome { block_number, block_hash, payload_id });
     }
 
-    Ok(outcomes)
+    // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
+    let envelope = rpc.engine_get_payload_v2(payload_id).await?;
+    let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
+
+    // Submit the new block to the execution engine and bail out on unrecoverable statuses.
+    let payload_status = rpc.engine_new_payload_v2(payload_input.clone(), Vec::new(), None).await?;
+
+    match payload_status.status {
+        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
+        PayloadStatusEnum::Syncing => {
+            return Err(EngineSubmissionError::EngineSyncing(block_number));
+        }
+        PayloadStatusEnum::Invalid { validation_error } => {
+            return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
+        }
+    }
+
+    // Update forkchoice to promote the freshly inserted block as the new head and safe block.
+    let promoted_state = ForkchoiceState {
+        head_block_hash: block_hash,
+        safe_block_hash: forkchoice_state.head_block_hash,
+        finalized_block_hash: forkchoice_state.safe_block_hash,
+    };
+    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+
+    forkchoice_state.head_block_hash = block_hash;
+    forkchoice_state.safe_block_hash = block_hash;
+    forkchoice_state.finalized_block_hash = payload.l1_origin.l1_block_hash.unwrap_or(block_hash);
+
+    info!(
+        block_number,
+        block_hash = ?block_hash,
+        payload_id = %payload_id,
+        "inserted l2 block via payload applier",
+    );
+
+    Ok(AppliedPayload {
+        outcome: EngineBlockOutcome { block_number, block_hash, payload_id },
+        payload: payload_input,
+    })
 }
 
 fn envelope_into_submission(

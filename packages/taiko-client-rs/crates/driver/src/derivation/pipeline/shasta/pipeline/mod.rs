@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::BlockNumberOrTag,
     primitives::{B256, U256},
@@ -20,12 +19,15 @@ use event_indexer::indexer::ShastaEventIndexer;
 use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
 use rpc::{blob::BlobDataSource, client::Client};
 
-use crate::derivation::{
-    manifest::{
-        ManifestFetcher,
-        fetcher::shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher},
+use crate::{
+    derivation::{
+        manifest::{
+            ManifestFetcher,
+            fetcher::shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher},
+        },
+        pipeline::shasta::anchor::AnchorTxConstructor,
     },
-    pipeline::shasta::anchor::AnchorTxConstructor,
+    sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
 use super::super::{DerivationError, DerivationPipeline};
@@ -43,15 +45,15 @@ pub use bundle::ShastaProposalBundle;
 /// Shasta-specific derivation pipeline.
 ///
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
-/// referenced manifests, and converts them into `TaikoPayloadAttributes` batches that
-/// can be submitted to the execution engine.
+/// referenced manifests, and converts them into execution payloads that materialise new
+/// blocks in the execution engine.
 pub struct ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
 {
     rpc: Client<P>,
-    _indexer: Arc<ShastaEventIndexer>,
-    _anchor_constructor: AnchorTxConstructor<P>,
+    indexer: Arc<ShastaEventIndexer>,
+    anchor_constructor: AnchorTxConstructor<P>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
@@ -84,8 +86,8 @@ where
 
         Ok(Self {
             rpc,
-            _indexer: indexer,
-            _anchor_constructor: anchor_constructor,
+            indexer,
+            anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             proposal_manifest_fetcher,
         })
@@ -101,8 +103,8 @@ where
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO
-                && let Some(block) =
+            if origin.l2_block_hash != B256::ZERO &&
+                let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
@@ -168,6 +170,8 @@ where
 
         let state = ParentState {
             header: parent_block.header.inner.clone(),
+            block_hash: parent_block.hash(),
+            bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
             timestamp: parent_block.header.timestamp,
             gas_limit: parent_block.header.gas_limit,
             block_number: parent_block.number(),
@@ -232,6 +236,10 @@ where
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
                 bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
                 prover_auth_bytes,
+                end_of_submission_window_timestamp: payload
+                    .proposal
+                    .endOfSubmissionWindowTimestamp
+                    .to::<u64>(),
             },
             sources: manifest_segments,
         };
@@ -239,11 +247,12 @@ where
         Ok(bundle)
     }
 
-    // Convert a manifest into payload attributes for block production.
-    async fn manifest_to_payload_attributes(
+    // Convert a manifest into execution engine blocks for block production.
+    async fn manifest_to_engine_blocks(
         &self,
         manifest: Self::Manifest,
-    ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
@@ -262,6 +271,8 @@ where
             origin_block_hash,
             shasta_fork_height,
             &mut parent_state,
+            applier,
         )
+        .await
     }
 }

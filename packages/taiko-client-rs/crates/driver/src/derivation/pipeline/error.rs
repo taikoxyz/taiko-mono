@@ -7,9 +7,12 @@ use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
 use thiserror::Error;
 
-use crate::derivation::{
-    manifest::ManifestFetcherError,
-    pipeline::shasta::{anchor::AnchorTxConstructorError, validation::ValidationError},
+use crate::{
+    derivation::{
+        manifest::ManifestFetcherError,
+        pipeline::shasta::{anchor::AnchorTxConstructorError, validation::ValidationError},
+    },
+    sync::error::EngineSubmissionError,
 };
 
 /// Errors emitted by derivation stages.
@@ -39,6 +42,9 @@ pub enum DerivationError {
     /// The proposal contains no derivation sources, which is invalid.
     #[error("proposal contains no derivation sources")]
     EmptyDerivationSources(u64),
+    /// Failure while materialising payloads via the execution engine.
+    #[error(transparent)]
+    Engine(#[from] EngineSubmissionError),
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),
