@@ -3,6 +3,7 @@
 use alloy::transports::TransportErrorKind;
 use alloy_json_rpc::RpcError;
 use event_scanner::event_scanner::EventScannerError;
+use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -33,16 +34,23 @@ pub enum IndexerError {
     Other(#[from] anyhow::Error),
 }
 
-// Manual From implementations for types that don't play well with #[from]
+// Manual From implementations for TransportErrorKind
 impl From<RpcError<TransportErrorKind>> for IndexerError {
     fn from(err: RpcError<TransportErrorKind>) -> Self {
         IndexerError::Rpc(err.to_string())
     }
 }
 
-// Manual From implementations for types that don't play well with #[from]
-impl From<alloy::sol_types::Error> for IndexerError {
-    fn from(err: alloy::sol_types::Error) -> Self {
+// Manual From implementations for alloy_sol_types::Error
+impl From<alloy_sol_types::Error> for IndexerError {
+    fn from(err: alloy_sol_types::Error) -> Self {
         IndexerError::LogDecode(err.to_string())
+    }
+}
+
+// Manual From implementation for RpcClientError
+impl From<RpcClientError> for IndexerError {
+    fn from(err: RpcClientError) -> Self {
+        IndexerError::Rpc(err.to_string())
     }
 }
