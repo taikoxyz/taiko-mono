@@ -78,7 +78,7 @@ var (
 	ShastaInboxAddress = &cli.StringFlag{
 		Name:     "shastaInbox",
 		Usage:    "Inbox contract `address` for Shasta protocol",
-		Required: true,
+		Required: false,
 		Category: commonCategory,
 		EnvVars:  []string{"SHASTA_INBOX"},
 	}
