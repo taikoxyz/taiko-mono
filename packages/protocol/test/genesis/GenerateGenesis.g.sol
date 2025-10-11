@@ -149,7 +149,6 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
-        assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
         assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
         assertEq(
             getPredeployedContractAddress("SignalService"),
@@ -166,12 +165,11 @@ contract TestGenerateGenesis is Test {
         taikoAnchorProxy.upgradeTo(
             address(
                 new Anchor(
+                    ICheckpointStore(getPredeployedContractAddress("SignalService")),
+                    IBondManager(address(0)), // bondManager - to be set later
                     10_000_000, // livenessBondGwei
                     10_000_000, // provabilityBondGwei
-                    getPredeployedContractAddress("SignalService"),
-                    uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    IBondManager(address(0)), // bondManager - to be set later
                     uint64(l1ChainId)
                 )
             )
@@ -357,8 +355,11 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(contractOwner);
 
+        address authorizedSyncer = getPredeployedContractAddress("TaikoAnchor");
+        address remoteSignalService = contractOwner;
+
         signalServiceProxy.upgradeTo(
-            address(new SignalService(getPredeployedContractAddress("SharedResolver")))
+            address(new SignalService(authorizedSyncer, remoteSignalService))
         );
 
         vm.stopPrank();
