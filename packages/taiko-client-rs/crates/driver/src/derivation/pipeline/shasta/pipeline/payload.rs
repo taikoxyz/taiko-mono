@@ -24,7 +24,7 @@ use super::{
 /// Context describing a manifest segment during payload derivation.
 struct SegmentContext<'a> {
     meta: &'a BundleMeta,
-    origin_block_hash: Option<B256>,
+    origin_block_hash: B256,
     shasta_fork_height: u64,
     position: SegmentPosition,
 }
@@ -49,7 +49,7 @@ struct BlockPosition {
 /// Shared inputs required when converting a manifest block into payload attributes.
 struct BlockContext<'a> {
     meta: &'a BundleMeta,
-    origin_block_hash: Option<B256>,
+    origin_block_hash: B256,
     shasta_fork_height: u64,
     position: BlockPosition,
 }
@@ -58,7 +58,7 @@ struct BlockContext<'a> {
 struct PayloadContext<'a> {
     block: &'a BlockManifest,
     meta: &'a BundleMeta,
-    origin_block_hash: Option<B256>,
+    origin_block_hash: B256,
     block_base_fee: u64,
     difficulty: B256,
     block_number: u64,
@@ -66,6 +66,7 @@ struct PayloadContext<'a> {
 }
 
 impl SegmentPosition {
+    // Convert the segment position into a block position for a specific block within the segment.
     fn to_block_position(
         &self,
         block_index: usize,
@@ -83,10 +84,12 @@ impl SegmentPosition {
 }
 
 impl BlockPosition {
+    // Check if this is the final block of the final segment.
     fn is_final(&self) -> bool {
         self.segment_index + 1 == self.segments_total && self.block_index + 1 == self.blocks_len
     }
 
+    // Check if this block is part of a forced inclusion segment.
     fn is_forced_inclusion(&self) -> bool {
         self.forced_inclusion
     }
@@ -101,7 +104,7 @@ where
         &self,
         sources: Vec<SourceManifestSegment>,
         meta: &BundleMeta,
-        origin_block_hash: Option<B256>,
+        origin_block_hash: B256,
         shasta_fork_height: u64,
         state: &mut ParentState,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
@@ -229,7 +232,7 @@ where
             block_id: U256::from(block_number),
             l2_block_hash: B256::ZERO,
             l1_block_height: Some(U256::from(meta.origin_block_number)),
-            l1_block_hash: origin_block_hash,
+            l1_block_hash: Some(origin_block_hash),
             build_payload_args_id,
             is_forced_inclusion: position.is_forced_inclusion(),
             signature,

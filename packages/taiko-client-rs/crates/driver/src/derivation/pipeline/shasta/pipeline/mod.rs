@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::BlockNumberOrTag,
@@ -36,7 +35,7 @@ mod payload;
 mod state;
 mod util;
 
-use bundle::SourceManifestSegment;
+use bundle::{BundleMeta, SourceManifestSegment};
 use state::ParentState;
 
 pub use bundle::ShastaProposalBundle;
@@ -102,8 +101,8 @@ where
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO &&
-                let Some(block) =
+            if origin.l2_block_hash != B256::ZERO
+                && let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
@@ -165,17 +164,10 @@ where
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
     ) -> Result<(ParentState, u64), DerivationError> {
-        let parent_hash = parent_block.hash();
-        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_hash).await?;
-        let shasta_fork_height = self.rpc.shasta.anchor.shastaForkHeight().call().await?;
-
-        let mut header = parent_block.header.inner.clone();
-        if header.base_fee_per_gas.is_none() {
-            header.base_fee_per_gas = Some(SHASTA_INITIAL_BASE_FEE);
-        }
+        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
 
         let state = ParentState {
-            header,
+            header: parent_block.header.inner.clone(),
             timestamp: parent_block.header.timestamp,
             gas_limit: parent_block.header.gas_limit,
             block_number: parent_block.number(),
@@ -183,7 +175,7 @@ where
             prev_randao: parent_block.header.mix_hash,
         };
 
-        Ok((state, shasta_fork_height))
+        Ok((state, self.rpc.shasta.anchor.shastaForkHeight().call().await?))
     }
 }
 
@@ -232,17 +224,15 @@ where
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
-            proposal_id: payload.proposal.id.to::<u64>(),
-            proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
-            origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
-            proposer: payload.proposal.proposer,
-            basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
-            bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
-            prover_auth_bytes,
-            end_of_submission_window_timestamp: payload
-                .proposal
-                .endOfSubmissionWindowTimestamp
-                .to::<u64>(),
+            meta: BundleMeta {
+                proposal_id: payload.proposal.id.to::<u64>(),
+                proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
+                origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
+                proposer: payload.proposal.proposer,
+                basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
+                bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
+                prover_auth_bytes,
+            },
             sources: manifest_segments,
         };
 
@@ -254,10 +244,15 @@ where
         &self,
         manifest: Self::Manifest,
     ) -> Result<Vec<TaikoPayloadAttributes>, DerivationError> {
-        let (meta, sources) = manifest.into_meta_and_sources();
+        let ShastaProposalBundle { meta, sources, .. } = manifest;
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
-        let origin_block_hash = self.rpc.l1_block_hash_by_number(meta.origin_block_number).await?;
+        let origin_block_hash =
+            self.rpc
+                .l1_block_hash_by_number(meta.origin_block_number)
+                .await?
+                .ok_or(DerivationError::Other(anyhow!("origin block hash not found")))?;
+
         let (mut parent_state, shasta_fork_height) =
             self.initialize_parent_state(&parent_block).await?;
 
