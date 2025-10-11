@@ -42,6 +42,7 @@ Get started with Taiko Alethia:
 | [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
 | [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
 | [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
+| [ejector](./packages/ejector)                                 | Preconfirmation ejector service for operators with issues.         |
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
