@@ -12,7 +12,7 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
-import { SignalServiceShasta } from "src/shared/signal/SignalServiceShasta.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
@@ -61,7 +61,7 @@ abstract contract InboxTestHelper is CommonTest {
     ICheckpointStore internal checkpointManager;
 
     /// @notice Signal service proxy used as checkpoint manager
-    SignalServiceShasta internal signalService;
+    SignalService internal signalService;
 
     /// @notice Mock proof verifier for testing
     IProofVerifier internal proofVerifier;
@@ -387,13 +387,13 @@ abstract contract InboxTestHelper is CommonTest {
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
 
         // Deploy signal service behind a proxy so it can be upgraded once inbox is available
-        SignalServiceShasta signalServiceImpl =
-            new SignalServiceShasta(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+        SignalService signalServiceImpl =
+            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
 
-        signalService = SignalServiceShasta(
+        signalService = SignalService(
             address(
                 new ERC1967Proxy(
-                    address(signalServiceImpl), abi.encodeCall(SignalServiceShasta.init, (owner))
+                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (owner))
                 )
             )
         );
@@ -406,8 +406,8 @@ abstract contract InboxTestHelper is CommonTest {
         require(address(signalService) != address(0), "Signal service not deployed");
         require(address(inbox) != address(0), "Inbox not deployed");
 
-        SignalServiceShasta upgradedSignalServiceImpl =
-            new SignalServiceShasta(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
+        SignalService upgradedSignalServiceImpl =
+            new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
 
         vm.prank(owner);
         signalService.upgradeTo(address(upgradedSignalServiceImpl));
