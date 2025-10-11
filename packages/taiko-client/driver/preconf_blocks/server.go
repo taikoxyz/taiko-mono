@@ -507,6 +507,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	// this will reduce "response storms" when many nodes receive the request for the block.
 	wait := deterministicJitter(s.p2pNode.Host().ID(), hash, 1*time.Second)
 	timer := time.NewTimer(wait)
+	defer timer.Stop()
 	select {
 	case <-timer.C:
 		// If any response for this hash was seen recently, skip ours.
