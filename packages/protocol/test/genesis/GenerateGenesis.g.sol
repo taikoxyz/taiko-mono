@@ -165,7 +165,7 @@ contract TestGenerateGenesis is Test {
             address(
                 new Anchor(
                     ICheckpointStore(getPredeployedContractAddress("SignalService")),
-                    IBondManager(address(0)), // bondManager - to be set later
+                    IBondManager(getPredeployedContractAddress("BondManager")),
                     10_000_000, // livenessBondGwei
                     10_000_000, // provabilityBondGwei
                     uint64(shastaForkHeight),
