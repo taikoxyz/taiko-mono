@@ -4,13 +4,13 @@
 # Please try not to change the order
 # Contracts shared between layer 1 and layer 2
 contracts_shared=(
-"contracts/shared/tokenvault/ERC1155Vault.sol:ERC1155Vault"
-"contracts/shared/tokenvault/ERC20Vault.sol:ERC20Vault"
-"contracts/shared/tokenvault/ERC721Vault.sol:ERC721Vault"
-"contracts/shared/tokenvault/BridgedERC20.sol:BridgedERC20"
-"contracts/shared/tokenvault/BridgedERC20V2.sol:BridgedERC20V2"
-"contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721"
-"contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155"
+"contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
+"contracts/shared/vault/ERC20Vault.sol:ERC20Vault"
+"contracts/shared/vault/ERC721Vault.sol:ERC721Vault"
+"contracts/shared/vault/BridgedERC20.sol:BridgedERC20"
+"contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2"
+"contracts/shared/vault/BridgedERC721.sol:BridgedERC721"
+"contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
@@ -18,37 +18,31 @@ contracts_shared=(
 
 # Layer 1 contracts
 contracts_layer1=(
-"contracts/layer1/token/TaikoToken.sol:TaikoToken"
+"contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
+"contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
+"contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
+"contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
 "contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
-"contracts/layer1/verifiers/TaikoRisc0Verifier.sol:TaikoRisc0Verifier"
-"contracts/layer1/verifiers/TaikoSP1Verifier.sol:TaikoSP1Verifier"
-"contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
-"contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
-"contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
+"contracts/layer1/core/impl/Inbox.sol:Inbox"
+"contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
-"contracts/layer1/shasta/impl/ShastaMainnetInbox.sol:ShastaMainnetInbox"
-"contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
-"contracts/layer1/provers/ProverSet.sol:ProverSet"
-"contracts/layer1/fork-router/ForkRouter.sol:ForkRouter"
-"contracts/layer1/forced-inclusion/TaikoWrapper.sol:TaikoWrapper"
-"contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
-"contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
+"contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
+"contracts/layer1/mainnet/MainnetSignalService.sol:MainnetSignalService"
+"contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
+"contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
+"contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
-"contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
-"contracts/layer1/mainnet/TaikoDAOController.sol:TaikoDAOController"
+"contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
+"contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
 # Layer 2 contracts
 contracts_layer2=(
-"contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/mainnet/DelegateController.sol:DelegateController"
-"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
+"contracts/layer2/governance/DelegateController.sol:DelegateController"
+"contracts/layer2/core/Anchor.sol:Anchor"
 )
 
 profile=$1

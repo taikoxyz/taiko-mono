@@ -59,7 +59,7 @@ multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
 
-[lint]
+[profile.lint]
 exclude_lints = [
     "asm-keccak256",
     "unaliased-plain-import",

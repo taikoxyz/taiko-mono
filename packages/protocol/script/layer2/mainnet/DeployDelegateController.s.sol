@@ -5,9 +5,9 @@ import "script/BaseScript.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/common/IResolver.sol";
-import "src/layer2/mainnet/DelegateController.sol";
-import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
-import { LibL2Addrs as L2 } from "src/layer2/mainnet/libs/LibL2Addrs.sol";
+import "src/layer2/governance/DelegateController.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployDelegateController.s.sol
 contract DeployDelegateController is BaseScript {

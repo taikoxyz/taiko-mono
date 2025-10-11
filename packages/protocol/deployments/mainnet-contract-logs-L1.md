@@ -556,7 +556,7 @@
 
 ## Taiko DAO Specific
 
-### TaikoDAOController
+### MainnetDAOController
 
 - ens: `controller.taiko.eth`
 - proxy: `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`

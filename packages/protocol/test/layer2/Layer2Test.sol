@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/mainnet/DelegateController.sol";
-import "src/layer2/based/TaikoAnchor.sol";
+import "src/layer2/governance/DelegateController.sol";
+import "src/layer2/core/Anchor.sol";
 import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";
 
 abstract contract Layer2Test is CommonTest {
-    function deployAnchor(
-        address taikoAnchorImpl,
-        uint64 l1ChainId
-    )
-        internal
-        returns (TaikoAnchor)
-    {
-        return TaikoAnchor(
+    function deployAnchor(address taikoAnchorImpl) internal returns (Anchor) {
+        return Anchor(
             deploy({
                 name: "taiko",
                 impl: taikoAnchorImpl,
-                data: abi.encodeCall(TaikoAnchor.init, (address(0), l1ChainId, 0))
+                data: abi.encodeCall(Anchor.init, (address(0)))
             })
         );
     }

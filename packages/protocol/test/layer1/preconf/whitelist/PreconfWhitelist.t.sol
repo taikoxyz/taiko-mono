@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "../../Layer1Test.sol";
+import "test/shared/CommonTest.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-contract TestPreconfWhitelist is Layer1Test {
+contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;
     PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
