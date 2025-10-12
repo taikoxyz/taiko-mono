@@ -179,12 +179,12 @@ export class RelayerAPIService {
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
-      let data: string | Hex = tx.data.Message.Data;
-      if (data === '') {
-        data = '0x' as Hex;
-      } else if (data !== '0x') {
-        const buffer = Buffer.from(data, 'base64');
-        data = `0x${buffer.toString('hex')}`;
+      let messageDataHex: string | Hex = tx.data.Message.Data;
+      if (messageDataHex === '') {
+        messageDataHex = '0x' as Hex;
+      } else if (messageDataHex !== '0x') {
+        const buffer = Buffer.from(messageDataHex, 'base64');
+        messageDataHex = `0x${buffer.toString('hex')}`;
       }
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
@@ -212,7 +212,7 @@ export class RelayerAPIService {
           id: tx.data.Message.Id,
           to: getAddress(tx.data.Message.To),
           destOwner: getAddress(tx.data.Message.DestOwner),
-          data: data as Hex,
+          data: messageDataHex as Hex,
           srcOwner: getAddress(tx.data.Message.SrcOwner),
           from: getAddress(tx.data.Message.From),
           gasLimit: tx.data.Message.GasLimit,
