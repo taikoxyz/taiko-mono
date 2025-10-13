@@ -298,13 +298,13 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Returns the current proposal-level state snapshot.
-    function getProposalState() external view returns (ProposalState memory state_) {
-        state_ = _proposalState;
+    function getProposalState() external view returns (ProposalState memory) {
+        return _proposalState;
     }
 
     /// @notice Returns the current block-level state snapshot.
-    function getBlockState() external view returns (BlockState memory state_) {
-        state_ = _blockState;
+    function getBlockState() external view returns (BlockState memory) {
+        return _blockState;
     }
 
     /// @dev Validates prover authentication and extracts signer.
