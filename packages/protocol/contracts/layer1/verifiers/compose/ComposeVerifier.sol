@@ -21,7 +21,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    address public immutable taikoInbox;
     /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
     /// All other proofs share its status root, despite different public inputs
     /// due to different verification types.
@@ -36,7 +35,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     address public immutable sp1RethVerifier;
 
     constructor(
-        address _taikoInbox,
         address _sgxGethVerifier,
         address _tdxGethVerifier,
         address _opVerifier,
@@ -44,7 +42,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         address _risc0RethVerifier,
         address _sp1RethVerifier
     ) {
-        taikoInbox = _taikoInbox;
         sgxGethVerifier = _sgxGethVerifier;
         tdxGethVerifier = _tdxGethVerifier;
         opVerifier = _opVerifier;
@@ -64,13 +61,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context[] calldata _ctxs,
-        bytes calldata _proof
-    )
-        external
-        onlyFrom(taikoInbox)
-    {
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         address[] memory verifiers = new address[](size);

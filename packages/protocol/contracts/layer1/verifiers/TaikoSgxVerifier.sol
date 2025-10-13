@@ -37,7 +37,6 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    ITaikoInbox public immutable taikoInbox;
     address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
@@ -85,12 +84,11 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_PROOF();
 
     constructor(
-        address _taikoInbox,
+        uint64 _taikoChainId,
         address _taikoProofVerifier,
         address _automataDcapAttestation
     ) {
-        taikoInbox = ITaikoInbox(_taikoInbox);
-        taikoChainId = taikoInbox.v4GetConfig().chainId;
+        taikoChainId = _taikoChainId;
         taikoProofVerifier = _taikoProofVerifier;
         automataDcapAttestation = _automataDcapAttestation;
     }
@@ -144,13 +142,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context[] calldata _ctxs,
-        bytes calldata _proof
-    )
-        external
-        onlyFromEither(address(taikoInbox), taikoProofVerifier)
-    {
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
@@ -181,16 +173,9 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
 
         uint32 id = uint32(bytes4(_proof[:4]));
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
-
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
-        }
     }
 
-    function _addInstances(
-        address[] memory _instances,
-        bool instantValid
-    )
+    function _addInstances(address[] memory _instances, bool instantValid)
         private
         returns (uint256[] memory ids)
     {

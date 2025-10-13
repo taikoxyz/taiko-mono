@@ -12,7 +12,6 @@ contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     constructor(
-        address _taikoInbox,
         address _sgxGethVerifier,
         address _opVerifier,
         address _sgxRethVerifier,
@@ -20,7 +19,6 @@ contract DevnetVerifier is ComposeVerifier {
         address _sp1RethVerifier
     )
         ComposeVerifier(
-            _taikoInbox,
             _sgxGethVerifier,
             address(0),
             _opVerifier,
@@ -47,11 +45,9 @@ contract DevnetVerifier is ComposeVerifier {
             return false;
         }
 
-        return (
-            _verifiers[refVerifierIdx] == opVerifier
+        return (_verifiers[refVerifierIdx] == opVerifier
                 || _verifiers[refVerifierIdx] == sgxRethVerifier
                 || _verifiers[refVerifierIdx] == risc0RethVerifier
-                || _verifiers[refVerifierIdx] == sp1RethVerifier
-        );
+                || _verifiers[refVerifierIdx] == sp1RethVerifier);
     }
 }
