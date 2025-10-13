@@ -94,7 +94,7 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
-      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
+      AnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       // ============ Proxies ============
@@ -106,7 +106,7 @@ module.exports = {
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
       // Rollup Contracts
-      TaikoAnchor: getConstantAddress(this.chainId, 10001),
+      Anchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
       BondManager: getConstantAddress(this.chainId, 10003),
     };
@@ -115,8 +115,7 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  pacayaForkHeight: 1024,
-  shastaForkHeight: 2048,
+  shastaForkHeight: 0,
   livenessBondGwei: 128_000_000_000,
   provabilityBondGwei: 128_000_000_000,
   withdrawalDelay: 3600,

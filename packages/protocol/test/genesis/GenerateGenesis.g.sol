@@ -13,8 +13,10 @@ import "src/shared/vault/BridgedERC20.sol";
 import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
+import "src/shared/signal/ICheckpointStore.sol";
 import "src/layer2/core/Anchor.sol";
 import "src/layer2/core/BondManager.sol";
+import { IBondManager } from "src/layer2/core/IBondManager.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -26,7 +28,6 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
     uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
     uint48 private livenessBondGwei = uint48(configJSON.readUint(".livenessBondGwei"));
     uint48 private provabilityBondGwei = uint48(configJSON.readUint(".provabilityBondGwei"));
@@ -67,15 +68,15 @@ contract TestGenerateGenesis is Test {
 
     function testRollupContractsDeployment() public {
         // check bytecode
-        checkDeployedCode("TaikoAnchor");
+        checkDeployedCode("Anchor");
         checkDeployedCode("RollupResolver");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoAnchor", contractOwner);
+        checkProxyImplementation("Anchor", contractOwner);
         checkProxyImplementation("RollupResolver");
 
         // check proxies
-        checkDeployedCode("TaikoAnchor");
+        checkDeployedCode("Anchor");
         checkDeployedCode("RollupResolver");
     }
 
@@ -90,7 +91,7 @@ contract TestGenerateGenesis is Test {
         checkSavedAddress(resolverProxy, "ERC721Vault", "erc721_vault");
         checkSavedAddress(resolverProxy, "ERC1155Vault", "erc1155_vault");
         checkSavedAddress(resolverProxy, "SignalService", "signal_service");
-        checkSavedAddress(resolverProxy, "TaikoAnchor", "taiko");
+        checkSavedAddress(resolverProxy, "Anchor", "taiko");
 
         vm.startPrank(resolverProxy.owner());
 
@@ -105,7 +106,7 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, resolverProxy.owner());
 
-        checkSavedAddress(resolverProxy, "TaikoAnchor", "taiko");
+        checkSavedAddress(resolverProxy, "Anchor", "taiko");
         checkSavedAddress(resolverProxy, "SignalService", "signal_service");
 
         vm.startPrank(resolverProxy.owner());
@@ -121,7 +122,7 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, bondManagerProxy.owner());
         assertEq(
-            getPredeployedContractAddress("TaikoAnchor"),
+            getPredeployedContractAddress("Anchor"),
             BondManager(bondManagerAddress).authorized()
         );
         assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
@@ -133,7 +134,7 @@ contract TestGenerateGenesis is Test {
         bondManagerProxy.upgradeTo(
             address(
                 new BondManager(
-                    getPredeployedContractAddress("TaikoAnchor"),
+                    getPredeployedContractAddress("Anchor"),
                     getPredeployedContractAddress("RegularERC20"),
                     1 ether,
                     7 days
@@ -144,34 +145,33 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testTaikoAnchor() public {
-        Anchor taikoAnchorProxy = Anchor(getPredeployedContractAddress("TaikoAnchor"));
+    function testAnchor() public {
+        Anchor anchorProxy = Anchor(getPredeployedContractAddress("Anchor"));
 
-        assertEq(contractOwner, taikoAnchorProxy.owner());
-        assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
-        assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
-        assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
+        assertEq(contractOwner, anchorProxy.owner());
+        assertEq(l1ChainId, anchorProxy.l1ChainId());
+        assertEq(uint64(shastaForkHeight), anchorProxy.shastaForkHeight());
         assertEq(
-            getPredeployedContractAddress("SignalService"),
-            address(taikoAnchorProxy.checkpointStore())
+            getPredeployedContractAddress("SignalService"), address(anchorProxy.checkpointStore())
         );
-        assertEq(
-            getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
-        );
-        assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
-        assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
+        assertEq(getPredeployedContractAddress("BondManager"), address(anchorProxy.bondManager()));
+        assertEq(livenessBondGwei, anchorProxy.livenessBondGwei());
+        assertEq(provabilityBondGwei, anchorProxy.provabilityBondGwei());
 
-        vm.startPrank(taikoAnchorProxy.owner());
+        Anchor.BlockState memory blockState = anchorProxy.getBlockState();
+        assertEq(blockState.anchorBlockNumber, 0);
+        assertEq(blockState.ancestorsHash, bytes32(0));
 
-        taikoAnchorProxy.upgradeTo(
+        vm.startPrank(anchorProxy.owner());
+
+        anchorProxy.upgradeTo(
             address(
                 new Anchor(
+                    ICheckpointStore(getPredeployedContractAddress("SignalService")),
+                    IBondManager(getPredeployedContractAddress("BondManager")),
                     10_000_000, // livenessBondGwei
                     10_000_000, // provabilityBondGwei
-                    getPredeployedContractAddress("SignalService"),
-                    uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    IBondManager(address(0)), // bondManager - to be set later
                     uint64(l1ChainId)
                 )
             )

@@ -30,7 +30,7 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
-      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
+      AnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       // ============ Proxies ============
       // Shared Contracts
@@ -41,7 +41,7 @@ module.exports = {
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
       // Rollup Contracts
-      TaikoAnchor: getConstantAddress(this.chainId, 10001),
+      Anchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
     };
   },
