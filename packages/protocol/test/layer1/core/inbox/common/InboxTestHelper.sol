@@ -25,17 +25,9 @@ abstract contract InboxTestHelper is CommonTest {
 
     address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
-    uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
-    uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
-    uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
-    uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     uint256 internal constant DEFAULT_TEST_BLOB_COUNT = 9;
-
-    // Forced inclusion
-    uint64 internal constant INCLUSION_DELAY = 10 minutes;
-    uint64 internal constant FEE_IN_GWEI = 100;
 
     // ---------------------------------------------------------------
     // Core Test Infrastructure
