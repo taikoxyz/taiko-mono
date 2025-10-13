@@ -158,7 +158,7 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
 
-	if err != nil && len(values) != 5 {
+	if err != nil || len(values) != 5 {
 		return token, big.NewInt(0), err
 	}
 
@@ -232,7 +232,7 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	types := []string{"uint64", "address", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
 
-	if err != nil && len(values) != 4 {
+	if err != nil || len(values) != 4 {
 		return EventTypeSendETH, token, big.NewInt(0), err
 	}
 
