@@ -52,5 +52,5 @@ There does not seem to be a tangible advantage from having a fork router in the 
 **Note:** The **Shasta fork** `timestamp` should be set to the L1 epoch beginning timestamp.
 
 * The **Pacaya operator** of the last Pacaya epoch should continue **preconfirming** until the `HANDOVER_WINDOW`, **submitting** batches to L1 during this window.
-* The **next Pacaya operator** of the last Pacaya epoch should **skip proposing** during the `HANDOVER_WINDOW`.
+* The **next Pacaya operator** of the last Pacaya epoch should **skip preconfing** during the `HANDOVER_WINDOW`.
 * The **Shasta operator** should start **preconfirming** at the Shasta fork `timestamp`.
