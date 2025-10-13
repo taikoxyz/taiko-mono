@@ -13,7 +13,6 @@ import "../../verifiers/IVerifier.sol";
 contract OpVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
