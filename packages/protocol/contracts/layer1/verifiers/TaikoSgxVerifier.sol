@@ -81,10 +81,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
 
-    constructor(
-        uint64 _taikoChainId,
-        address _automataDcapAttestation
-    ) {
+    constructor(uint64 _taikoChainId, address _automataDcapAttestation) {
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
     }
@@ -171,7 +168,10 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
     }
 
-    function _addInstances(address[] memory _instances, bool instantValid)
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
         private
         returns (uint256[] memory ids)
     {

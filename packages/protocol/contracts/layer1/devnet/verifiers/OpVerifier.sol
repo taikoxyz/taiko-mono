@@ -11,11 +11,9 @@ import "../../verifiers/IVerifier.sol";
 /// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract OpVerifier is EssentialContract, IVerifier {
-
     uint256[50] private __gap;
 
-    constructor() {
-    }
+    constructor() { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -24,11 +22,5 @@ contract OpVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context[] calldata _ctxs,
-        bytes calldata _proof
-    )
-        external
-        view
-    { }
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view { }
 }

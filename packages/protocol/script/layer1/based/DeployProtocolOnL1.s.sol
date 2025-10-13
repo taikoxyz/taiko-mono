@@ -77,50 +77,45 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (
-            address pacayaInboxAddr,
-            address shastaInboxAddr,
-            address proofVerifier,
-            address whitelist
-        ) = deployRollupContracts(sharedResolver, contractOwner);
+        (address pacayaInboxAddr, address shastaInboxAddr, address proofVerifier, address whitelist)
+        = deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers
         OpVerifier opImpl = new OpVerifier();
         VerifierAddresses memory verifiers =
             deployVerifiers(contractOwner, proofVerifier, pacayaInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
-            UUPSUpgradeable(proofVerifier)
-                .upgradeTo({
-                    newImplementation: address(
-                        new DevnetVerifier(
-                            verifiers.opGethVerifier,
-                            verifiers.opRethVerifier,
-                            address(0),
-                            verifiers.risc0RethVerifier,
-                            verifiers.sp1RethVerifier
-                        )
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new DevnetVerifier(
+                        verifiers.opGethVerifier,
+                        verifiers.opRethVerifier,
+                        address(0),
+                        verifiers.risc0RethVerifier,
+                        verifiers.sp1RethVerifier
                     )
-                });
+                )
+            });
         } else {
-            UUPSUpgradeable(proofVerifier)
-                .upgradeTo({
-                    newImplementation: address(
-                        new DevnetVerifier(
-                            verifiers.sgxGethVerifier,
-                            verifiers.opRethVerifier,
-                            verifiers.sgxRethVerifier,
-                            verifiers.risc0RethVerifier,
-                            verifiers.sp1RethVerifier
-                        )
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new DevnetVerifier(
+                        verifiers.sgxGethVerifier,
+                        verifiers.opRethVerifier,
+                        verifiers.sgxRethVerifier,
+                        verifiers.risc0RethVerifier,
+                        verifiers.sp1RethVerifier
                     )
-                });
+                )
+            });
         }
 
         Ownable2StepUpgradeable(proofVerifier).transferOwnership(contractOwner);
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
+        address signalServiceAddr = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
         SignalService signalService = SignalService(signalServiceAddr);
 
         if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
@@ -268,7 +263,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function deployRollupContracts(address _sharedResolver, address owner)
+    function deployRollupContracts(
+        address _sharedResolver,
+        address owner
+    )
         internal
         returns (
             address pacayaInboxAddr,
@@ -312,13 +310,12 @@ contract DeployProtocolOnL1 is DeployCapability {
                         address(0),
                         proofVerifier,
                         bondToken,
-                        IResolver(_sharedResolver)
-                            .resolve(uint64(block.chainid), "signal_service", false)
+                        IResolver(_sharedResolver).resolve(
+                            uint64(block.chainid), "signal_service", false
+                        )
                     )
                 ),
-                data: abi.encodeCall(
-                    TaikoInbox.v4Init, (address(0), vm.envBytes32("L2_GENESIS_HASH"))
-                )
+                data: abi.encodeCall(TaikoInbox.v4Init, (address(0), vm.envBytes32("L2_GENESIS_HASH")))
             });
         }
         address codec = address(new CodecOptimized());
@@ -351,7 +348,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         VerifierAddresses memory verifiers;
         // OP verifier
         verifiers.opRethVerifier = deployProxy({
-            name: "op_verifier", impl: opImplAddr, data: abi.encodeCall(OpVerifier.init, (owner))
+            name: "op_verifier",
+            impl: opImplAddr,
+            data: abi.encodeCall(OpVerifier.init, (owner))
         });
 
         // Other verifiers
@@ -367,16 +366,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(
-                new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), automataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
 
@@ -391,21 +387,21 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "sgx_geth_automata",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(
-                new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), sgxGethAutomataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
         return verifiers;
     }
 
-    function deployZKVerifiers(address owner, uint64 l2ChainId)
+    function deployZKVerifiers(
+        address owner,
+        uint64 l2ChainId
+    )
         private
         returns (address taikoRisc0Verifier, address taikoSP1Verifier)
     {
@@ -479,8 +475,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(0),
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver)
-                        .resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         }
@@ -495,8 +492,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver)
-                        .resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         } else {
@@ -507,33 +505,32 @@ contract DeployProtocolOnL1 is DeployCapability {
                     taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver)
-                        .resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         }
 
-        UUPSUpgradeable(taikoInbox)
-            .upgradeTo({
-                newImplementation: address(
-                    new ShastaForkRouter(
-                        oldFork, // dont need old fork, we are using pacaya fork height 0 here
-                        newFork
-                    )
+        UUPSUpgradeable(taikoInbox).upgradeTo({
+            newImplementation: address(
+                new ShastaForkRouter(
+                    oldFork, // dont need old fork, we are using pacaya fork height 0 here
+                    newFork
                 )
-            });
+            )
+        });
 
-        UUPSUpgradeable(store)
-            .upgradeTo(
-                address(
-                    new ForcedInclusionStore(
-                        uint8(vm.envUint("INCLUSION_WINDOW")),
-                        uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
-                        taikoInbox,
-                        taikoWrapper
-                    )
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    taikoWrapper
                 )
-            );
+            )
+        );
 
         Ownable2StepUpgradeable(store).transferOwnership(owner);
         console2.log("** forced_inclusion_store ownership transferred to:", owner);
@@ -544,8 +541,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(PreconfRouter.init, (owner))
         });
 
-        UUPSUpgradeable(taikoWrapper)
-            .upgradeTo({ newImplementation: address(new TaikoWrapper(taikoInbox, store, router)) });
+        UUPSUpgradeable(taikoWrapper).upgradeTo({
+            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
+        });
 
         Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
         console2.log("** taiko_wrapper ownership transferred to:", owner);

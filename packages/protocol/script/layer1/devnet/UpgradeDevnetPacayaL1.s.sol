@@ -114,14 +114,13 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         // Upgrade ForcedInclusionStore to use the real TaikoWrapper address.
-        UUPSUpgradeable(store)
-            .upgradeTo(
-                address(
-                    new ForcedInclusionStore(
-                        uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
-                    )
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
                 )
-            );
+            )
+        );
 
         // TaikoInbox
         address newFork = address(
@@ -136,8 +135,9 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         // Prover set
-        UUPSUpgradeable(proverSet)
-            .upgradeTo(address(new ProverSet(taikoInbox, taikoToken, taikoWrapper)));
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(taikoInbox, taikoToken, taikoWrapper))
+        );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 taikoChainId = taikoInboxImpl.v4GetConfig().chainId;
         require(taikoChainId != block.chainid, "same chainid");
@@ -167,14 +167,13 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(taikoChainId);
 
         // In testing, use address(0) as an sgxVerifier
-        UUPSUpgradeable(proofVerifier)
-            .upgradeTo(
-                address(
-                    new DevnetVerifier(
-                        sgxGethVerifier, opProxy, address(0), risc0RethVerifier, sp1RethVerifier
-                    )
+        UUPSUpgradeable(proofVerifier).upgradeTo(
+            address(
+                new DevnetVerifier(
+                    sgxGethVerifier, opProxy, address(0), risc0RethVerifier, sp1RethVerifier
                 )
-            );
+            )
+        );
     }
 
     function deployZKVerifiers(uint64 taikoChainId)

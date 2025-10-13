@@ -11,7 +11,11 @@ import "./ComposeVerifier.sol";
 contract SgxAndZkVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
-    constructor(address _sgxRethVerifier, address _risc0RethVerifier, address _sp1RethVerifier)
+    constructor(
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
+    )
         ComposeVerifier(
             address(0),
             address(0),
