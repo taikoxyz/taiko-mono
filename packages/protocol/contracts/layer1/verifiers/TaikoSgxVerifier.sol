@@ -6,7 +6,6 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -37,7 +36,6 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
@@ -85,11 +83,9 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
 
     constructor(
         uint64 _taikoChainId,
-        address _taikoProofVerifier,
         address _automataDcapAttestation
     ) {
         taikoChainId = _taikoChainId;
-        taikoProofVerifier = _taikoProofVerifier;
         automataDcapAttestation = _automataDcapAttestation;
     }
 

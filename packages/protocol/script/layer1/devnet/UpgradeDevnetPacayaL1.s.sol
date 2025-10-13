@@ -85,7 +85,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         // OP verifier
-        address opImpl = address(new OpVerifier(taikoInbox, proofVerifier));
+        address opImpl = address(new OpVerifier());
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: opImpl,
@@ -223,7 +223,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoChainId, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoChainId, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: address(0)
         });

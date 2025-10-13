@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
 import "../../verifiers/IVerifier.sol";
 
 /// @title OpVerifier
@@ -13,14 +11,10 @@ import "../../verifiers/IVerifier.sol";
 /// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract OpVerifier is EssentialContract, IVerifier {
-    address public immutable taikoInbox;
-    address public immutable proofVerifier;
 
     uint256[50] private __gap;
 
-    constructor(address _taikoInbox, address _proofVerifier) {
-        taikoInbox = _taikoInbox;
-        proofVerifier = _proofVerifier;
+    constructor() {
     }
 
     /// @notice Initializes the contract.
@@ -35,6 +29,6 @@ contract OpVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromEither(taikoInbox, proofVerifier)
+        view
     { }
 }
