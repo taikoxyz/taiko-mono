@@ -39,7 +39,6 @@ export async function deployTaikoAnchor(
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
     console.log({
-        pacayaForkHeight: config.pacayaForkHeight,
         shastaForkHeight: config.shastaForkHeight,
     });
     console.log("\n");
@@ -50,7 +49,6 @@ export async function deployTaikoAnchor(
         chainId,
         config.contractAddresses,
         config.param1559,
-        config.pacayaForkHeight,
         config.shastaForkHeight,
         config.livenessBondGwei,
         config.provabilityBondGwei,
@@ -88,6 +86,9 @@ export async function deployTaikoAnchor(
         storageLayoutName = contractName.includes("Resolver")
             ? "DefaultResolver"
             : storageLayoutName;
+
+        storageLayoutName =
+            storageLayoutName === "TaikoAnchor" ? "Anchor" : storageLayoutName;
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -128,7 +129,6 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    pacayaForkHeight: number,
     shastaForkHeight: number,
     livenessBondGwei: number,
     provabilityBondGwei: number,
@@ -235,7 +235,6 @@ async function generateContractConfigs(
         {},
         getImmutableReference("Anchor", [
             "checkpointStore",
-            "pacayaForkHeight",
             "shastaForkHeight",
             "livenessBondGwei",
             "provabilityBondGwei",
@@ -263,6 +262,10 @@ async function generateContractConfigs(
     const bridgedERC1155ReferencesMap: any = getImmutableReference(
         "BridgedERC1155",
         ["erc1155Vault"],
+    );
+    const signalServiceReferencesMap: any = getImmutableReference(
+        "SignalService",
+        ["_authorizedSyncer", "_remoteSignalService"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -617,6 +620,20 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: signalServiceReferencesMap._authorizedSyncer.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: signalServiceReferencesMap._remoteSignalService.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SignalService,
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -637,9 +654,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                isAuthorized: {
-                    [addressMap.TaikoAnchor]: true,
-                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
@@ -740,13 +754,6 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.pacayaForkHeight.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(pacayaForkHeight),
-                            32,
-                        ),
-                    },
-                    {
                         id: taikoAnchorReferencesMap.shastaForkHeight.id,
                         value: ethers.utils.hexZeroPad(
                             ethers.utils.hexlify(shastaForkHeight),
@@ -801,22 +808,8 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // TaikoAnchor => CrossChainOwned
-                l1ChainId,
-                // TaikoAnchor
-                publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["bytes32[256]"],
-                    [
-                        new Array(255)
-                            .fill(ethers.constants.HashZero)
-                            .concat([
-                                ethers.utils.hexZeroPad(
-                                    ethers.utils.hexlify(chainId),
-                                    32,
-                                ),
-                            ]),
-                    ],
-                )}`,
+                // TaikoAnchor - ancestorsHash will be set by first anchor call
+                ancestorsHash: ethers.constants.HashZero,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,

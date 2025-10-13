@@ -16,7 +16,7 @@ interface IInbox {
         /// @notice The token used for bonds
         address bondToken;
         /// @notice The signal service contract address
-        address signalService;
+        address checkpointStore;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract

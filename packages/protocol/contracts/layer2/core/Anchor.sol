@@ -125,6 +125,14 @@ contract Anchor is EssentialContract {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    // Block-level state (updated per block)
+
+    /// @notice Latest L1 block number anchored to L2.
+    uint48 public anchorBlockNumber;
+
+    /// @notice A hash to check the integrity of public inputs.
+    bytes32 public ancestorsHash;
+
     /// @notice Storage gap for upgrade safety.
     uint256[47] private __gap;
 
@@ -496,7 +504,7 @@ contract Anchor is EssentialContract {
         uint48 _proposalId,
         address _proposer
     )
-        private
+        public
         pure
         returns (bool)
     {
