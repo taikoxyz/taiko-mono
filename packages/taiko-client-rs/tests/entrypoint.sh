@@ -71,4 +71,5 @@ export TEST_ACCOUNT_PRIVATE_KEY=0x7c852118294e51e653712a81e05800f419141751be58f6
 export TREASURY=0x1670010000000000000000000000000000010001
 
 cargo nextest -v run \
+    -j 1 \
     --workspace --exclude bindings --all-features

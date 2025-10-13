@@ -1,7 +1,10 @@
 //! Shasta inbox event indexer implementation.
 
 use std::{
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, SystemTime},
 };
 
@@ -26,7 +29,7 @@ use event_scanner::{
     types::{ScannerMessage, ScannerStatus},
 };
 use rpc::SubscriptionSource;
-use tokio::{sync::Notify, task::JoinHandle};
+use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -93,6 +96,8 @@ pub struct ShastaEventIndexer {
     proved_payloads: DashMap<U256, ProvedEventPayload>,
     /// Notifier for when historical indexing is finished.
     historical_indexing_finished: Notify,
+    /// Tracks whether historical indexing has completed.
+    historical_indexing_done: AtomicBool,
 }
 
 impl ShastaEventIndexer {
@@ -132,6 +137,7 @@ impl ShastaEventIndexer {
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
             historical_indexing_finished: Notify::new(),
+            historical_indexing_done: AtomicBool::new(false),
         }))
     }
 
@@ -177,7 +183,9 @@ impl ShastaEventIndexer {
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
                     if matches!(status, ScannerStatus::ChainTipReached) {
-                        self.historical_indexing_finished.notify_waiters();
+                        if !self.historical_indexing_done.swap(true, Ordering::SeqCst) {
+                            self.historical_indexing_finished.notify_waiters();
+                        }
                     }
                     continue;
                 }
@@ -219,7 +227,7 @@ impl ShastaEventIndexer {
     /// Start the indexer event processing loop on a background task.
     #[instrument(skip(self))]
     pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
-        tokio::spawn(async move { self.run_inner().await })
+        spawn(async move { self.run_inner().await })
     }
 
     /// Decode and cache a `Proposed` event payload.
@@ -368,6 +376,9 @@ impl ShastaEventIndexer {
 
     /// Wait till the historical indexing finished.
     pub async fn wait_historical_indexing_finished(&self) {
+        if self.historical_indexing_done.load(Ordering::SeqCst) {
+            return;
+        }
         self.historical_indexing_finished.notified().await;
     }
 

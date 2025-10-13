@@ -21,6 +21,7 @@ use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::UpdateStateInput},
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
+use tracing::warn;
 
 use super::{
     super::validation::{ValidationError, validate_source_manifest},
@@ -255,8 +256,13 @@ where
             Ok(()) => {}
             Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
                 decoded_manifest = DerivationSourceManifest::default();
-                validate_source_manifest(&mut decoded_manifest, &validation_ctx)
-                    .map_err(DerivationError::from)?;
+                if let Err(err) = validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
+                    warn!(
+                        ?err,
+                        proposal_id = meta.proposal_id,
+                        "default manifest validation failed; continuing with default payload"
+                    );
+                }
             }
         }
 

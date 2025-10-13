@@ -1,9 +1,17 @@
 //! Helpers for materialising payload attributes into execution engine blocks.
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
+use alethia_reth_primitives::{
+    engine::types::TaikoExecutionDataSidecar, payload::attributes::TaikoPayloadAttributes,
+};
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{
+    TxEnvelope,
+    proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder},
+};
+use alloy_primitives::bytes::BufMut;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+#[cfg(test)]
+use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState,
     PayloadId, PayloadStatusEnum,
@@ -131,9 +139,10 @@ where
     // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
     let envelope = rpc.engine_get_payload_v2(payload_id).await?;
     let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
+    let sidecar = derive_payload_sidecar(&payload_input);
 
     // Submit the new block to the execution engine and bail out on unrecoverable statuses.
-    let payload_status = rpc.engine_new_payload_v2(payload_input.clone(), Vec::new(), None).await?;
+    let payload_status = rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
 
     match payload_status.status {
         PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
@@ -170,6 +179,17 @@ where
     })
 }
 
+fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {
+    let tx_hash =
+        ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
+            buf.put_slice(tx)
+        });
+    let withdrawals_hash =
+        payload.withdrawals.as_ref().map(|withdrawals| calculate_withdrawals_root(withdrawals));
+
+    TaikoExecutionDataSidecar { tx_hash, withdrawals_hash, taiko_block: Some(true) }
+}
+
 fn envelope_into_submission(
     envelope: ExecutionPayloadEnvelopeV2,
 ) -> (ExecutionPayloadInputV2, B256, u64) {
@@ -187,5 +207,58 @@ fn envelope_into_submission(
             payload.payload_inner.block_hash,
             payload.payload_inner.block_number,
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::{Address, B256, Bloom, Bytes, U256};
+    use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
+    use alloy_eips::eip4895::Withdrawal;
+    use alloy_primitives::bytes::BufMut;
+
+    #[test]
+    fn derive_payload_sidecar_matches_roots() {
+        let transactions =
+            vec![Bytes::from_static(&[0x01, 0x23]), Bytes::from_static(&[0x45, 0x67])];
+        let withdrawals = vec![Withdrawal {
+            index: 0,
+            validator_index: 1,
+            address: Address::from([2u8; 20]),
+            amount: 3,
+        }];
+
+        let payload_v1 = ExecutionPayloadV1 {
+            parent_hash: B256::from(U256::from(10u64)),
+            fee_recipient: Address::from([1u8; 20]),
+            state_root: B256::from(U256::from(2u64)),
+            receipts_root: B256::from(U256::from(3u64)),
+            logs_bloom: Bloom::default(),
+            prev_randao: B256::from(U256::from(4u64)),
+            block_number: 7,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp: 123,
+            extra_data: Bytes::new(),
+            base_fee_per_gas: U256::from(1u64),
+            block_hash: B256::from(U256::from(42u64)),
+            transactions: transactions.clone(),
+        };
+
+        let payload_input = ExecutionPayloadInputV2 {
+            execution_payload: payload_v1,
+            withdrawals: Some(withdrawals.clone()),
+        };
+
+        let sidecar = derive_payload_sidecar(&payload_input);
+
+        let expected_tx_root =
+            ordered_trie_root_with_encoder(&transactions, |item, buf| buf.put_slice(item));
+        assert_eq!(sidecar.tx_hash, expected_tx_root);
+
+        let expected_withdrawals_root = calculate_withdrawals_root(&withdrawals);
+        assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
+        assert_eq!(sidecar.taiko_block, Some(true));
     }
 }

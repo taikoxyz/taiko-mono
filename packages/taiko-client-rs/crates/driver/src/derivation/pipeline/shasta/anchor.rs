@@ -109,7 +109,13 @@ where
                 (self.golden_touch_address, block_id),
             )
             .await
-            .map_err(|err| AnchorTxConstructorError::Provider(err.to_string()))?;
+            .or_else(|err| {
+                if err.to_string().contains("not found") {
+                    Ok(U256::ZERO)
+                } else {
+                    Err(AnchorTxConstructorError::Provider(err.to_string()))
+                }
+            })?;
 
         let nonce: u64 =
             u64::try_from(&nonce).map_err(|_| AnchorTxConstructorError::NonceOverflow)?;

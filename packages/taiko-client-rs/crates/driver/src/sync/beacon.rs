@@ -2,7 +2,8 @@
 
 use std::{borrow::Cow, marker::PhantomData, time::Duration};
 
-use alloy::{primitives::B256, providers::Provider};
+use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+use alloy::providers::Provider;
 use alloy_consensus::{self, TxEnvelope};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{ProviderBuilder, RootProvider};
@@ -83,9 +84,13 @@ where
         };
 
         let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: block.header.transactions_root,
+            withdrawals_hash: block.header.withdrawals_root,
+            taiko_block: Some(true),
+        };
 
-        let payload_status =
-            self.rpc.engine_new_payload_v2(payload_input, Vec::<B256>::new(), None).await?;
+        let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
 
         match payload_status.status {
             PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}

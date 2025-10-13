@@ -38,4 +38,13 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+anyhow = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+proposer = { path = "../proposer" }
 serde_json = { workspace = true }
+serial_test = { workspace = true }
+test-harness = { path = "../test-harness" }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }

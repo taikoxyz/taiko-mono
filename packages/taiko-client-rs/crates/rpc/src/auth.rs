@@ -2,18 +2,22 @@
 
 use std::borrow::Cow;
 
-use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoPayloadAttributes};
+use alethia_reth_primitives::{
+    engine::types::TaikoExecutionDataSidecar,
+    payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
+};
 use alethia_reth_rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList;
-use alloy_primitives::{Address, B256, FixedBytes, U256};
+use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
     PayloadId, PayloadStatus,
 };
+use anyhow::anyhow;
 use serde_json::Value;
 
 use super::client::Client;
-use crate::error::Result;
+use crate::error::{Result, RpcClientError};
 
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
@@ -151,15 +155,25 @@ impl<P: Provider + Clone> Client<P> {
     /// Submit a new payload via the execution engine API.
     pub async fn engine_new_payload_v2(
         &self,
-        payload: ExecutionPayloadInputV2,
-        versioned_hashes: Vec<B256>,
-        parent_beacon_block_root: Option<B256>,
+        payload: &ExecutionPayloadInputV2,
+        sidecar: &TaikoExecutionDataSidecar,
     ) -> Result<PayloadStatus> {
+        let mut payload_value = serde_json::to_value(&payload.execution_payload)
+            .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+        if let serde_json::Value::Object(ref mut obj) = payload_value {
+            obj.insert(
+                "txHash".to_string(),
+                serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
+            );
+            let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
+            obj.insert("withdrawalsHash".to_string(), serde_json::Value::String(withdrawals_hex));
+            if let Some(flag) = sidecar.taiko_block {
+                obj.insert("taikoBlock".to_string(), serde_json::Value::Bool(flag));
+            }
+        }
+
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()),
-                (payload, versioned_hashes, parent_beacon_block_root),
-            )
+            .raw_request(Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()), (payload_value,))
             .await
             .map_err(Into::into)
     }

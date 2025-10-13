@@ -1,5 +1,7 @@
 //! Core proposer implementation for submitting block proposals.
 
+use std::sync::Arc;
+
 use alethia_reth_consensus::{
     eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
     validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
@@ -45,6 +47,22 @@ impl Proposer {
         );
 
         // Initialize RPC client.
+        let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
+            l1_subscription_source: cfg.l1_provider_source.clone(),
+            inbox_address: cfg.inbox_address,
+        })
+        .await?;
+        indexer.clone().spawn();
+        indexer.wait_historical_indexing_finished().await;
+
+        Self::new_with_indexer(cfg, indexer).await
+    }
+
+    /// Creates a new proposer using an already-initialized event indexer.
+    pub async fn new_with_indexer(
+        cfg: ProposerConfigs,
+        indexer: Arc<ShastaEventIndexer>,
+    ) -> Result<Self> {
         let rpc_provider = Client::new_with_wallet(
             ClientConfig {
                 l1_provider_source: cfg.l1_provider_source.clone(),
@@ -56,15 +74,6 @@ impl Proposer {
             cfg.l1_proposer_private_key,
         )
         .await?;
-
-        // Initialize event indexer.
-        let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.l1_provider_source.clone(),
-            inbox_address: cfg.inbox_address,
-        })
-        .await?;
-        indexer.clone().spawn();
-        indexer.wait_historical_indexing_finished().await;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
 
@@ -95,7 +104,8 @@ impl Proposer {
     }
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
-    async fn fetch_and_propose(&self) -> Result<()> {
+    /// Fetch transactions and submit a proposal once.
+    pub async fn fetch_and_propose(&self) -> Result<()> {
         // Fetch mempool content from L2 execution engine.
         let pool_content = self.fetch_pool_content().await?;
 
@@ -139,6 +149,11 @@ impl Proposer {
         }
 
         Ok(())
+    }
+
+    /// Return a clone of the RPC client bundle used by the proposer.
+    pub fn rpc_client(&self) -> ClientWithWallet {
+        self.rpc_provider.clone()
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
@@ -216,46 +231,25 @@ impl Proposer {
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
+    use std::borrow::Cow;
 
     use super::*;
     use alloy::{
-        primitives::{Address, B256, aliases::U48},
+        primitives::{B256, aliases::U48},
         rpc::client::NoParams,
-        transports::http::reqwest::Url,
     };
-    use rpc::SubscriptionSource;
+    use serial_test::serial;
+    use test_harness::{ShastaEnv, init_tracing};
 
-    fn init_tracing() {
-        static INIT: OnceLock<()> = OnceLock::new();
-
-        INIT.get_or_init(|| {
-            let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
-            let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
-        });
-    }
-
+    #[serial]
     #[tokio::test]
     async fn propose_shasta_batches() -> anyhow::Result<()> {
-        init_tracing();
+        init_tracing("debug");
 
-        let cfg = ProposerConfigs {
-            l1_provider_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
-            l2_provider_url: Url::from_str(&env::var("L2_HTTP")?)?,
-            l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH")?)?,
-            jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET")?)?,
-            inbox_address: Address::from_str(&env::var("SHASTA_INBOX")?)?,
-            l2_suggested_fee_recipient: Address::from_str(&env::var(
-                "L2_SUGGESTED_FEE_RECIPIENT",
-            )?)?,
-            propose_interval: Duration::from_secs(0),
-            l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY")?.parse()?,
-            gas_limit: None,
-        };
+        let env = ShastaEnv::load_from_env().await?;
 
-        let proposer = Proposer::new(cfg.clone()).await?;
-        let provider = proposer.rpc_provider.clone();
+        let proposer = env.proposer.clone();
+        let provider = proposer.rpc_client();
 
         for i in 0..3 {
             assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
@@ -278,7 +272,8 @@ mod tests {
     }
 
     async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> anyhow::Result<B256> {
-        let hash = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
+        let hash: alloy::primitives::FixedBytes<32> =
+            client.shasta.inbox.getProposalHash(proposal_id).call().await?;
         Ok(hash)
     }
 }
