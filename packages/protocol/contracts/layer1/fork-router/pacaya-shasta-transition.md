@@ -1,6 +1,6 @@
 ## Goal
 
-The goal of this document is to outline a plan for the Pacaya->Shasta transition in the most secure and gas efficient way possible. ** Since the Shasta Inbox contract will still be deployed with a whitelisted set of preconfers, we can make use of those security assumptions to simplify the transition and avoid having to do too much on-chain. **
+The goal of this document is to outline a plan for the Pacaya->Shasta transition in the most secure and gas efficient way possible. **Since the Shasta Inbox contract will still be deployed with a whitelisted set of preconfers, we can make use of those security assumptions to simplify the transition and avoid having to do too much on-chain.**
 
 ## Terminology
 
@@ -46,3 +46,11 @@ There does not seem to be a tangible advantage from having a fork router in the 
    NOTE: This can be computed off-chain, and while it has not been proven yet, the `SHASTA_INITIALIZER` can ensure it will eventually be proven.
 5. Proposers submit their proposals to the new shasta inbox, the fork has officially happened.
 6. Proposers and provers can still call the old inbox contract via the fork router, in order to prove pacaya batches and withdraw their bonds.
+
+## Preconfer Operator Transition
+
+**Note:** The **Shasta fork** `timestamp` should be set to the L1 epoch beginning timestamp.
+
+* The **Pacaya operator** of the last Pacaya epoch should continue **preconfirming** until the `HANDOVER_WINDOW`, **submitting** batches to L1 during this window.
+* The **next Pacaya operator** of the last Pacaya epoch should **skip preconfirming** during the `HANDOVER_WINDOW`.
+* The **Shasta operator** should start **preconfirming** at the Shasta fork `timestamp`.
