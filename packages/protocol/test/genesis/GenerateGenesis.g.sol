@@ -122,8 +122,7 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, bondManagerProxy.owner());
         assertEq(
-            getPredeployedContractAddress("Anchor"),
-            BondManager(bondManagerAddress).authorized()
+            getPredeployedContractAddress("Anchor"), BondManager(bondManagerAddress).authorized()
         );
         assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
         assertEq(minBond, BondManager(bondManagerAddress).minBond());
