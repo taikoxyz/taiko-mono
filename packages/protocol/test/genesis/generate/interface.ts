@@ -9,8 +9,8 @@ export interface Config {
     contractAddresses: Object;
     param1559: Object;
     shastaForkHeight: number;
-    livenessBondGwei: number;
-    provabilityBondGwei: number;
+    livenessBond: number;
+    provabilityBond: number;
     withdrawalDelay: number;
     minBond: number;
     bondToken: string;

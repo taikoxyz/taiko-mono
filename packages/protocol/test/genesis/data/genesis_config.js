@@ -54,8 +54,8 @@ module.exports = {
   // Option to pre-deploy an ERC-20 token.
   predeployERC20: true,
   shastaForkHeight: 2048,
-  livenessBondGwei: 128_000_000_000,
-  provabilityBondGwei: 128_000_000_000,
+  livenessBond: 128e18,
+  provabilityBond: 128e18,
   withdrawalDelay: 3600,
   minBond: 0,
   bondToken: "0x0000000000000000000000000000000000000000",
