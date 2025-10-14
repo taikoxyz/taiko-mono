@@ -560,7 +560,10 @@ func (s *Syncer) recordPacayaProposal(meta metadata.TaikoProposalMetaData) {
 	proposal := &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
 	s.pacayaProposalHistory = append(s.pacayaProposalHistory, proposal)
 	if len(s.pacayaProposalHistory) > proposalHistoryLimit {
-		s.pacayaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.pacayaProposalHistory[len(s.pacayaProposalHistory)-proposalHistoryLimit:]...)
+		s.pacayaProposalHistory = append(
+			[]*encoding.LastSeenProposal(nil),
+			s.pacayaProposalHistory[len(s.pacayaProposalHistory)-proposalHistoryLimit:]...,
+		)
 	}
 }
 
@@ -575,7 +578,10 @@ func (s *Syncer) recordShastaProposal(meta metadata.TaikoProposalMetaData) {
 	proposal := &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
 	s.shastaProposalHistory = append(s.shastaProposalHistory, proposal)
 	if len(s.shastaProposalHistory) > proposalHistoryLimit {
-		s.shastaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.shastaProposalHistory[len(s.shastaProposalHistory)-proposalHistoryLimit:]...)
+		s.shastaProposalHistory = append(
+			[]*encoding.LastSeenProposal(nil),
+			s.shastaProposalHistory[len(s.shastaProposalHistory)-proposalHistoryLimit:]...,
+		)
 	}
 }
 
