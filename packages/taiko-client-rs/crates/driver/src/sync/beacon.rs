@@ -145,6 +145,8 @@ where
         };
 
         let mut ticker = interval(poll_interval);
+        // Use MissedTickBehavior::Skip to prevent tick accumulation during slow operations.
+        // This ensures that if the sync loop is delayed, we do not process multiple ticks at once.
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         info!(interval_secs = poll_interval.as_secs(), "beacon sync stage started");
