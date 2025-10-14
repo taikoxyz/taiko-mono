@@ -127,14 +127,8 @@ contract Anchor is EssentialContract {
 
     // Block-level state (updated per block)
 
-    /// @notice Latest L1 block number anchored to L2.
-    uint48 public anchorBlockNumber;
-
-    /// @notice A hash to check the integrity of public inputs.
-    bytes32 public ancestorsHash;
-
     /// @notice Storage gap for upgrade safety.
-    uint256[47] private __gap;
+    uint256[49] private __gap;
 
     // ---------------------------------------------------------------
     // Events
