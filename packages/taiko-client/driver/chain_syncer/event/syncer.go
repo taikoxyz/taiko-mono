@@ -30,6 +30,8 @@ import (
 	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
+const proposalHistoryLimit = 64
+
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
 type Syncer struct {
@@ -44,8 +46,12 @@ type Syncer struct {
 	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
 	blocksInserterShasta blocksInserter.Inserter // Shasta blocks inserter
 
-	lastInsertedBatchID *big.Int
-	reorgDetectedFlag   bool
+	lastInsertedBatchID  *big.Int
+	reorgDetectedFlag    bool
+	latestSeenProposalCh chan *encoding.LastSeenProposal
+
+	pacayaProposalHistory []*encoding.LastSeenProposal
+	shastaProposalHistory []*encoding.LastSeenProposal
 
 	// Shasta derivation source fetcher
 	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
@@ -94,6 +100,9 @@ func NewSyncer(
 			constructor,
 			latestSeenProposalCh,
 		),
+		latestSeenProposalCh:    latestSeenProposalCh,
+		pacayaProposalHistory:   make([]*encoding.LastSeenProposal, 0, proposalHistoryLimit),
+		shastaProposalHistory:   make([]*encoding.LastSeenProposal, 0, proposalHistoryLimit),
 		derivationSourceFetcher: shastaManifest.NewDerivationSourceFetcher(client, blobDataSource),
 	}, nil
 }
@@ -223,6 +232,7 @@ func (s *Syncer) processShastaProposal(
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
 			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
+			s.handleShastaReorg(reorgCheckResult)
 			endIter()
 
 			return nil
@@ -444,6 +454,8 @@ func (s *Syncer) processShastaProposal(
 		nextSourceStartBlockIdx += uint16(len(sourcePayload.BlockPayloads))
 	}
 
+	s.recordShastaProposal(metadata)
+
 	return nil
 }
 
@@ -484,6 +496,7 @@ func (s *Syncer) processPacayaBatch(
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
 			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
+			s.handlePacayaReorg(reorgCheckResult)
 			endIter()
 
 			return nil
@@ -527,12 +540,173 @@ func (s *Syncer) processPacayaBatch(
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
 	s.lastInsertedBatchID = meta.Pacaya().GetBatchID()
+	s.recordPacayaProposal(meta)
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
 	}
 
 	return nil
+}
+
+func (s *Syncer) recordPacayaProposal(meta metadata.TaikoProposalMetaData) {
+	if s.latestSeenProposalCh == nil || meta == nil || !meta.IsPacaya() {
+		return
+	}
+
+	proposal := &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
+	s.pacayaProposalHistory = append(s.pacayaProposalHistory, proposal)
+	if len(s.pacayaProposalHistory) > proposalHistoryLimit {
+		s.pacayaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.pacayaProposalHistory[len(s.pacayaProposalHistory)-proposalHistoryLimit:]...)
+	}
+}
+
+func (s *Syncer) recordShastaProposal(meta metadata.TaikoProposalMetaData) {
+	if s.latestSeenProposalCh == nil || meta == nil || !meta.IsShasta() {
+		return
+	}
+
+	proposal := &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
+	s.shastaProposalHistory = append(s.shastaProposalHistory, proposal)
+	if len(s.shastaProposalHistory) > proposalHistoryLimit {
+		s.shastaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.shastaProposalHistory[len(s.shastaProposalHistory)-proposalHistoryLimit:]...)
+	}
+}
+
+func (s *Syncer) handlePacayaReorg(result *rpc.ReorgCheckResult) {
+	if result == nil || s.latestSeenProposalCh == nil {
+		return
+	}
+
+	s.trimPacayaHistory(result.LastHandledBatchIDToReset)
+	s.emitLatestPacayaProposal()
+}
+
+func (s *Syncer) handleShastaReorg(result *rpc.ReorgCheckResult) {
+	if result == nil || s.latestSeenProposalCh == nil {
+		return
+	}
+
+	s.trimShastaHistory(result.LastHandledBatchIDToReset)
+	s.emitLatestShastaProposal()
+}
+
+// trimPacayaHistory trims the Pacaya proposal history to remove proposals after the target batch ID
+func (s *Syncer) trimPacayaHistory(target *big.Int) {
+	if target == nil {
+		if len(s.pacayaProposalHistory) > 0 {
+			s.pacayaProposalHistory = nil
+		}
+		return
+	}
+
+	targetBatchID := target.Uint64()
+	idx := len(s.pacayaProposalHistory)
+	for idx > 0 {
+		proposal := s.pacayaProposalHistory[idx-1]
+		if proposal == nil || proposal.TaikoProposalMetaData == nil || !proposal.IsPacaya() {
+			idx--
+			continue
+		}
+		batchID := proposal.Pacaya().GetBatchID()
+		if batchID != nil && batchID.Uint64() <= targetBatchID {
+			break
+		}
+		idx--
+	}
+
+	if idx < len(s.pacayaProposalHistory) {
+		s.pacayaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.pacayaProposalHistory[:idx]...)
+	}
+}
+
+// trimShastaHistory trims the Shasta proposal history to remove proposals after the target proposal ID
+func (s *Syncer) trimShastaHistory(target *big.Int) {
+	if target == nil {
+		if len(s.shastaProposalHistory) > 0 {
+			s.shastaProposalHistory = nil
+		}
+		return
+	}
+
+	targetProposalID := target.Uint64()
+	idx := len(s.shastaProposalHistory)
+	for idx > 0 {
+		proposal := s.shastaProposalHistory[idx-1]
+		if proposal == nil || proposal.TaikoProposalMetaData == nil || !proposal.IsShasta() {
+			idx--
+			continue
+		}
+		if proposal.Shasta().GetProposal().Id.Uint64() <= targetProposalID {
+			break
+		}
+		idx--
+	}
+
+	if idx < len(s.shastaProposalHistory) {
+		s.shastaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.shastaProposalHistory[:idx]...)
+	}
+}
+
+// emitLatestPacayaProposal finds the most recent Pacaya proposal in history and emits it to the channel
+func (s *Syncer) emitLatestPacayaProposal() {
+	var proposal *encoding.LastSeenProposal
+	if len(s.pacayaProposalHistory) > 0 {
+		proposal = cloneLastSeenProposalForSyncer(s.pacayaProposalHistory[len(s.pacayaProposalHistory)-1])
+	}
+
+	if proposal == nil {
+		log.Info("Resetting latest Pacaya proposal after reorg")
+	} else {
+		log.Info(
+			"Updating latest Pacaya proposal after reorg",
+			"batchID", proposal.Pacaya().GetBatchID(),
+			"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+		)
+	}
+
+	s.dispatchLatestSeenProposal(proposal)
+}
+
+// emitLatestShastaProposal finds the most recent Shasta proposal in history and emits it to the channel
+func (s *Syncer) emitLatestShastaProposal() {
+	var proposal *encoding.LastSeenProposal
+	if len(s.shastaProposalHistory) > 0 {
+		proposal = cloneLastSeenProposalForSyncer(s.shastaProposalHistory[len(s.shastaProposalHistory)-1])
+	}
+
+	if proposal == nil {
+		log.Info("Resetting latest Shasta proposal after reorg")
+	} else {
+		log.Info(
+			"Updating latest Shasta proposal after reorg",
+			"proposalID", proposal.Shasta().GetProposal().Id,
+		)
+	}
+
+	s.dispatchLatestSeenProposal(proposal)
+}
+
+// dispatchLatestSeenProposal sends the latest seen proposal to the channel if it's set
+func (s *Syncer) dispatchLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+	if s.latestSeenProposalCh == nil {
+		return
+	}
+
+	s.latestSeenProposalCh <- proposal
+}
+
+// cloneLastSeenProposalForSyncer clones the pointer to a proposal and sets PreconfChainReorged
+// to true on the clone
+func cloneLastSeenProposalForSyncer(src *encoding.LastSeenProposal) *encoding.LastSeenProposal {
+	if src == nil {
+		return nil
+	}
+
+	cloned := *src
+	cloned.PreconfChainReorged = true
+
+	return &cloned
 }
 
 // checkLastVerifiedBlockMismatchPacaya checks if there is a mismatch between protocol's last verified block hash and

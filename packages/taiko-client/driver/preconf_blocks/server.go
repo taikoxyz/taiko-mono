@@ -1014,9 +1014,36 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
+			if proposal == nil || proposal.TaikoProposalMetaData == nil {
+				s.resetLatestSeenProposal()
+				continue
+			}
+
 			s.recordLatestSeenProposal(proposal)
 		}
 	}
+}
+
+func (s *PreconfBlockAPIServer) resetLatestSeenProposal() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.latestSeenProposal != nil {
+		log.Info("Reset latest seen proposal due to chain update")
+	}
+
+	s.latestSeenProposal = nil
+	s.highestUnsafeL2PayloadBlockID = 0
+	metrics.DriverLastSeenBlockInProposalGauge.Set(0)
+}
+
+func cloneLatestSeenProposal(src *encoding.LastSeenProposal) *encoding.LastSeenProposal {
+	if src == nil {
+		return nil
+	}
+
+	cloned := *src
+	return &cloned
 }
 
 // recordLatestSeenProposal records the latest seen proposal.
@@ -1024,24 +1051,44 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	log.Info(
-		"Received latest batch seen in event",
-		"batchID", proposal.Pacaya().GetBatchID(),
-		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
-	)
-	s.latestSeenProposal = proposal
-	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.Pacaya().GetLastBlockID()))
+	latest := cloneLatestSeenProposal(proposal)
+	if latest == nil {
+		return
+	}
 
-	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
-	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+	s.latestSeenProposal = latest
+
+	switch {
+	case latest.IsPacaya():
 		log.Info(
-			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
-			"batchID", proposal.Pacaya().GetBatchID(),
-			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"Received latest Pacaya proposal",
+			"batchID", latest.Pacaya().GetBatchID(),
+			"lastBlockID", latest.Pacaya().GetLastBlockID(),
+			"preconfChainReorged", latest.PreconfChainReorged,
 		)
-		metrics.DriverReorgsByProposalCounter.Inc()
+		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(latest.Pacaya().GetLastBlockID()))
+
+		if latest.PreconfChainReorged {
+			s.highestUnsafeL2PayloadBlockID = latest.Pacaya().GetLastBlockID()
+			log.Info(
+				"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+				"batchID", latest.Pacaya().GetBatchID(),
+				"lastBlockID", s.highestUnsafeL2PayloadBlockID,
+				"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			)
+			metrics.DriverReorgsByProposalCounter.Inc()
+		}
+	case latest.IsShasta():
+		log.Info(
+			"Received latest Shasta proposal",
+			"proposalID", latest.Shasta().GetProposal().Id,
+			"preconfChainReorged", latest.PreconfChainReorged,
+		)
+		if latest.PreconfChainReorged {
+			metrics.DriverReorgsByProposalCounter.Inc()
+		}
+	default:
+		log.Warn("Received latest seen proposal with unknown fork")
 	}
 }
 
