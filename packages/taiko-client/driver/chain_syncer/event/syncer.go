@@ -567,7 +567,7 @@ func (s *Syncer) recordPacayaProposal(meta metadata.TaikoProposalMetaData) {
 	}
 }
 
-// recordShastaProposal records the Pacaya proposal metadata into the history
+// recordShastaProposal records the Shasta proposal metadata into the history
 // in case of an L1 reorg, we can find the  latest valid proposal to emit
 // back to the preconf driver API.
 func (s *Syncer) recordShastaProposal(meta metadata.TaikoProposalMetaData) {
