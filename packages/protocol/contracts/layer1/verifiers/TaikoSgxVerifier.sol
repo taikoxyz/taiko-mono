@@ -6,7 +6,6 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -37,8 +36,6 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    ITaikoInbox public immutable taikoInbox;
-    address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
@@ -84,14 +81,8 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
 
-    constructor(
-        address _taikoInbox,
-        address _taikoProofVerifier,
-        address _automataDcapAttestation
-    ) {
-        taikoInbox = ITaikoInbox(_taikoInbox);
-        taikoChainId = taikoInbox.v4GetConfig().chainId;
-        taikoProofVerifier = _taikoProofVerifier;
+    constructor(uint64 _taikoChainId, address _automataDcapAttestation) {
+        taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
     }
 
@@ -144,13 +135,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context[] calldata _ctxs,
-        bytes calldata _proof
-    )
-        external
-        onlyFromEither(address(taikoInbox), taikoProofVerifier)
-    {
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
@@ -181,10 +166,6 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
 
         uint32 id = uint32(bytes4(_proof[:4]));
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
-
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
-        }
     }
 
     function _addInstances(

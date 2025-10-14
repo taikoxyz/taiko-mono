@@ -78,16 +78,14 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(
-                    address(0), address(0), address(0), address(0), address(0), address(0)
-                )
+                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: address(0)
         });
 
         // OP verifier
-        address opImpl = address(new OpVerifier(taikoInbox, proofVerifier));
+        address opImpl = address(new OpVerifier());
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: opImpl,
@@ -172,12 +170,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox,
-                    sgxGethVerifier,
-                    opProxy,
-                    address(0),
-                    risc0RethVerifier,
-                    sp1RethVerifier
+                    sgxGethVerifier, opProxy, address(0), risc0RethVerifier, sp1RethVerifier
                 )
             )
         );
@@ -224,9 +217,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: address(0)
         });
 
+        TaikoInbox taikoInboxImpl = TaikoInbox(taikoInbox);
+        uint64 taikoChainId = taikoInboxImpl.v4GetConfig().chainId;
+
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoChainId, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: address(0)
         });

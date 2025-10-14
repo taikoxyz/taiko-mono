@@ -81,14 +81,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         = deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers
-        OpVerifier opImpl = new OpVerifier(pacayaInboxAddr, proofVerifier);
+        OpVerifier opImpl = new OpVerifier();
         VerifierAddresses memory verifiers =
             deployVerifiers(contractOwner, proofVerifier, pacayaInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
                     new DevnetVerifier(
-                        pacayaInboxAddr,
                         verifiers.opGethVerifier,
                         verifiers.opRethVerifier,
                         address(0),
@@ -101,7 +100,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
                     new DevnetVerifier(
-                        pacayaInboxAddr,
                         verifiers.sgxGethVerifier,
                         verifiers.opRethVerifier,
                         verifiers.sgxRethVerifier,
@@ -286,9 +284,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(
-                    address(0), address(0), address(0), address(0), address(0), address(0)
-                )
+                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
@@ -376,7 +372,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
 
@@ -396,7 +392,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
+            impl: address(new TaikoSgxVerifier(uint64(vm.envUint("L2_CHAIN_ID")), sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
         return verifiers;
