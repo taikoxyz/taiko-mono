@@ -5,6 +5,9 @@
   "forced_inclusion_single_Inbox": "108084",
   "forced_inclusion_single_InboxOptimized1": "108079",
   "forced_inclusion_single_InboxOptimized2": "101649",
+  "propose_reuse_ring_buffer_Inbox": "62536",
+  "propose_reuse_ring_buffer_InboxOptimized1": "62912",
+  "propose_reuse_ring_buffer_InboxOptimized2": "48921",
   "propose_single_empty_ring_buffer_Inbox": "72852",
   "propose_single_empty_ring_buffer_InboxOptimized1": "72852",
   "propose_single_empty_ring_buffer_InboxOptimized2": "67581"
