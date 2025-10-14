@@ -1,7 +1,7 @@
 //! Utilities for fetching blob sidecars from beacon or blob servers.
 
 use alloy::primitives::{B256, hex};
-use alloy_eips::eip4844::{Blob, Bytes48};
+use alloy_eips::eip4844::Blob;
 use alloy_rpc_types::BlobTransactionSidecar;
 use once_cell::sync::OnceCell;
 use reqwest::Client as HttpClient;
@@ -25,9 +25,10 @@ pub enum BlobDataError {
 
 #[derive(Debug, Deserialize)]
 struct BlobServerResponse {
-    #[serde(alias = "versioned_hash", alias = "versionedHash")]
-    versioned_hash: String,
-    commitment: String,
+    #[serde(rename = "versioned_hash", alias = "versionedHash")]
+    _versioned_hash: String,
+    #[serde(rename = "commitment")]
+    _commitment: String,
     data: String,
 }
 
@@ -76,14 +77,14 @@ impl BlobDataSource {
             let payload: BlobServerResponse =
                 response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-            let _versioned_hash = parse_hash(&payload.versioned_hash)?;
-            let kzg_commitment = parse_commitment(&payload.commitment)?;
             let blob = parse_blob(&payload.data)?;
 
             blobs.push(BlobTransactionSidecar {
                 blobs: vec![*blob],
-                commitments: vec![kzg_commitment],
-                proofs: vec![Bytes48::ZERO], // TODO: fetch real proofs
+                // Only the blob contents are required for manifest decoding; commitments and proofs
+                // are unused in the driver, so we keep them empty to avoid extra parsing work.
+                commitments: Vec::new(),
+                proofs: Vec::new(),
             });
         }
 
@@ -92,17 +93,6 @@ impl BlobDataSource {
 }
 
 // Helper functions for parsing hex-encoded data from the blob server.
-fn parse_hash(value: &str) -> Result<B256, BlobDataError> {
-    let bytes = decode_hex(value)?;
-    Ok(B256::from_slice(bytes.as_slice()))
-}
-
-// Parses a hex-encoded KZG commitment into a `Bytes48`.
-fn parse_commitment(value: &str) -> Result<Bytes48, BlobDataError> {
-    let bytes = decode_hex(value)?;
-    Bytes48::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
-}
-
 // Parses a hex-encoded blob into a `Blob`.
 fn parse_blob(value: &str) -> Result<Box<Blob>, BlobDataError> {
     let bytes = decode_hex(value)?;
@@ -128,12 +118,12 @@ mod tests {
     fn display_blob_sidecar() {
         let sidecar = BlobTransactionSidecar {
             blobs: vec![Blob::ZERO],
-            commitments: vec![Bytes48::ZERO],
-            proofs: vec![Bytes48::ZERO],
+            commitments: Vec::new(),
+            proofs: Vec::new(),
         };
 
         assert_eq!(sidecar.blobs.len(), 1);
-        assert_eq!(sidecar.commitments.len(), 1);
-        assert_eq!(sidecar.proofs.len(), 1);
+        assert!(sidecar.commitments.is_empty());
+        assert!(sidecar.proofs.is_empty());
     }
 }
