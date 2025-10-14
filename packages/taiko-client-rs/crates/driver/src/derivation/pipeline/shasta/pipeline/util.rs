@@ -32,9 +32,7 @@ pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
 
 // Encode the extra data field for a Shasta block header.
 pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
-    let mut data = Vec::with_capacity(2);
-    data.push(basefee_sharing_pctg);
-    data.push(u8::from(is_low_bond_proposal));
+    let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
     Bytes::from(data)
 }
 

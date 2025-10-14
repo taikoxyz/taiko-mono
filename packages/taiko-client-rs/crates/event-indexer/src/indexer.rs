@@ -182,10 +182,10 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) {
-                        if !self.historical_indexing_done.swap(true, Ordering::SeqCst) {
-                            self.historical_indexing_finished.notify_waiters();
-                        }
+                    if matches!(status, ScannerStatus::ChainTipReached) &&
+                        !self.historical_indexing_done.swap(true, Ordering::SeqCst)
+                    {
+                        self.historical_indexing_finished.notify_waiters();
                     }
                     continue;
                 }

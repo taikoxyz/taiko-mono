@@ -78,15 +78,15 @@ where
             .await?
             .and_then(|origin| origin.l1_block_height.map(|height| height.to::<u64>()));
 
-        if let Some(height) = fallback {
-            if height != 0 {
-                warn!(
-                    anchor_block_number,
-                    fallback_height = height,
-                    "anchor block number unset; falling back to head L1 origin height"
-                );
-                return Ok(Some(height));
-            }
+        if let Some(height) = fallback &&
+            height != 0
+        {
+            warn!(
+                anchor_block_number,
+                fallback_height = height,
+                "anchor block number unset; falling back to head L1 origin height"
+            );
+            return Ok(Some(height));
         }
 
         Ok(Some(anchor_block_number))
@@ -111,7 +111,7 @@ where
         // Kick off the background indexer before waiting for its historical pass to finish.
         let indexer = self.indexer.clone();
         // TODO: change to fetch last X proposal when indexer supports it.
-        indexer.spawn(start_tag.clone());
+        indexer.spawn(start_tag);
 
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let derivation_pipeline =
@@ -139,7 +139,7 @@ where
 
         let mut stream = scanner.create_event_stream(filter);
 
-        spawn(async move { scanner.start_scanner(start_tag.clone(), None).await });
+        spawn(async move { scanner.start_scanner(start_tag, None).await });
 
         while let Some(ScannerMessage::Data(logs)) = stream.next().await {
             for log in logs {

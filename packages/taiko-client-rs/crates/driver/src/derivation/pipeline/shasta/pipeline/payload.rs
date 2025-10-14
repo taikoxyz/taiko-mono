@@ -117,6 +117,22 @@ struct BondInstructionData {
     next_hash: B256,
 }
 
+/// Aggregated parameters required to assemble the anchor transaction.
+struct AnchorTxInputs<'a> {
+    /// Manifest-provided block metadata.
+    block: &'a BlockManifest,
+    /// Positional data describing where the block sits within the proposal.
+    position: &'a BlockPosition,
+    /// Height of the block being built.
+    block_number: u64,
+    /// Base fee target for the upcoming block.
+    block_base_fee: u64,
+    /// Bond instructions collected for the block.
+    bond_instructions: &'a [BondInstruction],
+    /// Rolling bond instruction hash after applying the block's instructions.
+    bond_instructions_hash: B256,
+}
+
 /// Return true when the manifest represents the protocol-defined default payload.
 fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     if manifest.blocks.len() != 1 {
@@ -133,8 +149,8 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
 
 impl SegmentPosition {
     // Convert the segment position into a block position for a specific block within the segment.
-    fn to_block_position(
-        &self,
+    fn into_block_position(
+        self,
         block_index: usize,
         blocks_len: usize,
         forced_inclusion: bool,
@@ -275,7 +291,7 @@ where
                 meta,
                 origin_block_hash: proposal_origin_block_hash,
                 shasta_fork_height,
-                position: position.to_block_position(
+                position: position.into_block_position(
                     block_index,
                     blocks_len,
                     segment.is_forced_inclusion,
@@ -318,18 +334,16 @@ where
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
 
-        let anchor_tx = self
-            .build_anchor_transaction(
-                &*state,
-                meta,
-                block,
-                &position,
-                block_number,
-                block_base_fee,
-                &bond_data.instructions,
-                bond_data.next_hash,
-            )
-            .await?;
+        let anchor_inputs = AnchorTxInputs {
+            block,
+            position: &position,
+            block_number,
+            block_base_fee,
+            bond_instructions: &bond_data.instructions,
+            bond_instructions_hash: bond_data.next_hash,
+        };
+
+        let anchor_tx = self.build_anchor_transaction(&*state, meta, anchor_inputs).await?;
 
         // Push the anchor transaction first, then the rest of the block's transactions.
         let mut transactions = Vec::with_capacity(block.transactions.len() + 1);
@@ -539,13 +553,17 @@ where
         &self,
         parent_state: &ParentState,
         meta: &BundleMeta,
-        block: &BlockManifest,
-        position: &BlockPosition,
-        block_number: u64,
-        block_base_fee: u64,
-        bond_instructions: &[BondInstruction],
-        bond_instructions_hash: B256,
+        inputs: AnchorTxInputs<'_>,
     ) -> Result<TxEnvelope, DerivationError> {
+        let AnchorTxInputs {
+            block,
+            position,
+            block_number,
+            block_base_fee,
+            bond_instructions,
+            bond_instructions_hash,
+        } = inputs;
+
         let (anchor_block_hash, anchor_state_root) =
             self.resolve_anchor_block_fields(block.anchor_block_number, parent_state).await?;
 
