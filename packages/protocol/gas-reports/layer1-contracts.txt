@@ -142,7 +142,6 @@ InboxOptimized1Propose:test_propose_processesSingleForcedInclusion() (gas: 34783
 InboxOptimized1Propose:test_propose_twoConsecutiveProposals() (gas: 230)
 InboxOptimized1Propose:test_propose_withBlobOffset() (gas: 209)
 InboxOptimized1Propose:test_propose_withMultipleBlobs() (gas: 188)
-<<<<<<< HEAD
 InboxOptimized1Propose:test_propose_withSingleBlob() (gas: 193387)
 InboxOptimized1Propose:test_propose_withValidFutureDeadline() (gas: 194125)
 InboxOptimized1Propose:test_propose_withZeroDeadline() (gas: 193325)
