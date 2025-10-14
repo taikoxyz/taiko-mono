@@ -24,8 +24,12 @@ type FixedKSigner struct {
 // NewFixedKSigner creates a new FixedKSigner instance.
 func NewFixedKSigner(privKey string) (*FixedKSigner, error) {
 	var priv btcec.PrivateKey
-	if overflow := priv.Key.SetByteSlice(hexutil.MustDecode(privKey)); overflow || priv.Key.IsZero() {
-		return nil, fmt.Errorf("invalid private key %s", privKey)
+	decoded, err := hexutil.Decode(privKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key: %v", err)
+	}
+	if overflow := priv.Key.SetByteSlice(decoded); overflow || priv.Key.IsZero() {
+		return nil, fmt.Errorf("invalid private key")
 	}
 
 	return &FixedKSigner{privKey: &priv.Key}, nil
