@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { ISignalServiceShasta } from "src/shared/shasta/iface/ISignalServiceShasta.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
@@ -18,7 +18,7 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 ///      - State tracking for multi-block proposals
 ///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
+abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -59,9 +59,6 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
 
-    /// @notice Maximum number of checkpoints to store in ring buffer.
-    uint16 public immutable maxCheckpointHistory;
-
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -73,12 +70,8 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
-    /// @dev Storage for checkpoint management
-    /// @dev 2 slots used
-    LibCheckpointStore.Storage internal _checkpointStorage;
-
     /// @notice Storage gap for upgrade safety.
-    uint256[44] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -90,7 +83,6 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     /// @param _signalService The address of the signal service.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
-    /// @param _maxCheckpointHistory The maximum number of checkpoints to store.
     /// @param _bondManager The address of the bond manager.
     constructor(
         uint48 _livenessBondGwei,
@@ -98,7 +90,6 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        uint16 _maxCheckpointHistory,
         IShastaBondManager _bondManager
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
@@ -106,11 +97,9 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
-        require(_maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
-        maxCheckpointHistory = _maxCheckpointHistory;
         bondManager = _bondManager;
     }
 
@@ -186,15 +175,13 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
 
         // Process new L1 anchor data
         if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
-            // Save L1 block data
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage,
+            // Save L1 block data to signal service
+            ISignalServiceShasta(address(signalService)).saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: _anchorBlockNumber,
                     blockHash: _anchorBlockHash,
                     stateRoot: _anchorStateRoot
-                }),
-                maxCheckpointHistory
+                })
             );
 
             // Update state atomically
@@ -235,21 +222,6 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
         return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, maxCheckpointHistory);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointBlockNumber() external view returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getNumberOfCheckpoints() external view returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------

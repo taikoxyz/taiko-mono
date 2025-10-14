@@ -13,7 +13,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
     uint256 constant MAX_BLOB_HASHES = 100;
     uint48 constant MAX_UINT48 = type(uint48).max;
     uint24 constant MAX_UINT24 = type(uint24).max;
-    uint8 constant MAX_UINT8 = type(uint8).max;
 
     function testFuzz_encodeDecodeProposal_basicFields(
         uint48 _id,
@@ -79,6 +78,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_encodeDecodeCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
+        uint48 _lastCheckpointTimestamp,
         bytes32 _lastFinalizedTransitionHash,
         bytes32 _bondInstructionsHash
     )
@@ -93,6 +93,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         payload.coreState.nextProposalId = _nextProposalId;
         payload.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        payload.coreState.lastCheckpointTimestamp = _lastCheckpointTimestamp;
         payload.coreState.lastFinalizedTransitionHash = _lastFinalizedTransitionHash;
         payload.coreState.bondInstructionsHash = _bondInstructionsHash;
 
@@ -102,6 +103,9 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
+        );
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp, payload.coreState.lastCheckpointTimestamp
         );
         assertEq(
             decoded.coreState.lastFinalizedTransitionHash,

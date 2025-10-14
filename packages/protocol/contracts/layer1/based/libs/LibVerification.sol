@@ -7,6 +7,8 @@ import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
 
 /// @title LibVerification
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 library LibVerification {
     using LibMath for uint256;

@@ -10,7 +10,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
     constructor(
         address codec,
         address bondToken,
-        uint16 maxCheckpointHistory,
+        address signalService,
         address proofVerifier,
         address proposerChecker
     )
@@ -18,7 +18,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
-                maxCheckpointHistory: maxCheckpointHistory,
+                signalService: signalService,
                 proofVerifier: proofVerifier,
                 proposerChecker: proposerChecker,
                 provingWindow: 2 hours,
@@ -30,7 +30,9 @@ contract TestInboxOptimized1 is InboxOptimized1 {
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
-                permissionlessInclusionMultiplier: 5
+                minCheckpointDelay: 0,
+                permissionlessInclusionMultiplier: 5,
+                compositeKeyVersion: 1
             })
         )
     { }

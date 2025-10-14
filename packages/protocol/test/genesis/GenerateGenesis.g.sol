@@ -33,12 +33,6 @@ contract TestGenerateGenesis is Test {
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
-    uint16 private maxCheckpointHistory = uint16(configJSON.readUint(".maxCheckpointHistory"));
-
-    function setUp() public {
-        // Skip all genesis tests - these require specific deployment configuration
-        vm.skip(true);
-    }
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -62,7 +56,7 @@ contract TestGenerateGenesis is Test {
         checkProxyImplementation("SignalService");
         checkProxyImplementation("SharedResolver");
 
-        // // check proxies
+        // check proxies
         checkDeployedCode("ERC20Vault");
         checkDeployedCode("ERC721Vault");
         checkDeployedCode("ERC1155Vault");
@@ -166,7 +160,6 @@ contract TestGenerateGenesis is Test {
         );
         assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
         assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
-        assertEq(maxCheckpointHistory, taikoAnchorProxy.maxCheckpointHistory());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
@@ -178,7 +171,6 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    uint16(100), // maxCheckpointHistory - default value
                     address(0) // bondManager - to be set later
                 )
             )

@@ -8,14 +8,14 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
-import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
@@ -25,17 +25,25 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      - Proof verification with transition record management
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
-///      - Finalization of proven proposals
+///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
-    using SafeERC20 for IERC20;
+contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
+    using LibAddress for address;
     using LibMath for uint48;
+    using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
         uint48 finalizationDeadline;
+    }
+
+    /// @notice Result from consuming forced inclusions
+    struct ConsumptionResult {
+        IInbox.DerivationSource[] sources;
+        bool allowsPermissionless;
     }
 
     // ---------------------------------------------------------------
@@ -81,12 +89,17 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
-    /// @notice The maximum number of checkpoints to store in ring buffer.
-    uint16 internal immutable _maxCheckpointHistory;
+    /// @notice The minimum delay between checkpoints in seconds.
+    uint16 internal immutable _minCheckpointDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
+
+    /// @notice Version identifier for composite key generation
+    /// @dev Used to invalidate all proved but unfinalized transition records to recover from
+    /// potential proof verifier bugs
+    uint16 internal immutable _compositeKeyVersion;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -94,6 +107,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
     /// @dev The address responsible for calling `activate` on the inbox.
     address internal _shastaInitializer;
+
+    /// @notice Flag indicating whether a conflicting transition record has been detected
+    bool public conflictingTransitionDetected;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -113,9 +129,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    /// @dev Storage for checkpoint management
-    /// @dev 2 slots used
-    LibCheckpointStore.Storage private _checkpointStorage;
+    /// @notice Signal service responsible for checkpoints
+    ICheckpointStore public immutable signalService;
 
     uint256[37] private __gap;
 
@@ -126,13 +141,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        require(_config.maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
+        require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
+        signalService = ICheckpointStore(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
@@ -142,8 +158,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
-        _maxCheckpointHistory = _config.maxCheckpointHistory;
+        _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
+        _compositeKeyVersion = _config.compositeKeyVersion;
     }
 
     // ---------------------------------------------------------------
@@ -201,24 +218,44 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
 
-            (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp) =
-                _buildDerivationSources(input);
+            // Consume forced inclusions (validation happens inside)
+            ConsumptionResult memory result =
+                _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
 
-            // If there was a forced inclusion, and it was too old, allow anyone to propose(and
-            // endOfSubmissionWindowTimestamp = 0).
-            // Otherwise, only the current preconfer can propose.
-            uint48 endOfSubmissionWindowTimestamp;
-            if (
-                block.timestamp
-                    <= oldestForcedInclusionTimestamp
-                        + _forcedInclusionDelay * _permissionlessInclusionMultiplier
-            ) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-            }
+            // Add normal proposal source in last slot
+            result.sources[result.sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
+
+            // If forced inclusion is old enough, allow anyone to propose
+            // and set endOfSubmissionWindowTimestamp = 0
+            // Otherwise, only the current preconfer can propose
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
             // Create single proposal with multi-source derivation
-            _propose(coreState, sources, endOfSubmissionWindowTimestamp);
+            // Use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: result.sources
+            });
+
+            // Increment nextProposalId (lastProposalBlockId was already set above)
+            Proposal memory proposal = Proposal({
+                id: coreState.nextProposalId++,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                coreStateHash: _hashCoreState(coreState),
+                derivationHash: _hashDerivation(derivation)
+            });
+
+            _setProposalHash(proposal.id, _hashProposal(proposal));
+            _emitProposedEvent(proposal, derivation, coreState);
         }
     }
 
@@ -243,10 +280,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei,
-            _blobReference
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 
@@ -292,7 +326,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         config_ = IInbox.Config({
             codec: _codec,
             bondToken: address(_bondToken),
-            maxCheckpointHistory: _maxCheckpointHistory,
+            signalService: address(signalService),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -304,23 +338,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
+            minCheckpointDelay: _minCheckpointDelay,
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
+            compositeKeyVersion: _compositeKeyVersion
         });
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointBlockNumber() external view returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getNumberOfCheckpoints() external view returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------
@@ -338,7 +359,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         coreState.nextProposalId = 1;
 
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
-        // This prevents reading blockhash(0) in _propose(), which would return 0x0 and create
+        // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.lastProposalBlockId = 1;
@@ -409,10 +430,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        bool stored = _storeTransitionRecord(
+        _storeTransitionRecord(
             _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
         );
-        if (!stored) return;
 
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: _proposalId,
@@ -430,7 +450,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-    /// @return stored_ True if storage was updated and caller should emit the Proved event.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -439,19 +458,22 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     )
         internal
         virtual
-        returns (bool stored_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
+        bytes26 recordHash = entry.recordHash;
 
-        if (entry.recordHash == _recordHash) return false;
-
-        require(entry.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
-
-        entry.recordHash = _hashAndDeadline.recordHash;
-        entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        return true;
+        if (recordHash == 0) {
+            entry.recordHash = _recordHash;
+            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        } else if (recordHash == _recordHash) {
+            emit TransitionDuplicateDetected();
+        } else {
+            emit TransitionConflictDetected();
+            conflictingTransitionDetected = true;
+            entry.finalizationDeadline = type(uint48).max;
+        }
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -531,16 +553,14 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         view
         returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
-        recordHash_ = _hashTransitionRecord(_transitionRecord);
-        hashAndDeadline_ = TransitionRecordHashAndDeadline({
-            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-            recordHash: recordHash_
-        });
+        unchecked {
+            recordHash_ = _hashTransitionRecord(_transitionRecord);
+            hashAndDeadline_ = TransitionRecordHashAndDeadline({
+                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+                recordHash: recordHash_
+            });
+        }
     }
-
-    // ---------------------------------------------------------------
-    // Internal Pure Functions
-    // ---------------------------------------------------------------
 
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
@@ -552,11 +572,13 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         bytes32 _parentTransitionHash
     )
         internal
-        pure
+        view
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return LibHashSimple.composeTransitionKey(
+            _proposalId, _compositeKeyVersion, _parentTransitionHash
+        );
     }
 
     // ---------------------------------------------------------------
@@ -713,79 +735,110 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     // Private Functions
     // ---------------------------------------------------------------
 
-    function _propose(
-        CoreState memory _coreState,
-        DerivationSource[] memory _derivationSources,
-        uint48 _endOfSubmissionWindowTimestamp
+    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
+    /// source
+    /// @param _feeRecipient Address to receive accumulated fees
+    /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
+    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
+    /// and whether permissionless proposals are allowed
+    function _consumeForcedInclusions(
+        address _feeRecipient,
+        uint256 _numForcedInclusionsRequested
     )
-        internal
+        private
+        returns (ConsumptionResult memory result_)
     {
-        // use previous block as the origin for the proposal to be able to call `blockhash`
-        uint256 parentBlockNumber = block.number - 1;
+        unchecked {
+            LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
-        Derivation memory derivation = Derivation({
-            originBlockNumber: uint48(parentBlockNumber),
-            originBlockHash: blockhash(parentBlockNumber),
-            basefeeSharingPctg: _basefeeSharingPctg,
-            sources: _derivationSources
-        });
+            // Load storage once
+            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
-        // Increment nextProposalId (lastProposalBlockId was already set in propose())
-        Proposal memory proposal = Proposal({
-            id: _coreState.nextProposalId++,
-            timestamp: uint48(block.timestamp),
-            endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
-            proposer: msg.sender,
-            coreStateHash: _hashCoreState(_coreState),
-            derivationHash: _hashDerivation(derivation)
-        });
+            uint256 available = tail - head;
+            uint256 toProcess = _numForcedInclusionsRequested > available
+                ? available
+                : _numForcedInclusionsRequested;
 
-        _setProposalHash(proposal.id, _hashProposal(proposal));
-        _emitProposedEvent(proposal, derivation, _coreState);
+            // Allocate array with extra slot for normal source
+            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
+
+            // Process inclusions if any
+            uint48 oldestTimestamp;
+            (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
+                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
+            );
+
+            // We check the following conditions are met:
+            // 1. Proposer is willing to include at least the minimum required
+            // (_minForcedInclusionCount)
+            // 2. Proposer included all available inclusions
+            // 3. The oldest inclusion is not due
+            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
+                bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
+                    $, head, tail, lastProcessedAt, _forcedInclusionDelay
+                );
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            }
+
+            // Check if permissionless proposals are allowed
+            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
+                * _permissionlessInclusionMultiplier + oldestTimestamp;
+            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
+        }
     }
 
-    /// @dev Creates derivation sources array from forced inclusions and regular proposal
-    /// @notice Processes forced inclusions and creates a unified sources array for derivation
-    /// @param _input The ProposeInput containing numForcedInclusions and blobReference
-    /// @return sources Array of derivation sources with forced inclusions first, then regular
-    /// proposal
-    /// @return oldestForcedInclusionTimestamp The timestamp of the oldest forced inclusion that was
-    /// processed. block.timestamp if there are no forced inclusions.
-    function _buildDerivationSources(ProposeInput memory _input)
+    /// @dev Dequeues and processes forced inclusions from the queue
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive fees
+    /// @param _sources Array to populate with derivation sources
+    /// @param _head Current queue head position
+    /// @param _lastProcessedAt Timestamp of last processing
+    /// @param _toProcess Number of inclusions to process
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions
+    /// @return head_ Updated head position
+    /// @return lastProcessedAt_ Updated last processed timestamp
+    function _dequeueAndProcessForcedInclusions(
+        LibForcedInclusion.Storage storage $,
+        address _feeRecipient,
+        IInbox.DerivationSource[] memory _sources,
+        uint48 _head,
+        uint48 _lastProcessedAt,
+        uint256 _toProcess
+    )
         private
-        returns (DerivationSource[] memory sources, uint48 oldestForcedInclusionTimestamp)
+        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
     {
-        uint256 remainingForcedInclusions = type(uint256).max;
+        if (_toProcess > 0) {
+            // Process inclusions and accumulate fees
+            uint256 totalFees;
+            unchecked {
+                for (uint256 i; i < _toProcess; ++i) {
+                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
+                    _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                    totalFees += inclusion.feeInGwei;
+                }
+            }
 
-        if (_input.numForcedInclusions > 0) {
-            // Get derivation sources with forced inclusions marked and an extra slot for normal
-            // source
-            (sources, remainingForcedInclusions, oldestForcedInclusionTimestamp) =
-            LibForcedInclusion.consumeForcedInclusions(
-                _forcedInclusionStorage, msg.sender, _input.numForcedInclusions
-            );
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
+
+            // Oldest timestamp is max of first inclusion timestamp and last processed time
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+            // Update queue position and last processed time
+            head_ = _head + uint48(_toProcess);
+            lastProcessedAt_ = uint48(block.timestamp);
+
+            // Write to storage once
+            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
         } else {
-            // When no forced inclusions, allocate array of size 1 for normal source
-            sources = new DerivationSource[](1);
-            oldestForcedInclusionTimestamp = uint48(block.timestamp);
+            // No inclusions processed
+            oldestTimestamp_ = type(uint48).max;
+            head_ = _head;
+            lastProcessedAt_ = _lastProcessedAt;
         }
-
-        // Verify that at least `minForcedInclusionCount` forced inclusions were attempted to be
-        // processed
-        // OR the queue is empty
-        // OR none remaining are due
-        require(
-            (_input.numForcedInclusions >= _minForcedInclusionCount)
-                || remainingForcedInclusions == 0
-                || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, _forcedInclusionDelay
-                ),
-            UnprocessedForcedInclusionIsDue()
-        );
-
-        // Add normal proposal source in the last slot
-        sources[sources.length - 1] =
-            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
     }
 
     /// @dev Emits the Proposed event with stack-optimized approach
@@ -805,6 +858,81 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
             coreState: _coreState
         });
         emit Proposed(_encodeProposedEventData(payload));
+    }
+
+    /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
+    /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
+    /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
+    /// Set minCheckpointDelay to 0 to disable rate limiting.
+    /// @param _input Contains transition records and the end block header.
+    /// @return _ Updated core state with new finalization counters.
+    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+        unchecked {
+            CoreState memory coreState = _input.coreState;
+            TransitionRecord memory lastFinalizedRecord;
+            TransitionRecord memory emptyRecord;
+            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 finalizedCount;
+
+            for (uint256 i; i < _maxFinalizationCount; ++i) {
+                // Check if there are more proposals to finalize
+                if (proposalId >= coreState.nextProposalId) break;
+
+                // Try to finalize the current proposal
+                bool hasRecord = i < _input.transitionRecords.length;
+
+                TransitionRecord memory transitionRecord =
+                    hasRecord ? _input.transitionRecords[i] : emptyRecord;
+
+                bool finalized;
+                (finalized, proposalId) =
+                    _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
+
+                if (!finalized) break;
+
+                // Update state for successful finalization
+                lastFinalizedRecord = _input.transitionRecords[i];
+                ++finalizedCount;
+            }
+
+            // Update checkpoint if any proposals were finalized and minimum delay has passed
+            if (finalizedCount > 0) {
+                _syncCheckpointIfNeeded(
+                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
+                );
+            }
+
+            return coreState;
+        }
+    }
+
+    /// @dev Syncs checkpoint to storage if conditions are met (voluntary or forced sync).
+    /// @notice Validates checkpoint hash and updates checkpoint storage and timestamp.
+    /// @param _checkpoint The checkpoint data to sync.
+    /// @param _expectedCheckpointHash The expected hash to validate against.
+    /// @param _coreState Core state to update with new checkpoint timestamp.
+    function _syncCheckpointIfNeeded(
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        bytes32 _expectedCheckpointHash,
+        CoreState memory _coreState
+    )
+        private
+    {
+        // Check if checkpoint sync should occur:
+        // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
+        // 2. Forced: minimum delay elapsed since last checkpoint
+        if (_checkpoint.blockHash != 0) {
+            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
+            require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
+
+            signalService.saveCheckpoint(_checkpoint);
+            _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+        } else {
+            require(
+                block.timestamp < _coreState.lastCheckpointTimestamp + _minCheckpointDelay,
+                CheckpointNotProvided()
+            );
+        }
     }
 
     /// @dev Calculates remaining capacity for new proposals
@@ -836,72 +964,28 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
     function _verifyChainHead(Proposal[] memory _parentProposals) private view {
-        // First verify parentProposals[0] matches what's stored on-chain
-        _checkProposalHash(_parentProposals[0]);
+        unchecked {
+            // First verify parentProposals[0] matches what's stored on-chain
+            _checkProposalHash(_parentProposals[0]);
 
-        // Then verify it's actually the chain head
-        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
-        bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
+            // Then verify it's actually the chain head
+            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
+            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
-        if (storedNextProposalHash == bytes32(0)) {
-            // Next slot in the ring buffer is empty, only one proposal expected
-            require(_parentProposals.length == 1, IncorrectProposalCount());
-        } else {
-            // Next slot in the ring buffer is occupied, need to prove it contains a
-            // proposal with a smaller id
-            require(_parentProposals.length == 2, IncorrectProposalCount());
-            require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
-            require(
-                storedNextProposalHash == _hashProposal(_parentProposals[1]),
-                NextProposalHashMismatch()
-            );
+            if (storedNextProposalHash == bytes32(0)) {
+                // Next slot in the ring buffer is empty, only one proposal expected
+                require(_parentProposals.length == 1, IncorrectProposalCount());
+            } else {
+                // Next slot in the ring buffer is occupied, need to prove it contains a
+                // proposal with a smaller id
+                require(_parentProposals.length == 2, IncorrectProposalCount());
+                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
+                require(
+                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                    NextProposalHashMismatch()
+                );
+            }
         }
-    }
-
-    /// @dev Finalizes proven proposals and updates checkpoint
-    /// @dev Performs up to `maxFinalizationCount` finalization iterations.
-    /// The caller is forced to finalize transition records that have passed their finalization
-    /// grace period, but can decide to finalize ones that haven't.
-    /// @param _input Input containing transition records and end block header
-    /// @return _ Core state with updated finalization counters
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
-        CoreState memory coreState = _input.coreState;
-        TransitionRecord memory lastFinalizedRecord;
-        TransitionRecord memory emptyRecord;
-        uint48 proposalId = coreState.lastFinalizedProposalId + 1;
-        uint256 finalizedCount;
-
-        for (uint256 i; i < _maxFinalizationCount; ++i) {
-            // Check if there are more proposals to finalize
-            if (proposalId >= coreState.nextProposalId) break;
-
-            // Try to finalize the current proposal
-            bool hasRecord = i < _input.transitionRecords.length;
-
-            TransitionRecord memory transitionRecord =
-                hasRecord ? _input.transitionRecords[i] : emptyRecord;
-
-            bool finalized;
-            (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
-
-            if (!finalized) break;
-
-            // Update state for successful finalization
-            lastFinalizedRecord = _input.transitionRecords[i];
-            finalizedCount++;
-        }
-
-        // Update checkpoint if any proposals were finalized
-        if (finalizedCount > 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-            require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            LibCheckpointStore.saveCheckpoint(
-                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
-            );
-        }
-
-        return coreState;
     }
 
     /// @dev Attempts to finalize a single proposal
@@ -957,7 +1041,11 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
-        _processBondInstructions(_coreState, _transitionRecord.bondInstructions);
+        for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
+            _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                _coreState.bondInstructionsHash, _transitionRecord.bondInstructions[i]
+            );
+        }
 
         // Validate and calculate next proposal ID
         require(_transitionRecord.span > 0, InvalidSpan());
@@ -965,24 +1053,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
-    }
-
-    /// @dev Processes bond instructions and updates aggregated hash
-    /// @param _coreState Core state with bond instructions hash to update
-    /// @param _instructions Array of bond transfer instructions to aggregate
-    function _processBondInstructions(
-        CoreState memory _coreState,
-        LibBonds.BondInstruction[] memory _instructions
-    )
-        private
-        pure
-    {
-        if (_instructions.length == 0) return;
-
-        for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash =
-                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
-        }
     }
 }
 
@@ -992,6 +1062,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
 
 error CannotProposeInCurrentBlock();
 error CheckpointMismatch();
+error CheckpointNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
 error ForkNotActive();
@@ -1004,8 +1075,8 @@ error InvalidState();
 error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
-error NotEnoughCapacity();
 error NoBondToWithdraw();
+error NotEnoughCapacity();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithStorage();
 error ProposalHashMismatchWithTransition();
@@ -1015,5 +1086,4 @@ error RingBufferSizeZero();
 error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
-error TransitionWithSameParentHashAlreadyProved();
 error UnprocessedForcedInclusionIsDue();

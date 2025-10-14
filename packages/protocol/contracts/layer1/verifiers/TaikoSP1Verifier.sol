@@ -4,11 +4,12 @@ pragma solidity ^0.8.24;
 import "@sp1-contracts/src/ISP1Verifier.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
-import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
 /// @title TaikoSP1Verifier
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoSP1Verifier is EssentialContract, IVerifier {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");

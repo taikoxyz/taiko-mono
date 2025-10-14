@@ -1,0 +1,21 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+# ethereum
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-rlp = { workspace = true }
+
+# types
+anyhow = { workspace = true }
+flate2 = { workspace = true }
+thiserror = { workspace = true }
+
+# serialization
+serde = { version = "1", features = ["derive"] }

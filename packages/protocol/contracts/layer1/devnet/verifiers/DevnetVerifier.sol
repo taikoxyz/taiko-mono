@@ -5,12 +5,13 @@ import "../../verifiers/compose/ComposeVerifier.sol";
 
 /// @title DevnetVerifier.sol
 /// @notice OP or SGX or SP1 or Risc0 verifier
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     constructor(
-        address _taikoInbox,
         address _sgxGethVerifier,
         address _opVerifier,
         address _sgxRethVerifier,
@@ -18,7 +19,6 @@ contract DevnetVerifier is ComposeVerifier {
         address _sp1RethVerifier
     )
         ComposeVerifier(
-            _taikoInbox,
             _sgxGethVerifier,
             address(0),
             _opVerifier,

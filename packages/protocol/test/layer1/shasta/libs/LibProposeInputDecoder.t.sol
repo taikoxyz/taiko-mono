@@ -15,6 +15,7 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalId: 10,
             lastProposalBlockId: 999,
             lastFinalizedProposalId: 9,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
@@ -70,6 +71,11 @@ contract LibProposeInputDecoderTest is Test {
             decoded.coreState.lastFinalizedProposalId,
             input.coreState.lastFinalizedProposalId,
             "LastFinalizedProposalId mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp,
+            input.coreState.lastCheckpointTimestamp,
+            "LastCheckpointTimestamp mismatch"
         );
         assertEq(
             decoded.coreState.lastFinalizedTransitionHash,
@@ -146,6 +152,7 @@ contract LibProposeInputDecoderTest is Test {
             nextProposalId: 10,
             lastProposalBlockId: 999,
             lastFinalizedProposalId: 7,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: bytes32(uint256(555)),
             bondInstructionsHash: bytes32(uint256(666))
         });
@@ -222,6 +229,7 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalId: 5,
                 lastProposalBlockId: 499,
                 lastFinalizedProposalId: 4,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(uint256(1010))
             }),
@@ -278,6 +286,7 @@ contract LibProposeInputDecoderTest is Test {
                 nextProposalId: 1,
                 lastProposalBlockId: 99,
                 lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             }),
@@ -299,5 +308,97 @@ contract LibProposeInputDecoderTest is Test {
         assertEq(decoded.checkpoint.blockNumber, 0, "Empty checkpoint blockNumber should be 0");
         assertEq(decoded.checkpoint.blockHash, bytes32(0), "Empty checkpoint blockHash should be 0");
         assertEq(decoded.checkpoint.stateRoot, bytes32(0), "Empty checkpoint stateRoot should be 0");
+    }
+
+    function test_encode_decode_lastCheckpointTimestamp() public pure {
+        // Test that lastCheckpointTimestamp is properly encoded and decoded
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 12_345,
+            coreState: IInbox.CoreState({
+                nextProposalId: 42,
+                lastProposalBlockId: 2000,
+                lastFinalizedProposalId: 41,
+                lastCheckpointTimestamp: 1_700_000_000, // Non-zero timestamp
+                lastFinalizedTransitionHash: bytes32(uint256(6666)),
+                bondInstructionsHash: bytes32(uint256(7777))
+            }),
+            parentProposals: new IInbox.Proposal[](0),
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
+            numForcedInclusions: 0
+        });
+
+        bytes memory encoded = LibProposeInputDecoder.encode(input);
+        IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
+
+        // Verify all CoreState fields including lastCheckpointTimestamp
+        assertEq(
+            decoded.coreState.nextProposalId,
+            input.coreState.nextProposalId,
+            "Next proposal ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastProposalBlockId,
+            input.coreState.lastProposalBlockId,
+            "Last proposal block ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastFinalizedProposalId,
+            input.coreState.lastFinalizedProposalId,
+            "Last finalized proposal ID mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp,
+            input.coreState.lastCheckpointTimestamp,
+            "Last checkpoint timestamp mismatch"
+        );
+        assertEq(
+            decoded.coreState.lastFinalizedTransitionHash,
+            input.coreState.lastFinalizedTransitionHash,
+            "Last finalized transition hash mismatch"
+        );
+        assertEq(
+            decoded.coreState.bondInstructionsHash,
+            input.coreState.bondInstructionsHash,
+            "Bond instructions hash mismatch"
+        );
+    }
+
+    function test_encode_decode_lastCheckpointTimestamp_maxValue() public pure {
+        // Test with maximum uint48 value for lastCheckpointTimestamp
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 12_345,
+            coreState: IInbox.CoreState({
+                nextProposalId: 1,
+                lastProposalBlockId: 1000,
+                lastFinalizedProposalId: 0,
+                lastCheckpointTimestamp: type(uint48).max, // Maximum value
+                lastFinalizedTransitionHash: bytes32(uint256(3333)),
+                bondInstructionsHash: bytes32(uint256(4444))
+            }),
+            parentProposals: new IInbox.Proposal[](0),
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            }),
+            numForcedInclusions: 0
+        });
+
+        bytes memory encoded = LibProposeInputDecoder.encode(input);
+        IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
+
+        assertEq(
+            decoded.coreState.lastCheckpointTimestamp,
+            type(uint48).max,
+            "Max lastCheckpointTimestamp should be preserved"
+        );
     }
 }

@@ -423,8 +423,11 @@ contract CodecGasComparisonTest is Test {
     /// @dev Ensures that different inputs produce different hash outputs for both implementations
     function test_hashUniqueness() external view {
         // Create modified test data
-        ICheckpointStore.Checkpoint memory modifiedCheckpoint = testCheckpoint;
-        modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
+        ICheckpointStore.Checkpoint memory modifiedCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: testCheckpoint.blockNumber + 1,
+            blockHash: keccak256(abi.encodePacked(testCheckpoint.blockHash, "modified")),
+            stateRoot: testCheckpoint.stateRoot
+        });
 
         IInbox.CoreState memory modifiedCoreState = testCoreState;
         modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;
@@ -502,6 +505,7 @@ contract CodecGasComparisonTest is Test {
             nextProposalId: 1001,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 1000,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("test_finalized_transition"),
             bondInstructionsHash: keccak256("test_bond_instructions")
         });

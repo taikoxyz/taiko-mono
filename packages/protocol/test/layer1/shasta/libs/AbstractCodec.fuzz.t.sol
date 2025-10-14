@@ -102,6 +102,7 @@ abstract contract AbstractCodecFuzzTest is Test {
             nextProposalId: nextProposalId,
             lastProposalBlockId: lastProposalBlockId,
             lastFinalizedProposalId: lastFinalizedProposalId,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: lastFinalizedTransitionHash,
             bondInstructionsHash: bondInstructionsHash
         });

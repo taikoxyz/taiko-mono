@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @title IForcedInclusionStore
+/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
+/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
     struct ForcedInclusion {

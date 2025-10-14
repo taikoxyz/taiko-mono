@@ -11,7 +11,9 @@ import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { SignalServiceShasta } from "src/shared/shasta/impl/SignalServiceShasta.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 
 /// @title InboxTestHelper
@@ -21,6 +23,7 @@ abstract contract InboxTestHelper is CommonTest {
     // Constants
     // ---------------------------------------------------------------
 
+    address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
@@ -54,8 +57,11 @@ abstract contract InboxTestHelper is CommonTest {
     /// @notice Mock bond token for testing
     IERC20 internal bondToken;
 
-    /// @notice Mock checkpoint manager (unused but required for interface compatibility)
+    /// @notice Signal service interface used for checkpoint management
     ICheckpointStore internal checkpointManager;
+
+    /// @notice Signal service proxy used as checkpoint manager
+    SignalServiceShasta internal signalService;
 
     /// @notice Mock proof verifier for testing
     IProofVerifier internal proofVerifier;
@@ -92,6 +98,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: 1,
             lastProposalBlockId: 1, // Genesis value - last proposal was made at block 1
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -188,6 +195,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId + 1,
             lastProposalBlockId: uint48(block.number), // current block.number
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -277,13 +285,13 @@ abstract contract InboxTestHelper is CommonTest {
             coreState: coreState,
             parentProposals: parentProposals,
             blobReference: blobRef,
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            numForcedInclusions: 0,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
+            })
         });
     }
 
@@ -350,10 +358,12 @@ abstract contract InboxTestHelper is CommonTest {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            100, // maxCheckpointHistory
+            address(checkpointManager), // signalService
             address(proofVerifier),
             address(proposerChecker)
         );
+
+        _upgradeDependencies();
 
         _initializeContractName(inboxDeployer.getTestContractName());
 
@@ -367,7 +377,6 @@ abstract contract InboxTestHelper is CommonTest {
     /// or are well-tested externally (e.g. ERC20 tokens)
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        checkpointManager = new MockCheckpointProvider();
         proofVerifier = new MockProofVerifier();
     }
 
@@ -376,6 +385,32 @@ abstract contract InboxTestHelper is CommonTest {
     function _setupDependencies() internal virtual {
         // Deploy PreconfWhitelist as the proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
+
+        // Deploy signal service behind a proxy so it can be upgraded once inbox is available
+        SignalServiceShasta signalServiceImpl =
+            new SignalServiceShasta(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+
+        signalService = SignalServiceShasta(
+            address(
+                new ERC1967Proxy(
+                    address(signalServiceImpl), abi.encodeCall(SignalServiceShasta.init, (owner))
+                )
+            )
+        );
+
+        checkpointManager = ICheckpointStore(address(signalService));
+    }
+
+    /// @notice Upgrade dependencies that need the deployed inbox reference
+    function _upgradeDependencies() internal virtual {
+        require(address(signalService) != address(0), "Signal service not deployed");
+        require(address(inbox) != address(0), "Inbox not deployed");
+
+        SignalServiceShasta upgradedSignalServiceImpl =
+            new SignalServiceShasta(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
+
+        vm.prank(owner);
+        signalService.upgradeTo(address(upgradedSignalServiceImpl));
     }
 
     /// @notice Helper function to select and whitelist a proposer
@@ -427,6 +462,7 @@ abstract contract InboxTestHelper is CommonTest {
             nextProposalId: _proposalId,
             lastProposalBlockId: uint48(block.number),
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });

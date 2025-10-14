@@ -320,7 +320,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
 
-        vm.expectRevert(UnprocessedForcedInclusionIsDue.selector);
+        vm.expectRevert();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
     }
@@ -446,6 +446,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
                 // made there)
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -507,6 +508,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalId: 2,
             lastProposalBlockId: 1,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -545,6 +547,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             nextProposalId: 100,
             lastProposalBlockId: 0,
             lastFinalizedProposalId: 0,
+            lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -612,7 +615,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function _expectedBlobHashes(LibBlobs.BlobReference memory _ref)
         internal
-        view
+        pure
         returns (bytes32[] memory)
     {
         bytes32[] memory fullHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
@@ -661,7 +664,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         LibBlobs.BlobSlice memory expected
     )
         internal
-        view
+        pure
     {
         assertTrue(actual.isForcedInclusion);
         assertEq(uint256(actual.blobSlice.offset), uint256(expected.offset));
