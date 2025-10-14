@@ -611,12 +611,13 @@ mod tests {
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};
+    use anyhow::Result;
 
     use crate::signer::FixedKSigner;
 
     #[test]
-    fn anchor_signature_recovers_to_golden_touch() {
-        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    fn anchor_signature_recovers_to_golden_touch() -> Result<()> {
+        let signer = FixedKSigner::golden_touch()?;
         let anchor_address = Address::repeat_byte(0x11);
 
         let tx = TxEip1559 {
@@ -634,7 +635,7 @@ mod tests {
         let sighash = tx.signature_hash();
         let mut hash_bytes = [0u8; 32];
         hash_bytes.copy_from_slice(sighash.as_slice());
-        let signature = signer.sign_with_predefined_k(&hash_bytes).expect("sign anchor tx");
+        let signature = signer.sign_with_predefined_k(&hash_bytes)?;
 
         let envelope = TxEnvelope::new_unchecked(
             EthereumTypedTransaction::Eip1559(tx),
@@ -646,7 +647,8 @@ mod tests {
             panic!("expected eip1559 envelope");
         };
 
-        let recovered = signed.recover_signer().expect("recover anchor signer");
+        let recovered = signed.recover_signer()?;
         assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
+        Ok(())
     }
 }
