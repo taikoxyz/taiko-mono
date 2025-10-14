@@ -43,6 +43,7 @@ http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 proposer = { path = "../proposer" }
+rand = "0.8"
 serde_json = { workspace = true }
 serial_test = { workspace = true }
 test-harness = { path = "../test-harness" }

@@ -7,12 +7,18 @@ use std::{
     time::Duration,
 };
 
-use alloy::{rpc::client::NoParams, transports::http::reqwest::Url as RpcUrl};
+use alloy::{
+    eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall,
+    transports::http::reqwest::Url as RpcUrl,
+};
+use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
+use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::{Context, Result, anyhow, ensure};
+use bindings::taiko_anchor::TaikoAnchor::{anchorCall, updateStateCall};
 use event_indexer::indexer::{ProposedEventPayload, ShastaEventIndexer, ShastaEventIndexerConfig};
 use once_cell::sync::Lazy;
 use proposer::{config::ProposerConfigs, proposer::Proposer};
@@ -198,34 +204,36 @@ impl fmt::Debug for ShastaEnv {
 }
 
 /// Ensures the latest L2 block contains a TaikoAnchor anchor call.
-pub async fn verify_anchor_block<P>(_client: &Client<P>, _anchor_address: Address) -> Result<()>
+pub async fn verify_anchor_block<P>(client: &Client<P>, anchor_address: Address) -> Result<()>
 where
     P: alloy_provider::Provider + Clone + Send + Sync + 'static,
 {
-    // let latest_block: RpcBlock<TxEnvelope> = client
-    //     .l2_provider
-    //     .get_block_by_number(BlockNumberOrTag::Latest)
-    //     .await?
-    //     .ok_or_else(|| anyhow::anyhow!("latest block missing"))?
-    //     .map_transactions(|tx: RpcTransaction| tx.into());
+    let latest_block: RpcBlock<TxEnvelope> = client
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .full()
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest block missing"))?
+        .map_transactions(|tx: RpcTransaction| tx.into());
 
-    // let first_tx = latest_block
-    //     .transactions
-    //     .first_transaction()
-    //     .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
+    let first_tx = latest_block
+        .transactions
+        .as_transactions()
+        .and_then(|txs| txs.first())
+        .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
 
-    // let selector = anchorCall::SELECTOR;
-    // anyhow::ensure!(first_tx.input().len() >= selector.len(), "anchor transaction input too
-    // short"); anyhow::ensure!(
-    //     &first_tx.input()[..selector.len()] == selector.as_slice(),
-    //     "first transaction is not calling TaikoAnchor.anchor"
-    // );
-    // anyhow::ensure!(
-    //     first_tx.to() == Some(anchor_address),
-    //     "anchor transaction target mismatch: expected {}, got {:?}",
-    //     anchor_address,
-    //     first_tx.to()
-    // );
+    let selectors = [anchorCall::SELECTOR, updateStateCall::SELECTOR];
+    anyhow::ensure!(first_tx.input().len() >= 4, "anchor transaction input too short");
+    anyhow::ensure!(
+        selectors.iter().any(|sel| &first_tx.input()[..sel.len()] == sel.as_slice()),
+        "first transaction is not calling a TaikoAnchor anchor/updateState entrypoint"
+    );
+    anyhow::ensure!(
+        first_tx.to() == Some(anchor_address),
+        "anchor transaction target mismatch: expected {}, got {:?}",
+        anchor_address,
+        first_tx.to()
+    );
 
     Ok(())
 }

@@ -124,11 +124,11 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     }
 
     let block = &manifest.blocks[0];
-    block.timestamp == 0 &&
-        block.coinbase == Address::ZERO &&
-        block.anchor_block_number == 0 &&
-        block.gas_limit == 0 &&
-        block.transactions.is_empty()
+    block.timestamp == 0
+        && block.coinbase == Address::ZERO
+        && block.anchor_block_number == 0
+        && block.gas_limit == 0
+        && block.transactions.is_empty()
 }
 
 impl SegmentPosition {
@@ -462,9 +462,9 @@ where
         let mut instructions = Vec::new();
 
         // Only the first block of a proposal needs to incorporate delayed bond instructions.
-        if position.segment_index == 0 &&
-            position.block_index == 0 &&
-            meta.proposal_id > BOND_PROCESSING_DELAY
+        if position.segment_index == 0
+            && position.block_index == 0
+            && meta.proposal_id > BOND_PROCESSING_DELAY
         {
             let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
             let target_payload = self
@@ -601,5 +601,52 @@ where
         let state_root = block.header.inner.state_root;
 
         Ok((block_hash, state_root))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
+    use alloy_eips::eip2930::AccessList;
+    use alloy_primitives::{Bytes, TxKind};
+
+    use crate::signer::FixedKSigner;
+
+    #[test]
+    fn anchor_signature_recovers_to_golden_touch() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let anchor_address = Address::repeat_byte(0x11);
+
+        let tx = TxEip1559 {
+            chain_id: 167,
+            nonce: 0,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 0,
+            gas_limit: ANCHOR_V3_GAS_LIMIT,
+            to: TxKind::Call(anchor_address),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input: Bytes::from(vec![0u8; 4]),
+        };
+
+        let sighash = tx.signature_hash();
+        let mut hash_bytes = [0u8; 32];
+        hash_bytes.copy_from_slice(sighash.as_slice());
+        let signature = signer.sign_with_predefined_k(&hash_bytes).expect("sign anchor tx");
+
+        let envelope = TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            signature.signature,
+            sighash,
+        );
+
+        let TxEnvelope::Eip1559(signed) = &envelope else {
+            panic!("expected eip1559 envelope");
+        };
+
+        let recovered = signed.recover_signer().expect("recover anchor signer");
+        assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
     }
 }
