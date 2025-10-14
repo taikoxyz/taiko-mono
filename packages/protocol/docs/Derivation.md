@@ -314,7 +314,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
-After all calculations above, another `1_000_000` gas limit will be added on top of the final value, reserving headroom for the mandatory `Anchor.updateState` transaction.
+After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.updateState` transaction.
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
