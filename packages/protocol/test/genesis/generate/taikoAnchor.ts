@@ -770,7 +770,9 @@ async function generateContractConfigs(
                     {
                         id: taikoAnchorReferencesMap.provabilityBond.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(provabilityBond).toHexString(),
+                            ethers.BigNumber.from(
+                                provabilityBond,
+                            ).toHexString(),
                             32,
                         ),
                     },
@@ -808,8 +810,11 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // TaikoAnchor - ancestorsHash will be set by first anchor call
-                ancestorsHash: ethers.constants.HashZero,
+                // TaikoAnchor - _blockState will be initialized by first anchor call
+                _blockState: {
+                    anchorBlockNumber: 0,
+                    ancestorsHash: ethers.constants.HashZero,
+                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,

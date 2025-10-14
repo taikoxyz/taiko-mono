@@ -2,12 +2,8 @@
   "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   "chainId": 167,
   "seedAccounts": [
-    {
-      "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000
-    },
-    {
-      "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000
-    }
+    { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000 },
+    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 }
   ],
   "l1ChainId": 31337,
   "ownerSecurityCouncil": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
@@ -36,9 +32,7 @@
     "RollupResolver": "0x1670000000000000000000000000000000010002",
     "BondManager": "0x1670000000000000000000000000000000010003"
   },
-  "param1559": {
-    "gasExcess": 1
-  },
+  "param1559": { "gasExcess": 1 },
   "predeployERC20": true,
   "shastaForkHeight": 2048,
   "livenessBond": "128000000000000000000",
