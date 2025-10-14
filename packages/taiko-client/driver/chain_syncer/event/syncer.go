@@ -596,7 +596,7 @@ func (s *Syncer) handlePacayaReorg(result *rpc.ReorgCheckResult) {
 	s.emitLatestPacayaProposal()
 }
 
-// handleShastaReorg handles the Pacaya reorg by trimming the proposal history and emitting
+// handleShastaReorg handles the Shasta reorg by trimming the proposal history and emitting
 // the latest shasta proposal
 func (s *Syncer) handleShastaReorg(result *rpc.ReorgCheckResult) {
 	if result == nil || s.latestSeenProposalCh == nil {
