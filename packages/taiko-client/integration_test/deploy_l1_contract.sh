@@ -27,3 +27,13 @@ cat "L1 contracts deployed:
   PacayaTaikoInbox: $INBOX
   SharedAddressManager: $SHARED_RESOLVER
 "
+
+cd ../protocol &&
+  FOUNDRY_PROFILE=layer1o PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/devnet/UpgradeShastaL1.s.sol:UpgradeShastaL1 \
+    --fork-url "$L1_HTTP" \
+    --broadcast \
+    --ffi \
+    -vvvvv \
+    --private-key "$PRIVATE_KEY" \
+    --block-gas-limit 200000000 \
+    --legacy
