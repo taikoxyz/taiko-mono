@@ -549,6 +549,9 @@ func (s *Syncer) processPacayaBatch(
 	return nil
 }
 
+// recordPacayaProposal records the Pacaya proposal metadata into the history
+// in case of an L1 reorg, we can find the  latest valid proposal to emit
+// back to the preconf driver API.
 func (s *Syncer) recordPacayaProposal(meta metadata.TaikoProposalMetaData) {
 	if s.latestSeenProposalCh == nil || meta == nil || !meta.IsPacaya() {
 		return
@@ -561,6 +564,9 @@ func (s *Syncer) recordPacayaProposal(meta metadata.TaikoProposalMetaData) {
 	}
 }
 
+// recordShastaProposal records the Pacaya proposal metadata into the history
+// in case of an L1 reorg, we can find the  latest valid proposal to emit
+// back to the preconf driver API.
 func (s *Syncer) recordShastaProposal(meta metadata.TaikoProposalMetaData) {
 	if s.latestSeenProposalCh == nil || meta == nil || !meta.IsShasta() {
 		return
@@ -573,6 +579,8 @@ func (s *Syncer) recordShastaProposal(meta metadata.TaikoProposalMetaData) {
 	}
 }
 
+// handlePacayaReorg handles the Pacaya reorg by trimming the proposal history and emitting
+// the latest pacaya proposal
 func (s *Syncer) handlePacayaReorg(result *rpc.ReorgCheckResult) {
 	if result == nil || s.latestSeenProposalCh == nil {
 		return
@@ -582,6 +590,8 @@ func (s *Syncer) handlePacayaReorg(result *rpc.ReorgCheckResult) {
 	s.emitLatestPacayaProposal()
 }
 
+// handleShastaReorg handles the Pacaya reorg by trimming the proposal history and emitting
+// the latest shasta proposal
 func (s *Syncer) handleShastaReorg(result *rpc.ReorgCheckResult) {
 	if result == nil || s.latestSeenProposalCh == nil {
 		return
