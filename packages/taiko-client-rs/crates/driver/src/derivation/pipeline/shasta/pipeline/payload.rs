@@ -1,3 +1,4 @@
+use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alethia_reth_primitives::payload::attributes::{
     RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
 };
@@ -396,9 +397,13 @@ where
             signature,
         };
 
+        // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
+        // add it back here.
+        let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_GAS_LIMIT);
+
         let block_metadata = TaikoBlockMetadata {
             beneficiary: block.coinbase,
-            gas_limit: block.gas_limit,
+            gas_limit,
             timestamp: U256::from(block.timestamp),
             mix_hash: difficulty,
             tx_list,
