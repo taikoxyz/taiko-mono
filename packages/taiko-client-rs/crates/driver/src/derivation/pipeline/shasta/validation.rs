@@ -134,6 +134,10 @@ fn adjust_anchor_numbers(
         parent_anchor = block.anchor_block_number;
     }
 
+    // Non-forced-inclusion proposals must advance the anchor block number to ensure
+    // that each new proposal references a more recent anchor block, maintaining protocol
+    // liveness and preventing replay or stalling attacks. Forced-inclusion proposals are
+    // exempt from this rule to allow for exceptional cases.
     if !is_forced_inclusion && highest_anchor <= parent_anchor_block_number {
         return false;
     }
