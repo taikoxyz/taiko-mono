@@ -654,7 +654,7 @@ func (s *Syncer) trimShastaHistory(target *big.Int) {
 	}
 
 	if idx < len(s.shastaProposalHistory) {
-		s.shastaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.shastaProposalHistory[:idx]...)
+		s.shastaProposalHistory = s.shastaProposalHistory[:idx]
 	}
 }
 
