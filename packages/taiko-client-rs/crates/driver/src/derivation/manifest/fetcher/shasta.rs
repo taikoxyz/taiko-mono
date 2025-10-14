@@ -67,7 +67,7 @@ where
         &self.blob_source
     }
 
-    // Decode a manifest from the provided sidecars and offset.
+    /// Decode a manifest from the provided sidecars and offset.
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
