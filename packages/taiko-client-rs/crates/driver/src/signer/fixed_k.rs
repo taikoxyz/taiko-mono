@@ -125,8 +125,8 @@ impl FixedKSigner {
         let s_bytes = s.to_bytes();
 
         let signature = AlloySignature::new(
-            U256::from_be_slice(r_bytes.as_slice()),
-            U256::from_be_slice(s_bytes.as_slice()),
+            U256::from_be_slice(r_bytes.as_ref()),
+            U256::from_be_slice(s_bytes.as_ref()),
             (recovery_id & 1) == 1,
         );
 
