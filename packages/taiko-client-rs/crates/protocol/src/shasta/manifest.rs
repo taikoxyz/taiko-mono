@@ -46,13 +46,13 @@ impl Default for DerivationSourceManifest {
 }
 
 impl DerivationSourceManifest {
-    /// Encode and compress the derivation srouce manifest following the Shasta protocol payload
+    /// Encode and compress the derivation source manifest following the Shasta protocol payload
     /// format. Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn encode_and_compress(&self) -> Result<Vec<u8>> {
         encode_manifest_payload(self)
     }
 
-    /// Decompress and decode a derivation srouce manifest from the Shasta protocol payload bytes.
+    /// Decompress and decode a derivation source manifest from the Shasta protocol payload bytes.
     /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
         let Some(decoded) = decode_manifest_payload(bytes, offset)? else {
