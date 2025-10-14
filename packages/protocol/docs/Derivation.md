@@ -516,7 +516,7 @@ The following block header fields are also set before transaction execution but 
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
-For Shasta specifically, consensus pins the base fee to 25 000 000 wei for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may can be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
+For Shasta specifically, consensus pins the base fee to `25_000_000 wei` for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may can be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
 
 ### Anchor Transaction
 
