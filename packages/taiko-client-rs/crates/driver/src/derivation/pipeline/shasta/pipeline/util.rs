@@ -30,7 +30,7 @@ pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     Bytes::from(buf.freeze())
 }
 
-// Encode the extra data field for a Shasta block header.
+/// Encode the extra data field for a Shasta block header.
 pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
     let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
     Bytes::from(data)
