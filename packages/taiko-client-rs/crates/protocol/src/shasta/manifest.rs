@@ -39,7 +39,7 @@ pub struct DerivationSourceManifest {
 }
 
 impl Default for DerivationSourceManifest {
-    // Create the default derivation source manifest.
+    /// Create the default derivation source manifest.
     fn default() -> Self {
         Self { blocks: vec![BlockManifest::default()] }
     }
@@ -90,7 +90,7 @@ pub struct ProposalManifest {
 }
 
 impl Default for ProposalManifest {
-    // Create the default proposal manifest.
+    /// Create the default proposal manifest.
     fn default() -> Self {
         Self { prover_auth_bytes: Bytes::new(), sources: vec![DerivationSourceManifest::default()] }
     }
@@ -122,7 +122,7 @@ impl ProposalManifest {
     }
 }
 
-// Encode a manifest into the Shasta protocol payload format.
+/// Encode a manifest into the Shasta protocol payload format.
 fn encode_manifest_payload<T>(manifest: &T) -> Result<Vec<u8>>
 where
     T: Encodable,
@@ -146,7 +146,7 @@ where
     Ok(output)
 }
 
-// Decode a manifest from the Shasta protocol payload format.
+/// Decode a manifest from the Shasta protocol payload format.
 fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>>> {
     if bytes.len() < offset + 64 {
         return Err(ProtocolError::InvalidPayload("blob payload shorter than header".into()));
