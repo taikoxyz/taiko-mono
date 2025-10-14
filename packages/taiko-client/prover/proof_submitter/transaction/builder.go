@@ -82,12 +82,16 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 				"verifier", batchProof.Verifier,
 			)
 		}
-		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxGethProofVerifier.Bytes()) < 0 {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
+		// Map proof types to verifier IDs and sort by ID
+		rethVerifierId := encoding.ProofTypeToVerifierId(string(batchProof.ProofType))
+		sgxGethVerifierId := encoding.VerifierIdSgxGeth
+
+		if rethVerifierId < sgxGethVerifierId {
+			subProofs[0] = encoding.SubProof{VerifierId: rethVerifierId, Proof: batchProof.BatchProof}
+			subProofs[1] = encoding.SubProof{VerifierId: sgxGethVerifierId, Proof: batchProof.SgxGethBatchProof}
 		} else {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
+			subProofs[0] = encoding.SubProof{VerifierId: sgxGethVerifierId, Proof: batchProof.SgxGethBatchProof}
+			subProofs[1] = encoding.SubProof{VerifierId: rethVerifierId, Proof: batchProof.BatchProof}
 		}
 
 		input, err := encoding.EncodeProveBatchesInput(metas, transitions)

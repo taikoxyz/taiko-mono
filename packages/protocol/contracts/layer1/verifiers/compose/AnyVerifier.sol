@@ -22,15 +22,15 @@ contract AnyVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(address[] memory _verifiers)
+    function areVerifiersSufficient(uint8[] memory _verifierIds)
         internal
         view
         override
         returns (bool)
     {
-        if (_verifiers.length != 1) return false;
+        if (_verifierIds.length != 1) return false;
 
-        return _verifiers[0] == sgxRethVerifier || _verifiers[0] == risc0RethVerifier
-            || _verifiers[0] == sp1RethVerifier;
+        return _verifierIds[0] == SGX_RETH || _verifierIds[0] == RISC0_RETH
+            || _verifierIds[0] == SP1_RETH;
     }
 }
