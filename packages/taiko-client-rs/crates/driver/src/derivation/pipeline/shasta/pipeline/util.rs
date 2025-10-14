@@ -14,7 +14,7 @@ sol! {
     }
 }
 
-// Calculate the Shasta difficulty for a new block based on the parent randao and block number.
+/// Calculate the Shasta difficulty for a new block based on the parent randao and block number.
 pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
         parentDifficulty: parent_randao,
