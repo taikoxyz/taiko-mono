@@ -23,7 +23,7 @@ pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64
     B256::from(keccak256(params.abi_encode()))
 }
 
-// Encode a list of transactions into the format expected by the execution engine.
+/// Encode a list of transactions into the format expected by the execution engine.
 pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
     encode_list(transactions, &mut buf);
