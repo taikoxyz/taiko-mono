@@ -14,6 +14,12 @@ pub fn decode_hex_bytes(value: &str) -> Result<Vec<u8>> {
 /// Decode a hex string into a fixed 32-byte hash.
 pub fn decode_b256(value: &str) -> Result<B256> {
     let bytes = decode_hex_bytes(value)?;
+    if bytes.len() != 32 {
+        return Err(BlobIndexerError::InvalidData(format!(
+            "expected 32 bytes but got {}",
+            bytes.len()
+        )));
+    }
     Ok(B256::from_slice(&bytes))
 }
 
