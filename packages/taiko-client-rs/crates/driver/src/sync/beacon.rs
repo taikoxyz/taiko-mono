@@ -19,6 +19,9 @@ use tracing::{info, warn};
 use super::{SyncError, SyncStage};
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
 
+/// Default polling interval used when no retry interval is configured.
+const DEFAULT_BEACON_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(12);
+
 /// Handles triggering beacon syncs when the L2 execution engine lags behind the protocol head.
 pub struct BeaconSyncer<P>
 where
@@ -139,7 +142,7 @@ where
         info!(?checkpoint_head, "initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
-            Duration::from_secs(12)
+            DEFAULT_BEACON_SYNC_POLL_INTERVAL
         } else {
             self.retry_interval
         };

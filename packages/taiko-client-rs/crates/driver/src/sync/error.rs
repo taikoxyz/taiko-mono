@@ -38,6 +38,10 @@ pub enum SyncError {
     #[error("failed to initialize event indexer")]
     IndexerInit(#[from] IndexerError),
 
+    /// Event sync: execution engine returned no latest block.
+    #[error("execution engine returned no latest block")]
+    MissingLatestExecutionBlock,
+
     /// Event sync: indexer task terminated unexpectedly.
     #[error("event indexer task terminated unexpectedly")]
     IndexerTerminated,

@@ -142,8 +142,8 @@ impl ShastaEventIndexer {
     }
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
-    #[instrument(skip(self), err)]
-    async fn run_inner(self: Arc<Self>) -> Result<()> {
+    #[instrument(skip(self), err, fields(?start_tag))]
+    async fn run_inner(self: Arc<Self>, start_tag: BlockNumberOrTag) -> Result<()> {
         let source = &self.config.l1_subscription_source;
         info!(
             connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
@@ -164,7 +164,7 @@ impl ShastaEventIndexer {
         tokio::spawn(async move {
             // TODO: change to fetch the last X events when the event scanner supports it in next
             // release.
-            if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Number(0), None).await {
+            if let Err(err) = event_scanner.start_scanner(start_tag, None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
@@ -226,8 +226,8 @@ impl ShastaEventIndexer {
 
     /// Start the indexer event processing loop on a background task.
     #[instrument(skip(self))]
-    pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
-        spawn(async move { self.run_inner().await })
+    pub fn spawn(self: Arc<Self>, start_tag: BlockNumberOrTag) -> JoinHandle<Result<()>> {
+        spawn(async move { self.run_inner(start_tag).await })
     }
 
     /// Decode and cache a `Proposed` event payload.

@@ -9,6 +9,9 @@ use protocol::shasta::{
 };
 use thiserror::Error;
 
+/// Number of basis points used for percentage-based gas limit bounds.
+const GAS_LIMIT_BASIS_POINTS: u64 = 10_000;
+
 /// Input data required to validate and normalise metadata for a single derivation source.
 #[derive(Debug, Clone, Copy)]
 pub struct ValidationContext {
@@ -176,12 +179,15 @@ fn adjust_gas_limit(
         }
 
         let parent = effective_parent_gas_limit as u128;
-        let lower_bound =
-            parent.saturating_mul((10_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) as u128) / 10_000;
+        let basis_points = u128::from(GAS_LIMIT_BASIS_POINTS);
+        let lower_factor =
+            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_sub(BLOCK_GAS_LIMIT_MAX_CHANGE));
+        let lower_bound = parent.saturating_mul(lower_factor) / basis_points;
         let lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
 
-        let upper_bound =
-            parent.saturating_mul((10_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) as u128) / 10_000;
+        let upper_factor =
+            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_add(BLOCK_GAS_LIMIT_MAX_CHANGE));
+        let upper_bound = parent.saturating_mul(upper_factor) / basis_points;
         let upper_bound = upper_bound.min(u64::MAX as u128) as u64;
 
         if block.gas_limit < lower_bound {

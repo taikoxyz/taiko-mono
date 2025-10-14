@@ -300,7 +300,7 @@ impl ShastaEnv {
         let indexer_config =
             ShastaEventIndexerConfig { l1_subscription_source: l1_source.clone(), inbox_address };
         let event_indexer = ShastaEventIndexer::new(indexer_config).await?;
-        event_indexer.clone().spawn();
+        event_indexer.clone().spawn(BlockNumberOrTag::Earliest);
 
         let proposer_config = ProposerConfigs {
             l1_provider_source: l1_source.clone(),
