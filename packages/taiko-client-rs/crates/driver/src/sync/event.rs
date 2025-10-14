@@ -4,7 +4,6 @@ use std::{sync::Arc, time::Duration};
 
 use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
 use alloy_provider::Provider;
-use anyhow::anyhow;
 use bindings::i_inbox::IInbox::Proposed;
 use event_scanner::{EventFilter, types::ScannerMessage};
 use tokio::spawn;
@@ -25,8 +24,11 @@ pub struct EventSyncer<P>
 where
     P: Provider + Clone,
 {
+    /// RPC client shared with derivation pipeline.
     rpc: Client<P>,
+    /// Static driver configuration.
     cfg: DriverConfig,
+    /// Shared Shasta event indexer used to stream inbox proposals.
     indexer: Arc<ShastaEventIndexer>,
 }
 
@@ -68,10 +70,13 @@ where
         // Wait for historical indexing to complete before starting the derivation loop.
         self.indexer.wait_historical_indexing_finished().await;
 
-        let mut scanner =
-            self.cfg.client.l1_provider_source.to_event_scanner().await.map_err(|err| {
-                SyncError::Other(anyhow!("failed to create event scanner: {err}"))
-            })?;
+        let mut scanner = self
+            .cfg
+            .client
+            .l1_provider_source
+            .to_event_scanner()
+            .await
+            .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
         let filter = EventFilter::new()
             .with_contract_address(self.cfg.client.inbox_address)
             .with_event(Proposed::SIGNATURE);

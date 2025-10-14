@@ -11,7 +11,9 @@ pub type DriverRpcClient = Client<FillProvider<JoinedRecommendedFillers, RootPro
 
 /// Shasta driver responsible for keeping an execution engine in sync with protocol state.
 pub struct Driver {
+    /// Static configuration loaded at startup.
     cfg: DriverConfig,
+    /// RPC client wrapper shared with derivation and sync subsystems.
     rpc: DriverRpcClient,
 }
 

@@ -124,11 +124,11 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     }
 
     let block = &manifest.blocks[0];
-    block.timestamp == 0
-        && block.coinbase == Address::ZERO
-        && block.anchor_block_number == 0
-        && block.gas_limit == 0
-        && block.transactions.is_empty()
+    block.timestamp == 0 &&
+        block.coinbase == Address::ZERO &&
+        block.anchor_block_number == 0 &&
+        block.gas_limit == 0 &&
+        block.transactions.is_empty()
 }
 
 impl SegmentPosition {
@@ -462,9 +462,9 @@ where
         let mut instructions = Vec::new();
 
         // Only the first block of a proposal needs to incorporate delayed bond instructions.
-        if position.segment_index == 0
-            && position.block_index == 0
-            && meta.proposal_id > BOND_PROCESSING_DELAY
+        if position.segment_index == 0 &&
+            position.block_index == 0 &&
+            meta.proposal_id > BOND_PROCESSING_DELAY
         {
             let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
             let target_payload = self

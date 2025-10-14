@@ -46,6 +46,10 @@ pub enum SyncError {
     #[error("derivation failed")]
     Derivation(#[from] DerivationError),
 
+    /// Event sync: failed to instantiate the event scanner.
+    #[error("failed to create event scanner: {0}")]
+    EventScannerInit(String),
+
     /// Event sync: RPC error.
     #[error(transparent)]
     Rpc(#[from] RpcClientError),
