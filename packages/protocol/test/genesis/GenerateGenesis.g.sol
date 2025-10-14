@@ -167,7 +167,7 @@ contract TestGenerateGenesis is Test {
                     ICheckpointStore(getPredeployedContractAddress("SignalService")),
                     IBondManager(getPredeployedContractAddress("BondManager")),
                     10_000_000, // livenessBond
-                    10_000_000, // provabilityBond
+                    10_000_000_000_000_000, // provabilityBond
                     uint64(shastaForkHeight),
                     uint64(l1ChainId)
                 )
