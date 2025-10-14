@@ -62,7 +62,7 @@ where
 {
     type Manifest = M;
 
-    // Access the underlying blob data source.
+    /// Access the underlying blob data source.
     fn blob_source(&self) -> &BlobDataSource {
         &self.blob_source
     }
