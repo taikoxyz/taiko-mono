@@ -46,7 +46,7 @@ impl<M> ShastaManifestFetcher<M>
 where
     M: Send + Default + 'static,
 {
-    // Create a new Shasta manifest fetcher with the given blob source and decoder function.
+    /// Create a new Shasta manifest fetcher with the given blob source and decoder function.
     pub fn new(
         blob_source: BlobDataSource,
         decoder: fn(&[u8], usize) -> ProtocolResult<M>,
