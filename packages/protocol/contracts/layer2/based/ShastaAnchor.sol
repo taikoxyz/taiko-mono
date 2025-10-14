@@ -59,6 +59,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
 
+    /// @notice Conversion factor from Gwei to Wei (1 Gwei = 10^9 Wei).
+    uint256 private constant GWEI_TO_WEI = 1e9;
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -257,7 +260,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
         // Convert proving fee from Gwei to Wei
-        provingFee *= 1e9;
+        provingFee *= GWEI_TO_WEI;
 
         // Check bond sufficiency (convert provingFeeGwei to Wei)
         isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
@@ -344,7 +347,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             LibBonds.BondInstruction memory instruction = _bondInstructions[i];
 
             // Determine bond amount based on type
-            uint48 bond;
+            uint256 bond;
             if (instruction.bondType == LibBonds.BondType.LIVENESS) {
                 bond = livenessBondGwei;
             } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
@@ -352,7 +355,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             }
 
             // Convert bond from Gwei to Wei
-            bond *= 1e9;
+            bond *= GWEI_TO_WEI;
 
             // Transfer bond from payer to receiver
             if (bond != 0) {
