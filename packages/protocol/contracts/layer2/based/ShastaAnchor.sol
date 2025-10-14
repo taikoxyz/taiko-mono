@@ -351,6 +351,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 bond = provabilityBondGwei;
             }
 
+            // Convert bond from Gwei to Wei
+            bond *= 1e9;
+
             // Transfer bond from payer to receiver
             if (bond != 0) {
                 uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
