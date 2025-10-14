@@ -1,21 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
-import "../IVerifier.sol";
+import "src/layer1/core/iface/IProofVerifier.sol";
 
 /// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate
 /// proofs.
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
-/// @custom:deprecated This contract is deprecated. Only security-related bugs should be fixed.
-/// No other changes should be made to this code.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ComposeVerifier is EssentialContract, IVerifier {
-    uint256[50] private __gap;
-
+abstract contract ComposeVerifier is IProofVerifier {
     struct SubProof {
         address verifier;
         bytes proof;
@@ -54,14 +48,8 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     error CV_INVALID_SUB_VERIFIER_ORDER();
     error CV_VERIFIERS_INSUFFICIENT();
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
+    /// @inheritdoc IProofVerifier
+    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         address[] memory verifiers = new address[](size);
@@ -73,7 +61,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
 
             verifier = subProofs[i].verifier;
-            IVerifier(verifier).verifyProof(_ctxs, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(_transitionsHash, subProofs[i].proof);
 
             verifiers[i] = verifier;
         }

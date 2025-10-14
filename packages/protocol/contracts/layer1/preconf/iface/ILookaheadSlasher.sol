@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
-import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@eth-fabric/urc/IRegistry.sol";
