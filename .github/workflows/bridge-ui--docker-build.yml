@@ -27,8 +27,8 @@ permissions:
 env:
   DOCKER_REGISTRY: docker.io
   DOCKER_REPOSITORY: nethermind/surge-bridge-ui
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  DOCKER_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
 jobs:
   build:

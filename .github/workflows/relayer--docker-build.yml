@@ -28,8 +28,8 @@ env:
   DOCKER_REGISTRY: docker.io
   DOCKER_REPOSITORY_MIGRATIONS: nethermind/surge-relayer-migrations
   DOCKER_REPOSITORY_RELAYER: nethermind/surge-relayer
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  DOCKER_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
 jobs:
   build-migrations:
