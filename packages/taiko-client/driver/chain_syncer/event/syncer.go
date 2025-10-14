@@ -632,7 +632,7 @@ func (s *Syncer) trimPacayaHistory(target *big.Int) {
 	}
 
 	if idx < len(s.pacayaProposalHistory) {
-		s.pacayaProposalHistory = append([]*encoding.LastSeenProposal(nil), s.pacayaProposalHistory[:idx]...)
+		s.pacayaProposalHistory = s.pacayaProposalHistory[:idx]
 	}
 }
 
