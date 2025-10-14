@@ -130,8 +130,8 @@ async function generateContractConfigs(
     hardCodedAddresses: any,
     param1559: any,
     shastaForkHeight: number,
-    livenessBond: number,
-    provabilityBond: number,
+    livenessBond: string | number,
+    provabilityBond: string | number,
     withdrawalDelay: number,
     minBond: number,
     bondToken: string,
@@ -763,14 +763,14 @@ async function generateContractConfigs(
                     {
                         id: taikoAnchorReferencesMap.livenessBond.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(livenessBond),
+                            ethers.BigNumber.from(livenessBond).toHexString(),
                             32,
                         ),
                     },
                     {
                         id: taikoAnchorReferencesMap.provabilityBond.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(provabilityBond),
+                            ethers.BigNumber.from(provabilityBond).toHexString(),
                             32,
                         ),
                     },
