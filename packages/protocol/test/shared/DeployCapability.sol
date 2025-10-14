@@ -34,7 +34,14 @@ abstract contract DeployCapability is Script {
         console2.log(">", name, "@", registerTo);
         console2.log("  proxy      :", proxy);
         console2.log("  impl       :", impl);
-        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
+
+        // Try to get owner if the contract has one (some contracts like verifiers don't)
+        (bool success, bytes memory returnData) =
+            proxy.staticcall(abi.encodeWithSignature("owner()"));
+        if (success && returnData.length == 32) {
+            console2.log("  owner      :", abi.decode(returnData, (address)));
+        }
+
         console2.log("  msg.sender :", msg.sender);
 
         vm.writeJson(
