@@ -45,10 +45,10 @@ impl CleanupInner {
         if let Some(previous_snapshot) = {
             let mut guard = SNAPSHOT_ID.lock().expect("snapshot mutex poisoned");
             guard.take()
+        } && let Err(error) = Self::revert_snapshot(&client, &previous_snapshot).await
+        {
+            warn!(error = %error, "failed to revert previous L1 snapshot during setup");
         }
-            && let Err(error) = Self::revert_snapshot(&client, &previous_snapshot).await {
-                warn!(error = %error, "failed to revert previous L1 snapshot during setup");
-            }
 
         reset_head_l1_origin(&client).await;
 
@@ -148,10 +148,11 @@ async fn reset_head_l1_origin(client: &RpcClient) {
     let call = client.set_head_l1_origin(U256::from(1u64));
     match timeout(CLEANUP_RPC_TIMEOUT, call).await {
         Ok(result) => {
-            if let Err(err) = result
-                && !is_not_found_error(&err) {
+            if let Err(err) = result {
+                if !is_not_found_error(&err) {
                     warn!(error = %err, "failed to reset head l1 origin");
                 }
+            }
         }
         Err(_) => {
             warn!(
