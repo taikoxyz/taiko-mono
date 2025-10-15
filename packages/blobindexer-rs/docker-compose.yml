@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   mysql:
     image: mysql:8.4
@@ -7,14 +6,19 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: blobindexer
+      # If connecting from other containers, not needed for host access:
+      # MYSQL_ROOT_HOST: "%"
     ports:
       - "3306:3306"
     command:
-      - --default-authentication-plugin=mysql_native_password
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql-data:/var/lib/mysql
-
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-ppassword"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 volumes:
   mysql-data:
