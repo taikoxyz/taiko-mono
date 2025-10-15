@@ -7,7 +7,10 @@ import "./ComposeVerifier.sol";
 /// @notice SGX + (SP1 or Risc0) verifier
 /// @custom:security-contact security@taiko.xyz
 contract SgxAndZkVerifier is ComposeVerifier {
+    uint256 public immutable unprovabilityThreshold;
+
     constructor(
+        uint256 _unprovabilityThreshold,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
@@ -20,10 +23,12 @@ contract SgxAndZkVerifier is ComposeVerifier {
             _risc0RethVerifier,
             _sp1RethVerifier
         )
-    { }
+    {
+        unprovabilityThreshold = _unprovabilityThreshold;
+    }
 
     function areVerifiersSufficient(
-        uint256, /*_youngestProposalAge*/
+        uint256 _youngestProposalAge,
         uint8[] memory _verifierIds
     )
         internal
@@ -32,8 +37,9 @@ contract SgxAndZkVerifier is ComposeVerifier {
         override
         returns (bool)
     {
-        return
-            _verifierIds.length == 2 && _verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]);
+        return _youngestProposalAge >= unprovabilityThreshold
+            ? _verifierIds.length == 1 && _verifierIds[0] == SGX_RETH
+            : _verifierIds.length == 2 && _verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]);
     }
 
     function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {
