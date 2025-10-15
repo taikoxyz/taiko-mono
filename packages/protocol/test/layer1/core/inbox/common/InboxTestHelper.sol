@@ -159,13 +159,19 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return BlobReference struct
-    function _createBlobRef(uint8 _blobStartIndex, uint8 _numBlobs, uint24 _offset)
+    function _createBlobRef(
+        uint8 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
         internal
         pure
         returns (LibBlobs.BlobReference memory)
     {
         return LibBlobs.BlobReference({
-            blobStartIndex: _blobStartIndex, numBlobs: _numBlobs, offset: _offset
+            blobStartIndex: _blobStartIndex,
+            numBlobs: _numBlobs,
+            offset: _offset
         });
     }
 
@@ -206,7 +212,9 @@ abstract contract InboxTestHelper is CommonTest {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: selectedBlobHashes, offset: _offset, timestamp: uint48(block.timestamp)
+                blobHashes: selectedBlobHashes,
+                offset: _offset,
+                timestamp: uint48(block.timestamp)
             })
         });
 
@@ -229,7 +237,9 @@ abstract contract InboxTestHelper is CommonTest {
         });
 
         return IInbox.ProposedEventPayload({
-            proposal: expectedProposal, derivation: expectedDerivation, coreState: expectedCoreState
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState
         });
     }
 
@@ -306,7 +316,10 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return ProposeInput struct with specified blob configuration
-    function _createProposeInputWithBlobs(uint8 _numBlobs, uint24 _offset)
+    function _createProposeInputWithBlobs(
+        uint8 _numBlobs,
+        uint24 _offset
+    )
         internal
         view
         returns (IInbox.ProposeInput memory)

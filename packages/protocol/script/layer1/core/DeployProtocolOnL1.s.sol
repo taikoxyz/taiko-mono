@@ -128,7 +128,10 @@ contract DeployProtocolOnL1 is DeployCapability {
             _deployZKVerifiers(config.contractOwner, config.l2ChainId);
     }
 
-    function _deployProofVerifier(VerifierAddresses memory verifiers, bool useDummyVerifiers)
+    function _deployProofVerifier(
+        VerifierAddresses memory verifiers,
+        bool useDummyVerifiers
+    )
         private
         returns (address proofVerifier)
     {
@@ -176,9 +179,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
-            impl: address(
-                new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
-            ),
+            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
@@ -193,8 +194,9 @@ contract DeployProtocolOnL1 is DeployCapability {
     )
         private
     {
-        address signalService = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
 
         // Upgrade with actual inbox address
         address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc));
@@ -206,7 +208,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
     }
 
-    function _transferOwnerships(address sharedResolver, address shastaInbox, address newOwner)
+    function _transferOwnerships(
+        address sharedResolver,
+        address shastaInbox,
+        address newOwner
+    )
         private
     {
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -247,7 +253,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         _deployVaults(sharedResolver, config.contractOwner);
     }
 
-    function _deployOrRegisterTaikoToken(address sharedResolver, DeploymentConfig memory config)
+    function _deployOrRegisterTaikoToken(
+        address sharedResolver,
+        DeploymentConfig memory config
+    )
         private
     {
         address taikoToken = config.taikoToken;
@@ -277,8 +286,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         private
     {
         // Check if SignalService already exists
-        try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false) returns (address) {
+        try IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        ) returns (address) {
             // Already exists, skip deployment
             return;
         } catch {
@@ -293,8 +303,9 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
-        address signalService = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
 
         address bridge = deployProxy({
             name: "bridge",
@@ -356,13 +367,15 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
     }
 
-    function _deployZKVerifiers(address owner, uint64 l2ChainId)
+    function _deployZKVerifiers(
+        address owner,
+        uint64 l2ChainId
+    )
         private
         returns (address risc0Verifier, address sp1Verifier)
     {

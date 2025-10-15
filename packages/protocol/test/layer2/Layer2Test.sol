@@ -17,16 +17,22 @@ abstract contract Layer2Test is CommonTest {
         );
     }
 
-    function deployDelegateController(uint64 l1ChainId, address l2Bridge, address daoController)
+    function deployDelegateController(
+        uint64 l1ChainId,
+        address l2Bridge,
+        address daoController
+    )
         internal
         returns (DelegateController)
     {
         return DelegateController(
-            payable(deploy({
+            payable(
+                deploy({
                     name: "delegate_controller",
                     impl: address(new DelegateController(l1ChainId, l2Bridge, daoController)),
                     data: abi.encodeCall(DelegateController.init, ())
-                }))
+                })
+            )
         );
     }
 }

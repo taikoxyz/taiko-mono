@@ -27,7 +27,10 @@ contract SgxAndZkVerifier is ComposeVerifier {
         unprovabilityThreshold = _unprovabilityThreshold;
     }
 
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256 _youngestProposalAge,
+        uint8[] memory _verifierIds
+    )
         internal
         view
         virtual

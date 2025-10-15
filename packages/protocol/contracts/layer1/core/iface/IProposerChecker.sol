@@ -13,7 +13,10 @@ interface IProposerChecker {
     /// @return endOfSubmissionWindowTimestamp_ The timestamp of the last slot where the current
     /// preconfer can propose.
     /// @dev This function must revert if the address is not a valid proposer
-    function checkProposer(address _proposer, bytes calldata _lookaheadData)
+    function checkProposer(
+        address _proposer,
+        bytes calldata _lookaheadData
+    )
         external
         returns (uint48 endOfSubmissionWindowTimestamp_);
 }

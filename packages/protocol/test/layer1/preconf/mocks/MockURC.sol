@@ -17,7 +17,10 @@ contract MockURC {
         return operatorData[_registrationRoot];
     }
 
-    function getHistoricalCollateral(bytes32 _registrationRoot, uint256 _timestamp)
+    function getHistoricalCollateral(
+        bytes32 _registrationRoot,
+        uint256 _timestamp
+    )
         external
         view
         returns (uint256)
@@ -46,7 +49,10 @@ contract MockURC {
         return historicalCollateral[_registrationRoot][result];
     }
 
-    function getSlasherCommitment(bytes32 _registrationRoot, address _slasher)
+    function getSlasherCommitment(
+        bytes32 _registrationRoot,
+        address _slasher
+    )
         external
         view
         returns (IRegistry.SlasherCommitment memory)
@@ -131,7 +137,10 @@ contract MockURC {
         }
     }
 
-    function isOptedIntoSlasher(bytes32 _registrationRoot, address _slasher)
+    function isOptedIntoSlasher(
+        bytes32 _registrationRoot,
+        address _slasher
+    )
         external
         view
         returns (bool)

@@ -16,7 +16,11 @@ library LibProveInputDecoder {
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
+    function encode(IInbox.ProveInput memory _input)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
         // Calculate total size needed
         uint256 bufferSize =
             _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
@@ -82,7 +86,10 @@ library LibProveInputDecoder {
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
-    function _encodeProposal(uint256 _ptr, IInbox.Proposal memory _proposal)
+    function _encodeProposal(
+        uint256 _ptr,
+        IInbox.Proposal memory _proposal
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -110,7 +117,10 @@ library LibProveInputDecoder {
     }
 
     /// @notice Encode a single Transition
-    function _encodeTransition(uint256 _ptr, IInbox.Transition memory _transition)
+    function _encodeTransition(
+        uint256 _ptr,
+        IInbox.Transition memory _transition
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -138,7 +148,10 @@ library LibProveInputDecoder {
     }
 
     /// @notice Encode a single TransitionMetadata
-    function _encodeMetadata(uint256 _ptr, IInbox.TransitionMetadata memory _metadata)
+    function _encodeMetadata(
+        uint256 _ptr,
+        IInbox.TransitionMetadata memory _metadata
+    )
         private
         pure
         returns (uint256 newPtr_)

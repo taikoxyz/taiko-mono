@@ -51,7 +51,9 @@ contract LibProposedEventEncoderTest is Test {
 
         // Create proposed event payload
         IInbox.ProposedEventPayload memory original = IInbox.ProposedEventPayload({
-            proposal: proposal, derivation: derivation, coreState: coreState
+            proposal: proposal,
+            derivation: derivation,
+            coreState: coreState
         });
 
         // Test encoding
