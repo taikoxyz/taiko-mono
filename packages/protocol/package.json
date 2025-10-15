@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
-    "clean": "rm -rf out abis cache* && forge clean",
+    "clean": "rm -rf out abis cache* cache-* && (forge clean || true)",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
@@ -18,7 +18,7 @@
     "layout:shared": "./script/gen-layouts.sh shared",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
-    "test:deploy:l1": "./script/layer1/based/deploy_protocol_on_l1.sh",
+    "test:deploy:l1": "./script/layer1/core/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
@@ -45,7 +45,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
     "solc": "0.8.24",
-    "solhint": "^5.0.4",
+    "solhint": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   },
