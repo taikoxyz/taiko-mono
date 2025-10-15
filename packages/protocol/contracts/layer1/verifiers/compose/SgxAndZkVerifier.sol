@@ -22,17 +22,18 @@ contract SgxAndZkVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256, /*_youngestProposalAge*/
+        uint8[] memory _verifierIds
+    )
         internal
         view
         virtual
         override
         returns (bool)
     {
-        if (_verifierIds.length != 2) return false;
-
-        return (_verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]))
-            || (_verifierIds[1] == SGX_RETH && isZKVerifier(_verifierIds[0]));
+        return
+            _verifierIds.length == 2 && _verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]);
     }
 
     function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {

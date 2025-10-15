@@ -26,9 +26,12 @@ contract DevnetVerifier is ComposeVerifier {
 
     /// @notice Check if the provided verifiers are sufficient
     /// @dev Requires exactly 2 verifiers: SGX + (OP or RISC0 or SP1)
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256, /*_youngestProposalAge*/
+        uint8[] memory _verifierIds
+    )
         internal
-        view
+        pure
         override
         returns (bool)
     {

@@ -90,7 +90,9 @@ abstract contract ComposeVerifier is IProofVerifier {
             lastVerifierId = verifierId;
         }
 
-        require(areVerifiersSufficient(_youngestProposalAge, verifierIds), CV_VERIFIERS_INSUFFICIENT());
+        require(
+            areVerifiersSufficient(_youngestProposalAge, verifierIds), CV_VERIFIERS_INSUFFICIENT()
+        );
     }
 
     /// @notice Returns the verifier address for a given verifier ID
@@ -106,7 +108,10 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256 _youngestProposalAge,
+        uint8[] memory _verifierIds
+    )
         internal
         view
         virtual
