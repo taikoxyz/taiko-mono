@@ -495,7 +495,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         uint48 expectedLastBlockId;
         if (_parent.id == 0) {
             expectedLastBlockId = 1; // Genesis value - last proposal was made at block 1
-                // For first proposal after genesis, roll to block 2
+            // For first proposal after genesis, roll to block 2
             vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap
