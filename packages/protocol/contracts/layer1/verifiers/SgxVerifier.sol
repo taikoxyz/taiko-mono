@@ -17,6 +17,10 @@ import "./IProofVerifier.sol";
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
 contract SgxVerifier is IProofVerifier, Ownable2Step {
+    // ---------------------------------------------------------------
+    // Struct and Constants
+    // ---------------------------------------------------------------
+
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -33,8 +37,16 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
+
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
     /// set a new pub key, just write storage once.
@@ -59,6 +71,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
 
     uint256[47] private __gap;
 
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
     /// @notice Emitted when a new SGX instance is added to the registry, or replaced.
     /// @param id The ID of the SGX instance.
     /// @param instance The address of the SGX instance.
@@ -74,10 +90,9 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
-    error SGX_ALREADY_ATTESTED();
-    error SGX_INVALID_ATTESTATION();
-    error SGX_INVALID_INSTANCE();
-    error SGX_INVALID_PROOF();
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
 
     constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
         require(_taikoChainId != 0, "Invalid chain id");
@@ -86,6 +101,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
 
         _transferOwnership(_owner);
     }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
@@ -165,7 +184,14 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
     }
 
-    function _addInstances(address[] memory _instances, bool instantValid)
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
         private
         returns (uint256[] memory ids)
     {
@@ -208,3 +234,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 }
+
+// ---------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------
+
+error SGX_ALREADY_ATTESTED();
+error SGX_INVALID_ATTESTATION();
+error SGX_INVALID_INSTANCE();
+error SGX_INVALID_PROOF();

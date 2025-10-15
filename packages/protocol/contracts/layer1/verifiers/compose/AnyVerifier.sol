@@ -29,8 +29,6 @@ contract AnyVerifier is ComposeVerifier {
     {
         if (_verifierIds.length != 1) return false;
 
-        return
-            _verifierIds[0] == SGX_RETH || _verifierIds[0] == RISC0_RETH
-                || _verifierIds[0] == SP1_RETH;
+        return _verifierIds[0] == SGX_RETH || isZKVerifier(_verifierIds[0]);
     }
 }
