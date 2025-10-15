@@ -24,10 +24,8 @@ pub fn init_tracing(config: &Config) -> Result<()> {
         })
         .unwrap_or(false);
 
-    if !rust_log_overrides_sqlx {
-        if let Ok(directive) = "sqlx=warn".parse::<Directive>() {
-            env_filter = env_filter.add_directive(directive);
-        }
+    if !rust_log_overrides_sqlx && let Ok(directive) = "sqlx=warn".parse::<Directive>() {
+        env_filter = env_filter.add_directive(directive);
     }
 
     match config.log_format {
