@@ -9,5 +9,11 @@ interface IProofVerifier {
     /// @dev This function must revert if the proof is invalid
     /// @param _transitionsHash The hash of the transitions to verify
     /// @param _proof The proof data for the transitions
-    function verifyProof(uint256 _youngestProposalAge, bytes32 _transitionsHash, bytes calldata _proof) external view;
+    function verifyProof(
+        uint256 _youngestProposalAge,
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
+        external
+        view;
 }

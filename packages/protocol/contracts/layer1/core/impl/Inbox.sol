@@ -272,7 +272,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        uint256 youngestProposalAge = block.timestamp - _getYoungestProposalTimestamp(input.proposals);
+        uint256 youngestProposalAge =
+            block.timestamp - _getYoungestProposalTimestamp(input.proposals);
 
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
@@ -1055,6 +1056,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
+    }
+
+    /// @dev Calculates the timestamp of the youngest (most recent) proposal in a batch
+    /// @param _proposals Array of proposals to analyze
+    /// @return timestamp_ The maximum timestamp found among the proposals
+    function _getYoungestProposalTimestamp(Proposal[] memory _proposals)
+        private
+        pure
+        returns (uint256 timestamp_)
+    {
+        for (uint256 i = 0; i < _proposals.length; ++i) {
+            if (_proposals[i].timestamp > timestamp_) {
+                timestamp_ = _proposals[i].timestamp;
+            }
+        }
     }
 }
 
