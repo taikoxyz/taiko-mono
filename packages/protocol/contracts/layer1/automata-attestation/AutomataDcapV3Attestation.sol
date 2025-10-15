@@ -41,9 +41,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
-        // 6
-        // fmspc => tcbInfo
+    // slot 6
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked;
+    // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
 
