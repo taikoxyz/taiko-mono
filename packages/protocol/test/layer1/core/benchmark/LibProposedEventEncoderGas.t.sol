@@ -188,9 +188,7 @@ contract LibProposedEventEncoderGas is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 100,
-                timestamp: 1_700_000_100
+                blobHashes: blobHashes, offset: 100, timestamp: 1_700_000_100
             })
         });
 

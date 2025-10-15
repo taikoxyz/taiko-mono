@@ -7,11 +7,7 @@ import "./ComposeVerifier.sol";
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
 contract AnyVerifier is ComposeVerifier {
-    constructor(
-        address _sgxRethVerifier,
-        address _risc0RethVerifier,
-        address _sp1RethVerifier
-    )
+    constructor(address _sgxRethVerifier, address _risc0RethVerifier, address _sp1RethVerifier)
         ComposeVerifier(
             address(0),
             address(0),
@@ -30,7 +26,8 @@ contract AnyVerifier is ComposeVerifier {
     {
         if (_verifierIds.length != 1) return false;
 
-        return _verifierIds[0] == SGX_RETH || _verifierIds[0] == RISC0_RETH
-            || _verifierIds[0] == SP1_RETH;
+        return
+            _verifierIds[0] == SGX_RETH || _verifierIds[0] == RISC0_RETH
+                || _verifierIds[0] == SP1_RETH;
     }
 }

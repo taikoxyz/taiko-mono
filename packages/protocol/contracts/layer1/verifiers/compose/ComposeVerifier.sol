@@ -82,15 +82,16 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
-            IProofVerifier(verifier).verifyProof(
-                _youngestProposalAge, _transitionsHash, subProofs[i].proof
-            );
+            IProofVerifier(verifier)
+                .verifyProof(_youngestProposalAge, _transitionsHash, subProofs[i].proof);
 
             verifierIds[i] = verifierId;
             lastVerifierId = verifierId;
         }
 
-        require(areVerifiersSufficient(_youngestProposalAge, verifierIds), CV_VERIFIERS_INSUFFICIENT());
+        require(
+            areVerifiersSufficient(_youngestProposalAge, verifierIds), CV_VERIFIERS_INSUFFICIENT()
+        );
     }
 
     /// @notice Returns the verifier address for a given verifier ID

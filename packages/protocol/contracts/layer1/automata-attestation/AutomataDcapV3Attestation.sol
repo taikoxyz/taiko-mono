@@ -43,7 +43,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // 1 = RootCrl
     mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
         // 6
-    // fmspc => tcbInfo
+        // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
 
@@ -60,11 +60,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
-    function init(
-        address owner,
-        address sigVerifyLibAddr,
-        address pemCertLibAddr
-    )
+    function init(address owner, address sigVerifyLibAddr, address pemCertLibAddr)
         external
         initializer
     {
@@ -83,10 +79,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
     }
 
-    function addRevokedCertSerialNum(
-        uint256 index,
-        bytes[] calldata serialNumBatch
-    )
+    function addRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
         external
         onlyOwner
     {
@@ -100,10 +93,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         }
     }
 
-    function removeRevokedCertSerialNum(
-        uint256 index,
-        bytes[] calldata serialNumBatch
-    )
+    function removeRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
         external
         onlyOwner
     {
@@ -248,10 +238,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return (true, TCBInfoStruct.TCBStatus.TCB_UNRECOGNIZED);
     }
 
-    function _isCpuSvnHigherOrGreater(
-        uint256[] memory pckCpuSvns,
-        uint8[] memory tcbCpuSvns
-    )
+    function _isCpuSvnHigherOrGreater(uint256[] memory pckCpuSvns, uint8[] memory tcbCpuSvns)
         private
         pure
         returns (bool)
@@ -287,11 +274,13 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 issuer = certs[i + 1];
                 if (i == n - 2) {
                     // this cert is expected to be signed by the root
-                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
-                        .serialNumber];
+                    certRevoked = serialNumIsRevoked[
+                        uint256(IPEMCertChainLib.CRL.ROOT)
+                    ][certs[i].serialNumber];
                 } else if (certs[i].isPck) {
-                    certRevoked =
-                        serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i].serialNumber];
+                    certRevoked = serialNumIsRevoked[
+                        uint256(IPEMCertChainLib.CRL.PCK)
+                    ][certs[i].serialNumber];
                 }
                 if (certRevoked) {
                     break;
@@ -392,9 +381,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,
-            ,
-            ,
+            bool successful,,,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
@@ -426,7 +413,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             }
             if (
                 !verifiedEnclaveIdSuccessfully
-                    || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
+                    || qeTcbStatus
+                        == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
             ) {
                 return (false, retData);
             }
