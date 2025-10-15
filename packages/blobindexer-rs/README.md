@@ -19,7 +19,7 @@ All configuration values can be provided via CLI flags or the matching environme
 |------|-----|-------------|---------|
 | `--beacon-api` | `BLOB_INDEXER_BEACON_URL` | Beacon node REST endpoint | _required_ |
 | `--database-url` | `BLOB_INDEXER_DATABASE_URL` | MySQL connection string | _required_ |
-| `--watch-address` | `BLOB_INDEXER_WATCH_ADDRESSES` | Addresses to watch for blobs | _required_ |
+| `--watch-address` | `BLOB_INDEXER_WATCH_ADDRESSES` | Addresses to watch for blobs | `` |
 | `--http-bind` | `BLOB_INDEXER_HTTP_BIND` | HTTP bind address | `0.0.0.0:9000` |
 | `--poll-interval` | `BLOB_INDEXER_POLL_INTERVAL` | Indexer poll cadence (`6s`, `1m`, …) | `6s` |
 | `--http-timeout` | `BLOB_INDEXER_HTTP_TIMEOUT` | Beacon client request timeout | `20s` |
