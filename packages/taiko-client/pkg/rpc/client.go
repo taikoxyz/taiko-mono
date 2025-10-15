@@ -69,7 +69,8 @@ type ClientConfig struct {
 	PacayaInboxAddress          common.Address
 	ShastaInboxAddress          common.Address
 	TaikoWrapperAddress         common.Address
-	TaikoAnchorAddress          common.Address
+	PacayaAnchorAddress         common.Address
+	ShastaAnchorAddress         common.Address
 	TaikoTokenAddress           common.Address
 	ForcedInclusionStoreAddress common.Address
 	PreconfWhitelistAddress     common.Address
@@ -180,7 +181,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
 	}
 
-	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoAnchorAddress, c.L2)
+	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.PacayaAnchorAddress, c.L2)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of TaikoAnchorClient: %w", err)
 	}
@@ -275,7 +276,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
 	}
 
-	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
+	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.ShastaAnchorAddress, c.L2)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
 	}
