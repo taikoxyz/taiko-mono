@@ -19,12 +19,13 @@ pub struct Indexer {
     storage: Storage,
     beacon: BeaconClient,
     shutdown: CancellationToken,
+    watch_addresses: HashSet<Address>,
 }
 
 fn build_blob_records(
     summary: &BeaconBlockSummary,
     sidecars: &[BlobSidecar],
-    watch_addresses: &[Address],
+    watch_addresses: &HashSet<Address>,
 ) -> Result<Vec<BlobRecord>> {
     let commitment_count = summary.blob_commitments.len();
     let slot_i64 = u64_to_i64(summary.slot, "blob slot")?;
@@ -123,6 +124,15 @@ fn i64_to_u64(value: i64, context: &'static str) -> Result<u64> {
         .map_err(|_| BlobIndexerError::InvalidData(format!("{context} {value} is negative")))
 }
 
+fn has_watched_blobs(summary: &BeaconBlockSummary, watch_addresses: &HashSet<Address>) -> bool {
+    watch_addresses.is_empty()
+        || summary
+            .blob_targets
+            .iter()
+            .flatten()
+            .any(|address| watch_addresses.contains(address))
+}
+
 impl Indexer {
     pub fn new(
         config: Config,
@@ -130,11 +140,13 @@ impl Indexer {
         beacon: BeaconClient,
         shutdown: CancellationToken,
     ) -> Self {
+        let watch_addresses = config.watch_addresses.iter().copied().collect();
         Self {
             config,
             storage,
             beacon,
             shutdown,
+            watch_addresses,
         }
     }
 
@@ -262,8 +274,12 @@ impl Indexer {
             .insert_or_update_block(&mut tx, &block_record)
             .await?;
 
-        let sidecars = self.beacon.get_blob_sidecars(&summary.block_root).await?;
-        let blob_records = build_blob_records(summary, &sidecars, &self.config.watch_addresses)?;
+        let sidecars = if has_watched_blobs(summary, &self.watch_addresses) {
+            self.beacon.get_blob_sidecars(&summary.block_root).await?
+        } else {
+            Vec::new()
+        };
+        let blob_records = build_blob_records(summary, &sidecars, &self.watch_addresses)?;
 
         self.storage
             .replace_blobs(&mut tx, slot_i64, &blob_records)
@@ -308,9 +324,12 @@ impl Indexer {
             if let Some(fetched) = self.beacon.get_block_summary_by_root(&cursor).await? {
                 let record = summary_to_block_record(&fetched)?;
                 self.storage.insert_or_update_block(tx, &record).await?;
-                let sidecars = self.beacon.get_blob_sidecars(&record.block_root).await?;
-                let blob_records =
-                    build_blob_records(&fetched, &sidecars, &self.config.watch_addresses)?;
+                let sidecars = if has_watched_blobs(&fetched, &self.watch_addresses) {
+                    self.beacon.get_blob_sidecars(&record.block_root).await?
+                } else {
+                    Vec::new()
+                };
+                let blob_records = build_blob_records(&fetched, &sidecars, &self.watch_addresses)?;
                 self.storage
                     .replace_blobs(tx, record.slot, &blob_records)
                     .await?;
@@ -345,6 +364,8 @@ impl Indexer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
     use alloy_primitives::{Address, B256, FixedBytes};
 
     fn fixed_bytes<const N: usize>(value: u8) -> FixedBytes<N> {
@@ -375,8 +396,9 @@ mod tests {
             blob: vec![5u8; 10],
         };
 
+        let empty = HashSet::new();
         let blobs =
-            build_blob_records(&summary, &[sidecar], &[]).expect("conversion should succeed");
+            build_blob_records(&summary, &[sidecar], &empty).expect("conversion should succeed");
         assert_eq!(blobs.len(), 1);
         let blob = &blobs[0];
         assert_eq!(blob.index, 0);
@@ -409,7 +431,8 @@ mod tests {
             blob: vec![0u8; 2],
         };
 
-        let err = build_blob_records(&summary, &[sidecar.clone(), sidecar], &[])
+        let empty = HashSet::new();
+        let err = build_blob_records(&summary, &[sidecar.clone(), sidecar], &empty)
             .expect_err("duplicate indices should fail");
         assert!(matches!(err, BlobIndexerError::InvalidData(_)));
     }
@@ -439,16 +462,22 @@ mod tests {
             blob: vec![7u8; 3],
         };
 
-        let blobs = build_blob_records(&summary, &[std::slice::from_ref(&sidecar)], &[watched])
+        let mut watched_set = HashSet::new();
+        watched_set.insert(watched);
+        let blobs = build_blob_records(&summary, &[sidecar.clone()], &watched_set)
             .expect("filter should keep");
         assert_eq!(blobs.len(), 1);
 
-        let blobs = build_blob_records(&summary, &[std::slice::from_ref(&sidecar)], &[])
-            .expect("no filter keeps all");
+        let empty = HashSet::new();
+        let blobs =
+            build_blob_records(&summary, &[sidecar.clone()], &empty).expect("no filter keeps all");
         assert_eq!(blobs.len(), 1);
 
         let other = Address::from([0x22u8; 20]);
-        let blobs = build_blob_records(&summary, &[sidecar], &[other]).expect("filter should drop");
+        let mut other_set = HashSet::new();
+        other_set.insert(other);
+        let blobs =
+            build_blob_records(&summary, &[sidecar], &other_set).expect("filter should drop");
         assert!(blobs.is_empty());
     }
 }
