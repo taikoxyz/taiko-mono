@@ -18,11 +18,7 @@ contract FreeMintERC20Token_With50PctgMintAndTransferFailure is FreeMintERC20Tok
         return ERC20.transfer(to, amount);
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    )
+    function transferFrom(address from, address to, uint256 amount)
         public
         override
         mayFail

@@ -187,7 +187,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                    .pubkey
+                .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -195,7 +195,9 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         // Verify that this preconf lookahead validator does not match the beacon lookahead
         // validator
         require(
-            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
+            !_isG1Equal(
+                evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey
+            ),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
@@ -225,7 +227,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-            evidenceMissingOperator.operatorRegistrationProof;
+        evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -239,22 +241,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that this operator was valid at the reference timestamp.
         // This reverts if the operator is not valid at the reference timestamp.
-        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
-            referenceTimestamp, registrationProof.registrationRoot
-        );
+        ILookaheadStore(lookaheadStore)
+            .isLookaheadOperatorValid(referenceTimestamp, registrationProof.registrationRoot);
     }
 
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    function _isG1Equal(
-        BLS.G1Point memory _a,
-        BLS.G1Point memory _b
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 

@@ -151,12 +151,7 @@ abstract contract AbstractInitTest is InboxTestHelper {
         return codec.decodeProposedEvent(data);
     }
 
-    function _expectedTransitionHash(bytes32 genesisHash)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
+    function _expectedTransitionHash(bytes32 genesisHash) internal view virtual returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = genesisHash;
         return codec.hashTransition(transition);

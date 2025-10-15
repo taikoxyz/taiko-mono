@@ -160,10 +160,7 @@ contract LibProveInputDecoderGas is Test {
         }
     }
 
-    function _createTestData(
-        uint256 _proposalCount,
-        uint256 _blobHashCount
-    )
+    function _createTestData(uint256 _proposalCount, uint256 _blobHashCount)
         private
         pure
         returns (IInbox.ProveInput memory input)
