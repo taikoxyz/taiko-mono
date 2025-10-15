@@ -208,10 +208,7 @@ contract Anchor is EssentialContract {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchor(
-        ProposalParams calldata _proposalParams,
-        BlockParams calldata _blockParams
-    )
+    function anchor(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
         external
         onlyValidSenderAndHeight
         nonReentrant
@@ -236,10 +233,7 @@ contract Anchor is EssentialContract {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(
-        address _token,
-        address _to
-    )
+    function withdraw(address _token, address _to)
         external
         nonZeroAddr(_to)
         onlyOwner
@@ -315,11 +309,7 @@ contract Anchor is EssentialContract {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
     /// @return provingFee_ The proving fee in Wei (0 if validation fails).
-    function validateProverAuth(
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth
-    )
+    function validateProverAuth(uint48 _proposalId, address _proposer, bytes calldata _proverAuth)
         public
         pure
         returns (address signer_, uint256 provingFee_)
@@ -365,8 +355,7 @@ contract Anchor is EssentialContract {
         private
     {
         uint256 proverFee;
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-        getDesignatedProver(
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) = getDesignatedProver(
             _proposalParams.proposalId,
             _proposalParams.proposer,
             _proposalParams.proverAuth,
@@ -387,10 +376,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(
-        BlockState storage _blockState,
-        BlockParams calldata _blockParams
-    )
+    function _validateBlock(BlockState storage _blockState, BlockParams calldata _blockParams)
         private
     {
         // Verify and update ancestors hash
@@ -483,12 +469,18 @@ contract Anchor is EssentialContract {
         }
 
         assembly {
-            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            oldAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
 
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
-            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
     }
 

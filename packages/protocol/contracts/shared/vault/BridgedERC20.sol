@@ -88,10 +88,7 @@ contract BridgedERC20 is
     }
 
     /// @inheritdoc IBridgedERC20Migratable
-    function changeMigrationStatus(
-        address _migratingAddress,
-        bool _migratingInbound
-    )
+    function changeMigrationStatus(address _migratingAddress, bool _migratingInbound)
         external
         whenNotPaused
         onlyFrom(erc20Vault)
@@ -164,11 +161,7 @@ contract BridgedERC20 is
             || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
-    function _beforeTokenTransfer(
-        address _from,
-        address _to,
-        uint256 _amount
-    )
+    function _beforeTokenTransfer(address _from, address _to, uint256 _amount)
         internal
         override
         whenNotPaused

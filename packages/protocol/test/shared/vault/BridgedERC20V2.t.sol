@@ -120,10 +120,7 @@ contract TestBridgedERC20V2 is CommonTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(
-        address erc20Vault,
-        bytes32 name
-    )
+    function deployBridgedToken(address erc20Vault, bytes32 name)
         internal
         returns (BridgedERC20V2)
     {
@@ -135,7 +132,8 @@ contract TestBridgedERC20V2 is CommonTest {
                 name: name,
                 impl: address(new BridgedERC20V2(erc20Vault)),
                 data: abi.encodeCall(
-                    BridgedERC20V2.init, (deployer, srcToken, taikoChainId, srcDecimals, _name, _name)
+                    BridgedERC20V2.init,
+                    (deployer, srcToken, taikoChainId, srcDecimals, _name, _name)
                 )
             })
         );
