@@ -22,7 +22,7 @@ contract AnyTwoVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(uint8[] memory _verifierIds)
+    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
         view
         override

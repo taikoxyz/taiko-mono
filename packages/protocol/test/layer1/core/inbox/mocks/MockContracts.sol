@@ -19,7 +19,7 @@ contract MockERC20 is ERC20 {
 /// @title MockProofVerifier
 /// @notice Mock proof verifier that always accepts proofs
 contract MockProofVerifier is IProofVerifier {
-    function verifyProof(bytes32, bytes calldata) external pure {
+    function verifyProof(uint256, bytes32, bytes calldata) external pure {
         // Always accept
     }
 }

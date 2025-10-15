@@ -46,7 +46,14 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256, /*_youngestProposalAge*/
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         require(_proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof[0:32]);

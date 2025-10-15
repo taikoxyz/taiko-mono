@@ -26,19 +26,19 @@ contract DevnetVerifier is ComposeVerifier {
 
     /// @notice Check if the provided verifiers are sufficient
     /// @dev Requires exactly 2 verifiers: SGX + (OP or RISC0 or SP1)
-    function areVerifiersSufficient(address[] memory _verifiers)
+    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
         view
         override
         returns (bool)
     {
-        if (_verifiers.length != 2) return false;
+        if (_verifierIds.length != 2) return false;
 
         // Determine which verifier is SGX and which is the second verifier
         uint256 secondVerifierIdx;
-        if (_verifiers[0] == sgxRethVerifier) {
+        if (_verifierIds[0] == SGX_RETH) {
             secondVerifierIdx = 1;
-        } else if (_verifiers[1] == sgxRethVerifier) {
+        } else if (_verifierIds[1] == SGX_RETH) {
             secondVerifierIdx = 0;
         } else {
             // One of the verifiers MUST be SGX
@@ -46,8 +46,8 @@ contract DevnetVerifier is ComposeVerifier {
         }
 
         // The second verifier must be one of: OP, RISC0, or SP1
-        return _verifiers[secondVerifierIdx] == opVerifier
-            || _verifiers[secondVerifierIdx] == risc0RethVerifier
-            || _verifiers[secondVerifierIdx] == sp1RethVerifier;
+        return _verifierIds[secondVerifierIdx] == OP
+            || _verifierIds[secondVerifierIdx] == RISC0_RETH
+            || _verifierIds[secondVerifierIdx] == SP1_RETH;
     }
 }

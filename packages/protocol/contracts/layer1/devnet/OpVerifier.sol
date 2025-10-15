@@ -10,7 +10,14 @@ import "src/layer1/core/iface/IProofVerifier.sol";
 contract OpVerifier is IProofVerifier {
     /// @inheritdoc IProofVerifier
     /// @dev This is a dummy implementation that always succeeds
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external pure {
+    function verifyProof(
+        uint256, /*_youngestProposalAge*/
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
+        external
+        pure
+    {
         // Dummy verifier - no actual verification
         // Just check that we received some data to avoid misuse
         require(_transitionsHash != bytes32(0), "Invalid transitions hash");

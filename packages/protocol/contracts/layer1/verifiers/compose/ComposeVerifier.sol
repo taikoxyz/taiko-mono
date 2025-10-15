@@ -59,7 +59,14 @@ abstract contract ComposeVerifier is IProofVerifier {
     error CV_VERIFIERS_INSUFFICIENT();
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256 _youngestProposalAge,
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         uint8[] memory verifierIds = new uint8[](size);
@@ -75,13 +82,15 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
-            IProofVerifier(verifier).verifyProof(_transitionsHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(
+                _youngestProposalAge, _transitionsHash, subProofs[i].proof
+            );
 
             verifierIds[i] = verifierId;
             lastVerifierId = verifierId;
         }
 
-        require(areVerifiersSufficient(verifierIds), CV_VERIFIERS_INSUFFICIENT());
+        require(areVerifiersSufficient(_youngestProposalAge, verifierIds), CV_VERIFIERS_INSUFFICIENT());
     }
 
     /// @notice Returns the verifier address for a given verifier ID
@@ -97,7 +106,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
-    function areVerifiersSufficient(uint8[] memory _verifierIds)
+    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
         view
         virtual

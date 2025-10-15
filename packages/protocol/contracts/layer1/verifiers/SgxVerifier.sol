@@ -130,7 +130,14 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256, /*_youngestProposalAge*/
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
