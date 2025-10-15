@@ -10,25 +10,40 @@ import "./IProofVerifier.sol";
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is IProofVerifier, Ownable2Step {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
+
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
 
     uint64 public immutable taikoChainId;
     address public immutable sp1RemoteVerifier;
+
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
 
     /// @notice The verification keys mappings for the proving programs.
     mapping(bytes32 provingProgramVKey => bool trusted) public isProgramTrusted;
 
     uint256[49] private __gap;
 
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
     /// @dev Emitted when a trusted image is set / unset.
     /// @param programVKey The id of the image
     /// @param trusted The block's assigned prover.
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
-    error SP1_INVALID_PROGRAM_VKEY();
-    error SP1_INVALID_AGGREGATION_VKEY();
-    error SP1_INVALID_PARAMS();
-    error SP1_INVALID_PROOF();
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
 
     constructor(uint64 _taikoChainId, address _sp1RemoteVerifier, address _owner) {
         taikoChainId = _taikoChainId;
@@ -36,6 +51,10 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
 
         _transferOwnership(_owner);
     }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @notice Sets/unsets an the program's verification key as trusted entity
     /// @param _programVKey The verification key of the program.
@@ -78,4 +97,15 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
 
         require(success, SP1_INVALID_PROOF());
     }
+
+    // ---------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------
+
+error SP1_INVALID_PROGRAM_VKEY();
+error SP1_INVALID_AGGREGATION_VKEY();
+error SP1_INVALID_PARAMS();
+error SP1_INVALID_PROOF();
+
 }
+
