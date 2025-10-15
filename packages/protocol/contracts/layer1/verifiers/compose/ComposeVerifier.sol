@@ -94,17 +94,15 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), InvalidSubVerifier());
 
-            IProofVerifier(verifier).verifyProof(
-                _youngestProposalAge, _transitionsHash, subProofs[i].proof
-            );
+            IProofVerifier(verifier)
+                .verifyProof(_youngestProposalAge, _transitionsHash, subProofs[i].proof);
 
             verifierIds[i] = verifierId;
             lastVerifierId = verifierId;
         }
 
         require(
-            areVerifiersSufficient(_youngestProposalAge, verifierIds),
-            InsufficientSubVerifiers()
+            areVerifiersSufficient(_youngestProposalAge, verifierIds), InsufficientSubVerifiers()
         );
     }
 
@@ -133,10 +131,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
     }
 
-    function areVerifiersSufficient(
-        uint256 _youngestProposalAge,
-        uint8[] memory _verifierIds
-    )
+    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
         view
         virtual
