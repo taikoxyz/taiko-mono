@@ -1,5 +1,5 @@
-use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt};
+use tracing_subscriber::{filter::Directive, util::SubscriberInitExt};
 
 use crate::{
     config::{Config, LogFormat},
@@ -11,7 +11,24 @@ pub fn init_tracing(config: &Config) -> Result<()> {
         return Ok(());
     }
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let mut env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+    // Silence verbose SQLx instrumentation unless explicitly overridden via RUST_LOG.
+    let rust_log_overrides_sqlx = std::env::var("RUST_LOG")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .any(|part| part.trim().starts_with("sqlx="))
+        })
+        .unwrap_or(false);
+
+    if !rust_log_overrides_sqlx {
+        if let Ok(directive) = "sqlx=warn".parse::<Directive>() {
+            env_filter = env_filter.add_directive(directive);
+        }
+    }
 
     match config.log_format {
         LogFormat::Pretty => {

@@ -4,6 +4,7 @@ use alloy_primitives::Address;
 use sqlx::{MySql, Transaction};
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, info, warn};
 
 use crate::{
     beacon::BeaconClient,
@@ -178,14 +179,26 @@ impl Indexer {
             .map(|slot| i64_to_u64(slot, "last processed slot"))
             .transpose()?;
 
+        info!(
+            head_slot,
+            finalized_slot, last_processed, "tick snapshot with latest beacon readings"
+        );
+
         let mut next_slot = self.compute_next_slot(head_slot, last_processed);
+
+        debug!(next_slot, "starting backfill loop");
 
         while next_slot <= head_slot && !self.shutdown.is_cancelled() {
             let upper = cmp::min(next_slot + self.config.backfill_batch - 1, head_slot);
+            debug!(
+                range = format!("{}-{}", next_slot, upper),
+                "processing slot batch"
+            );
             for slot in next_slot..=upper {
                 if self.shutdown.is_cancelled() {
                     break;
                 }
+                debug!(slot, "processing slot");
                 self.process_slot(slot).await?;
             }
             next_slot = upper.saturating_add(1);
@@ -193,10 +206,16 @@ impl Indexer {
 
         // Reconcile recent slots to handle reorgs safely.
         let reorg_start = head_slot.saturating_sub(self.config.reorg_lookback);
+        debug!(
+            start = reorg_start,
+            end = head_slot,
+            "refreshing slots for reorg protection"
+        );
         for slot in reorg_start..=head_slot {
             if self.shutdown.is_cancelled() {
                 break;
             }
+            debug!(slot, "refreshing slot");
             self.refresh_slot(slot).await?;
         }
 
@@ -204,6 +223,10 @@ impl Indexer {
         if finalized_slot > self.config.reorg_lookback {
             let prune_slot = finalized_slot - self.config.reorg_lookback;
             let prune_before = u64_to_i64(prune_slot, "prune slot")?;
+            debug!(
+                prune_before,
+                finalized_slot, "pruning non-canonical data below finalized checkpoint"
+            );
             self.storage
                 .prune_non_canonical_before_slot(prune_before)
                 .await?;
@@ -228,8 +251,10 @@ impl Indexer {
     async fn process_slot(&self, slot: u64) -> Result<()> {
         let slot_i64 = u64_to_i64(slot, "processed slot")?;
         if let Some(summary) = self.beacon.get_block_summary(slot).await? {
+            info!(slot, block_root = ?summary.block_root, "storing new block summary");
             self.store_block(&summary).await?;
         } else {
+            debug!(slot, "no block returned, updating processed cursor");
             let mut tx = self.storage.begin().await?;
             self.storage
                 .set_last_processed_slot(&mut tx, slot_i64)
@@ -250,6 +275,10 @@ impl Indexer {
                 .filter(|block| block.block_root == summary.block_root)
             {
                 // Ensure canonical flag is set correctly and metadata updated.
+                debug!(
+                    slot = summary.slot,
+                    "found matching canonical block, promoting branch only"
+                );
                 let mut tx = self.storage.begin().await?;
                 self.promote_branch(&mut tx, &existing_block).await?;
                 self.storage
@@ -270,27 +299,58 @@ impl Indexer {
         let block_record = summary_to_block_record(summary)?;
         let slot_i64 = block_record.slot;
 
+        debug!(slot = summary.slot, "upserting block record");
         self.storage
             .insert_or_update_block(&mut tx, &block_record)
             .await?;
 
         let sidecars = if has_watched_blobs(summary, &self.watch_addresses) {
-            self.beacon.get_blob_sidecars(&summary.block_root).await?
+            debug!(
+                slot = summary.slot,
+                "fetching blob sidecars for watched addresses"
+            );
+            self.beacon
+                .get_blob_sidecars(&summary.block_root, Some(summary.slot))
+                .await?
         } else {
+            debug!(
+                slot = summary.slot,
+                "watch set empty or no matches; skipping blob sidecars"
+            );
             Vec::new()
         };
         let blob_records = build_blob_records(summary, &sidecars, &self.watch_addresses)?;
 
+        debug!(
+            slot = summary.slot,
+            count = blob_records.len(),
+            "replacing blob records"
+        );
+
+        for record in &blob_records {
+            info!(
+                slot = summary.slot,
+                blob_index = record.index,
+                versioned_hash = %record.versioned_hash,
+                "storing blob versioned hash"
+            );
+        }
         self.storage
             .replace_blobs(&mut tx, slot_i64, &blob_records)
             .await?;
 
+        debug!(slot = summary.slot, "promoting branch for new head");
         self.promote_branch(&mut tx, &block_record).await?;
 
         self.storage
             .set_last_processed_slot(&mut tx, slot_i64)
             .await?;
 
+        info!(
+            slot = summary.slot,
+            promoted = blob_records.len(),
+            "block persisted successfully"
+        );
         tx.commit().await?;
 
         Ok(())
@@ -322,10 +382,17 @@ impl Indexer {
 
             // Parent missing locally, fetch from beacon by root and store it.
             if let Some(fetched) = self.beacon.get_block_summary_by_root(&cursor).await? {
+                debug!(?cursor, depth, "backfilling missing ancestor by root");
                 let record = summary_to_block_record(&fetched)?;
                 self.storage.insert_or_update_block(tx, &record).await?;
                 let sidecars = if has_watched_blobs(&fetched, &self.watch_addresses) {
-                    self.beacon.get_blob_sidecars(&record.block_root).await?
+                    debug!(
+                        slot = fetched.slot,
+                        "fetching sidecars while backfilling parent"
+                    );
+                    self.beacon
+                        .get_blob_sidecars(&record.block_root, Some(fetched.slot))
+                        .await?
                 } else {
                     Vec::new()
                 };
@@ -337,11 +404,16 @@ impl Indexer {
                 branch.push(record);
                 depth += 1;
             } else {
+                warn!(
+                    ?cursor,
+                    depth, "ancestor missing on beacon node; stopping traversal"
+                );
                 break;
             }
         }
 
         if let Some(fork_slot) = fork_slot {
+            debug!(fork_slot, "marking older branch as non-canonical");
             self.storage
                 .mark_non_canonical_after_slot(tx, fork_slot)
                 .await?;
@@ -353,6 +425,10 @@ impl Indexer {
             .map(|block| block.slot)
             .collect();
 
+        debug!(
+            count = slots_to_promote.len(),
+            "promoting branch slots to canonical"
+        );
         self.storage
             .set_canonical_for_slots(tx, &slots_to_promote, true)
             .await?;

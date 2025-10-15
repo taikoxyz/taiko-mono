@@ -2,7 +2,8 @@
 DATABASE_URL ?= mysql://root:password@127.0.0.1:3306/blobindexer
 BEACON_API ?= http://34.45.250.99:5052
 DOCKER_COMPOSE ?= docker compose
-WATCH_ADDRESS ?= 0x50A576435E2D9c179124D657d804eb56A10b6999
+WATCH_ADDRESS ?= 0xA07a4a1569a5677Af0813bf0e0255Af415e748b1
+RUST_LOG ?= info
 
 .PHONY: db-up db-down db-logs fmt lint test migrate run check sqlx-install
 
@@ -31,7 +32,7 @@ migrate:
 	DATABASE_URL=$(DATABASE_URL) sqlx migrate run
 
 run:
-	DATABASE_URL=$(DATABASE_URL) cargo run --bin blobindexer -- \
+	DATABASE_URL=$(DATABASE_URL) RUST_LOG=$(RUST_LOG) cargo run --bin blobindexer -- \
 		--beacon-api $(BEACON_API) \
 		--database-url $(DATABASE_URL) \
 		--watch-address $(WATCH_ADDRESS)

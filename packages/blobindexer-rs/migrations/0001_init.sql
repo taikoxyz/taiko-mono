@@ -18,7 +18,7 @@ CREATE TABLE blobs (
     versioned_hash BINARY(32) NOT NULL,
     commitment BINARY(48) NOT NULL,
     proof BINARY(48) NOT NULL,
-    `blob` LONGBLOB NOT NULL,
+    blob_data LONGBLOB NOT NULL,
     canonical TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (slot, blob_index),

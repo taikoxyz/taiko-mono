@@ -140,7 +140,7 @@ impl Storage {
                     versioned_hash,
                     commitment,
                     proof,
-                    blob,
+                    blob_data,
                     canonical
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
@@ -148,7 +148,7 @@ impl Storage {
                     versioned_hash = VALUES(versioned_hash),
                     commitment = VALUES(commitment),
                     proof = VALUES(proof),
-                    blob = VALUES(blob),
+                    blob_data = VALUES(blob_data),
                     canonical = VALUES(canonical)",
             )
             .bind(blob.slot)
@@ -257,7 +257,7 @@ impl Storage {
 
     pub async fn get_blobs_by_slot(&self, slot: i64) -> Result<Vec<BlobRecord>> {
         let rows = sqlx::query(
-            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob, canonical
+            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob_data, canonical
              FROM blobs
              WHERE slot = ? AND canonical = TRUE
              ORDER BY blob_index ASC",
@@ -271,7 +271,7 @@ impl Storage {
 
     pub async fn get_blobs_by_block_root(&self, block_root: &B256) -> Result<Vec<BlobRecord>> {
         let rows = sqlx::query(
-            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob, canonical
+            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob_data, canonical
              FROM blobs
              WHERE block_root = ? AND canonical = TRUE
              ORDER BY blob_index ASC",
@@ -288,7 +288,7 @@ impl Storage {
         versioned_hash: &B256,
     ) -> Result<Option<BlobRecord>> {
         let row = sqlx::query(
-            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob, canonical
+            "SELECT slot, block_root, blob_index, versioned_hash, commitment, proof, blob_data, canonical
              FROM blobs
              WHERE versioned_hash = ?",
         )
@@ -333,7 +333,7 @@ fn row_to_blob(row: MySqlRow) -> Result<BlobRecord> {
     let versioned_hash: Vec<u8> = row.get("versioned_hash");
     let commitment: Vec<u8> = row.get("commitment");
     let proof: Vec<u8> = row.get("proof");
-    let blob: Vec<u8> = row.get("blob");
+    let blob: Vec<u8> = row.get("blob_data");
     let canonical: bool = row.get("canonical");
 
     Ok(BlobRecord {
