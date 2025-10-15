@@ -64,7 +64,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         uint256 size = subProofs.length;
         uint8[] memory verifierIds = new uint8[](size);
 
-        uint8 lastVerifierId = 0;
+        uint8 lastVerifierId;
 
         for (uint256 i; i < size; ++i) {
             uint8 verifierId = subProofs[i].verifierId;
