@@ -88,20 +88,24 @@ abstract contract ComposeVerifier is IProofVerifier {
         for (uint256 i; i < size; ++i) {
             uint8 verifierId = subProofs[i].verifierId;
 
-            require(verifierId != NONE, CV_INVALID_SUB_VERIFIER());
-            require(verifierId > lastVerifierId, CV_INVALID_SUB_VERIFIER_ORDER());
+            require(verifierId != NONE, InvalidSubVerifier());
+            require(verifierId > lastVerifierId, InvalidSubVerifierOrder());
 
             address verifier = getVerifierAddress(verifierId);
-            require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
+            require(verifier != address(0), InvalidSubVerifier());
 
-            IProofVerifier(verifier)
-                .verifyProof(_youngestProposalAge, _transitionsHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(
+                _youngestProposalAge, _transitionsHash, subProofs[i].proof
+            );
 
             verifierIds[i] = verifierId;
             lastVerifierId = verifierId;
         }
 
-        require(areVerifiersSufficient(verifierIds), CV_VERIFIERS_INSUFFICIENT());
+        require(
+            areVerifiersSufficient(_youngestProposalAge, verifierIds),
+            InsufficientSubVerifiers()
+        );
     }
 
     // ---------------------------------------------------------------
@@ -129,7 +133,10 @@ abstract contract ComposeVerifier is IProofVerifier {
         return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
     }
 
-    function areVerifiersSufficient(uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256 _youngestProposalAge,
+        uint8[] memory _verifierIds
+    )
         internal
         view
         virtual
@@ -140,6 +147,6 @@ abstract contract ComposeVerifier is IProofVerifier {
 // Errors
 // ---------------------------------------------------------------
 
-error CV_INVALID_SUB_VERIFIER();
-error CV_INVALID_SUB_VERIFIER_ORDER();
-error CV_VERIFIERS_INSUFFICIENT();
+error InvalidSubVerifier();
+error InvalidSubVerifierOrder();
+error InsufficientSubVerifiers();

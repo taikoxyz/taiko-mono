@@ -7,7 +7,11 @@ import "./ComposeVerifier.sol";
 /// @notice (SGX + RISC0) or (RISC0 + SP1) or (SGX + SP1) verifier
 /// @custom:security-contact security@taiko.xyz
 contract AnyTwoVerifier is ComposeVerifier {
-    constructor(address _sgxRethVerifier, address _risc0RethVerifier, address _sp1RethVerifier)
+    constructor(
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
+    )
         ComposeVerifier(
             address(0),
             address(0),
@@ -18,7 +22,10 @@ contract AnyTwoVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256, /* _youngestProposalAge */
+        uint8[] memory _verifierIds
+    )
         internal
         pure
         override
