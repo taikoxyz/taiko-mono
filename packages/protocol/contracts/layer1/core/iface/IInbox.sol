@@ -242,10 +242,7 @@ interface IInbox {
     /// @param _parentTransitionHash The parent transition hash.
     /// @return finalizationDeadline_ The timestamp when finalization is enforced.
     /// @return recordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash)
         external
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_);

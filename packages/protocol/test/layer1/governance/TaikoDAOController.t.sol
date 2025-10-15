@@ -37,13 +37,11 @@ contract TestMainnetDAOController is CommonTest {
 
         super.setUpOnEthereum();
         daoController = MainnetDAOController(
-            payable(
-                deploy({
+            payable(deploy({
                     name: "MainnetDAOController",
                     impl: address(new MainnetDAOController()),
                     data: abi.encodeCall(MainnetDAOController.init, (owner))
-                })
-            )
+                }))
         );
 
         dummyEssentialContract = DummyEssentialContract(

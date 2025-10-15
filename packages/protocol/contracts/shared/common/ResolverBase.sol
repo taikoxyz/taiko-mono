@@ -6,11 +6,7 @@ import "./IResolver.sol";
 /// @title ResolverBase
 /// @custom:security-contact security@taiko.xyz
 abstract contract ResolverBase is IResolver {
-    function resolve(
-        uint256 _chainId,
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
+    function resolve(uint256 _chainId, bytes32 _name, bool _allowZeroAddress)
         external
         view
         returns (address addr_)
