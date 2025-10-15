@@ -99,13 +99,12 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     }
 
     // ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
 
-error SP1_INVALID_PROGRAM_VKEY();
-error SP1_INVALID_AGGREGATION_VKEY();
-error SP1_INVALID_PARAMS();
-error SP1_INVALID_PROOF();
-
+    error SP1_INVALID_PROGRAM_VKEY();
+    error SP1_INVALID_AGGREGATION_VKEY();
+    error SP1_INVALID_PARAMS();
+    error SP1_INVALID_PROOF();
 }
 
