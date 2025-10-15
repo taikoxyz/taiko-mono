@@ -167,6 +167,12 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		return fmt.Errorf("failed to iterate through events: %w", err)
 	}
 
+	if s.reorgDetectedFlag {
+		if err := s.ensureLatestSeenProposal(ctx); err != nil {
+			return err
+		}
+	}
+
 	// If there is a L1 reorg, we don't update the L1Current cursor.
 	if !s.reorgDetectedFlag {
 		s.state.SetL1Current(l1End)
@@ -710,6 +716,99 @@ func (s *Syncer) dispatchLatestSeenProposal(proposal *encoding.LastSeenProposal)
 	}
 
 	s.latestSeenProposalCh <- proposal
+}
+
+// ensureLatestSeenProposal checks whether the latest recorded proposal is still canonical on L1.
+// This allows the preconfirmation API to be notified about reorgs even when no new proposal events arrive.
+func (s *Syncer) ensureLatestSeenProposal(ctx context.Context) error {
+	if len(s.pacayaProposalHistory) > 0 {
+		if err := s.ensureLatestPacayaProposal(ctx); err != nil {
+			return err
+		}
+		if s.reorgDetectedFlag {
+			return nil
+		}
+	}
+
+	if len(s.shastaProposalHistory) > 0 {
+		if err := s.ensureLatestShastaProposal(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ensureLatestPacayaProposal validates that the last Pacaya proposal processed still exists on the canonical
+// chain. If it was reorged out, we update internal state and notify downstream consumers.
+func (s *Syncer) ensureLatestPacayaProposal(ctx context.Context) error {
+	latest := s.pacayaProposalHistory[len(s.pacayaProposalHistory)-1]
+	if latest == nil || !latest.IsPacaya() {
+		return nil
+	}
+
+	batchID := latest.Pacaya().GetBatchID()
+	if batchID == nil {
+		return nil
+	}
+
+	batchIDToCheck := new(big.Int).Add(batchID, common.Big1)
+	reorgCheckResult, err := s.checkReorgPacaya(ctx, batchIDToCheck)
+	if err != nil {
+		return fmt.Errorf("failed to check Pacaya reorg for latest proposal: %w", err)
+	}
+
+	if reorgCheckResult != nil && reorgCheckResult.IsReorged {
+		log.Info(
+			"Detected Pacaya reorg affecting latest seen proposal",
+			"latestBatchID", batchID,
+			"resetToBatchID", reorgCheckResult.LastHandledBatchIDToReset,
+		)
+		if reorgCheckResult.L1CurrentToReset != nil {
+			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
+		}
+		s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+		s.reorgDetectedFlag = true
+		s.handlePacayaReorg(reorgCheckResult)
+	}
+
+	return nil
+}
+
+// ensureLatestShastaProposal validates that the last Shasta proposal processed still exists on the canonical
+// chain. If it was reorged out, we update internal state and notify downstream consumers.
+func (s *Syncer) ensureLatestShastaProposal(ctx context.Context) error {
+	latest := s.shastaProposalHistory[len(s.shastaProposalHistory)-1]
+	if latest == nil || !latest.IsShasta() {
+		return nil
+	}
+
+	proposalID := latest.Shasta().GetProposal().Id
+	if proposalID == nil {
+		return nil
+	}
+
+	proposalIDToCheck := new(big.Int).Add(proposalID, common.Big1)
+	reorgCheckResult, err := s.checkReorgShasta(ctx, proposalIDToCheck, s.indexer)
+	if err != nil {
+		return fmt.Errorf("failed to check Shasta reorg for latest proposal: %w", err)
+	}
+
+	if reorgCheckResult != nil && reorgCheckResult.IsReorged {
+		log.Info(
+			"Detected Shasta reorg affecting latest seen proposal",
+			"latestProposalID", proposalID,
+			"resetToProposalID", reorgCheckResult.LastHandledBatchIDToReset,
+		)
+		if reorgCheckResult.L1CurrentToReset != nil {
+			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
+		}
+		s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+		s.reorgDetectedFlag = true
+		s.handleShastaReorg(reorgCheckResult)
+	}
+
+	return nil
 }
 
 // cloneLastSeenProposalForSyncer clones the pointer to a proposal and sets PreconfChainReorged
