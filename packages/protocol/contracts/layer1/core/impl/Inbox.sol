@@ -1066,7 +1066,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (uint256 timestamp_)
     {
-        for (uint256 i = 0; i < _proposals.length; ++i) {
+        for (uint256 i; i < _proposals.length; ++i) {
             if (_proposals[i].timestamp > timestamp_) {
                 timestamp_ = _proposals[i].timestamp;
             }
