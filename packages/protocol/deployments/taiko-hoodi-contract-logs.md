@@ -128,10 +128,11 @@
 ### preconf_router
 
 - proxy : `0xA07a4a1569a5677Af0813bf0e0255Af415e748b1`
-- impl : `0x12054C6809B1C92Fa2c6Db5130ef7B700F4F454f`
+- impl : `0x0c0CA219A436322566AE5A3fa30335E8eDdce6cd`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - upgraded on Oct 14, 2025 at commit `7217552`
 
 ### taiko_wrapper
 
