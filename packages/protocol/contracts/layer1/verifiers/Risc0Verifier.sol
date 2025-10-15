@@ -100,14 +100,13 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
         );
         require(success, RISC_ZERO_INVALID_PROOF());
     }
+}
 
-    // ---------------------------------------------------------------
+// ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
 
 error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
 error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
 error RISC_ZERO_INVALID_PROOF();
-
-}
 
