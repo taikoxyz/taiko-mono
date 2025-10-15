@@ -31,14 +31,11 @@ contract SgxAndZkVerifier is ComposeVerifier {
     {
         if (_verifierIds.length != 2) return false;
 
-        if (_verifierIds[0] == SGX_RETH) {
-            return _verifierIds[1] == RISC0_RETH || _verifierIds[1] == SP1_RETH;
-        }
+        return (_verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]))
+            || (_verifierIds[1] == SGX_RETH && isZKVerifier(_verifierIds[0]));
+    }
 
-        if (_verifierIds[1] == SGX_RETH) {
-            return _verifierIds[0] == RISC0_RETH || _verifierIds[0] == SP1_RETH;
-        }
-
-        return false;
+    function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {
+        return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
     }
 }
