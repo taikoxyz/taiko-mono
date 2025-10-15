@@ -272,9 +272,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
+        uint256 youngestProposalAge = block.timestamp - _getYoungestProposalTimestamp(input.proposals);
+
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
-        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
+        _proofVerifier.verifyProof(youngestProposalAge, aggregatedProvingHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore
