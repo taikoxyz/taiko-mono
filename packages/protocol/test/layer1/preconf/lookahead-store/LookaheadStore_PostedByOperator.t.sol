@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
-    /*
+/*
         // Lookahead posting accepted
         // -------------------------------------------------------------------
 
@@ -236,7 +236,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             urc.setOperatorData(
                 _lookaheadPostingOperator.registrationRoot,
                 _lookaheadPostingOperator.committer,
-                lookaheadStore.getLookaheadStoreConfig().minCollateralForPosting - 1, // Insufficient
+lookaheadStore.getLookaheadStoreConfig().minCollateralForPosting - 1, // Insufficient
                     // collateral
                 _lookaheadPostingOperator.numKeys,
                 _lookaheadPostingOperator.registeredAt,
@@ -632,11 +632,11 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
             ) = _setupURCAndPrepareInputs(2);
 
-            // Manipulate the collateral of the second operator at the beginning of the current epoch
+// Manipulate the collateral of the second operator at the beginning of the current epoch
             urc.setHistoricalCollateral(
                 _lookaheadOperators[1].registrationRoot,
                 EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT,
-                lookaheadStore.getLookaheadStoreConfig().minCollateralForPreconfing - 1 // Insufficient
+lookaheadStore.getLookaheadStoreConfig().minCollateralForPreconfing - 1 // Insufficient
                     // collateral
             );
 
@@ -770,7 +770,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             // Blacklist the second operator before the current epoch
             _setOperatorBlacklistStatus(
                 _lookaheadOperators[1].registrationRoot,
-                uint48(EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted before epoch
+uint48(EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted before epoch
                 0 // Never unblacklisted
             );
 
@@ -797,7 +797,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             _setOperatorBlacklistStatus(
                 _lookaheadOperators[1].registrationRoot,
                 uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
-                uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before
+uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before
                     // epoch
             );
 
@@ -838,5 +838,4 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             _updateLookahead(signedCommitment);
         }
         */
-
-    }
+}

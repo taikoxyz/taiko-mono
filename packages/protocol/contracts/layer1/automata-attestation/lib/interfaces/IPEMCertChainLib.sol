@@ -33,12 +33,18 @@ interface IPEMCertChainLib {
         ROOT
     }
 
-    function splitCertificateChain(bytes memory pemChain, uint256 size)
+    function splitCertificateChain(
+        bytes memory pemChain,
+        uint256 size
+    )
         external
         pure
         returns (bool success, bytes[] memory certs);
 
-    function decodeCert(bytes memory der, bool isPckCert)
+    function decodeCert(
+        bytes memory der,
+        bool isPckCert
+    )
         external
         pure
         returns (bool success, ECSha256Certificate memory cert);

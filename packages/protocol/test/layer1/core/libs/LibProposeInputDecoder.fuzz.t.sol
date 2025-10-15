@@ -46,11 +46,15 @@ contract LibProposeInputDecoderFuzzTest is Test {
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({
-                blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
+                blobStartIndex: blobStartIndex,
+                numBlobs: numBlobs,
+                offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
             }),
             numForcedInclusions: 0
         });
@@ -100,7 +104,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
             }),
             numForcedInclusions: 0
         });
@@ -156,7 +162,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 100, blockHash: keccak256("block"), stateRoot: keccak256("state")
+                blockNumber: 100,
+                blockHash: keccak256("block"),
+                stateRoot: keccak256("state")
             }),
             numForcedInclusions: 0
         });
@@ -220,9 +228,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             for (uint256 j = 0; j < bondInstructionCount; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(i + j),
-                    bondType: j % 2 == 0
-                        ? LibBonds.BondType.LIVENESS
-                        : LibBonds.BondType.PROVABILITY,
+                    bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0x2000 + i * 10 + j)),
                     payee: address(uint160(0x3000 + i * 10 + j))
                 });
@@ -300,7 +306,10 @@ contract LibProposeInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
-    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 transitionCount)
+    function testFuzz_encodedSizeComparison(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
         public
         pure
     {
@@ -376,7 +385,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
         }
 
         input.blobReference = LibBlobs.BlobReference({
-            blobStartIndex: 1, numBlobs: uint16(_proposalCount * 2), offset: 512
+            blobStartIndex: 1,
+            numBlobs: uint16(_proposalCount * 2),
+            offset: 512
         });
 
         input.transitionRecords = new IInbox.TransitionRecord[](_transitionCount);
@@ -394,9 +405,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
             for (uint256 j = 0; j < bondsForThisTransition; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(96 + i),
-                    bondType: j % 2 == 0
-                        ? LibBonds.BondType.LIVENESS
-                        : LibBonds.BondType.PROVABILITY,
+                    bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
                     payee: address(uint160(0xbbbb + bondIndex))
                 });
@@ -444,7 +453,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
             }),
             numForcedInclusions: 0
         });

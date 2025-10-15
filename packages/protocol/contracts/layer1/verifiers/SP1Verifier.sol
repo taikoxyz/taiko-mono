@@ -107,4 +107,3 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 }
-
