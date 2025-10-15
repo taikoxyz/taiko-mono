@@ -7,7 +7,7 @@ import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./LibPublicInput.sol";
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "./IProofVerifier.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
@@ -130,7 +130,14 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256, /* _youngestProposalAge */
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());

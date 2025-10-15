@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate
@@ -59,7 +59,14 @@ abstract contract ComposeVerifier is IProofVerifier {
     error CV_VERIFIERS_INSUFFICIENT();
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256 _youngestProposalAge,
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         uint8[] memory verifierIds = new uint8[](size);
@@ -75,7 +82,9 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
-            IProofVerifier(verifier).verifyProof(_transitionsHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(
+                _youngestProposalAge, _transitionsHash, subProofs[i].proof
+            );
 
             verifierIds[i] = verifierId;
             lastVerifierId = verifierId;

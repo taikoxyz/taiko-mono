@@ -6,7 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { IProofVerifier } from "../iface/IProofVerifier.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
@@ -272,9 +272,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
+        uint256 youngestProposalAge =
+            block.timestamp - _getYoungestProposalTimestamp(input.proposals);
+
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
-        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
+        _proofVerifier.verifyProof(youngestProposalAge, aggregatedProvingHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -1053,6 +1056,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
+    }
+
+    function _getYoungestProposalTimestamp(Proposal[] memory _proposals)
+        private
+        pure
+        returns (uint256 timestamp_)
+    {
+        for (uint256 i; i < _proposals.length; ++i) {
+            if (_proposals[i].timestamp > timestamp_) {
+                timestamp_ = _proposals[i].timestamp;
+            }
+        }
     }
 }
 

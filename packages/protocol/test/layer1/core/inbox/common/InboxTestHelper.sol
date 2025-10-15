@@ -7,7 +7,7 @@ import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IProofVerifier } from "src/layer1/core/iface/IProofVerifier.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";

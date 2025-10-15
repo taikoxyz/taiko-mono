@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title OpVerifier
 /// @notice This contract is a dummy verifier that accepts all proofs without verification.
@@ -10,7 +10,14 @@ import "src/layer1/core/iface/IProofVerifier.sol";
 contract OpVerifier is IProofVerifier {
     /// @inheritdoc IProofVerifier
     /// @dev This is a dummy implementation that always succeeds
-    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external pure {
+    function verifyProof(
+        uint256, /* _youngestProposalAge */
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
+        external
+        pure
+    {
         // Dummy verifier - no actual verification
         // Just check that we received some data to avoid misuse
         require(_transitionsHash != bytes32(0), "Invalid transitions hash");
