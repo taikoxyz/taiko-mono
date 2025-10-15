@@ -27,8 +27,8 @@ contract TestGenerateGenesis is Test {
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
-    uint48 private livenessBondGwei = uint48(configJSON.readUint(".livenessBondGwei"));
-    uint48 private provabilityBondGwei = uint48(configJSON.readUint(".provabilityBondGwei"));
+    uint256 private livenessBond = configJSON.readUint(".livenessBond");
+    uint256 private provabilityBond = configJSON.readUint(".provabilityBond");
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
@@ -156,8 +156,8 @@ contract TestGenerateGenesis is Test {
         assertEq(
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
         );
-        assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
-        assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
+        assertEq(livenessBond, taikoAnchorProxy.livenessBond());
+        assertEq(provabilityBond, taikoAnchorProxy.provabilityBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
@@ -166,8 +166,8 @@ contract TestGenerateGenesis is Test {
                 new Anchor(
                     ICheckpointStore(getPredeployedContractAddress("SignalService")),
                     IBondManager(getPredeployedContractAddress("BondManager")),
-                    10_000_000, // livenessBondGwei
-                    10_000_000, // provabilityBondGwei
+                    10_000_000_000_000_000, // livenessBond
+                    10_000_000_000_000_000, // provabilityBond
                     uint64(shastaForkHeight),
                     uint64(l1ChainId)
                 )

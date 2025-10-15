@@ -101,11 +101,11 @@ contract Anchor is EssentialContract {
     /// @notice Checkpoint store for storing L1 block data.
     ICheckpointStore public immutable checkpointStore;
 
-    /// @notice Bond amount in Gwei for liveness guarantees.
-    uint48 public immutable livenessBondGwei;
+    /// @notice Bond amount in Wei for liveness guarantees.
+    uint256 public immutable livenessBond;
 
-    /// @notice Bond amount in Gwei for provability guarantees.
-    uint48 public immutable provabilityBondGwei;
+    /// @notice Bond amount in Wei for provability guarantees.
+    uint256 public immutable provabilityBond;
 
     /// @notice Block height at which the Shasta fork is activated.
     uint64 public immutable shastaForkHeight;
@@ -127,14 +127,8 @@ contract Anchor is EssentialContract {
 
     // Block-level state (updated per block)
 
-    /// @notice Latest L1 block number anchored to L2.
-    uint48 public anchorBlockNumber;
-
-    /// @notice A hash to check the integrity of public inputs.
-    bytes32 public ancestorsHash;
-
     /// @notice Storage gap for upgrade safety.
-    uint256[47] private __gap;
+    uint256[49] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -167,15 +161,15 @@ contract Anchor is EssentialContract {
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _bondManager The address of the bond manager.
-    /// @param _livenessBondGwei The liveness bond amount in Gwei.
-    /// @param _provabilityBondGwei The provability bond amount in Gwei.
+    /// @param _livenessBond The liveness bond amount in Wei.
+    /// @param _provabilityBond The provability bond amount in Wei.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
-        uint48 _livenessBondGwei,
-        uint48 _provabilityBondGwei,
+        uint256 _livenessBond,
+        uint256 _provabilityBond,
         uint64 _shastaForkHeight,
         uint64 _l1ChainId
     ) {
@@ -190,8 +184,8 @@ contract Anchor is EssentialContract {
         // Assign immutables
         checkpointStore = _checkpointStore;
         bondManager = _bondManager;
-        livenessBondGwei = _livenessBondGwei;
-        provabilityBondGwei = _provabilityBondGwei;
+        livenessBond = _livenessBond;
+        provabilityBond = _provabilityBond;
         shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
     }
@@ -450,13 +444,13 @@ contract Anchor is EssentialContract {
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
     }
 
-    /// @dev Maps a bond type to the configured bond amount in Gwei.
+    /// @dev Maps a bond type to the configured bond amount in Wei.
     function _bondAmountFor(LibBonds.BondType _bondType) private view returns (uint256) {
         if (_bondType == LibBonds.BondType.LIVENESS) {
-            return livenessBondGwei;
+            return livenessBond;
         }
         if (_bondType == LibBonds.BondType.PROVABILITY) {
-            return provabilityBondGwei;
+            return provabilityBond;
         }
         return 0;
     }

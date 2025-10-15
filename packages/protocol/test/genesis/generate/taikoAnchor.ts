@@ -50,8 +50,8 @@ export async function deployTaikoAnchor(
         config.contractAddresses,
         config.param1559,
         config.shastaForkHeight,
-        config.livenessBondGwei,
-        config.provabilityBondGwei,
+        config.livenessBond,
+        config.provabilityBond,
         config.withdrawalDelay,
         config.minBond,
         config.bondToken,
@@ -130,8 +130,8 @@ async function generateContractConfigs(
     hardCodedAddresses: any,
     param1559: any,
     shastaForkHeight: number,
-    livenessBondGwei: number,
-    provabilityBondGwei: number,
+    livenessBond: string | number,
+    provabilityBond: string | number,
     withdrawalDelay: number,
     minBond: number,
     bondToken: string,
@@ -236,8 +236,8 @@ async function generateContractConfigs(
         getImmutableReference("Anchor", [
             "checkpointStore",
             "shastaForkHeight",
-            "livenessBondGwei",
-            "provabilityBondGwei",
+            "livenessBond",
+            "provabilityBond",
             "bondManager",
             "l1ChainId",
         ]),
@@ -761,16 +761,18 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.livenessBondGwei.id,
+                        id: taikoAnchorReferencesMap.livenessBond.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(livenessBondGwei),
+                            ethers.BigNumber.from(livenessBond).toHexString(),
                             32,
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.provabilityBondGwei.id,
+                        id: taikoAnchorReferencesMap.provabilityBond.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(provabilityBondGwei),
+                            ethers.BigNumber.from(
+                                provabilityBond,
+                            ).toHexString(),
                             32,
                         ),
                     },
@@ -808,8 +810,11 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // TaikoAnchor - ancestorsHash will be set by first anchor call
-                ancestorsHash: ethers.constants.HashZero,
+                // TaikoAnchor - _blockState will be initialized by first anchor call
+                _blockState: {
+                    anchorBlockNumber: 0,
+                    ancestorsHash: ethers.constants.HashZero,
+                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
