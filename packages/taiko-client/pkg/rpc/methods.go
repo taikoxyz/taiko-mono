@@ -1395,7 +1395,11 @@ func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int)
 }
 
 // GetShastaAnchorState gets the anchor state from Shasta Anchor contract.
-func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.ShastaAnchorState, error) {
+func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
+	*shastaBindings.AnchorBlockState,
+	*shastaBindings.AnchorProposalState,
+	error,
+) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1403,7 +1407,17 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.Shast
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.Anchor.GetState(opts)
+	blockState, err := c.ShastaClients.Anchor.GetBlockState(opts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor block state: %w", err)
+	}
+
+	proposalState, err := c.ShastaClients.Anchor.GetProposalState(opts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor proposal state: %w", err)
+	}
+
+	return &blockState, &proposalState, nil
 }
 
 // GetShastaInboxConfigs gets the Shasta Inbox contract configurations.

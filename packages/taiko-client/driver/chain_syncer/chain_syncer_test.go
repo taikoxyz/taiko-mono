@@ -273,7 +273,15 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	encodedAuth, err := encoding.EncodeProverAuth(auth)
 	s.Nil(err)
 
-	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(nil, proposalId, proposer, encodedAuth)
+	proposalState, err := s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
+	s.Nil(err)
+	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(
+		nil,
+		proposalId,
+		proposer,
+		encodedAuth,
+		proposalState.DesignatedProver,
+	)
 	s.Nil(err)
 	s.True(info.IsLowBondProposal)
 
