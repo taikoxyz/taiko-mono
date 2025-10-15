@@ -14,11 +14,7 @@ interface IResolver {
     /// address is `address(0)`.
     /// @return Address associated with the given name on the specified
     /// chain.
-    function resolve(
-        uint256 _chainId,
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
+    function resolve(uint256 _chainId, bytes32 _name, bool _allowZeroAddress)
         external
         view
         returns (address);

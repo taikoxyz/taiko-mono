@@ -313,9 +313,10 @@ library LibHashOptimized {
             bytes32(uint256(_source.blobSlice.timestamp))
         );
 
-        return EfficientHashLib.hash(
-            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-        );
+        return
+            EfficientHashLib.hash(
+                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+            );
     }
 
     /// @notice Safely hashes a single bond instruction to avoid collisions
