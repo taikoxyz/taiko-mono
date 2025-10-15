@@ -464,13 +464,13 @@ mod tests {
 
         let mut watched_set = HashSet::new();
         watched_set.insert(watched);
-        let blobs = build_blob_records(&summary, &[sidecar.clone()], &watched_set)
+        let blobs = build_blob_records(&summary, std::slice::from_ref(&sidecar), &watched_set)
             .expect("filter should keep");
         assert_eq!(blobs.len(), 1);
 
         let empty = HashSet::new();
-        let blobs =
-            build_blob_records(&summary, &[sidecar.clone()], &empty).expect("no filter keeps all");
+        let blobs = build_blob_records(&summary, std::slice::from_ref(&sidecar), &empty)
+            .expect("no filter keeps all");
         assert_eq!(blobs.len(), 1);
 
         let other = Address::from([0x22u8; 20]);
