@@ -10,26 +10,43 @@ import "./IProofVerifier.sol";
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
 contract Risc0Verifier is IProofVerifier, Ownable2Step {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
     bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
+
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
     uint64 public immutable taikoChainId;
     address public immutable riscoGroth16Verifier;
+
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
 
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
     uint256[49] private __gap;
 
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
     /// @dev Emitted when a trusted image is set / unset.
     /// @param imageId The id of the image
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
 
-    error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
-    error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
-    error RISC_ZERO_INVALID_PROOF();
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
 
     constructor(uint64 _taikoChainId, address _riscoGroth16Verifier, address _owner) {
         require(_taikoChainId != 0, "Invalid chain id");
@@ -39,6 +56,10 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
 
         _transferOwnership(_owner);
     }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @notice Sets/unsets an the imageId as trusted entity
     /// @param _imageId The id of the image.
@@ -79,4 +100,14 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
         );
         require(success, RISC_ZERO_INVALID_PROOF());
     }
+
+    // ---------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------
+
+error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
+error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
+error RISC_ZERO_INVALID_PROOF();
+
 }
+
