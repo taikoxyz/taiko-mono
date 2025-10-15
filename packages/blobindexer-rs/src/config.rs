@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
+use alloy_primitives::Address;
 use clap::{Parser, ValueEnum};
 use url::Url;
 
@@ -59,6 +60,15 @@ pub struct Config {
     /// Log output format
     #[arg(long, env = "BLOB_INDEXER_LOG_FORMAT", value_enum, default_value_t = LogFormat::Pretty)]
     pub log_format: LogFormat,
+
+    /// Contract addresses to filter blob transactions (0x-prefixed, comma separated when using env var)
+    #[arg(
+        long = "watch-address",
+        env = "BLOB_INDEXER_WATCH_ADDRESSES",
+        value_delimiter = ',',
+        value_parser = parse_address,
+    )]
+    pub watch_addresses: Vec<Address>,
 }
 
 /// Supported tracing output formats
@@ -71,4 +81,8 @@ pub enum LogFormat {
 
 fn parse_duration(value: &str) -> Result<Duration, String> {
     humantime::parse_duration(value).map_err(|err| format!("invalid duration '{value}': {err}"))
+}
+
+fn parse_address(value: &str) -> Result<Address, String> {
+    Address::from_str(value).map_err(|err| format!("invalid address '{value}': {err}"))
 }

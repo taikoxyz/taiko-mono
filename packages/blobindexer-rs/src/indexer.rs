@@ -1,6 +1,6 @@
-use std::cmp;
-use std::collections::HashSet;
+use std::{cmp, collections::HashSet};
 
+use alloy_primitives::Address;
 use sqlx::{MySql, Transaction};
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
@@ -24,12 +24,14 @@ pub struct Indexer {
 fn build_blob_records(
     summary: &BeaconBlockSummary,
     sidecars: &[BlobSidecar],
+    watch_addresses: &[Address],
 ) -> Result<Vec<BlobRecord>> {
     let commitment_count = summary.blob_commitments.len();
     let slot_i64 = u64_to_i64(summary.slot, "blob slot")?;
     let mut seen_indices = HashSet::new();
 
     let mut records = Vec::with_capacity(sidecars.len());
+    let filter_active = !watch_addresses.is_empty();
 
     for sidecar in sidecars {
         let index = i32::try_from(sidecar.index).map_err(|err| {
@@ -68,6 +70,21 @@ fn build_blob_records(
             )));
         }
 
+        let target_address = summary
+            .blob_targets
+            .get(index_usize)
+            .and_then(|target| *target);
+
+        seen_indices.insert(index);
+
+        if filter_active
+            && !target_address
+                .map(|address| watch_addresses.contains(&address))
+                .unwrap_or(false)
+        {
+            continue;
+        }
+
         let versioned_hash = kzg_to_versioned_hash(&sidecar.commitment);
 
         records.push(BlobRecord {
@@ -80,8 +97,6 @@ fn build_blob_records(
             blob: sidecar.blob.clone(),
             canonical: false,
         });
-
-        seen_indices.insert(index);
     }
 
     Ok(records)
@@ -248,7 +263,7 @@ impl Indexer {
             .await?;
 
         let sidecars = self.beacon.get_blob_sidecars(&summary.block_root).await?;
-        let blob_records = build_blob_records(summary, &sidecars)?;
+        let blob_records = build_blob_records(summary, &sidecars, &self.config.watch_addresses)?;
 
         self.storage
             .replace_blobs(&mut tx, slot_i64, &blob_records)
@@ -294,7 +309,8 @@ impl Indexer {
                 let record = summary_to_block_record(&fetched)?;
                 self.storage.insert_or_update_block(tx, &record).await?;
                 let sidecars = self.beacon.get_blob_sidecars(&record.block_root).await?;
-                let blob_records = build_blob_records(&fetched, &sidecars)?;
+                let blob_records =
+                    build_blob_records(&fetched, &sidecars, &self.config.watch_addresses)?;
                 self.storage
                     .replace_blobs(tx, record.slot, &blob_records)
                     .await?;
@@ -329,7 +345,7 @@ impl Indexer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{B256, FixedBytes};
+    use alloy_primitives::{Address, B256, FixedBytes};
 
     fn fixed_bytes<const N: usize>(value: u8) -> FixedBytes<N> {
         FixedBytes::from([value; N])
@@ -347,6 +363,7 @@ mod tests {
             parent_root: B256::from([4u8; 32]),
             timestamp: None,
             blob_commitments: vec![commitment],
+            blob_targets: vec![None],
         };
 
         let sidecar = BlobSidecar {
@@ -358,7 +375,8 @@ mod tests {
             blob: vec![5u8; 10],
         };
 
-        let blobs = build_blob_records(&summary, &[sidecar]).expect("conversion should succeed");
+        let blobs =
+            build_blob_records(&summary, &[sidecar], &[]).expect("conversion should succeed");
         assert_eq!(blobs.len(), 1);
         let blob = &blobs[0];
         assert_eq!(blob.index, 0);
@@ -379,6 +397,7 @@ mod tests {
             parent_root: B256::from([4u8; 32]),
             timestamp: None,
             blob_commitments: vec![commitment],
+            blob_targets: vec![None],
         };
 
         let sidecar = BlobSidecar {
@@ -390,8 +409,46 @@ mod tests {
             blob: vec![0u8; 2],
         };
 
-        let err = build_blob_records(&summary, &[sidecar.clone(), sidecar])
+        let err = build_blob_records(&summary, &[sidecar.clone(), sidecar], &[])
             .expect_err("duplicate indices should fail");
         assert!(matches!(err, BlobIndexerError::InvalidData(_)));
+    }
+
+    #[test]
+    fn build_blob_records_filters_addresses() {
+        let commitment = fixed_bytes::<48>(1);
+        let proof = fixed_bytes::<48>(2);
+        let block_root = B256::from([3u8; 32]);
+        let watched = Address::from([0x11u8; 20]);
+
+        let summary = BeaconBlockSummary {
+            slot: 11,
+            block_root,
+            parent_root: B256::from([4u8; 32]),
+            timestamp: None,
+            blob_commitments: vec![commitment],
+            blob_targets: vec![Some(watched)],
+        };
+
+        let sidecar = BlobSidecar {
+            slot: 11,
+            block_root,
+            index: 0,
+            commitment,
+            proof,
+            blob: vec![7u8; 3],
+        };
+
+        let blobs = build_blob_records(&summary, &[sidecar.clone()], &[watched])
+            .expect("filter should keep");
+        assert_eq!(blobs.len(), 1);
+
+        let blobs =
+            build_blob_records(&summary, &[sidecar.clone()], &[]).expect("no filter keeps all");
+        assert_eq!(blobs.len(), 1);
+
+        let other = Address::from([0x22u8; 20]);
+        let blobs = build_blob_records(&summary, &[sidecar], &[other]).expect("filter should drop");
+        assert!(blobs.is_empty());
     }
 }

@@ -1,4 +1,4 @@
-use alloy_primitives::{B256, FixedBytes};
+use alloy_primitives::{Address, B256, FixedBytes};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +18,7 @@ pub struct BeaconBlockSummary {
     pub parent_root: B256,
     pub timestamp: Option<DateTime<Utc>>,
     pub blob_commitments: Vec<FixedBytes<48>>,
+    pub blob_targets: Vec<Option<Address>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -39,6 +39,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 url = { version = "2.5.4", features = ["serde"] }
 thiserror = "2.0"
 hex = "0.4"
+alloy-consensus = { version = "1.0.36", default-features = false, features = ["serde"] }
+alloy-rlp = { version = "0.3.12", default-features = false, features = ["std"] }
 alloy-primitives = { version = "1.0.36", default-features = false, features = ["std", "serde"] }
 humantime = "2.1"
 

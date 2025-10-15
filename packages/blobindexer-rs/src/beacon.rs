@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use alloy_primitives::{B256, FixedBytes};
+use alloy_consensus::{Transaction, TxEnvelope};
+use alloy_primitives::{Address, B256, FixedBytes};
+use alloy_rlp::Decodable;
 use chrono::{DateTime, Utc};
 use reqwest::{Client, StatusCode, Url};
 use serde::Deserialize;
@@ -155,31 +157,37 @@ impl BeaconClient {
 
         let response: BeaconBlockResponse = response.error_for_status()?.json().await?;
 
-        let block_root = decode_b256(&response.data.root)?;
-        let parent_root = decode_b256(&response.data.message.parent_root)?;
-        let slot = response.data.message.slot.parse::<u64>().map_err(|err| {
+        let BeaconBlockResponse { data } = response;
+        let BeaconBlockResponseData { root, message } = data;
+        let BeaconBlockMessage {
+            slot,
+            parent_root,
+            body,
+        } = message;
+        let BeaconBlockBody {
+            blob_kzg_commitments,
+            execution_payload,
+        } = body;
+
+        let block_root = decode_b256(&root)?;
+        let parent_root = decode_b256(&parent_root)?;
+        let slot = slot.parse::<u64>().map_err(|err| {
             BlobIndexerError::InvalidData(format!(
-                "invalid slot '{}' from beacon block response: {err}",
-                response.data.message.slot
+                "invalid slot '{slot}' from beacon block response: {err}"
             ))
         })?;
 
-        let timestamp = response
-            .data
-            .message
-            .body
-            .execution_payload
+        let timestamp = execution_payload
+            .as_ref()
             .and_then(|payload| payload.timestamp.parse::<i64>().ok())
             .and_then(|ts| DateTime::<Utc>::from_timestamp(ts, 0));
 
-        let blob_commitments = response
-            .data
-            .message
-            .body
-            .blob_kzg_commitments
+        let blob_commitments = blob_kzg_commitments
             .iter()
             .map(|commitment| decode_fixed_bytes::<48>(commitment))
             .collect::<Result<Vec<FixedBytes<48>>>>()?;
+
+        let blob_targets = map_blob_targets(execution_payload.as_ref(), blob_commitments.len())?;
 
         Ok(Some(BeaconBlockSummary {
             slot,
@@ -187,8 +195,72 @@ impl BeaconClient {
             parent_root,
             timestamp,
             blob_commitments,
+            blob_targets,
         }))
     }
+}
+
+fn map_blob_targets(
+    payload: Option<&ExecutionPayload>,
+    blob_count: usize,
+) -> Result<Vec<Option<Address>>> {
+    let mut targets = vec![None; blob_count];
+
+    let Some(payload) = payload else {
+        return Ok(targets);
+    };
+
+    if blob_count == 0 {
+        return Ok(targets);
+    }
+
+    let mut cursor = 0usize;
+
+    for (tx_index, raw_tx) in payload.transactions.iter().enumerate() {
+        let tx_bytes = decode_hex_bytes(raw_tx)?;
+        if tx_bytes.is_empty() {
+            continue;
+        }
+
+        let mut slice = tx_bytes.as_slice();
+        let envelope = TxEnvelope::decode(&mut slice).map_err(|err| {
+            BlobIndexerError::InvalidData(format!(
+                "failed to decode transaction {tx_index} from execution payload: {err}"
+            ))
+        })?;
+
+        let TxEnvelope::Eip4844(tx) = envelope else {
+            continue;
+        };
+
+        let to = tx.to();
+        let Some(blob_hashes) = tx.blob_versioned_hashes() else {
+            continue;
+        };
+
+        for _ in 0..blob_hashes.len() {
+            if cursor >= blob_count {
+                tracing::warn!(
+                    cursor,
+                    blob_count,
+                    "blob commitment mapping exceeded available commitments"
+                );
+                return Ok(targets);
+            }
+            targets[cursor] = to;
+            cursor += 1;
+        }
+    }
+
+    if cursor != blob_count {
+        tracing::warn!(
+            mapped = cursor,
+            expected = blob_count,
+            "blob commitment count did not match mapped transactions"
+        );
+    }
+
+    Ok(targets)
 }
 
 #[derive(Debug, Deserialize)]
@@ -220,6 +292,8 @@ struct BeaconBlockBody {
 #[derive(Debug, Deserialize, Clone)]
 struct ExecutionPayload {
     timestamp: String,
+    #[serde(default)]
+    transactions: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
