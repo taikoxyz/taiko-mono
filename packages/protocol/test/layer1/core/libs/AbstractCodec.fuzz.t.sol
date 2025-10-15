@@ -494,7 +494,7 @@ abstract contract AbstractCodecFuzzTest is Test {
         view
     {
         vm.assume(id1 != id2); // Ensure different IDs
-        // Ensure timestamp doesn't cause overflow
+            // Ensure timestamp doesn't cause overflow
         vm.assume(timestamp < type(uint48).max - 1000);
 
         IInbox.Proposal memory proposal1 = IInbox.Proposal({

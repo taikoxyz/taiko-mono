@@ -1,0 +1,11 @@
+{
+  "forced_inclusion_multiple_Inbox": "114952",
+  "forced_inclusion_multiple_InboxOptimized1": "114952",
+  "forced_inclusion_multiple_InboxOptimized2": "108068",
+  "forced_inclusion_single_Inbox": "110584",
+  "forced_inclusion_single_InboxOptimized1": "110579",
+  "forced_inclusion_single_InboxOptimized2": "104149",
+  "propose_single_empty_ring_buffer_Inbox": "72852",
+  "propose_single_empty_ring_buffer_InboxOptimized1": "72852",
+  "propose_single_empty_ring_buffer_InboxOptimized2": "67581"
+}

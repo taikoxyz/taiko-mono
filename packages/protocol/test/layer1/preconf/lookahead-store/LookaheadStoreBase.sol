@@ -28,7 +28,8 @@ contract LookaheadStoreBase is CommonTest {
  *     LookaheadStore internal lookaheadStore;
  *
  *     uint256 internal constant NUM_OPERATORS = 10;
- *     uint256 internal constant EPOCH_START = LibPreconfConstants.ETHEREUM_MAINNET_BEACON_GENESIS
+ *     uint256 internal constant EPOCH_START =
+ * LibPreconfConstants.ETHEREUM_MAINNET_BEACON_GENESIS
  *         + 5 * LibPreconfConstants.SECONDS_IN_EPOCH;
  *
  *     address internal overseer = vm.addr(uint256(bytes32("overseer")));
@@ -291,7 +292,8 @@ contract LookaheadStoreBase is CommonTest {
  *         );
  *     }
  *
- *     /// @dev This is required because the size of lookahead slots array may exceed the length of
+ *     /// @dev This is required because the size of lookahead slots array may exceed the length
+ * of
  * the
  *     /// the total available operators
  *     function _trimLookaheadSlots(

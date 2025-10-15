@@ -39,7 +39,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+        if (msg.value < _op.fee) {
+            revert VAULT_INSUFFICIENT_FEE();
+        }
 
         {
             uint256 size = _op.tokenIds.length;

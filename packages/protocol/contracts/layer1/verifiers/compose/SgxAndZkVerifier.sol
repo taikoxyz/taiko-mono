@@ -37,9 +37,13 @@ contract SgxAndZkVerifier is ComposeVerifier {
         override
         returns (bool)
     {
-        return _youngestProposalAge >= unprovabilityThreshold
-            ? _verifierIds.length == 1 && _verifierIds[0] == SGX_RETH
-            : _verifierIds.length == 2 && _verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]);
+        if (_verifierIds.length == 2) {
+            return _verifierIds[0] == SGX_RETH && isZKVerifier(_verifierIds[1]);
+        } else if (_verifierIds.length == 1) {
+            return _verifierIds[0] == SGX_RETH && _youngestProposalAge >= unprovabilityThreshold;
+        } else {
+            return false;
+        }
     }
 
     function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {

@@ -21,11 +21,13 @@ contract TestLookaheadStore_PostedByProtectorOrWhitelistedPreconfer is Lookahead
  * _lookaheadSlots)
  *     {
  *         // Push the next epoch's lookahead to the store
- *         bytes26 lookaheadHash = _updateLookahead(_lookaheadSlots, _lookaheadOperators.length);
+ *         bytes26 lookaheadHash = _updateLookahead(_lookaheadSlots,
+ * _lookaheadOperators.length);
  *
  *         // The next epoch's lookahead hash is correctly added to the lookahead store
  *         assertEq(
- *             lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
+ *             lookaheadStore.getLookaheadHash(EPOCH_START +
+ * LibPreconfConstants.SECONDS_IN_EPOCH),
  *             lookaheadHash
  *         );
  *     }
@@ -46,11 +48,13 @@ contract TestLookaheadStore_PostedByProtectorOrWhitelistedPreconfer is Lookahead
  *         ) = _setupURCAndPrepareInputs(1);
  *
  *         // Push the next epoch's lookahead to the store
- *         bytes26 lookaheadHash = _updateLookahead(_lookaheadSlots, _lookaheadOperators.length);
+ *         bytes26 lookaheadHash = _updateLookahead(_lookaheadSlots,
+ * _lookaheadOperators.length);
  *
  *         // The next epoch's lookahead hash is correctly added to the lookahead store
  *         assertEq(
- *             lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
+ *             lookaheadStore.getLookaheadHash(EPOCH_START +
+ * LibPreconfConstants.SECONDS_IN_EPOCH),
  *             lookaheadHash
  *         );
  *

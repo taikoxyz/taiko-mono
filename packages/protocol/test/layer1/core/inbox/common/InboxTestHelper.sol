@@ -419,6 +419,7 @@ abstract contract InboxTestHelper is CommonTest {
     function _selectProposer(address _proposer) internal returns (address) {
         return proposerHelper._selectProposer(proposerChecker, _proposer);
     }
+
     // ---------------------------------------------------------------
     // Additional Utility Functions
     // ---------------------------------------------------------------
