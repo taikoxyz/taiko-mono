@@ -439,12 +439,12 @@ mod tests {
             blob: vec![7u8; 3],
         };
 
-        let blobs = build_blob_records(&summary, &[sidecar.clone()], &[watched])
+        let blobs = build_blob_records(&summary, &[std::slice::from_ref(&sidecar)], &[watched])
             .expect("filter should keep");
         assert_eq!(blobs.len(), 1);
 
         let blobs =
-            build_blob_records(&summary, &[sidecar.clone()], &[]).expect("no filter keeps all");
+            build_blob_records(&summary, &[std::slice::from_ref(&sidecar)], &[]).expect("no filter keeps all");
         assert_eq!(blobs.len(), 1);
 
         let other = Address::from([0x22u8; 20]);
