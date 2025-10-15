@@ -10,6 +10,10 @@ import "src/layer1/verifiers/IProofVerifier.sol";
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is IProofVerifier {
+    // ---------------------------------------------------------------
+    // Struct and Constants
+    // ---------------------------------------------------------------
+
     struct SubProof {
         uint8 verifierId;
         bytes proof;
@@ -24,6 +28,10 @@ abstract contract ComposeVerifier is IProofVerifier {
     uint8 public constant RISC0_RETH = 5;
     uint8 public constant SP1_RETH = 6;
 
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
     /// @notice Immutable verifier addresses
     /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
     /// All other proofs share its status root, despite different public inputs
@@ -37,6 +45,10 @@ abstract contract ComposeVerifier is IProofVerifier {
     address private immutable _sgxRethVerifier;
     address private immutable _risc0RethVerifier;
     address private immutable _sp1RethVerifier;
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
 
     constructor(
         address __sgxGethVerifier,
@@ -54,9 +66,9 @@ abstract contract ComposeVerifier is IProofVerifier {
         _sp1RethVerifier = __sp1RethVerifier;
     }
 
-    error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUB_VERIFIER_ORDER();
-    error CV_VERIFIERS_INSUFFICIENT();
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IProofVerifier
     function verifyProof(
@@ -92,6 +104,10 @@ abstract contract ComposeVerifier is IProofVerifier {
         require(areVerifiersSufficient(verifierIds), CV_VERIFIERS_INSUFFICIENT());
     }
 
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Returns the verifier address for a given verifier ID
     /// @param _verifierId The verifier ID to query
     /// @return The address of the verifier (or address(0) if invalid)
@@ -105,9 +121,25 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {
+        return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
+    }
+
     function areVerifiersSufficient(uint8[] memory _verifierIds)
         internal
         view
         virtual
         returns (bool);
 }
+
+// ---------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------
+
+error CV_INVALID_SUB_VERIFIER();
+error CV_INVALID_SUB_VERIFIER_ORDER();
+error CV_VERIFIERS_INSUFFICIENT();
