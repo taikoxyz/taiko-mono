@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// / @custom:security-contact security@taiko.xyz
+//SPDX-License-Identifier: MIT
+/// @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
@@ -229,7 +229,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         // Optimized implementations: 2 events (group 1-2 and group 4-6)
         uint256 expectedEvents;
         (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive
-            // behavior
+        // behavior
         if (consecutiveEvents == 1) {
             // Optimized implementation: supports aggregation
             // Mixed scenario has 2 consecutive groups: [1,2] and [4,5,6]
@@ -491,7 +491,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         uint48 expectedLastBlockId;
         if (_parent.id == 0) {
             expectedLastBlockId = 1; // Genesis value - last proposal was made at block 1
-                // For first proposal after genesis, roll to block 2
+            // For first proposal after genesis, roll to block 2
             vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap

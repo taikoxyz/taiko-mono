@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
@@ -473,7 +473,7 @@ abstract contract AbstractCodecFuzzTest is Test {
         view
     {
         vm.assume(id1 != id2); // Ensure different IDs
-            // Ensure timestamp doesn't cause overflow
+        // Ensure timestamp doesn't cause overflow
         vm.assume(timestamp < type(uint48).max - 1000);
 
         IInbox.Proposal memory proposal1 = IInbox.Proposal({

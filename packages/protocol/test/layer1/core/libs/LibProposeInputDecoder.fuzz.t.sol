@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
@@ -28,7 +28,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
     {
         // Bound nextProposalId to avoid overflow when calculating lastProposalBlockId
         nextProposalId = uint48(bound(nextProposalId, 1, 2_800_000)); // 2800000 * 100 = 280M <
-            // 2^48-1
+        // 2^48-1
         lastFinalizedProposalId = uint48(bound(lastFinalizedProposalId, 0, nextProposalId));
 
         // Use differentiated IDs like the main tests

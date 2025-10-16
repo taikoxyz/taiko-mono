@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "../common/EssentialResolverContract.sol";
@@ -643,7 +643,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         // we will inspect gasleft() after the forwarding.
         //
         // Let X be the gas available before the subcall, such that the subcall gets at most X * 63
-        // / 64.
+        /// 64.
         // We can't know X after CALL dynamic costs, but we want it to be such that X * 63 / 64 >=
         // req.gas.
         // Let Y be the gas used in the subcall. gasleft() measured immediately after the subcall
@@ -667,7 +667,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // since
             // neither revert or assert consume all gas since Solidity 0.8.20
             // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
-            // / @solidity memory-safe-assembly
+            /// @solidity memory-safe-assembly
             assembly {
                 invalid()
             }

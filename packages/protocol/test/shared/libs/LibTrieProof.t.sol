@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
@@ -13,7 +13,7 @@ contract TestLibTrieProof is CommonTest {
         // Actually this is the messageHash i sent (obviously just a made up bytes32!)
         // Not needed for now, but leave it as is.
         // bytes32 signalSent = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
-        // //Actually a messageHash
+        ////Actually a messageHash
         // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
         // (for slot calculation)
         address addr = 0x17DF3c450D1dC61558ecA7B10e4bBC8ddcdB1f28;

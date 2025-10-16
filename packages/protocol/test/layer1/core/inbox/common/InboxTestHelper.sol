@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
@@ -227,7 +227,7 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: _currentProposer,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
-                // endOfSubmissionWindowTimestamp
+            // endOfSubmissionWindowTimestamp
             coreStateHash: _codec().hashCoreState(expectedCoreState),
             derivationHash: _codec().hashDerivation(expectedDerivation)
         });

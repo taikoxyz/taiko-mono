@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BSD 2-Clause License
+//SPDX-License-Identifier: BSD 2-Clause License
 pragma solidity ^0.8.24;
 
 // Inspired by ensdomains/dnssec-oracle - BSD-2-Clause license
 // https://github.com/ensdomains/dnssec-oracle/blob/master/contracts/BytesUtils.sol
-// / @title BytesUtils
-// / @custom:security-contact security@taiko.xyz
+/// @title BytesUtils
+/// @custom:security-contact security@taiko.xyz
 library BytesUtils {
     /*
     * @dev Returns the keccak-256 hash of a byte range.

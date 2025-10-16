@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "./ERC1155Vault.h.sol";
@@ -355,7 +355,7 @@ contract TestERC1155Vault is CommonTest {
 
         eBridge.recallMessage(message, bytes(""));
 
-        // // Alice got back her NFTs, and vault has 0
+        //// Alice got back her NFTs, and vault has 0
         assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
         assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
     }

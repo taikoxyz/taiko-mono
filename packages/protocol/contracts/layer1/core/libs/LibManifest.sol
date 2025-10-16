@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 /// @title LibManifest
@@ -7,8 +7,8 @@ library LibManifest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    // / @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
-    // / small as one second, 384 blocks will cover an Ethereum epoch.
+    /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
+    /// small as one second, 384 blocks will cover an Ethereum epoch.
     uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.

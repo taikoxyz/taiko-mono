@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
@@ -13,15 +13,15 @@ contract DevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    // / @dev Ring buffer size for storing proposal hashes.
-    // / Assumptions:
-    // / - D = 2: Proposals may continue without finalization for up to 2 days.
-    // / - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
+    /// @dev Ring buffer size for storing proposal hashes.
+    /// Assumptions:
+    /// - D = 2: Proposals may continue without finalization for up to 2 days.
+    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
     ///
-    // / Calculation:
-    // / _RING_BUFFER_SIZE = (86400 * D) / 12 / P
-    // / = (86400 * 2) / 12 / 6
-    // / = 2400
+    /// Calculation:
+    /// _RING_BUFFER_SIZE = (86400 * D) / 12 / P
+    /// = (86400 * 2) / 12 / 6
+    /// = 2400
     uint64 private constant _RING_BUFFER_SIZE = 2400;
 
     // ---------------------------------------------------------------

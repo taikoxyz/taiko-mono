@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "solady/src/utils/Base64.sol";
@@ -34,7 +34,7 @@ contract V3QuoteParseUtils {
         bytes32 mrEnclave;
         bytes32 mrSigner;
         bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation
-            // of attestation key and QEAuthData
+        // of attestation key and QEAuthData
         bytes reserved1;
         bytes32 reserved2;
         bytes reserved3; // 96 bytes

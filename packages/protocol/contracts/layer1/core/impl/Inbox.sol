@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
@@ -49,7 +49,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
-    // / @notice The codec used for encoding and hashing.
+    /// @notice The codec used for encoding and hashing.
     address private immutable _codec;
 
     /// @notice The token used for bonds.

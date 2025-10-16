@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
@@ -48,7 +48,7 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
-                // made there)
+            // made there)
             lastFinalizedProposalId: 0,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
