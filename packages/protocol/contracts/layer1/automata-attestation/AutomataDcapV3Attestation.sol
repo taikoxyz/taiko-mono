@@ -381,9 +381,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,
-            ,
-            ,
+            bool successful,,,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
