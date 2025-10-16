@@ -26,23 +26,18 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(3)),
             parentTransitionHash: bytes32(uint256(4)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 100,
-                blockHash: bytes32(uint256(5)),
-                stateRoot: bytes32(uint256(6))
+                blockNumber: 100, blockHash: bytes32(uint256(5)), stateRoot: bytes32(uint256(6))
             })
         });
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x5678),
-            actualProver: address(0x9ABC)
+            designatedProver: address(0x5678), actualProver: address(0x9ABC)
         });
 
         // Create ProveInput (no endBlockHeader field)
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         // Test encoding
@@ -106,35 +101,27 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(31)),
             parentTransitionHash: bytes32(uint256(32)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 1000,
-                blockHash: bytes32(uint256(33)),
-                stateRoot: bytes32(uint256(34))
+                blockNumber: 1000, blockHash: bytes32(uint256(33)), stateRoot: bytes32(uint256(34))
             })
         });
         transitions[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(41)),
             parentTransitionHash: bytes32(uint256(42)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 2000,
-                blockHash: bytes32(uint256(43)),
-                stateRoot: bytes32(uint256(44))
+                blockNumber: 2000, blockHash: bytes32(uint256(43)), stateRoot: bytes32(uint256(44))
             })
         });
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x3333),
-            actualProver: address(0x5555)
+            designatedProver: address(0x3333), actualProver: address(0x5555)
         });
         metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: address(0x4444),
-            actualProver: address(0x6666)
+            designatedProver: address(0x4444), actualProver: address(0x6666)
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         // Test encoding/decoding
@@ -194,22 +181,17 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(3)),
             parentTransitionHash: bytes32(uint256(4)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 100,
-                blockHash: bytes32(uint256(5)),
-                stateRoot: bytes32(uint256(6))
+                blockNumber: 100, blockHash: bytes32(uint256(5)), stateRoot: bytes32(uint256(6))
             })
         });
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x5678),
-            actualProver: address(0x9DEF)
+            designatedProver: address(0x5678), actualProver: address(0x9DEF)
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory optimized = LibProveInputDecoder.encode(input);
