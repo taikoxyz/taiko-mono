@@ -1,35 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import "@p256-verifier/contracts/P256Verifier.sol";
-import "src/shared/common/DefaultResolver.sol";
-import "src/shared/libs/LibNames.sol";
-import "src/shared/vault/BridgedERC1155.sol";
-import "src/shared/vault/BridgedERC20.sol";
-import "src/shared/vault/BridgedERC721.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/devnet/DevnetVerifier.sol";
+import "src/layer1/devnet/OpVerifier.sol";
 import "src/layer1/mainnet/MainnetBridge.sol";
 import "src/layer1/mainnet/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
-import "src/shared/signal/SignalService.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/devnet/OpVerifier.sol";
-import "src/layer1/devnet/DevnetVerifier.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+import "src/shared/common/DefaultResolver.sol";
+import "src/shared/libs/LibNames.sol";
+import "src/shared/signal/SignalService.sol";
+import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/BridgedERC20.sol";
+import "src/shared/vault/BridgedERC721.sol";
+import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
+import "test/shared/DeployCapability.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
-import "test/shared/DeployCapability.sol";
 
 /// @title DeployProtocolOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -132,13 +133,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         private
         returns (address proofVerifier)
     {
+        if (useDummyVerifiers) {
+            proofVerifier = address(new MockProofVerifier());
+            return proofVerifier;
+        }
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
-        address sgxSlot = useDummyVerifiers ? verifiers.op : verifiers.sgx;
-
         proofVerifier = address(
             new DevnetVerifier(
                 verifiers.op,
-                sgxSlot, // OpVerifier for dummy mode, SgxVerifier for real mode
+                verifiers.sgx, // OpVerifier for dummy mode, SgxVerifier for real mode
                 verifiers.risc0,
                 verifiers.sp1
             )
@@ -182,7 +185,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
-        Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        if (vm.envBool("ACTIVATE_INBOX")) {
+            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        }
         console2.log("ShastaInbox deployed:", shastaInbox);
     }
 

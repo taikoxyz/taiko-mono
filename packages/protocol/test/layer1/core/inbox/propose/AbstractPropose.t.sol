@@ -9,6 +9,9 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/core/impl/Inbox.sol";
@@ -597,7 +600,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
-                // made there)
+            // made there)
             lastFinalizedProposalId: 0,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),

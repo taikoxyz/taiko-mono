@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
-import "forge-std/src/StdJson.sol";
 
-import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 
-import "src/layer1/verifiers/SgxVerifier.sol";
+import "./helpers/DcapTestUtils.sol";
+import "./helpers/V3QuoteParseUtils.sol";
+import "solady/src/utils/Base64.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "src/layer1/automata-attestation/utils/BytesUtils.sol";
-import "solady/src/utils/Base64.sol";
-import "./helpers/DcapTestUtils.sol";
-import "./helpers/V3QuoteParseUtils.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
 
 contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     using BytesUtils for bytes;

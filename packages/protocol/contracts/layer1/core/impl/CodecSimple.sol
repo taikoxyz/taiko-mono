@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { IInbox } from "../iface/IInbox.sol";
 import { ICodec } from "../iface/ICodec.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title CodecSimple
 /// @notice Codec contract wrapping LibHashSimple for basic hashing
