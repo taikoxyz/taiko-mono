@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
 import "../libs/LibNames.sol";
+import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
@@ -131,7 +131,11 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
     /// @return The slot for the signal.
-    function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal)
+    function getSignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
         public
         pure
         returns (bytes32)
@@ -183,7 +187,11 @@ contract SignalService is EssentialContract, ISignalService {
         });
     }
 
-    function _sendSignal(address _app, bytes32 _signal, bytes32 _value)
+    function _sendSignal(
+        address _app,
+        bytes32 _signal,
+        bytes32 _value
+    )
         private
         nonZeroAddr(_app)
         nonZeroBytes32(_signal)
@@ -197,7 +205,10 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(address _app, bytes32 _signal)
+    function _loadSignalValue(
+        address _app,
+        bytes32 _signal
+    )
         private
         view
         nonZeroAddr(_app)

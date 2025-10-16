@@ -131,7 +131,10 @@ abstract contract ComposeVerifier is IProofVerifier {
         return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
     }
 
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areVerifiersSufficient(
+        uint256 _youngestProposalAge,
+        uint8[] memory _verifierIds
+    )
         internal
         view
         virtual

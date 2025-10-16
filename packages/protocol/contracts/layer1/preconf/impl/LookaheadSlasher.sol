@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/iface/IBlacklist.sol";
-import "src/layer1/preconf/libs/LibEIP4788.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/lib/MerkleTree.sol";
+import "src/layer1/preconf/iface/IBlacklist.sol";
+import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
+import "src/layer1/preconf/libs/LibEIP4788.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -248,7 +248,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
+    function _isG1Equal(
+        BLS.G1Point memory _a,
+        BLS.G1Point memory _b
+    )
+        internal
+        pure
+        returns (bool)
+    {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibNames.sol";
 import { LibBytes as LibBytesInternal } from "../libs/LibBytes.sol";
+import "../libs/LibNames.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title INameSymbol
 /// @notice Interface for contracts that provide name() and symbol()

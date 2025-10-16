@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -208,7 +208,10 @@ contract Anchor is EssentialContract {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchor(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
+    function anchor(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
         external
         onlyValidSenderAndHeight
         nonReentrant
@@ -233,7 +236,10 @@ contract Anchor is EssentialContract {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(address _token, address _to)
+    function withdraw(
+        address _token,
+        address _to
+    )
         external
         nonZeroAddr(_to)
         onlyOwner
@@ -309,7 +315,11 @@ contract Anchor is EssentialContract {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
     /// @return provingFee_ The proving fee in Wei (0 if validation fails).
-    function validateProverAuth(uint48 _proposalId, address _proposer, bytes calldata _proverAuth)
+    function validateProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
         public
         pure
         returns (address signer_, uint256 provingFee_)
@@ -376,7 +386,10 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(BlockState storage _blockState, BlockParams calldata _blockParams)
+    function _validateBlock(
+        BlockState storage _blockState,
+        BlockParams calldata _blockParams
+    )
         private
     {
         // Verify and update ancestors hash

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { AbstractProposeTest } from "./AbstractPropose.t.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
+import { AbstractProposeTest } from "./AbstractPropose.t.sol";
 
 /// @title InboxOptimized1Propose
 /// @notice Test suite for propose functionality on Optimized1 Inbox implementation

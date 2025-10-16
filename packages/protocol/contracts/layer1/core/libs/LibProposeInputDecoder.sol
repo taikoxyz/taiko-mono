@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoder
@@ -142,7 +142,10 @@ library LibProposeInputDecoder {
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
-    function _encodeProposal(uint256 _ptr, IInbox.Proposal memory _proposal)
+    function _encodeProposal(
+        uint256 _ptr,
+        IInbox.Proposal memory _proposal
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -156,7 +159,10 @@ library LibProposeInputDecoder {
     }
 
     /// @notice Encode a single TransitionRecord
-    function _encodeTransitionRecord(uint256 _ptr, IInbox.TransitionRecord memory _transitionRecord)
+    function _encodeTransitionRecord(
+        uint256 _ptr,
+        IInbox.TransitionRecord memory _transitionRecord
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -179,7 +185,10 @@ library LibProposeInputDecoder {
     }
 
     /// @notice Encode a single BondInstruction
-    function _encodeBondInstruction(uint256 _ptr, LibBonds.BondInstruction memory _bondInstruction)
+    function _encodeBondInstruction(
+        uint256 _ptr,
+        LibBonds.BondInstruction memory _bondInstruction
+    )
         private
         pure
         returns (uint256 newPtr_)

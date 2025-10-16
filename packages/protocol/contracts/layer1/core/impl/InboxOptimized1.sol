@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
+import { Inbox } from "./Inbox.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
@@ -139,7 +139,10 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return hashAndDeadline_ The transition record hash and finalization deadline
-    function _getTransitionRecordHashAndDeadline(uint48 _proposalId, bytes32 _parentTransitionHash)
+    function _getTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
         internal
         view
         override

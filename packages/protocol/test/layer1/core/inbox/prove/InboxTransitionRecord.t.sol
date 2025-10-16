@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxDeployer } from "../deployers/InboxDeployer.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxTransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in standard Inbox
@@ -376,7 +376,10 @@ contract InboxTransitionRecord is InboxTestHelper {
         return _codec().encodeProveInput(input);
     }
 
-    function _createProveInputForSingleProposal(IInbox.Proposal memory _proposal, uint256 _index)
+    function _createProveInputForSingleProposal(
+        IInbox.Proposal memory _proposal,
+        uint256 _index
+    )
         internal
         view
         returns (bytes memory)
@@ -387,7 +390,10 @@ contract InboxTransitionRecord is InboxTestHelper {
         return _createProveInputWithParent(_proposal, parentHash);
     }
 
-    function _createProveInputWithParent(IInbox.Proposal memory _proposal, bytes32 _parentHash)
+    function _createProveInputWithParent(
+        IInbox.Proposal memory _proposal,
+        bytes32 _parentHash
+    )
         internal
         view
         returns (bytes memory)
@@ -427,7 +433,10 @@ contract InboxTransitionRecord is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)

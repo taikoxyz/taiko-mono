@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ERC20Vault.h.sol";
 import "../helpers/FreeMintERC20Token.sol";
+import "./ERC20Vault.h.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum

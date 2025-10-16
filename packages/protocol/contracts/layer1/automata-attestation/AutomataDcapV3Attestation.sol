@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./interfaces/IAttestation.sol";
+import "./interfaces/ISigVerifyLib.sol";
+import "./lib/EnclaveIdStruct.sol";
+import "./lib/PEMCertChainLib.sol";
+import "./lib/QuoteV3Auth/V3Parser.sol";
+import "./lib/QuoteV3Auth/V3Struct.sol";
+import "./lib/TCBInfoStruct.sol";
+import "./lib/interfaces/IPEMCertChainLib.sol";
+import "./utils/BytesUtils.sol";
 import "solady/src/utils/Base64.sol";
 import "solady/src/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
-import "./lib/QuoteV3Auth/V3Struct.sol";
-import "./lib/QuoteV3Auth/V3Parser.sol";
-import "./lib/interfaces/IPEMCertChainLib.sol";
-import "./lib/PEMCertChainLib.sol";
-import "./lib/TCBInfoStruct.sol";
-import "./lib/EnclaveIdStruct.sol";
-import "./interfaces/IAttestation.sol";
-import "./utils/BytesUtils.sol";
-import "./interfaces/ISigVerifyLib.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
@@ -60,7 +60,11 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // @notice Initializes the contract.
     // / @param sigVerifyLibAddr Address of the signature verification library.
     // / @param pemCertLibAddr Address of certificate library.
-    function init(address owner, address sigVerifyLibAddr, address pemCertLibAddr)
+    function init(
+        address owner,
+        address sigVerifyLibAddr,
+        address pemCertLibAddr
+    )
         external
         initializer
     {
@@ -79,7 +83,10 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
     }
 
-    function addRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
+    function addRevokedCertSerialNum(
+        uint256 index,
+        bytes[] calldata serialNumBatch
+    )
         external
         onlyOwner
     {
@@ -93,7 +100,10 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         }
     }
 
-    function removeRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
+    function removeRevokedCertSerialNum(
+        uint256 index,
+        bytes[] calldata serialNumBatch
+    )
         external
         onlyOwner
     {
@@ -238,7 +248,10 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return (true, TCBInfoStruct.TCBStatus.TCB_UNRECOGNIZED);
     }
 
-    function _isCpuSvnHigherOrGreater(uint256[] memory pckCpuSvns, uint8[] memory tcbCpuSvns)
+    function _isCpuSvnHigherOrGreater(
+        uint256[] memory pckCpuSvns,
+        uint8[] memory tcbCpuSvns
+    )
         private
         pure
         returns (bool)
@@ -381,9 +394,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,
-            ,
-            ,
+            bool successful,,,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
-import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "solady/src/utils/Base64.sol";
 import "solady/src/utils/JSONParserLib.sol";
 import "solady/src/utils/LibString.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
 
 contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;
@@ -145,7 +145,10 @@ contract V3QuoteParseUtils {
         });
     }
 
-    function ParseV3QuoteBytes(address pemCertChainLib, bytes memory v3QuoteBytes)
+    function ParseV3QuoteBytes(
+        address pemCertChainLib,
+        bytes memory v3QuoteBytes
+    )
         public
         pure
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)

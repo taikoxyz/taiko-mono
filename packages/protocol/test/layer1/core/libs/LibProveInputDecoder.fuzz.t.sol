@@ -162,7 +162,13 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test for size efficiency
-    function testFuzz_sizeEfficiency(uint8 proposalCount, uint8 transitionCount) public pure {
+    function testFuzz_sizeEfficiency(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
+        public
+        pure
+    {
         // Bound counts - proposals and transitions must be equal per the library requirement
         proposalCount = uint8(bound(proposalCount, 1, 10));
         transitionCount = proposalCount; // Ensure equal counts
@@ -295,7 +301,10 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Helper function to create test data
-    function _createTestData(uint256 proposalCount, uint256 transitionCount)
+    function _createTestData(
+        uint256 proposalCount,
+        uint256 transitionCount
+    )
         private
         pure
         returns (IInbox.ProveInput memory proveInput)

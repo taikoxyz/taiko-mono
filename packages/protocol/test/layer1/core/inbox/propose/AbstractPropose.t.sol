@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/core/impl/Inbox.sol";
@@ -592,7 +592,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
-    function _enqueueForcedInclusion(LibBlobs.BlobReference memory _ref, address _payer)
+    function _enqueueForcedInclusion(
+        LibBlobs.BlobReference memory _ref,
+        address _payer
+    )
         internal
         returns (LibBlobs.BlobSlice memory)
     {

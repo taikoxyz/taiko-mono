@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoderFuzzTest
@@ -300,7 +300,10 @@ contract LibProposeInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
-    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 transitionCount)
+    function testFuzz_encodedSizeComparison(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
         public
         pure
     {

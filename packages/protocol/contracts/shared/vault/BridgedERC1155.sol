@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibNames.sol";
 import "./IBridgedERC1155.sol";
 import "./LibBridgedToken.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -66,7 +66,11 @@ contract BridgedERC1155 is
     }
 
     /// @inheritdoc IBridgedERC1155
-    function mintBatch(address _to, uint256[] calldata _tokenIds, uint256[] calldata _amounts)
+    function mintBatch(
+        address _to,
+        uint256[] calldata _tokenIds,
+        uint256[] calldata _amounts
+    )
         external
         whenNotPaused
         onlyFrom(erc1155Vault)
@@ -76,7 +80,10 @@ contract BridgedERC1155 is
     }
 
     /// @inheritdoc IBridgedERC1155
-    function burn(uint256 _id, uint256 _amount)
+    function burn(
+        uint256 _id,
+        uint256 _amount
+    )
         external
         whenNotPaused
         onlyFrom(erc1155Vault)

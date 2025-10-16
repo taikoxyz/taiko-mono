@@ -64,7 +64,10 @@ library LibForcedInclusion {
     }
 
     /// @dev See `IInbox.isOldestForcedInclusionDue`
-    function isOldestForcedInclusionDue(Storage storage $, uint16 _forcedInclusionDelay)
+    function isOldestForcedInclusionDue(
+        Storage storage $,
+        uint16 _forcedInclusionDelay
+    )
         public
         view
         returns (bool)

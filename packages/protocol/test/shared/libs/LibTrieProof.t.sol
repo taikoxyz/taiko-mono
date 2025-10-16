@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibTrieProof.sol";
 import "../CommonTest.sol";
+import "src/shared/libs/LibTrieProof.sol";
 
 /// forge-config: default.allow_internal_expect_revert = true
 contract TestLibTrieProof is CommonTest {

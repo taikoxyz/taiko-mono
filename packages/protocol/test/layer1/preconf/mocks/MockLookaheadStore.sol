@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@eth-fabric/urc/ISlasher.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "@eth-fabric/urc/ISlasher.sol";
 
 contract MockLookaheadStore {
     mapping(uint256 => bytes26) internal lookaheadHashes;
@@ -16,7 +16,10 @@ contract MockLookaheadStore {
         return lookaheadHashes[_epochTimestamp];
     }
 
-    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data)
+    function updateLookahead(
+        bytes32 _registrationRoot,
+        bytes calldata _data
+    )
         external
         returns (bytes26 lookaheadHash_)
     {

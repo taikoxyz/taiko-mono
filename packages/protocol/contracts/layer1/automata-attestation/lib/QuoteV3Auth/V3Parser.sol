@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/Base64.sol";
-import "../../utils/BytesUtils.sol";
 import "../../lib/PEMCertChainLib.sol";
+import "../../utils/BytesUtils.sol";
 import "./V3Struct.sol";
+import "solady/src/utils/Base64.sol";
 
 /// @title V3Parser
 /// @custom:security-contact security@taiko.xyz
@@ -27,7 +27,10 @@ library V3Parser {
     error V3PARSER_INVALID_ECDSA_SIGNATURE();
     error V3PARSER_INVALID_QEAUTHDATA_SIZE();
 
-    function parseInput(bytes memory quote, address pemCertLibAddr)
+    function parseInput(
+        bytes memory quote,
+        address pemCertLibAddr
+    )
         internal
         pure
         returns (bool success, V3Struct.ParsedV3QuoteStruct memory v3ParsedQuote)
@@ -214,7 +217,10 @@ library V3Parser {
         success = true;
     }
 
-    function parseAuthDataAndVerifyCertType(bytes memory rawAuthData, address pemCertLibAddr)
+    function parseAuthDataAndVerifyCertType(
+        bytes memory rawAuthData,
+        address pemCertLibAddr
+    )
         private
         pure
         returns (bool success, V3Struct.ECDSAQuoteV3AuthData memory authDataV3)
@@ -275,7 +281,10 @@ library V3Parser {
         );
     }
 
-    function parseCerificationChainBytes(bytes memory certBytes, address pemCertLibAddr)
+    function parseCerificationChainBytes(
+        bytes memory certBytes,
+        address pemCertLibAddr
+    )
         internal
         pure
         returns (bytes[3] memory certChainData)

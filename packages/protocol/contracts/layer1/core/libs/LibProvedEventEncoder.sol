@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder

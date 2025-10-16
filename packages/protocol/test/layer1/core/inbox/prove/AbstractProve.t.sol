@@ -2,9 +2,9 @@
 // / @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
@@ -587,7 +587,10 @@ abstract contract AbstractProveTest is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)
