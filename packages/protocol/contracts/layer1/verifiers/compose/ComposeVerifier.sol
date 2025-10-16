@@ -76,7 +76,7 @@ abstract contract ComposeVerifier is IProofVerifier {
 
     /// @inheritdoc IProofVerifier
     function verifyProof(
-        uint256 _youngestProposalAge,
+        uint256 _proposalAge,
         bytes32 _transitionsHash,
         bytes calldata _proof
     )
@@ -98,14 +98,13 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), InvalidSubVerifier());
 
-            IProofVerifier(verifier)
-                .verifyProof(_youngestProposalAge, _transitionsHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(_proposalAge, _transitionsHash, subProofs[i].proof);
 
             verifiers[i] = verifier;
             lastVerifierId = verifierId;
         }
 
-        require(areSubProofsSufficient(_youngestProposalAge, subProofs), InsufficientSubVerifiers());
+        require(areSubProofsSufficient(_proposalAge, subProofs), InsufficientSubVerifiers());
     }
 
     // ---------------------------------------------------------------
@@ -134,9 +133,10 @@ abstract contract ComposeVerifier is IProofVerifier {
     }
 
     /// @dev Checks if the provided verifiers are sufficient
-    /// NOTE: Verifier addresses are provided in ascending order of their IDs
+    /// NOTE: subProofs are provided in ascending order of their IDs,
+    /// and the _proposalAge will be zero if there are more than one sub proofs in subProofs.
     function areSubProofsSufficient(
-        uint256 _youngestProposalAge,
+        uint256 _proposalAge,
         SubProof[] memory subProofs
     )
         internal

@@ -11,7 +11,7 @@ contract OpVerifier is IProofVerifier {
     /// @inheritdoc IProofVerifier
     /// @dev This is a dummy implementation that always succeeds
     function verifyProof(
-        uint256, /* _youngestProposalAge */
+        uint256, /* _proposalAge */
         bytes32 _transitionsHash,
         bytes calldata _proof
     )

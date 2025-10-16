@@ -150,7 +150,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
 
     /// @inheritdoc IProofVerifier
     function verifyProof(
-        uint256, /* _youngestProposalAge */
+        uint256, /* _proposalAge */
         bytes32 _aggregatedProvingHash,
         bytes calldata _proof
     )

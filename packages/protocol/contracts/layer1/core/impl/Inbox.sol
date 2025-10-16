@@ -272,18 +272,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        uint256 youngestProposalAge;
+        uint256 proposalAge;
         if (input.proposals.length == 1) {
             unchecked {
-                // youngestProposalAge will only be used by the proof verifier for single-proposal.
-                youngestProposalAge = block.timestamp - input.proposals[0].timestamp;
+                // proposalAge will only be used by the proof verifier for single-proposal.
+                proposalAge = block.timestamp - input.proposals[0].timestamp;
             }
         }
 
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
 
-        _proofVerifier.verifyProof(youngestProposalAge, aggregatedProvingHash, _proof);
+        _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore

@@ -23,7 +23,7 @@ contract AnyVerifier is ComposeVerifier {
     { }
 
     function areSubProofsSufficient(
-        uint256, /* _youngestProposalAge */
+        uint256, /* _proposalAge */
         SubProof[] memory _subProofs
     )
         internal
