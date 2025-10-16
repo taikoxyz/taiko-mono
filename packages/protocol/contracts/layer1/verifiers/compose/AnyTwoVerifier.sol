@@ -20,7 +20,7 @@ contract AnyTwoVerifier is ComposeVerifier {
 
     function areVerifiersSufficient(uint8[] memory _verifierIds)
         internal
-        view
+        pure
         override
         returns (bool)
     {

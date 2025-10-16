@@ -54,10 +54,6 @@ abstract contract ComposeVerifier is IProofVerifier {
         _sp1RethVerifier = __sp1RethVerifier;
     }
 
-    error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUB_VERIFIER_ORDER();
-    error CV_VERIFIERS_INSUFFICIENT();
-
     /// @inheritdoc IProofVerifier
     function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
@@ -97,9 +93,15 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
+    /// @dev Checks if the provided verifier IDs are sufficient
+    /// NOTE: Verifiers ids are defined in incremental order
     function areVerifiersSufficient(uint8[] memory _verifierIds)
         internal
         view
         virtual
         returns (bool);
+
+    error CV_INVALID_SUB_VERIFIER();
+    error CV_INVALID_SUB_VERIFIER_ORDER();
+    error CV_VERIFIERS_INSUFFICIENT();
 }
