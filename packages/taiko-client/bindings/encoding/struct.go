@@ -35,35 +35,8 @@ type BatchParams struct {
 
 // SubProof should be same with ComposeVerifier.SubProof.
 type SubProof struct {
-	VerifierId uint8
-	Proof      []byte
-}
-
-// VerifierId enum should match ComposeVerifier.VerifierId
-const (
-	VerifierIdNone       uint8 = 0
-	VerifierIdSgxGeth    uint8 = 1
-	VerifierIdTdxGeth    uint8 = 2
-	VerifierIdOp         uint8 = 3
-	VerifierIdSgxReth    uint8 = 4
-	VerifierIdRisc0Reth  uint8 = 5
-	VerifierIdSp1Reth    uint8 = 6
-)
-
-// ProofTypeToVerifierId maps proof types to verifier IDs
-func ProofTypeToVerifierId(proofType string) uint8 {
-	switch proofType {
-	case "sgxgeth", "sgx", "native":
-		return VerifierIdSgxReth
-	case "risc0":
-		return VerifierIdRisc0Reth
-	case "sp1":
-		return VerifierIdSp1Reth
-	case "op":
-		return VerifierIdOp
-	default:
-		return VerifierIdNone
-	}
+	Verifier common.Address
+	Proof    []byte
 }
 
 // LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
