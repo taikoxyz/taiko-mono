@@ -301,7 +301,10 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Helper function to create test data
-    function _createTestData(uint256 proposalCount, uint256 transitionCount)
+    function _createTestData(
+        uint256 proposalCount,
+        uint256 transitionCount
+    )
         private
         pure
         returns (IInbox.ProveInput memory proveInput)

@@ -74,7 +74,10 @@ library LibBLS12381 {
      * @param message The message to hash
      * @param dst The domain separation tag
      */
-    function hashToCurveG2(bytes memory message, bytes memory dst)
+    function hashToCurveG2(
+        bytes memory message,
+        bytes memory dst
+    )
         internal
         view
         returns (G2Point memory r)
@@ -97,7 +100,10 @@ library LibBLS12381 {
      * @param message The message to hash
      * @param dst The domain separation tag
      */
-    function hashToFieldFp2(bytes memory message, bytes memory dst)
+    function hashToFieldFp2(
+        bytes memory message,
+        bytes memory dst
+    )
         internal
         view
         returns (FieldPoint2[2] memory)
@@ -155,7 +161,10 @@ library LibBLS12381 {
     /**
      * @notice Adds two G2 points using the precompile at 0x0e
      */
-    function plus(G2Point memory point1, G2Point memory point2)
+    function plus(
+        G2Point memory point1,
+        G2Point memory point2
+    )
         internal
         view
         returns (G2Point memory)
@@ -234,7 +243,12 @@ library LibBLS12381 {
     /**
      * @notice Pairing check using the precompile at 0x11
      */
-    function pairing(G1Point memory a1, G2Point memory b1, G1Point memory a2, G2Point memory b2)
+    function pairing(
+        G1Point memory a1,
+        G2Point memory b1,
+        G1Point memory a2,
+        G2Point memory b2
+    )
         internal
         view
         returns (bool)
@@ -293,7 +307,11 @@ library LibBLS12381 {
     // Helpers
     // =========
 
-    function _expandMsgXmd(bytes memory message, bytes memory dst, uint16 lenInBytes)
+    function _expandMsgXmd(
+        bytes memory message,
+        bytes memory dst,
+        uint16 lenInBytes
+    )
         internal
         pure
         returns (uint256[] memory)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/verifiers/IProofVerifier.sol";
+import "src/layer1/core/iface/IProofVerifier.sol";
 
 /// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate

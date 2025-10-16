@@ -25,7 +25,11 @@ abstract contract AbstractCodecFuzzTest is Test {
     // Fuzz Test: hashCheckpoint
     // ---------------------------------------------------------------
 
-    function testFuzz_hashCheckpoint(uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot)
+    function testFuzz_hashCheckpoint(
+        uint48 blockNumber,
+        bytes32 blockHash,
+        bytes32 stateRoot
+    )
         public
         view
     {

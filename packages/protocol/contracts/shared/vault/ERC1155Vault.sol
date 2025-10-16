@@ -128,7 +128,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IRecallableSender
-    function onMessageRecalled(IBridge.Message calldata message, bytes32 msgHash)
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -171,7 +174,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @notice See {ERC1155ReceiverUpgradeable-onERC1155Received}.
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    )
         external
         pure
         returns (bytes4)

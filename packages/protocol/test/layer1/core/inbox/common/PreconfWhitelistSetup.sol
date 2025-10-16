@@ -53,7 +53,10 @@ contract PreconfWhitelistSetup is CommonTest {
     // Proposer Selection Helper Functions
     // ---------------------------------------------------------------
 
-    function _selectProposer(IProposerChecker _proposerChecker, address _proposer)
+    function _selectProposer(
+        IProposerChecker _proposerChecker,
+        address _proposer
+    )
         public
         returns (address)
     {

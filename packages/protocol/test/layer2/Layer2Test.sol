@@ -17,7 +17,11 @@ abstract contract Layer2Test is CommonTest {
         );
     }
 
-    function deployDelegateController(uint64 l1ChainId, address l2Bridge, address daoController)
+    function deployDelegateController(
+        uint64 l1ChainId,
+        address l2Bridge,
+        address daoController
+    )
         internal
         returns (DelegateController)
     {

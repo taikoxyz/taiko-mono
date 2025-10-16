@@ -99,7 +99,10 @@ interface IBondManager {
     /// @param _additionalBond The additional bond required the account has to have on top of the
     /// minimum bond
     /// @return True if the account has sufficient bond and is active
-    function hasSufficientBond(address _address, uint256 _additionalBond)
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
+    )
         external
         view
         returns (bool);
