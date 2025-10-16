@@ -126,7 +126,10 @@ contract TestDelegateController is Layer2Test {
         assertEq(address(tDelegateController).balance, 0);
     }
 
-    function _deployEssentialContract_EmptyStub(bytes32 name, address impl)
+    function _deployEssentialContract_EmptyStub(
+        bytes32 name,
+        address impl
+    )
         private
         returns (EssentialContract_EmptyStub)
     {

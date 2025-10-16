@@ -37,7 +37,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         bool tcbFound;
     }
 
-    function splitCertificateChain(bytes memory pemChain, uint256 size)
+    function splitCertificateChain(
+        bytes memory pemChain,
+        uint256 size
+    )
         external
         pure
         returns (bool success, bytes[] memory certs)
@@ -68,7 +71,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         success = true;
     }
 
-    function decodeCert(bytes memory der, bool isPckCert)
+    function decodeCert(
+        bytes memory der,
+        bool isPckCert
+    )
         external
         pure
         returns (bool success, ECSha256Certificate memory cert)
@@ -245,7 +251,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         return (true, contentBytes, endPos + FOOTER_LENGTH);
     }
 
-    function _trimBytes(bytes memory input, uint256 expectedLength)
+    function _trimBytes(
+        bytes memory input,
+        uint256 expectedLength
+    )
         private
         pure
         returns (bytes memory output)
@@ -259,7 +268,11 @@ contract PEMCertChainLib is IPEMCertChainLib {
         output = input.substring(lengthDiff, expectedLength);
     }
 
-    function _findPckTcbInfo(bytes memory der, uint256 tbsPtr, uint256 tbsParentPtr)
+    function _findPckTcbInfo(
+        bytes memory der,
+        uint256 tbsPtr,
+        uint256 tbsParentPtr
+    )
         private
         pure
         returns (
@@ -327,7 +340,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         }
     }
 
-    function _findTcb(bytes memory der, uint256 oidPtr)
+    function _findTcb(
+        bytes memory der,
+        uint256 oidPtr
+    )
         private
         pure
         returns (bool success, uint256 pcesvn, uint256[] memory cpusvns)

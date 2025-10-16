@@ -587,7 +587,10 @@ abstract contract AbstractProveTest is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)

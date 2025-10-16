@@ -99,7 +99,10 @@ interface IBridge {
     /// @param _message The message to be processed.
     /// @param _proof The merkle inclusion proof.
     /// @return The message's status after processing and the reason for the change.
-    function processMessage(Message calldata _message, bytes calldata _proof)
+    function processMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         returns (Status, StatusReason);
 
@@ -145,7 +148,12 @@ interface IRecallableSender {
     /// @notice Called when a message is recalled.
     /// @param _message The recalled message.
     /// @param _msgHash The hash of the recalled message.
-    function onMessageRecalled(IBridge.Message calldata _message, bytes32 _msgHash) external payable;
+    function onMessageRecalled(
+        IBridge.Message calldata _message,
+        bytes32 _msgHash
+    )
+        external
+        payable;
 }
 
 /// @title IMessageInvocable

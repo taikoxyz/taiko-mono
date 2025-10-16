@@ -120,7 +120,11 @@ abstract contract CommonTest is Test, Script {
         }
     }
 
-    function deploy(bytes32 name, address impl, bytes memory data)
+    function deploy(
+        bytes32 name,
+        address impl,
+        bytes memory data
+    )
         internal
         returns (address proxy)
     {
