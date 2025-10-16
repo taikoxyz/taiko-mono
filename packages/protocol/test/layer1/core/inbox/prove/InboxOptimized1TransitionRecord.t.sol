@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxOptimized1TransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in InboxOptimized1
@@ -132,9 +132,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         proposals[0] = proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory proveData2 = _codec().encodeProveInput(input);
@@ -441,11 +439,12 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, _createBlobRef(0, 1, 0), parentProposals, coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, _createBlobRef(0, 1, 0), parentProposals, coreState
+                )
+            );
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -464,10 +463,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         return _createProveInputWithParent(_proposal, _getGenesisTransitionHash());
     }
 
-    function _createProveInputWithParent(
-        IInbox.Proposal memory _proposal,
-        bytes32 _parentHash
-    )
+    function _createProveInputWithParent(IInbox.Proposal memory _proposal, bytes32 _parentHash)
         internal
         view
         returns (bytes memory)
@@ -485,18 +481,13 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         proposals[0] = _proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
     }
 
-    function _createProveInputForChain(
-        IInbox.Proposal memory _proposal,
-        uint256 _chainIndex
-    )
+    function _createProveInputForChain(IInbox.Proposal memory _proposal, uint256 _chainIndex)
         internal
         view
         returns (bytes memory)
@@ -521,17 +512,13 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(
-        address designatedProver,
-        address actualProver
-    )
+    function _createMetadataForTransition(address designatedProver, address actualProver)
         internal
         pure
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver,
-            actualProver: actualProver
+            designatedProver: designatedProver, actualProver: actualProver
         });
     }
 

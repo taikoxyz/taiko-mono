@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/LibString.sol";
 import "../utils/Asn1Decode.sol";
 import "../utils/BytesUtils.sol";
 import "../utils/X509DateUtils.sol";
 import "./interfaces/IPEMCertChainLib.sol";
+import "solady/src/utils/LibString.sol";
 
 /// @title PEMCertChainLib
 /// @custom:security-contact security@taiko.xyz
@@ -37,10 +37,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         bool tcbFound;
     }
 
-    function splitCertificateChain(
-        bytes memory pemChain,
-        uint256 size
-    )
+    function splitCertificateChain(bytes memory pemChain, uint256 size)
         external
         pure
         returns (bool success, bytes[] memory certs)
@@ -71,10 +68,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         success = true;
     }
 
-    function decodeCert(
-        bytes memory der,
-        bool isPckCert
-    )
+    function decodeCert(bytes memory der, bool isPckCert)
         external
         pure
         returns (bool success, ECSha256Certificate memory cert)
@@ -117,7 +111,8 @@ contract PEMCertChainLib is IPEMCertChainLib {
             issuerPtr = der.firstChildOf(issuerPtr);
             issuerPtr = der.nextSiblingOf(issuerPtr);
             cert.pck.issuerName = string(der.bytesAt(issuerPtr));
-            bool issuerNameIsValid = LibString.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
+            bool issuerNameIsValid =
+                LibString.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
                 || LibString.eq(cert.pck.issuerName, PROCESSOR_ISSUER_NAME);
             if (!issuerNameIsValid) {
                 return (false, cert);
@@ -250,10 +245,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         return (true, contentBytes, endPos + FOOTER_LENGTH);
     }
 
-    function _trimBytes(
-        bytes memory input,
-        uint256 expectedLength
-    )
+    function _trimBytes(bytes memory input, uint256 expectedLength)
         private
         pure
         returns (bytes memory output)
@@ -267,11 +259,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         output = input.substring(lengthDiff, expectedLength);
     }
 
-    function _findPckTcbInfo(
-        bytes memory der,
-        uint256 tbsPtr,
-        uint256 tbsParentPtr
-    )
+    function _findPckTcbInfo(bytes memory der, uint256 tbsPtr, uint256 tbsParentPtr)
         private
         pure
         returns (
@@ -339,10 +327,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         }
     }
 
-    function _findTcb(
-        bytes memory der,
-        uint256 oidPtr
-    )
+    function _findTcb(bytes memory der, uint256 oidPtr)
         private
         pure
         returns (bool success, uint256 pcesvn, uint256[] memory cpusvns)

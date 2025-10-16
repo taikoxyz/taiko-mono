@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibNames.sol";
 import "./IBridgedERC721.sol";
 import "./LibBridgedToken.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -53,10 +53,7 @@ contract BridgedERC721 is
     }
 
     /// @inheritdoc IBridgedERC721
-    function mint(
-        address _account,
-        uint256 _tokenId
-    )
+    function mint(address _account, uint256 _tokenId)
         external
         whenNotPaused
         onlyFrom(erc721Vault)

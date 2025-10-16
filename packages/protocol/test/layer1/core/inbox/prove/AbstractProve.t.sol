@@ -2,9 +2,9 @@
 /// @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
@@ -229,7 +229,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         // Optimized implementations: 2 events (group 1-2 and group 4-6)
         uint256 expectedEvents;
         (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive
-            // behavior
+        // behavior
         if (consecutiveEvents == 1) {
             // Optimized implementation: supports aggregation
             // Mixed scenario has 2 consecutive groups: [1,2] and [4,5,6]
@@ -340,9 +340,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         proposals[0] = proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory proveData = _codec().encodeProveInput(input);
@@ -431,9 +429,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -518,14 +514,15 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, // no deadline
-                _createBlobRef(0, 1, 0),
-                parentProposals,
-                coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, // no deadline
+                    _createBlobRef(0, 1, 0),
+                    parentProposals,
+                    coreState
+                )
+            );
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -568,9 +565,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: _proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: _proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -592,17 +587,13 @@ abstract contract AbstractProveTest is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(
-        address designatedProver,
-        address actualProver
-    )
+    function _createMetadataForTransition(address designatedProver, address actualProver)
         internal
         pure
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver,
-            actualProver: actualProver
+            designatedProver: designatedProver, actualProver: actualProver
         });
     }
 

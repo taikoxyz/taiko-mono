@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ERC20Vault.h.sol";
 import "../helpers/FreeMintERC20Token.sol";
+import "./ERC20Vault.h.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
@@ -55,8 +55,9 @@ contract TestERC20Vault is CommonTest {
         // TODO(fix): shall we use "tValut" below?
         tUSDC = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDC", "USDC coin");
         tUSDT = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDT", "USDT coin");
-        tStETH =
-            deployBridgedERC20(address(eVault), randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
+        tStETH = deployBridgedERC20(
+            address(eVault), randAddress(), 100, 18, "tStETH", "Lido Staked ETH"
+        );
 
         vm.deal(address(tBridge), 100 ether);
     }
@@ -116,7 +117,9 @@ contract TestERC20Vault is CommonTest {
         uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
         uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
-        eVault.sendToken{ value: amount }(
+        eVault.sendToken{
+            value: amount
+        }(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId,
                 address(0),
@@ -231,8 +234,7 @@ contract TestERC20Vault is CommonTest {
         assertEq(David.balance, etherAmount);
     }
 
-    function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
-    )
+    function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints()
         public
     {
         vm.startPrank(Alice);
@@ -340,8 +342,9 @@ contract TestERC20Vault is CommonTest {
 
         vm.prank(Alice);
         try CanSayHelloWorld(bridgedAddressAfter).helloWorld() {
-            // It should support now this function call
-        } catch {
+        // It should support now this function call
+        }
+        catch {
             fail();
         }
     }

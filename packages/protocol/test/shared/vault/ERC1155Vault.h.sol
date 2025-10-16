@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 contract FreeMintERC1155Token is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -77,9 +77,9 @@ contract PrankDestBridge {
         // a contract
         // most probably due to some deployment address nonce issue. (Seems a
         // known issue).
-        destERC1155Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
-            abi.encode(ctoken, from, to, tokenIds, amounts)
-        );
+        destERC1155Vault.onMessageInvocation{
+            value: mockLibInvokeMsgValue
+        }(abi.encode(ctoken, from, to, tokenIds, amounts));
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);

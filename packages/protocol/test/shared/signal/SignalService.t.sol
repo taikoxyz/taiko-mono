@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
-import "src/shared/signal/SignalService.sol";
 import "src/shared/signal/ICheckpointStore.sol";
+import "src/shared/signal/SignalService.sol";
 
 contract TestSignalService is CommonTest {
     address private constant AUTHORIZED_SYNCER =
@@ -53,9 +53,7 @@ contract TestSignalService is CommonTest {
 
     function test_saveCheckpoint_PersistsWhenAuthorized() public {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 1,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2))
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
         });
 
         vm.expectRevert(SS_UNAUTHORIZED.selector);
@@ -72,18 +70,14 @@ contract TestSignalService is CommonTest {
 
     function test_saveCheckpoint_RevertWhen_CheckpointFieldInvalid() public {
         ICheckpointStore.Checkpoint memory badStateRoot = ICheckpointStore.Checkpoint({
-            blockNumber: 1,
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(0)
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(0)
         });
         vm.prank(AUTHORIZED_SYNCER);
         vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
         signalService.saveCheckpoint(badStateRoot);
 
         ICheckpointStore.Checkpoint memory badBlockHash = ICheckpointStore.Checkpoint({
-            blockNumber: 2,
-            blockHash: bytes32(0),
-            stateRoot: bytes32(uint256(2))
+            blockNumber: 2, blockHash: bytes32(0), stateRoot: bytes32(uint256(2))
         });
         vm.prank(AUTHORIZED_SYNCER);
         vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
@@ -183,9 +177,7 @@ contract TestSignalService is CommonTest {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
-                blockNumber: uint48(blockNumber),
-                blockHash: VALID_BLOCK_HASH,
-                stateRoot: stateRoot
+                blockNumber: uint48(blockNumber), blockHash: VALID_BLOCK_HASH, stateRoot: stateRoot
             })
         );
     }

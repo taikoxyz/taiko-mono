@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 
 /// @title LibProposedEventEncoderTest
 /// @notice Tests for LibProposedEventEncoder
@@ -51,9 +51,7 @@ contract LibProposedEventEncoderTest is Test {
 
         // Create proposed event payload
         IInbox.ProposedEventPayload memory original = IInbox.ProposedEventPayload({
-            proposal: proposal,
-            derivation: derivation,
-            coreState: coreState
+            proposal: proposal, derivation: derivation, coreState: coreState
         });
 
         // Test encoding

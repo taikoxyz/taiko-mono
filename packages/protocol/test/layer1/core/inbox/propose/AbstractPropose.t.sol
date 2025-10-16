@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/core/impl/Inbox.sol";
@@ -78,9 +78,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.roll(block.number + 1);
 
         // Create proposal with future deadline after block roll
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours))
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(_createProposeInputWithDeadline(uint48(block.timestamp + 1 hours)));
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
@@ -124,9 +123,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + 2 hours);
 
         // Create proposal with expired deadline
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours))
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(_createProposeInputWithDeadline(uint48(block.timestamp - 1 hours)));
 
         // Should revert with DeadlineExceeded
         vm.expectRevert(DeadlineExceeded.selector);
@@ -196,14 +194,15 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             0 // offset
         );
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, // no deadline
-                blobRef,
-                parentProposals,
-                coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, // no deadline
+                    blobRef,
+                    parentProposals,
+                    coreState
+                )
+            );
 
         // Should revert when accessing invalid blob
         vm.expectRevert();
@@ -444,7 +443,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
-                // made there)
+            // made there)
             lastFinalizedProposalId: 0,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
@@ -457,14 +456,15 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // No additional roll needed - we already advanced by 1 block above
 
         // Create second proposal input after block roll
-        bytes memory secondProposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, // no deadline
-                _createBlobRef(0, 1, 0),
-                secondParentProposals,
-                secondCoreState
-            )
-        );
+        bytes memory secondProposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, // no deadline
+                    _createBlobRef(0, 1, 0),
+                    secondParentProposals,
+                    secondCoreState
+                )
+            );
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
@@ -517,11 +517,12 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.Proposal[] memory wrongParentProposals = new IInbox.Proposal[](1);
         wrongParentProposals[0] = _createGenesisProposal();
 
-        bytes memory wrongProposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
-            )
-        );
+        bytes memory wrongProposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
+                )
+            );
 
         // Should revert because parent proposal hash doesn't match
         vm.expectRevert(); // The specific error will depend on the Inbox implementation
@@ -555,11 +556,12 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = fakeParent;
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, _createBlobRef(0, 1, 0), parentProposals, coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, _createBlobRef(0, 1, 0), parentProposals, coreState
+                )
+            );
 
         // Should revert because parent proposal doesn't exist
         vm.expectRevert();
@@ -590,10 +592,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
-    function _enqueueForcedInclusion(
-        LibBlobs.BlobReference memory _ref,
-        address _payer
-    )
+    function _enqueueForcedInclusion(LibBlobs.BlobReference memory _ref, address _payer)
         internal
         returns (LibBlobs.BlobSlice memory)
     {
@@ -607,9 +606,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bytes32[] memory blobHashes = _expectedBlobHashes(_ref);
 
         return LibBlobs.BlobSlice({
-            blobHashes: blobHashes,
-            offset: _ref.offset,
-            timestamp: timestampBefore
+            blobHashes: blobHashes, offset: _ref.offset, timestamp: timestampBefore
         });
     }
 

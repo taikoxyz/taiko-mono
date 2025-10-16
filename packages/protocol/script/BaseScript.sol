@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
+import "forge-std/src/console2.sol";
 
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
@@ -34,11 +34,7 @@ abstract contract BaseScript is Script {
         return address(new TransparentUpgradeableProxy(_impl, _admin, _data));
     }
 
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data
-    )
+    function deploy(bytes32 name, address impl, bytes memory data)
         internal
         returns (address proxy)
     {
@@ -55,12 +51,7 @@ abstract contract BaseScript is Script {
         }
     }
 
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data,
-        DefaultResolver _resolver
-    )
+    function deploy(bytes32 name, address impl, bytes memory data, DefaultResolver _resolver)
         internal
         returns (address proxy)
     {

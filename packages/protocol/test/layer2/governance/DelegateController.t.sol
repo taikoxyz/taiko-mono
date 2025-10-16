@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/shared/helpers/EssentialContract_EmptyStub.sol";
 import "test/layer2/Layer2Test.sol";
+import "test/shared/helpers/EssentialContract_EmptyStub.sol";
 
 contract TestDelegateController is Layer2Test {
     // Contracts on Ethereum
@@ -34,9 +34,7 @@ contract TestDelegateController is Layer2Test {
 
         Controller.Action[] memory actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
-            target: address(stub1),
-            value: 0,
-            data: abi.encodeCall(EssentialContract.pause, ())
+            target: address(stub1), value: 0, data: abi.encodeCall(EssentialContract.pause, ())
         });
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
@@ -77,9 +75,7 @@ contract TestDelegateController is Layer2Test {
 
         Controller.Action[] memory actions = new Controller.Action[](4);
         actions[0] = Controller.Action({
-            target: address(stub1),
-            value: 0,
-            data: abi.encodeCall(EssentialContract.pause, ())
+            target: address(stub1), value: 0, data: abi.encodeCall(EssentialContract.pause, ())
         });
 
         actions[1] = Controller.Action({
@@ -130,10 +126,7 @@ contract TestDelegateController is Layer2Test {
         assertEq(address(tDelegateController).balance, 0);
     }
 
-    function _deployEssentialContract_EmptyStub(
-        bytes32 name,
-        address impl
-    )
+    function _deployEssentialContract_EmptyStub(bytes32 name, address impl)
         private
         returns (EssentialContract_EmptyStub)
     {
@@ -141,7 +134,9 @@ contract TestDelegateController is Layer2Test {
             deploy({
                 name: name,
                 impl: impl,
-                data: abi.encodeCall(EssentialContract_EmptyStub.init, (address(tDelegateController)))
+                data: abi.encodeCall(
+                    EssentialContract_EmptyStub.init, (address(tDelegateController))
+                )
             })
         );
     }

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProvedEventEncoderTest
@@ -24,8 +24,7 @@ contract LibProvedEventEncoderTest is Test {
 
         // Create transition metadata
         IInbox.TransitionMetadata memory metadata = IInbox.TransitionMetadata({
-            designatedProver: address(0x1234),
-            actualProver: address(0x5678)
+            designatedProver: address(0x1234), actualProver: address(0x5678)
         });
 
         // Create transition record with bond instructions
@@ -170,8 +169,7 @@ contract LibProvedEventEncoderTest is Test {
                 checkpointHash: bytes32(uint256(2005))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0x7777),
-                actualProver: address(0x8888)
+                designatedProver: address(0x7777), actualProver: address(0x8888)
             })
         });
 
@@ -234,8 +232,7 @@ contract LibProvedEventEncoderTest is Test {
                 checkpointHash: bytes32(uint256(3005))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0x9999),
-                actualProver: address(0xAAAA)
+                designatedProver: address(0x9999), actualProver: address(0xAAAA)
             })
         });
 
@@ -271,8 +268,7 @@ contract LibProvedEventEncoderTest is Test {
                 checkpointHash: bytes32(uint256(10_005))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xBBBB),
-                actualProver: address(0xCCCC)
+                designatedProver: address(0xBBBB), actualProver: address(0xCCCC)
             })
         });
 
@@ -305,8 +301,7 @@ contract LibProvedEventEncoderTest is Test {
                 checkpointHash: bytes32(uint256(4205))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xDDDD),
-                actualProver: address(0xEEEE)
+                designatedProver: address(0xDDDD), actualProver: address(0xEEEE)
             })
         });
 

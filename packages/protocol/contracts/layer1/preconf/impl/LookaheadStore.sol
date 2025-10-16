@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/iface/ILookaheadStore.sol";
-import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
-import "src/layer1/preconf/impl/Blacklist.sol";
-import "src/layer1/core/iface/IProposerChecker.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
+import "src/layer1/preconf/iface/ILookaheadStore.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
@@ -55,10 +55,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// epoch. The contract enforces this by trying to update the lookahead for next epoch if none
     /// is
     /// stored.
-    function checkProposer(
-        address _proposer,
-        bytes calldata _lookaheadData
-    )
+    function checkProposer(address _proposer, bytes calldata _lookaheadData)
         external
         returns (uint48)
     {
@@ -205,10 +202,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @dev Returns proposer context for when current epoch has no lookahead (fallback preconfer).
-    function _handleEmptyCurrentLookahead(
-        uint256 _epochTimestamp,
-        uint256 _nextEpochTimestamp
-    )
+    function _handleEmptyCurrentLookahead(uint256 _epochTimestamp, uint256 _nextEpochTimestamp)
         private
         pure
         returns (ProposerContext memory context_)
@@ -221,10 +215,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// @dev Returns proposer context for when no more opted in preconfers are remaining for the
     /// current
     /// epoch.
-    function _handleCrossEpochProposer(
-        LookaheadData memory _data,
-        uint256 _nextEpochTimestamp
-    )
+    function _handleCrossEpochProposer(LookaheadData memory _data, uint256 _nextEpochTimestamp)
         private
         pure
         returns (ProposerContext memory context_)
@@ -276,10 +267,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// - Pb is our preconfer.
     /// - x, y and z represent empty slots with no opted in preconfer.
     /// - Pb intends to propose at any slot y
-    function _handleSameEpochProposer(
-        LookaheadData memory _data,
-        uint256 _epochTimestamp
-    )
+    function _handleSameEpochProposer(LookaheadData memory _data, uint256 _epochTimestamp)
         private
         pure
         returns (ProposerContext memory context_)
@@ -323,10 +311,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     // --------------------------------------------------------------------
 
     /// @inheritdoc ILookaheadStore
-    function getProposerContext(
-        LookaheadData memory _data,
-        uint256 _epochTimestamp
-    )
+    function getProposerContext(LookaheadData memory _data, uint256 _epochTimestamp)
         external
         view
         returns (ProposerContext memory context_)
@@ -336,10 +321,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @inheritdoc ILookaheadStore
-    function isLookaheadOperatorValid(
-        uint256 _epochTimestamp,
-        bytes32 _registrationRoot
-    )
+    function isLookaheadOperatorValid(uint256 _epochTimestamp, bytes32 _registrationRoot)
         external
         view
         returns (bool)
@@ -357,10 +339,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @inheritdoc ILookaheadStore
-    function isLookaheadPosterValid(
-        uint256 _epochTimestamp,
-        bytes32 _registrationRoot
-    )
+    function isLookaheadPosterValid(uint256 _epochTimestamp, bytes32 _registrationRoot)
         external
         view
         returns (bool)
@@ -378,10 +357,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @inheritdoc ILookaheadStore
-    function calculateLookaheadHash(
-        uint256 _epochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots
-    )
+    function calculateLookaheadHash(uint256 _epochTimestamp, LookaheadSlot[] memory _lookaheadSlots)
         external
         pure
         returns (bytes26)
@@ -423,10 +399,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     // Internal functions
     // --------------------------------------------------------------------
 
-    function _updateLookahead(
-        uint256 _nextEpochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots
-    )
+    function _updateLookahead(uint256 _nextEpochTimestamp, LookaheadSlot[] memory _lookaheadSlots)
         internal
         returns (bytes26 lookaheadHash_)
     {
@@ -447,7 +420,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
                 );
                 require(
                     (lookaheadSlot.timestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_SLOT == 0,
+                            % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -518,12 +491,14 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         // To make it into the lookahead, either the operator is not blacklisted, or blacklisted
         // in the previous or the current epoch.
-        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
+        bool notBlacklisted =
+            blacklistTimestamps.blacklistedAt == 0
             || blacklistTimestamps.blacklistedAt > prevEpochTimestamp;
         // If unblacklisted, the operator must have been unblacklisted before the start of the
         // previous epoch
         // in order to make it into the lookahead.
-        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
+        bool unblacklisted =
+            blacklistTimestamps.unBlacklistedAt != 0
             && blacklistTimestamps.unBlacklistedAt < prevEpochTimestamp;
         require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
     }
@@ -637,9 +612,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0,
-            payload: abi.encode(_lookahead),
-            slasher: lookaheadSlasher
+            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
         });
     }
 }

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/console2.sol";
+import "../shared/helpers/RegularERC20.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "src/shared/common/DefaultResolver.sol";
+import "forge-std/src/console2.sol";
+import "src/layer2/core/Anchor.sol";
+import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/SignalService.sol";
+import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/BridgedERC20.sol";
+import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
-import "src/shared/vault/BridgedERC20.sol";
-import "src/shared/vault/BridgedERC721.sol";
-import "src/shared/vault/BridgedERC1155.sol";
-import "src/shared/signal/SignalService.sol";
-import "src/layer2/core/Anchor.sol";
-import "src/layer2/core/BondManager.sol";
-import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
     using stdJson for string;
@@ -403,11 +403,7 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function checkSavedAddress(
-        ResolverBase resolver,
-        string memory contractName,
-        bytes32 name
-    )
+    function checkSavedAddress(ResolverBase resolver, string memory contractName, bytes32 name)
         private
         view
     {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @title TestInbox
 /// @notice Test wrapper for Inbox contract with configurable behavior
@@ -14,8 +14,7 @@ contract TestInbox is Inbox {
         address proofVerifier,
         address proposerChecker
     )
-        Inbox(
-            IInbox.Config({
+        Inbox(IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
                 checkpointStore: checkpointStore,
@@ -33,7 +32,6 @@ contract TestInbox is Inbox {
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            })
-        )
+            }))
     { }
 }
