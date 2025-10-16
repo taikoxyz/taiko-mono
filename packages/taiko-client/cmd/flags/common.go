@@ -82,12 +82,19 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"SHASTA_INBOX"},
 	}
-	TaikoAnchorAddress = &cli.StringFlag{
-		Name:     "taikoAnchor",
-		Usage:    "TaikoAnchor contract `address`",
+	PacayaAnchorAddress = &cli.StringFlag{
+		Name:     "pacayaAnchor",
+		Usage:    "Pacaya anchor contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_ANCHOR"},
+		EnvVars:  []string{"PACAYA_ANCHOR"},
+	}
+	ShastaAnchorAddress = &cli.StringFlag{
+		Name:     "shastaAnchor",
+		Usage:    "Shasta anchor contract `address`",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"SHASTA_ANCHOR"},
 	}
 	TaikoTokenAddress = &cli.StringFlag{
 		Name:     "taikoToken",
@@ -170,7 +177,8 @@ var CommonFlags = []cli.Flag{
 	L1WSEndpoint,
 	PacayaInboxAddress,
 	ShastaInboxAddress,
-	TaikoAnchorAddress,
+	PacayaAnchorAddress,
+	ShastaAnchorAddress,
 	// Optional
 	ProverSetAddress,
 	Verbosity,

@@ -99,14 +99,20 @@ func New(
 	cors string,
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
-	taikoAnchorAddress common.Address,
+	pacayaAnchorAddress common.Address,
+	shastaAnchorAddress common.Address,
 	pacayaChainSyncer preconfBlockChainSyncer,
 	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
+	anchorValidator, err := validator.New(
+		pacayaAnchorAddress,
+		shastaAnchorAddress,
+		cli.L2.ChainID,
+		cli,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize anchor validator: %w", err)
 	}
