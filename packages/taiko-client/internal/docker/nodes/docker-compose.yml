@@ -15,7 +15,7 @@ services:
 
   l2_geth:
     container_name: l2_geth
-    image: us-docker.pkg.dev/evmchain/images/taiko-geth:sha-b8c9740
+    image: us-docker.pkg.dev/evmchain/images/taiko-geth:sha-cc66bae
     restart: unless-stopped
     pull_policy: always
     volumes:

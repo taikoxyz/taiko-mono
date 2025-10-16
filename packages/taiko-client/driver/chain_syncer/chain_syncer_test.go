@@ -3,8 +3,8 @@ package chainsyncer
 import (
 	"context"
 	"math/big"
-
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -411,13 +411,27 @@ func TestChainSyncerTestSuite(t *testing.T) {
 }
 
 func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 {
-	method, err := encoding.ShastaAnchorABI.MethodById(block.Transactions()[0].Data())
+	tx := block.Transactions()[0]
+	method, err := encoding.ShastaAnchorABI.MethodById(tx.Data())
 	s.Nil(err)
+	s.Equal("anchor", method.Name)
+
 	args := map[string]interface{}{}
-	s.Nil(method.Inputs.UnpackIntoMap(args, block.Transactions()[0].Data()[4:]))
-	blockIdx, ok := args["_blockIndex"].(uint16)
+	s.Nil(method.Inputs.UnpackIntoMap(args, tx.Data()[4:]))
+
+	blockParams, ok := args["_blockParams"]
 	s.True(ok)
-	return blockIdx
+
+	blockValue := reflect.ValueOf(blockParams)
+	s.Equal(reflect.Struct, blockValue.Kind())
+
+	blockIndexField := blockValue.FieldByName("BlockIndex")
+	s.True(blockIndexField.IsValid())
+
+	blockIndex, ok := blockIndexField.Interface().(uint16)
+	s.True(ok)
+
+	return blockIndex
 }
 
 func EncodeDerivationSourceShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {

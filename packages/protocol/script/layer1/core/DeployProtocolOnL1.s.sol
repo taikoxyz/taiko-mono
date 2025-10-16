@@ -30,6 +30,7 @@ import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
+import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
 
 /// @title DeployProtocolOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -135,13 +136,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         private
         returns (address proofVerifier)
     {
+        if (useDummyVerifiers) {
+            proofVerifier = address(new MockProofVerifier());
+            return proofVerifier;
+        }
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
-        address sgxSlot = useDummyVerifiers ? verifiers.op : verifiers.sgx;
-
         proofVerifier = address(
             new DevnetVerifier(
                 verifiers.op,
-                sgxSlot, // OpVerifier for dummy mode, SgxVerifier for real mode
+                verifiers.sgx, // OpVerifier for dummy mode, SgxVerifier for real mode
                 verifiers.risc0,
                 verifiers.sp1
             )
