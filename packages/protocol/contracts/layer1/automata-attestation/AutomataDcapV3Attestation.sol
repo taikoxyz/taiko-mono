@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "solady/src/utils/Base64.sol";
@@ -42,7 +42,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // 0 = Quote PCKCrl
     // 1 = RootCrl
     mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
-        // 6
+        //6
         // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
@@ -58,8 +58,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
 
     // @notice Initializes the contract.
-    /// @param sigVerifyLibAddr Address of the signature verification library.
-    /// @param pemCertLibAddr Address of certificate library.
+    // / @param sigVerifyLibAddr Address of the signature verification library.
+    // / @param pemCertLibAddr Address of certificate library.
     function init(address owner, address sigVerifyLibAddr, address pemCertLibAddr)
         external
         initializer
@@ -381,7 +381,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,,,
+            bool successful,
+            ,
+            ,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);

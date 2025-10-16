@@ -15,7 +15,7 @@ library LibBeaconMerkleUtils {
     }
 
     // TODO: use calldata for chunks
-    /// @dev This is optimised to merkle-ize 8-chunks of beacon data
+    // / @dev This is optimised to merkle-ize 8-chunks of beacon data
     function merkleize(bytes32[CHUNKS_LENGTH] memory chunks) internal pure returns (bytes32) {
         bytes32[] memory tmp = new bytes32[](TMP_LENGTH);
 

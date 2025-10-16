@@ -6,8 +6,8 @@ library LibBytes {
 
     // Function body taken from:
     // https://github.com/clober-dex/core/blob/main/contracts/utils/BoringERC20.sol#L17-L33
-    /// @notice Function to convert returned data to string
-    /// returns '' as fallback value.
+    // / @notice Function to convert returned data to string
+    // / returns '' as fallback value.
     function toString(bytes memory _data) internal pure returns (string memory) {
         if (_data.length >= 64) {
             return abi.decode(_data, (string));
@@ -28,9 +28,9 @@ library LibBytes {
 
     // Taken from:
     // https://github.com/boringcrypto/BoringSolidity/blob/master/contracts/BoringBatchable.sol
-    /// @dev Helper function to extract a useful revert message from a failed call.
-    /// If the returned data is malformed or not correctly abi encoded then this call can fail
-    /// itself.
+    // / @dev Helper function to extract a useful revert message from a failed call.
+    // / If the returned data is malformed or not correctly abi encoded then this call can fail
+    // / itself.
     function revertWithExtractedError(bytes memory _returnData) internal pure {
         // If the _res length is less than 68, then
         // the transaction failed with custom error or silently (without a revert message)

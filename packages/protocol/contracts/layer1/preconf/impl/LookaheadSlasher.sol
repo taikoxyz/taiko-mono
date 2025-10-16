@@ -30,11 +30,11 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
     /// @inheritdoc ISlasher
     function slash(
-        Delegation calldata, /*_delegation*/
+        Delegation calldata, /* _delegation*/
         Commitment calldata _commitment,
-        address, /*_committer*/
+        address, /* _committer*/
         bytes calldata _evidence,
-        address /*_challenger*/
+        address /* _challenger*/
     )
         external
         nonReentrant

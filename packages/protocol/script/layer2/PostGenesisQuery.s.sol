@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "script/BaseScript.sol";
 
 // Run with:
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisQuery.s.sol
+// forge script --rpc-url https://rpc.mainnet.taiko.xyz script/PostGenesisQuery.s.sol
 contract PostGenesisQuery is BaseScript {
     uint256 public constant ethereumChainId = 1;
     uint256 public constant taikoChainId = 167_000;
@@ -72,7 +72,7 @@ contract PostGenesisQuery is BaseScript {
         addresses[4] = 0x1670000000000000000000000000000000000002; // e20
         addresses[5] = 0x1670000000000000000000000000000000000003; // e721
         addresses[6] = 0x1670000000000000000000000000000000000004; // e1155
-        addresses[7] = 0x1670000000000000000000000000000000000005; // ss
+        addresses[7] = 0x1670000000000000000000000000000000000005; //ss
 
         for (uint256 i; i < addresses.length; ++i) {
             EssentialContract c = EssentialContract(addresses[i]);

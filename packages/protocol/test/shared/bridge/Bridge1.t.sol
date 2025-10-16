@@ -348,7 +348,7 @@ contract TestBridge1 is CommonTest {
         tBridge.processMessage(message, proof);
 
         IBridge.Status status = tBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.RETRIABLE, true); //Test fail check
+        assertEq(status == IBridge.Status.RETRIABLE, true); // Test fail check
     }
 
     function retry_message_reverts_when_status_non_retriable() public {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/// @custom:security-contact security@taiko.xyz
+// / @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
@@ -498,7 +498,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             // Roll forward by 1 block from current position
             vm.roll(block.number + 1);
             // lastProposalBlockId should be the block where the last proposal was made (current -
-            // 1)
+            //1)
             expectedLastBlockId = uint48(block.number - 1);
         }
 

@@ -110,13 +110,13 @@ library LibBLS12381 {
         FieldPoint2[2] memory u;
         // No loop here saves 800 gas hardcoding offset an additional 300
         // 3. for i in (0, ..., count - 1):
-        // 4.   for j in (0, ..., m - 1):
-        // 5.     elm_offset = L * (j + i * m)
-        // 6.     tv = substr(uniform_bytes, elm_offset, HTF_L)
+        // 4. for j in (0, ..., m - 1):
+        // 5. elm_offset = L * (j + i * m)
+        // 6. tv = substr(uniform_bytes, elm_offset, HTF_L)
         // uint8 HTF_L = 64;
         // bytes memory tv = new bytes(64);
-        // 7.     e_j = OS2IP(tv) mod p
-        // 8.   u_i = (e_0, ..., e_(m - 1))
+        // 7. e_j = OS2IP(tv) mod p
+        // 8. u_i = (e_0, ..., e_(m - 1))
         // tv = bytes.concat(pseudo_random_bytes[0], pseudo_random_bytes[1]);
         u[0].u = _modfield(pseudoRandomBytes[0], pseudoRandomBytes[1]);
         u[0].u_I = _modfield(pseudoRandomBytes[2], pseudoRandomBytes[3]);
@@ -148,9 +148,9 @@ library LibBLS12381 {
         return r;
     }
 
-    //==================
+    // ==================
     // Precompile calls
-    //==================
+    // ==================
 
     /**
      * @notice Adds two G2 points using the precompile at 0x0e
@@ -191,7 +191,7 @@ library LibBLS12381 {
                     sub(gas(), 2000),
                     /// gas should be 800
                     0x0e, // address of BLS12_G2ADD
-                    input, //input offset
+                    input, // input offset
                     512, // input size
                     r, // output offset
                     256 // output size
@@ -220,7 +220,7 @@ library LibBLS12381 {
                     sub(gas(), 2000),
                     /// gas should be 75000
                     0x13, // address of BLS12_MAP_FP2_TO_G2
-                    input, //input offset
+                    input, // input offset
                     128, // input size
                     r, // output offset
                     256 // output size
@@ -278,7 +278,7 @@ library LibBLS12381 {
                     sub(gas(), 2000),
                     /// gas should be 151000
                     0x11, // address of BLS12_PAIRING
-                    input, //input offset
+                    input, // input offset
                     768, // input size
                     r, // output offset
                     32 // output size
@@ -289,21 +289,21 @@ library LibBLS12381 {
         return r[0];
     }
 
-    //=========
+    // =========
     // Helpers
-    //=========
+    // =========
 
     function _expandMsgXmd(bytes memory message, bytes memory dst, uint16 lenInBytes)
         internal
         pure
         returns (uint256[] memory)
     {
-        // 1.  ell = ceil(len_in_bytes / b_in_bytes)
+        // 1. ell = ceil(len_in_bytes / b_in_bytes)
         // b_in_bytes seems to be 32 for sha256
         // ceil the division
         uint256 ell = (lenInBytes - 1) / 32 + 1;
 
-        // 2.  ABORT if ell > 255 or len_in_bytes > 65535 or len(DST) > 255
+        // 2. ABORT if ell > 255 or len_in_bytes > 65535 or len(DST) > 255
         require(ell <= 255, "len_in_bytes too large for sha256");
         // Not really needed because of parameter type
         // require(lenInBytes <= 65535, "len_in_bytes too large");
@@ -312,30 +312,30 @@ library LibBLS12381 {
 
         bytes memory dstPrime = bytes.concat(dst, bytes1(uint8(dst.length)));
 
-        // 4.  Z_pad = I2OSP(0, s_in_bytes)
+        // 4. Z_pad = I2OSP(0, s_in_bytes)
         // this should be sha256 blocksize so 64 bytes
         bytes memory zPad =
             hex"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
-        // 5.  l_i_b_str = I2OSP(len_in_bytes, 2)
+        // 5. l_i_b_str = I2OSP(len_in_bytes, 2)
         // length in byte string?
         bytes2 libStr = bytes2(lenInBytes);
 
-        // 6.  msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
+        // 6. msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
         bytes memory msgPrime = bytes.concat(zPad, message, libStr, hex"00", dstPrime);
 
         uint256 b_0;
         uint256[] memory b = new uint256[](ell);
 
-        // 7.  b_0 = H(msg_prime)
+        // 7. b_0 = H(msg_prime)
         b_0 = uint256(sha256(msgPrime));
 
-        // 8.  b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
+        // 8. b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
         b[0] = uint256(sha256(bytes.concat(bytes32(b_0), hex"01", dstPrime)));
 
-        // 9.  for i in (2, ..., ell):
+        // 9. for i in (2, ..., ell):
         for (uint8 i = 2; i <= ell; i++) {
-            // 10.    b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
+            // 10. b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
             bytes memory tmp = abi.encodePacked(b_0 ^ b[i - 2], i, dstPrime);
             b[i - 1] = uint256(sha256(tmp));
         }
@@ -388,8 +388,8 @@ library LibBLS12381 {
                 staticcall(
                     sub(gas(), 1350), // gas
                     0x5, // mpdexp precompile
-                    freemem, //input offset
-                    0x100, // input size  = 0x60+base.length+exp.length+mod.length
+                    freemem, // input offset
+                    0x100, // input size = 0x60+base.length+exp.length+mod.length
                     add(freemem, 0x60), // output offset
                     ml // output size
                 )
@@ -397,7 +397,7 @@ library LibBLS12381 {
 
             // point to mod length, result was placed immediately after
             r := add(freemem, 0x60)
-            //adjust freemem pointer
+            // adjust freemem pointer
             mstore(0x40, add(add(freemem, 0x60), ml))
         }
     }

@@ -20,7 +20,7 @@ library LibForcedInclusion {
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
-    //  Structs
+    // Structs
     // ---------------------------------------------------------------
 
     /// @dev Storage for the forced inclusion queue. This struct uses 2 slots.
@@ -38,7 +38,7 @@ library LibForcedInclusion {
     }
 
     // ---------------------------------------------------------------
-    //  Public Functions
+    // Public Functions
     // ---------------------------------------------------------------
 
     /// @dev See `IInbox.storeForcedInclusion`

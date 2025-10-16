@@ -30,7 +30,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
 
-        //TODO: ideally we also setup the blob hashes here to avoid doing it on each test but it
+        // TODO: ideally we also setup the blob hashes here to avoid doing it on each test but it
         // doesn't last until the test run
     }
 

@@ -13,7 +13,7 @@ interface USDCProxy {
 }
 
 // Run with:
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisConfig.s.sol
+// forge script --rpc-url https://rpc.mainnet.taiko.xyz script/PostGenesisConfig.s.sol
 contract PostGenesisConfig is BaseScript {
     // All following addresses are L2 addresses
     address public bridgedTKO = 0xA9d23408b9bA935c230493c40C73824Df71A0975;

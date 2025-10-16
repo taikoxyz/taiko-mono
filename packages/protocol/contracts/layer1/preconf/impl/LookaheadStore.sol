@@ -225,8 +225,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         if (_data.nextLookahead.length == 0) {
             // This is the case when the next lookahead is empty
-            // Eg: [x x x Pa y y y] [     empty    ]
-            //     [  curr epoch  ] [  next epoch  ]
+            // Eg: [x x x Pa y y y] [ empty ]
+            // [ curr epoch ] [ next epoch ]
             //
             // The empty slots y will be taken over by the fallback preconfer
             // for the current epoch.
@@ -240,7 +240,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             // advanced in the current epoch.
             //
             // Eg: [x x x Pa y y y] [z z z Pb v v v]
-            //     [  curr epoch  ] [  next epoch  ]
+            // [ curr epoch ] [ next epoch ]
             // - Pb is our preconfer.
             // - x, y, z and v represent empty slots with no opted in preconfer.
             // - Pb intends to propose at any slot y
@@ -255,7 +255,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// it has its lookahead slot.
     ///
     /// Eg: [x x x Pa y y y]
-    ///     [  curr epoch  ]
+    ///     [ curr epoch ]
     /// - Pa is our preconfer.
     /// - x and y represent empty slots with no opted in preconfer.
     /// - Pa intends to propose at any slot x
@@ -263,7 +263,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// OR
     ///
     /// Eg: [x x x Pa y y y Pb z z z]
-    ///     [      curr epoch       ]
+    ///     [ curr epoch ]
     /// - Pb is our preconfer.
     /// - x, y and z represent empty slots with no opted in preconfer.
     /// - Pb intends to propose at any slot y

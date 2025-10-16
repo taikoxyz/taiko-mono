@@ -583,7 +583,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (A is a dynamic tuple, offset to first elements)
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
-        //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
+        // (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
         // Non-zero calldata cost per byte is 16.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
@@ -633,9 +633,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         //
         // We will now also see that req.gas / 63 > gasleft() implies that req.gas >= X * 63 / 64.
         // The contract guarantees Y <= req.gas, thus gasleft() = X - Y >= X - req.gas.
-        // -    req.gas / 63 > gasleft()
-        // -    req.gas / 63 >= X - req.gas
-        // -    req.gas >= X * 63 / 64
+        // - req.gas / 63 > gasleft()
+        // - req.gas / 63 >= X - req.gas
+        // - req.gas >= X * 63 / 64
         // In other words if req.gas < X * 63 / 64 then req.gas / 63 <= gasleft(), thus if the
         // relayer behaves honestly
         // the forwarding does not revert.

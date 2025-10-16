@@ -350,7 +350,8 @@ contract ERC20Vault is BaseVault {
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
-            //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
+            // For native bridged tokens (like USDC), the mint() signature is the same, so no need
+            //to
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }

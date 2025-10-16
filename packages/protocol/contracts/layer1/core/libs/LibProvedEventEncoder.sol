@@ -125,7 +125,7 @@ library LibProvedEventEncoder {
             // Fixed size: 247 bytes
             // proposalId: 6
             // Transition: proposalHash(32) + parentTransitionHash(32) = 64
-            //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
+            // Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) = 65
             // TransitionMetadata: designatedProver(20) + actualProver(20) = 40
             // bondInstructions array length: 2

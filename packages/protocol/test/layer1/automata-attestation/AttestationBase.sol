@@ -29,7 +29,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     PEMCertChainLib pemCertChainLib;
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
-    //string internal rpcUrl = vm.envString("RPC_URL");
+    // string internal rpcUrl = vm.envString("RPC_URL");
     string[] internal tcbInfoPaths = [
         "/test/layer1/automata-attestation/assets/0923/tcb_00606A000000.json",
         "/test/layer1/automata-attestation/assets/0424/tcb_00A067110000.json",

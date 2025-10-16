@@ -51,7 +51,7 @@ contract TestLibAddress is CommonTest {
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
         bridge.sendEtherAndVerify(address(calledContract), 0.1 ether, 2300);
 
-        //Call sendEtherAndVerify without the gasLimit
+        // Call sendEtherAndVerify without the gasLimit
         bridge.sendEtherAndVerify(deployer, 0.5 ether);
         assertEq(deployer.balance, balanceBefore + 1 ether);
     }

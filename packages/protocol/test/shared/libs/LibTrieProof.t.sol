@@ -8,11 +8,11 @@ import "../CommonTest.sol";
 contract TestLibTrieProof is CommonTest {
     function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.
-        //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
+        // uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
         // contract, this is why this chainId.
         // Actually this is the messageHash i sent (obviously just a made up bytes32!)
         // Not needed for now, but leave it as is.
-        //bytes32 signalSent = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
+        // bytes32 signalSent = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
         // //Actually a messageHash
         // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
         // (for slot calculation)
@@ -24,7 +24,7 @@ contract TestLibTrieProof is CommonTest {
         // This is the stateRoot just RLP encoded with
         // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
         // Not needed for now but leave it as is
-        //bytes memory stateRootRLPEncoded =
+        // bytes memory stateRootRLPEncoded =
         // hex"e1a090c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe";
 
         bytes[] memory accountProof = new bytes[](8);
@@ -83,7 +83,7 @@ contract TestLibTrieProof is CommonTest {
         // This is the stateRoot just RLP encoded with
         // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
         // Not needed for now but leave it as is
-        //bytes memory stateRootRLPEncoded =
+        // bytes memory stateRootRLPEncoded =
         // hex"e1a090c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe";
 
         bytes[] memory accountProof = new bytes[](8);

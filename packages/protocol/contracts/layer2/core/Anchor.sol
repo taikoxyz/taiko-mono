@@ -471,7 +471,7 @@ contract Anchor is EssentialContract {
         assembly {
             oldAncestorsHash_ := keccak256(
                 inputs,
-                8192 /*mul(256, 32)*/
+                8192 /* mul(256, 32)*/
             )
         }
 
@@ -479,7 +479,7 @@ contract Anchor is EssentialContract {
         assembly {
             newAncestorsHash_ := keccak256(
                 inputs,
-                8192 /*mul(256, 32)*/
+                8192 /* mul(256, 32)*/
             )
         }
     }

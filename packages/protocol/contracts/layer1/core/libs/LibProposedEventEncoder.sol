@@ -140,13 +140,13 @@ library LibProposedEventEncoder {
         unchecked {
             // Fixed size: 231 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
-            // 38
+            //38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //           lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
-            //           bondInstructionsHash(32) = 88
+            // lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
+            // bondInstructionsHash(32) = 88
             // Total fixed: 38 + 39 + 2 + 64 + 88 = 231
 
             size_ = 231;

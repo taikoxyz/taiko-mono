@@ -9,7 +9,7 @@ import "src/layer2/governance/DelegateController.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployDelegateController.s.sol
+// forge script --rpc-url https://rpc.mainnet.taiko.xyz script/DeployDelegateController.s.sol
 contract DeployDelegateController is BaseScript {
     function run() external broadcast {
         address delegateControllerImpl1 = address(
