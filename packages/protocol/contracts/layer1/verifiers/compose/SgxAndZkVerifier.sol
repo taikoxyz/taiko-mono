@@ -30,7 +30,6 @@ contract SgxAndZkVerifier is ComposeVerifier {
         if (_verifiers.length != 2) return false;
 
         // SGX_RETH must be first (lowest ID=4), followed by RISC0_RETH (5) or SP1_RETH (6)
-        return _verifiers[0] == sgxRethVerifier
-            && (_verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1RethVerifier);
+        return _verifiers[0] == sgxRethVerifier && isZKVerifier(_verifiers[1]);
     }
 }

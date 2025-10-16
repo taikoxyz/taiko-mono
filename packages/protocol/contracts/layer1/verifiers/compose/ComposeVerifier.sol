@@ -11,7 +11,7 @@ import "src/layer1/core/iface/IProofVerifier.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is IProofVerifier {
     // ---------------------------------------------------------------
-    // Struct and Constants
+    // Structs
     // ---------------------------------------------------------------
 
     struct SubProof {
@@ -19,6 +19,10 @@ abstract contract ComposeVerifier is IProofVerifier {
         bytes proof;
     }
 
+    // ---------------------------------------------------------------
+    // Constant Variables
+    // ---------------------------------------------------------------
+    
     /// @notice Enum for verifier identification using stable IDs
     uint8 public constant NONE = 0;
     uint8 public constant SGX_GETH = 1;
@@ -123,6 +127,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -131,21 +136,22 @@ abstract contract ComposeVerifier is IProofVerifier {
         return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
     }
 
+    /// @dev Checks if the provided verifiers are sufficient
+    /// NOTE: Verifier addresses are provided in ascending order of their IDs
     function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
         pure
         virtual
         returns (bool);
-
-    error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUB_VERIFIER_ORDER();
-    error CV_VERIFIERS_INSUFFICIENT();
-}
-
-// ---------------------------------------------------------------
+        
+        // ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
 
 error InvalidSubVerifier();
 error InvalidSubVerifierOrder();
 error InsufficientSubVerifiers();
+}
+
+
+
