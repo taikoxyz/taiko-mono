@@ -89,12 +89,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-    {
+    function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
 
@@ -122,10 +117,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IRecallableSender
-    function onMessageRecalled(
-        IBridge.Message calldata _message,
-        bytes32 _msgHash
-    )
+    function onMessageRecalled(IBridge.Message calldata _message, bytes32 _msgHash)
         external
         payable
         override
@@ -152,12 +144,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IERC721Receiver
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    )
+    function onERC721Received(address, address, uint256, bytes calldata)
         external
         pure
         returns (bytes4)
@@ -170,11 +157,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         return LibNames.B_ERC721_VAULT;
     }
 
-    function _transferTokens(
-        CanonicalNFT memory _ctoken,
-        address _to,
-        uint256[] memory _tokenIds
-    )
+    function _transferTokens(CanonicalNFT memory _ctoken, address _to, uint256[] memory _tokenIds)
         private
         returns (address token_)
     {
