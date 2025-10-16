@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { AbstractFinalizeTest } from "./AbstractFinalize.t.sol";
 import { InboxDeployer } from "../deployers/InboxDeployer.sol";
+import { AbstractFinalizeTest } from "./AbstractFinalize.t.sol";
 
 /// @title InboxFinalize
 /// @notice Finalization tests for the standard Inbox implementation

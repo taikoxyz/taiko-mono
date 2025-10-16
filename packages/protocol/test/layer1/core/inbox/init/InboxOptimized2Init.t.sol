@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { TestInboxOptimized2 } from "../implementations/TestInboxOptimized2.sol";
 import { AbstractInitTest } from "./AbstractInit.t.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
+import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 
 contract InboxOptimized2Init is AbstractInitTest {
     function _deployImplementation() internal override returns (Inbox) {

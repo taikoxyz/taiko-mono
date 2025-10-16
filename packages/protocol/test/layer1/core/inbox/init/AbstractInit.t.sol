@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Vm } from "forge-std/src/Vm.sol";
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { ICodec } from "src/layer1/core/iface/ICodec.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
-import { CommonTest } from "test/shared/CommonTest.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "../common/PreconfWhitelistSetup.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Vm } from "forge-std/src/Vm.sol";
+import { ICodec } from "src/layer1/core/iface/ICodec.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 abstract contract AbstractInitTest is InboxTestHelper {
     ICodec internal codec;

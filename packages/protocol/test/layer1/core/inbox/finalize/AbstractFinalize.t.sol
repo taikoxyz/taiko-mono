@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { LibBondInstruction } from "src/layer1/core/libs/LibBondInstruction.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { LibBondInstruction } from "src/layer1/core/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/core/impl/Inbox.sol";
