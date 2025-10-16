@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/vault/IBridgedERC20.sol";
 import "src/shared/governance/TaikoTokenBase.sol";
+import "src/shared/vault/IBridgedERC20.sol";
 
 /// @title BridgedTaikoToken
 /// @notice The TaikoToken on L2 to support checkpoints and voting. For testnets, we do not need to
