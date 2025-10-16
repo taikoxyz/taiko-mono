@@ -4,32 +4,15 @@ gas_price = 10_000_000_000         # 10 Gwei
 gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
-yul = true
-fuzz_runs = 200
-fuzz_runs_show_logs = false
+via_ir = true
 ffi = true
 memory_limit = 4_294_967_296
 solc_version = "0.8.30"
 evm_version = "prague"
 
-remappings = [
-    "openzeppelin/=node_modules/@openzeppelin/",
-    "@openzeppelin=node_modules/@openzeppelin",
-    "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
-    "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
-    "@solady/=node_modules/solady/",
-    "solady/src/=node_modules/solady/src/",
-    "solady/utils/=node_modules/solady/src/utils/",
-    "@optimism/=node_modules/optimism/",
-    "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
-    "forge-std/=node_modules/forge-std/",
-    "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
-    "@eth-fabric/urc/=node_modules/urc/src/",
-    "ds-test/=node_modules/ds-test/",
-    "src/=contracts/",
-    "test/=test/",
-    "script/=script/",
-]
+[fuzz]
+runs = 200
+show_logs = false
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 # For mainnet_mock tokenomics test we need a huge value to run lots of iterations.
@@ -59,8 +42,8 @@ multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
 
-[profile.lint]
-exclude_lints = [
+[profile.lint.deny]
+ignore = [
     "asm-keccak256",
     "unaliased-plain-import",
     "mixed-case-function",
@@ -71,13 +54,13 @@ exclude_lints = [
 ]
 
 [profile.layer1]
-src = "contracts/layer1"
+src = "contracts"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 
 [profile.layer1o]
-src = "contracts/layer1"
+src = "contracts"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
