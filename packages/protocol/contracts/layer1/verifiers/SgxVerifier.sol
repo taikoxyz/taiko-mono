@@ -188,10 +188,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     // Private Functions
     // ---------------------------------------------------------------
 
-    function _addInstances(
-        address[] memory _instances,
-        bool instantValid
-    )
+    function _addInstances(address[] memory _instances, bool instantValid)
         private
         returns (uint256[] memory ids)
     {
