@@ -31,7 +31,12 @@ contract CalldataReceiver {
 /// contracts, so basically it is a workaround making the library test 'count' towards the coverage.
 /// @dev The EtherSenderContract in live environment is the Bridge.
 contract EtherSenderContract {
-    function sendEther(address _to, uint256 _amount, uint256 _gasLimit, bytes memory _calldata)
+    function sendEther(
+        address _to,
+        uint256 _amount,
+        uint256 _gasLimit,
+        bytes memory _calldata
+    )
         public
         returns (bool success_)
     {
@@ -46,7 +51,10 @@ contract EtherSenderContract {
         LibAddress.sendEtherAndVerify(_to, _amount);
     }
 
-    function supportsInterface(address _addr, bytes4 _interfaceId)
+    function supportsInterface(
+        address _addr,
+        bytes4 _interfaceId
+    )
         public
         view
         returns (bool result)

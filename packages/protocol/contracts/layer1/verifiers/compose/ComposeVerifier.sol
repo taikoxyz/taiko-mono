@@ -22,7 +22,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     // ---------------------------------------------------------------
     // Constant Variables
     // ---------------------------------------------------------------
-    
+
     /// @notice Enum for verifier identification using stable IDs
     uint8 public constant NONE = 0;
     uint8 public constant SGX_GETH = 1;
@@ -105,9 +105,7 @@ abstract contract ComposeVerifier is IProofVerifier {
             lastVerifierId = verifierId;
         }
 
-        require(
-            areVerifiersSufficient(_youngestProposalAge, verifierIds), InsufficientSubVerifiers()
-        );
+        require(areSubProofsSufficient(_youngestProposalAge, subProofs), InsufficientSubVerifiers());
     }
 
     // ---------------------------------------------------------------
@@ -127,7 +125,6 @@ abstract contract ComposeVerifier is IProofVerifier {
         return address(0);
     }
 
-
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -138,20 +135,21 @@ abstract contract ComposeVerifier is IProofVerifier {
 
     /// @dev Checks if the provided verifiers are sufficient
     /// NOTE: Verifier addresses are provided in ascending order of their IDs
-    function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
+    function areSubProofsSufficient(
+        uint256 _youngestProposalAge,
+        SubProof[] memory subProofs
+    )
         internal
         pure
         virtual
         returns (bool);
-        
-        // ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
 
-error InvalidSubVerifier();
-error InvalidSubVerifierOrder();
-error InsufficientSubVerifiers();
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidSubVerifier();
+    error InvalidSubVerifierOrder();
+    error InsufficientSubVerifiers();
 }
-
-
 

@@ -7,7 +7,11 @@ import "./ComposeVerifier.sol";
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
 contract AnyVerifier is ComposeVerifier {
-    constructor(address _sgxRethVerifier, address _risc0RethVerifier, address _sp1RethVerifier)
+    constructor(
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
+    )
         ComposeVerifier(
             address(0),
             address(0),
@@ -18,17 +22,16 @@ contract AnyVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(
+    function areSubProofsSufficient(
         uint256, /* _youngestProposalAge */
-        uint8[] memory _verifierIds
+        SubProof[] memory _subProofs
     )
         internal
         pure
         override
         returns (bool)
     {
-        if (_verifiers.length != 1) return false;
-
-        return _verifierIds[0] == SGX_RETH || isZKVerifier(_verifierIds[0]);
+        if (_subProofs.length != 1) return false;
+        return _subProofs[0].verifierId == SGX_RETH || isZKVerifier(_subProofs[0].verifierId);
     }
 }

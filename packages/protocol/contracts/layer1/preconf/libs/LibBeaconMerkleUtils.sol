@@ -41,7 +41,12 @@ library LibBeaconMerkleUtils {
         tmp[j] = h;
     }
 
-    function verifyProof(bytes32[] memory proof, bytes32 root, bytes32 leaf, uint256 leafIndex)
+    function verifyProof(
+        bytes32[] memory proof,
+        bytes32 root,
+        bytes32 leaf,
+        uint256 leafIndex
+    )
         internal
         pure
         returns (bool)

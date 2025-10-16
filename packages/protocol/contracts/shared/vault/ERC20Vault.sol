@@ -170,7 +170,10 @@ contract ERC20Vault is BaseVault {
     /// @param _btokenNew The new bridged token address.
     /// @return btokenOld_ The old bridged token address.
 
-    function changeBridgedToken(CanonicalERC20 calldata _ctoken, address _btokenNew)
+    function changeBridgedToken(
+        CanonicalERC20 calldata _ctoken,
+        address _btokenNew
+    )
         external
         onlyOwner
         nonReentrant
@@ -311,7 +314,10 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IRecallableSender
-    function onMessageRecalled(IBridge.Message calldata _message, bytes32 _msgHash)
+    function onMessageRecalled(
+        IBridge.Message calldata _message,
+        bytes32 _msgHash
+    )
         external
         payable
         override
@@ -341,7 +347,11 @@ contract ERC20Vault is BaseVault {
         return LibNames.B_ERC20_VAULT;
     }
 
-    function _transferTokens(CanonicalERC20 memory _ctoken, address _to, uint256 _amount)
+    function _transferTokens(
+        CanonicalERC20 memory _ctoken,
+        address _to,
+        uint256 _amount
+    )
         private
         returns (address token_)
     {
