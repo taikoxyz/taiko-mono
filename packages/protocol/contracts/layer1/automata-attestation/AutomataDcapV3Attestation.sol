@@ -41,8 +41,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
-    //6
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot 6
     // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
@@ -60,11 +59,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
-    function init(
-        address owner,
-        address sigVerifyLibAddr,
-        address pemCertLibAddr
-    )
+    function init(address owner, address sigVerifyLibAddr, address pemCertLibAddr)
         external
         initializer
     {
@@ -83,10 +78,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
     }
 
-    function addRevokedCertSerialNum(
-        uint256 index,
-        bytes[] calldata serialNumBatch
-    )
+    function addRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
         external
         onlyOwner
     {
@@ -100,10 +92,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         }
     }
 
-    function removeRevokedCertSerialNum(
-        uint256 index,
-        bytes[] calldata serialNumBatch
-    )
+    function removeRevokedCertSerialNum(uint256 index, bytes[] calldata serialNumBatch)
         external
         onlyOwner
     {
@@ -248,10 +237,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return (true, TCBInfoStruct.TCBStatus.TCB_UNRECOGNIZED);
     }
 
-    function _isCpuSvnHigherOrGreater(
-        uint256[] memory pckCpuSvns,
-        uint8[] memory tcbCpuSvns
-    )
+    function _isCpuSvnHigherOrGreater(uint256[] memory pckCpuSvns, uint8[] memory tcbCpuSvns)
         private
         pure
         returns (bool)

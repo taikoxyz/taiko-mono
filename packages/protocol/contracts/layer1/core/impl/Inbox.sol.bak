@@ -3,7 +3,10 @@ pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+<<<<<<< HEAD
+=======
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
+>>>>>>> origin/immutable-verifiers
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
@@ -11,6 +14,10 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+<<<<<<< HEAD
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+=======
+>>>>>>> origin/immutable-verifiers
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";

@@ -115,10 +115,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         AutomataDcapV3Attestation(_attestationAddress).toggleLocalReportCheck();
     }
 
-    function configureQeIdentityJson(
-        address _attestationAddress,
-        string memory _enclaveIdJson
-    )
+    function configureQeIdentityJson(address _attestationAddress, string memory _enclaveIdJson)
         internal
     {
         (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
@@ -127,10 +124,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         console2.log("qeIdParsedSuccess: %s", qeIdParsedSuccess);
     }
 
-    function configureTcbInfoJson(
-        address _attestationAddress,
-        string memory _tcbInfoJson
-    )
+    function configureTcbInfoJson(address _attestationAddress, string memory _tcbInfoJson)
         internal
     {
         (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
@@ -140,10 +134,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         console2.log("tcbParsedSuccess: %s", tcbParsedSuccess);
     }
 
-    function verifyParsedQuoteAttestation(
-        bytes memory v3QuoteBytes,
-        bool expected
-    )
+    function verifyParsedQuoteAttestation(bytes memory v3QuoteBytes, bool expected)
         internal
         view
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)

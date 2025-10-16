@@ -53,10 +53,7 @@ contract BridgedERC721 is
     }
 
     /// @inheritdoc IBridgedERC721
-    function mint(
-        address _account,
-        uint256 _tokenId
-    )
+    function mint(address _account, uint256 _tokenId)
         external
         whenNotPaused
         onlyFrom(erc721Vault)

@@ -151,6 +151,8 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 			// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
 			block.AnchorBlockNumber = 0
 			block.Timestamp = 0
+			block.Coinbase = common.Address{}
+			block.GasLimit = 0
 		}
 	}
 

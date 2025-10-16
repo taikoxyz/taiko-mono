@@ -8,10 +8,10 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IProofVerifier } from "src/layer1/core/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -159,11 +159,7 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return BlobReference struct
-    function _createBlobRef(
-        uint8 _blobStartIndex,
-        uint8 _numBlobs,
-        uint24 _offset
-    )
+    function _createBlobRef(uint8 _blobStartIndex, uint8 _numBlobs, uint24 _offset)
         internal
         pure
         returns (LibBlobs.BlobReference memory)
@@ -310,10 +306,7 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return ProposeInput struct with specified blob configuration
-    function _createProposeInputWithBlobs(
-        uint8 _numBlobs,
-        uint24 _offset
-    )
+    function _createProposeInputWithBlobs(uint8 _numBlobs, uint24 _offset)
         internal
         view
         returns (IInbox.ProposeInput memory)

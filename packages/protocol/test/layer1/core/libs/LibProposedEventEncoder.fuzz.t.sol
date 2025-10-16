@@ -114,11 +114,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 
-    function testFuzz_encodeDecodeBlobSlice(
-        uint24 _offset,
-        uint48 _timestamp,
-        uint8 _blobHashCount
-    )
+    function testFuzz_encodeDecodeBlobSlice(uint24 _offset, uint48 _timestamp, uint8 _blobHashCount)
         public
         pure
     {

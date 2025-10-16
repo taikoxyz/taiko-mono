@@ -27,6 +27,7 @@ import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20.sol";
 import "src/shared/vault/BridgedERC721.sol";
+import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
 import "test/shared/DeployCapability.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
@@ -128,20 +129,19 @@ contract DeployProtocolOnL1 is DeployCapability {
             _deployZKVerifiers(config.contractOwner, config.l2ChainId);
     }
 
-    function _deployProofVerifier(
-        VerifierAddresses memory verifiers,
-        bool useDummyVerifiers
-    )
+    function _deployProofVerifier(VerifierAddresses memory verifiers, bool useDummyVerifiers)
         private
         returns (address proofVerifier)
     {
+        if (useDummyVerifiers) {
+            proofVerifier = address(new MockProofVerifier());
+            return proofVerifier;
+        }
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
-        address sgxSlot = useDummyVerifiers ? verifiers.op : verifiers.sgx;
-
         proofVerifier = address(
             new DevnetVerifier(
                 verifiers.op,
-                sgxSlot, // OpVerifier for dummy mode, SgxVerifier for real mode
+                verifiers.sgx, // OpVerifier for dummy mode, SgxVerifier for real mode
                 verifiers.risc0,
                 verifiers.sp1
             )
@@ -185,7 +185,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
-        Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        if (vm.envBool("ACTIVATE_INBOX")) {
+            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        }
         console2.log("ShastaInbox deployed:", shastaInbox);
     }
 
@@ -209,11 +211,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
     }
 
-    function _transferOwnerships(
-        address sharedResolver,
-        address shastaInbox,
-        address newOwner
-    )
+    function _transferOwnerships(address sharedResolver, address shastaInbox, address newOwner)
         private
     {
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -254,10 +252,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         _deployVaults(sharedResolver, config.contractOwner);
     }
 
-    function _deployOrRegisterTaikoToken(
-        address sharedResolver,
-        DeploymentConfig memory config
-    )
+    function _deployOrRegisterTaikoToken(address sharedResolver, DeploymentConfig memory config)
         private
     {
         address taikoToken = config.taikoToken;
@@ -372,10 +367,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function _deployZKVerifiers(
-        address owner,
-        uint64 l2ChainId
-    )
+    function _deployZKVerifiers(address owner, uint64 l2ChainId)
         private
         returns (address risc0Verifier, address sp1Verifier)
     {

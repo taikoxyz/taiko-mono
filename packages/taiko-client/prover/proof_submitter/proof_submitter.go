@@ -43,9 +43,9 @@ type ProofSubmitterPacaya struct {
 	txBuilder       *transaction.ProveBatchesTxBuilder
 	sender          *transaction.Sender
 	// Addresses
-	proverAddress      common.Address
-	proverSetAddress   common.Address
-	taikoAnchorAddress common.Address
+	proverAddress       common.Address
+	proverSetAddress    common.Address
+	pacayaAnchorAddress common.Address
 	// Batch proof related
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	// Intervals
@@ -69,14 +69,20 @@ func NewProofSubmitterPacaya(
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	taikoAnchorAddress common.Address,
+	pacayaAnchorAddress common.Address,
+	shastaAnchorAddress common.Address,
 	senderOpts *SenderOptions,
 	builder *transaction.ProveBatchesTxBuilder,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
+	anchorValidator, err := validator.New(
+		pacayaAnchorAddress,
+		shastaAnchorAddress,
+		senderOpts.RPCClient.L2.ChainID,
+		senderOpts.RPCClient,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +105,7 @@ func NewProofSubmitterPacaya(
 		),
 		proverAddress:             senderOpts.Txmgr.From(),
 		proverSetAddress:          senderOpts.ProverSetAddress,
-		taikoAnchorAddress:        taikoAnchorAddress,
+		pacayaAnchorAddress:       pacayaAnchorAddress,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
