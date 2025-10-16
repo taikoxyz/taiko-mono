@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoderFuzzTest
@@ -28,7 +28,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
     {
         // Bound nextProposalId to avoid overflow when calculating lastProposalBlockId
         nextProposalId = uint48(bound(nextProposalId, 1, 2_800_000)); // 2800000 * 100 = 280M <
-            // 2^48-1
+        // 2^48-1
         lastFinalizedProposalId = uint48(bound(lastFinalizedProposalId, 0, nextProposalId));
 
         // Use differentiated IDs like the main tests

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 import "../CommonTest.sol";
+import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
 // A contract which is not our registered ERCXXXVault. In such case, the sent funds are still
 // recoverable, but not via the onMessageRecall() but Bridge will send it back

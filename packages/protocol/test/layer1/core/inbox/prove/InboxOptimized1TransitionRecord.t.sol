@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxOptimized1TransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in InboxOptimized1

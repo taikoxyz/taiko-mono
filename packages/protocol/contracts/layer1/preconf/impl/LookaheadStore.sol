@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/iface/ILookaheadStore.sol";
-import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
-import "src/layer1/preconf/impl/Blacklist.sol";
-import "src/layer1/core/iface/IProposerChecker.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
+import "src/layer1/preconf/iface/ILookaheadStore.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz

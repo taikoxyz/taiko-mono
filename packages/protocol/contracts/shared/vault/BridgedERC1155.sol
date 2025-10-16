@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibNames.sol";
 import "./IBridgedERC1155.sol";
 import "./LibBridgedToken.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
