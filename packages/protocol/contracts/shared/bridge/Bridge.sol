@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.

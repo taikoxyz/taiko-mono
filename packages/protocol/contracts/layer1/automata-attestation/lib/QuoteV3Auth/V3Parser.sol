@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/Base64.sol";
-import "../../utils/BytesUtils.sol";
 import "../../lib/PEMCertChainLib.sol";
+import "../../utils/BytesUtils.sol";
 import "./V3Struct.sol";
+import "solady/src/utils/Base64.sol";
 
 /// @title V3Parser
 /// @custom:security-contact security@taiko.xyz

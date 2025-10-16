@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/shared/helpers/EssentialContract_EmptyStub.sol";
 import "test/layer2/Layer2Test.sol";
+import "test/shared/helpers/EssentialContract_EmptyStub.sol";
 
 contract TestDelegateController is Layer2Test {
     // Contracts on Ethereum

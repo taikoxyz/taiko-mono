@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/vault/ERC721Vault.sol";
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
+import "src/shared/vault/ERC721Vault.sol";
 
 /// @title MainnetERC721Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibBeaconMerkleUtils.sol";
 import "../BaseTest.sol";
 import "../fixtures/BeaconProofs.sol";
+import "src/layer1/preconf/libs/LibBeaconMerkleUtils.sol";
 
 /// @dev The beacon chain data used here is from slot 9000000 on Ethereum mainnet.
 contract BeaconProofsVerification is BaseTest {

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./AttestationBase.sol";
+import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
-import "forge-std/src/StdJson.sol";
-import "./AttestationBase.sol";
 
 contract TestAutomataDcapV3Attestation is Test, AttestationBase {
     using BytesUtils for bytes;

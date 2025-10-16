@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
-import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
+import "./IBridgedERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
