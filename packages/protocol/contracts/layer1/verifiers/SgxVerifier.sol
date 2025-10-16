@@ -158,10 +158,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
     }
 
-    function _addInstances(
-        address[] memory _instances,
-        bool instantValid
-    )
+    function _addInstances(address[] memory _instances, bool instantValid)
         private
         returns (uint256[] memory ids)
     {
