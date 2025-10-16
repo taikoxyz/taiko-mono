@@ -82,10 +82,7 @@ library LibProveInputDecoder {
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
-    function _encodeProposal(
-        uint256 _ptr,
-        IInbox.Proposal memory _proposal
-    )
+    function _encodeProposal(uint256 _ptr, IInbox.Proposal memory _proposal)
         private
         pure
         returns (uint256 newPtr_)
@@ -113,10 +110,7 @@ library LibProveInputDecoder {
     }
 
     /// @notice Encode a single Transition
-    function _encodeTransition(
-        uint256 _ptr,
-        IInbox.Transition memory _transition
-    )
+    function _encodeTransition(uint256 _ptr, IInbox.Transition memory _transition)
         private
         pure
         returns (uint256 newPtr_)
@@ -144,10 +138,7 @@ library LibProveInputDecoder {
     }
 
     /// @notice Encode a single TransitionMetadata
-    function _encodeMetadata(
-        uint256 _ptr,
-        IInbox.TransitionMetadata memory _metadata
-    )
+    function _encodeMetadata(uint256 _ptr, IInbox.TransitionMetadata memory _metadata)
         private
         pure
         returns (uint256 newPtr_)

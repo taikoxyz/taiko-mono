@@ -159,11 +159,7 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return BlobReference struct
-    function _createBlobRef(
-        uint8 _blobStartIndex,
-        uint8 _numBlobs,
-        uint24 _offset
-    )
+    function _createBlobRef(uint8 _blobStartIndex, uint8 _numBlobs, uint24 _offset)
         internal
         pure
         returns (LibBlobs.BlobReference memory)
@@ -310,10 +306,7 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return ProposeInput struct with specified blob configuration
-    function _createProposeInputWithBlobs(
-        uint8 _numBlobs,
-        uint24 _offset
-    )
+    function _createProposeInputWithBlobs(uint8 _numBlobs, uint24 _offset)
         internal
         view
         returns (IInbox.ProposeInput memory)

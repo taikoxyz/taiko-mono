@@ -17,12 +17,7 @@ library LibAddress {
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
     /// @return success_ true if the call is successful, false otherwise.
-    function sendEther(
-        address _to,
-        uint256 _amount,
-        uint256 _gasLimit,
-        bytes memory _calldata
-    )
+    function sendEther(address _to, uint256 _amount, uint256 _gasLimit, bytes memory _calldata)
         internal
         returns (bool success_)
     {
@@ -61,10 +56,7 @@ library LibAddress {
         sendEtherAndVerify(_to, _amount, gasleft());
     }
 
-    function supportsInterface(
-        address _addr,
-        bytes4 _interfaceId
-    )
+    function supportsInterface(address _addr, bytes4 _interfaceId)
         internal
         view
         returns (bool result_)

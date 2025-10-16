@@ -89,10 +89,7 @@ contract InboxOptimized2 is InboxOptimized1 {
 
     /// @inheritdoc Inbox
     /// @return bytes32 The composite key for storage mapping
-    function _composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    function _composeTransitionKey(uint48 _proposalId, bytes32 _parentTransitionHash)
         internal
         view
         override

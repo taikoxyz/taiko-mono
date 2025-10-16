@@ -248,14 +248,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    function _isG1Equal(
-        BLS.G1Point memory _a,
-        BLS.G1Point memory _b
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 
