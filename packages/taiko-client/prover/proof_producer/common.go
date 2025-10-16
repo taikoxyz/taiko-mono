@@ -125,6 +125,7 @@ func requestHTTPProofResponse[T any](
 			log.Error("Rate limit on L2 RPC has been reached. Using your own Taiko L2 node as RPC for Raiko is recommended")
 		}
 
+		res.Body.Close()
 		return nil, fmt.Errorf(
 			"failed to request proof, url: %s, statusCode: %d",
 			url,
