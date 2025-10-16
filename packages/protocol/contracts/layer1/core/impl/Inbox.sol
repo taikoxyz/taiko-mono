@@ -272,11 +272,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
-        uint256 youngestProposalAge =
-            block.timestamp - _getYoungestProposalTimestamp(input.proposals);
+        uint256 youngestProposalAge;
+        if (input.proposals.length == 1) {
+            unchecked {
+                // youngestProposalAge will only be used by the proof verifier for single-proposal.
+                youngestProposalAge = block.timestamp - input.proposals[0].timestamp;
+            }
+        }
 
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
+
         _proofVerifier.verifyProof(youngestProposalAge, aggregatedProvingHash, _proof);
     }
 
@@ -1061,18 +1067,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
-    }
-
-    function _getYoungestProposalTimestamp(Proposal[] memory _proposals)
-        private
-        pure
-        returns (uint256 timestamp_)
-    {
-        for (uint256 i; i < _proposals.length; ++i) {
-            if (_proposals[i].timestamp > timestamp_) {
-                timestamp_ = _proposals[i].timestamp;
-            }
-        }
     }
 }
 
