@@ -14,17 +14,16 @@ library LibPreconfUtils {
 
     /// @notice Calculates the lookahead hash.
     /// @param _epochTimestamp The timestamp of the epoch.
-    /// @param _lookaheadSlots The lookahead slots array.
+    /// @param _encodedLookahead The lookahead slots array encoded by LibLookaheadEncoder.
     /// @return The hash of the abi.encoded timestamp and lookahed slots.
-    function calculateLookaheadHash(
-        uint256 _epochTimestamp,
-        ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
-    )
+    function calculateLookaheadHash(uint256 _epochTimestamp, bytes memory _encodedLookahead)
         internal
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
+        // This intermediate hash limits the memory expansion by abi.encode
+        bytes32 intermediateHash = keccak256(_encodedLookahead);
+        return bytes26(keccak256(abi.encode(_epochTimestamp, intermediateHash)));
     }
 
     /// @notice Retrieves the beacon block root that was posted to the execution layer at or after a
@@ -82,14 +81,13 @@ library LibPreconfUtils {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = block.timestamp - genesisTimestamp;
         /// forge-lint: disable-start(divide-before-multiply)
-        uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+        uint256 timePassedUptoCurrentEpoch =
+            (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
         /// forge-lint: disable-end
 
-        return (
-            genesisTimestamp + timePassedUptoCurrentEpoch
-                + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH
-        ).toUint48();
+        return (genesisTimestamp + timePassedUptoCurrentEpoch + _epochOffset
+                * LibPreconfConstants.SECONDS_IN_EPOCH).toUint48();
     }
 
     /// @notice Calculates the timestamp of the epoch containing the provided slot timestamp .
@@ -98,7 +96,8 @@ library LibPreconfUtils {
     function getEpochtimestampForSlot(uint256 _slotTimestamp) internal view returns (uint256) {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = _slotTimestamp - genesisTimestamp;
-        uint256 timePassedUptoEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+        uint256 timePassedUptoEpoch =
+            (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
         return genesisTimestamp + timePassedUptoEpoch;
     }
