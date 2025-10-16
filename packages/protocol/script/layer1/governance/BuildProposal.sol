@@ -97,10 +97,7 @@ abstract contract BuildProposal is Script {
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(l2Actions));
     }
 
-    function buildUpgradeAction(
-        address _target,
-        address _newImpl
-    )
+    function buildUpgradeAction(address _target, address _newImpl)
         internal
         pure
         returns (Controller.Action memory)

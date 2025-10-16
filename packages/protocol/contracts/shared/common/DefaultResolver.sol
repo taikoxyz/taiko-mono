@@ -32,11 +32,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
     /// @param _chainId The chainId to which the address will be mapped.
     /// @param _name The name to which the address will be mapped.
     /// @param _newAddress The Ethereum address to be mapped.
-    function registerAddress(
-        uint256 _chainId,
-        bytes32 _name,
-        address _newAddress
-    )
+    function registerAddress(uint256 _chainId, bytes32 _name, address _newAddress)
         external
         virtual
         onlyOwner
@@ -52,15 +48,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         return address(this);
     }
 
-    function getAddress(
-        uint256 _chainId,
-        bytes32 _name
-    )
-        internal
-        view
-        override
-        returns (address)
-    {
+    function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
         return __addresses[_chainId][_name];
     }
 

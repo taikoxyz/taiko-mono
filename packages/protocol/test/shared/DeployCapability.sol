@@ -14,12 +14,7 @@ import "src/shared/common/DefaultResolver.sol";
 abstract contract DeployCapability is Script {
     error ADDRESS_NULL();
 
-    function deployProxy(
-        string memory name,
-        address impl,
-        bytes memory data,
-        address registerTo
-    )
+    function deployProxy(string memory name, address impl, bytes memory data, address registerTo)
         internal
         returns (address proxy)
     {
@@ -49,11 +44,7 @@ abstract contract DeployCapability is Script {
         );
     }
 
-    function deployProxy(
-        string memory name,
-        address impl,
-        bytes memory data
-    )
+    function deployProxy(string memory name, address impl, bytes memory data)
         internal
         returns (address proxy)
     {
@@ -64,12 +55,7 @@ abstract contract DeployCapability is Script {
         register(registerTo, name, addr, uint64(block.chainid));
     }
 
-    function register(
-        address registerTo,
-        string memory name,
-        address addr,
-        uint64 chainId
-    )
+    function register(address registerTo, string memory name, address addr, uint64 chainId)
         internal
     {
         if (registerTo == address(0)) revert ADDRESS_NULL();
@@ -79,13 +65,7 @@ abstract contract DeployCapability is Script {
         console2.log("\t addr : ", addr);
     }
 
-    function copyRegister(
-        address registerTo,
-        address readFrom,
-        string memory name
-    )
-        internal
-    {
+    function copyRegister(address registerTo, address readFrom, string memory name) internal {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 

@@ -129,10 +129,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             _deployZKVerifiers(config.contractOwner, config.l2ChainId);
     }
 
-    function _deployProofVerifier(
-        VerifierAddresses memory verifiers,
-        bool useDummyVerifiers
-    )
+    function _deployProofVerifier(VerifierAddresses memory verifiers, bool useDummyVerifiers)
         private
         returns (address proofVerifier)
     {
@@ -214,11 +211,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
     }
 
-    function _transferOwnerships(
-        address sharedResolver,
-        address shastaInbox,
-        address newOwner
-    )
+    function _transferOwnerships(address sharedResolver, address shastaInbox, address newOwner)
         private
     {
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -259,10 +252,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         _deployVaults(sharedResolver, config.contractOwner);
     }
 
-    function _deployOrRegisterTaikoToken(
-        address sharedResolver,
-        DeploymentConfig memory config
-    )
+    function _deployOrRegisterTaikoToken(address sharedResolver, DeploymentConfig memory config)
         private
     {
         address taikoToken = config.taikoToken;
@@ -377,10 +367,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function _deployZKVerifiers(
-        address owner,
-        uint64 l2ChainId
-    )
+    function _deployZKVerifiers(address owner, uint64 l2ChainId)
         private
         returns (address risc0Verifier, address sp1Verifier)
     {
