@@ -29,7 +29,12 @@ async fn main() -> Result<()> {
         shutdown.clone(),
     );
 
-    let api = http::serve(config.clone(), storage.clone(), shutdown_signal.clone());
+    let api = http::serve(
+        config.clone(),
+        storage.clone(),
+        beacon.clone(),
+        shutdown_signal.clone(),
+    );
     let indexer_task = tokio::spawn(indexer.run());
 
     let server_task = tokio::spawn(api);

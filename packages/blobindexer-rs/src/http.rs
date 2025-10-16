@@ -12,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 use tower_http::trace::TraceLayer;
 
 use crate::{
+    beacon::BeaconClient,
     config::Config,
     errors::BlobIndexerError,
     models::{BlobRecord, BlockRecord},
@@ -22,9 +23,10 @@ use crate::{
 pub async fn serve(
     config: Config,
     storage: Storage,
+    beacon: BeaconClient,
     shutdown: CancellationToken,
 ) -> crate::errors::Result<()> {
-    let app = build_router().with_state(AppState { storage });
+    let app = build_router().with_state(AppState { storage, beacon });
     let listener = TcpListener::bind(config.http_bind).await?;
 
     tracing::info!(address = %config.http_bind, "starting HTTP server");
@@ -41,6 +43,7 @@ pub async fn serve(
 fn build_router() -> Router<AppState> {
     Router::new()
         .route("/healthz", get(health))
+        .route("/v1/status", get(status))
         .route("/v1/status/head", get(get_head_status))
         .route("/v1/blobs/:versioned_hash", get(get_blob_by_hash))
         .route("/v1/blobs/by-slot/:slot", get(list_blobs_by_slot))
@@ -51,6 +54,7 @@ fn build_router() -> Router<AppState> {
 #[derive(Clone)]
 struct AppState {
     storage: Storage,
+    beacon: BeaconClient,
 }
 
 #[derive(Debug)]
@@ -110,6 +114,46 @@ type RestResult<T> = std::result::Result<T, ApiError>;
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn status(State(state): State<AppState>) -> RestResult<Json<StatusResponse>> {
+    let sync_status = state
+        .beacon
+        .get_sync_status()
+        .await
+        .map_err(ApiError::from)?;
+
+    let finalized_slot = state
+        .beacon
+        .get_finalized_slot()
+        .await
+        .map_err(ApiError::from)?;
+
+    let last_processed = state
+        .storage
+        .get_last_processed_slot()
+        .await
+        .map_err(ApiError::from)?
+        .map(|slot| u64::try_from(slot).map_err(|_| ApiError::internal("negative slot stored")))
+        .transpose()?;
+
+    let beacon_synced =
+        !sync_status.is_syncing && sync_status.sync_distance == 0 && !sync_status.el_offline;
+
+    let response = StatusResponse {
+        beacon_synced,
+        beacon: BeaconStatus {
+            head_slot: sync_status.head_slot,
+            finalized_slot,
+            sync_distance: sync_status.sync_distance,
+            is_syncing: sync_status.is_syncing,
+            is_optimistic: sync_status.is_optimistic,
+            el_offline: sync_status.el_offline,
+        },
+        last_processed_slot: last_processed,
+    };
+
+    Ok(Json(response))
 }
 
 async fn get_head_status(State(state): State<AppState>) -> RestResult<Json<HeadStatusResponse>> {
@@ -221,6 +265,31 @@ struct BlobServerResponse {
     data: String,
     #[serde(rename = "versionedHash")]
     versioned_hash: String,
+}
+
+#[derive(Serialize)]
+struct StatusResponse {
+    #[serde(rename = "beaconSynced")]
+    beacon_synced: bool,
+    beacon: BeaconStatus,
+    #[serde(rename = "lastProcessedSlot", skip_serializing_if = "Option::is_none")]
+    last_processed_slot: Option<u64>,
+}
+
+#[derive(Serialize)]
+struct BeaconStatus {
+    #[serde(rename = "headSlot")]
+    head_slot: u64,
+    #[serde(rename = "finalizedSlot", skip_serializing_if = "Option::is_none")]
+    finalized_slot: Option<u64>,
+    #[serde(rename = "syncDistance")]
+    sync_distance: u64,
+    #[serde(rename = "isSyncing")]
+    is_syncing: bool,
+    #[serde(rename = "isOptimistic")]
+    is_optimistic: bool,
+    #[serde(rename = "elOffline")]
+    el_offline: bool,
 }
 
 impl TryFrom<BlobRecord> for BlobServerResponse {

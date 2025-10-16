@@ -199,13 +199,11 @@ impl Indexer {
                     break;
                 }
                 debug!(slot, "processing slot");
-                self.process_slot(slot)
-                    .await
-                    .map_err(|err| {
-                        // Surface the slot that failed so the outer tick error log is actionable.
-                        tracing::error!(slot, error = ?err, "processing slot failed");
-                        err
-                    })?;
+                self.process_slot(slot).await.map_err(|err| {
+                    // Surface the slot that failed so the outer tick error log is actionable.
+                    tracing::error!(slot, error = ?err, "processing slot failed");
+                    err
+                })?;
             }
             next_slot = upper.saturating_add(1);
         }
@@ -222,12 +220,10 @@ impl Indexer {
                 break;
             }
             debug!(slot, "refreshing slot");
-            self.refresh_slot(slot)
-                .await
-                .map_err(|err| {
-                    tracing::error!(slot, error = ?err, "refreshing slot failed");
-                    err
-                })?;
+            self.refresh_slot(slot).await.map_err(|err| {
+                tracing::error!(slot, error = ?err, "refreshing slot failed");
+                err
+            })?;
         }
 
         // Prune stale non-canonical data beyond the lookback window.

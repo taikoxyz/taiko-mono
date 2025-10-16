@@ -197,6 +197,47 @@ impl BeaconClient {
         Ok(Some(slot))
     }
 
+    pub async fn get_sync_status(&self) -> Result<BeaconSyncStatus> {
+        let url = self
+            .base_url
+            .join("eth/v1/node/syncing")
+            .map_err(|err| BlobIndexerError::InvalidData(err.to_string()))?;
+
+        let body = self
+            .request_json(url, "node:syncing")
+            .await?
+            .ok_or_else(|| BlobIndexerError::InvalidData("missing beacon sync status".into()))?;
+
+        let response: BeaconSyncingResponse = serde_json::from_slice(body.as_slice())?;
+        let BeaconSyncingData {
+            head_slot,
+            sync_distance,
+            is_syncing,
+            is_optimistic,
+            el_offline,
+        } = response.data;
+
+        let head_slot = head_slot.parse::<u64>().map_err(|err| {
+            BlobIndexerError::InvalidData(format!(
+                "invalid head slot '{head_slot}' from beacon sync response: {err}"
+            ))
+        })?;
+
+        let sync_distance = sync_distance.parse::<u64>().map_err(|err| {
+            BlobIndexerError::InvalidData(format!(
+                "invalid sync distance '{sync_distance}' from beacon sync response: {err}"
+            ))
+        })?;
+
+        Ok(BeaconSyncStatus {
+            head_slot,
+            sync_distance,
+            is_syncing,
+            is_optimistic,
+            el_offline,
+        })
+    }
+
     async fn request_json(&self, url: Url, label: &str) -> Result<Option<Vec<u8>>> {
         debug!(label = %label, url = %url, "sending beacon request");
 
@@ -395,6 +436,31 @@ struct BeaconBlockResponse {
     #[serde(default)]
     root: Option<String>,
     data: BeaconBlockResponseData,
+}
+
+#[derive(Debug, Clone)]
+pub struct BeaconSyncStatus {
+    pub head_slot: u64,
+    pub sync_distance: u64,
+    pub is_syncing: bool,
+    pub is_optimistic: bool,
+    pub el_offline: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct BeaconSyncingResponse {
+    data: BeaconSyncingData,
+}
+
+#[derive(Debug, Deserialize)]
+struct BeaconSyncingData {
+    head_slot: String,
+    sync_distance: String,
+    is_syncing: bool,
+    #[serde(default)]
+    is_optimistic: bool,
+    #[serde(default)]
+    el_offline: bool,
 }
 
 #[derive(Debug, Deserialize)]
