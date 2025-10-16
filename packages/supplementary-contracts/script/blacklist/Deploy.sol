@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
-import "contracts/blacklist/Blacklist.sol";
+import "../../contracts/blacklist/Blacklist.sol";
 
 contract DeployBlacklist is Script {
     using stdJson for string;
