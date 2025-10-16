@@ -47,10 +47,7 @@ library LibAnchorSigner {
     /// @return v The recovery id.
     /// @return r The r component of the signature.
     /// @return s The s component of the signature.
-    function signAnchor(
-        bytes32 digest,
-        uint8 k
-    )
+    function signAnchor(bytes32 digest, uint8 k)
         public
         view
         returns (uint8 v, uint256 r, uint256 s)
@@ -87,12 +84,7 @@ library LibAnchorSigner {
     /// @param e Exponent.
     /// @param m Modulus.
     /// @return o Result.
-    function _expmod(
-        uint256 baseLow,
-        uint256 baseHigh,
-        uint256 e,
-        uint256 m
-    )
+    function _expmod(uint256 baseLow, uint256 baseHigh, uint256 e, uint256 m)
         private
         view
         returns (uint256 o)

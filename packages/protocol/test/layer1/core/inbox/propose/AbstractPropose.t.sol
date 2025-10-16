@@ -592,10 +592,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
-    function _enqueueForcedInclusion(
-        LibBlobs.BlobReference memory _ref,
-        address _payer
-    )
+    function _enqueueForcedInclusion(LibBlobs.BlobReference memory _ref, address _payer)
         internal
         returns (LibBlobs.BlobSlice memory)
     {

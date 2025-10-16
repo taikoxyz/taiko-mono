@@ -42,8 +42,9 @@ contract LibProposeInputDecoderGas is Test {
     )
         private
     {
-        IInbox.ProposeInput memory input =
-            _createTestData(_proposalCount, _transitionCount, _totalBondInstructions);
+        IInbox.ProposeInput memory input = _createTestData(
+            _proposalCount, _transitionCount, _totalBondInstructions
+        );
 
         // Prepare encoded data
         bytes memory abiEncoded = abi.encode(input);

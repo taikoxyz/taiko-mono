@@ -317,10 +317,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
     /// @return finalizationDeadline_ The timestamp when finalization is enforced
     /// @return recordHash_ The hash of the transition record
-    function getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash)
         external
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
@@ -399,12 +396,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(
-        ProveInput memory _input,
-        uint256 _index
-    )
-        internal
-    {
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -494,10 +486,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
     /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
-    function _getTransitionRecordHashAndDeadline(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    function _getTransitionRecordHashAndDeadline(uint48 _proposalId, bytes32 _parentTransitionHash)
         internal
         view
         virtual
@@ -511,10 +500,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Ensures the transition references the correct proposal hash
     /// @param _proposal The proposal being proven
     /// @param _transition The transition to validate against the proposal
-    function _validateTransition(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
+    function _validateTransition(Proposal memory _proposal, Transition memory _transition)
         internal
         view
     {
@@ -581,10 +567,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return _ Keccak256 hash of encoded parameters
-    function _composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
+    function _composeTransitionKey(uint48 _proposalId, bytes32 _parentTransitionHash)
         internal
         view
         virtual
@@ -755,10 +738,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
-    )
+    function _consumeForcedInclusions(address _feeRecipient, uint256 _numForcedInclusionsRequested)
         private
         returns (ConsumptionResult memory result_)
     {
@@ -769,7 +749,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
+            uint256 toProcess =
+                _numForcedInclusionsRequested > available
                 ? available
                 : _numForcedInclusionsRequested;
 
