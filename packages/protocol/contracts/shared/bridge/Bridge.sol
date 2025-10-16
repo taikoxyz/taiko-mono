@@ -169,7 +169,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function recallMessage(Message calldata _message, bytes calldata _proof)
+    function recallMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         sameChain(_message.srcChainId)
         diffChain(_message.destChainId)
@@ -195,8 +198,9 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from)
-            .onMessageRecalled{ value: _message.value }(_message, msgHash);
+            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+                _message, msgHash
+            );
 
             // Must reset the context after the message call
             _storeContext(
@@ -212,7 +216,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
-    function processMessage(Message calldata _message, bytes calldata _proof)
+    function processMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         whenNotPaused
         nonReentrant
@@ -304,7 +311,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function retryMessage(Message calldata _message, bool _isLastAttempt)
+    function retryMessage(
+        Message calldata _message,
+        bool _isLastAttempt
+    )
         external
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
@@ -367,7 +377,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
-    function isMessageFailed(Message calldata _message, bytes calldata _proof)
+    function isMessageFailed(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         view
         returns (bool)
@@ -387,7 +400,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has been received, false otherwise.
-    function isMessageReceived(Message calldata _message, bytes calldata _proof)
+    function isMessageReceived(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         view
         returns (bool)
@@ -557,7 +573,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 
-    function _unableToInvokeMessageCall(Message calldata _message, ISignalService _signalService)
+    function _unableToInvokeMessageCall(
+        Message calldata _message,
+        ISignalService _signalService
+    )
         private
         view
         returns (bool)

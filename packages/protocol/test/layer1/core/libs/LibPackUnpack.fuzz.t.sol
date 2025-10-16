@@ -114,7 +114,10 @@ contract LibPackUnpackFuzzTest is Test {
     // Pack/Unpack Functions for each struct
     // ---------------------------------------------------------------
 
-    function packSimpleStruct(uint256 _pos, SimpleStruct memory _struct)
+    function packSimpleStruct(
+        uint256 _pos,
+        SimpleStruct memory _struct
+    )
         internal
         pure
         returns (uint256 newPos_)
@@ -134,7 +137,10 @@ contract LibPackUnpackFuzzTest is Test {
         (struct_.timestamp, newPos_) = LibPackUnpack.unpackUint32(newPos_);
     }
 
-    function packMediumStruct(uint256 _pos, MediumStruct memory _struct)
+    function packMediumStruct(
+        uint256 _pos,
+        MediumStruct memory _struct
+    )
         internal
         pure
         returns (uint256 newPos_)
@@ -162,7 +168,10 @@ contract LibPackUnpackFuzzTest is Test {
         struct_.isActive = isActiveByte == 1;
     }
 
-    function packComplexStruct(uint256 _pos, ComplexStruct memory _struct)
+    function packComplexStruct(
+        uint256 _pos,
+        ComplexStruct memory _struct
+    )
         internal
         pure
         returns (uint256 newPos_)
@@ -200,7 +209,10 @@ contract LibPackUnpackFuzzTest is Test {
         (struct_.proofTier, newPos_) = LibPackUnpack.unpackUint8(newPos_);
     }
 
-    function packProposalStruct(uint256 _pos, ProposalStruct memory _struct)
+    function packProposalStruct(
+        uint256 _pos,
+        ProposalStruct memory _struct
+    )
         internal
         pure
         returns (uint256 newPos_)
@@ -450,9 +462,8 @@ contract LibPackUnpackFuzzTest is Test {
         public
         pure
     {
-        SimpleStruct memory struct1 = SimpleStruct({
-            flag: flag1, counter: counter1, timestamp: timestamp1
-        });
+        SimpleStruct memory struct1 =
+            SimpleStruct({ flag: flag1, counter: counter1, timestamp: timestamp1 });
 
         MediumStruct memory struct2 = MediumStruct({
             version: version2,
@@ -496,7 +507,11 @@ contract LibPackUnpackFuzzTest is Test {
     // Property-based tests for pack/unpack invariants
     // ---------------------------------------------------------------
 
-    function testFuzz_packUnpackSymmetry_smallIntegers(uint8 val8, uint16 val16, uint24 val24)
+    function testFuzz_packUnpackSymmetry_smallIntegers(
+        uint8 val8,
+        uint16 val16,
+        uint24 val24
+    )
         public
         pure
     {

@@ -145,7 +145,10 @@ contract V3QuoteParseUtils {
         });
     }
 
-    function ParseV3QuoteBytes(address pemCertChainLib, bytes memory v3QuoteBytes)
+    function ParseV3QuoteBytes(
+        address pemCertChainLib,
+        bytes memory v3QuoteBytes
+    )
         public
         pure
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)

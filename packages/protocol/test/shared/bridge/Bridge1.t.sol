@@ -7,7 +7,11 @@ import "../CommonTest.sol";
 // A contract which is not our registered ERCXXXVault. In such case, the sent funds are still
 // recoverable, but not via the onMessageRecall() but Bridge will send it back
 contract UnregisteredVault {
-    function sendMessage(address bridge, IBridge.Message memory message, uint256 message_value)
+    function sendMessage(
+        address bridge,
+        IBridge.Message memory message,
+        uint256 message_value
+    )
         public
         returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
     {
@@ -177,7 +181,12 @@ contract TestBridge1 is CommonTest {
     function test_bridge1_send_message_ether_reverts_when_owner_is_zero_address() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: address(0), to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: taikoChainId
+            owner: address(0),
+            to: Alice,
+            value: 0,
+            gasLimit: 0,
+            fee: 0,
+            destChain: taikoChainId
         });
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
@@ -187,7 +196,12 @@ contract TestBridge1 is CommonTest {
     function test_bridge1_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: taikoChainId + 1
+            owner: Alice,
+            to: Alice,
+            value: 0,
+            gasLimit: 0,
+            fee: 0,
+            destChain: taikoChainId + 1
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -199,7 +213,12 @@ contract TestBridge1 is CommonTest {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: ethereumChainId
+            owner: Alice,
+            to: Alice,
+            value: 0,
+            gasLimit: 0,
+            fee: 0,
+            destChain: ethereumChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -209,7 +228,12 @@ contract TestBridge1 is CommonTest {
     function test_bridge1_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: taikoChainId
+            owner: Alice,
+            to: Alice,
+            value: 0,
+            gasLimit: 0,
+            fee: 0,
+            destChain: taikoChainId
         });
 
         (, IBridge.Message memory _message) = eBridge.sendMessage{ value: amount }(message);
@@ -236,7 +260,12 @@ contract TestBridge1 is CommonTest {
         uint256 amount = 1 ether;
         uint64 fee = 0 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: amount, gasLimit: 0, fee: fee, destChain: taikoChainId
+            owner: Alice,
+            to: Alice,
+            value: amount,
+            gasLimit: 0,
+            fee: fee,
+            destChain: taikoChainId
         });
 
         uint256 starterBalanceVault = address(eBridge).balance;
@@ -262,7 +291,12 @@ contract TestBridge1 is CommonTest {
         uint256 amount = 1 ether;
         uint64 fee = 0 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: amount, gasLimit: 0, fee: fee, destChain: taikoChainId
+            owner: Alice,
+            to: Alice,
+            value: amount,
+            gasLimit: 0,
+            fee: fee,
+            destChain: taikoChainId
         });
 
         uint256 starterBalanceVault = address(eBridge).balance;
@@ -353,7 +387,12 @@ contract TestBridge1 is CommonTest {
 
     function retry_message_reverts_when_status_non_retriable() public {
         IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 10_000, fee: 1, destChain: taikoChainId
+            owner: Alice,
+            to: Alice,
+            value: 0,
+            gasLimit: 10_000,
+            fee: 1,
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
@@ -363,7 +402,12 @@ contract TestBridge1 is CommonTest {
     function retry_message_reverts_when_last_attempt_and_message_is_not_owner() public {
         vm.startPrank(Alice);
         IBridge.Message memory message = newMessage({
-            owner: Bob, to: Alice, value: 0, gasLimit: 10_000, fee: 1, destChain: taikoChainId
+            owner: Bob,
+            to: Alice,
+            value: 0,
+            gasLimit: 10_000,
+            fee: 1,
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);

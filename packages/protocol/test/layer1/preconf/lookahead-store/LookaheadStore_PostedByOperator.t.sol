@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
-    /*
+/*
             // Lookahead posting accepted
             // -------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             )
                 external
                 useMainnet
-        setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lookaheadSlots)
+setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lookaheadSlots)
             {
                 // Build a signed commitment on the lookahead slots for next epoch
                 ISlasher.SignedCommitment memory signedCommitment =
@@ -26,7 +26,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
 
                 // The next epoch's lookahead hash is correctly added to the lookahead store
                 assertEq(
-                    lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
+lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
                     lookaheadHash
                 );
             }
@@ -34,7 +34,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
             // Lookahead posting reverts (Issues with the poster)
             // -------------------------------------------------------------------
 
-            function test_revertsWhenCommitmentIsNotSignedByThePostersCommitter() external useMainnet {
+function test_revertsWhenCommitmentIsNotSignedByThePostersCommitter() external useMainnet {
                 (
                     SetupOperator memory _lookaheadPostingOperator,
                     SetupOperator[] memory _lookaheadOperators,
@@ -417,7 +417,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
                 ) = _setupURCAndPrepareInputs(2);
 
-                // Set the second slot timestamp to be some invalid value (not a multiple of the slot
+// Set the second slot timestamp to be some invalid value (not a multiple of the slot
                 // duration)s
                 _lookaheadSlots[1].timestamp += 1;
 
@@ -457,7 +457,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 ) = _setupURCAndPrepareInputs(2);
 
                 // Set the second slot timestamp to overshoot the next epoch
-                _lookaheadSlots[1].timestamp = EPOCH_START + 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+_lookaheadSlots[1].timestamp = EPOCH_START + 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
                 // Build a signed commitment on the lookahead slots for next epoch
                 ISlasher.SignedCommitment memory signedCommitment =
@@ -585,7 +585,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     _lookaheadOperators[1].collateralWei,
                     _lookaheadOperators[1].numKeys,
                     _lookaheadOperators[1].registeredAt,
-                    EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT, // Unregistered before the epoch
+EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT, // Unregistered before the epoch
                     _lookaheadOperators[1].slashedAt
                 );
 
@@ -796,7 +796,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 // Blacklist and then unblacklist the second operator before the current epoch
                 _setOperatorBlacklistStatus(
                     _lookaheadOperators[1].registrationRoot,
-                    uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
+uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
     uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before
                         // epoch
                 );
@@ -810,7 +810,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
 
                 // The next epoch's lookahead hash is correctly added to the lookahead store
                 assertEq(
-                    lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
+lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
                     lookaheadHash
                 );
             }
@@ -825,7 +825,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 // Blacklist and then unblacklist the second operator too late
                 _setOperatorBlacklistStatus(
                     _lookaheadOperators[1].registrationRoot,
-                    uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
+uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
                     uint48(EPOCH_START) // Unblacklisted when epoch started (too late)
                 );
 
@@ -838,5 +838,4 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 _updateLookahead(signedCommitment);
             }
             */
-
-    }
+}

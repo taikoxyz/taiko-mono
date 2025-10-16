@@ -17,7 +17,12 @@ library LibAddress {
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
     /// @return success_ true if the call is successful, false otherwise.
-    function sendEther(address _to, uint256 _amount, uint256 _gasLimit, bytes memory _calldata)
+    function sendEther(
+        address _to,
+        uint256 _amount,
+        uint256 _gasLimit,
+        bytes memory _calldata
+    )
         internal
         returns (bool success_)
     {
@@ -28,15 +33,16 @@ library LibAddress {
         // we call via assembly to avoid memcopying a very large returndata
         // returned by a malicious contract
         assembly ("memory-safe") {
-            success_ := call(
-                _gasLimit, // gas
-                _to, // recipient
-                _amount, // ether value
-                add(_calldata, 0x20), // inloc
-                mload(_calldata), // inlen
-                0, // outloc
-                0 // outlen
-            )
+            success_ :=
+                call(
+                    _gasLimit, // gas
+                    _to, // recipient
+                    _amount, // ether value
+                    add(_calldata, 0x20), // inloc
+                    mload(_calldata), // inlen
+                    0, // outloc
+                    0 // outlen
+                )
         }
     }
 
@@ -56,7 +62,10 @@ library LibAddress {
         sendEtherAndVerify(_to, _amount, gasleft());
     }
 
-    function supportsInterface(address _addr, bytes4 _interfaceId)
+    function supportsInterface(
+        address _addr,
+        bytes4 _interfaceId
+    )
         internal
         view
         returns (bool result_)

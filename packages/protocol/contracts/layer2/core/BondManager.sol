@@ -69,7 +69,10 @@ contract BondManager is EssentialContract, IBondManager {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
-    function debitBond(address _address, uint256 _bond)
+    function debitBond(
+        address _address,
+        uint256 _bond
+    )
         external
         onlyFrom(authorized)
         returns (uint256 amountDebited_)
@@ -111,7 +114,10 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function hasSufficientBond(address _address, uint256 _additionalBond)
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
+    )
         external
         view
         returns (bool)
