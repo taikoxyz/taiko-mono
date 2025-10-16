@@ -26,32 +26,24 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     uint256[49] private __gap;
 
-    constructor(
-        address _urc,
-        address _unifiedSlasher,
-        address _inbox,
-        address _preconfWhitelist,
-        address[] memory _overseers
-    )
-        Blacklist(_overseers)
-    {
+    constructor(address _urc, address _unifiedSlasher, address _inbox, address _preconfWhitelist) {
         urc = IRegistry(_urc);
         unifiedSlasher = _unifiedSlasher;
         inbox = _inbox;
         preconfWhitelist = _preconfWhitelist;
     }
 
-    function init(address _owner) external initializer {
+    function init(address _owner, address[] memory _overseers) external initializer {
         __Essential_init(_owner);
+        __Blacklist_init(_overseers);
     }
 
     /// @inheritdoc IProposerChecker
     /// @dev Checks if a proposer is eligible to propose for the current slot and conditionally
-    ///         updates the lookahead for the next epoch.
+    /// updates the lookahead for the next epoch.
     /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next
     /// epoch. The contract enforces this by trying to update the lookahead for next epoch if none
-    /// is
-    /// stored.
+    /// is stored.
     function checkProposer(
         address _proposer,
         bytes calldata _lookaheadData
@@ -59,10 +51,11 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         external
         returns (uint48)
     {
+        // Must only be called the inbox
+        // The inbox should set `_proposer` to the current L2 batch proposer's address
         require(msg.sender == inbox, NotInbox());
 
         LookaheadData memory data = abi.decode(_lookaheadData, (LookaheadData));
-        _validateSlotIndex(data);
 
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -76,7 +69,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         // Verify that the proposer is in the preconfing window
         require(
-            block.timestamp > context.submissionWindowStart
+            block.timestamp >= context.submissionWindowStart
                 && block.timestamp <= context.submissionWindowEnd,
             InvalidLookaheadTimestamp()
         );
@@ -85,20 +78,9 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         _validateCurrentEpochLookahead(epochTimestamp, data.currLookahead);
 
         // Validate the next lookahead evidence and update the store if required
-        _handleNextEpochLookahead(nextEpochTimestamp, context, data);
+        _handleNextEpochLookahead(epochTimestamp, nextEpochTimestamp, context, data);
 
         return uint48(context.submissionWindowEnd);
-    }
-
-    /// @dev Validates that the slot index is valid.
-    /// If the proposer is from the current epoch, it must be less than the size of the
-    /// lookahead(32).
-    /// If it is from the next epoch, it must be set to type(uint256).max.
-    function _validateSlotIndex(LookaheadData memory _data) private pure {
-        require(
-            _data.slotIndex == type(uint256).max || _data.slotIndex < _data.currLookahead.length,
-            InvalidSlotIndex()
-        );
     }
 
     /// @dev Ensures the provided current epoch lookahead matches the stored hash.
@@ -121,7 +103,9 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     /// @dev Processes next epoch's lookahead: validates existing or stores new lookahead.
     /// Optimization: same-epoch proposers can skip this entirely when lookahead already exists.
+    /// @dev Lookahead for the next epoch is only expected from slot 1 onwards.
     function _handleNextEpochLookahead(
+        uint256 _epochTimestamp,
         uint256 _nextEpochTimestamp,
         ProposerContext memory _context,
         LookaheadData memory _data
@@ -139,7 +123,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
             // Cross-epoch or fallback proposers must provide correct nextLookahead
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, nextLookaheadHash);
-        } else {
+        } else if (block.timestamp != _epochTimestamp) {
             // Lookahead not posted yet - must post it now
             _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
         }
@@ -161,7 +145,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             // Opted-in Operator case
             ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
             IRegistry.SlasherCommitment memory slasherCommitment =
-                urc.getSlasherCommitment(_data.registrationRoot, unifiedSlasher);
+                urc.getSlasherCommitment(_context.lookaheadSlot.registrationRoot, unifiedSlasher);
 
             address committer =
                 ECDSA.recover(keccak256(abi.encode(commitment)), _data.commitmentSignature);
@@ -198,6 +182,12 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             if (isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)) {
                 context_.isFallback = true;
                 context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
+                if (_data.slotIndex == type(uint256).max) {
+                    // For a cross epoch proposal, the current epoch's preconfer must submit by the
+                    // end of the current epoch.
+                    context_.submissionWindowEnd =
+                        _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+                }
             } else {
                 context_.proposer = context_.lookaheadSlot.committer;
             }
@@ -229,8 +219,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         pure
         returns (ProposerContext memory context_)
     {
-        context_.submissionWindowStart =
-            _data.currLookahead[_data.currLookahead.length - 1].timestamp;
+        context_.submissionWindowStart = _data.currLookahead[_data.currLookahead.length - 1]
+            .timestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
         if (_data.nextLookahead.length == 0) {
             // This is the case when the next lookahead is empty
@@ -290,9 +280,11 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         // Determine start of window
         if (_data.slotIndex == 0) {
-            context_.submissionWindowStart = _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            context_.submissionWindowStart = _epochTimestamp;
         } else {
-            context_.submissionWindowStart = _data.currLookahead[_data.slotIndex - 1].timestamp;
+            require(_data.slotIndex < _data.currLookahead.length, InvalidSlotIndex());
+            context_.submissionWindowStart = _data.currLookahead[_data.slotIndex - 1].timestamp
+                - LibPreconfConstants.SECONDS_IN_SLOT;
         }
     }
 
@@ -366,7 +358,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @inheritdoc ILookaheadStore
-    function isLookaheadRequired() public view returns (bool) {
+    function isLookaheadRequired() external view returns (bool) {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
         if (block.timestamp == epochTimestamp) {
             // Lookahead for the next epoch is not required to be posted in the first slot
@@ -405,8 +397,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         internal
         returns (bytes26 lookaheadHash_)
     {
-        require(isLookaheadRequired(), LookaheadNotRequired());
-
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
@@ -516,15 +506,15 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         // If opted out, the operator must have opted out within the previous or current epoch
         require(
             slasherCommitment_.optedOutAt == 0
-                || slasherCommitment_.optedOutAt > _prevEpochTimestamp,
-            OperatorHasNotOptedIn()
+                || slasherCommitment_.optedOutAt >= _prevEpochTimestamp,
+            OperatorHasOptedOut()
         );
 
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
         // The operator is not blacklisted, or blacklisted in the previous or the current epoch.
         bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
-            || blacklistTimestamps.blacklistedAt > _prevEpochTimestamp;
+            || blacklistTimestamps.blacklistedAt >= _prevEpochTimestamp;
 
         // If unblacklisted, the operator must have been unblacklisted before the start of the
         // previous epoch

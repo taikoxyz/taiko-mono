@@ -20,7 +20,7 @@ abstract contract Blacklist is IBlacklist {
 
     uint256[48] private __gap;
 
-    constructor(address[] memory _overseers) {
+    function __Blacklist_init(address[] memory _overseers) internal {
         for (uint256 i = 0; i < _overseers.length; i++) {
             overseers[_overseers[i]] = true;
         }

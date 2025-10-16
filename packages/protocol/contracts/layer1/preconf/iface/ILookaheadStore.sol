@@ -39,21 +39,18 @@ interface ILookaheadStore {
         /// @notice Index of the slot of the proposer in the current lookahead.
         /// @dev Must be set to type(uint256).max if the proposer is from the next epoch
         uint256 slotIndex;
-        /// @notice URC registration root of the lookahead poster
-        bytes32 registrationRoot;
         /// @notice Current epoch lookahead slots. It is only used for validation
-        /// @dev Must be provided exactly as originally posted by the previous lookahead poster
+        /// @dev Must be provided exactly as originally posted
         LookaheadSlot[] currLookahead;
         /// @notice Next epoch lookahead slots. If there's no lookahead stored for next epoch, it
         /// will be updated with this value
-        /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the
-        /// current epoch start
         /// @dev Can be empty for same-epoch proposers when next epoch lookahead already exists
         /// on-chain (gas optimization). Must be provided for cross-epoch proposers (need slot
         /// info) and fallback preconfers (responsible for posting/validation)
         LookaheadSlot[] nextLookahead;
-        /// @notice Commitment signature for the lookahead poster
-        /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
+        /// @notice Commitment signature for the next lookahead
+        /// @dev Must be set to an empty bytes if the lookahead for the next epoch is already
+        // posted or the preconfer is a whitelisted preconfer
         bytes commitmentSignature;
     }
 
@@ -78,21 +75,16 @@ interface ILookaheadStore {
     error InvalidSlotIndex();
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
-    error LookaheadNotRequired();
     error NotInbox();
     error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();
+    error OperatorHasOptedOut();
     error OperatorHasNotRegistered();
     error OperatorHasUnregistered();
-    error PosterHasBeenSlashed();
-    error PosterHasInsufficientCollateral();
-    error PosterHasNotOptedIn();
-    error PosterHasUnregistered();
     error ProposerIsNotPreconfer();
     error ProposerIsNotFallbackPreconfer();
-    error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
@@ -103,10 +95,7 @@ interface ILookaheadStore {
     /// @param _epochTimestamp The timestamp of the epoch.
     /// @param _lookaheadSlots The lookahead slots.
     /// @return The lookahead hash.
-    function calculateLookaheadHash(
-        uint256 _epochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots
-    )
+    function calculateLookaheadHash(uint256 _epochTimestamp, LookaheadSlot[] memory _lookaheadSlots)
         external
         pure
         returns (bytes26);
@@ -116,10 +105,7 @@ interface ILookaheadStore {
     /// @param _data The lookahead data for the proposer's epoch, plus the next epoch.
     /// @param _epochTimestamp The timestamp of the proposer's epoch.
     /// @return context_ The proposer context, including the proposer and submission window bounds.
-    function getProposerContext(
-        LookaheadData memory _data,
-        uint256 _epochTimestamp
-    )
+    function getProposerContext(LookaheadData memory _data, uint256 _epochTimestamp)
         external
         view
         returns (ProposerContext memory context_);
@@ -142,10 +128,7 @@ interface ILookaheadStore {
     /// @param _epochTimestamp The timestamp of the epoch for which the lookahead is posted.
     /// @param _registrationRoot The URC registration root of the operator.
     /// @return True if the operator is valid
-    function isLookaheadOperatorValid(
-        uint256 _epochTimestamp,
-        bytes32 _registrationRoot
-    )
+    function isLookaheadOperatorValid(uint256 _epochTimestamp, bytes32 _registrationRoot)
         external
         view
         returns (bool);
