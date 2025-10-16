@@ -157,14 +157,15 @@ where
     // Update forkchoice to promote the freshly inserted block as the new head and safe block.
     let promoted_state = ForkchoiceState {
         head_block_hash: block_hash,
-        safe_block_hash: forkchoice_state.head_block_hash,
-        finalized_block_hash: forkchoice_state.safe_block_hash,
+        // TODO: set the correct `safe_block_hash` and `finalized_block_hash`.
+        safe_block_hash: B256::ZERO,
+        finalized_block_hash: B256::ZERO,
     };
     rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
 
     forkchoice_state.head_block_hash = block_hash;
-    forkchoice_state.safe_block_hash = block_hash;
-    forkchoice_state.finalized_block_hash = payload.l1_origin.l1_block_hash.unwrap_or(block_hash);
+    forkchoice_state.safe_block_hash = B256::ZERO;
+    forkchoice_state.finalized_block_hash = B256::ZERO;
 
     info!(
         block_number,
