@@ -18,22 +18,16 @@ contract SgxAndZkVerifier is ComposeVerifier {
         )
     { }
 
-    function areVerifiersSufficient(uint8[] memory _verifierIds)
+    function areVerifiersSufficient(address[] memory _verifiers)
         internal
-        pure
+        view
         override
         returns (bool)
     {
-        if (_verifierIds.length != 2) return false;
+        if (_verifiers.length != 2) return false;
 
-        if (_verifierIds[0] == SGX_RETH) {
-            return _verifierIds[1] == RISC0_RETH || _verifierIds[1] == SP1_RETH;
-        }
-
-        if (_verifierIds[1] == SGX_RETH) {
-            return _verifierIds[0] == RISC0_RETH || _verifierIds[0] == SP1_RETH;
-        }
-
-        return false;
+        // SGX_RETH must be first (lowest ID=4), followed by RISC0_RETH (5) or SP1_RETH (6)
+        return _verifiers[0] == sgxRethVerifier
+            && (_verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1RethVerifier);
     }
 }
