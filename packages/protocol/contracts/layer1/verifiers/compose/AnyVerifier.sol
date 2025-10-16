@@ -27,7 +27,7 @@ contract AnyVerifier is ComposeVerifier {
         override
         returns (bool)
     {
-        if (_verifierIds.length != 1) return false;
+        if (_verifiers.length != 1) return false;
 
         return _verifierIds[0] == SGX_RETH || isZKVerifier(_verifierIds[0]);
     }

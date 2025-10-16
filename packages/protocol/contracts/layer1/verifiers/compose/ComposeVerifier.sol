@@ -37,33 +37,33 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// All other proofs share its status root, despite different public inputs
     /// due to different verification types.
     /// proofs come from geth client
-    address private immutable _sgxGethVerifier;
-    address private immutable _tdxGethVerifier;
+    address public immutable sgxGethVerifier;
+    address public immutable tdxGethVerifier;
     /// op for test purpose
-    address private immutable _opVerifier;
+    address public immutable opVerifier;
     /// proofs come from reth client
-    address private immutable _sgxRethVerifier;
-    address private immutable _risc0RethVerifier;
-    address private immutable _sp1RethVerifier;
+    address public immutable sgxRethVerifier;
+    address public immutable risc0RethVerifier;
+    address public immutable sp1RethVerifier;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     constructor(
-        address __sgxGethVerifier,
-        address __tdxGethVerifier,
-        address __opVerifier,
-        address __sgxRethVerifier,
-        address __risc0RethVerifier,
-        address __sp1RethVerifier
+        address _sgxGethVerifier,
+        address _tdxGethVerifier,
+        address _opVerifier,
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
     ) {
-        _sgxGethVerifier = __sgxGethVerifier;
-        _tdxGethVerifier = __tdxGethVerifier;
-        _opVerifier = __opVerifier;
-        _sgxRethVerifier = __sgxRethVerifier;
-        _risc0RethVerifier = __risc0RethVerifier;
-        _sp1RethVerifier = __sp1RethVerifier;
+        sgxGethVerifier = _sgxGethVerifier;
+        tdxGethVerifier = _tdxGethVerifier;
+        opVerifier = _opVerifier;
+        sgxRethVerifier = _sgxRethVerifier;
+        risc0RethVerifier = _risc0RethVerifier;
+        sp1RethVerifier = _sp1RethVerifier;
     }
 
     // ---------------------------------------------------------------
@@ -81,7 +81,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
-        uint8[] memory verifierIds = new uint8[](size);
+        address[] memory verifiers = new address[](size);
 
         uint8 lastVerifierId;
 
@@ -97,7 +97,7 @@ abstract contract ComposeVerifier is IProofVerifier {
             IProofVerifier(verifier)
                 .verifyProof(_youngestProposalAge, _transitionsHash, subProofs[i].proof);
 
-            verifierIds[i] = verifierId;
+            verifiers[i] = verifier;
             lastVerifierId = verifierId;
         }
 
@@ -114,12 +114,12 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// @param _verifierId The verifier ID to query
     /// @return The address of the verifier (or address(0) if invalid)
     function getVerifierAddress(uint8 _verifierId) public view returns (address) {
-        if (_verifierId == SGX_GETH) return _sgxGethVerifier;
-        if (_verifierId == TDX_GETH) return _tdxGethVerifier;
-        if (_verifierId == OP) return _opVerifier;
-        if (_verifierId == SGX_RETH) return _sgxRethVerifier;
-        if (_verifierId == RISC0_RETH) return _risc0RethVerifier;
-        if (_verifierId == SP1_RETH) return _sp1RethVerifier;
+        if (_verifierId == SGX_GETH) return sgxGethVerifier;
+        if (_verifierId == TDX_GETH) return tdxGethVerifier;
+        if (_verifierId == OP) return opVerifier;
+        if (_verifierId == SGX_RETH) return sgxRethVerifier;
+        if (_verifierId == RISC0_RETH) return risc0RethVerifier;
+        if (_verifierId == SP1_RETH) return sp1RethVerifier;
         return address(0);
     }
 
@@ -133,9 +133,13 @@ abstract contract ComposeVerifier is IProofVerifier {
 
     function areVerifiersSufficient(uint256 _youngestProposalAge, uint8[] memory _verifierIds)
         internal
-        view
+        pure
         virtual
         returns (bool);
+
+    error CV_INVALID_SUB_VERIFIER();
+    error CV_INVALID_SUB_VERIFIER_ORDER();
+    error CV_VERIFIERS_INSUFFICIENT();
 }
 
 // ---------------------------------------------------------------
