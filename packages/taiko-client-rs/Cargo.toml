@@ -65,12 +65,14 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.2.1-alpha"
+event-scanner = "=0.3.0-alpha"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
 alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = ["serde"] }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
+  "serde",
+] }
 alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main" }
 
 # types
