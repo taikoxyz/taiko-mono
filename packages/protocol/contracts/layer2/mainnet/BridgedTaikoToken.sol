@@ -24,10 +24,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         __ERC20Permit_init("Taiko Token");
     }
 
-    function mint(
-        address _account,
-        uint256 _amount
-    )
+    function mint(address _account, uint256 _amount)
         external
         override
         whenNotPaused

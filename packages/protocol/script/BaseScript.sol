@@ -34,11 +34,7 @@ abstract contract BaseScript is Script {
         return address(new TransparentUpgradeableProxy(_impl, _admin, _data));
     }
 
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data
-    )
+    function deploy(bytes32 name, address impl, bytes memory data)
         internal
         returns (address proxy)
     {
@@ -55,12 +51,7 @@ abstract contract BaseScript is Script {
         }
     }
 
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data,
-        DefaultResolver _resolver
-    )
+    function deploy(bytes32 name, address impl, bytes memory data, DefaultResolver _resolver)
         internal
         returns (address proxy)
     {

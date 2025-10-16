@@ -19,11 +19,7 @@ library LibBridgedToken {
         if (_to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
     }
 
-    function buildURI(
-        address _srcToken,
-        uint256 _srcChainId,
-        string memory _extraParams
-    )
+    function buildURI(address _srcToken, uint256 _srcChainId, string memory _extraParams)
         internal
         pure
         returns (string memory)
