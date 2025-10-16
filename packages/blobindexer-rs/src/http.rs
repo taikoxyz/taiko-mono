@@ -148,13 +148,6 @@ async fn list_blobs_by_slot(
     Path(slot): Path<u64>,
 ) -> RestResult<Json<Vec<BlobServerResponse>>> {
     let slot_i64 = i64::try_from(slot).map_err(|_| ApiError::bad_request("slot out of range"))?;
-    let _block = state
-        .storage
-        .get_block_by_slot(state.storage.pool(), slot_i64)
-        .await
-        .map_err(ApiError::from)?
-        .filter(|b| b.canonical)
-        .ok_or_else(|| ApiError::not_found("canonical block not found"))?;
 
     let blobs = state
         .storage
