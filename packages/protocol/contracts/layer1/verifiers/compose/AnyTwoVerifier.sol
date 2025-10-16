@@ -24,21 +24,21 @@ contract AnyTwoVerifier is ComposeVerifier {
 
     function areSubProofsSufficient(
         uint256, /* _proposalAge */
-        SubProof[] memory _subProofs
+        address[] memory _verifiers
     )
         internal
-        pure
+        view
         override
         returns (bool)
     {
-        if (_subProofs.length != 2) return false;
+        if (_verifiers.length != 2) return false;
 
         // Valid combinations (in ascending ID order):
         // [SGX_RETH, RISC0_RETH], [SGX_RETH, SP1_RETH], [RISC0_RETH, SP1_RETH]
-        if (_subProofs[0].verifierId == SGX_RETH) {
-            return isZKVerifier(_subProofs[1].verifierId);
-        } else if (_subProofs[0].verifierId == RISC0_RETH) {
-            return _subProofs[1].verifierId == SP1_RETH;
+        if (_verifiers[0] == sgxRethVerifier) {
+            return isZKVerifierAddress(_verifiers[1]);
+        } else if (_verifiers[0] == risc0RethVerifier) {
+            return _verifiers[1] == sp1RethVerifier;
         }
 
         return false;

@@ -24,14 +24,14 @@ contract AnyVerifier is ComposeVerifier {
 
     function areSubProofsSufficient(
         uint256, /* _proposalAge */
-        SubProof[] memory _subProofs
+        address[] memory _verifiers
     )
         internal
-        pure
+        view
         override
         returns (bool)
     {
-        if (_subProofs.length != 1) return false;
-        return _subProofs[0].verifierId == SGX_RETH || isZKVerifier(_subProofs[0].verifierId);
+        if (_verifiers.length != 1) return false;
+        return _verifiers[0] == sgxRethVerifier || isZKVerifierAddress(_verifiers[0]);
     }
 }

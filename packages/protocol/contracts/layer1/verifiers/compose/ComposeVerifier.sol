@@ -104,7 +104,7 @@ abstract contract ComposeVerifier is IProofVerifier {
             lastVerifierId = verifierId;
         }
 
-        require(areSubProofsSufficient(_proposalAge, subProofs), InsufficientSubVerifiers());
+        require(areSubProofsSufficient(_proposalAge, verifiers), InsufficientSubVerifiers());
     }
 
     // ---------------------------------------------------------------
@@ -128,19 +128,20 @@ abstract contract ComposeVerifier is IProofVerifier {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    function isZKVerifier(uint8 _verifierId) internal pure returns (bool) {
-        return _verifierId == RISC0_RETH || _verifierId == SP1_RETH;
+    /// @dev Checks if a verifier address corresponds to a ZK verifier
+    function isZKVerifierAddress(address _verifier) internal view returns (bool) {
+        return _verifier == risc0RethVerifier || _verifier == sp1RethVerifier;
     }
 
     /// @dev Checks if the provided verifiers are sufficient
-    /// NOTE: subProofs are provided in ascending order of their IDs,
-    /// and the _proposalAge will be zero if there are more than one sub proofs in subProofs.
+    /// NOTE: verifiers are provided in ascending order by their corresponding IDs,
+    /// and the _proposalAge will be zero if there are more than one verifier in verifiers.
     function areSubProofsSufficient(
         uint256 _proposalAge,
-        SubProof[] memory subProofs
+        address[] memory verifiers
     )
         internal
-        pure
+        view
         virtual
         returns (bool);
 

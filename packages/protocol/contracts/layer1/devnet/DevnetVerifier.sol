@@ -28,28 +28,29 @@ contract DevnetVerifier is ComposeVerifier {
     /// @dev Requires exactly 2 verifiers: SGX + (OP or RISC0 or SP1)
     function areSubProofsSufficient(
         uint256, /* _proposalAge */
-        SubProof[] memory _subProofs
+        address[] memory _verifiers
     )
         internal
-        pure
+        view
         override
         returns (bool)
     {
-        if (_subProofs.length != 2) return false;
+        if (_verifiers.length != 2) return false;
 
         // Determine which verifier is SGX and which is the second verifier
         uint256 secondVerifierIdx;
-        if (_subProofs[0].verifierId == SGX_RETH) {
+
+        if (_verifiers[0] == sgxRethVerifier) {
             secondVerifierIdx = 1;
-        } else if (_subProofs[1].verifierId == SGX_RETH) {
+        } else if (_verifiers[1] == sgxRethVerifier) {
             secondVerifierIdx = 0;
         } else {
             // One of the verifiers MUST be SGX
             return false;
         }
 
-        uint8 verifierId = _subProofs[secondVerifierIdx].verifierId;
+        address secondVerifier = _verifiers[secondVerifierIdx];
         // The second verifier must be one of: OP, RISC0, or SP1
-        return verifierId == OP || verifierId == RISC0_RETH || verifierId == SP1_RETH;
+        return secondVerifier == opVerifier || isZKVerifierAddress(secondVerifier);
     }
 }

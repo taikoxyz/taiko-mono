@@ -24,16 +24,16 @@ contract SgxAndZkVerifier is ComposeVerifier {
 
     function areSubProofsSufficient(
         uint256, /* _proposalAge */
-        SubProof[] memory _subProofs
+        address[] memory _verifiers
     )
         internal
-        pure
+        view
         override
         returns (bool)
     {
-        if (_subProofs.length != 2) return false;
+        if (_verifiers.length != 2) return false;
 
         // SGX_RETH must be first (lowest ID=4), followed by RISC0_RETH (5) or SP1_RETH (6)
-        return _subProofs[0].verifierId == SGX_RETH && isZKVerifier(_subProofs[1].verifierId);
+        return _verifiers[0] == sgxRethVerifier && isZKVerifierAddress(_verifiers[1]);
     }
 }
