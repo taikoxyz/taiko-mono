@@ -61,9 +61,9 @@ type Driver struct {
 	// Last epoch when the handover config was reloaded
 	lastConfigReloadEpoch uint64
 
-	ctx context.Context
-  cancel context.CancelFunc
-	wg  sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.

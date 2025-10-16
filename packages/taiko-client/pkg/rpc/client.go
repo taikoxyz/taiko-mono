@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -282,7 +283,11 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 
 	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
 	if err != nil {
-		return fmt.Errorf("failed to get shasta fork height: %w", err)
+		log.Warn("Failed to get shasta fork height from Shasta Anchor contract, try to get it from Pacaya Inbox")
+		shastaForkHeight = c.PacayaClients.ForkHeights.Shasta
+		if shastaForkHeight != 0 && shastaForkHeight < c.PacayaClients.ForkHeights.Pacaya {
+			return errors.New("failed to get shasta fork height")
+		}
 	}
 
 	config, err := shastaInbox.GetConfig(&bind.CallOpts{Context: ctx})
