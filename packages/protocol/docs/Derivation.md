@@ -256,6 +256,8 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
+If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
+
 ### Metadata Validation and Computation
 
 With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
@@ -311,6 +313,8 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
    - If below `lowerBound`: Clamp to `lowerBound`
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
+
+After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.updateState` transaction.
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
@@ -509,6 +513,8 @@ The following block header fields are also set before transaction execution but 
 | `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
+
+For Shasta specifically, consensus pins the base fee to `25_000_000 wei` for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
 
 ### Anchor Transaction
 
