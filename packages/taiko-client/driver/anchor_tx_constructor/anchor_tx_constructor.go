@@ -117,18 +117,21 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"blockIndex", blockIndex,
 	)
 
-	return c.rpc.ShastaClients.Anchor.UpdateState(
+	return c.rpc.ShastaClients.Anchor.Anchor(
 		opts,
-		proposalId,
-		proposer,
-		proverAuth,
-		bondInstructionsHash,
-		bondInstructions,
-		blockIndex,
-		anchorBlockNumber,
-		anchorBlockHash,
-		anchorStateRoot,
-		endOfSubmissionWindowTimestamp,
+		shastaBindings.AnchorProposalParams{
+			ProposalId:           proposalId,
+			Proposer:             proposer,
+			ProverAuth:           proverAuth,
+			BondInstructionsHash: bondInstructionsHash,
+			BondInstructions:     bondInstructions,
+		},
+		shastaBindings.AnchorBlockParams{
+			BlockIndex:        blockIndex,
+			AnchorBlockNumber: anchorBlockNumber,
+			AnchorBlockHash:   anchorBlockHash,
+			AnchorStateRoot:   anchorStateRoot,
+		},
 	)
 }
 

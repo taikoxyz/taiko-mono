@@ -26,7 +26,8 @@ type Config struct {
 	L2HttpEndpoint            string
 	PacayaInboxAddress        common.Address
 	ShastaInboxAddress        common.Address
-	TaikoAnchorAddress        common.Address
+	PacayaAnchorAddress       common.Address
+	ShastaAnchorAddress       common.Address
 	TaikoTokenAddress         common.Address
 	ProverSetAddress          common.Address
 	L1ProverPrivKey           *ecdsa.PrivateKey
@@ -102,7 +103,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
 		PacayaInboxAddress:     common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 		ShastaInboxAddress:     common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
-		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+		PacayaAnchorAddress:    common.HexToAddress(c.String(flags.PacayaAnchorAddress.Name)),
+		ShastaAnchorAddress:    common.HexToAddress(c.String(flags.ShastaAnchorAddress.Name)),
 		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:        l1ProverPrivKey,
