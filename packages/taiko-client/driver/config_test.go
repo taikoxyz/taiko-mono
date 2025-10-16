@@ -24,7 +24,8 @@ var (
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
 	pacayaInbox      = os.Getenv("PACAYA_INBOX")
 	shastaInbox      = os.Getenv("SHASTA_INBOX")
-	taikoAnchor      = os.Getenv("TAIKO_ANCHOR")
+	pacayaAnchor     = os.Getenv("PACAYA_ANCHOR")
+	shastaAnchor     = os.Getenv("SHASTA_ANCHOR")
 )
 
 func (s *DriverTestSuite) TestNewConfigFromCliContext() {
@@ -38,7 +39,8 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(l2Endpoint, c.L2Endpoint)
 		s.Equal(l2EngineEndpoint, c.L2EngineEndpoint)
 		s.Equal(pacayaInbox, c.PacayaInboxAddress.String())
-		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
+		s.Equal(pacayaAnchor, c.PacayaAnchorAddress.String())
+		s.Equal(shastaAnchor, c.ShastaAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
@@ -56,7 +58,8 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
 		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
 		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
-		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
+		"--" + flags.PacayaAnchorAddress.Name, pacayaAnchor,
+		"--" + flags.ShastaAnchorAddress.Name, shastaAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
@@ -96,7 +99,8 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
 		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
-		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
+		&cli.StringFlag{Name: flags.PacayaAnchorAddress.Name},
+		&cli.StringFlag{Name: flags.ShastaAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
@@ -143,7 +147,8 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
 		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
 		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
-		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
+		"--" + flags.PacayaAnchorAddress.Name, pacayaAnchor,
+		"--" + flags.ShastaAnchorAddress.Name, shastaAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",

@@ -42,8 +42,9 @@ contract LibProposeInputDecoderGas is Test {
     )
         private
     {
-        IInbox.ProposeInput memory input =
-            _createTestData(_proposalCount, _transitionCount, _totalBondInstructions);
+        IInbox.ProposeInput memory input = _createTestData(
+            _proposalCount, _transitionCount, _totalBondInstructions
+        );
 
         // Prepare encoded data
         bytes memory abiEncoded = abi.encode(input);
@@ -159,9 +160,7 @@ contract LibProposeInputDecoderGas is Test {
         }
 
         input.blobReference = LibBlobs.BlobReference({
-            blobStartIndex: 1,
-            numBlobs: uint16(_proposalCount * 2),
-            offset: 512
+            blobStartIndex: 1, numBlobs: uint16(_proposalCount * 2), offset: 512
         });
 
         input.transitionRecords = new IInbox.TransitionRecord[](_transitionCount);
@@ -181,7 +180,9 @@ contract LibProposeInputDecoderGas is Test {
             for (uint256 j = 0; j < bondsForThisTransition; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(96 + i),
-                    bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
+                    bondType: j % 2 == 0
+                        ? LibBonds.BondType.LIVENESS
+                        : LibBonds.BondType.PROVABILITY,
                     payer: address(uint160(0xaaaa + bondIndex)),
                     payee: address(uint160(0xbbbb + bondIndex))
                 });
@@ -198,9 +199,7 @@ contract LibProposeInputDecoderGas is Test {
 
         // Add checkpoint if needed
         input.checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 0,
-            blockHash: bytes32(0),
-            stateRoot: bytes32(0)
+            blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
         });
     }
 

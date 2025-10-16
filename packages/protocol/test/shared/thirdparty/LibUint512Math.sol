@@ -54,12 +54,7 @@ library LibUint512Math {
     /// @param b1 The higher 256 bits of the second number.
     /// @return r0 The lower 256 bits of the result.
     /// @return r1 The higher 256 bits of the result.
-    function add(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    )
+    function add(uint256 a0, uint256 a1, uint256 b0, uint256 b1)
         internal
         pure
         returns (uint256 r0, uint256 r1)

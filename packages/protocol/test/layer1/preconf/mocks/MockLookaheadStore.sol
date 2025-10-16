@@ -16,10 +16,7 @@ contract MockLookaheadStore {
         return lookaheadHashes[_epochTimestamp];
     }
 
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        bytes calldata _data
-    )
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data)
         external
         returns (bytes26 lookaheadHash_)
     {
