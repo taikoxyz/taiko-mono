@@ -186,7 +186,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
         });
 
-        Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        if (vm.envBool("ACTIVATE_INBOX")) {
+            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+        }
         console2.log("ShastaInbox deployed:", shastaInbox);
     }
 
