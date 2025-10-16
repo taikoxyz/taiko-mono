@@ -1040,53 +1040,85 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 		case proposal := <-s.latestSeenProposalCh:
 			s.recordLatestSeenProposal(proposal)
 		case <-ticker.C:
-			s.monitorLatestPacayaProposalOnChain(ctx)
+			s.monitorLatestProposalOnChain(ctx)
 		}
 	}
 }
 
-// monitorLatestPacayaProposalOnChain refreshes the latest Pacaya proposal from L1 if the cached proposal reorgs.
-func (s *PreconfBlockAPIServer) monitorLatestPacayaProposalOnChain(ctx context.Context) {
+// monitorLatestProposalOnChain refreshes the latest proposal from L1 if the cached proposal reorgs.
+func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context) {
 	proposal := s.latestSeenProposal
-	if proposal == nil || !proposal.IsPacaya() {
+	if proposal == nil {
 		return
 	}
 
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		log.Error("Failed to get states from Pacaya Inbox", "error", err)
-		return
-	}
+	if proposal.IsPacaya() {
+		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			log.Error("Failed to get states from Pacaya Inbox", "error", err)
+			return
+		}
 
-	numBatches := stateVars.Stats2.NumBatches
-	if numBatches == 0 {
-		return
-	}
+		numBatches := stateVars.Stats2.NumBatches
+		if numBatches == 0 {
+			return
+		}
 
-	latestSeenBatchID := proposal.Pacaya().GetBatchID()
-	latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
-	if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
-		return
-	}
+		latestSeenBatchID := proposal.Pacaya().GetBatchID()
+		latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
+		if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
+			return
+		}
 
-	iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
-		&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
-	)
-	if err != nil {
-		log.Error("Failed to filter batch proposed event", "err", err)
-		return
-	}
-	defer iterPacaya.Close()
+		iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
+			&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
+		)
+		if err != nil {
+			log.Error("Failed to filter batch proposed event", "err", err)
+			return
+		}
+		defer iterPacaya.Close()
 
-	for iterPacaya.Next() {
-		s.recordLatestSeenProposal(&encoding.LastSeenProposal{
-			TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
-			PreconfChainReorged:   true,
-		})
-	}
+		for iterPacaya.Next() {
+			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
+				PreconfChainReorged:   true,
+			})
+		}
 
-	if err := iterPacaya.Error(); err != nil {
-		log.Error("Failed to iterate batch proposed events", "err", err)
+		if err := iterPacaya.Error(); err != nil {
+			log.Error("Failed to iterate batch proposed events", "err", err)
+		}
+	} else {
+		latestSeenProposalID := proposal.Shasta().GetProposal().Id
+		shastaProposal := s.shastaIndexer.GetLastProposal()
+		if latestSeenProposalID.Cmp(shastaProposal.Proposal.Id) <= 0 {
+			return
+		}
+		iterShasta, err := s.rpc.ShastaClients.Inbox.FilterProposed(
+			&bind.FilterOpts{Start: shastaProposal.RawBlockHeight.Uint64(), Context: ctx},
+		)
+		if err != nil {
+			log.Error("Failed to filter proposed event", "err", err)
+			return
+		}
+		defer iterShasta.Close()
+
+		for iterShasta.Next() {
+			proposedEventPayload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, iterShasta.Event.Data)
+			if err != nil {
+				log.Error("Failed to decode proposed event data", "err", err)
+				return
+			}
+			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+				TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, iterShasta.Event.Raw),
+				PreconfChainReorged:   true,
+			})
+		}
+
+		if err := iterShasta.Error(); err != nil {
+			log.Error("Failed to iterate proposed events", "err", err)
+		}
 	}
 }
 
