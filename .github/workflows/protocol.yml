@@ -73,7 +73,7 @@ jobs:
       - name: Clean up and fmt
         if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt
+        run: pnpm clean && pnpm fmt:sol
 
       - name: Test Shared contracts
         working-directory: ./packages/protocol
