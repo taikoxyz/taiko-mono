@@ -66,11 +66,7 @@ contract BridgedERC1155 is
     }
 
     /// @inheritdoc IBridgedERC1155
-    function mintBatch(
-        address _to,
-        uint256[] calldata _tokenIds,
-        uint256[] calldata _amounts
-    )
+    function mintBatch(address _to, uint256[] calldata _tokenIds, uint256[] calldata _amounts)
         external
         whenNotPaused
         onlyFrom(erc1155Vault)
@@ -80,10 +76,7 @@ contract BridgedERC1155 is
     }
 
     /// @inheritdoc IBridgedERC1155
-    function burn(
-        uint256 _id,
-        uint256 _amount
-    )
+    function burn(uint256 _id, uint256 _amount)
         external
         whenNotPaused
         onlyFrom(erc1155Vault)

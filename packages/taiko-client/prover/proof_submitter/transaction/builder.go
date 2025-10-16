@@ -150,7 +150,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 					return nil, err
 				}
 			}
-			state, err := a.rpc.GetShastaAnchorState(&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()})
+			_, proposalState, err := a.rpc.GetShastaAnchorState(
+				&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()},
+			)
 			if err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
@@ -165,7 +167,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				},
 			}
 			metadatas[i] = shastaBindings.IInboxTransitionMetadata{
-				DesignatedProver: state.DesignatedProver,
+				DesignatedProver: proposalState.DesignatedProver,
 				ActualProver:     txOpts.From,
 			}
 
@@ -176,7 +178,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				"parentTransitionHash", common.Bytes2Hex(transitions[i].ParentTransitionHash[:]),
 				"start", proofResponse.Opts.ShastaOptions().Headers[0].Number,
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
-				"designatedProver", state.DesignatedProver,
+				"designatedProver", proposalState.DesignatedProver,
 				"actualProver", txOpts.From,
 			)
 		}

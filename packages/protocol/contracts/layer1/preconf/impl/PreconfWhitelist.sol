@@ -49,11 +49,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
-    function init(
-        address _owner,
-        uint8 _operatorChangeDelay,
-        uint8 _randomnessDelay
-    )
+    function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay)
         external
         initializer
     {
@@ -83,10 +79,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @param _proposer The proposer address of the operator to remove.
     /// @param _effectiveImmediately True if the removal should be effective immediately, otherwise
     /// it will be effective in two epochs.
-    function removeOperator(
-        address _proposer,
-        bool _effectiveImmediately
-    )
+    function removeOperator(address _proposer, bool _effectiveImmediately)
         external
         onlyOwnerOrEjecter
     {
@@ -148,10 +141,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IProposerChecker
-    function checkProposer(
-        address _proposer,
-        bytes calldata
-    )
+    function checkProposer(address _proposer, bytes calldata)
         external
         view
         override(IProposerChecker)
@@ -190,10 +180,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @param _proposer The proposer address of the operator to check.
     /// @param _epochTimestamp The timestamp of the epoch to check.
     /// @return _ True if the operator is active in the given epoch, false otherwise.
-    function isOperatorActive(
-        address _proposer,
-        uint32 _epochTimestamp
-    )
+    function isOperatorActive(address _proposer, uint32 _epochTimestamp)
         public
         view
         returns (bool)
@@ -215,11 +202,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         );
     }
 
-    function _addOperator(
-        address _proposer,
-        address _sequencer,
-        uint8 _operatorChangeDelay
-    )
+    function _addOperator(address _proposer, address _sequencer, uint8 _operatorChangeDelay)
         internal
     {
         require(_proposer != address(0), InvalidOperatorAddress());
