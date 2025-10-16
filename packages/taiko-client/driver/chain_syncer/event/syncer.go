@@ -44,8 +44,9 @@ type Syncer struct {
 	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
 	blocksInserterShasta blocksInserter.Inserter // Shasta blocks inserter
 
-	lastInsertedBatchID *big.Int
-	reorgDetectedFlag   bool
+	lastInsertedShastaBatchID *big.Int
+	lastInsertedPacayaBatchID *big.Int
+	reorgDetectedFlag         bool
 
 	// Shasta derivation source fetcher
 	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
@@ -141,7 +142,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		)
 
 		s.state.SetL1Current(newL1Current)
-		s.lastInsertedBatchID = nil
+		s.lastInsertedShastaBatchID = nil
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
@@ -197,7 +198,7 @@ func (s *Syncer) processShastaProposal(
 	// We simply ignore the genesis Shasta block's `Proposed` event.
 	if meta.GetProposal().Id.Cmp(common.Big0) == 0 {
 		// Reset the lastInsertedBatchID when processing the genesis Shasta proposal.
-		s.lastInsertedBatchID = common.Big0
+		s.lastInsertedShastaBatchID = common.Big0
 		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetProposal().Id)
 		return nil
 	}
@@ -217,11 +218,11 @@ func (s *Syncer) processShastaProposal(
 				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
+				"lastInsertedBlockIDOld", s.lastInsertedShastaBatchID,
 				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+			s.lastInsertedShastaBatchID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -230,11 +231,11 @@ func (s *Syncer) processShastaProposal(
 	}
 
 	// Ignore those already inserted blatches.
-	if s.lastInsertedBatchID != nil && meta.GetProposal().Id.Cmp(s.lastInsertedBatchID) <= 0 {
+	if s.lastInsertedShastaBatchID != nil && meta.GetProposal().Id.Cmp(s.lastInsertedShastaBatchID) <= 0 {
 		log.Debug(
 			"Skip already inserted batch",
 			"batchID", meta.GetProposal().Id,
-			"lastInsertedBatchID", s.lastInsertedBatchID,
+			"lastInsertedBatchID", s.lastInsertedShastaBatchID,
 		)
 		return nil
 	}
@@ -484,11 +485,11 @@ func (s *Syncer) processPacayaBatch(
 				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
+				"lastInsertedBlockIDOld", s.lastInsertedPacayaBatchID,
 				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+			s.lastInsertedPacayaBatchID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -497,11 +498,11 @@ func (s *Syncer) processPacayaBatch(
 	}
 
 	// Ignore those already inserted blatches.
-	if s.lastInsertedBatchID != nil && meta.Pacaya().GetBatchID().Cmp(s.lastInsertedBatchID) <= 0 {
+	if s.lastInsertedPacayaBatchID != nil && meta.Pacaya().GetBatchID().Cmp(s.lastInsertedPacayaBatchID) <= 0 {
 		log.Debug(
 			"Skip already inserted batch",
 			"batchID", meta.Pacaya().GetBatchID(),
-			"lastInsertedBatchID", s.lastInsertedBatchID,
+			"lastInsertedBatchID", s.lastInsertedPacayaBatchID,
 		)
 		return nil
 	}
@@ -532,7 +533,7 @@ func (s *Syncer) processPacayaBatch(
 	}
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
-	s.lastInsertedBatchID = meta.Pacaya().GetBatchID()
+	s.lastInsertedPacayaBatchID = meta.Pacaya().GetBatchID()
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
@@ -557,7 +558,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 
 	// If the current L2 chain is behind of the last verified block, we skip the check.
 	if s.state.GetL2Head().Number.Uint64() < ts.BlockId ||
-		(s.lastInsertedBatchID != nil && s.lastInsertedBatchID.Uint64() < ts.BlockId) {
+		(s.lastInsertedPacayaBatchID != nil && s.lastInsertedPacayaBatchID.Uint64() < ts.BlockId) {
 		return reorgCheckResult, nil
 	}
 
