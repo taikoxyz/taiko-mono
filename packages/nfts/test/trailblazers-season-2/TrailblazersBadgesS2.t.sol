@@ -4,9 +4,9 @@ pragma solidity 0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
+import { UtilsScript } from "script/taikoon/sol/Utils.s.sol";
 import { TrailblazersBadgesS2 } from
-    "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
+    "contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 
 contract TrailblazersBadgesS2Test is Test {
     UtilsScript public utils;

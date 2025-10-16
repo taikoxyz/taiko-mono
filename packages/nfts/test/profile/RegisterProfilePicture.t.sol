@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import { Test, console } from "forge-std/src/Test.sol";
-import { RegisterProfilePicture } from "../../contracts/profile/RegisterProfilePicture.sol";
+import { RegisterProfilePicture } from "contracts/profile/RegisterProfilePicture.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ERC721Mock, ERC1155Mock, MockInvalidNFT } from "../util/MockTokens.sol";
 

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 
-import "../../contracts/blacklist/Blacklist.sol";
+import "contracts/blacklist/Blacklist.sol";
 
 contract TestBlacklist is Test {
     address private admin = vm.addr(0x1);

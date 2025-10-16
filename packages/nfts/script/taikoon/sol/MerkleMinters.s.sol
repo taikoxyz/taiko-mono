@@ -6,8 +6,8 @@ import "forge-std/src/StdJson.sol";
 import { UtilsScript } from "./Utils.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "./CsvParser.sol";
-import { MerkleWhitelist } from "../../../contracts/taikoon/MerkleWhitelist.sol";
-import { TaikoonToken } from "../../../contracts/taikoon/TaikoonToken.sol";
+import { MerkleWhitelist } from "src/taikoon/MerkleWhitelist.sol";
+import { TaikoonToken } from "src/taikoon/TaikoonToken.sol";
 
 contract MerkleMintersScript is Script {
     using stdJson for string;

@@ -3,10 +3,10 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
+import { TaikoonToken } from "contracts/taikoon/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
+import { UtilsScript } from "script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 
 contract TaikoonTokenTest is Test {

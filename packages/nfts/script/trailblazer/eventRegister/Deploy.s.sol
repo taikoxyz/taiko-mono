@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Script, console } from "forge-std/src/Script.sol";
-import { EventRegister } from "../../../contracts/eventRegister/EventRegister.sol";
+import { EventRegister } from "src/eventRegister/EventRegister.sol";
 
 contract DeployEventRegisterScript is Script {
     function run() public {
