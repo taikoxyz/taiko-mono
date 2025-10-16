@@ -27,7 +27,10 @@ library V3Parser {
     error V3PARSER_INVALID_ECDSA_SIGNATURE();
     error V3PARSER_INVALID_QEAUTHDATA_SIZE();
 
-    function parseInput(bytes memory quote, address pemCertLibAddr)
+    function parseInput(
+        bytes memory quote,
+        address pemCertLibAddr
+    )
         internal
         pure
         returns (bool success, V3Struct.ParsedV3QuoteStruct memory v3ParsedQuote)
@@ -58,7 +61,9 @@ library V3Parser {
         V3Struct.EnclaveReport memory localEnclaveReport = parseEnclaveReport(rawLocalEnclaveReport);
 
         v3ParsedQuote = V3Struct.ParsedV3QuoteStruct({
-            header: header, localEnclaveReport: localEnclaveReport, v3AuthData: authDataV3
+            header: header,
+            localEnclaveReport: localEnclaveReport,
+            v3AuthData: authDataV3
         });
         success = true;
     }
@@ -113,8 +118,7 @@ library V3Parser {
             revert V3PARSER_INVALID_QEAUTHDATA_SIZE();
         }
 
-        uint32 totalQuoteSize =
-            48 // header
+        uint32 totalQuoteSize = 48 // header
             + 384 // local QE report
             + 64 // ecdsa256BitSignature
             + 64 // ecdsaAttestationKey
@@ -214,7 +218,10 @@ library V3Parser {
         success = true;
     }
 
-    function parseAuthDataAndVerifyCertType(bytes memory rawAuthData, address pemCertLibAddr)
+    function parseAuthDataAndVerifyCertType(
+        bytes memory rawAuthData,
+        address pemCertLibAddr
+    )
         private
         pure
         returns (bool success, V3Struct.ECDSAQuoteV3AuthData memory authDataV3)
@@ -275,7 +282,10 @@ library V3Parser {
         );
     }
 
-    function parseCerificationChainBytes(bytes memory certBytes, address pemCertLibAddr)
+    function parseCerificationChainBytes(
+        bytes memory certBytes,
+        address pemCertLibAddr
+    )
         internal
         pure
         returns (bytes[3] memory certChainData)

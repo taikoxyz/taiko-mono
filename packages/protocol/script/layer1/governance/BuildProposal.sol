@@ -97,13 +97,18 @@ abstract contract BuildProposal is Script {
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(l2Actions));
     }
 
-    function buildUpgradeAction(address _target, address _newImpl)
+    function buildUpgradeAction(
+        address _target,
+        address _newImpl
+    )
         internal
         pure
         returns (Controller.Action memory)
     {
         return Controller.Action({
-            target: _target, value: 0, data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
+            target: _target,
+            value: 0,
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
         });
     }
 
@@ -142,7 +147,9 @@ abstract contract BuildProposal is Script {
             );
 
             allActions_[l1Actions.length] = Controller.Action({
-                target: L1.BRIDGE, value: 0, data: abi.encodeCall(IBridge.sendMessage, (message))
+                target: L1.BRIDGE,
+                value: 0,
+                data: abi.encodeCall(IBridge.sendMessage, (message))
             });
         }
     }

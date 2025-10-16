@@ -50,7 +50,10 @@ contract TaikoToken is TaikoTokenBase {
         super.delegate(_account);
     }
 
-    function getPastVotes(address _account, uint256 _timepoint)
+    function getPastVotes(
+        address _account,
+        uint256 _timepoint
+    )
         public
         view
         override

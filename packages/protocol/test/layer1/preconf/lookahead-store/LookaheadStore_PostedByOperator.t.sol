@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
-    /*
+/*
                 // Lookahead posting accepted
                 // -------------------------------------------------------------------
 
@@ -352,7 +352,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 // Lookahead posting reverts (Invalid inputs)
                 // -------------------------------------------------------------------
 
-                function test_revertsWhenLookaheadIsAlreadyPostedForNextEpoch() external useMainnet {
+function test_revertsWhenLookaheadIsAlreadyPostedForNextEpoch() external useMainnet {
                     (
                         ,
                         SetupOperator[] memory _lookaheadOperators,
@@ -371,7 +371,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     _updateLookahead(signedCommitment);
                 }
 
-                function test_revertsWhenSlotTimestampIsNotIncrementing_Case1() external useMainnet {
+function test_revertsWhenSlotTimestampIsNotIncrementing_Case1() external useMainnet {
                     (
                         ,
                         SetupOperator[] memory _lookaheadOperators,
@@ -390,7 +390,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     _updateLookahead(signedCommitment);
                 }
 
-                function test_revertsWhenSlotTimestampIsNotIncrementing_Case2() external useMainnet {
+function test_revertsWhenSlotTimestampIsNotIncrementing_Case2() external useMainnet {
                     (
                         ,
                         SetupOperator[] memory _lookaheadOperators,
@@ -613,7 +613,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                         _lookaheadOperators[1].numKeys,
                         _lookaheadOperators[1].registeredAt,
                         _lookaheadOperators[1].unregisteredAt,
-                        EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT // Slashed before the epoch
+EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT // Slashed before the epoch
                     );
 
                     // Build a signed commitment on the lookahead slots for next epoch
@@ -625,7 +625,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     _updateLookahead(signedCommitment);
                 }
 
-                function test_revertsWhenTheOperatorHasInsufficientCollateral() external useMainnet {
+function test_revertsWhenTheOperatorHasInsufficientCollateral() external useMainnet {
                     (
                         ,
                         SetupOperator[] memory _lookaheadOperators,
@@ -747,7 +747,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                         _lookaheadOperators[1].registrationRoot,
                         preconfSlasher,
                         _lookaheadOperators[1].optedInAt,
-                        EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT, // Opted out before the epoch
+EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT, // Opted out before the epoch
                         _lookaheadOperators[1].committer
                     );
 
@@ -838,5 +838,4 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                     _updateLookahead(signedCommitment);
                 }
                 */
-
-    }
+}

@@ -131,7 +131,11 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
     /// @return The slot for the signal.
-    function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal)
+    function getSignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
         public
         pure
         returns (bytes32)
@@ -145,9 +149,8 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
-            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
-        });
+        _checkpoints[_checkpoint.blockNumber] =
+            CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -179,11 +182,17 @@ contract SignalService is EssentialContract, ISignalService {
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
         checkpoint = Checkpoint({
-            blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
+            blockNumber: _blockNumber,
+            blockHash: blockHash,
+            stateRoot: record.stateRoot
         });
     }
 
-    function _sendSignal(address _app, bytes32 _signal, bytes32 _value)
+    function _sendSignal(
+        address _app,
+        bytes32 _signal,
+        bytes32 _value
+    )
         private
         nonZeroAddr(_app)
         nonZeroBytes32(_signal)
@@ -197,7 +206,10 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(address _app, bytes32 _signal)
+    function _loadSignalValue(
+        address _app,
+        bytes32 _signal
+    )
         private
         view
         nonZeroAddr(_app)
