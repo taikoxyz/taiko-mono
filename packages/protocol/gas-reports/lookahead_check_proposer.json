@@ -1,20 +1,26 @@
 {
   "same_epoch_proposal": {
-    "1_operator_in_current_lookahead": 14877,
-    "5_operators_in_current_lookahead": 18465,
-    "10_operators_in_current_lookahead": 22894,
-    "15_operators_in_current_lookahead": 27415
+    "1_operator_in_current_lookahead": 13916,
+    "5_operators_in_current_lookahead": 14172,
+    "10_operators_in_current_lookahead": 14473,
+    "15_operators_in_current_lookahead": 14820
   },
   "cross_epoch_proposal": {
-    "1_operator_in_each_lookahead": 16554,
-    "5_operators_in_each_lookahead": 23801,
-    "10_operators_in_each_lookahead": 32858,
-    "15_operators_in_each_lookahead": 42024
+    "1_operator_in_each_lookahead": 15028,
+    "5_operators_in_each_lookahead": 15556,
+    "10_operators_in_each_lookahead": 16195,
+    "15_operators_in_each_lookahead": 16957
   },
   "same_epoch_proposal_with_lookahead_posting": {
-    "1_operator_in_both_lookaheads": 58193,
-    "5_operators_in_both_lookaheads": 114125,
-    "10_operators_in_both_lookaheads": 184520,
-    "15_operators_in_both_lookaheads": 255500
+    "1_operator_in_both_lookaheads": 43560,
+    "5_operators_in_both_lookaheads": 46548,
+    "10_operators_in_both_lookaheads": 50259,
+    "15_operators_in_both_lookaheads": 54105
+  },
+  "same_epoch_proposal_with_lookahead_posting_reuse_slot": {
+    "1_operator_in_both_lookaheads": 21661,
+    "5_operators_in_both_lookaheads": 24649,
+    "10_operators_in_both_lookaheads": 28363,
+    "15_operators_in_both_lookaheads": 32210
   }
 }

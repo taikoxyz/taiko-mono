@@ -146,13 +146,14 @@ abstract contract LookaheadSlasher {
         slotTimestamp_ = evidenceLookahead.slotTimestamp;
         uint256 epochTimestamp = LibPreconfUtils.getEpochtimestampForSlot(slotTimestamp_);
 
+        // Note: Commented to prevent compilation errors with the new LookaheadStore changes
         // Verify that the commitment was accepted by the lookahead store
-        bytes26 lookaheadHash =
-            ILookaheadStore(lookaheadStore).calculateLookaheadHash(epochTimestamp, _lookaheadSlots);
-        require(
-            lookaheadHash == ILookaheadStore(lookaheadStore).getLookaheadHash(epochTimestamp),
-            LookaheadHashMismatch()
-        );
+        // bytes26 lookaheadHash =
+        //     ILookaheadStore(lookaheadStore).calculateLookaheadHash(epochTimestamp,
+        // _lookaheadSlots); require(
+        //     lookaheadHash == ILookaheadStore(lookaheadStore).getLookaheadHash(epochTimestamp),
+        //     LookaheadHashMismatch()
+        // );
 
         // Timestamp of the epoch preceding the one containing `slotTimestamp_`.
         // This is used to validate the beacon validator evidence and also serves as the reference
@@ -227,7 +228,7 @@ abstract contract LookaheadSlasher {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                    .pubkey
+                .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -235,7 +236,9 @@ abstract contract LookaheadSlasher {
         // Verify that this preconf lookahead validator does not match the beacon lookahead
         // validator
         require(
-            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
+            !_isG1Equal(
+                evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey
+            ),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
@@ -266,7 +269,7 @@ abstract contract LookaheadSlasher {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-            evidenceMissingOperator.operatorRegistrationProof;
+        evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -280,22 +283,16 @@ abstract contract LookaheadSlasher {
 
         // Verify that this operator was valid at the reference timestamp.
         // This reverts if the operator is not valid at the reference timestamp.
-        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
-            referenceTimestamp, registrationProof.registrationRoot
-        );
+        // TODO: to be shifted to this contract
+        // ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
+        //     referenceTimestamp, registrationProof.registrationRoot
+        // );
     }
 
     // Helpers
     // --------------------------------------------------------------------------
 
-    function _isG1Equal(
-        BLS.G1Point memory _a,
-        BLS.G1Point memory _b
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 

@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./LookaheadStoreBase.sol";
+import { LookaheadStoreBase } from "./LookaheadStoreBase.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
+import { LibLookaheadEncoder as Encoder } from "src/layer1/preconf/libs/LibLookaheadEncoder.sol";
 
 contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
     // Fallback preconfer validation and lookahead posting tests (passing)
     // --------------------------------------------------------------------
 
-    function test_sameEpochFallbackNoNextLookaheadRequiredInFirstSlot(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // No current lookahead posted (fallback preconfer path)
+    function test_sameEpochFallbackNoNextLookaheadRequiredInFirstSlot() external useMainnet {
+        // Current lookahead is not posted (fallback preconfer path)
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
             new ILookaheadStore.LookaheadSlot[](0);
 
-        // No next lookahead provided
+        // Next lookahead is not posted
         ILookaheadStore.LookaheadSlot[] memory nextLookahead =
             new ILookaheadStore.LookaheadSlot[](0);
 
@@ -40,26 +37,17 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         assertEq(lookaheadStore.getLookaheadHash(nextEpochTimestamp), bytes26(0));
     }
 
-    function test_sameEpochFallbackPostsNextLookaheadWithoutSignature(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // No current lookahead posted (fallback preconfer path)
+    function test_sameEpochFallbackPostsNextLookaheadWithoutSignature() external useMainnet {
+        // Current lookahead is not posted (fallback preconfer path)
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
             new ILookaheadStore.LookaheadSlot[](0);
 
-        // The next lookahead (not posted)
+        // Next lookahead is not posted
         uint256[] memory nextLookaheadSlotPositions = new uint256[](2);
         nextLookaheadSlotPositions[0] = 0;
         nextLookaheadSlotPositions[1] = 3;
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            false
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, false
         );
 
         uint256 nextEpochTimestamp = EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -81,29 +69,22 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         // Lookahead is updated
         assertEq(
             lookaheadStore.getLookaheadHash(nextEpochTimestamp),
-            lookaheadStore.calculateLookaheadHash(nextEpochTimestamp, nextLookahead)
+            lookaheadStore.calculateLookaheadHash(nextEpochTimestamp, Encoder.encode(nextLookahead))
         );
     }
 
-    function test_crossEpochFallbackPostsNextLookahead(SetupOperator[] memory _operators)
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead
+    function test_crossEpochFallbackPostsNextLookahead() external useMainnet {
+        // Current lookahead slots: 0, 4
         uint256[] memory currLookaheadSlotPositions = new uint256[](2);
         currLookaheadSlotPositions[0] = 0;
         currLookaheadSlotPositions[1] = 4;
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
-        // The next lookahead is empty (not posted)
+        // Next lookahead is empty and not posted
         uint256[] memory nextLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            false
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, false
         );
 
         uint256 nextEpochTimestamp = EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -123,34 +104,25 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         // Lookahead for the next epoch is updated
         assertEq(
             lookaheadStore.getLookaheadHash(nextEpochTimestamp),
-            lookaheadStore.calculateLookaheadHash(nextEpochTimestamp, nextLookahead)
+            lookaheadStore.calculateLookaheadHash(nextEpochTimestamp, Encoder.encode(nextLookahead))
         );
     }
 
-    function test_sameEpochBlacklistedOperatorForcesFallbackInDedicatedSlot(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead with a single operator
+    function test_sameEpochBlacklistedOperatorForcesFallbackInDedicatedSlot() external useMainnet {
+        // Current lookahead has a single operator
         uint256[] memory currLookaheadSlotPositions = new uint256[](1);
         currLookaheadSlotPositions[0] = 4;
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
         // Blacklist that operator
         vm.prank(overseer);
-        lookaheadStore.blacklistOperator(_operators[0].registrationRoot);
+        lookaheadStore.blacklistOperator(currLookahead[0].registrationRoot);
 
-        // The next lookahead
+        // Next lookahead is empty
         uint256[] memory nextLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            true
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, true
         );
 
         // Warp to the blacklisted operator's slot timestamp
@@ -163,30 +135,21 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         assertEq(submissionWindowEnd, uint48(currLookahead[0].timestamp));
     }
 
-    function test_sameEpochBlacklistedOperatorForcesFallbackInAdvancedSlot(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead with a single operator
+    function test_sameEpochBlacklistedOperatorForcesFallbackInAdvancedSlot() external useMainnet {
+        // Current lookahead has a single operator
         uint256[] memory currLookaheadSlotPositions = new uint256[](1);
         currLookaheadSlotPositions[0] = 4;
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
         // Blacklist that operator
         vm.prank(overseer);
-        lookaheadStore.blacklistOperator(_operators[0].registrationRoot);
+        lookaheadStore.blacklistOperator(currLookahead[0].registrationRoot);
 
-        // The next lookahead
+        // Next lookahead is empty
         uint256[] memory nextLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            true
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, true
         );
 
         // We are at EPOCH_START
@@ -198,30 +161,23 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         assertEq(submissionWindowEnd, uint48(currLookahead[0].timestamp));
     }
 
-    function test_crossEpochBlacklistedOperatorForcesFallback(SetupOperator[] memory _operators)
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead
+    function test_crossEpochBlacklistedOperatorForcesFallback() external useMainnet {
+        // Current lookahead has a single operator
         uint256[] memory currLookaheadSlotPositions = new uint256[](1);
         currLookaheadSlotPositions[0] = 4;
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
-        // Empty next lookahead with a single operator
+        // Next lookahead has a single operator
         uint256[] memory nextLookaheadSlotPositions = new uint256[](1);
         nextLookaheadSlotPositions[0] = 4;
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            true
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, true
         );
 
-        // Blacklist that operator
+        // Blacklist the operator in next lookahead
         vm.prank(overseer);
-        lookaheadStore.blacklistOperator(_operators[0].registrationRoot);
+        lookaheadStore.blacklistOperator(nextLookahead[0].registrationRoot);
 
         // We wrap ahead of the last preconfer in current epoch
         vm.warp(currLookahead[0].timestamp + 4 * LibPreconfConstants.SECONDS_IN_SLOT);
@@ -243,53 +199,37 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
     // Fallback preconfer validation test (reverts)
     // ---------------------------------------------
 
-    function test_sameEpochProposalRevertsWhenProposerIsNotFallback(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead is empty
+    function test_sameEpochProposalRevertsWhenProposerIsNotFallback() external useMainnet {
+        // Current lookahead is empty
         uint256[] memory currLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
-        // The next lookahead
+        // Next lookahead is empty
         uint256[] memory nextLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            true
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, true
         );
 
         // We are at EPOCH_START
         // When a non-fallback preconfer proposes, the transaction reverts
         vm.expectRevert(ILookaheadStore.ProposerIsNotPreconfer.selector);
-        _checkProposer(0, _operators[0].committer, currLookahead, nextLookahead, bytes(""));
+        _checkProposer(
+            0, vm.addr(uint256(bytes32("notFallback"))), currLookahead, nextLookahead, bytes("")
+        );
     }
 
-    function test_crossEpochProposalRevertsWhenProposerIsNotFallback(
-        SetupOperator[] memory _operators
-    )
-        external
-        useMainnet
-        setupOperators(_operators)
-    {
-        // The current lookahead
+    function test_crossEpochProposalRevertsWhenProposerIsNotFallback() external useMainnet {
+        // Current lookahead has a single operator
         uint256[] memory currLookaheadSlotPositions = new uint256[](1);
         currLookaheadSlotPositions[0] = 4;
         ILookaheadStore.LookaheadSlot[] memory currLookahead =
-            _setupLookahead(EPOCH_START, _operators, currLookaheadSlotPositions, true);
+            _setupLookahead(EPOCH_START, currLookaheadSlotPositions, true);
 
-        // The next lookahead is empty
+        // Next lookahead is empty
         uint256[] memory nextLookaheadSlotPositions = new uint256[](0);
         ILookaheadStore.LookaheadSlot[] memory nextLookahead = _setupLookahead(
-            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH,
-            _operators,
-            nextLookaheadSlotPositions,
-            true
+            EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH, nextLookaheadSlotPositions, true
         );
 
         // We wrap ahead of the last preconfer in current epoch
@@ -297,7 +237,11 @@ contract TestLookaheadStore_FallbackPreconfer is LookaheadStoreBase {
         // When a non-fallback preconfer proposes, the transaction reverts
         vm.expectRevert(ILookaheadStore.ProposerIsNotPreconfer.selector);
         _checkProposer(
-            type(uint256).max, _operators[0].committer, currLookahead, nextLookahead, bytes("")
+            type(uint256).max,
+            vm.addr(uint256(bytes32("notFallback"))),
+            currLookahead,
+            nextLookahead,
+            bytes("")
         );
     }
 }
