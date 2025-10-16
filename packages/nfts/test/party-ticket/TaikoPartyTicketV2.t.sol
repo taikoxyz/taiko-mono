@@ -3,12 +3,12 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TaikoPartyTicket } from "contracts/party-ticket/TaikoPartyTicket.sol";
+import { TaikoPartyTicket } from "../../contracts/party-ticket/TaikoPartyTicket.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { TaikoPartyTicketV2 } from "contracts/party-ticket/TaikoPartyTicketV2.sol";
+import { TaikoPartyTicketV2 } from "../../contracts/party-ticket/TaikoPartyTicketV2.sol";
 
 contract TaikoPartyTicketTest is Test {
     TaikoPartyTicket public tokenV1;

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { RegisterProfilePicture } from "contracts/profile/RegisterProfilePicture.sol";
+import { RegisterProfilePicture } from "../../contracts/profile/RegisterProfilePicture.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;

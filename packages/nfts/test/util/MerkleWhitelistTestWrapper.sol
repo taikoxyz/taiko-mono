@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { MerkleWhitelist } from "contracts/taikoon/MerkleWhitelist.sol";
+import { MerkleWhitelist } from "../../contracts/taikoon/MerkleWhitelist.sol";
 
 /// @custom:oz-upgrades-from MerkleWhitelist
 contract MerkleWhitelistTestWrapper is MerkleWhitelist {

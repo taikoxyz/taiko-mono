@@ -4,9 +4,9 @@ pragma solidity 0.8.24;
 import { Test, console } from "forge-std/src/Test.sol";
 import "forge-std/src/StdJson.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { MerkleWhitelist } from "contracts/taikoon/MerkleWhitelist.sol";
+import { MerkleWhitelist } from "../../contracts/taikoon/MerkleWhitelist.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UtilsScript } from "script/taikoon/sol/Utils.s.sol";
+import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 
 /// @custom:oz-upgrades-from MerkleWhitelist

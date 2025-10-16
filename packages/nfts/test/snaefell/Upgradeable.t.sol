@@ -2,10 +2,10 @@
 pragma solidity 0.8.24;
 
 import { Test, console } from "forge-std/src/Test.sol";
-import { SnaefellToken } from "contracts/snaefell/SnaefellToken.sol";
+import { SnaefellToken } from "../../contracts/snaefell/SnaefellToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
-import { UtilsScript } from "script/snaefell/sol/Utils.s.sol";
+import { UtilsScript } from "../../script/snaefell/sol/Utils.s.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 

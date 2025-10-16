@@ -5,9 +5,9 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TaikoPartyTicket } from "src/party-ticket/TaikoPartyTicket.sol";
+import { TaikoPartyTicket } from "../../../contracts/party-ticket/TaikoPartyTicket.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { TaikoPartyTicketV2 } from "src/party-ticket/TaikoPartyTicketV2.sol";
+import { TaikoPartyTicketV2 } from "../../../contracts/party-ticket/TaikoPartyTicketV2.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;

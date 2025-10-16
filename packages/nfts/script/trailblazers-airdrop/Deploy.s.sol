@@ -5,12 +5,12 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from "contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { ERC20Airdrop } from "contracts/trailblazers-airdrop/ERC20Airdrop.sol";
-import { ERC20Mock } from "test/util/MockTokens.sol";
+import { ERC20Airdrop } from "../../contracts/trailblazers-airdrop/ERC20Airdrop.sol";
+import { ERC20Mock } from "../../test/util/MockTokens.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { MockBlacklist } from "test/util/Blacklist.sol";
+import { MockBlacklist } from "../../test/util/Blacklist.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;

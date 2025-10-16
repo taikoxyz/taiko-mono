@@ -3,8 +3,8 @@ pragma solidity 0.8.24;
 
 import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
-import { BadgeRecruitment } from "contracts/trailblazers-season-2/BadgeRecruitment.sol";
-import { BadgeRecruitmentV2 } from "contracts/trailblazers-season-2/BadgeRecruitmentV2.sol";
+import { BadgeRecruitment } from "../../contracts/trailblazers-season-2/BadgeRecruitment.sol";
+import { BadgeRecruitmentV2 } from "../../contracts/trailblazers-season-2/BadgeRecruitmentV2.sol";
 
 contract UpgradeRecruitmentsV2 is Script {
     UtilsScript public utils;
