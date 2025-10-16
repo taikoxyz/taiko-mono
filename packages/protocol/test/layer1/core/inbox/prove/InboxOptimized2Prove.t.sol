@@ -36,10 +36,7 @@ contract InboxOptimized2Prove is AbstractProveTest {
         inbox.prove(proveData, proof);
     }
 
-    function _getExpectedAggregationBehavior(
-        uint256 proposalCount,
-        bool consecutive
-    )
+    function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive)
         internal
         pure
         override

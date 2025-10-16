@@ -13,11 +13,7 @@ library BytesUtils {
     * @param len The number of bytes to hash.
     * @return The hash of the byte range.
     */
-    function keccak(
-        bytes memory self,
-        uint256 offset,
-        uint256 len
-    )
+    function keccak(bytes memory self, uint256 offset, uint256 len)
         internal
         pure
         returns (bytes32 ret)
@@ -81,11 +77,7 @@ library BytesUtils {
     * @param len The number of bytes.
     * @return The specified 32 bytes of the string.
     */
-    function readBytesN(
-        bytes memory self,
-        uint256 idx,
-        uint256 len
-    )
+    function readBytesN(bytes memory self, uint256 idx, uint256 len)
         internal
         pure
         returns (bytes32 ret)
@@ -110,11 +102,7 @@ library BytesUtils {
     * @param offset The offset to start copying at.
     * @param len The number of bytes to copy.
     */
-    function substring(
-        bytes memory self,
-        uint256 offset,
-        uint256 len
-    )
+    function substring(bytes memory self, uint256 offset, uint256 len)
         internal
         pure
         returns (bytes memory)

@@ -403,11 +403,7 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function checkSavedAddress(
-        ResolverBase resolver,
-        string memory contractName,
-        bytes32 name
-    )
+    function checkSavedAddress(ResolverBase resolver, string memory contractName, bytes32 name)
         private
         view
     {
