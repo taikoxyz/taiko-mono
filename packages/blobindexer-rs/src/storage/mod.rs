@@ -1,7 +1,7 @@
 use alloy_primitives::{B256, FixedBytes};
 use chrono::{DateTime, Utc};
 use sqlx::{
-    Executor, MySql, MySqlPool, Row, Transaction,
+    Executor, MySql, MySqlPool, QueryBuilder, Row, Transaction,
     mysql::{MySqlPoolOptions, MySqlRow},
 };
 
@@ -172,21 +172,30 @@ impl Storage {
         slots: &[i64],
         canonical: bool,
     ) -> Result<()> {
-        for slot in slots {
-            sqlx::query(
-                "UPDATE blocks SET canonical = ?, updated_at = CURRENT_TIMESTAMP WHERE slot = ?",
-            )
-            .bind(canonical)
-            .bind(slot)
-            .execute(&mut **tx)
-            .await?;
-
-            sqlx::query("UPDATE blobs SET canonical = ? WHERE slot = ?")
-                .bind(canonical)
-                .bind(slot)
-                .execute(&mut **tx)
-                .await?;
+        if slots.is_empty() {
+            return Ok(());
         }
+
+        // Issue set-based updates so large canonical promotions only round-trip once per table.
+        let mut block_query = QueryBuilder::<MySql>::new("UPDATE blocks SET canonical = ");
+        block_query.push_bind(canonical);
+        block_query.push(", updated_at = CURRENT_TIMESTAMP WHERE slot IN (");
+        let mut separated = block_query.separated(", ");
+        for slot in slots {
+            separated.push_bind(slot);
+        }
+        block_query.push(")");
+        block_query.build().execute(&mut **tx).await?;
+
+        let mut blob_query = QueryBuilder::<MySql>::new("UPDATE blobs SET canonical = ");
+        blob_query.push_bind(canonical);
+        blob_query.push(" WHERE slot IN (");
+        let mut separated = blob_query.separated(", ");
+        for slot in slots {
+            separated.push_bind(slot);
+        }
+        blob_query.push(")");
+        blob_query.build().execute(&mut **tx).await?;
 
         Ok(())
     }
