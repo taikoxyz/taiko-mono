@@ -17,7 +17,7 @@ import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title  Inbox
+/// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based rollup architecture.
 /// @dev This contract implements the fundamental inbox logic including:
