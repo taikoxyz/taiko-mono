@@ -135,10 +135,7 @@ abstract contract ComposeVerifier is IProofVerifier {
 
     /// @dev Checks if the provided verifiers are sufficient
     /// NOTE: Verifier addresses are provided in ascending order of their IDs
-    function areSubProofsSufficient(
-        uint256 _youngestProposalAge,
-        SubProof[] memory subProofs
-    )
+    function areSubProofsSufficient(uint256 _youngestProposalAge, SubProof[] memory subProofs)
         internal
         pure
         virtual

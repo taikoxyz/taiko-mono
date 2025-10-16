@@ -29,11 +29,7 @@ contract MainnetInbox is InboxOptimized2 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        address _codec,
-        address _proofVerifier,
-        address _proposerChecker
-    )
+    constructor(address _codec, address _proofVerifier, address _proposerChecker)
         InboxOptimized2(IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
