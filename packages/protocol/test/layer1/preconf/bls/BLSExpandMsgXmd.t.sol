@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 // Test has been referenced from
 // https://github.com/ethyla/bls12-381-hash-to-curve/blob/main/test/expandMsgXmd.sol
 pragma solidity ^0.8.24;

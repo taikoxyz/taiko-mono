@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 /// @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 

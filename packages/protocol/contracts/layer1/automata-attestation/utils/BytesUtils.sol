@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: BSD 2-Clause License
+// SPDX-License-Identifier: BSD 2-Clause License
 pragma solidity ^0.8.24;
 
 // Inspired by ensdomains/dnssec-oracle - BSD-2-Clause license

@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
