@@ -34,8 +34,8 @@ contract TestPreconfWhitelist is CommonTest {
         // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
         // avoid underflow
         vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
+            LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH
+                * whitelist.randomnessDelay()
         );
     }
 
