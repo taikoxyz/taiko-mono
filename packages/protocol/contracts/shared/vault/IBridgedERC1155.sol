@@ -9,11 +9,7 @@ interface IBridgedERC1155 {
     /// @param _to Address to receive the minted tokens.
     /// @param _tokenIds ID of the token to mint.
     /// @param _amounts Amount of tokens to mint.
-    function mintBatch(
-        address _to,
-        uint256[] calldata _tokenIds,
-        uint256[] calldata _amounts
-    )
+    function mintBatch(address _to, uint256[] calldata _tokenIds, uint256[] calldata _amounts)
         external;
 
     /// @dev Burns tokens.

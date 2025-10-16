@@ -463,10 +463,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         return _createProveInputWithParent(_proposal, _getGenesisTransitionHash());
     }
 
-    function _createProveInputWithParent(
-        IInbox.Proposal memory _proposal,
-        bytes32 _parentHash
-    )
+    function _createProveInputWithParent(IInbox.Proposal memory _proposal, bytes32 _parentHash)
         internal
         view
         returns (bytes memory)
@@ -490,10 +487,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         return _codec().encodeProveInput(input);
     }
 
-    function _createProveInputForChain(
-        IInbox.Proposal memory _proposal,
-        uint256 _chainIndex
-    )
+    function _createProveInputForChain(IInbox.Proposal memory _proposal, uint256 _chainIndex)
         internal
         view
         returns (bytes memory)
@@ -518,10 +512,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(
-        address designatedProver,
-        address actualProver
-    )
+    function _createMetadataForTransition(address designatedProver, address actualProver)
         internal
         pure
         returns (IInbox.TransitionMetadata memory)
