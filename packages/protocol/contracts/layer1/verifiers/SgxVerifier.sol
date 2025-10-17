@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./LibPublicInput.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "./LibPublicInput.sol";
 import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/shared/libs/LibNames.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs

@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title AbstractCodecFuzzTest
 /// @notice Abstract base fuzz test for ICodec implementations
@@ -469,7 +469,7 @@ abstract contract AbstractCodecFuzzTest is Test {
         view
     {
         vm.assume(id1 != id2); // Ensure different IDs
-            // Ensure timestamp doesn't cause overflow
+        // Ensure timestamp doesn't cause overflow
         vm.assume(timestamp < type(uint48).max - 1000);
 
         IInbox.Proposal memory proposal1 = IInbox.Proposal({

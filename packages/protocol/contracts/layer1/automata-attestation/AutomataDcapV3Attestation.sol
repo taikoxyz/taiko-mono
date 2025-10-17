@@ -1,18 +1,18 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./interfaces/IAttestation.sol";
+import "./interfaces/ISigVerifyLib.sol";
+import "./lib/EnclaveIdStruct.sol";
+import "./lib/PEMCertChainLib.sol";
+import "./lib/QuoteV3Auth/V3Parser.sol";
+import "./lib/QuoteV3Auth/V3Struct.sol";
+import "./lib/TCBInfoStruct.sol";
+import "./lib/interfaces/IPEMCertChainLib.sol";
+import "./utils/BytesUtils.sol";
 import "solady/src/utils/Base64.sol";
 import "solady/src/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
-import "./lib/QuoteV3Auth/V3Struct.sol";
-import "./lib/QuoteV3Auth/V3Parser.sol";
-import "./lib/interfaces/IPEMCertChainLib.sol";
-import "./lib/PEMCertChainLib.sol";
-import "./lib/TCBInfoStruct.sol";
-import "./lib/EnclaveIdStruct.sol";
-import "./interfaces/IAttestation.sol";
-import "./utils/BytesUtils.sol";
-import "./interfaces/ISigVerifyLib.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
@@ -42,8 +42,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // 0 = Quote PCKCrl
     // 1 = RootCrl
     mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
-        // 6
-        // fmspc => tcbInfo
+    // 6
+    // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
 
