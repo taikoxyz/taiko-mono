@@ -124,7 +124,7 @@ where
         > = Arc::new(derivation_pipeline);
 
         // Wait for historical indexing to complete before starting the derivation loop.
-        // self.indexer.wait_historical_indexing_finished().await;
+        self.indexer.wait_historical_indexing_finished().await;
 
         let mut scanner = self
             .cfg
