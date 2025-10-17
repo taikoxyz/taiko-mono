@@ -41,9 +41,7 @@ func SubscribeBatchesVerifiedPacaya(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
 }
 
@@ -59,9 +57,7 @@ func SubscribeBatchProposedPacaya(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
 }
 
@@ -77,9 +73,7 @@ func SubscribeBatchesProvedPacaya(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
 }
 
@@ -95,9 +89,7 @@ func SubscribeProposedShasta(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
 }
 
@@ -113,9 +105,7 @@ func SubscribeProvedShasta(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
 }
 
@@ -131,18 +121,6 @@ func SubscribeChainHead(
 			return nil, err
 		}
 
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
+		return sub, nil
 	})
-}
-
-// waitSubErr keeps waiting until the given subscription failed.
-func waitSubErr(ctx context.Context, sub event.Subscription) (event.Subscription, error) {
-	select {
-	case err := <-sub.Err():
-		return sub, err
-	case <-ctx.Done():
-		return sub, ctx.Err()
-	}
 }
