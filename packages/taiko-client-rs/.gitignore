@@ -1,4 +1,3 @@
 target/
 **/target/
-Cargo.lock
 .bmad-core/
