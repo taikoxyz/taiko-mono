@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"math/big"
 	"net/http"
 	"os"
@@ -45,6 +47,8 @@ var (
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
+// monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with Pacaya on-chain state.
+const monitorLatestProposalOnChainInterval = 10 * time.Second
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -994,6 +998,9 @@ func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common
 
 // LatestSeenProposalEventLoop is a goroutine that listens for the latest seen proposal events
 func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context) {
+	ticker := time.NewTicker(monitorLatestProposalOnChainInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1001,7 +1008,55 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			return
 		case proposal := <-s.latestSeenProposalCh:
 			s.recordLatestSeenProposal(proposal)
+		case <-ticker.C:
+			s.monitorLatestProposalOnChain(ctx)
 		}
+	}
+}
+
+// monitorLatestProposalOnChain refreshes the latest proposal from L1 if the cached proposal reorgs.
+func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context) {
+	proposal := s.latestSeenProposal
+	if proposal == nil {
+		return
+	}
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		log.Error("Failed to get states from Pacaya Inbox", "error", err)
+		return
+	}
+
+	numBatches := stateVars.Stats2.NumBatches
+	if numBatches == 0 {
+		return
+	}
+
+	latestSeenBatchID := proposal.Pacaya().GetBatchID()
+	latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
+	if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
+		return
+	}
+
+	iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
+		&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
+	)
+	if err != nil {
+		log.Error("Failed to filter batch proposed event", "err", err)
+		return
+	}
+	defer iterPacaya.Close()
+
+	for iterPacaya.Next() {
+		if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
+			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
+				PreconfChainReorged:   true,
+			})
+		}
+	}
+
+	if err := iterPacaya.Error(); err != nil {
+		log.Error("Failed to iterate batch proposed events", "err", err)
 	}
 }
 
