@@ -4,9 +4,10 @@ use std::{borrow::Cow, marker::PhantomData, time::Duration};
 
 use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
-use alloy_consensus::{self, TxEnvelope};
+use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
     PayloadStatusEnum,
@@ -63,23 +64,16 @@ where
 
     /// Submit a block from the checkpoint node to the local execution engine, to start
     /// a beacon sync.
-    async fn submit_remote_block(
-        &self,
-        provider: &RootProvider,
-        block_number: u64,
-    ) -> Result<(), DriverError> {
-        let block = provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map_err(RpcClientError::from)?;
+    async fn submit_remote_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
+        let block_number = block.header.number;
+        let block_hash = block.hash();
+        let tx_root = block.header.transactions_root;
+        let parent_hash = block.header.parent_hash;
+        let withdrawals_root = block.header.withdrawals_root;
 
-        let Some(block) = block else {
-            return Err(DriverError::BlockNotFound(block_number));
-        };
-
-        let consensus_block: alloy_consensus::Block<TxEnvelope> = block.clone().into();
+        let consensus_block: Block<TxEnvelope> = block.into();
         let payload_field =
-            ExecutionPayloadFieldV2::from_block_unchecked(block.hash(), &consensus_block);
+            ExecutionPayloadFieldV2::from_block_unchecked(block_hash, &consensus_block);
 
         let (execution_payload, withdrawals) = match payload_field {
             ExecutionPayloadFieldV2::V1(v1) => (v1, None),
@@ -88,8 +82,8 @@ where
 
         let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
         let sidecar = TaikoExecutionDataSidecar {
-            tx_hash: block.header.transactions_root,
-            withdrawals_hash: block.header.withdrawals_root,
+            tx_hash: tx_root,
+            withdrawals_hash: withdrawals_root,
             taiko_block: Some(true),
         };
 
@@ -106,9 +100,9 @@ where
         }
 
         let forkchoice_state = ForkchoiceState {
-            head_block_hash: block.hash(),
-            safe_block_hash: block.hash(),
-            finalized_block_hash: block.header.parent_hash,
+            head_block_hash: block_hash,
+            safe_block_hash: block_hash,
+            finalized_block_hash: parent_hash,
         };
 
         let _: ForkchoiceUpdated =
@@ -180,12 +174,29 @@ where
                     checkpoint_head,
                     local_head, "checkpoint head ahead of local engine; attempting to sync"
                 );
-                self.submit_remote_block(&self.rpc.l2_auth_provider, checkpoint_head)
+                let checkpoint_provider =
+                    self.checkpoint.as_ref().ok_or(SyncError::CheckpointNoOrigin)?;
+
+                let block = checkpoint_provider
+                    .get_block_by_number(BlockNumberOrTag::Number(checkpoint_head))
                     .await
+                    .map_err(RpcClientError::from)
                     .map_err(|err| SyncError::RemoteBlockSubmit {
                         block_number: checkpoint_head,
+                        error: DriverError::from(err).into(),
+                    })?
+                    .ok_or_else(|| SyncError::RemoteBlockSubmit {
+                        block_number: checkpoint_head,
+                        error: DriverError::BlockNotFound(checkpoint_head).into(),
+                    })?
+                    .map_transactions(|tx: RpcTransaction| tx.into());
+
+                self.submit_remote_block(block).await.map_err(|err| {
+                    SyncError::RemoteBlockSubmit {
+                        block_number: checkpoint_head,
                         error: err.into(),
-                    })?;
+                    }
+                })?;
             } else {
                 info!(
                     checkpoint_head,
