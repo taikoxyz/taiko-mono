@@ -50,10 +50,6 @@ jobs:
         with:
           tool: cargo-sort
 
-      - name: Pin alloy-rpc-types-trace
-        working-directory: packages/taiko-client-rs
-        run: cargo update -p alloy-rpc-types-trace --precise 1.0.36
-
       - name: Check formatting
         working-directory: packages/taiko-client-rs
         run: just fmt-check
@@ -101,10 +97,6 @@ jobs:
           just-version: 1.5.0
 
       - uses: taiki-e/install-action@nextest
-
-      - name: Pin alloy-rpc-types-trace
-        working-directory: packages/taiko-client-rs
-        run: cargo update -p alloy-rpc-types-trace --precise 1.0.36
 
       - name: Run tests
         working-directory: packages/taiko-client-rs
