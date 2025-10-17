@@ -693,20 +693,36 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 			Stats1 pacayaBindings.ITaikoInboxStats1
 			Stats2 pacayaBindings.ITaikoInboxStats2
 		})
-		err error
+		stats1 pacayaBindings.ITaikoInboxStats1
+		stats2 pacayaBindings.ITaikoInboxStats2
 	)
 
+	// Avoid data races by collecting results in local variables inside goroutines,
+	// then assigning to the shared state after all goroutines complete.
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
-		return err
+		s1, e := c.PacayaClients.TaikoInbox.GetStats1(opts)
+		if e != nil {
+			return e
+		}
+		stats1 = s1
+		return nil
 	})
 	g.Go(func() error {
-		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
-		return err
+		s2, e := c.PacayaClients.TaikoInbox.GetStats2(opts)
+		if e != nil {
+			return e
+		}
+		stats2 = s2
+		return nil
 	})
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	states.Stats1 = stats1
+	states.Stats2 = stats2
 
-	return states, g.Wait()
+	return states, nil
 }
 
 // GetLastVerifiedTransitionPacaya gets the last verified transition from Pacaya TaikoInbox contract.
