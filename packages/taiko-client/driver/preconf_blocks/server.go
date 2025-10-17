@@ -1080,7 +1080,7 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 		defer iterPacaya.Close()
 
 		for iterPacaya.Next() {
-			if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+			if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
 				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
 					PreconfChainReorged:   true,
