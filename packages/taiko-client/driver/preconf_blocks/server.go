@@ -1080,10 +1080,12 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 		defer iterPacaya.Close()
 
 		for iterPacaya.Next() {
-			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
-				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
-				PreconfChainReorged:   true,
-			})
+			if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
+					PreconfChainReorged:   true,
+				})
+			}
 		}
 
 		if err := iterPacaya.Error(); err != nil {
@@ -1110,10 +1112,12 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 				log.Error("Failed to decode proposed event data", "err", err)
 				return
 			}
-			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
-				TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, iterShasta.Event.Raw),
-				PreconfChainReorged:   true,
-			})
+			if proposedEventPayload.Proposal.Id.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, iterShasta.Event.Raw),
+					PreconfChainReorged:   true,
+				})
+			}
 		}
 
 		if err := iterShasta.Error(); err != nil {
