@@ -25,7 +25,7 @@ pub trait ManifestFetcher: Send + Sync {
         blob_hashes: &[B256],
     ) -> Result<Vec<BlobTransactionSidecar>, ManifestFetcherError> {
         if blob_hashes.is_empty() {
-            return Ok(vec![]);
+            return Err(ManifestFetcherError::EmptyBlobHashes);
         }
 
         let sidecars = self.blob_source().get_blobs(blob_hashes).await?;

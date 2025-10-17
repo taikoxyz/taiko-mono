@@ -7,6 +7,12 @@ pub enum ManifestFetcherError {
     /// Index out of bounds when selecting a derivation source.
     #[error("invalid derivation source index {0}")]
     InvalidSourceIndex(usize),
+    /// No blob hashes were provided for retrieval.
+    #[error("no blob hashes provided for manifest fetch")]
+    EmptyBlobHashes,
+    /// No blob sidecars were provided for decoding.
+    #[error("no blob sidecars provided for manifest decode")]
+    EmptyBlobSidecars,
     /// Blob fetching failed.
     #[error(transparent)]
     Blob(#[from] BlobDataError),

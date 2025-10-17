@@ -20,7 +20,7 @@ where
     M: Default,
 {
     if sidecars.is_empty() {
-        return Ok(M::default());
+        return Err(ManifestFetcherError::EmptyBlobSidecars);
     }
 
     let mut concatenated = Vec::new();
