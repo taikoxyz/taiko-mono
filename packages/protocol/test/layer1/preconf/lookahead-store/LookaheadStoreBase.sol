@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "../mocks/MockURC.sol";
-import "test/shared/CommonTest.sol";
-import "src/shared/libs/LibNetwork.sol";
+import "@eth-fabric/urc/IRegistry.sol";
+import "@eth-fabric/urc/ISlasher.sol";
 import "src/layer1/preconf/impl/LookaheadStore.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "@eth-fabric/urc/ISlasher.sol";
-import "@eth-fabric/urc/IRegistry.sol";
+import "src/shared/libs/LibNetwork.sol";
+import "test/shared/CommonTest.sol";
 
 contract LookaheadStoreBase is CommonTest {
     /**

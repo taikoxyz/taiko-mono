@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/shared/common/ResolverBase.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "src/shared/common/ResolverBase.sol";
 
 /// @title SharedResolver
 /// @dev Resolver used by multiple based rollups.

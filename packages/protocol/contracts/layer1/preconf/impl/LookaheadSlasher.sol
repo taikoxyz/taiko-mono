@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/iface/IBlacklist.sol";
-import "src/layer1/preconf/libs/LibEIP4788.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/lib/MerkleTree.sol";
+import "src/layer1/preconf/iface/IBlacklist.sol";
+import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
+import "src/layer1/preconf/libs/LibEIP4788.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadSlasher
 /// @custom:security-contact security@taiko.xyz

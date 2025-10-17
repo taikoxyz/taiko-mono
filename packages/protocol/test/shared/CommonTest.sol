@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "forge-std/src/Script.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
-import "forge-std/src/Script.sol";
 
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
+import "src/layer1/mainnet/TaikoToken.sol";
+import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20V2.sol";
 import "src/shared/vault/BridgedERC721.sol";
-import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
-import "src/shared/vault/ERC1155Vault.sol";
-import "src/shared/bridge/Bridge.sol";
-import "src/layer1/mainnet/TaikoToken.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
 import "../libs/LibNames.sol";
+import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 

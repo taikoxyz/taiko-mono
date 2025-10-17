@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInboxDeployer } from "./IInboxDeployer.sol";
-import { TestInbox } from "../implementations/TestInbox.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
+import { TestInbox } from "../implementations/TestInbox.sol";
+import { IInboxDeployer } from "./IInboxDeployer.sol";
+import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @title InboxDeployer
 /// @notice Deployer for the standard Inbox implementation
