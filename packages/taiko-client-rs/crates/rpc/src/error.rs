@@ -1,6 +1,6 @@
 //! Error types for RPC operations.
 
-use alloy::transports::{RpcError, TransportErrorKind};
+use alloy::transports::{RpcError, TransportError, TransportErrorKind};
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -42,6 +42,12 @@ pub enum RpcClientError {
 // Manual From implementation for RpcError
 impl From<RpcError<TransportErrorKind>> for RpcClientError {
     fn from(err: RpcError<TransportErrorKind>) -> Self {
+        RpcClientError::Rpc(err.to_string())
+    }
+}
+
+impl From<TransportError<TransportErrorKind>> for RpcClientError {
+    fn from(err: TransportError<TransportErrorKind>) -> Self {
         RpcClientError::Rpc(err.to_string())
     }
 }

@@ -27,7 +27,8 @@ export INCLUSION_WINDOW=3
 export INCLUSION_FEE_IN_GWEI=10
 export DEPLOY_PRECONF_CONTRACTS="false"
 export PRECONF_INBOX="false"
-export DUMMY_VERIFIERS=true
+export DUMMY_VERIFIERS="true"
+export ACTIVATE_INBOX="true"
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 
 docker compose -f tests/docker/docker-compose.test.yaml up -d
@@ -71,4 +72,5 @@ export TEST_ACCOUNT_PRIVATE_KEY=0x7c852118294e51e653712a81e05800f419141751be58f6
 export TREASURY=0x1670010000000000000000000000000000010001
 
 cargo nextest -v run \
+    -j 1 \
     --workspace --exclude bindings --all-features

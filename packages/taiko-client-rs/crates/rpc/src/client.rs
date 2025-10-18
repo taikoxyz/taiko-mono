@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 use alethia_reth_evm::handler::get_treasury_address;
-use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
@@ -11,8 +12,9 @@ use alloy_provider::{
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    codec_optimized::CodecOptimized::CodecOptimizedInstance, i_inbox::IInbox::IInboxInstance,
-    taiko_anchor::TaikoAnchor::TaikoAnchorInstance,
+    codec_optimized::CodecOptimized::CodecOptimizedInstance,
+    i_inbox::IInbox::IInboxInstance,
+    taiko_anchor::{ShastaAnchor::State, TaikoAnchor::TaikoAnchorInstance},
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -101,6 +103,26 @@ impl<P: Provider + Clone> Client<P> {
         let shasta = ShastaProtocolInstance { inbox, codec, anchor };
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
+    }
+
+    /// Fetch the L1 block hash for a given block number.
+    pub async fn l1_block_hash_by_number(&self, block_number: u64) -> Result<Option<B256>> {
+        self.l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map(|origin_block| origin_block.map(|block| block.hash()))
+            .map_err(|err| RpcClientError::Provider(err.to_string()))
+    }
+
+    /// Fetch the Shasta anchor state for the given parent block hash.
+    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<State> {
+        self.shasta
+            .anchor
+            .getState()
+            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .call()
+            .await
+            .map_err(Into::into)
     }
 }
 
