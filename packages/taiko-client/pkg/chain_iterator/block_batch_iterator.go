@@ -124,6 +124,11 @@ func NewBlockBatchIterator(ctx context.Context, cfg *BlockBatchIteratorConfig) (
 		iterator.retryInterval = cfg.RetryInterval
 	}
 
+	// Initialize reorg rewind depth if provided
+	if cfg.ReorgRewindDepth != nil {
+		iterator.reorgRewindDepth = *cfg.ReorgRewindDepth
+	}
+
 	if cfg.EndHeight != nil {
 		endHeightUint64 := cfg.EndHeight.Uint64()
 		iterator.endHeight = &endHeightUint64
