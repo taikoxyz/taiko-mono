@@ -12,6 +12,7 @@ import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { SloadSupport } from "src/shared/common/SloadSupport.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
@@ -27,7 +28,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, IForcedInclusionStore, EssentialContract, SloadSupport {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
