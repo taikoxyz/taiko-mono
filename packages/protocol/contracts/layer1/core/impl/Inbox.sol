@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
@@ -11,6 +10,7 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -272,9 +272,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
+        uint256 proposalAge;
+        if (input.proposals.length == 1) {
+            unchecked {
+                // proposalAge will only be used by the proof verifier for single-proposal.
+                proposalAge = block.timestamp - input.proposals[0].timestamp;
+            }
+        }
+
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
-        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
+
+        _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore
