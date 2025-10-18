@@ -217,10 +217,10 @@ contract Anchor is EssentialContract {
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalState, _proposalParams);
+            _validateProposal(_proposalParams);
         }
 
-        _validateBlock(_blockState, _blockParams);
+        _validateBlock(_blockParams);
 
         emit Anchored(
             _proposalState.bondInstructionsHash,
@@ -359,7 +359,6 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(
-        ProposalState storage _proposalState,
         ProposalParams calldata _proposalParams
     )
         private
@@ -388,7 +387,6 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
     function _validateBlock(
-        BlockState storage _blockState,
         BlockParams calldata _blockParams
     )
         private
