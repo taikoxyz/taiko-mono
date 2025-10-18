@@ -34,7 +34,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
-    /// @dev Stores transition record hash and finalization deadline
+    /// @dev Stores transition record hash and finalization deadline.
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
         uint48 finalizationDeadline;
