@@ -1,23 +1,23 @@
 package preconfblocks
 
 import (
-    "testing"
-    "time"
+	"testing"
+	"time"
 
-    "github.com/ethereum-optimism/optimism/op-service/eth"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/stretchr/testify/suite"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/suite"
 
-    "github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-    "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
 
 type CacheTestSuite struct {
-    suite.Suite
+	suite.Suite
 }
 
 func TestCacheTestSuite(t *testing.T) {
-    suite.Run(t, new(CacheTestSuite))
+	suite.Run(t, new(CacheTestSuite))
 }
 
 // TestOrphanBlockDetectionWithoutGetBlockByHash verifies that we can detect
