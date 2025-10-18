@@ -358,11 +358,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _validateProposal(
-        ProposalParams calldata _proposalParams
-    )
-        private
-    {
+    function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
             getDesignatedProver(
@@ -386,11 +382,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(
-        BlockParams calldata _blockParams
-    )
-        private
-    {
+    function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =
