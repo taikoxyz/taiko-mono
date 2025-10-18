@@ -156,9 +156,9 @@ func TestIsProfitableReferenceModification(t *testing.T) {
 			t.Errorf("Expected 2 transactions to pass 75%% threshold, got %d", count75)
 		}
 
-		t.Logf("✓ Highest fee: %v gwei", new(big.Int).Div(highestFee, big.NewInt(1_000_000_000)))
-		t.Logf("✓ 50%% threshold: %v gwei (passes: %d txs)", new(big.Int).Div(threshold50, big.NewInt(1_000_000_000)), count50)
-		t.Logf("✓ 75%% threshold: %v gwei (passes: %d txs)", new(big.Int).Div(threshold75, big.NewInt(1_000_000_000)), count75)
+		t.Logf("Highest fee: %v gwei", new(big.Int).Div(highestFee, big.NewInt(1_000_000_000)))
+		t.Logf("50%% threshold: %v gwei (passes: %d txs)", new(big.Int).Div(threshold50, big.NewInt(1_000_000_000)), count50)
+		t.Logf("75%% threshold: %v gwei (passes: %d txs)", new(big.Int).Div(threshold75, big.NewInt(1_000_000_000)), count75)
 	})
 }
 

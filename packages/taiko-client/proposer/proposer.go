@@ -308,7 +308,7 @@ func (p *Proposer) shouldForcePropose() (bool, string) {
 func (p *Proposer) resetSignalForcePropose(isSignalForcePropose bool) {
 	p.signalMu.Lock()
 	defer p.signalMu.Unlock()
-	
+
 	hadPendingSignal := p.pendingSignalForcePropose
 	p.pendingSignalForcePropose = false
 
@@ -741,7 +741,9 @@ func (p *Proposer) ProposeTxListPacaya(
 				l2BaseFee,
 			)
 			if err != nil {
-				log.Warn("Failed to rebuild TaikoInbox.proposeBatch transaction with adjusted base fee", "error", encoding.TryParsingCustomError(err))
+				log.Warn("Failed to rebuild TaikoInbox.proposeBatch transaction with adjusted base fee",
+					"error",
+					encoding.TryParsingCustomError(err))
 				return err
 			}
 		}

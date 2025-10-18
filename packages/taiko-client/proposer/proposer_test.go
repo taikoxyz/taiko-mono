@@ -671,10 +671,10 @@ func (s *ProposerTestSuite) TestFindHighestBaseFeeInBatch() {
 	// Test with multiple transactions having different gas fees
 	s.Run("MultipleTransactions", func() {
 		gasFees := []*big.Int{
-			big.NewInt(1000000000),  // 1 gwei
-			big.NewInt(5000000000),  // 5 gwei (highest)
-			big.NewInt(2000000000),  // 2 gwei
-			big.NewInt(3000000000),  // 3 gwei
+			big.NewInt(1000000000), // 1 gwei
+			big.NewInt(5000000000), // 5 gwei (highest)
+			big.NewInt(2000000000), // 2 gwei
+			big.NewInt(3000000000), // 3 gwei
 		}
 
 		var txs types.Transactions
