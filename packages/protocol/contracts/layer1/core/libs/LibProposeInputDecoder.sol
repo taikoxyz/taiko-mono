@@ -63,8 +63,8 @@ library LibProposeInputDecoder {
 
         // 6. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
-        bool isEmpty =
-            _input.checkpoint.blockNumber == 0 && _input.checkpoint.blockHash == bytes32(0)
+        bool isEmpty = _input.checkpoint.blockNumber == 0
+            && _input.checkpoint.blockHash == bytes32(0)
             && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
@@ -142,7 +142,10 @@ library LibProposeInputDecoder {
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
-    function _encodeProposal(uint256 _ptr, IInbox.Proposal memory _proposal)
+    function _encodeProposal(
+        uint256 _ptr,
+        IInbox.Proposal memory _proposal
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -156,7 +159,10 @@ library LibProposeInputDecoder {
     }
 
     /// @notice Encode a single TransitionRecord
-    function _encodeTransitionRecord(uint256 _ptr, IInbox.TransitionRecord memory _transitionRecord)
+    function _encodeTransitionRecord(
+        uint256 _ptr,
+        IInbox.TransitionRecord memory _transitionRecord
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -179,7 +185,10 @@ library LibProposeInputDecoder {
     }
 
     /// @notice Encode a single BondInstruction
-    function _encodeBondInstruction(uint256 _ptr, LibBonds.BondInstruction memory _bondInstruction)
+    function _encodeBondInstruction(
+        uint256 _ptr,
+        LibBonds.BondInstruction memory _bondInstruction
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -265,8 +274,7 @@ library LibProposeInputDecoder {
             size_ = 107;
 
             // Add Checkpoint size if not empty
-            bool isEmpty =
-                _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
+            bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
                 && _checkpoint.stateRoot == bytes32(0);
 
             if (!isEmpty) {

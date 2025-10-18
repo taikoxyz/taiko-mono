@@ -139,7 +139,10 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return hashAndDeadline_ The transition record hash and finalization deadline
-    function _getTransitionRecordHashAndDeadline(uint48 _proposalId, bytes32 _parentTransitionHash)
+    function _getTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
         internal
         view
         override
