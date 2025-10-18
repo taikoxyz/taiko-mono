@@ -642,6 +642,454 @@ func (s *ProposerTestSuite) TestBridgeMessageMonitoring() {
 	})
 }
 
+func (s *ProposerTestSuite) TestFindHighestBaseFeeInBatch() {
+	// Test with empty batch
+	s.Run("EmptyBatch", func() {
+		emptyBatch := []types.Transactions{}
+		highestFee := s.p.findHighestBaseFeeInBatch(emptyBatch)
+		s.Nil(highestFee, "Empty batch should return nil")
+	})
+
+	// Test with single transaction
+	s.Run("SingleTransaction", func() {
+		gasFeeCap := big.NewInt(1000000000) // 1 gwei
+		tx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   s.RPCClient.L2.ChainID,
+			Nonce:     0,
+			GasFeeCap: gasFeeCap,
+			GasTipCap: big.NewInt(100000000),
+			Gas:       21000,
+			To:        &s.TestAddr,
+			Value:     common.Big0,
+		})
+		batch := []types.Transactions{{tx}}
+		highestFee := s.p.findHighestBaseFeeInBatch(batch)
+		s.NotNil(highestFee)
+		s.Equal(gasFeeCap.Int64(), highestFee.Int64())
+	})
+
+	// Test with multiple transactions having different gas fees
+	s.Run("MultipleTransactions", func() {
+		gasFees := []*big.Int{
+			big.NewInt(1000000000),  // 1 gwei
+			big.NewInt(5000000000),  // 5 gwei (highest)
+			big.NewInt(2000000000),  // 2 gwei
+			big.NewInt(3000000000),  // 3 gwei
+		}
+
+		var txs types.Transactions
+		for i, fee := range gasFees {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: fee,
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			txs = append(txs, tx)
+		}
+
+		batch := []types.Transactions{txs}
+		highestFee := s.p.findHighestBaseFeeInBatch(batch)
+		s.NotNil(highestFee)
+		s.Equal(int64(5000000000), highestFee.Int64())
+	})
+
+	// Test with legacy transactions (using GasPrice)
+	s.Run("LegacyTransactions", func() {
+		signer := types.LatestSignerForChainID(s.RPCClient.L2.ChainID)
+
+		legacyTx := types.NewTx(&types.LegacyTx{
+			Nonce:    0,
+			GasPrice: big.NewInt(3000000000), // 3 gwei
+			Gas:      21000,
+			To:       &s.TestAddr,
+			Value:    common.Big0,
+		})
+		signedLegacyTx, err := types.SignTx(legacyTx, signer, s.TestAddrPrivKey)
+		s.Nil(err)
+
+		dynamicTx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   s.RPCClient.L2.ChainID,
+			Nonce:     1,
+			GasFeeCap: big.NewInt(2000000000), // 2 gwei
+			GasTipCap: big.NewInt(100000000),
+			Gas:       21000,
+			To:        &s.TestAddr,
+			Value:     common.Big0,
+		})
+
+		batch := []types.Transactions{{signedLegacyTx, dynamicTx}}
+		highestFee := s.p.findHighestBaseFeeInBatch(batch)
+		s.NotNil(highestFee)
+		s.Equal(int64(3000000000), highestFee.Int64(), "Legacy transaction's GasPrice should be used")
+	})
+
+	// Test with multiple batches
+	s.Run("MultipleBatches", func() {
+		batch1 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     0,
+				GasFeeCap: big.NewInt(2000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		batch2 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     1,
+				GasFeeCap: big.NewInt(7000000000), // Highest
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		batch3 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     2,
+				GasFeeCap: big.NewInt(4000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		batches := []types.Transactions{batch1, batch2, batch3}
+		highestFee := s.p.findHighestBaseFeeInBatch(batches)
+		s.NotNil(highestFee)
+		s.Equal(int64(7000000000), highestFee.Int64())
+	})
+}
+
+func (s *ProposerTestSuite) TestFilterTxsByBaseFee() {
+	s.Run("EmptyBatch", func() {
+		emptyBatch := []types.Transactions{}
+		filtered := s.p.filterTxsByBaseFee(emptyBatch, big.NewInt(1000000000))
+		s.Equal(0, len(filtered), "Filtering empty batch should return empty result")
+	})
+
+	s.Run("AllTransactionsMeetThreshold", func() {
+		minBaseFee := big.NewInt(1000000000) // 1 gwei
+
+		var txs types.Transactions
+		for i := 0; i < 3; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(2000000000), // All above threshold
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			txs = append(txs, tx)
+		}
+
+		batch := []types.Transactions{txs}
+		filtered := s.p.filterTxsByBaseFee(batch, minBaseFee)
+		s.Equal(1, len(filtered), "Should have one batch")
+		s.Equal(3, len(filtered[0]), "All transactions should pass filter")
+	})
+
+	s.Run("SomeTransactionsBelowThreshold", func() {
+		minBaseFee := big.NewInt(3000000000) // 3 gwei
+
+		gasFees := []*big.Int{
+			big.NewInt(5000000000), // Above threshold - should pass
+			big.NewInt(2000000000), // Below threshold - should filter out
+			big.NewInt(4000000000), // Above threshold - should pass
+			big.NewInt(1000000000), // Below threshold - should filter out
+			big.NewInt(3000000000), // Equal to threshold - should pass
+		}
+
+		var txs types.Transactions
+		for i, fee := range gasFees {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: fee,
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			txs = append(txs, tx)
+		}
+
+		batch := []types.Transactions{txs}
+		filtered := s.p.filterTxsByBaseFee(batch, minBaseFee)
+		s.Equal(1, len(filtered), "Should have one batch")
+		s.Equal(3, len(filtered[0]), "Only 3 transactions should pass (5, 4, and 3 gwei)")
+
+		// Verify the filtered transactions are the correct ones
+		s.True(filtered[0][0].GasFeeCap().Cmp(minBaseFee) >= 0)
+		s.True(filtered[0][1].GasFeeCap().Cmp(minBaseFee) >= 0)
+		s.True(filtered[0][2].GasFeeCap().Cmp(minBaseFee) >= 0)
+	})
+
+	s.Run("AllTransactionsBelowThreshold", func() {
+		minBaseFee := big.NewInt(10000000000) // 10 gwei - very high
+
+		var txs types.Transactions
+		for i := 0; i < 3; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(2000000000), // All below threshold
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			txs = append(txs, tx)
+		}
+
+		batch := []types.Transactions{txs}
+		filtered := s.p.filterTxsByBaseFee(batch, minBaseFee)
+		s.Equal(0, len(filtered), "No transactions should pass filter")
+	})
+
+	s.Run("MultipleBatchesWithMixedResults", func() {
+		minBaseFee := big.NewInt(3000000000) // 3 gwei
+
+		// Batch 1: Some transactions pass
+		batch1 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     0,
+				GasFeeCap: big.NewInt(5000000000), // Pass
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     1,
+				GasFeeCap: big.NewInt(1000000000), // Fail
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		// Batch 2: All transactions fail
+		batch2 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     2,
+				GasFeeCap: big.NewInt(1000000000), // Fail
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		// Batch 3: All transactions pass
+		batch3 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     3,
+				GasFeeCap: big.NewInt(4000000000), // Pass
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     4,
+				GasFeeCap: big.NewInt(3000000000), // Pass
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		batches := []types.Transactions{batch1, batch2, batch3}
+		filtered := s.p.filterTxsByBaseFee(batches, minBaseFee)
+
+		// Should have 2 batches (batch1 with 1 tx and batch3 with 2 txs)
+		// Batch2 is completely filtered out
+		s.Equal(2, len(filtered), "Should have 2 batches (batch2 filtered out)")
+		s.Equal(1, len(filtered[0]), "Batch1 should have 1 transaction")
+		s.Equal(2, len(filtered[1]), "Batch3 should have 2 transactions")
+	})
+
+	s.Run("LegacyTransactionsFiltering", func() {
+		minBaseFee := big.NewInt(3000000000) // 3 gwei
+		signer := types.LatestSignerForChainID(s.RPCClient.L2.ChainID)
+
+		// Legacy tx with high gas price (should pass)
+		legacyTxHigh := types.NewTx(&types.LegacyTx{
+			Nonce:    0,
+			GasPrice: big.NewInt(4000000000),
+			Gas:      21000,
+			To:       &s.TestAddr,
+			Value:    common.Big0,
+		})
+		signedLegacyHigh, err := types.SignTx(legacyTxHigh, signer, s.TestAddrPrivKey)
+		s.Nil(err)
+
+		// Legacy tx with low gas price (should fail)
+		legacyTxLow := types.NewTx(&types.LegacyTx{
+			Nonce:    1,
+			GasPrice: big.NewInt(1000000000),
+			Gas:      21000,
+			To:       &s.TestAddr,
+			Value:    common.Big0,
+		})
+		signedLegacyLow, err := types.SignTx(legacyTxLow, signer, s.TestAddrPrivKey)
+		s.Nil(err)
+
+		// Dynamic tx (should pass)
+		dynamicTx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   s.RPCClient.L2.ChainID,
+			Nonce:     2,
+			GasFeeCap: big.NewInt(3500000000),
+			GasTipCap: big.NewInt(100000000),
+			Gas:       21000,
+			To:        &s.TestAddr,
+			Value:     common.Big0,
+		})
+
+		batch := []types.Transactions{{signedLegacyHigh, signedLegacyLow, dynamicTx}}
+		filtered := s.p.filterTxsByBaseFee(batch, minBaseFee)
+
+		s.Equal(1, len(filtered), "Should have one batch")
+		s.Equal(2, len(filtered[0]), "Should have 2 transactions (high legacy and dynamic)")
+	})
+}
+
+func (s *ProposerTestSuite) TestCountTxsInBatch() {
+	s.Run("EmptyBatch", func() {
+		emptyBatch := []types.Transactions{}
+		count := countTxsInBatch(emptyBatch)
+		s.Equal(uint64(0), count)
+	})
+
+	s.Run("SingleBatchWithMultipleTxs", func() {
+		var txs types.Transactions
+		for i := 0; i < 5; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			txs = append(txs, tx)
+		}
+		batch := []types.Transactions{txs}
+		count := countTxsInBatch(batch)
+		s.Equal(uint64(5), count)
+	})
+
+	s.Run("MultipleBatches", func() {
+		batch1 := types.Transactions{}
+		batch2 := types.Transactions{}
+		batch3 := types.Transactions{}
+
+		for i := 0; i < 3; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			batch1 = append(batch1, tx)
+		}
+
+		for i := 3; i < 8; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			batch2 = append(batch2, tx)
+		}
+
+		for i := 8; i < 10; i++ {
+			tx := types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     uint64(i),
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			})
+			batch3 = append(batch3, tx)
+		}
+
+		batches := []types.Transactions{batch1, batch2, batch3}
+		count := countTxsInBatch(batches)
+		s.Equal(uint64(10), count, "Total should be 3 + 5 + 2 = 10")
+	})
+
+	s.Run("BatchesWithEmptyList", func() {
+		batch1 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     0,
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+		batch2 := types.Transactions{} // Empty
+		batch3 := types.Transactions{
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     1,
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+			types.NewTx(&types.DynamicFeeTx{
+				ChainID:   s.RPCClient.L2.ChainID,
+				Nonce:     2,
+				GasFeeCap: big.NewInt(1000000000),
+				GasTipCap: big.NewInt(100000000),
+				Gas:       21000,
+				To:        &s.TestAddr,
+				Value:     common.Big0,
+			}),
+		}
+
+		batches := []types.Transactions{batch1, batch2, batch3}
+		count := countTxsInBatch(batches)
+		s.Equal(uint64(3), count, "Should count 1 + 0 + 2 = 3")
+	})
+}
+
 func TestProposerTestSuite(t *testing.T) {
 	suite.Run(t, new(ProposerTestSuite))
 }

@@ -706,7 +706,10 @@ func (p *Proposer) ProposeTxListPacaya(
 
 	// Check profitability if enabled, but bypass check when force proposing due to signal
 	if p.checkProfitability && !isSignalForcePropose {
-		profitable, err := p.isProfitable(ctx, txBatch, l2BaseFee, txCandidate, txs)
+		originalBaseFee := new(big.Int).Set(l2BaseFee)
+		originalTxCount := txs
+
+		profitable, baseFeeAdjusted, err := p.isProfitable(ctx, &txBatch, &l2BaseFee, txCandidate, &txs)
 		if err != nil {
 			return err
 		}
@@ -717,6 +720,30 @@ func (p *Proposer) ProposeTxListPacaya(
 				"l2BaseFee", utils.WeiToEther(l2BaseFee),
 			)
 			return nil
+		}
+
+		// If profitability check adjusted the base fee and filtered transactions, rebuild the transaction candidate
+		if baseFeeAdjusted {
+			log.Info("Rebuilding transaction with adjusted base fee",
+				"originalBaseFee", utils.WeiToEther(originalBaseFee),
+				"adjustedBaseFee", utils.WeiToEther(l2BaseFee),
+				"originalTxCount", originalTxCount,
+				"filteredTxCount", txs,
+			)
+
+			// Rebuild the transaction candidate with filtered transactions and adjusted base fee
+			txCandidate, err = p.txBuilder.BuildPacaya(
+				ctx,
+				txBatch,
+				forcedInclusion,
+				minTxsPerForcedInclusion,
+				parentMetaHash,
+				l2BaseFee,
+			)
+			if err != nil {
+				log.Warn("Failed to rebuild TaikoInbox.proposeBatch transaction with adjusted base fee", "error", encoding.TryParsingCustomError(err))
+				return err
+			}
 		}
 	} else if isSignalForcePropose {
 		log.Info("Bypassing profitability check for signal-based force propose")
@@ -747,30 +774,89 @@ func (p *Proposer) ProposeTxListPacaya(
 
 func (p *Proposer) isProfitable(
 	ctx context.Context,
-	txBatch []types.Transactions,
-	l2BaseFee *big.Int,
+	txBatch *[]types.Transactions,
+	l2BaseFee **big.Int,
 	candidate *txmgr.TxCandidate,
-	txs uint64,
-) (bool, error) {
+	txs *uint64,
+) (bool, bool, error) {
 	estimatedCost, err := p.estimateL2Cost(ctx, candidate)
 	if err != nil {
-		return false, fmt.Errorf("failed to estimate L2 cost: %w", err)
+		return false, false, fmt.Errorf("failed to estimate L2 cost: %w", err)
 	}
 
-	collectedFees := p.computeL2Fees(txBatch, l2BaseFee)
-
+	// First, check profitability with the standard L2 base fee
+	collectedFees := p.computeL2Fees(*txBatch, *l2BaseFee)
 	isProfitable := collectedFees.Cmp(estimatedCost) >= 0
 
-	log.Info("Profitability check",
+	log.Info("Profitability check (standard base fee)",
 		"estimatedCost", utils.WeiToEther(estimatedCost),
 		"collectedFees", utils.WeiToEther(collectedFees),
 		"isProfitable", isProfitable,
-		"l2BaseFee", utils.WeiToEther(l2BaseFee),
-		"numBatches", len(txBatch),
-		"numTransactions", txs,
+		"l2BaseFee", utils.WeiToEther(*l2BaseFee),
+		"numBatches", len(*txBatch),
+		"numTransactions", *txs,
 	)
 
-	return isProfitable, nil
+	// If profitable with standard base fee, return early
+	if isProfitable {
+		return true, false, nil
+	}
+
+	// If not profitable with standard base fee, try with adjusted percentages of highest transaction base fee
+	highestTxBaseFee := p.findHighestBaseFeeInBatch(*txBatch)
+
+	if highestTxBaseFee == nil || highestTxBaseFee.Cmp(*l2BaseFee) <= 0 {
+		// No higher base fee transactions found, return not profitable
+		return false, false, nil
+	}
+
+	// Try different percentage thresholds: 50%, then 75%
+	percentages := []int64{50, 75}
+
+	for _, percentage := range percentages {
+		// Calculate the adjusted base fee
+		adjustedBaseFee := new(big.Int).Mul(highestTxBaseFee, big.NewInt(percentage))
+		adjustedBaseFee = new(big.Int).Div(adjustedBaseFee, big.NewInt(100))
+
+		// Filter transactions that meet the adjusted base fee
+		filteredTxBatch := p.filterTxsByBaseFee(*txBatch, adjustedBaseFee)
+
+		if len(filteredTxBatch) == 0 {
+			log.Info("No transactions meet the adjusted base fee threshold",
+				"percentage", percentage,
+				"adjustedBaseFee", utils.WeiToEther(adjustedBaseFee),
+			)
+			continue
+		}
+
+		// Recalculate collected fees with filtered transactions and adjusted base fee
+		collectedFeesAdjusted := p.computeL2Fees(filteredTxBatch, adjustedBaseFee)
+		isProfitableAdjusted := collectedFeesAdjusted.Cmp(estimatedCost) >= 0
+
+		log.Info("Profitability check (adjusted with highest tx base fee)",
+			"estimatedCost", utils.WeiToEther(estimatedCost),
+			"collectedFeesAdjusted", utils.WeiToEther(collectedFeesAdjusted),
+			"isProfitableAdjusted", isProfitableAdjusted,
+			"highestTxBaseFee", utils.WeiToEther(highestTxBaseFee),
+			"percentage", percentage,
+			"adjustedBaseFee", utils.WeiToEther(adjustedBaseFee),
+			"originalTxCount", *txs,
+			"filteredTxCount", countTxsInBatch(filteredTxBatch),
+		)
+
+		if isProfitableAdjusted {
+			log.Info("Proposing with adjusted base fee due to high-paying transactions",
+				"percentage", percentage,
+			)
+			// Modify the references in-place
+			*txBatch = filteredTxBatch
+			*l2BaseFee = adjustedBaseFee
+			*txs = countTxsInBatch(filteredTxBatch)
+			return true, true, nil
+		}
+	}
+
+	return false, false, nil
 }
 
 func (p *Proposer) estimateL2Cost(
@@ -867,6 +953,69 @@ func (p *Proposer) getPercentageFromBaseFeeToTheProposer(num *big.Int) *big.Int 
 
 	result := new(big.Int).Mul(num, big.NewInt(int64(p.protocolConfigs.BaseFeeConfig().SharingPctg)))
 	return new(big.Int).Div(result, big.NewInt(100))
+}
+
+// findHighestBaseFeeInBatch finds the highest base fee (GasFeeCap) from all transactions in the batch.
+func (p *Proposer) findHighestBaseFeeInBatch(txBatch []types.Transactions) *big.Int {
+	var highestBaseFee *big.Int
+
+	for _, txs := range txBatch {
+		for _, tx := range txs {
+			// Get the GasFeeCap which represents the maximum base fee the transaction is willing to pay
+			txBaseFee := tx.GasFeeCap()
+			if txBaseFee == nil {
+				// For legacy transactions, use GasPrice
+				txBaseFee = tx.GasPrice()
+			}
+
+			if txBaseFee != nil {
+				if highestBaseFee == nil || txBaseFee.Cmp(highestBaseFee) > 0 {
+					highestBaseFee = new(big.Int).Set(txBaseFee)
+				}
+			}
+		}
+	}
+
+	return highestBaseFee
+}
+
+// filterTxsByBaseFee filters transactions that have a GasFeeCap >= the specified base fee.
+func (p *Proposer) filterTxsByBaseFee(txBatch []types.Transactions, minBaseFee *big.Int) []types.Transactions {
+	filteredBatch := make([]types.Transactions, 0, len(txBatch))
+
+	for _, txs := range txBatch {
+		filteredTxs := make(types.Transactions, 0, len(txs))
+
+		for _, tx := range txs {
+			// Get the GasFeeCap which represents the maximum base fee the transaction is willing to pay
+			txBaseFee := tx.GasFeeCap()
+			if txBaseFee == nil {
+				// For legacy transactions, use GasPrice
+				txBaseFee = tx.GasPrice()
+			}
+
+			// Include transaction if it meets the minimum base fee
+			if txBaseFee != nil && txBaseFee.Cmp(minBaseFee) >= 0 {
+				filteredTxs = append(filteredTxs, tx)
+			}
+		}
+
+		// Only add non-empty transaction lists to the batch
+		if len(filteredTxs) > 0 {
+			filteredBatch = append(filteredBatch, filteredTxs)
+		}
+	}
+
+	return filteredBatch
+}
+
+// countTxsInBatch counts the total number of transactions in a batch.
+func countTxsInBatch(txBatch []types.Transactions) uint64 {
+	var count uint64
+	for _, txs := range txBatch {
+		count += uint64(len(txs))
+	}
+	return count
 }
 
 func retryOnError(operation func() error, retryon string, maxRetries int, delay time.Duration) error {
