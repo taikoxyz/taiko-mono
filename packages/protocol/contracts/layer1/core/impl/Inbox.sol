@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -262,6 +262,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     /// @notice Proves the validity of proposed L2 blocks
     /// @dev Validates transitions, calculates bond instructions, and verifies proofs
+    /// NOTE: this function sends the proposal age to the proof verifier when proving a single proposal.
+    /// This can be used by the verifier system to change its behavior
+    /// if the proposal is too old(e.g. this can serve as a signal that a prover killer proposal was produced)
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
         ProveInput memory input = _decodeProveInput(_data);
@@ -272,9 +275,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
+        uint256 proposalAge;
+        if (input.proposals.length == 1) {
+            unchecked {
+                // proposalAge will only be used by the proof verifier for single-proposal.
+                proposalAge = block.timestamp - input.proposals[0].timestamp;
+            }
+        }
+
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
-        _proofVerifier.verifyProof(aggregatedProvingHash, _proof);
+
+        _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore
