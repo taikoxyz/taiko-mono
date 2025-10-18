@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.13.1](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.13.1) (2025-10-18)
+
+
+### Bug Fixes
+
+* **eventindexer:** avoid increasing zero-address balances on ERC20 burns; skip no-op increases ([#20161](https://github.com/taikoxyz/taiko-mono/issues/20161)) ([206e560](https://github.com/taikoxyz/taiko-mono/commit/206e560473139f2eb2a7706aca5da008446b8b37))
+* **eventindexer:** correct error message function names ([#20139](https://github.com/taikoxyz/taiko-mono/issues/20139)) ([4f9110d](https://github.com/taikoxyz/taiko-mono/commit/4f9110db73e7dd3ba5f54f4031d67152157f9b97))
+* **eventindexer:** correct typos and grammar issues ([#20177](https://github.com/taikoxyz/taiko-mono/issues/20177)) ([fac3e30](https://github.com/taikoxyz/taiko-mono/commit/fac3e30da5b827c25f91939fe4e4c28a4938f571))
+* **eventindexer:** pacaya flag ([#19477](https://github.com/taikoxyz/taiko-mono/issues/19477)) ([140ec4d](https://github.com/taikoxyz/taiko-mono/commit/140ec4daaee20adaa667cb418ae05a28b3e16eba))
+* **eventindexer:** replace empty URL with valid path in http.NewRequest for pagination tests ([#20109](https://github.com/taikoxyz/taiko-mono/issues/20109)) ([6a90b59](https://github.com/taikoxyz/taiko-mono/commit/6a90b598e4c15b5211ee54691091e6d3eec804f5))
+* **relayer:** improve MySQL container test reliability ([#20328](https://github.com/taikoxyz/taiko-mono/issues/20328)) ([8f72a97](https://github.com/taikoxyz/taiko-mono/commit/8f72a97f0b8fb0b36e4402501e3b8bd012dd236c))
+
+
+### Chores
+
+* **eventindexer, relayer:** fix inconsistent function name in comment ([#19784](https://github.com/taikoxyz/taiko-mono/issues/19784)) ([37d0437](https://github.com/taikoxyz/taiko-mono/commit/37d04370e0a8194b0aa06219cb783d0a0f2f2757))
+* fix some minor issues in comments ([#19740](https://github.com/taikoxyz/taiko-mono/issues/19740)) ([e39f4db](https://github.com/taikoxyz/taiko-mono/commit/e39f4db8406c0ec5f6ac383f32d9126cdb099ec4))
+
+
+### Code Refactoring
+
+* **balance-monitor, eventindexer, relayer:** replace exp/slog with standard log/slog ([#19861](https://github.com/taikoxyz/taiko-mono/issues/19861)) ([ab4ac99](https://github.com/taikoxyz/taiko-mono/commit/ab4ac9901352db2639eaa0b57c665c66f7d7d615))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
