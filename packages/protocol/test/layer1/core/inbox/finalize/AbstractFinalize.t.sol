@@ -585,7 +585,10 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)

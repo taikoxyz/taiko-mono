@@ -49,7 +49,13 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
             abi.decode(_proof, (bytes, bytes32, bytes32));
