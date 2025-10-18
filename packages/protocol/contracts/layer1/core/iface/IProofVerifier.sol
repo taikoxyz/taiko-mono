@@ -10,7 +10,11 @@ interface IProofVerifier {
     /// @param _proposalAge The age of the youngest proposal in the batch
     /// @param _transitionsHash The hash of the transitions to verify
     /// @param _proof The proof data for the transitions
-    function verifyProof(uint256 _proposalAge, bytes32 _transitionsHash, bytes calldata _proof)
+    function verifyProof(
+        uint256 _proposalAge,
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
         external
         view;
 }

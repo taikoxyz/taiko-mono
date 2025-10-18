@@ -188,7 +188,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     // Private Functions
     // ---------------------------------------------------------------
 
-    function _addInstances(address[] memory _instances, bool instantValid)
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
         private
         returns (uint256[] memory ids)
     {
@@ -217,7 +220,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         }
     }
 
-    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
+    function _replaceInstance(
+        uint256 id,
+        address oldInstance,
+        address newInstance
+    )
+        private
+    {
         // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
         // need to have a cooldown
         instances[id] = Instance(newInstance, uint64(block.timestamp));

@@ -30,7 +30,7 @@ contract LibNetworkTest is CommonTest {
     function test_isTaikoMainnet() public pure {
         assertTrue(LibNetwork.isTaikoMainnet(LibNetwork.TAIKO_MAINNET));
         assertFalse(LibNetwork.isTaikoMainnet(LibNetwork.ETHEREUM_MAINNET));
-        assertFalse(LibNetwork.isTaikoMainnet(LibNetwork.TAIKO_HEKLA));
+        assertFalse(LibNetwork.isTaikoMainnet(LibNetwork.TAIKO_HOODI));
     }
 
     function test_isTaikoDevnet() public pure {

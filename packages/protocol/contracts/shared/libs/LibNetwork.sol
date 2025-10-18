@@ -14,11 +14,9 @@ library LibNetwork {
     uint256 internal constant ETHEREUM_HOODI = 560_048;
 
     uint64 internal constant TAIKO_MAINNET = 167_000;
-    uint64 internal constant TAIKO_HEKLA = 167_009;
+    uint64 internal constant TAIKO_HOODI = 167_013;
     uint64 internal constant TAIKO_DEVNET = 167_001;
     uint64 internal constant TAIKO_PRECONF = 167_010;
-
-    uint256 internal constant ETHEREUM_BLOCK_TIME = 12 seconds;
 
     /// @dev Checks if the chain ID represents an Ethereum testnet.
     /// @param _chainId The chain ID.

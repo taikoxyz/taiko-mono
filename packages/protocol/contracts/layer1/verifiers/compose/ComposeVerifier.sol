@@ -75,7 +75,11 @@ abstract contract ComposeVerifier is IProofVerifier {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(uint256 _proposalAge, bytes32 _transitionsHash, bytes calldata _proof)
+    function verifyProof(
+        uint256 _proposalAge,
+        bytes32 _transitionsHash,
+        bytes calldata _proof
+    )
         external
         view
     {
@@ -132,7 +136,10 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// @dev Checks if the provided verifiers are sufficient
     /// NOTE: verifiers are provided in ascending order by their corresponding IDs,
     /// and the _proposalAge will be zero if there are more than one verifier in verifiers.
-    function areSubProofsSufficient(uint256 _proposalAge, address[] memory verifiers)
+    function areSubProofsSufficient(
+        uint256 _proposalAge,
+        address[] memory verifiers
+    )
         internal
         view
         virtual
