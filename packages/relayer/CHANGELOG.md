@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.12.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.12.1) (2025-10-18)
+
+
+### Bug Fixes
+
+* **relayer:** add missing return statement in minFeeToIndex check ([#20073](https://github.com/taikoxyz/taiko-mono/issues/20073)) ([07b33d8](https://github.com/taikoxyz/taiko-mono/commit/07b33d82dc8937b1553fdcd1ed8e6c955802a314))
+* **relayer:** bind backoff retries to context; ensure graceful shutdown of background goroutines ([#20241](https://github.com/taikoxyz/taiko-mono/issues/20241)) ([4c2ec58](https://github.com/taikoxyz/taiko-mono/commit/4c2ec5835a6df6bcf7fa5bcb70b826eb44ece143))
+* **relayer:** correct grammar issues and typos throughout codebase ([#20176](https://github.com/taikoxyz/taiko-mono/issues/20176)) ([24051e3](https://github.com/taikoxyz/taiko-mono/commit/24051e3e929ff514e83187ab48261a099d51df69))
+* **relayer:** fix an `occurredTxHash` log in relayer ([#19540](https://github.com/taikoxyz/taiko-mono/issues/19540)) ([4a22f7a](https://github.com/taikoxyz/taiko-mono/commit/4a22f7a6163108033ae887def6d3f2c36e0c5575))
+* **relayer:** fix gasLimit=0 owner test and add EventStatusRecalled case ([#19957](https://github.com/taikoxyz/taiko-mono/issues/19957)) ([4052609](https://github.com/taikoxyz/taiko-mono/commit/40526091bf20182a48034abedad4830ba7c4fc82))
+* **relayer:** if cant find process message tx, continue loop ([#19440](https://github.com/taikoxyz/taiko-mono/issues/19440)) ([5056a5a](https://github.com/taikoxyz/taiko-mono/commit/5056a5a8c29ea6db44a303585ea0c674363a0fc9))
+* **relayer:** improve MySQL container test reliability ([#20328](https://github.com/taikoxyz/taiko-mono/issues/20328)) ([8f72a97](https://github.com/taikoxyz/taiko-mono/commit/8f72a97f0b8fb0b36e4402501e3b8bd012dd236c))
+* **repo:** correct typos across relayer, bridge-ui, and ui-lib ([#20337](https://github.com/taikoxyz/taiko-mono/issues/20337)) ([0c8ba23](https://github.com/taikoxyz/taiko-mono/commit/0c8ba23fb859388bff52fc208e31e0c73a66a2cf))
+
+
+### Chores
+
+* **eventindexer, relayer:** fix inconsistent function name in comment ([#19784](https://github.com/taikoxyz/taiko-mono/issues/19784)) ([37d0437](https://github.com/taikoxyz/taiko-mono/commit/37d04370e0a8194b0aa06219cb783d0a0f2f2757))
+* fix some minor issues in comments ([#19740](https://github.com/taikoxyz/taiko-mono/issues/19740)) ([e39f4db](https://github.com/taikoxyz/taiko-mono/commit/e39f4db8406c0ec5f6ac383f32d9126cdb099ec4))
+* **protocol, relayer:** fix some minor issues ([#19764](https://github.com/taikoxyz/taiko-mono/issues/19764)) ([8b058f3](https://github.com/taikoxyz/taiko-mono/commit/8b058f326e3014cd76d09c149e814221d520ffd1))
+* **relayer, taiko-client:** fix typo/grammar in comments ([#20071](https://github.com/taikoxyz/taiko-mono/issues/20071)) ([da74cf5](https://github.com/taikoxyz/taiko-mono/commit/da74cf532ec777eadbee5a6dd44fcc2a4b67d346))
+* **relayer:** add RPC connection timeouts in relayer API startup ([#20235](https://github.com/taikoxyz/taiko-mono/issues/20235)) ([70227c9](https://github.com/taikoxyz/taiko-mono/commit/70227c9c3697e5a9736a7d183f969a158e6f95cc))
+* **relayer:** wrap existing error instead of creating new one in setLatestNonce ([#19906](https://github.com/taikoxyz/taiko-mono/issues/19906)) ([7b09ec5](https://github.com/taikoxyz/taiko-mono/commit/7b09ec5466dfc1fc1f976f457a10820c0dcb9cfe))
+
+
+### Documentation
+
+* **protocol,relayer,taiko-client:** fix some inaccuracies in docs ([#20221](https://github.com/taikoxyz/taiko-mono/issues/20221)) ([5be8b50](https://github.com/taikoxyz/taiko-mono/commit/5be8b504e84c1ff61e5e55d5f0c1f185578dd7c3))
+
+
+### Code Refactoring
+
+* **balance-monitor, eventindexer, relayer:** replace exp/slog with standard log/slog ([#19861](https://github.com/taikoxyz/taiko-mono/issues/19861)) ([ab4ac99](https://github.com/taikoxyz/taiko-mono/commit/ab4ac9901352db2639eaa0b57c665c66f7d7d615))
+* **relayer:** replace []byte(fmt.Sprintf) with fmt.Appendf ([#20027](https://github.com/taikoxyz/taiko-mono/issues/20027)) ([d678497](https://github.com/taikoxyz/taiko-mono/commit/d678497d961027ae041b631414b37528b7e331b5))
+* **relayer:** use the built-in `max/min` to simplify the code ([#19351](https://github.com/taikoxyz/taiko-mono/issues/19351)) ([442741a](https://github.com/taikoxyz/taiko-mono/commit/442741a1b7d52cf0f662e97da5120aae63f96ea4))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
