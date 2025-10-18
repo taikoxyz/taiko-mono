@@ -825,7 +825,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return parents;
     }
 
-    function _wrapDoubleProposal(IInbox.Proposal memory head, IInbox.Proposal memory previous)
+    function _wrapDoubleProposal(
+        IInbox.Proposal memory head,
+        IInbox.Proposal memory previous
+    )
         internal
         pure
         returns (IInbox.Proposal[] memory)
@@ -846,7 +849,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return records;
     }
 
-    function _locateParentForSlot(RingBufferFillResult memory fill, bytes32 storedHash)
+    function _locateParentForSlot(
+        RingBufferFillResult memory fill,
+        bytes32 storedHash
+    )
         internal
         view
         returns (IInbox.Proposal memory)
@@ -953,7 +959,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         });
     }
 
-    function _createTransitionMetadata(address designatedProver, address actualProver)
+    function _createTransitionMetadata(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)
