@@ -18,7 +18,7 @@ pub enum IndexerError {
 
     /// RPC error
     #[error("RPC error: {0}")]
-    Rpc(String),
+    Rpc(Box<RpcError<TransportErrorKind>>),
 
     /// Event scanner error
     #[error("event scanner error: {0}")]
@@ -26,7 +26,7 @@ pub enum IndexerError {
 
     /// Log decode error
     #[error("log decode error: {0}")]
-    LogDecode(String),
+    LogDecode(Box<alloy::sol_types::Error>),
 
     /// Generic error
     #[error(transparent)]
@@ -36,13 +36,13 @@ pub enum IndexerError {
 // Manual From implementations for types that don't play well with #[from]
 impl From<RpcError<TransportErrorKind>> for IndexerError {
     fn from(err: RpcError<TransportErrorKind>) -> Self {
-        IndexerError::Rpc(err.to_string())
+        IndexerError::Rpc(Box::new(err))
     }
 }
 
 // Manual From implementations for types that don't play well with #[from]
 impl From<alloy::sol_types::Error> for IndexerError {
     fn from(err: alloy::sol_types::Error) -> Self {
-        IndexerError::LogDecode(err.to_string())
+        IndexerError::LogDecode(Box::new(err))
     }
 }
