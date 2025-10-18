@@ -300,7 +300,10 @@ contract LibProposeInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
-    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 transitionCount)
+    function testFuzz_encodedSizeComparison(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
         public
         pure
     {

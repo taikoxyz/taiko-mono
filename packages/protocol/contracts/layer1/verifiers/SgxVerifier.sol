@@ -130,7 +130,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
@@ -158,7 +164,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
     }
 
-    function _addInstances(address[] memory _instances, bool instantValid)
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
         private
         returns (uint256[] memory ids)
     {
@@ -187,7 +196,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         }
     }
 
-    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
+    function _replaceInstance(
+        uint256 id,
+        address oldInstance,
+        address newInstance
+    )
+        private
+    {
         // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
         // need to have a cooldown
         instances[id] = Instance(newInstance, uint64(block.timestamp));

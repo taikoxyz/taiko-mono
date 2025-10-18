@@ -105,7 +105,10 @@ interface ILookaheadStore {
     /// @param _epochTimestamp The timestamp of the epoch.
     /// @param _lookaheadSlots The lookahead slots.
     /// @return The lookahead hash.
-    function calculateLookaheadHash(uint256 _epochTimestamp, LookaheadSlot[] memory _lookaheadSlots)
+    function calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
         external
         pure
         returns (bytes26);
@@ -115,7 +118,10 @@ interface ILookaheadStore {
     /// @param _data The lookahead data for the proposer's epoch, plus the next epoch.
     /// @param _epochTimestamp The timestamp of the proposer's epoch.
     /// @return context_ The proposer context, including the proposer and submission window bounds.
-    function getProposerContext(LookaheadData memory _data, uint256 _epochTimestamp)
+    function getProposerContext(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp
+    )
         external
         view
         returns (ProposerContext memory context_);
@@ -138,7 +144,10 @@ interface ILookaheadStore {
     /// @param _epochTimestamp The timestamp of the epoch for which the lookahead is posted.
     /// @param _registrationRoot The URC registration root of the operator.
     /// @return True if the operator is valid
-    function isLookaheadOperatorValid(uint256 _epochTimestamp, bytes32 _registrationRoot)
+    function isLookaheadOperatorValid(
+        uint256 _epochTimestamp,
+        bytes32 _registrationRoot
+    )
         external
         view
         returns (bool);
@@ -148,7 +157,10 @@ interface ILookaheadStore {
     /// @param _epochTimestamp The timestamp of the next epoch.
     /// @param _registrationRoot The URC registration root of the poster.
     /// @return True if the poster is valid
-    function isLookaheadPosterValid(uint256 _epochTimestamp, bytes32 _registrationRoot)
+    function isLookaheadPosterValid(
+        uint256 _epochTimestamp,
+        bytes32 _registrationRoot
+    )
         external
         view
         returns (bool);
