@@ -66,4 +66,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
 
 ## Getting support
 
-Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help.
+Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help!
