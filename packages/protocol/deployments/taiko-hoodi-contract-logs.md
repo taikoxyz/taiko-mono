@@ -121,7 +121,7 @@
 ### preconf_router
 
 - proxy : `0xCD15bdEc91BbD45E56D81b4b76d4f97f5a84e555`
-- impl : `0x82624e9deD9BF62056c8d1eb9cF921a40f3ba834`
+- impl : `0x8ab91D91c80e923280D866c447a7B993b017A8B2`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
