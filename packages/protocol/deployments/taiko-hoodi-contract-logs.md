@@ -136,11 +136,11 @@
 ### proof_verifier
 
 - proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
-- impl : `0xD9995b588c749BF69C87ebF4D715f4c1a457EE42`
+- impl : `0xbE3CA2aF1bc74b22E96799e998E0a19f8A40bcbC`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Sep 18, 2025 at commit `1852eb5`
+  - updated on Oct 20, 2025 at commit `7217552`
 
 ### sgx_reth_verifier
 
@@ -153,21 +153,20 @@
 ### risc0_reth_verifier
 
 - proxy : `0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd`
-- impl : `0xbF4236E923140Fc9aCeC47e6BEAc43e27A60A7CE`
+- impl : `0xF0BabD64159D3A711bC0A412B9DfCd7d08d8FF75`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Sep 22, 2025 at commit `6be61d3`
-  - upgraded on Sep 27, 2025 at commit `c459c0d`
+  - updated on Oct 20, 2025 at commit `7217552`
 
 ### sp1_reth_verifier
 
 - proxy : `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3`
-- impl : `0x392218feC5a97e361A5Cc71CB2c76f0340eDdFAF`
+- impl : `0x801dcb74ed6c45764c91b9e818ec204b41eada9b`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Sep 22, 2025 at commit `6be61d3`
+  - updated on Oct 20, 2025 at commit `7217552`
 
 ### sgx_geth_verifier
 
