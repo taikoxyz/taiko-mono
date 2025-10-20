@@ -125,7 +125,7 @@
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Oct 14, 2025 at commit `7217552`
+  - upgraded on Oct 20, 2025 at commit `7217552`
 
 ### taiko_wrapper
 
