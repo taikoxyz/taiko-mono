@@ -201,9 +201,9 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _to The recipient address
     /// @param _amount The amount to withdraw
     function _withdraw(address _from, address _to, uint256 _amount) internal {
-        _debitBond(_from, _amount);
-        bondToken.safeTransfer(_to, _amount);
-        emit BondWithdrawn(_from, _amount);
+        uint256 debited = _debitBond(_from, _amount);
+        bondToken.safeTransfer(_to, debited);
+        emit BondWithdrawn(_from, debited);
     }
 
     /// @dev Internal implementation for getting the bond balance
