@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -366,12 +366,12 @@ contract Anchor is EssentialContract {
     {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-        getDesignatedProver(
-            _proposalParams.proposalId,
-            _proposalParams.proposer,
-            _proposalParams.proverAuth,
-            _proposalState.designatedProver
-        );
+            getDesignatedProver(
+                _proposalParams.proposalId,
+                _proposalParams.proposer,
+                _proposalParams.proverAuth,
+                _proposalState.designatedProver
+            );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
@@ -483,12 +483,18 @@ contract Anchor is EssentialContract {
         }
 
         assembly {
-            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            oldAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
 
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
-            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
     }
 

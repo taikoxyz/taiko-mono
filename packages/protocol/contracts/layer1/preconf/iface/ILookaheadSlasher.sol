@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@eth-fabric/urc/IRegistry.sol";
+import "@eth-fabric/urc/ISlasher.sol";
+import "@solady/src/utils/ext/ithaca/BLS.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
-import "@eth-fabric/urc/ISlasher.sol";
-import "@eth-fabric/urc/IRegistry.sol";
-import "@solady/src/utils/ext/ithaca/BLS.sol";
 
 /// @title ILookaheadSlasher
 /// @dev The lookahead contained within the beacon state is referred to

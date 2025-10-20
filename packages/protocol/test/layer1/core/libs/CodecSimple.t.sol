@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { AbstractCodecTest } from "./AbstractCodec.t.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
-import { AbstractCodecTest } from "./AbstractCodec.t.sol";
 
 /// @title CodecSimpleTest
 /// @notice Test suite for CodecSimple (LibHashSimple) implementation

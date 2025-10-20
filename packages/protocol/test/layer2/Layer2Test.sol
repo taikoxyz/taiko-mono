@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/governance/DelegateController.sol";
 import "src/layer2/core/Anchor.sol";
+import "src/layer2/governance/DelegateController.sol";
 import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";
 
@@ -26,13 +26,11 @@ abstract contract Layer2Test is CommonTest {
         returns (DelegateController)
     {
         return DelegateController(
-            payable(
-                deploy({
+            payable(deploy({
                     name: "delegate_controller",
                     impl: address(new DelegateController(l1ChainId, l2Bridge, daoController)),
                     data: abi.encodeCall(DelegateController.init, ())
-                })
-            )
+                }))
         );
     }
 }

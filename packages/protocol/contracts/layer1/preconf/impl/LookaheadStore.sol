@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/iface/ILookaheadStore.sol";
-import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
-import "src/layer1/preconf/impl/Blacklist.sol";
-import "src/layer1/core/iface/IProposerChecker.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
+import "src/layer1/preconf/iface/ILookaheadStore.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
@@ -230,7 +230,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ProposerContext memory context_)
     {
         context_.submissionWindowStart =
-            _data.currLookahead[_data.currLookahead.length - 1].timestamp;
+        _data.currLookahead[_data.currLookahead.length - 1].timestamp;
 
         if (_data.nextLookahead.length == 0) {
             // This is the case when the next lookahead is empty
@@ -447,7 +447,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
                 );
                 require(
                     (lookaheadSlot.timestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_SLOT == 0,
+                            % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -506,7 +506,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
-        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 prevEpochTimestamp =
+            _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Use the general operator validation first
         (operatorData_, slasherCommitment_) =
@@ -637,9 +638,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0,
-            payload: abi.encode(_lookahead),
-            slasher: lookaheadSlasher
+            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
         });
     }
 }

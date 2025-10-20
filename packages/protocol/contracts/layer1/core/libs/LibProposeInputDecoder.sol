@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoder
@@ -64,7 +64,8 @@ library LibProposeInputDecoder {
         // 6. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
         bool isEmpty = _input.checkpoint.blockNumber == 0
-            && _input.checkpoint.blockHash == bytes32(0) && _input.checkpoint.stateRoot == bytes32(0);
+            && _input.checkpoint.blockHash == bytes32(0)
+            && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
         ptr = P.packUint8(ptr, isEmpty ? 0 : 1);

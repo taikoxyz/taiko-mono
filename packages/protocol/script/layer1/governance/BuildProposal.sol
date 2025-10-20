@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Script.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/mainnet/MainnetDAOController.sol";
-import "src/shared/bridge/IBridge.sol";
+import "forge-std/src/Script.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
+import "src/shared/bridge/IBridge.sol";
 
 abstract contract BuildProposal is Script {
     error TargetIsZeroAddress();
@@ -106,9 +106,7 @@ abstract contract BuildProposal is Script {
         returns (Controller.Action memory)
     {
         return Controller.Action({
-            target: _target,
-            value: 0,
-            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
+            target: _target, value: 0, data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
         });
     }
 
@@ -147,9 +145,7 @@ abstract contract BuildProposal is Script {
             );
 
             allActions_[l1Actions.length] = Controller.Action({
-                target: L1.BRIDGE,
-                value: 0,
-                data: abi.encodeCall(IBridge.sendMessage, (message))
+                target: L1.BRIDGE, value: 0, data: abi.encodeCall(IBridge.sendMessage, (message))
             });
         }
     }

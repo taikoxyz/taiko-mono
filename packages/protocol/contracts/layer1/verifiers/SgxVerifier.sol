@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./LibPublicInput.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "./LibPublicInput.sol";
 import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/shared/libs/LibNames.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
@@ -130,7 +130,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
         require(_proof.length == 109, SGX_INVALID_PROOF());
@@ -190,7 +196,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         }
     }
 
-    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
+    function _replaceInstance(
+        uint256 id,
+        address oldInstance,
+        address newInstance
+    )
+        private
+    {
         // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
         // need to have a cooldown
         instances[id] = Instance(newInstance, uint64(block.timestamp));

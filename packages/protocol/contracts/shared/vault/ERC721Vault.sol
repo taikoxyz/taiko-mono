@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
-import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
+import "./IBridgedERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
@@ -39,7 +39,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+        if (msg.value < _op.fee) {
+            revert VAULT_INSUFFICIENT_FEE();
+        }
 
         {
             uint256 size = _op.tokenIds.length;
@@ -87,12 +89,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-    {
+    function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
 

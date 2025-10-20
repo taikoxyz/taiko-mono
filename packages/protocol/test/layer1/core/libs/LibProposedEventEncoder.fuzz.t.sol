@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 
 /// @title LibProposedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProposedEventEncoder
@@ -136,9 +136,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: _offset,
-                timestamp: _timestamp
+                blobHashes: blobHashes, offset: _offset, timestamp: _timestamp
             })
         });
         payload.derivation.sources = sources;
@@ -320,9 +318,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: (_id % 2 == 0),
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: uint24(_id % MAX_UINT24),
-                timestamp: _timestamp
+                blobHashes: blobHashes, offset: uint24(_id % MAX_UINT24), timestamp: _timestamp
             })
         });
         original.derivation.sources = sources;
@@ -380,7 +376,9 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001 })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001
+            })
         });
         payload.derivation.sources = sources;
 

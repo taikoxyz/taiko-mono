@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { IInbox } from "./IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -122,10 +122,7 @@ interface ICodec {
     /// @notice Hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
-    function hashDerivation(IInbox.Derivation calldata _derivation)
-        external
-        pure
-        returns (bytes32);
+    function hashDerivation(IInbox.Derivation calldata _derivation) external pure returns (bytes32);
 
     /// @notice Hashing for Proposal structs
     /// @param _proposal The proposal to hash
@@ -135,10 +132,7 @@ interface ICodec {
     /// @notice Hashing for Transition structs
     /// @param _transition The transition to hash
     /// @return The hash of the transition
-    function hashTransition(IInbox.Transition calldata _transition)
-        external
-        pure
-        returns (bytes32);
+    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
 
     /// @notice Hashing for TransitionRecord structs
     /// @param _transitionRecord The transition record to hash

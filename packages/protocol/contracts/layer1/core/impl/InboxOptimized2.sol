@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { InboxOptimized1 } from "./InboxOptimized1.sol";
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
+import { Inbox } from "./Inbox.sol";
+import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title InboxOptimized2

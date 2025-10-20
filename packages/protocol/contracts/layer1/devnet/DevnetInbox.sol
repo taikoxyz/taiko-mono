@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 /// @title DevnetInbox
@@ -35,8 +35,7 @@ contract DevnetInbox is InboxOptimized2 {
         address _taikoToken,
         address _checkpointStore
     )
-        InboxOptimized2(
-            IInbox.Config({
+        InboxOptimized2(IInbox.Config({
                 bondToken: _taikoToken,
                 checkpointStore: _checkpointStore,
                 codec: _codec,
@@ -54,8 +53,7 @@ contract DevnetInbox is InboxOptimized2 {
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            })
-        )
+            }))
     { }
 
     // ---------------------------------------------------------------

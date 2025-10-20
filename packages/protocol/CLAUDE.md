@@ -76,6 +76,8 @@ This guide provides specific instructions for working with Taiko's smart contrac
 
 ## 🧪 Testing Methodology
 
+**IMPORTANT**: Always use the `solidity-tester` subagent (via Task tool) for running tests, writing tests, or debugging test failures.
+
 ### Test Naming Convention
 
 - Positive tests: `test_functionName_Description`

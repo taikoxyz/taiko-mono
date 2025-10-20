@@ -51,7 +51,7 @@ jobs:
           token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@v1.5.0
         with:
           version: stable
 
@@ -73,7 +73,7 @@ jobs:
       - name: Clean up and fmt
         if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt
+        run: pnpm clean && pnpm fmt:sol
 
       - name: Test Shared contracts
         working-directory: ./packages/protocol
@@ -92,13 +92,13 @@ jobs:
         run: |
           git add -N .  # Simulate staging to detect untracked files
           if [ -n "$(git status --porcelain)" ]; then
-            echo "changes=true" >> $GITHUB_ENV
+            echo "changes=true" >> $GITHUB_OUTPUT
           else
-            echo "changes=false" >> $GITHUB_ENV
+            echo "changes=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Commit generated protocol artifacts
-        if: env.changes == 'true' && github.event.pull_request.head.repo.fork == false
+        if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "Update protocol generated artifacts"
@@ -133,7 +133,7 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.3.1
+        uses: foundry-rs/foundry-toolchain@v1.5.0
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

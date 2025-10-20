@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -313,9 +313,10 @@ library LibHashOptimized {
             bytes32(uint256(_source.blobSlice.timestamp))
         );
 
-        return EfficientHashLib.hash(
-            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-        );
+        return
+            EfficientHashLib.hash(
+                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+            );
     }
 
     /// @notice Safely hashes a single bond instruction to avoid collisions

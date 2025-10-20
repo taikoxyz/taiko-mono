@@ -67,9 +67,9 @@ contract PrankDestBridge {
         // a contract
         // most probably due to some deployment address nonce issue. (Seems a
         // known issue).
-        destVault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
-            abi.encode(canonicalToken, from, to, tokenIds)
-        );
+        destVault.onMessageInvocation{
+            value: mockLibInvokeMsgValue
+        }(abi.encode(canonicalToken, from, to, tokenIds));
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);

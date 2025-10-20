@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "test/shared/CommonTest.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "test/shared/CommonTest.sol";
 
 contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;
@@ -34,8 +34,8 @@ contract TestPreconfWhitelist is CommonTest {
         // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
         // avoid underflow
         vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
+            LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH
+                * whitelist.randomnessDelay()
         );
     }
 

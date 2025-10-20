@@ -27,6 +27,7 @@ jobs:
           scopes: |
             repo
             main
+            blobindexer-rs
             deps
             deps-dev
             docs-site

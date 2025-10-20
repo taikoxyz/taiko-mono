@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/bridge/Bridge.sol";
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
+import "src/shared/bridge/Bridge.sol";
 
 /// @title MainnetBridge
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
@@ -35,7 +35,14 @@ contract MainnetBridge is Bridge {
     }
 
     /// @inheritdoc Bridge
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal override {
+    function _storeContext(
+        bytes32 _msgHash,
+        address _from,
+        uint64 _srcChainId
+    )
+        internal
+        override
+    {
         assembly {
             tstore(_CTX_SLOT, _msgHash)
             tstore(add(_CTX_SLOT, 1), _from)
