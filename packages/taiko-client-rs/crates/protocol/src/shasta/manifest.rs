@@ -1,6 +1,9 @@
 //! Manifest types for encoding block proposals and metadata.
 
-use std::io::{Read, Write};
+use std::{
+    convert::TryFrom,
+    io::{Read, Write},
+};
 
 use alloy::primitives::{Address, Bytes, U256};
 use alloy_consensus::TxEnvelope;
@@ -151,32 +154,35 @@ where
 /// Decode a manifest from the Shasta protocol payload format.
 fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>>> {
     if bytes.len() < offset + 64 {
-        return Err(ProtocolError::InvalidPayload("blob payload shorter than header".into()));
+        return Ok(None);
     }
 
-    let version = u32::from_be_bytes(
-        bytes[offset + 28..offset + 32]
-            .try_into()
-            .map_err(|_| ProtocolError::InvalidPayload("malformed manifest version".into()))?,
-    );
+    let version_raw = U256::from_be_slice(&bytes[offset..offset + 32]);
+    let Ok(version) = u32::try_from(version_raw) else {
+        return Ok(None);
+    };
     if version != SHASTA_PAYLOAD_VERSION as u32 {
         return Ok(None);
     }
 
-    let size = u64::from_be_bytes(
-        bytes[offset + 56..offset + 64]
-            .try_into()
-            .map_err(|_| ProtocolError::InvalidPayload("malformed manifest size".into()))?,
-    ) as usize;
+    let size_raw = U256::from_be_slice(&bytes[offset + 32..offset + 64]);
+    let Ok(size_u64) = u64::try_from(size_raw) else {
+        return Ok(None);
+    };
+    let Ok(size) = usize::try_from(size_u64) else {
+        return Ok(None);
+    };
 
     if bytes.len() < offset + 64 + size {
-        return Err(ProtocolError::InvalidPayload("blob payload shorter than declared size".into()));
+        return Ok(None);
     }
 
     let compressed = &bytes[offset + 64..offset + 64 + size];
     let mut decoder = ZlibDecoder::new(compressed);
     let mut decoded = Vec::new();
-    decoder.read_to_end(&mut decoded).map_err(|err| ProtocolError::Compression(err.to_string()))?;
+    if decoder.read_to_end(&mut decoded).is_err() {
+        return Ok(None);
+    }
 
     Ok(Some(decoded))
 }
@@ -184,6 +190,80 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_decode_manifest_payload_version_mismatch() {
+        let mut payload = vec![0u8; 64];
+        payload[31] = SHASTA_PAYLOAD_VERSION + 1;
+
+        let decoded = decode_manifest_payload(&payload, 0).unwrap();
+        assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_too_large() {
+        let mut payload = vec![0u8; 64];
+        payload[31] = SHASTA_PAYLOAD_VERSION;
+        // size_raw > u64::MAX should yield None.
+        payload[32] = 1;
+
+        let decoded = decode_manifest_payload(&payload, 0).unwrap();
+        assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_invalid_compression() {
+        let mut payload = vec![0u8; 66];
+        payload[31] = SHASTA_PAYLOAD_VERSION;
+        payload[63] = 2; // size = 2 (big endian in last byte)
+        payload[64] = 0x78;
+        payload[65] = 0x00; // truncated zlib stream
+
+        let decoded = decode_manifest_payload(&payload, 0).unwrap();
+        assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn test_proposal_manifest_decode_invalid_rlp() {
+        use flate2::{Compression, write::ZlibEncoder};
+
+        let invalid_body = [0xFF, 0x00, 0x01];
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&invalid_body).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut payload = Vec::with_capacity(64 + compressed.len());
+        let mut version_bytes = [0u8; 32];
+        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
+        payload.extend_from_slice(&version_bytes);
+
+        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
+        payload.extend_from_slice(&len_bytes);
+        payload.extend_from_slice(&compressed);
+
+        assert!(ProposalManifest::decompress_and_decode(&payload, 0).is_err());
+    }
+
+    #[test]
+    fn test_derivation_manifest_decode_invalid_rlp() {
+        use flate2::{Compression, write::ZlibEncoder};
+
+        let invalid_body = [0x80, 0x81, 0xFF];
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&invalid_body).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut payload = Vec::with_capacity(64 + compressed.len());
+        let mut version_bytes = [0u8; 32];
+        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
+        payload.extend_from_slice(&version_bytes);
+
+        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
+        payload.extend_from_slice(&len_bytes);
+        payload.extend_from_slice(&compressed);
+
+        assert!(DerivationSourceManifest::decompress_and_decode(&payload, 0).is_err());
+    }
 
     #[test]
     fn test_proposal_manifest_encode_decode() {

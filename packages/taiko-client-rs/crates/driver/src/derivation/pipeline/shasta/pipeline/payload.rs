@@ -30,8 +30,8 @@ use super::{
     bundle::{BundleMeta, SourceManifestSegment},
     state::ParentState,
     util::{
-        calculate_bond_instruction_hash, calculate_shasta_difficulty, encode_extra_data,
-        encode_transactions,
+        calculate_bond_instruction_hash, calculate_shasta_difficulty,
+        compute_build_payload_args_id, encode_extra_data, encode_transactions,
     },
 };
 
@@ -103,6 +103,8 @@ struct PayloadContext<'a> {
     difficulty: B256,
     /// Height of the block being built.
     block_number: u64,
+    /// Hash of the parent block used for payload ID derivation.
+    parent_hash: B256,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
     /// Indicates whether the low-bond flag should be encoded.
@@ -350,6 +352,8 @@ where
         transactions.push(anchor_tx);
         transactions.extend(block.transactions.clone());
 
+        let parent_hash = state.header.hash_slow();
+
         let payload = self.create_payload_attributes(
             &transactions,
             PayloadContext {
@@ -359,6 +363,7 @@ where
                 block_base_fee,
                 difficulty,
                 block_number,
+                parent_hash,
                 position,
                 is_low_bond_proposal,
             },
@@ -366,6 +371,8 @@ where
 
         let applied = applier.apply_payload(&payload, forkchoice_state).await?;
         *state = state.advance(block, &applied.payload, bond_data.next_hash)?;
+
+        self.sync_l1_origin(meta, &payload, &applied.outcome, position.is_final()).await?;
 
         Ok(applied.outcome)
     }
@@ -384,6 +391,7 @@ where
             block_base_fee,
             difficulty,
             block_number,
+            parent_hash,
             position,
             is_low_bond_proposal,
         } = ctx;
@@ -396,10 +404,15 @@ where
         let copy_len = prover_slice.len().min(signature.len());
         signature[..copy_len].copy_from_slice(&prover_slice[..copy_len]);
 
-        let mut build_payload_args_id = [0u8; 8];
-        if position.is_final() {
-            build_payload_args_id = meta.proposal_id.to_be_bytes();
-        }
+        let withdrawals: Vec<Withdrawal> = Vec::new();
+        let build_payload_args_id = compute_build_payload_args_id(
+            parent_hash,
+            block.timestamp,
+            difficulty,
+            block.coinbase,
+            &withdrawals,
+            &tx_list,
+        );
 
         let l1_origin = RpcL1Origin {
             block_id: U256::from(block_number),
@@ -428,7 +441,7 @@ where
             timestamp: block.timestamp,
             prev_randao: difficulty,
             suggested_fee_recipient: block.coinbase,
-            withdrawals: Some(Vec::<Withdrawal>::new()),
+            withdrawals: Some(withdrawals),
             parent_beacon_block_root: None,
         };
 
@@ -438,6 +451,37 @@ where
             block_metadata,
             l1_origin,
         }
+    }
+
+    /// Synchronise the execution engine's L1 origin tables with the derived block metadata.
+    async fn sync_l1_origin(
+        &self,
+        meta: &BundleMeta,
+        payload: &TaikoPayloadAttributes,
+        outcome: &EngineBlockOutcome,
+        is_final_block: bool,
+    ) -> Result<(), DerivationError> {
+        let block_id = U256::from(outcome.block_number);
+        let mut origin = payload.l1_origin.clone();
+        origin.block_id = block_id;
+        origin.l2_block_hash = outcome.block_hash;
+
+        if let Some(existing) = self.rpc.l1_origin_by_id(block_id).await? {
+            origin.signature = existing.signature;
+            if existing.build_payload_args_id != [0u8; 8] {
+                origin.build_payload_args_id = existing.build_payload_args_id;
+            }
+            origin.is_forced_inclusion |= existing.is_forced_inclusion;
+        }
+
+        self.rpc.update_l1_origin(&origin).await?;
+
+        if is_final_block {
+            self.rpc.set_head_l1_origin(block_id).await?;
+            self.rpc.set_batch_to_last_block(U256::from(meta.proposal_id), block_id).await?;
+        }
+
+        Ok(())
     }
 
     /// Query the anchor contract to determine if the proposal is designated as low-bond.
