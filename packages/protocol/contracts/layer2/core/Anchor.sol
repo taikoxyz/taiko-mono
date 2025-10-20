@@ -55,6 +55,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
+    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
@@ -62,6 +63,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored block-level state for the latest anchor.
+    /// @dev 2 slots
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
@@ -117,18 +119,14 @@ contract Anchor is EssentialContract {
     // State variables
     // ---------------------------------------------------------------
 
-    // Proposal-level state (set on first block of proposal)
-
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
-    // Block-level state (updated per block)
-
     /// @notice Storage gap for upgrade safety.
-    uint256[49] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
