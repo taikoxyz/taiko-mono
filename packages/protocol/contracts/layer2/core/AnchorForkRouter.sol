@@ -19,13 +19,17 @@ interface IPacayaAnchorLegacy {
         uint32 _parentGasUsed,
         BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
-    ) external;
+    )
+        external;
 
     function getBasefeeV2(
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
         BaseFeeConfig calldata _baseFeeConfig
-    ) external view returns (uint256, uint64, uint64);
+    )
+        external
+        view
+        returns (uint256, uint64, uint64);
 
     function getBlockHash(uint256 _blockId) external view returns (bytes32);
 

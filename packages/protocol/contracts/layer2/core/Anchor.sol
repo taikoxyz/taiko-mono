@@ -118,13 +118,13 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
     // Pacaya slots for storage compatibility
     // ---------------------------------------------------------------
-    
+
     /// @dev slot0:  _blockhashes
     ///      slot1: publicInputHash
     ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
     ///      slot3: l1ChainId
     uint256[4] private _pacayaSlots;
-    
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------

@@ -133,11 +133,13 @@
 |
 | __gap                       | uint256[49]                 | 202  | 0      | 1568  |
 |
-| _proposalState              | struct Anchor.ProposalState | 251  | 0      | 64    |
+| _pacayaSlots                | uint256[4]                  | 251  | 0      | 128   |
 |
-| _blockState                 | struct Anchor.BlockState    | 253  | 0      | 64    |
+| _proposalState              | struct Anchor.ProposalState | 255  | 0      | 64    |
 |
-| __gap                       | uint256[46]                 | 255  | 0      | 1472  |
+| _blockState                 | struct Anchor.BlockState    | 257  | 0      | 64    |
+|
+| __gap                       | uint256[42]                 | 259  | 0      | 1344  |
 ╰-----------------------------+-----------------------------+------+--------+-------+-----------------------------------------╯
 
 
