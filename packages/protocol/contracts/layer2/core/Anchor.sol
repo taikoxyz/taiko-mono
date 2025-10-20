@@ -9,6 +9,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { SloadSupport } from "src/shared/common/SloadSupport.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -20,7 +21,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 ///      - State tracking for multi-block proposals
 ///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContract {
+contract Anchor is EssentialContract, SloadSupport {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -55,6 +56,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
+    /// @dev 2 slots used
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
@@ -62,6 +64,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored block-level state for the latest anchor.
+    /// @dev 2 slots used
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
@@ -128,7 +131,7 @@ contract Anchor is EssentialContract {
     // Block-level state (updated per block)
 
     /// @notice Storage gap for upgrade safety.
-    uint256[49] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
