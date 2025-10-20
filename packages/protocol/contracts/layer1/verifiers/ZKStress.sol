@@ -9,6 +9,12 @@ pragma solidity ^0.8.20;
 ///         semantics simple.
 /// @dev This is intentionally gas-expensive if you raise `n`. Be careful on mainnet.
 contract ZKStress {
+    uint256 private constant SECP256K1_N =
+        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+    uint256 private constant SECP256K1_N_DIV_2 =
+        0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+    bytes32 private constant ECDSA_LABEL =
+        0x6563647361000000000000000000000000000000000000000000000000000000;
 
     /// Safety caps (tunable)
     uint256 public constant MAX_MEM_ITER = 2000;    // memory words (32 bytes each)
@@ -37,18 +43,30 @@ contract ZKStress {
         // allocate a block of memory and seed it with deterministic values
         // we'll write memIter 32-byte words
         // Use inline assembly for explicit mstore/mload control
-        bytes32 seed = keccak256(abi.encodePacked(n)); // deterministic per n
+        bytes32 seed;
+        assembly {
+            mstore(0x00, n)
+            seed := keccak256(0x00, 0x20)
+        }
 
-        // Memory pointer: free memory pointer at 0x40
+        // Reserve scratch space ahead of the stress buffer.
+        uint256 scratch;
         uint256 base;
         assembly {
-            base := mload(0x40)
+            scratch := mload(0x40)
+            base := add(scratch, 0x80)
+            mstore(0x40, base)
         }
 
         // Fill memory with pseudo-random words (cheap on-chain)
         for (uint256 i = 0; i < memIter; ++i) {
             // derive a word
-            bytes32 word = keccak256(abi.encodePacked(seed, i));
+            bytes32 word;
+            assembly {
+                mstore(scratch, seed)
+                mstore(add(scratch, 0x20), i)
+                word := keccak256(scratch, 0x40)
+            }
             // store at base + 32*i
             assembly {
                 mstore(add(base, mul(i, 0x20)), word)
@@ -62,14 +80,25 @@ contract ZKStress {
         // compute keccak256(word || i), branch on low bit, and mix into accumulator
         for (uint256 j = 0; j < hashIter; ++j) {
             // pick an index in memory based on j (make access data-dependent)
-            uint256 idx = uint256(keccak256(abi.encodePacked(seed, j))) % (memIter == 0 ? 1 : memIter);
+            bytes32 idxHash;
+            assembly {
+                mstore(scratch, seed)
+                mstore(add(scratch, 0x20), j)
+                idxHash := keccak256(scratch, 0x40)
+            }
+            uint256 idx = uint256(idxHash) % (memIter == 0 ? 1 : memIter);
             bytes32 memWord;
             assembly {
                 memWord := mload(add(base, mul(idx, 0x20)))
             }
 
             // compute hash of (memWord || j)
-            bytes32 h = keccak256(abi.encodePacked(memWord, j));
+            bytes32 h;
+            assembly {
+                mstore(scratch, memWord)
+                mstore(add(scratch, 0x20), j)
+                h := keccak256(scratch, 0x40)
+            }
 
             // dynamic branch: two different mixing ops
             if ((uint8(h[31]) & 1) == 1) {
@@ -88,7 +117,11 @@ contract ZKStress {
         uint256 active = memIter;
         if (active == 0) {
             // create one word to hash if memIter==0
-            bytes32 h0 = keccak256(abi.encodePacked(seed));
+            bytes32 h0;
+            assembly {
+                mstore(scratch, seed)
+                h0 := keccak256(scratch, 0x20)
+            }
             assembly { mstore(base, h0) }
             active = 1;
             out ^= uint256(h0);
@@ -106,7 +139,12 @@ contract ZKStress {
                     let k2plus1 := add(k2, 1)
                     b := mload(add(base, mul(k2plus1, 0x20)))
                 }
-                bytes32 hh = keccak256(abi.encodePacked(a, b));
+                bytes32 hh;
+                assembly {
+                    mstore(scratch, a)
+                    mstore(add(scratch, 0x20), b)
+                    hh := keccak256(scratch, 0x40)
+                }
                 assembly {
                     mstore(add(base, mul(k, 0x20)), hh)
                 }
@@ -127,22 +165,98 @@ contract ZKStress {
         // Run some ecrecover calls derived from the seed — possibly invalid signatures,
         // but the precompile still executes (costly for zk proving).
         // We generate pseudo r,s,v from keccak outputs.
-        bytes32 hashSeed = keccak256(abi.encodePacked(seed, "ecdsa"));
-        for (uint256 e = 0; e < ecCount; ++e) {
-            bytes32 r = keccak256(abi.encodePacked(hashSeed, e, "r"));
-            bytes32 s = keccak256(abi.encodePacked(hashSeed, e, "s"));
-            // make v either 27 or 28
-            uint8 v = uint8(uint256(keccak256(abi.encodePacked(hashSeed, e, "v"))) & 1) + 27;
-            // message hash to pass (32 bytes)
-            bytes32 msgHash = keccak256(abi.encodePacked(hashSeed, e, "m"));
-            // call ecrecover (returns address(0) for invalid sigs often, but precompile runs)
-            address recovered = ecrecover(msgHash, v, r, s);
-            // mix recovered into accumulator
-            out ^= uint256(uint160(recovered)) | (uint256(v) << 248);
+        bytes32 hashSeed;
+        assembly {
+            mstore(scratch, seed)
+            mstore(add(scratch, 0x20), ECDSA_LABEL)
+            hashSeed := keccak256(scratch, 0x25)
         }
+        out = _mixEcrecover(hashSeed, ecCount, out);
 
         // final mixing so result depends on everything
-        out ^= uint256(keccak256(abi.encodePacked(out, memIter, hashIter, ecCount)));
+        bytes32 finalMix;
+        assembly {
+            mstore(scratch, out)
+            mstore(add(scratch, 0x20), memIter)
+            mstore(add(scratch, 0x40), hashIter)
+            mstore(add(scratch, 0x60), ecCount)
+            finalMix := keccak256(scratch, 0x80)
+        }
+        out ^= uint256(finalMix);
+
+        uint256 memWords = memIter == 0 ? 1 : memIter;
+        uint256 used = base + (memWords * 0x20);
+        assembly {
+            let current := mload(0x40)
+            if lt(current, used) {
+                mstore(0x40, used)
+            }
+        }
+        return out;
+    }
+
+    function _mixEcrecover(bytes32 hashSeed, uint256 ecCount, uint256 out)
+        private
+        pure
+        returns (uint256)
+    {
+        for (uint256 e = 0; e < ecCount; ++e) {
+            bytes32 rRaw;
+            assembly {
+                let freemem := mload(0x40)
+                mstore(0x00, hashSeed)
+                mstore(0x20, e)
+                mstore(0x40, 0)
+                mstore8(0x40, 0x72)
+                rRaw := keccak256(0x00, 0x41)
+                mstore(0x40, freemem)
+            }
+            bytes32 sRaw;
+            assembly {
+                let freemem := mload(0x40)
+                mstore(0x00, hashSeed)
+                mstore(0x20, e)
+                mstore(0x40, 0)
+                mstore8(0x40, 0x73)
+                sRaw := keccak256(0x00, 0x41)
+                mstore(0x40, freemem)
+            }
+            bytes32 vHash;
+            assembly {
+                let freemem := mload(0x40)
+                mstore(0x00, hashSeed)
+                mstore(0x20, e)
+                mstore(0x40, 0)
+                mstore8(0x40, 0x76)
+                vHash := keccak256(0x00, 0x41)
+                mstore(0x40, freemem)
+            }
+            uint8 v = uint8(uint256(vHash) & 1) + 27;
+            bytes32 msgHash;
+            assembly {
+                let freemem := mload(0x40)
+                mstore(0x00, hashSeed)
+                mstore(0x20, e)
+                mstore(0x40, 0)
+                mstore8(0x40, 0x6d)
+                msgHash := keccak256(0x00, 0x41)
+                mstore(0x40, freemem)
+            }
+
+            uint256 rNum = uint256(rRaw) % SECP256K1_N;
+            if (rNum == 0) rNum = 1;
+            uint256 sNum = uint256(sRaw) % SECP256K1_N;
+            if (sNum == 0) sNum = 1;
+            if (sNum > SECP256K1_N_DIV_2) {
+                unchecked {
+                    sNum = SECP256K1_N - sNum;
+                }
+            }
+            bytes32 rNorm = bytes32(rNum);
+            bytes32 sNorm = bytes32(sNum);
+            address recovered = ecrecover(msgHash, v, rNorm, sNorm);
+            out ^= uint256(uint160(recovered)) | (uint256(v) << 248);
+        }
         return out;
     }
 }
