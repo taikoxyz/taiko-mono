@@ -91,10 +91,11 @@
 ### PacayaInbox
 
 - proxy: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`
-- impl: `0x7ccEc2aFF80039657C718A6E344A560A65139ab3`
+- impl: `0xC5f793772CE656ac7c3947DFC7FD88ce46d966BA`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - updated on Oct 20, 2025 at commit `520ed22`
 
 ### forced_inclusion_store
 
@@ -145,10 +146,11 @@
 ### sgx_reth_verifier
 
 - proxy : `0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11`
-- impl : `0x3Ca073169d1Cd9CBd79457261a0bc94d4105D25D`
+- impl : `0xD35d8408A50b5F9002f53BFeEFcA053d333d35BA`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - updated on Oct 20, 2025 at commit `520ed22`
 
 ### risc0_reth_verifier
 
@@ -171,10 +173,11 @@
 ### sgx_geth_verifier
 
 - proxy : `0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e`
-- impl : `0x662b9d49a541a07Bc70fDb32F86e72979727d364`
+- impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - updated on Oct 20, 2025 at commit `520ed22`
 
 - HorseToken: 0x0a5Db5597ADC81c871Ebd89e81cfa07bDc8fAfE3
 - BullToken: 0xB7A4DE1200eaA20af19e4998281117497645ecC1
