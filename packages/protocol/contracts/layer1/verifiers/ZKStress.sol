@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 /// @title ZKStress — single-call stress transaction for zk provers (SP1 / Risc0)
 /// @author Daniel (assistant)
