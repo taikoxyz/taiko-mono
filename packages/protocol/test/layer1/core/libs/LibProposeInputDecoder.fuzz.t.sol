@@ -52,7 +52,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(deadline))
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -102,7 +103,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(proposalId))
         });
 
         // Encode and decode
@@ -158,7 +160,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 100, blockHash: keccak256("block"), stateRoot: keccak256("state")
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: transitionHash
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -247,7 +250,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 blockHash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(proposalCount + transitionCount + bondInstructionCount))
         });
 
         // Encode
@@ -311,9 +315,12 @@ contract LibProposeInputDecoderFuzzTest is Test {
         proposalCount = uint8(bound(proposalCount, 1, 10));
         transitionCount = uint8(bound(transitionCount, 1, 10));
 
-        // Create test data
+        // Create test data - cast to uint256 to avoid overflow
         IInbox.ProposeInput memory input =
-            _createTestData(proposalCount, transitionCount, proposalCount * 2);
+            _createTestData(uint256(proposalCount), uint256(transitionCount), uint256(proposalCount) * 2);
+
+        // Add a non-zero proposerValue for the test
+        input.proposerValue = bytes32(uint256(proposalCount) * 100 + uint256(transitionCount));
 
         // Encode with both methods
         bytes memory abiEncoded = abi.encode(input);
@@ -379,7 +386,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
         }
 
         input.blobReference = LibBlobs.BlobReference({
-            blobStartIndex: 1, numBlobs: uint16(_proposalCount * 2), offset: 512
+            blobStartIndex: 1,
+            numBlobs: uint16(_proposalCount < 128 ? _proposalCount * 2 : _proposalCount),
+            offset: 512
         });
 
         input.transitionRecords = new IInbox.TransitionRecord[](_transitionCount);
@@ -389,7 +398,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
             if (i < _transitionCount - 1) {
                 bondsForThisTransition = _totalBondInstructions / _transitionCount;
             } else {
-                bondsForThisTransition = _totalBondInstructions - bondIndex;
+                // Ensure we don't underflow
+                bondsForThisTransition =
+                    bondIndex <= _totalBondInstructions ? _totalBondInstructions - bondIndex : 0;
             }
 
             LibBonds.BondInstruction[] memory bondInstructions =
@@ -419,6 +430,11 @@ contract LibProposeInputDecoderFuzzTest is Test {
             blockHash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")
         });
+
+        input.numForcedInclusions = 0;
+        // Use safe arithmetic to avoid overflow: use hash instead of multiplication for large values
+        input.proposerValue =
+            keccak256(abi.encodePacked("proposerValue", _proposalCount, _transitionCount));
     }
 
     /// @notice Fuzz test for lastCheckpointTimestamp field
@@ -449,7 +465,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(lastCheckpointTimestamp))
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);

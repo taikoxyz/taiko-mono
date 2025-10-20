@@ -500,6 +500,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             firstInput.transitionRecords = finalizeRecords;
             firstInput.checkpoint = secondCheckpoint;
             firstInput.numForcedInclusions = 0;
+            firstInput.proposerValue = bytes32(0);
 
             vm.recordLogs();
             inbox.propose(bytes(""), _codec().encodeProposeInput(firstInput));
@@ -530,6 +531,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(100))
             });
             reuseInput.numForcedInclusions = 0;
+            reuseInput.proposerValue = bytes32(0);
 
             vm.recordLogs();
             vm.startSnapshotGas(
@@ -811,7 +813,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             blobReference: _createBlobRef(0, 1, 0),
             transitionRecords: records,
             checkpoint: checkpoint,
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(0)
         });
     }
 

@@ -36,7 +36,8 @@ contract LibProposedEventEncoderTest is Test {
             originBlockNumber: 2000,
             originBlockHash: bytes32(uint256(2000)),
             basefeeSharingPctg: 50,
-            sources: sources
+            sources: sources,
+            proposerValue: bytes32(uint256(0x1234567890abcdef))
         });
 
         // Create core state
@@ -140,7 +141,8 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockNumber: 1000,
                 originBlockHash: bytes32(uint256(1000)),
                 basefeeSharingPctg: 25,
-                sources: new IInbox.DerivationSource[](0)
+                sources: new IInbox.DerivationSource[](0),
+                proposerValue: bytes32(uint256(0xdeadbeef))
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 11,
@@ -195,7 +197,8 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockNumber: 500,
                 originBlockHash: bytes32(uint256(500)),
                 basefeeSharingPctg: 75,
-                sources: sources
+                sources: sources,
+                proposerValue: bytes32(uint256(0xcafe))
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 6,
@@ -249,7 +252,8 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockNumber: 100,
                 originBlockHash: bytes32(uint256(100)),
                 basefeeSharingPctg: 50,
-                sources: new IInbox.DerivationSource[](0)
+                sources: new IInbox.DerivationSource[](0),
+                proposerValue: bytes32(uint256(0xbabe))
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 2,
@@ -282,7 +286,8 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockNumber: 500,
                 originBlockHash: bytes32(uint256(500)),
                 basefeeSharingPctg: 75,
-                sources: new IInbox.DerivationSource[](0)
+                sources: new IInbox.DerivationSource[](0),
+                proposerValue: bytes32(uint256(0xfeed))
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 43,
@@ -345,7 +350,8 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockNumber: 100,
                 originBlockHash: bytes32(uint256(100)),
                 basefeeSharingPctg: 50,
-                sources: new IInbox.DerivationSource[](0)
+                sources: new IInbox.DerivationSource[](0),
+                proposerValue: bytes32(uint256(0xbeef))
             }),
             coreState: IInbox.CoreState({
                 nextProposalId: 2,

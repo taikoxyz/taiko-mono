@@ -444,7 +444,8 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(0)
         });
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
@@ -520,7 +521,8 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             blobReference: _createBlobRef(0, 1, 0),
             transitionRecords: records,
             checkpoint: checkpoint,
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(0)
         });
     }
 

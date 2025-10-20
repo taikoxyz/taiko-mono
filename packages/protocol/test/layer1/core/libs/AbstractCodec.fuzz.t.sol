@@ -193,7 +193,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             originBlockNumber: originBlockNumber,
             originBlockHash: originBlockHash,
             basefeeSharingPctg: basefeeSharingPctg,
-            sources: new IInbox.DerivationSource[](0)
+            sources: new IInbox.DerivationSource[](0),
+            proposerValue: bytes32(uint256(originBlockNumber))
         });
 
         bytes32 hash1 = codec.hashDerivation(derivation);
@@ -233,7 +234,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             originBlockNumber: originBlockNumber,
             originBlockHash: originBlockHash,
             basefeeSharingPctg: basefeeSharingPctg,
-            sources: sources
+            sources: sources,
+            proposerValue: blobHash
         });
 
         bytes32 hash1 = codec.hashDerivation(derivation);

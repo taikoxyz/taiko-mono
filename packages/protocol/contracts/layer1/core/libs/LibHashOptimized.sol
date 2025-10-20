@@ -126,7 +126,9 @@ library LibHashOptimized {
                 EfficientHashLib.free(buffer);
             }
 
-            return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
+            return EfficientHashLib.hash(
+                packedFields, _derivation.originBlockHash, sourcesHash, _derivation.proposerValue
+            );
         }
     }
 

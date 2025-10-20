@@ -126,7 +126,8 @@ abstract contract AbstractCodecTest is Test {
             originBlockNumber: 50_000,
             originBlockHash: bytes32(uint256(0xaaaa)),
             basefeeSharingPctg: 10,
-            sources: sources
+            sources: sources,
+            proposerValue: bytes32(uint256(0x1234567890abcdef))
         });
 
         bytes32 hash = codec.hashDerivation(testDerivation);
@@ -142,7 +143,8 @@ abstract contract AbstractCodecTest is Test {
             originBlockNumber: 1000,
             originBlockHash: bytes32(uint256(0xfeed)),
             basefeeSharingPctg: 5,
-            sources: new IInbox.DerivationSource[](0)
+            sources: new IInbox.DerivationSource[](0),
+            proposerValue: bytes32(uint256(0xdeadbeef))
         });
 
         bytes32 hash = codec.hashDerivation(emptyDerivation);

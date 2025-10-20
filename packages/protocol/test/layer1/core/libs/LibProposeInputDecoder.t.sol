@@ -43,7 +43,8 @@ contract LibProposeInputDecoderTest is Test {
             blobReference: blobReference,
             transitionRecords: transitionRecords,
             checkpoint: checkpoint,
-            numForcedInclusions: 2
+            numForcedInclusions: 2,
+            proposerValue: bytes32(uint256(0x1234567890abcdef))
         });
 
         // Test encoding
@@ -167,7 +168,8 @@ contract LibProposeInputDecoderTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 1
+            numForcedInclusions: 1,
+            proposerValue: bytes32(uint256(0xdeadbeef))
         });
 
         // Test encoding/decoding
@@ -237,7 +239,8 @@ contract LibProposeInputDecoderTest is Test {
                 blockHash: bytes32(uint256(1111)),
                 stateRoot: bytes32(uint256(1212))
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(0xcafe))
         });
 
         // Test encoding/decoding
@@ -292,7 +295,8 @@ contract LibProposeInputDecoderTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(0xbabe))
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -322,7 +326,8 @@ contract LibProposeInputDecoderTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(0xfeed))
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -379,7 +384,8 @@ contract LibProposeInputDecoderTest is Test {
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             }),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(uint256(0xbeef))
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);

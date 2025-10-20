@@ -43,6 +43,7 @@ contract Anchor is EssentialContract {
         address proposer; // Address of the entity that proposed this batch
         bytes proverAuth; // Encoded ProverAuth for prover designation
         bytes32 bondInstructionsHash; // Expected hash of bond instructions
+        bytes32 proposerValue; // The same value in the Deriviation struct.
         LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
     }
 
@@ -59,6 +60,7 @@ contract Anchor is EssentialContract {
         bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
+        bytes32 proposerValue;
     }
 
     /// @notice Stored block-level state for the latest anchor.
@@ -383,6 +385,8 @@ contract Anchor is EssentialContract {
             _proposalParams.bondInstructions,
             _proposalParams.bondInstructionsHash
         );
+
+        _proposalState.proposerValue = _proposalParams.proposerValue;
     }
 
     /// @dev Validates and processes block-level data.

@@ -69,6 +69,8 @@ interface IInbox {
         uint8 basefeeSharingPctg;
         /// @notice Array of derivation sources, where each can be regular or forced inclusion.
         DerivationSource[] sources;
+        /// @notice A value that the proposer may choose to send to the Anchor transaction.
+        bytes32 proposerValue;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -157,6 +159,8 @@ interface IInbox {
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
+        /// A value that the proposer may choose to send to the Anchor transaction.
+        bytes32 proposerValue;
     }
 
     /// @notice Input data for the prove function

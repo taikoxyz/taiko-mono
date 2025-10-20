@@ -210,7 +210,8 @@ abstract contract InboxTestHelper is CommonTest {
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),
             basefeeSharingPctg: 0, // Matches suite's test inbox config (basefeeSharingPctg = 0)
-            sources: sources
+            sources: sources,
+            proposerValue: bytes32(0)
         });
 
         // Build the expected proposal
@@ -254,7 +255,8 @@ abstract contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(uint256(100))
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
+            numForcedInclusions: 0,
+            proposerValue: bytes32(0)
         });
     }
 
@@ -277,7 +279,8 @@ abstract contract InboxTestHelper is CommonTest {
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
-            })
+            }),
+            proposerValue: bytes32(0)
         });
     }
 

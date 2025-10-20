@@ -23,6 +23,10 @@ library LibProposedEventEncoder {
     {
         // Calculate total size needed
         uint256 bufferSize = calculateProposedEventSize(_payload.derivation.sources);
+        // Add proposerValue size if non-zero (32 bytes)
+        if (_payload.derivation.proposerValue != bytes32(0)) {
+            bufferSize += 32;
+        }
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -58,6 +62,13 @@ library LibProposedEventEncoder {
 
             ptr = P.packUint24(ptr, _payload.derivation.sources[i].blobSlice.offset);
             ptr = P.packUint48(ptr, _payload.derivation.sources[i].blobSlice.timestamp);
+        }
+
+        // Encode proposerValue with 1-bit optimization
+        bool isNonZero = _payload.derivation.proposerValue != bytes32(0);
+        ptr = P.packUint8(ptr, isNonZero ? 1 : 0);
+        if (isNonZero) {
+            ptr = P.packBytes32(ptr, _payload.derivation.proposerValue);
         }
 
         ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
@@ -117,6 +128,14 @@ library LibProposedEventEncoder {
             (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
         }
 
+        // Decode proposerValue with 1-bit optimization
+        uint8 proposerValueFlag;
+        (proposerValueFlag, ptr) = P.unpackUint8(ptr);
+        if (proposerValueFlag == 1) {
+            (payload_.derivation.proposerValue, ptr) = P.unpackBytes32(ptr);
+        }
+        // else: proposerValue remains as default (bytes32(0))
+
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
         (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
 
@@ -138,18 +157,19 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 231 bytes (without blob data)
+            // Fixed size: 232 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 2 (uint16)
+            // proposerValue flag: 1 (uint8)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
             //           bondInstructionsHash(32) = 88
-            // Total fixed: 38 + 39 + 2 + 64 + 88 = 231
+            // Total fixed: 38 + 39 + 2 + 1 + 64 + 88 = 232
 
-            size_ = 231;
+            size_ = 232;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {

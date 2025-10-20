@@ -196,7 +196,8 @@ contract LibProposedEventEncoderGas is Test {
             originBlockNumber: 18_000_000,
             originBlockHash: bytes32(uint256(18_000_000)),
             basefeeSharingPctg: 75,
-            sources: sources
+            sources: sources,
+            proposerValue: bytes32(uint256(0x1234567890abcdef))
         });
 
         payload_.coreState = IInbox.CoreState({

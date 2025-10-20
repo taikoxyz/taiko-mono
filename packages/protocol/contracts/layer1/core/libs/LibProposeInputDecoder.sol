@@ -26,6 +26,10 @@ library LibProposeInputDecoder {
         uint256 bufferSize = _calculateProposeDataSize(
             _input.parentProposals, _input.transitionRecords, _input.checkpoint
         );
+        // Add proposerValue size if non-zero (32 bytes)
+        if (_input.proposerValue != bytes32(0)) {
+            bufferSize += 32;
+        }
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -79,6 +83,14 @@ library LibProposeInputDecoder {
 
         // 7. Encode numForcedInclusions
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
+
+        // 8. Encode proposerValue with 1-bit optimization
+        // Use 1 bit to indicate if zero (0) or non-zero (1)
+        bool isNonZero = _input.proposerValue != bytes32(0);
+        ptr = P.packUint8(ptr, isNonZero ? 1 : 0);
+        if (isNonZero) {
+            ptr = P.packBytes32(ptr, _input.proposerValue);
+        }
     }
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
@@ -135,6 +147,14 @@ library LibProposeInputDecoder {
         // else: checkpoint remains as default (all zeros)
         // 7. Decode numForcedInclusions
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
+
+        // 8. Decode proposerValue with 1-bit optimization
+        uint8 proposerValueFlag;
+        (proposerValueFlag, ptr) = P.unpackUint8(ptr);
+        if (proposerValueFlag == 1) {
+            (input_.proposerValue, ptr) = P.unpackBytes32(ptr);
+        }
+        // else: proposerValue remains as default (bytes32(0))
     }
 
     // ---------------------------------------------------------------
@@ -271,7 +291,8 @@ library LibProposeInputDecoder {
             // Arrays lengths: 2 + 2 = 4 bytes
             // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
-            size_ = 107;
+            // proposerValue flag: 1 byte
+            size_ = 108;
 
             // Add Checkpoint size if not empty
             bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)

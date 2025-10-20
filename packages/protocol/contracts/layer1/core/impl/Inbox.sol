@@ -241,7 +241,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
+                sources: result.sources,
+                proposerValue: input.proposerValue
             });
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
