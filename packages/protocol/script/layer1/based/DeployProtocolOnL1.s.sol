@@ -14,9 +14,9 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/alethia-hoodi/AlethiaHoodiInbox.sol";
+import "src/layer1/alethia-hoodi/verifiers/AlethiaHoodiVerifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
-import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
@@ -28,13 +28,11 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
-import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -90,7 +88,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
-                    new DevnetVerifier(
+                    new AlethiaHoodiVerifier(
                         taikoInboxAddr,
                         verifiers.opGethVerifier,
                         verifiers.opRethVerifier,
@@ -103,7 +101,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
-                    new DevnetVerifier(
+                    new AlethiaHoodiVerifier(
                         taikoInboxAddr,
                         verifiers.sgxGethVerifier,
                         verifiers.opRethVerifier,
@@ -125,9 +123,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
 
-        if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
-            SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
-        }
+        SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
 
         uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -280,13 +276,13 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function deployRollupContracts(
-        address _sharedResolver,
+        address sharedResolver,
         address owner
     )
         internal
         returns (address rollupResolver, address proofVerifier)
     {
-        addressNotNull(_sharedResolver, "sharedResolver");
+        addressNotNull(sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
 
         rollupResolver = deployProxy({
@@ -297,17 +293,17 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup resolver
-        copyRegister(rollupResolver, _sharedResolver, "taiko_token");
-        copyRegister(rollupResolver, _sharedResolver, "bond_token");
-        copyRegister(rollupResolver, _sharedResolver, "signal_service");
-        copyRegister(rollupResolver, _sharedResolver, "bridge");
+        copyRegister(rollupResolver, sharedResolver, "taiko_token");
+        copyRegister(rollupResolver, sharedResolver, "bond_token");
+        copyRegister(rollupResolver, sharedResolver, "signal_service");
+        copyRegister(rollupResolver, sharedResolver, "bridge");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
         proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(
+                new AlethiaHoodiVerifier(
                     address(0), address(0), address(0), address(0), address(0), address(0)
                 )
             ),
@@ -315,66 +311,28 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        // Inbox
-        deployProxy({
-            name: "mainnet_taiko",
-            impl: address(
-                new MainnetInbox(
-                    address(0),
-                    proofVerifier,
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
-                )
-            ),
-            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
-        });
-
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
             oldFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
+                new AlethiaHoodiInbox(
                     address(0),
                     proofVerifier,
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
                     )
                 )
             );
         }
-        address newFork;
 
-        if (vm.envBool("PRECONF_INBOX")) {
-            newFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_PRECONF,
-                    PRECONF_COOLDOWN_WINDOW,
-                    address(0),
-                    proofVerifier,
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
-                    )
-                )
-            );
-        } else {
-            newFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
-                    address(0),
-                    proofVerifier,
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
-                    )
-                )
-            );
-        }
-        console2.log("  oldFork       :", oldFork);
-        console2.log("  newFork       :", newFork);
+        address newFork = address(
+            new AlethiaHoodiInbox(
+                address(0),
+                proofVerifier,
+                IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+            )
+        );
 
         address taikoInboxAddr = deployProxy({
             name: "taiko",
@@ -385,20 +343,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
-        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
-
-        // Prover set
-        deployProxy({
-            name: "prover_set",
-            impl: address(
-                new ProverSet(
-                    address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
-                )
-            ),
-            data: abi.encodeCall(ProverSetBase.init, (address(0), vm.envAddress("PROVER_SET_ADMIN"))),
-            registerTo: rollupResolver
-        });
     }
 
     function deployVerifiers(
@@ -558,48 +502,23 @@ contract DeployProtocolOnL1 is DeployCapability {
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
             oldFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
-                    address(0),
+                new AlethiaHoodiInbox(
+                    taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
-                    )
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
                 )
             );
         }
 
-        address newFork;
-
-        if (vm.envBool("PRECONF_INBOX")) {
-            newFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_PRECONF,
-                    PRECONF_COOLDOWN_WINDOW,
-                    taikoWrapper,
-                    verifier,
-                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
-                    )
-                )
-            );
-        } else {
-            newFork = address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    DEVNET_COOLDOWN_WINDOW,
-                    taikoWrapper,
-                    verifier,
-                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver).resolve(
-                        uint64(block.chainid), "signal_service", false
-                    )
-                )
-            );
-        }
+        address newFork = address(
+            new AlethiaHoodiInbox(
+                taikoWrapper,
+                verifier,
+                IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+            )
+        );
 
         UUPSUpgradeable(taikoInbox).upgradeTo({
             newImplementation: address(
@@ -616,19 +535,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
                     taikoInbox,
-                    taikoWrapper
-                )
-            )
-        );
-        // Prover set for preconfirmation
-        UUPSUpgradeable(
-            IResolver(rollupResolver).resolve(uint64(block.chainid), "prover_set", false)
-        ).upgradeTo(
-            address(
-                new ProverSet(
-                    address(rollupResolver),
-                    taikoInbox,
-                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     taikoWrapper
                 )
             )
