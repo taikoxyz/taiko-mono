@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../../verifiers/compose/ComposeVerifier.sol";
 
-/// @title TolbaVerifier.sol
+/// @title AlethiaHoodiVerifier.sol
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
-contract TolbaVerifier is ComposeVerifier {
+contract AlethiaHoodiVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     constructor(

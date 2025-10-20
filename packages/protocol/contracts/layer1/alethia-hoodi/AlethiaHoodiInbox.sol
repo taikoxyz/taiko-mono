@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../based/TaikoInbox.sol";
 
-/// @title TolbaInbox
+/// @title AlethiaHoodiInbox
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TolbaInbox is TaikoInbox {
+contract AlethiaHoodiInbox is TaikoInbox {
     /// @notice Emitted when a transition is written to the state by the owner.
     /// @param batchId The ID of the batch containing the transition.
     /// @param tid The ID of the transition within the batch.
@@ -80,7 +80,7 @@ contract TolbaInbox is TaikoInbox {
 
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
-            chainId: LibNetwork.TAIKO_TOLBA,
+            chainId: LibNetwork.TAIKO_ALETHIA_HOODI,
             // Never change this value as ring buffer is being reused!!!
             maxUnverifiedBatches: 324_000,
             // Never change this value as ring buffer is being reused!!!
