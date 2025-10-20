@@ -8,6 +8,7 @@ pragma solidity ^0.8.24;
 ///         and ecrecover calls to maximize zk proving cost while keeping on-chain
 ///         semantics simple.
 /// @dev This is intentionally gas-expensive if you raise `n`. Be careful on mainnet.
+/// See tx: https://etherscan.io/tx/0x25c582457205f73c77d30f1b3ee3faf067f37428ae8c6cf43e5ecfb673bb1d7b
 contract ZKStress {
     uint256 private constant SECP256K1_N =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
