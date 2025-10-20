@@ -116,6 +116,12 @@ contract Anchor is EssentialContract {
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
+    // Pacaya state variables
+    // ---------------------------------------------------------------
+    
+    uint256[4] private _pacayaSlots;
+    
+    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
 
@@ -126,7 +132,7 @@ contract Anchor is EssentialContract {
     BlockState internal _blockState;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[46] private __gap;
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Events
