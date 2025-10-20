@@ -17,9 +17,10 @@ contract ZKStress {
         0x6563647361000000000000000000000000000000000000000000000000000000;
 
     /// Safety caps (tunable)
-    uint256 public constant MAX_MEM_ITER = 2000;    // memory words (32 bytes each)
-    uint256 public constant MAX_HASH_ITER = 2000;   // iterations of keccak in main loop
-    uint256 public constant MAX_EC = 20;            // number of ecrecover calls max
+    uint256 public constant MAX_MEM_ITER = 20000;    // memory words (32 bytes each)
+    uint256 public constant MAX_HASH_ITER = 200000000000;   // iterations of keccak in main loop
+    uint256 public constant MAX_EC = 200000000000;            // number of ecrecover calls max
+    uint a;
 
     /// Single API: impact how much gas & zk-work is done by changing `n`
     /// Internally:
@@ -28,7 +29,8 @@ contract ZKStress {
     /// - ecCount = min(n / 100, MAX_EC)
     ///
     /// Returns a uint accumulator to avoid optimizer removing work.
-    function stress(uint256 n) external pure returns (uint256 out) {
+    function stress(uint256 n) external returns (uint256 out) {
+        a = 1;
         // derive knobs deterministically from n
         uint256 memIter = n;
         if (memIter > MAX_MEM_ITER) memIter = MAX_MEM_ITER;
