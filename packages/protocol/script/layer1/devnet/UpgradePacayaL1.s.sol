@@ -30,42 +30,32 @@ import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "src/layer1/alethia-hoodi/AlethiaHoodiInbox.sol";
 import { Bridge } from "../../../contracts/shared/bridge/Bridge.sol";
 
 contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
-    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
-        require(rollupResolver != address(0), "invalid rollup resolver");
-        require(sharedResolver != address(0), "invalid shared resolver");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }
 
     function run() external broadcast {
-        address signalService =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
-        address bridgeL1 = IResolver(sharedResolver).resolve(uint64(block.chainid), "bridge", false);
-        address erc20Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
-        address erc721Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc721_vault", false);
-        address erc1155Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
-        // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
-        // SignalService
-        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
-        // Vault
-        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
-        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
-        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
+        address taikoInbox = 0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9;
+        address wrapper = 0xB843132A26C13D751470a6bAf5F926EbF5d0E4b8;
+        address proofVerifier = 0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59;
+        address taikoToken = 0xf3b83e226202ECf7E7bb2419a4C6e3eC99e963DA;
+        address signalService = 0x4c70b7F5E153D497faFa0476575903F9299ed811;
+        bytes32 genesisHash = 0x8e3d16acf3ecc1fbe80309b04e010b90c9ccb3da14e98536cfe66bb93407d228;
+
+    UUPSUpgradeable(taikoInbox).upgradeTo(address(new AlethiaHoodiInbox(
+        wrapper,
+            proofVerifier,
+        taikoToken,
+        signalService
+        )));
     }
 }
