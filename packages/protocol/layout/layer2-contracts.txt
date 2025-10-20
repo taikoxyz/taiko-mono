@@ -133,11 +133,11 @@
 |
 | __gap                       | uint256[49]                 | 202  | 0      | 1568  |
 |
-| _proposalState              | struct Anchor.ProposalState | 251  | 0      | 64    |
+| _proposalState              | struct Anchor.ProposalState | 251  | 0      | 96    |
 |
-| _blockState                 | struct Anchor.BlockState    | 253  | 0      | 64    |
+| _blockState                 | struct Anchor.BlockState    | 254  | 0      | 64    |
 |
-| __gap                       | uint256[49]                 | 255  | 0      | 1568  |
+| __gap                       | uint256[49]                 | 256  | 0      | 1568  |
 ╰-----------------------------+-----------------------------+------+--------+-------+-----------------------------------------╯
 
 

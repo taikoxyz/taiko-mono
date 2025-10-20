@@ -316,8 +316,9 @@ contract LibProposeInputDecoderFuzzTest is Test {
         transitionCount = uint8(bound(transitionCount, 1, 10));
 
         // Create test data - cast to uint256 to avoid overflow
-        IInbox.ProposeInput memory input =
-            _createTestData(uint256(proposalCount), uint256(transitionCount), uint256(proposalCount) * 2);
+        IInbox.ProposeInput memory input = _createTestData(
+            uint256(proposalCount), uint256(transitionCount), uint256(proposalCount) * 2
+        );
 
         // Add a non-zero proposerValue for the test
         input.proposerValue = bytes32(uint256(proposalCount) * 100 + uint256(transitionCount));
