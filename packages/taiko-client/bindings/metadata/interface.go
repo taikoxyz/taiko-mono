@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -57,4 +58,5 @@ type TaikoProposalMetaDataShasta interface {
 	GetBlobTimestamp(int) uint64
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
+	GetLog() types.Log
 }
