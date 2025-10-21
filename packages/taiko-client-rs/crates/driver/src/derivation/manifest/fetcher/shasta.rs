@@ -16,10 +16,7 @@ fn decode_manifest_from_sidecars<M>(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
     decoder: fn(&[u8], usize) -> ProtocolResult<M>,
-) -> Result<M, ManifestFetcherError>
-where
-    M: Default,
-{
+) -> Result<M, ManifestFetcherError> {
     if sidecars.is_empty() {
         return Err(ManifestFetcherError::EmptyBlobSidecars);
     }
@@ -41,7 +38,7 @@ where
 #[derive(Clone)]
 pub struct ShastaManifestFetcher<M>
 where
-    M: Send + Default + 'static,
+    M: Send + 'static,
 {
     blob_source: Arc<BlobDataSource>,
     decoder: fn(&[u8], usize) -> ProtocolResult<M>,
