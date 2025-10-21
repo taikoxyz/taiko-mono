@@ -1,11 +1,14 @@
 //! Shasta inbox event indexer implementation.
 
 use std::{
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, SystemTime},
 };
 
-use alloy::{eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent};
+use alloy::{eips::BlockNumberOrTag, rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
@@ -23,11 +26,10 @@ use bindings::{
 use dashmap::DashMap;
 use event_scanner::{
     EventFilter,
-    event_scanner::EventScanner,
     types::{ScannerMessage, ScannerStatus},
 };
 use rpc::SubscriptionSource;
-use tokio::{sync::Notify, task::JoinHandle};
+use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -94,6 +96,8 @@ pub struct ShastaEventIndexer {
     proved_payloads: DashMap<U256, ProvedEventPayload>,
     /// Notifier for when historical indexing is finished.
     historical_indexing_finished: Notify,
+    /// Tracks whether historical indexing has completed.
+    historical_indexing_done: AtomicBool,
 }
 
 impl ShastaEventIndexer {
@@ -133,23 +137,20 @@ impl ShastaEventIndexer {
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
             historical_indexing_finished: Notify::new(),
+            historical_indexing_done: AtomicBool::new(false),
         }))
     }
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
-    #[instrument(skip(self), err)]
-    async fn run_inner(self: Arc<Self>) -> Result<()> {
-        let mut event_scanner = match &self.config.l1_subscription_source {
-            SubscriptionSource::Ipc(path) => {
-                let ipc_path = path.to_string_lossy().into_owned();
-                info!(path = %ipc_path, "subscribing to L1 via IPC");
-                EventScanner::new().connect_ipc(ipc_path).await
-            }
-            SubscriptionSource::Ws(url) => {
-                info!(url = %url, "subscribing to L1 via WebSocket");
-                EventScanner::new().connect_ws::<Ethereum>(url.clone()).await
-            }
-        }?;
+    #[instrument(skip(self), err, fields(?start_tag))]
+    async fn run_inner(self: Arc<Self>, start_tag: BlockNumberOrTag) -> Result<()> {
+        let source = &self.config.l1_subscription_source;
+        info!(
+            connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
+            "subscribing to L1"
+        );
+
+        let mut event_scanner = source.to_event_scanner().await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()
@@ -163,7 +164,7 @@ impl ShastaEventIndexer {
         tokio::spawn(async move {
             // TODO: change to fetch the last X events when the event scanner supports it in next
             // release.
-            if let Err(err) = event_scanner.start_scanner(BlockNumberOrTag::Number(0), None).await {
+            if let Err(err) = event_scanner.start_scanner(start_tag, None).await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
@@ -181,7 +182,9 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) {
+                    if matches!(status, ScannerStatus::ChainTipReached) &&
+                        !self.historical_indexing_done.swap(true, Ordering::SeqCst)
+                    {
                         self.historical_indexing_finished.notify_waiters();
                     }
                     continue;
@@ -223,8 +226,8 @@ impl ShastaEventIndexer {
 
     /// Start the indexer event processing loop on a background task.
     #[instrument(skip(self))]
-    pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
-        tokio::spawn(async move { self.run_inner().await })
+    pub fn spawn(self: Arc<Self>, start_tag: BlockNumberOrTag) -> JoinHandle<Result<()>> {
+        spawn(async move { self.run_inner(start_tag).await })
     }
 
     /// Decode and cache a `Proposed` event payload.
@@ -305,6 +308,11 @@ impl ShastaEventIndexer {
             .map(|entry| entry.value().clone())
     }
 
+    /// Return the cached proposal payload matching the provided identifier, if any.
+    pub fn get_proposal_by_id(&self, proposal_id: U256) -> Option<ProposedEventPayload> {
+        self.proposed_payloads.get(&proposal_id).map(|entry| entry.value().clone())
+    }
+
     /// Determine which proved transitions are eligible for finalization at the moment, given the
     /// last finalized proposal id and transition hash.
     #[instrument(skip(self), fields(?last_finalized_proposal_id, ?last_finalized_transition_hash))]
@@ -368,6 +376,9 @@ impl ShastaEventIndexer {
 
     /// Wait till the historical indexing finished.
     pub async fn wait_historical_indexing_finished(&self) {
+        if self.historical_indexing_done.load(Ordering::SeqCst) {
+            return;
+        }
         self.historical_indexing_finished.notified().await;
     }
 
