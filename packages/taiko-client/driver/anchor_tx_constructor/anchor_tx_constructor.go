@@ -200,7 +200,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction using K = 1 and K = 2")
 		}
 	}
 

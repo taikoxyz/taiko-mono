@@ -1070,7 +1070,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 		l1StateRoot = root
 	default:
 		return common.Hash{}, 0, 0, fmt.Errorf(
-			"invalid method name for anchor / anchorV2 / anchorV3 / updateState transaction: %s",
+			"invalid method name for anchor / anchorV2 / anchorV3 / anchorV4 transaction: %s",
 			method.Name,
 		)
 	}
