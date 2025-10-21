@@ -327,11 +327,7 @@ where
         } = ctx;
 
         let block_number = state.next_block_number();
-        let block_base_fee = state.compute_block_base_fee(
-            block_number,
-            block.timestamp.saturating_sub(state.header.timestamp),
-            shasta_fork_height,
-        );
+        let block_base_fee = state.compute_block_base_fee(block_number, shasta_fork_height);
         let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;

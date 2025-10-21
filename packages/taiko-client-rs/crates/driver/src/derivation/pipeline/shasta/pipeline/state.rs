@@ -19,6 +19,8 @@ pub(super) struct ParentState {
     pub(super) bond_instructions_hash: B256,
     /// Anchor block number advertised by the parent block.
     pub(super) anchor_block_number: u64,
+    /// Time delta between the parent and grandparent blocks.
+    pub(super) parent_block_time: u64,
 }
 
 impl ParentState {
@@ -46,6 +48,7 @@ impl ParentState {
         }
 
         Ok(Self {
+            parent_block_time: header.timestamp.saturating_sub(self.header.timestamp),
             header,
             bond_instructions_hash: next_bond_instructions_hash,
             anchor_block_number: manifest_block.anchor_block_number,
@@ -59,16 +62,11 @@ impl ParentState {
 
     /// Compute the target base fee for the next payload, falling back to the fixed
     /// Shasta base fee while the fork warm-up window is active.
-    pub(super) fn compute_block_base_fee(
-        &self,
-        block_number: u64,
-        block_time: u64,
-        shasta_fork_height: u64,
-    ) -> u64 {
+    pub(super) fn compute_block_base_fee(&self, block_number: u64, shasta_fork_height: u64) -> u64 {
         if block_number < shasta_fork_height + SHASTA_INITIAL_BASE_FEE_BLOCKS {
             SHASTA_INITIAL_BASE_FEE
         } else {
-            calculate_next_block_eip4396_base_fee(&self.header, block_time)
+            calculate_next_block_eip4396_base_fee(&self.header, self.parent_block_time)
         }
     }
 

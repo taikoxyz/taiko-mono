@@ -166,9 +166,26 @@ where
         parent_block: &RpcBlock<TxEnvelope>,
     ) -> Result<(ParentState, u64), DerivationError> {
         let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
+        let parent_header = parent_block.header.inner.clone();
+
+        let grandparent_timestamp = if parent_header.number == 0 {
+            parent_header.timestamp
+        } else {
+            let grandparent_block = self
+                .rpc
+                .l2_provider
+                .get_block_by_hash(parent_header.parent_hash)
+                .await?
+                .ok_or_else(|| {
+                    DerivationError::BlockUnavailable(parent_header.number.saturating_sub(1))
+                })?;
+
+            grandparent_block.header.timestamp
+        };
 
         let state = ParentState {
-            header: parent_block.header.inner.clone(),
+            parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
+            header: parent_header,
             bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
             anchor_block_number: anchor_state.anchorBlockNumber.to::<u64>(),
         };
