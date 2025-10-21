@@ -18,9 +18,9 @@ contract ZKStress {
         0x6563647361000000000000000000000000000000000000000000000000000000;
 
     /// Safety caps (tunable)
-    uint256 public constant MAX_MEM_ITER = 20000;    // memory words (32 bytes each)
-    uint256 public constant MAX_HASH_ITER = 200000000000;   // iterations of keccak in main loop
-    uint256 public constant MAX_EC = 200000000000;            // number of ecrecover calls max
+    uint256 public constant MAX_MEM_ITER = 20_000; // memory words (32 bytes each)
+    uint256 public constant MAX_HASH_ITER = 200_000_000_000; // iterations of keccak in main loop
+    uint256 public constant MAX_EC = 200_000_000_000; // number of ecrecover calls max
     uint256 private _flag;
 
     /// Single API: impact how much gas & zk-work is done by changing `n`
@@ -109,7 +109,9 @@ contract ZKStress {
                 out ^= uint256(h);
             } else {
                 // branch B: add mix
-                unchecked { out += uint256(h); }
+                unchecked {
+                    out += uint256(h);
+                }
             }
         }
 
@@ -157,7 +159,7 @@ contract ZKStress {
             if (active % 2 == 1) {
                 bytes32 last;
                 assembly {
-                    last := mload(add(base, mul(sub(active,1), 0x20)))
+                    last := mload(add(base, mul(sub(active, 1), 0x20)))
                     mstore(add(base, mul(half, 0x20)), last)
                 }
             }
@@ -198,7 +200,11 @@ contract ZKStress {
         return out;
     }
 
-    function _mixEcrecover(bytes32 hashSeed, uint256 ecCount, uint256 out)
+    function _mixEcrecover(
+        bytes32 hashSeed,
+        uint256 ecCount,
+        uint256 out
+    )
         private
         pure
         returns (uint256)
