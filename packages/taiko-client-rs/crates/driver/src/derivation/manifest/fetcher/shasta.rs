@@ -3,6 +3,7 @@ use std::sync::Arc;
 use alloy_consensus::BlobTransactionSidecar;
 use async_trait::async_trait;
 use protocol::shasta::{
+    BlobCoder,
     error::Result as ProtocolResult,
     manifest::{DerivationSourceManifest, ProposalManifest},
 };
@@ -24,9 +25,13 @@ where
     }
 
     let mut concatenated = Vec::new();
+
     for sidecar in sidecars {
-        for blob in &sidecar.blobs {
-            concatenated.extend_from_slice(blob.as_slice());
+        let decoded = BlobCoder::decode_blobs(&sidecar.blobs)
+            .ok_or_else(|| ManifestFetcherError::Invalid("invalid blob encoding".to_string()))?;
+
+        for chunk in decoded {
+            concatenated.extend_from_slice(&chunk);
         }
     }
 

@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::SystemTime};
 
 use alloy::{
-    consensus::{SidecarBuilder, SimpleCoder},
+    consensus::SidecarBuilder,
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -15,6 +15,7 @@ use alloy_network::TransactionBuilder4844;
 use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
+    BlobCoder,
     constants::ANCHOR_MIN_OFFSET,
     manifest::{BlockManifest, DerivationSourceManifest, ProposalManifest},
 };
@@ -96,7 +97,7 @@ impl ShastaProposalTransactionBuilder {
         };
 
         // Build the blob sidecar from the proposal manifest.
-        let sidecar = SidecarBuilder::<SimpleCoder>::from_slice(&manifest.encode_and_compress()?)
+        let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
             .build()
             .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
