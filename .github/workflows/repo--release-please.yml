@@ -2,7 +2,8 @@ name: Release Please
 
 on:
   push:
-    branches: [main, fix-releases]
+    branches:
+      - main
 
 permissions:
   contents: write
