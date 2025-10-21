@@ -116,6 +116,16 @@ contract Anchor is EssentialContract {
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
+    // Pacaya slots for storage compatibility
+    // ---------------------------------------------------------------
+
+    /// @dev slot0:  _blockhashes
+    ///      slot1: publicInputHash
+    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
+    ///      slot3: l1ChainId
+    uint256[4] private _pacayaSlots;
+
+    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
 
@@ -126,7 +136,7 @@ contract Anchor is EssentialContract {
     BlockState internal _blockState;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[46] private __gap;
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -206,7 +216,7 @@ contract Anchor is EssentialContract {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchor(
+    function anchorV4(
         ProposalParams calldata _proposalParams,
         BlockParams calldata _blockParams
     )
