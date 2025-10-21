@@ -55,6 +55,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
+    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
@@ -62,6 +63,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored block-level state for the latest anchor.
+    /// @dev 2 slots
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
@@ -117,18 +119,14 @@ contract Anchor is EssentialContract {
     // State variables
     // ---------------------------------------------------------------
 
-    // Proposal-level state (set on first block of proposal)
-
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
-    // Block-level state (updated per block)
-
     /// @notice Storage gap for upgrade safety.
-    uint256[49] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -217,10 +215,10 @@ contract Anchor is EssentialContract {
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalState, _proposalParams);
+            _validateProposal(_proposalParams);
         }
 
-        _validateBlock(_blockState, _blockParams);
+        _validateBlock(_blockParams);
 
         emit Anchored(
             _proposalState.bondInstructionsHash,
@@ -358,12 +356,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _validateProposal(
-        ProposalState storage _proposalState,
-        ProposalParams calldata _proposalParams
-    )
-        private
-    {
+    function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
             getDesignatedProver(
@@ -387,12 +380,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(
-        BlockState storage _blockState,
-        BlockParams calldata _blockParams
-    )
-        private
-    {
+    function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =

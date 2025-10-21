@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title MockERC20
 /// @notice Mock ERC20 token for testing bond mechanics
@@ -19,7 +19,7 @@ contract MockERC20 is ERC20 {
 /// @title MockProofVerifier
 /// @notice Mock proof verifier that always accepts proofs
 contract MockProofVerifier is IProofVerifier {
-    function verifyProof(bytes32, bytes calldata) external pure {
+    function verifyProof(uint256, bytes32, bytes calldata) external pure {
         // Always accept
     }
 }
