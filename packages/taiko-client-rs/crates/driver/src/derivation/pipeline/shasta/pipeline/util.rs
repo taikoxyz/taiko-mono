@@ -32,6 +32,11 @@ pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     Bytes::from(buf.freeze())
 }
 
+/// Engine API `engine_getPayloadV2` discriminator.
+///
+/// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
+const PAYLOAD_ID_VERSION_V2: u8 = 2;
+
 /// Compute the payload identifier used when interacting with the execution engine.
 pub(super) fn compute_build_payload_args_id(
     parent_hash: B256,
@@ -58,7 +63,7 @@ pub(super) fn compute_build_payload_args_id(
     let mut id = [0u8; 8];
     let digest = hasher.finalize();
     id.copy_from_slice(&digest[..8]);
-    id[0] = 2; // engine.PayloadV2
+    id[0] = PAYLOAD_ID_VERSION_V2;
     id
 }
 
