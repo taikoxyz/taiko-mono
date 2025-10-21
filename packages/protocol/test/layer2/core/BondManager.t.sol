@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { TestERC20 } from "../../mocks/TestERC20.sol";
 import { CommonTest } from "../../shared/CommonTest.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
 import { IBondManager } from "src/layer2/core/IBondManager.sol";
-import { TestERC20 } from "../../mocks/TestERC20.sol";
 
 contract BondManagerTest is CommonTest {
     BondManager bondManager;
@@ -19,12 +19,7 @@ contract BondManagerTest is CommonTest {
         bondToken = new TestERC20("Bond Token", "BOND");
 
         // Deploy BondManager
-        BondManager impl = new BondManager(
-            authorized,
-            address(bondToken),
-            minBond,
-            withdrawalDelay
-        );
+        BondManager impl = new BondManager(authorized, address(bondToken), minBond, withdrawalDelay);
 
         bondManager = BondManager(
             deploy({
@@ -882,8 +877,8 @@ contract BondManagerTest is CommonTest {
         vm.prank(Carol);
         bondManager.deposit(100 ether);
 
-        uint256 totalBonds = bondManager.getBondBalance(Alice)
-            + bondManager.getBondBalance(Bob) + bondManager.getBondBalance(Carol);
+        uint256 totalBonds = bondManager.getBondBalance(Alice) + bondManager.getBondBalance(Bob)
+            + bondManager.getBondBalance(Carol);
 
         uint256 contractBalance = bondToken.balanceOf(address(bondManager));
 
