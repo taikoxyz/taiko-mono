@@ -3,7 +3,7 @@
   "version": "2.3.0",
   "private": true,
   "scripts": {
-    "postinstall": "[ -n \"$CI\" ] || { REQUIRED=$(grep foundry .tool-versions | awk '{print $2}'); CURRENT=$(forge --version 2>/dev/null | head -1 | awk '{print $3}'); [ \"$CURRENT\" = \"$REQUIRED\" ] || [ \"$CURRENT\" = \"$REQUIRED-v$REQUIRED\" ] || foundryup --version $REQUIRED || echo 'Warning: foundryup not found. Please install Foundry: https://getfoundry.sh'; }",
+    "postinstall": "[ -n \"$CI\" ] || foundryup --version $(grep foundry .tool-versions | awk '{print $2}') 2>/dev/null || true",
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
     "clean": "rm -rf out abis cache* cache-* && (forge clean || true)",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
