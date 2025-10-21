@@ -78,10 +78,10 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	)
 }
 
-// AssembleUpdateStateTx assembles a signed ShastaAnchor.updateState transaction.
-func (c *AnchorTxConstructor) AssembleUpdateStateTx(
+// AssembleAnchorV4Tx assembles a signed ShastaAnchor.anchorV4 transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	ctx context.Context,
-	// Parameters of the ShastaAnchor.updateState transaction.
+	// Parameters of the ShastaAnchor.anchorV4 transaction.
 	parent *types.Header,
 	proposalId *big.Int,
 	proposer common.Address,
@@ -93,7 +93,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
 	endOfSubmissionWindowTimestamp *big.Int,
-	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
+	// Height of the L2 block which including the ShastaAnchor.anchorV4 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
@@ -103,7 +103,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	}
 
 	log.Info(
-		"UpdateState arguments",
+		"AnchorV4 arguments",
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockNumber,
 		"anchorStateRoot", anchorStateRoot,
@@ -117,7 +117,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"blockIndex", blockIndex,
 	)
 
-	return c.rpc.ShastaClients.Anchor.Anchor(
+	return c.rpc.ShastaClients.Anchor.AnchorV4(
 		opts,
 		shastaBindings.AnchorProposalParams{
 			ProposalId:           proposalId,
