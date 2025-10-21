@@ -22,10 +22,7 @@ const FIRST_ROUND_CAPACITY: usize = 27 + 3 + 3 * 31;
 pub struct BlobCoder;
 
 /// Ensure that the field element at the given index exists, returning a mutable reference to it.
-fn ensure_field_element<'a>(
-    field_elements: &'a mut Vec<[u8; 32]>,
-    index: usize,
-) -> &'a mut [u8; 32] {
+fn ensure_field_element(field_elements: &mut Vec<[u8; 32]>, index: usize) -> &mut [u8; 32] {
     if index >= field_elements.len() {
         field_elements.push([0u8; 32]);
     }
@@ -36,8 +33,7 @@ impl BlobCoder {
     /// Decode all blobs using the Kona-compatible scheme, returning the raw payload bytes per
     /// blob if the encoding is valid.
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
-        let mut coder = BlobCoder::default();
-        coder.decode_all(blobs)
+        Self.decode_all(blobs)
     }
 }
 
@@ -321,7 +317,7 @@ mod tests {
         let blobs = builder.take();
         assert_eq!(blobs.len(), 1);
 
-        let mut coder = BlobCoder::default();
+        let mut coder = BlobCoder;
         let decoded = coder.decode_all(&blobs).unwrap().concat();
         assert_eq!(decoded, payload);
     }
@@ -337,7 +333,7 @@ mod tests {
         assert_eq!(blobs.len(), 1);
         assert!(blobs[0].iter().all(|byte| *byte == 0));
 
-        let mut decoder = BlobCoder::default();
+        let mut decoder = BlobCoder;
         let decoded = decoder.decode_all(&blobs).unwrap().concat();
         assert!(decoded.is_empty());
     }
@@ -349,7 +345,7 @@ mod tests {
         let blobs = builder.take();
         assert_eq!(blobs.len(), 1);
 
-        let mut coder = BlobCoder::default();
+        let mut coder = BlobCoder;
         let decoded = coder.decode_all(&blobs).unwrap().concat();
         assert_eq!(decoded.len(), payload.len());
         let direct_decoded = decode_blob(&blobs[0]).unwrap();

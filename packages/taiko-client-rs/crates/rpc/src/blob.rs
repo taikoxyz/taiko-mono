@@ -80,7 +80,7 @@ impl BlobDataSource {
             let blob = parse_blob(&payload.data)?;
 
             blobs.push(BlobTransactionSidecar {
-                blobs: vec![*blob],
+                blobs: vec![blob],
                 // Only the blob contents are required for manifest decoding; commitments and proofs
                 // are unused in the driver, so we keep them empty to avoid extra parsing work.
                 commitments: Vec::new(),
@@ -94,11 +94,9 @@ impl BlobDataSource {
 
 // Helper functions for parsing hex-encoded data from the blob server.
 // Parses a hex-encoded blob into a `Blob`.
-fn parse_blob(value: &str) -> Result<Box<Blob>, BlobDataError> {
+fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     let bytes = decode_hex(value)?;
-    let blob =
-        Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))?;
-    Ok(Box::new(blob))
+    Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
 
 // Decodes a hex string, optionally prefixed with "0x", into a byte vector.
