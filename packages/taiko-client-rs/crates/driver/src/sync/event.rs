@@ -9,7 +9,7 @@ use event_scanner::{EventFilter, types::ScannerMessage};
 use tokio::spawn;
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use super::{SyncError, SyncStage};
 use crate::{
@@ -51,7 +51,7 @@ where
     /// Mirrors the Go driver's `SetUpEventSync` behaviour by querying the execution engine's head,
     /// looking up the corresponding anchor state, and falling back to the cached head L1 origin
     /// if the anchor has not been set yet (e.g. genesis).
-    async fn event_stream_start_block(&self) -> Result<Option<u64>, SyncError> {
+    async fn event_stream_start_block(&self) -> Result<u64, SyncError> {
         let latest_block = self
             .rpc
             .l2_provider
@@ -67,7 +67,7 @@ where
         let anchor_block_number = anchor_state.anchorBlockNumber.to::<u64>();
 
         if anchor_block_number != 0 {
-            return Ok(Some(anchor_block_number));
+            return Ok(anchor_block_number);
         }
 
         // If the anchor block number is zero, which indicates that the EE only has genesis state,
@@ -86,10 +86,15 @@ where
                 fallback_height = height,
                 "anchor block number unset; falling back to head L1 origin height"
             );
-            return Ok(Some(height));
+            return Ok(height);
         }
 
-        Ok(Some(anchor_block_number))
+        // If both the anchor block number and head L1 origin height are unset (e.g. genesis),
+        // return block zero.
+        warn!(
+            "anchor block number and head L1 origin height unset; starting event stream from block zero"
+        );
+        Ok(0)
     }
 }
 
@@ -100,13 +105,9 @@ where
 {
     /// Start the event syncer.
     async fn run(&self) -> Result<(), SyncError> {
-        let start_block = self.event_stream_start_block().await?;
-        let (start_tag, log_height) = match start_block {
-            Some(height) => (BlockNumberOrTag::Number(height), height),
-            None => (BlockNumberOrTag::Earliest, 0),
-        };
+        let start_tag = BlockNumberOrTag::Number(self.event_stream_start_block().await?);
 
-        info!(start_block = log_height, "starting shasta event processing from L1 block");
+        info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
 
         // Kick off the background indexer before waiting for its historical pass to finish.
         let indexer = self.indexer.clone();
@@ -139,7 +140,11 @@ where
 
         let mut stream = scanner.create_event_stream(filter);
 
-        spawn(async move { scanner.start_scanner(start_tag, None).await });
+        spawn(async move {
+            if let Err(err) = scanner.start_scanner(start_tag, None).await {
+                error!(?err, "event scanner terminated unexpectedly");
+            }
+        });
 
         while let Some(ScannerMessage::Data(logs)) = stream.next().await {
             for log in logs {
