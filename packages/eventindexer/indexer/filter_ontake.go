@@ -22,12 +22,12 @@ func filterFuncOntake(
 		wg.Go(func() error {
 			transitionProvedEvents, err := i.taikol1.FilterTransitionProvedV2(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterTransitionProved")
+				return errors.Wrap(err, "i.taikol1.FilterTransitionProvedV2")
 			}
 
 			err = i.saveTransitionProvedEventsV2(ctx, chainID, transitionProvedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveTransitionProvedEvents")
+				return errors.Wrap(err, "i.saveTransitionProvedEventsV2")
 			}
 
 			return nil
@@ -36,12 +36,12 @@ func filterFuncOntake(
 		wg.Go(func() error {
 			transitionContestedEvents, err := i.taikol1.FilterTransitionContestedV2(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterTransitionContested")
+				return errors.Wrap(err, "i.taikol1.FilterTransitionContestedV2")
 			}
 
 			err = i.saveTransitionContestedEventsV2(ctx, chainID, transitionContestedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveTransitionContestedEvents")
+				return errors.Wrap(err, "i.saveTransitionContestedEventsV2")
 			}
 
 			return nil
@@ -50,12 +50,12 @@ func filterFuncOntake(
 		wg.Go(func() error {
 			blockProposedEvents, err := i.taikol1.FilterBlockProposedV2(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterBlockProposed")
+				return errors.Wrap(err, "i.taikol1.FilterBlockProposedV2")
 			}
 
 			err = i.saveBlockProposedEventsV2(ctx, chainID, blockProposedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveBlockProposedEvents")
+				return errors.Wrap(err, "i.saveBlockProposedEventsV2")
 			}
 
 			return nil
@@ -64,12 +64,12 @@ func filterFuncOntake(
 		wg.Go(func() error {
 			blockVerifiedEvents, err := i.taikol1.FilterBlockVerifiedV2(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
+				return errors.Wrap(err, "i.taikol1.FilterBlockVerifiedV2")
 			}
 
 			err = i.saveBlockVerifiedEventsV2(ctx, chainID, blockVerifiedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveBlockVerifiedEvents")
+				return errors.Wrap(err, "i.saveBlockVerifiedEventsV2")
 			}
 
 			return nil
