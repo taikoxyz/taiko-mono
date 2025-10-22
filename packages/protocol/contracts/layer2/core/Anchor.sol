@@ -5,7 +5,8 @@ import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -13,14 +14,15 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev This contract directly inherits EssentialContract:
+/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
+/// it's not upgradable itself.
+/// @dev This contract implements:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
-///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContract {
+contract Anchor is Ownable2Step, ReentrancyGuard {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -179,11 +181,13 @@ contract Anchor is EssentialContract {
         uint256 _livenessBond,
         uint256 _provabilityBond,
         uint64 _shastaForkHeight,
-        uint64 _l1ChainId
+        uint64 _l1ChainId,
+        address _owner
     ) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
+        require(_owner != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -196,17 +200,13 @@ contract Anchor is EssentialContract {
         provabilityBond = _provabilityBond;
         shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
+
+        _transferOwnership(_owner);
     }
 
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
@@ -249,10 +249,10 @@ contract Anchor is EssentialContract {
         address _to
     )
         external
-        nonZeroAddr(_to)
         onlyOwner
         nonReentrant
     {
+        require(_to != address(0), InvalidAddress());
         uint256 amount;
         if (_token == address(0)) {
             amount = address(this).balance;
