@@ -622,6 +622,56 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.checkProposer(Alice, bytes(""));
     }
 
+    function test_setOperatorChangeDelay_UpdatesValue() external {
+        vm.expectEmit(false, false, false, true);
+        emit PreconfWhitelist.OperatorChangeDelaySet(5);
+
+        vm.prank(whitelistOwner);
+        whitelist.setOperatorChangeDelay(5);
+
+        assertEq(whitelist.operatorChangeDelay(), 5);
+    }
+
+    function test_getOperatorCandidatesForNextEpoch_ReturnsOrderedOperators() external {
+        _setBeaconBlockRoot(bytes32(uint256(11)));
+
+        vm.startPrank(whitelistOwner);
+        whitelistNoDelay.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
+        whitelistNoDelay.addOperator(Carol, _getSequencerAddress(Carol));
+        vm.stopPrank();
+
+        address[] memory candidates = whitelistNoDelay.getOperatorCandidatesForNextEpoch();
+        assertEq(candidates.length, 3);
+        assertEq(candidates[0], Alice);
+        assertEq(candidates[1], Bob);
+        assertEq(candidates[2], Carol);
+    }
+
+    function test_isOperatorActive_ReturnsExpectedLifecycleStates() external {
+        _setBeaconBlockRoot(bytes32(uint256(13)));
+
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        uint32 currentEpoch = whitelist.epochStartTimestamp(0);
+        assertFalse(whitelist.isOperatorActive(Alice, currentEpoch));
+
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        uint32 activeEpoch = whitelist.epochStartTimestamp(0);
+        assertTrue(whitelist.isOperatorActive(Alice, activeEpoch));
+
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(Alice, false);
+
+        uint32 futureEpoch = whitelist.epochStartTimestamp(2);
+        assertFalse(whitelist.isOperatorActive(Alice, futureEpoch));
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
