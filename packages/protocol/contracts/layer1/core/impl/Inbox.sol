@@ -886,7 +886,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             TransitionRecord memory lastFinalizedRecord;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
             uint256 finalizedCount;
-            uint256 transitionLen = _input.transitionRecords.length;
+            uint256 transitionCount = _input.transitionRecords.length;
             uint256 currentTimestamp = block.timestamp;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
@@ -894,13 +894,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                bool hasRecord = i < transitionLen;
                 TransitionRecordHashAndDeadline memory hashAndDeadline =
                     _getTransitionRecordHashAndDeadline(
                         proposalId, coreState.lastFinalizedTransitionHash
                     );
 
-                if (!hasRecord) {
+                if (i >= transitionCount) {
                     if (hashAndDeadline.recordHash == 0) break;
 
                     if (currentTimestamp >= hashAndDeadline.finalizationDeadline) {
@@ -929,10 +928,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     );
                 }
 
-                uint48 span = transitionRecord.span;
-                require(span > 0, InvalidSpan());
+                require(transitionRecord.span > 0, InvalidSpan());
 
-                uint48 nextProposalId = proposalId + span;
+                uint48 nextProposalId = proposalId + transitionRecord.span;
                 require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
 
                 proposalId = nextProposalId;
