@@ -111,9 +111,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Bond amount in Wei for provability guarantees.
     uint256 public immutable provabilityBond;
 
-    /// @notice Block height at which the Shasta fork is activated.
-    uint64 public immutable shastaForkHeight;
-
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
@@ -158,9 +155,8 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     // Modifiers
     // ---------------------------------------------------------------
 
-    modifier onlyValidSenderAndHeight() {
+    modifier onlyValidSender() {
         require(msg.sender == GOLDEN_TOUCH_ADDRESS, InvalidSender());
-        require(block.number >= shastaForkHeight, InvalidForkHeight());
         _;
     }
 
@@ -173,14 +169,12 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @param _bondManager The address of the bond manager.
     /// @param _livenessBond The liveness bond amount in Wei.
     /// @param _provabilityBond The provability bond amount in Wei.
-    /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
         uint256 _livenessBond,
         uint256 _provabilityBond,
-        uint64 _shastaForkHeight,
         uint64 _l1ChainId,
         address _owner
     ) {
@@ -198,7 +192,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         bondManager = _bondManager;
         livenessBond = _livenessBond;
         provabilityBond = _provabilityBond;
-        shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
 
         _transferOwnership(_owner);
@@ -221,7 +214,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         BlockParams calldata _blockParams
     )
         external
-        onlyValidSenderAndHeight
+        onlyValidSender
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
@@ -393,9 +386,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        bytes32 expectedCurrAncestorsHash =
-            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_blockState.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
+        if (_blockState.ancestorsHash != bytes32(0)) {
+            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
+        }
         _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
@@ -523,7 +516,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
-    error InvalidForkHeight();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();

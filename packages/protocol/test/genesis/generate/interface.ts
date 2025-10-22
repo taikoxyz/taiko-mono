@@ -8,7 +8,6 @@ export interface Config {
     predeployERC20: boolean;
     contractAddresses: Object;
     param1559: Object;
-    shastaForkHeight: number;
     livenessBond: string | number;
     provabilityBond: string | number;
     withdrawalDelay: number;

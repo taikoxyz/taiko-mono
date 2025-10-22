@@ -38,18 +38,12 @@ export async function deployTaikoAnchor(
 
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
-    console.log({
-        shastaForkHeight: config.shastaForkHeight,
-    });
-    console.log("\n");
-
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
         chainId,
         config.contractAddresses,
         config.param1559,
-        config.shastaForkHeight,
         config.livenessBond,
         config.provabilityBond,
         config.withdrawalDelay,
@@ -129,7 +123,6 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    shastaForkHeight: number,
     livenessBond: string | number,
     provabilityBond: string | number,
     withdrawalDelay: number,
@@ -235,7 +228,6 @@ async function generateContractConfigs(
         {},
         getImmutableReference("Anchor", [
             "checkpointStore",
-            "shastaForkHeight",
             "livenessBond",
             "provabilityBond",
             "bondManager",
@@ -750,13 +742,6 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.shastaForkHeight.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(shastaForkHeight),
                             32,
                         ),
                     },

@@ -115,7 +115,6 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  shastaForkHeight: 2048,
   livenessBondGwei: 128_000_000_000,
   provabilityBondGwei: 128_000_000_000,
   withdrawalDelay: 3600,
