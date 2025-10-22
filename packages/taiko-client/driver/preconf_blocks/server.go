@@ -1122,12 +1122,12 @@ func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context
 
 	// Check for reorg and handle it
 	if onChainProposalHash != proposalHash {
-		s.handleShastaProposalReorg(ctx, latestSeenProposalID, onChainProposalHash)
+		s.handleShastaProposalReorg(ctx, latestSeenProposalID)
 	}
 }
 
 // handleShastaProposalReorg handles reorg detection for Shasta proposals.
-func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, latestSeenProposalID *big.Int, onChainProposalHash common.Hash) {
+func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
 	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
 	// Find the last valid proposal by searching backwards
