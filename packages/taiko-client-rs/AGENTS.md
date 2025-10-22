@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
 - `crates/protocol`, `crates/proposer`, `crates/driver`, `crates/event-indexer`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
-- `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
+- `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src` (agents should treat this directory as read-only).
 - `tests/` contains Docker-backed integration assets run through `tests/entrypoint.sh`. Place every end-to-end scenario here and note any extra prerequisites.
 - `script/` keeps repeatable maintenance scripts; extend them instead of duplicating ad-hoc helpers.
 

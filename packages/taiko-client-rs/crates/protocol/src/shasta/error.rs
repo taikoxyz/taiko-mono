@@ -25,6 +25,10 @@ pub enum ProtocolError {
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),
 
+    /// Blob encoding error
+    #[error("blob encoding error: {0}")]
+    BlobEncoding(String),
+
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),

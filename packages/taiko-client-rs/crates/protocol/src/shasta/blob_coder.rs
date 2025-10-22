@@ -1,5 +1,6 @@
 //! Blob sidecar coder compatible with Kona's blob encoding scheme.
 
+use crate::shasta::error::{ProtocolError, Result};
 use alloy_eips::eip4844::{
     BYTES_PER_BLOB, Blob, VERSIONED_HASH_VERSION_KZG,
     builder::{PartialSidecar, SidecarCoder},
@@ -30,6 +31,18 @@ fn ensure_field_element(field_elements: &mut Vec<[u8; 32]>, index: usize) -> &mu
 }
 
 impl BlobCoder {
+    /// Validate that the payload fits into a single blob using the Shasta encoding scheme.
+    pub fn validate_payload(data: &[u8]) -> Result<()> {
+        if data.len() > BLOB_MAX_DATA_SIZE {
+            return Err(ProtocolError::BlobEncoding(format!(
+                "payload exceeds maximum blob size: {} > {}",
+                data.len(),
+                BLOB_MAX_DATA_SIZE
+            )));
+        }
+        Ok(())
+    }
+
     /// Decode all blobs using the Kona-compatible scheme, returning the raw payload bytes per
     /// blob if the encoding is valid.
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
@@ -67,32 +80,38 @@ impl SidecarCoder for BlobCoder {
         }
 
         if data.len() > BLOB_MAX_DATA_SIZE {
-            panic!("BlobCoder: payload exceeds maximum blob size");
+            return;
         }
 
         let mut read_offset = 0usize;
         let mut field_elements = Vec::with_capacity(self.required_fe(data));
         let mut write_offset = 0usize;
 
-        let write1 = |value: u8, write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
-            if value & 0b1100_0000 != 0 {
-                panic!("BlobCoder: invalid 6-bit value");
-            }
-            assert_eq!(*write_offset % 32, 0);
-            let fe_index = *write_offset / 32;
-            let fe = ensure_field_element(field_elements, fe_index);
-            fe[0] = value;
-            *write_offset += 1;
-        };
-
-        let write31 =
-            |buf: &[u8; 31], write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
-                assert_eq!(*write_offset % 32, 1);
+        let write1 =
+            |value: u8, write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| -> bool {
+                if *write_offset % 32 != 0 {
+                    return false;
+                }
                 let fe_index = *write_offset / 32;
                 let fe = ensure_field_element(field_elements, fe_index);
-                fe[1..].copy_from_slice(buf);
-                *write_offset += 31;
+                fe[0] = value;
+                *write_offset += 1;
+                true
             };
+
+        let write31 = |buf: &[u8; 31],
+                       write_offset: &mut usize,
+                       field_elements: &mut Vec<[u8; 32]>|
+         -> bool {
+            if *write_offset % 32 != 1 {
+                return false;
+            }
+            let fe_index = *write_offset / 32;
+            let fe = ensure_field_element(field_elements, fe_index);
+            fe[1..].copy_from_slice(buf);
+            *write_offset += 31;
+            true
+        };
 
         let read1 = |data: &[u8], read_offset: &mut usize| -> u8 {
             if *read_offset >= data.len() {
@@ -143,35 +162,53 @@ impl SidecarCoder for BlobCoder {
 
             let x = read1(data, &mut read_offset);
             let a = x & 0b0011_1111;
-            write1(a, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
+            if !write1(a, &mut write_offset, &mut field_elements) {
+                return;
+            }
+            if !write31(&buf31, &mut write_offset, &mut field_elements) {
+                return;
+            }
 
             read31(&mut buf31, data, &mut read_offset);
             let y = read1(data, &mut read_offset);
             let b = (y & 0b0000_1111) | ((x & 0b1100_0000) >> 2);
-            write1(b, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
+            if !write1(b, &mut write_offset, &mut field_elements) {
+                return;
+            }
+            if !write31(&buf31, &mut write_offset, &mut field_elements) {
+                return;
+            }
 
             read31(&mut buf31, data, &mut read_offset);
             let z = read1(data, &mut read_offset);
             let c = z & 0b0011_1111;
-            write1(c, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
+            if !write1(c, &mut write_offset, &mut field_elements) {
+                return;
+            }
+            if !write31(&buf31, &mut write_offset, &mut field_elements) {
+                return;
+            }
 
             read31(&mut buf31, data, &mut read_offset);
             let d = ((z & 0b1100_0000) >> 2) | ((y & 0b1111_0000) >> 4);
-            write1(d, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
+            if !write1(d, &mut write_offset, &mut field_elements) {
+                return;
+            }
+            if !write31(&buf31, &mut write_offset, &mut field_elements) {
+                return;
+            }
         }
 
         if read_offset < data.len() {
-            panic!("BlobCoder: payload did not fit into a single blob");
+            return;
         }
 
         for fe in field_elements.iter() {
-            let whole = WholeFe::new(&fe[..])
-                .expect("encoded field element must have the top two bits cleared");
-            builder.ingest_valid_fe(whole);
+            if let Some(whole) = WholeFe::new(&fe[..]) {
+                builder.ingest_valid_fe(whole);
+            } else {
+                return;
+            }
         }
     }
 
@@ -296,6 +333,7 @@ fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{BLOB_MAX_DATA_SIZE, BlobCoder, decode_blob};
+    use crate::shasta::error::ProtocolError;
     use alloy::consensus::SidecarBuilder;
     use alloy_eips::eip4844::builder::SidecarCoder;
 
@@ -350,5 +388,12 @@ mod tests {
         assert_eq!(decoded.len(), payload.len());
         let direct_decoded = decode_blob(&blobs[0]).unwrap();
         assert_eq!(direct_decoded.len(), payload.len());
+    }
+
+    #[test]
+    fn validate_payload_rejects_large_payload() {
+        let oversized = vec![0xAB; BLOB_MAX_DATA_SIZE + 1];
+        let err = BlobCoder::validate_payload(&oversized).unwrap_err();
+        assert!(matches!(err, ProtocolError::BlobEncoding(_)));
     }
 }
