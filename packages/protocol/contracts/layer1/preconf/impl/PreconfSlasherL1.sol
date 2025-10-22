@@ -1,24 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/IPreconfSlasherL1.sol";
-import "../libs/LibPreconfUtils.sol";
-import "src/shared/bridge/IBridge.sol";
-import "src/shared/libs/LibNames.sol";
-import "src/shared/common/EssentialResolverContract.sol";
-import "src/layer2/preconf/IPreconfSlasherL2.sol";
-import "@eth-fabric/urc/IRegistry.sol";
-import "@eth-fabric/urc/ISlasher.sol";
+import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
+import { LibPreconfUtils } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import { IBridge } from "src/shared/bridge/IBridge.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
+import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
+import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
 /// @title PreconfSlasherL1
 /// @notice This contract is called by the L2 slasher contract via the native bridge. This
 /// interfaces with the URC and slashes for preconfirmation faults.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
+contract PreconfSlasherL1 is IPreconfSlasherL1, EssentialContract {
     address public immutable urc;
+    address public immutable preconfSlasherL2;
+    address public immutable bridge;
 
-    constructor(address _resolver, address _urc) EssentialResolverContract(_resolver) {
+    constructor(address _urc, address _preconfSlasherL2, address _bridge) EssentialContract() {
         urc = _urc;
+        preconfSlasherL2 = _preconfSlasherL2;
+        bridge = _bridge;
     }
 
     function init(address _owner) external initializer {
@@ -45,30 +48,29 @@ contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
         IPreconfSlasherL2.Preconfirmation memory preconfirmation =
             abi.decode(_commitment.payload, (IPreconfSlasherL2.Preconfirmation));
 
-        if (fault == IPreconfSlasherL2.Fault.PotentialLiveness) {
-            // A potential liveness fault is a safety fault if the preconfer
-            // did not miss its L1 slot.
+        SlashAmount memory slashAmount = getSlashAmount();
+        if (
+            fault == IPreconfSlasherL2.Fault.MissedSubmission
+                || fault == IPreconfSlasherL2.Fault.MissingEOP
+        ) {
+            // If the preconfer has missed its L1 slot, these faults are classified under liveness
+            // faults, and incur a smaller penalty.
             if (
                 LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd)
                     != bytes32(0)
             ) {
-                fault = IPreconfSlasherL2.Fault.Safety;
-            } else {
-                fault = IPreconfSlasherL2.Fault.Liveness;
+                return slashAmount.livenessFault;
             }
         }
 
-        IPreconfSlasher.SlashAmount memory amount = getSlashAmount();
-        return
-            (fault == IPreconfSlasherL2.Fault.Liveness) ? amount.livenessFault : amount.safetyFault;
+        return slashAmount.safetyFault;
     }
 
     /// @dev Invoked by the L2 preconf slasher
     function onMessageInvocation(bytes calldata _data) external payable {
         // Verify that the sender on the L2 side is the preconf slasher contract
-        IBridge.Context memory ctx = IBridge(resolve(LibNames.B_BRIDGE, false)).context();
-        address selfOnSrcChain = resolve(ctx.srcChainId, LibNames.B_PRECONF_SLASHER, false);
-        require(ctx.from == selfOnSrcChain, CallerIsNotPreconfSlasherL2());
+        IBridge.Context memory ctx = IBridge(bridge).context();
+        require(ctx.from == preconfSlasherL2, CallerIsNotPreconfSlasherL2());
 
         (
             IPreconfSlasherL2.Fault fault,
@@ -83,7 +85,7 @@ contract PreconfSlasherL1 is IPreconfSlasher, EssentialResolverContract {
     // Views
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IPreconfSlasher
+    /// @inheritdoc IPreconfSlasherL1
     function getSlashAmount() public pure returns (SlashAmount memory) {
         // Note: These values will be changed
         return SlashAmount({ livenessFault: 0.5 ether, safetyFault: 1 ether });

@@ -24,17 +24,25 @@ interface IPreconfSlasherL2 {
 
     // The slashing reason forwarded to the L1 preconfirmation slasher
     enum Fault {
-        // Every "liveness fault" computed on L2 is a "potential" liveness fault.
-        // It is the L1 contract that further confirms it.
-        PotentialLiveness,
-        Liveness,
-        Safety
+        // The preconfer did not submit a preconfed block
+        // (If the submission slot on L1 is a missed slot, it's a liveness fault, else a safety
+        // fault)
+        MissedSubmission,
+        // The last preconfirmation in an assigned window does not have the eop flag set to `true`
+        // (If the submission slot on L1 is a missed slot, it's a liveness fault, else a safety
+        // fault)
+        MissingEOP,
+        // The preconfirmed raw transaction list hash or anchor block value do not match the
+        // submitted value.
+        // (Safety fault)
+        RawTxListHashOrAnchorBlockMismatch,
+        // A non-terminal preconfirmation has its eop flag set to `true`
+        // (Safety fault)
+        InvalidEOP
     }
 
-    // Note: `Commitment` and `SignedCommitment` are extracted here from URC's ISlasher,
-    // since Cancun specific opcodes in ISlasher are not allowing compilation to Shanghai.
-
     /// @notice A Commitment message binding an opaque payload to a slasher contract
+    /// @dev This is extracted from URC's `ISlasher` to enable compilation to Shanghai.
     struct Commitment {
         /// The type of commitment
         uint64 commitmentType;
@@ -45,6 +53,7 @@ interface IPreconfSlasherL2 {
     }
 
     /// @notice A commitment message signed by a delegate's ECDSA key
+    /// @dev This is extracted from URC's `ISlasher` to enable compilation to Shanghai.
     struct SignedCommitment {
         /// The commitment message
         Commitment commitment;
@@ -52,20 +61,28 @@ interface IPreconfSlasherL2 {
         bytes signature;
     }
 
+    error EOPOnlyPreconfirmationDoesNotRequireSubmission();
     error InvalidEOPFlag();
     error NotALivenessFault();
-    error NotASafetyFault();
+    error NotAMissedSubmission();
+    error NotAnInvalidEOP();
+    error NotARawTxListHashOrAnchorBlockMismatch();
     error ParentRawTxListHashMismatch();
     error ParentSubmissionWindowEndMismatch();
+    error SubmissionWindowMismatch();
     error UnexpectedExtraProposalsInPreviousWindow();
 
     /// @notice Validates if a preconfirmation is slashable and forwards the fault to the
     /// L1 preconfirmation slasher.
     /// @param _fault The fault that needs to be checked
-    /// @param _registrationRoot The urc registration root of the operator being slashed
+    /// @param _evidenceBlockNumber An "evidence" height to fetch the `PreconfMeta` for an EOP-only
+    /// preconfirmation
+    /// @param _registrationRoot The urc registration root of the operator being
+    /// slashed
     /// @param _signedCommitment The signed preconfirmation commitment to slash
     function slash(
         Fault _fault,
+        uint256 _evidenceBlockNumber,
         bytes32 _registrationRoot,
         SignedCommitment calldata _signedCommitment
     )
