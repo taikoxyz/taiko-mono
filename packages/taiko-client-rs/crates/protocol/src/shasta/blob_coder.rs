@@ -89,7 +89,7 @@ impl SidecarCoder for BlobCoder {
 
         let write1 =
             |value: u8, write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| -> bool {
-                if *write_offset % 32 != 0 {
+                if !(*write_offset).is_multiple_of(32) {
                     return false;
                 }
                 let fe_index = *write_offset / 32;
