@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -237,14 +237,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(
-        address _token,
-        address _to
-    )
-        external
-        onlyOwner
-        nonReentrant
-    {
+    function withdraw(address _token, address _to) external onlyOwner nonReentrant {
         require(_to != address(0), InvalidAddress());
         uint256 amount;
         if (_token == address(0)) {

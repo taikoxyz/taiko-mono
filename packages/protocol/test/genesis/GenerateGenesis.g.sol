@@ -148,9 +148,7 @@ contract TestGenerateGenesis is Test {
         assertEq(
             getPredeployedContractAddress("SignalService"), address(taikoAnchor.checkpointStore())
         );
-        assertEq(
-            getPredeployedContractAddress("BondManager"), address(taikoAnchor.bondManager())
-        );
+        assertEq(getPredeployedContractAddress("BondManager"), address(taikoAnchor.bondManager()));
         assertEq(livenessBond, taikoAnchor.livenessBond());
         assertEq(provabilityBond, taikoAnchor.provabilityBond());
     }
