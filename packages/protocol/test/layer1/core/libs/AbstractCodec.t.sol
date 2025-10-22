@@ -395,7 +395,7 @@ abstract contract AbstractCodecTest is Test {
         });
 
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 9_999,
+            blockNumber: 9999,
             blockHash: bytes32(uint256(0x3333)),
             stateRoot: bytes32(uint256(0x4444))
         });
@@ -409,14 +409,11 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0xCAFE),
-            actualProver: address(0xC0FFEE)
+            designatedProver: address(0xCAFE), actualProver: address(0xC0FFEE)
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory encoded = codec.encodeProveInput(proveInput);

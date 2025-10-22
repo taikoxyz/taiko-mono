@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
 contract MockAttestation is IAttestation {
     bool private _shouldSucceed;
@@ -179,12 +179,20 @@ contract SgxVerifierTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _makeQuote(address _instance) private pure returns (V3Struct.ParsedV3QuoteStruct memory quote) {
+    function _makeQuote(address _instance)
+        private
+        pure
+        returns (V3Struct.ParsedV3QuoteStruct memory quote)
+    {
         bytes memory padding = new bytes(44);
-        quote.localEnclaveReport.reportData = bytes.concat(abi.encodePacked(bytes20(_instance)), padding);
+        quote.localEnclaveReport.reportData =
+            bytes.concat(abi.encodePacked(bytes20(_instance)), padding);
     }
 
-    function _prepareValidProof(address newInstance, uint256 oldKey)
+    function _prepareValidProof(
+        address newInstance,
+        uint256 oldKey
+    )
         private
         returns (bytes memory proof, bytes32 aggregatedHash)
     {

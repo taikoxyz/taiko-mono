@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
 import { IRiscZeroVerifier } from "@risc0/contracts/IRiscZeroVerifier.sol";
-import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
+import "forge-std/src/Test.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
+import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
 
 contract Risc0VerifierTest is Test {
     uint64 private constant CHAIN_ID = 167;
@@ -58,8 +58,9 @@ contract Risc0VerifierTest is Test {
         verifier.setImageIdTrusted(AGGREGATION_IMAGE_ID, true);
         bytes memory seal = bytes("seal");
         bytes memory proof = abi.encode(seal, BLOCK_IMAGE_ID, AGGREGATION_IMAGE_ID);
-        bytes32 publicInput =
-            LibPublicInput.hashPublicInputs(bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
+        );
         bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
 
         vm.mockCallRevert(
@@ -77,8 +78,9 @@ contract Risc0VerifierTest is Test {
         verifier.setImageIdTrusted(AGGREGATION_IMAGE_ID, true);
         bytes memory seal = bytes("seal");
         bytes memory proof = abi.encode(seal, BLOCK_IMAGE_ID, AGGREGATION_IMAGE_ID);
-        bytes32 publicInput =
-            LibPublicInput.hashPublicInputs(bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
+        );
         bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
 
         vm.expectCall(

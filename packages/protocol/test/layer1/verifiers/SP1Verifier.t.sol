@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
 import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
-import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
+import "forge-std/src/Test.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
+import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
 
 contract SP1VerifierTest is Test {
     uint64 private constant CHAIN_ID = 167;
@@ -59,8 +59,9 @@ contract SP1VerifierTest is Test {
         bytes memory succinctProof = hex"abcd";
         bytes memory proof = _makeProof(succinctProof);
 
-        bytes32 publicInput =
-            LibPublicInput.hashPublicInputs(bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
+        );
 
         vm.mockCallRevert(
             REMOTE,
@@ -81,11 +82,13 @@ contract SP1VerifierTest is Test {
         bytes memory succinctProof = hex"abcd";
         bytes memory proof = _makeProof(succinctProof);
 
-        bytes32 publicInput =
-            LibPublicInput.hashPublicInputs(bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID);
+        bytes32 publicInput = LibPublicInput.hashPublicInputs(
+            bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
+        );
 
         bytes memory expectedCall = abi.encodeCall(
-            ISP1Verifier.verifyProof, (AGGREGATION_VKEY, abi.encodePacked(publicInput), succinctProof)
+            ISP1Verifier.verifyProof,
+            (AGGREGATION_VKEY, abi.encodePacked(publicInput), succinctProof)
         );
 
         vm.expectCall(REMOTE, expectedCall);

@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
-import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
 import { AnyTwoVerifier } from "src/layer1/verifiers/compose/AnyTwoVerifier.sol";
+import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
+import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { SgxAndZkVerifier } from "src/layer1/verifiers/compose/SgxAndZkVerifier.sol";
 
 contract StubVerifier is IProofVerifier {
@@ -43,10 +43,7 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_anyVerifier_AllowsSingleSgxProof() external {
-        bytes memory data = _encodeProof(
-            _toArray(SGX_RETH),
-            _toBytesArray(bytes("sgx"))
-        );
+        bytes memory data = _encodeProof(_toArray(SGX_RETH), _toBytesArray(bytes("sgx")));
 
         vm.expectCall(
             address(sgx),
@@ -65,8 +62,7 @@ contract ComposeVerifierTest is Test {
 
     function test_anyVerifier_RevertWhen_TooManyVerifiers() external {
         bytes memory data = _encodeProof(
-            _toArray(SGX_RETH, RISC0_RETH),
-            _toBytesArray(bytes("sgx"), bytes("r0"))
+            _toArray(SGX_RETH, RISC0_RETH), _toBytesArray(bytes("sgx"), bytes("r0"))
         );
 
         vm.expectCall(
@@ -83,10 +79,8 @@ contract ComposeVerifierTest is Test {
     }
 
     function test_anyVerifier_RevertWhen_OrderNotIncreasing() external {
-        bytes memory data = _encodeProof(
-            _toArray(SGX_RETH, SGX_RETH),
-            _toBytesArray(bytes("a"), bytes("b"))
-        );
+        bytes memory data =
+            _encodeProof(_toArray(SGX_RETH, SGX_RETH), _toBytesArray(bytes("a"), bytes("b")));
 
         vm.expectCall(
             address(sgx),
@@ -103,8 +97,7 @@ contract ComposeVerifierTest is Test {
 
     function test_anyTwoVerifier_AllowsSgxAndRisc0() external {
         bytes memory data = _encodeProof(
-            _toArray(SGX_RETH, RISC0_RETH),
-            _toBytesArray(bytes("sgx"), bytes("r0"))
+            _toArray(SGX_RETH, RISC0_RETH), _toBytesArray(bytes("sgx"), bytes("r0"))
         );
 
         vm.expectCall(
@@ -121,8 +114,7 @@ contract ComposeVerifierTest is Test {
 
     function test_anyTwoVerifier_RevertWhen_OrderNotIncreasing() external {
         bytes memory data = _encodeProof(
-            _toArray(SGX_RETH, SGX_RETH),
-            _toBytesArray(bytes("sgx"), bytes("sgx2"))
+            _toArray(SGX_RETH, SGX_RETH), _toBytesArray(bytes("sgx"), bytes("sgx2"))
         );
 
         vm.expectCall(
@@ -139,10 +131,8 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_sgxAndZkVerifier_AllowsSgxAndSp1() external {
-        bytes memory data = _encodeProof(
-            _toArray(SGX_RETH, SP1_RETH),
-            _toBytesArray(bytes("sgx"), bytes("sp1"))
-        );
+        bytes memory data =
+            _encodeProof(_toArray(SGX_RETH, SP1_RETH), _toBytesArray(bytes("sgx"), bytes("sp1")));
 
         vm.expectCall(
             address(sgx),
@@ -158,8 +148,7 @@ contract ComposeVerifierTest is Test {
 
     function test_sgxAndZkVerifier_RevertWhen_SgxNotFirst() external {
         bytes memory data = _encodeProof(
-            _toArray(RISC0_RETH, SP1_RETH),
-            _toBytesArray(bytes("r0"), bytes("sp1"))
+            _toArray(RISC0_RETH, SP1_RETH), _toBytesArray(bytes("r0"), bytes("sp1"))
         );
 
         vm.expectCall(
@@ -179,7 +168,10 @@ contract ComposeVerifierTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _encodeProof(uint8[] memory ids, bytes[] memory payloads)
+    function _encodeProof(
+        uint8[] memory ids,
+        bytes[] memory payloads
+    )
         private
         pure
         returns (bytes memory)
@@ -207,7 +199,10 @@ contract ComposeVerifierTest is Test {
         arr[0] = a;
     }
 
-    function _toBytesArray(bytes memory a, bytes memory b)
+    function _toBytesArray(
+        bytes memory a,
+        bytes memory b
+    )
         private
         pure
         returns (bytes[] memory arr)

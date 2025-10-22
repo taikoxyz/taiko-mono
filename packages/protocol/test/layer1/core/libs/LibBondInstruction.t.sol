@@ -64,10 +64,7 @@ contract LibBondInstructionTest is Test {
         vm.warp(proposal.timestamp + 15);
 
         LibBonds.BondInstruction[] memory result = LibBondInstruction.calculateBondInstructions(
-            10,
-            30,
-            proposal,
-            _makeMetadata(DESIGNATED, DESIGNATED)
+            10, 30, proposal, _makeMetadata(DESIGNATED, DESIGNATED)
         );
 
         assertEq(result.length, 0, "Same prover within extended window should not penalize");
@@ -78,10 +75,7 @@ contract LibBondInstructionTest is Test {
         vm.warp(proposal.timestamp + 15);
 
         LibBonds.BondInstruction[] memory result = LibBondInstruction.calculateBondInstructions(
-            10,
-            30,
-            proposal,
-            _makeMetadata(DESIGNATED, ACTUAL)
+            10, 30, proposal, _makeMetadata(DESIGNATED, ACTUAL)
         );
 
         assertEq(result.length, 1, "Expected single liveness instruction");
@@ -96,10 +90,7 @@ contract LibBondInstructionTest is Test {
         vm.warp(proposal.timestamp + 50);
 
         LibBonds.BondInstruction[] memory result = LibBondInstruction.calculateBondInstructions(
-            10,
-            30,
-            proposal,
-            _makeMetadata(DESIGNATED, ACTUAL)
+            10, 30, proposal, _makeMetadata(DESIGNATED, ACTUAL)
         );
 
         assertEq(result.length, 1, "Expected single provability instruction");
@@ -123,10 +114,7 @@ contract LibBondInstructionTest is Test {
         returns (LibBonds.BondInstruction memory)
     {
         return LibBonds.BondInstruction({
-            proposalId: _proposalId,
-            bondType: _bondType,
-            payer: _payer,
-            payee: _payee
+            proposalId: _proposalId, bondType: _bondType, payer: _payer, payee: _payee
         });
     }
 

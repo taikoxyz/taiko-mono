@@ -13,9 +13,8 @@ contract LibPublicInputTest is Test {
 
         bytes32 actual =
             LibPublicInput.hashPublicInputs(aggregatedHash, verifier, newInstance, chainId);
-        bytes32 expected = keccak256(
-            abi.encode("VERIFY_PROOF", chainId, verifier, aggregatedHash, newInstance)
-        );
+        bytes32 expected =
+            keccak256(abi.encode("VERIFY_PROOF", chainId, verifier, aggregatedHash, newInstance));
 
         assertEq(actual, expected);
     }

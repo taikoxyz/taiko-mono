@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
@@ -8,7 +9,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
@@ -48,12 +48,7 @@ contract AnchorTest is Test {
             L1_CHAIN_ID
         );
         anchor = Anchor(
-            address(
-                new ERC1967Proxy(
-                    address(impl),
-                    abi.encodeCall(Anchor.init, (address(this)))
-                )
-            )
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(Anchor.init, (address(this)))))
         );
 
         assertEq(address(anchor), predictedAnchor, "Anchor proxy address mismatch");
@@ -101,16 +96,12 @@ contract AnchorTest is Test {
             bondManager.getBondBalance(proposer),
             INITIAL_PROPOSER_BOND - 1 ether - LIVENESS_BOND - PROVABILITY_BOND
         );
-        assertEq(
-            bondManager.getBondBalance(proverCandidate),
-            INITIAL_PROVER_BOND + 1 ether
-        );
+        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
         assertEq(bondManager.getBondBalance(address(0xCA1)), LIVENESS_BOND);
         assertEq(bondManager.getBondBalance(address(0xCA2)), PROVABILITY_BOND);
 
-        ICheckpointStore.Checkpoint memory saved = checkpointStore.getCheckpoint(
-            blockParams.anchorBlockNumber
-        );
+        ICheckpointStore.Checkpoint memory saved =
+            checkpointStore.getCheckpoint(blockParams.anchorBlockNumber);
         assertEq(saved.blockNumber, blockParams.anchorBlockNumber);
         assertEq(saved.blockHash, blockParams.anchorBlockHash);
         assertEq(saved.stateRoot, blockParams.anchorStateRoot);
@@ -137,12 +128,8 @@ contract AnchorTest is Test {
         vm.prank(address(anchor));
         bondManager.creditBond(proposer, 1 ether);
 
-        (bool isLowBond, address designated, uint256 provingFee) = anchor.getDesignatedProver(
-            1,
-            proposer,
-            auth,
-            proverCandidate
-        );
+        (bool isLowBond, address designated, uint256 provingFee) =
+            anchor.getDesignatedProver(1, proposer, auth, proverCandidate);
 
         assertTrue(isLowBond);
         assertEq(designated, proverCandidate);
@@ -155,10 +142,7 @@ contract AnchorTest is Test {
 
     function test_validateProverAuth_ReturnsProposerWhenSignatureInvalid() external view {
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
-            proposalId: 1,
-            proposer: proposer,
-            provingFee: 1 ether,
-            signature: new bytes(0)
+            proposalId: 1, proposer: proposer, provingFee: 1 ether, signature: new bytes(0)
         });
 
         (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, abi.encode(auth));
@@ -182,12 +166,12 @@ contract AnchorTest is Test {
     }
 
     function test_withdraw_Token_SendsBalance() external {
-        token.mint(address(anchor), 1_000 ether);
+        token.mint(address(anchor), 1000 ether);
         address recipient = address(0xD2);
 
         anchor.withdraw(address(token), recipient);
 
-        assertEq(token.balanceOf(recipient), 1_000 ether);
+        assertEq(token.balanceOf(recipient), 1000 ether);
         assertEq(token.balanceOf(address(anchor)), 0);
     }
 
@@ -220,16 +204,16 @@ contract AnchorTest is Test {
         expectedHash = LibBonds.aggregateBondInstruction(expectedHash, instructions[1]);
     }
 
-    function _buildProverAuth(uint48 proposalId, uint256 provingFee)
+    function _buildProverAuth(
+        uint48 proposalId,
+        uint256 provingFee
+    )
         internal
         view
         returns (bytes memory)
     {
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
-            proposalId: proposalId,
-            proposer: proposer,
-            provingFee: provingFee,
-            signature: ""
+            proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: ""
         });
 
         bytes32 messageHash = keccak256(abi.encode(proposalId, proposer, provingFee));
@@ -261,7 +245,7 @@ contract AnchorTest is Test {
 
         blockParams = Anchor.BlockParams({
             blockIndex: 0,
-            anchorBlockNumber: 1_000,
+            anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
             anchorStateRoot: bytes32(uint256(0x5678))
         });

@@ -26,7 +26,13 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         return _store.isOldestForcedInclusionDue(0);
     }
 
-    function save(uint64 _feeInGwei, LibBlobs.BlobReference memory _blobReference) external payable {
+    function save(
+        uint64 _feeInGwei,
+        LibBlobs.BlobReference memory _blobReference
+    )
+        external
+        payable
+    {
         _store.saveForcedInclusion(_feeInGwei, _blobReference);
     }
 
@@ -70,16 +76,13 @@ contract LibForcedInclusionTest is Test {
 
         uint48 beforeCallTimestamp = uint48(block.timestamp);
         vm.expectEmit();
-        emit IForcedInclusionStore.ForcedInclusionSaved(
-            IForcedInclusionStore.ForcedInclusion({
+        emit IForcedInclusionStore
+            .ForcedInclusionSaved(IForcedInclusionStore.ForcedInclusion({
                 feeInGwei: feeInGwei,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: _singleHashArray(hashes[0]),
                     offset: ref.offset,
-                    timestamp: beforeCallTimestamp
-                })
-            })
-        );
+                    timestamp: beforeCallTimestamp }) }));
 
         harness.save{ value: expectedFee }(feeInGwei, ref);
 
@@ -149,7 +152,11 @@ contract LibForcedInclusionTest is Test {
         return hashes;
     }
 
-    function _makeRef(uint16 _start, uint16 _num, uint24 _offset)
+    function _makeRef(
+        uint16 _start,
+        uint16 _num,
+        uint24 _offset
+    )
         internal
         pure
         returns (LibBlobs.BlobReference memory)
