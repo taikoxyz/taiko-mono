@@ -25,6 +25,6 @@ ENV PACKAGE=${PACKAGE}
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /taiko-mono/packages/${PACKAGE}/bin/${PACKAGE} /usr/local/bin/
+COPY --from=builder /taiko-mono/packages/${PACKAGE}/bin/${PACKAGE} /usr/local/bin/app
 
-ENTRYPOINT /usr/local/bin/${PACKAGE}
+ENTRYPOINT ["/usr/local/bin/app"]
