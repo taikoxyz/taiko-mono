@@ -186,7 +186,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
+Should any of these validation checks fail (as determined by the `anchorV4` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -314,7 +314,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
-After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.updateState` transaction.
+After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
@@ -343,7 +343,7 @@ A parent proposal L1 transaction may revert, potentially causing the subsequent 
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `updateState` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
 
 The `ProverAuth` structure used in Shasta for prover authentication:
 
@@ -360,7 +360,7 @@ struct ProverAuth {
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `updateState` function designates the prover for the entire proposal.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal.
 
 ##### 1. Authentication and Validation
 
@@ -462,7 +462,7 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 #### Block Index Monotonicity
 
-The `_blockIndex` parameter in the anchor transaction's `updateState` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+The `_blockIndex` parameter in the anchor transaction's `anchorV4` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
 
 - First source's blocks: `_blockIndex = 0, 1, 2, ...`
 - Second source's blocks: `_blockIndex` continues from where the first source ended
@@ -518,7 +518,7 @@ For Shasta specifically, consensus pins the base fee to `25_000_000 wei` for t
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
 
 | Parameter            | Type              | Description                                              |
 | -------------------- | ----------------- | -------------------------------------------------------- |
@@ -544,7 +544,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 1. **Fork validation and duplicate prevention**
 
    - Verifies the current block number is at or after the Shasta fork height
-   - Tracks parent block hash to prevent duplicate `updateState` calls within the same block
+   - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (blockIndex == 0 only)
 
