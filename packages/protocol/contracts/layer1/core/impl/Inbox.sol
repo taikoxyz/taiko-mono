@@ -923,7 +923,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Only copy bondInstructions array when needed
                 LibBonds.BondInstruction[] memory bondInstructions =
-                    _input.transitionRecords[i].bondInstructions;
+                _input.transitionRecords[i].bondInstructions;
                 uint256 bondInstructionLen = bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
