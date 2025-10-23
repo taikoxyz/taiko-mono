@@ -1012,7 +1012,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 				0,
 				errors.New("failed to parse parentGasUsed from anchorV2 / anchorV3 transaction calldata")
 		}
-	case "anchor":
+	case "anchorV4":
 		args := map[string]interface{}{}
 
 		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {

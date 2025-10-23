@@ -413,7 +413,7 @@ func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 
 	tx := block.Transactions()[0]
 	method, err := encoding.ShastaAnchorABI.MethodById(tx.Data())
 	s.Nil(err)
-	s.Equal("anchor", method.Name)
+	s.Equal("anchorV4", method.Name)
 
 	args := map[string]interface{}{}
 	s.Nil(method.Inputs.UnpackIntoMap(args, tx.Data()[4:]))
