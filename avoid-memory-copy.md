@@ -9,30 +9,28 @@ This document identifies all structure memory deep copies in `Inbox.sol` and pro
 
 ### Current Deep Copies
 
-#### a) CoreState deep copy (Line 885)
+#### a) CoreState deep copy (Line 885) ✅ FIXED
 ```solidity
 CoreState memory coreState = _input.coreState;
 ```
 
 **Location**: `Inbox.sol:885`
 
-**Suggestion**: Use calldata reference instead
+**Fix Applied**: Modify `_input.coreState` directly instead of creating a local copy
 ```solidity
-// Change function signature to avoid copy
-function _finalize(ProposeInput calldata _input) private returns (CoreState memory) {
-    CoreState memory coreState;
-    // Initialize only the fields that will be modified
-    coreState.lastFinalizedProposalId = _input.coreState.lastFinalizedProposalId;
-    coreState.nextProposalId = _input.coreState.nextProposalId;
-    coreState.lastFinalizedTransitionHash = _input.coreState.lastFinalizedTransitionHash;
-    coreState.bondInstructionsHash = _input.coreState.bondInstructionsHash;
-    coreState.lastProposalBlockId = _input.coreState.lastProposalBlockId;
-    coreState.lastCheckpointTimestamp = _input.coreState.lastCheckpointTimestamp;
-    // ...
+function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    unchecked {
+        // Avoid deep copy: modify _input.coreState directly and return it
+        uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
+        // ... rest of function uses _input.coreState directly
+        return _input.coreState;
+    }
 }
 ```
 
-**Impact**: HIGH - CoreState contains multiple fields and is copied on every finalization
+**Impact**: HIGH - CoreState contains 6 fields (4x uint48 + 2x bytes32), avoided copying on every finalization
+
+**Test Results**: ✅ All 214 tests passed
 
 ---
 

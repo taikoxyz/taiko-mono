@@ -882,8 +882,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return _ Updated core state with new finalization counters.
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
         unchecked {
-            CoreState memory coreState = _input.coreState;
-            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
             uint256 lastFinalizedRecordIdx;
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
@@ -891,12 +890,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
-                if (proposalId >= coreState.nextProposalId) break;
+                if (proposalId >= _input.coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
                 TransitionRecordHashAndDeadline memory hashAndDeadline =
                     _getTransitionRecordHashAndDeadline(
-                        proposalId, coreState.lastFinalizedTransitionHash
+                        proposalId, _input.coreState.lastFinalizedTransitionHash
                     );
 
                 if (i >= transitionCount) {
@@ -918,20 +917,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     TransitionRecordHashMismatchWithStorage()
                 );
 
-                coreState.lastFinalizedProposalId = proposalId;
-                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+                _input.coreState.lastFinalizedProposalId = proposalId;
+                _input.coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
 
                 uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
-                    coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
+                    _input.coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                        _input.coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
                     );
                 }
 
                 require(transitionRecord.span > 0, InvalidSpan());
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
-                require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
+                require(nextProposalId <= _input.coreState.nextProposalId, SpanOutOfBounds());
 
                 proposalId = nextProposalId;
 
@@ -945,11 +944,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _syncCheckpointIfNeeded(
                     _input.checkpoint,
                     _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash,
-                    coreState
+                    _input.coreState
                 );
             }
 
-            return coreState;
+            return _input.coreState;
         }
     }
 
