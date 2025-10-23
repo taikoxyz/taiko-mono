@@ -79,6 +79,7 @@ pub struct ShastaEventIndexerConfig {
 
 /// Maintains live caches of Shasta inbox activity and providing higher-level inputs
 /// for downstream components such as the proposer.
+#[derive(Debug)]
 pub struct ShastaEventIndexer {
     /// Configuration for the indexer instance.
     config: ShastaEventIndexerConfig,
