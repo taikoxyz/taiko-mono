@@ -883,8 +883,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
         unchecked {
             CoreState memory coreState = _input.coreState;
-            TransitionRecord memory lastFinalizedRecord;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 lastFinalizedRecordIdx;
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
             uint256 currentTimestamp = block.timestamp;
@@ -936,14 +936,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 proposalId = nextProposalId;
 
                 // Update state for successful finalization
-                lastFinalizedRecord = transitionRecord;
+                lastFinalizedRecordIdx = i;
                 ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
-                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
+                    _input.checkpoint, _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash, coreState
                 );
             }
 
