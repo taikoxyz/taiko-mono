@@ -78,7 +78,7 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 
 	switch method.Name {
-	case "anchor", "anchorV2", "anchorV3":
+	case "anchor", "anchorV2", "anchorV3", "anchorV4":
 	default:
 		return fmt.Errorf("invalid anchor transaction method: %s", method.Name)
 	}
