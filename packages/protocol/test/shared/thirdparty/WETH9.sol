@@ -28,7 +28,13 @@ contract WETH9 {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    function() external payable;
+    receive() external payable {
+        deposit();
+    }
+
+    fallback() external payable {
+        revert("WETH: unsupported call");
+    }
 
     function deposit() public payable {
         balanceOf[msg.sender] += msg.value;

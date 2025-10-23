@@ -6,7 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract FreeMintUSDCMock is ERC20, ERC20Permit, AccessControl {
-    constructor(string memory name_, string memory symbol_)
+    constructor(
+        string memory name_,
+        string memory symbol_
+    )
         ERC20(name_, symbol_)
         ERC20Permit(name_)
     {
