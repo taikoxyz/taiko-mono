@@ -94,7 +94,6 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
-      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       AnchorForkRouterImpl: getConstantAddress(`0${this.chainId}`, 10004),
@@ -116,7 +115,6 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  shastaForkHeight: 2048,
   livenessBondGwei: 128_000_000_000,
   provabilityBondGwei: 128_000_000_000,
   withdrawalDelay: 3600,

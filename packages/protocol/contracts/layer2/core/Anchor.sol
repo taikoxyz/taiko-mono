@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -13,14 +14,15 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev This contract directly inherits EssentialContract:
+/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
+/// it's not upgradable itself.
+/// @dev This contract implements:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
-///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContract {
+contract Anchor is Ownable2Step, ReentrancyGuard {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -109,9 +111,6 @@ contract Anchor is EssentialContract {
     /// @notice Bond amount in Wei for provability guarantees.
     uint256 public immutable provabilityBond;
 
-    /// @notice Block height at which the Shasta fork is activated.
-    uint64 public immutable shastaForkHeight;
-
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
@@ -156,9 +155,8 @@ contract Anchor is EssentialContract {
     // Modifiers
     // ---------------------------------------------------------------
 
-    modifier onlyValidSenderAndHeight() {
+    modifier onlyValidSender() {
         require(msg.sender == GOLDEN_TOUCH_ADDRESS, InvalidSender());
-        require(block.number >= shastaForkHeight, InvalidForkHeight());
         _;
     }
 
@@ -171,19 +169,19 @@ contract Anchor is EssentialContract {
     /// @param _bondManager The address of the bond manager.
     /// @param _livenessBond The liveness bond amount in Wei.
     /// @param _provabilityBond The provability bond amount in Wei.
-    /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
         uint256 _livenessBond,
         uint256 _provabilityBond,
-        uint64 _shastaForkHeight,
-        uint64 _l1ChainId
+        uint64 _l1ChainId,
+        address _owner
     ) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
+        require(_owner != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -194,19 +192,14 @@ contract Anchor is EssentialContract {
         bondManager = _bondManager;
         livenessBond = _livenessBond;
         provabilityBond = _provabilityBond;
-        shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
+
+        _transferOwnership(_owner);
     }
 
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
@@ -221,7 +214,7 @@ contract Anchor is EssentialContract {
         BlockParams calldata _blockParams
     )
         external
-        onlyValidSenderAndHeight
+        onlyValidSender
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
@@ -244,15 +237,8 @@ contract Anchor is EssentialContract {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(
-        address _token,
-        address _to
-    )
-        external
-        nonZeroAddr(_to)
-        onlyOwner
-        nonReentrant
-    {
+    function withdraw(address _token, address _to) external onlyOwner nonReentrant {
+        require(_to != address(0), InvalidAddress());
         uint256 amount;
         if (_token == address(0)) {
             amount = address(this).balance;
@@ -393,9 +379,9 @@ contract Anchor is EssentialContract {
     function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        bytes32 expectedCurrAncestorsHash =
-            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
-        require(_blockState.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
+        if (_blockState.ancestorsHash != bytes32(0)) {
+            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
+        }
         _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
@@ -523,7 +509,6 @@ contract Anchor is EssentialContract {
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
-    error InvalidForkHeight();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
