@@ -910,26 +910,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (hashAndDeadline.recordHash == 0) break;
 
-                TransitionRecord memory transitionRecord = _input.transitionRecords[i];
-
+                // Avoid deep copy: access array element directly
                 require(
-                    _hashTransitionRecord(transitionRecord) == hashAndDeadline.recordHash,
+                    _hashTransitionRecord(_input.transitionRecords[i]) == hashAndDeadline.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 
                 _input.coreState.lastFinalizedProposalId = proposalId;
-                _input.coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+                _input.coreState.lastFinalizedTransitionHash = _input.transitionRecords[i].transitionHash;
 
-                uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
+                uint256 bondInstructionLen = _input.transitionRecords[i].bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     _input.coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        _input.coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
+                        _input.coreState.bondInstructionsHash, _input.transitionRecords[i].bondInstructions[j]
                     );
                 }
 
-                require(transitionRecord.span > 0, InvalidSpan());
+                require(_input.transitionRecords[i].span > 0, InvalidSpan());
 
-                uint48 nextProposalId = proposalId + transitionRecord.span;
+                uint48 nextProposalId = proposalId + _input.transitionRecords[i].span;
                 require(nextProposalId <= _input.coreState.nextProposalId, SpanOutOfBounds());
 
                 proposalId = nextProposalId;
