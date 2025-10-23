@@ -210,14 +210,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             _finalize(input);
-            CoreState memory coreState = input.coreState;
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            coreState.lastProposalBlockId = uint48(block.number);
+            input.coreState.lastProposalBlockId = uint48(block.number);
 
             // Verify capacity for new proposals
-            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+            require(_getAvailableCapacity(input.coreState) > 0, NotEnoughCapacity());
 
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
@@ -247,16 +246,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
             Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
+                id: input.coreState.nextProposalId++,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(coreState),
+                coreStateHash: _hashCoreState(input.coreState),
                 derivationHash: _hashDerivation(derivation)
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, input.coreState);
         }
     }
 
