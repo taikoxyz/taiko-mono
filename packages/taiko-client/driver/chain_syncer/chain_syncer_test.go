@@ -73,8 +73,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			PacayaAnchorAddress:         common.HexToAddress(os.Getenv("PACAYA_ANCHOR")),
-			ShastaAnchorAddress:         common.HexToAddress(os.Getenv("SHASTA_ANCHOR")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		BlobAllowed:             true,
@@ -414,7 +413,7 @@ func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 
 	tx := block.Transactions()[0]
 	method, err := encoding.ShastaAnchorABI.MethodById(tx.Data())
 	s.Nil(err)
-	s.Equal("anchor", method.Name)
+	s.Equal("anchorV4", method.Name)
 
 	args := map[string]interface{}{}
 	s.Nil(method.Inputs.UnpackIntoMap(args, tx.Data()[4:]))

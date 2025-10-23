@@ -15,15 +15,14 @@ import (
 // AnchorTxValidator is responsible for validating the anchor transaction in
 // each L2 block, which is always the first transaction.
 type AnchorTxValidator struct {
-	pacayaAnchorAddress common.Address
-	shastaAnchorAddress common.Address
-	goldenTouchAddress  common.Address
-	chainID             *big.Int
-	rpc                 *rpc.Client
+	taikoAnchorAddress common.Address
+	goldenTouchAddress common.Address
+	chainID            *big.Int
+	rpc                *rpc.Client
 }
 
 // New creates a new AnchorTxValidator instance.
-func New(pacayaAnchor, shastaAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
+func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
 	var (
 		goldenTouchAddress common.Address
 		err                error
@@ -32,11 +31,10 @@ func New(pacayaAnchor, shastaAnchor common.Address, chainID *big.Int, rpc *rpc.C
 	if rpc.ShastaClients != nil && rpc.ShastaClients.Anchor != nil {
 		if goldenTouchAddress, err = rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil); err == nil {
 			return &AnchorTxValidator{
-				pacayaAnchorAddress: pacayaAnchor,
-				shastaAnchorAddress: shastaAnchor,
-				goldenTouchAddress:  goldenTouchAddress,
-				chainID:             chainID,
-				rpc:                 rpc,
+				taikoAnchorAddress: taikoAnchor,
+				goldenTouchAddress: goldenTouchAddress,
+				chainID:            chainID,
+				rpc:                rpc,
 			}, nil
 		}
 	}
@@ -46,27 +44,20 @@ func New(pacayaAnchor, shastaAnchor common.Address, chainID *big.Int, rpc *rpc.C
 	}
 
 	return &AnchorTxValidator{
-		pacayaAnchorAddress: pacayaAnchor,
-		shastaAnchorAddress: shastaAnchor,
-		goldenTouchAddress:  goldenTouchAddress,
-		chainID:             chainID,
-		rpc:                 rpc,
+		taikoAnchorAddress: taikoAnchor,
+		goldenTouchAddress: goldenTouchAddress,
+		chainID:            chainID,
+		rpc:                rpc,
 	}, nil
 }
 
 // ValidateAnchorTx checks whether the given transaction is a valid `TaikoAnchor.anchorV3` transaction.
 func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
-	if tx.To() == nil {
-		return fmt.Errorf("invalid anchor transaction recipient: <nil>")
-	}
-
-	to := *tx.To()
-	if to != v.pacayaAnchorAddress && to != v.shastaAnchorAddress {
+	if tx.To() == nil || *tx.To() != v.taikoAnchorAddress {
 		return fmt.Errorf(
-			"invalid anchor transaction recipient: %s (expected %s or %s)",
-			to,
-			v.pacayaAnchorAddress,
-			v.shastaAnchorAddress,
+			"invalid anchor transaction recipient: %v (expected %s)",
+			tx.To(),
+			v.taikoAnchorAddress,
 		)
 	}
 
@@ -87,7 +78,7 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 
 	switch method.Name {
-	case "anchor", "anchorV2", "anchorV3":
+	case "anchor", "anchorV2", "anchorV3", "anchorV4":
 	default:
 		return fmt.Errorf("invalid anchor transaction method: %s", method.Name)
 	}
