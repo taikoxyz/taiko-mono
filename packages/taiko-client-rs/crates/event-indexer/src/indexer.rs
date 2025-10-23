@@ -54,7 +54,7 @@ pub struct ProposedEventPayload {
 }
 
 /// The payload body of a Shasta protocol Proved event.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProvedEventPayload {
     /// Proposal that the proof proves.
     pub proposal_id: U256,
