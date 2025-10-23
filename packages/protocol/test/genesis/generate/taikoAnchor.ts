@@ -167,7 +167,7 @@ async function generateContractConfigs(
             ),
         ),
         // Rollup Contracts
-        TaikoAnchorImpl: require(
+        TaikoAnchor: require(
             path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
         ),
         RollupResolverImpl: require(
@@ -200,7 +200,6 @@ async function generateContractConfigs(
     contractArtifacts.SignalService = proxy;
     contractArtifacts.SharedResolver = proxy;
     // Rollup Contracts
-    contractArtifacts.TaikoAnchor = proxy;
     contractArtifacts.RollupResolver = proxy;
     contractArtifacts.BondManager = proxy;
 
@@ -720,24 +719,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        TaikoAnchorImpl: {
-            address: addressMap.TaikoAnchorImpl,
+        TaikoAnchor: {
+            address: addressMap.TaikoAnchor,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
-                    {
-                        id: uupsImmutableReferencesMap.__self.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchorImpl,
-                            32,
-                        ),
-                    },
-                    {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
+                replaceImmutableValues(contractArtifacts.TaikoAnchor, [
                     {
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
@@ -780,31 +765,12 @@ async function generateContractConfigs(
             ),
             variables: {
                 _owner: contractOwner,
-            },
-        },
-        TaikoAnchor: {
-            address: addressMap.TaikoAnchor,
-            deployedBytecode:
-                contractArtifacts.TaikoAnchor.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 1, // _FALSE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-                // TaikoAnchor - _blockState will be initialized by first anchor call
+                _status: 1,
                 _blockState: {
                     anchorBlockNumber: 0,
                     ancestorsHash: ethers.constants.HashZero,
                 },
             },
-            slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
-            },
-            isProxy: true,
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
