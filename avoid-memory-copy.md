@@ -1,6 +1,7 @@
 # Memory Deep Copy Analysis for Inbox.sol
 
 ## Overview
+
 This document identifies all structure memory deep copies in `Inbox.sol` and provides suggestions to avoid them for gas optimization.
 
 ---
@@ -10,31 +11,54 @@ This document identifies all structure memory deep copies in `Inbox.sol` and pro
 ### Current Deep Copies
 
 #### a) CoreState deep copy (Line 885) ✅ FIXED
+
 ```solidity
 CoreState memory coreState = _input.coreState;
 ```
 
-**Location**: `Inbox.sol:885`
+**Location**: `Inbox.sol:885` and usage throughout `propose()` function
 
-**Fix Applied**: Modify `_input.coreState` directly instead of creating a local copy
+**Fix Applied**:
+
+1. Removed local `coreState` variable in `propose()` - use `input.coreState` directly
+2. Changed `_finalize()` to not return anything - modifies `_input.coreState` in-place
+3. Updated all references in `propose()` from `coreState` to `input.coreState`
+
 ```solidity
-function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
-    unchecked {
-        // Avoid deep copy: modify _input.coreState directly and return it
-        uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
-        // ... rest of function uses _input.coreState directly
-        return _input.coreState;
-    }
+// Before:
+CoreState memory coreState = _finalize(input);
+coreState.lastProposalBlockId = uint48(block.number);
+// ...
+
+// After:
+_finalize(input);  // No return value needed
+input.coreState.lastProposalBlockId = uint48(block.number);
+// ...
+
+function _finalize(ProposeInput memory _input) private {
+    // Modify _input.coreState in-place
+    uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
+    // ... rest of function uses _input.coreState directly
 }
 ```
 
-**Impact**: HIGH - CoreState contains 6 fields (4x uint48 + 2x bytes32), avoided copying on every finalization
+**Impact**: HIGH - Eliminated both the deep copy AND the return value assignment
+
+- CoreState contains 6 fields (4x uint48 + 2x bytes32 = ~128 bytes)
+- Avoided copying on every finalization AND on return
+
+**Gas Savings**:
+
+- `test_propose_withSingleBlob()`: **163 gas saved** (193189 → 193026)
+- `test_propose_withValidFutureDeadline()`: **251 gas saved** (193953 → 193702)
+- `test_propose_withZeroDeadline()`: **163 gas saved** (193127 → 192964)
 
 **Test Results**: ✅ All 214 tests passed
 
 ---
 
 #### b) TransitionRecord deep copy (Line 914)
+
 ```solidity
 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 ```
@@ -42,6 +66,7 @@ TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 **Location**: `Inbox.sol:914`
 
 **Suggestion**: Use storage/calldata reference to avoid copy
+
 ```solidity
 // Access array element directly without copying
 bytes32 recordHash = _hashTransitionRecord(_input.transitionRecords[i]);
@@ -64,6 +89,7 @@ for (uint256 j; j < bondInstructions.length; ++j) {
 ---
 
 #### c) TransitionRecordHashAndDeadline deep copy (Line 897-900)
+
 ```solidity
 TransitionRecordHashAndDeadline memory hashAndDeadline =
     _getTransitionRecordHashAndDeadline(
@@ -74,6 +100,7 @@ TransitionRecordHashAndDeadline memory hashAndDeadline =
 **Location**: `Inbox.sol:897-900`
 
 **Suggestion**: Decompose the struct and return individual values
+
 ```solidity
 // Change function signature
 function _getTransitionRecordHashAndDeadline(
@@ -113,6 +140,7 @@ if (i >= transitionCount) {
 ### Current Deep Copy
 
 #### Checkpoint deep copy (Line 962)
+
 ```solidity
 ICheckpointStore.Checkpoint memory _checkpoint
 ```
@@ -120,6 +148,7 @@ ICheckpointStore.Checkpoint memory _checkpoint
 **Location**: `Inbox.sol:962` (function parameter)
 
 **Suggestion**: Change to calldata and access fields directly
+
 ```solidity
 function _syncCheckpointIfNeeded(
     ICheckpointStore.Checkpoint calldata _checkpoint,  // Changed from memory
@@ -152,6 +181,7 @@ function _syncCheckpointIfNeeded(
 ### Current Deep Copies
 
 #### a) ProposeInput deep copy (Line 204)
+
 ```solidity
 ProposeInput memory input = _decodeProposeInput(_data);
 ```
@@ -159,6 +189,7 @@ ProposeInput memory input = _decodeProposeInput(_data);
 **Location**: `Inbox.sol:204`
 
 **Suggestion**: Decode to calldata or avoid intermediate copy
+
 ```solidity
 // Option 1: Change decoder to return calldata reference (not possible with abi.decode)
 // Option 2: Use inline access pattern
@@ -179,6 +210,7 @@ function propose(bytes calldata _lookahead, bytes calldata _data) external nonRe
 ---
 
 #### b) CoreState deep copy (Line 212)
+
 ```solidity
 CoreState memory coreState = _finalize(input);
 ```
@@ -196,11 +228,12 @@ function _finalize(ProposeInput memory _input) private returns (CoreState memory
 }
 ```
 
-**Impact**: MEDIUM - CoreState copy returned from _finalize
+**Impact**: MEDIUM - CoreState copy returned from \_finalize
 
 ---
 
 #### c) ConsumptionResult deep copy (Line 222-223)
+
 ```solidity
 ConsumptionResult memory result =
     _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
@@ -209,6 +242,7 @@ ConsumptionResult memory result =
 **Location**: `Inbox.sol:222-223`
 
 **Suggestion**: Return directly in place or use return values
+
 ```solidity
 // Option 1: Return tuple instead of struct
 function _consumeForcedInclusions(
@@ -232,6 +266,7 @@ function _consumeForcedInclusions(
 ---
 
 #### d) Derivation deep copy (Line 240-245)
+
 ```solidity
 Derivation memory derivation = Derivation({
     originBlockNumber: uint48(parentBlockNumber),
@@ -244,6 +279,7 @@ Derivation memory derivation = Derivation({
 **Location**: `Inbox.sol:240-245`
 
 **Suggestion**: Build inline in event emission or avoid intermediate storage
+
 ```solidity
 // Build and hash in one step
 bytes32 derivationHash = _hashDerivation(Derivation({
@@ -271,6 +307,7 @@ Proposal memory proposal = Proposal({
 ---
 
 #### e) Proposal deep copy (Line 248-255)
+
 ```solidity
 Proposal memory proposal = Proposal({
     id: coreState.nextProposalId++,
@@ -295,6 +332,7 @@ Proposal memory proposal = Proposal({
 ### Current Deep Copy
 
 #### ProveInput deep copy (Line 270)
+
 ```solidity
 ProveInput memory input = _decodeProveInput(_data);
 ```
@@ -302,6 +340,7 @@ ProveInput memory input = _decodeProveInput(_data);
 **Location**: `Inbox.sol:270`
 
 **Suggestion**: Same as ProposeInput - limited optimization due to ABI decoding
+
 ```solidity
 // Consider custom decoding if profiling shows this is a bottleneck
 // ABI decode always returns memory, so this is hard to avoid
@@ -320,6 +359,7 @@ The function receives memory parameters and creates a new TransitionRecord. Whil
 **Location**: `Inbox.sol:546-561`
 
 **Suggestion**: Build record inline where needed, or accept storage/calldata references
+
 ```solidity
 function _buildTransitionRecord(
     Proposal calldata _proposal,  // Change to calldata
@@ -348,6 +388,7 @@ function _buildTransitionRecord(
 ### Current Deep Copy
 
 #### TransitionRecordHashAndDeadline struct creation (Line 446-447)
+
 ```solidity
 (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
     _computeTransitionRecordHashAndDeadline(_transitionRecord);
@@ -356,6 +397,7 @@ function _buildTransitionRecord(
 **Location**: `Inbox.sol:446-447`
 
 **Suggestion**: Return values separately instead of in a struct
+
 ```solidity
 function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
     internal
@@ -386,6 +428,7 @@ _storeTransitionRecord(
 ### Current Deep Copy
 
 #### ProposedEventPayload creation (Line 871-873)
+
 ```solidity
 ProposedEventPayload memory payload = ProposedEventPayload({
     proposal: _proposal, derivation: _derivation, coreState: _coreState
@@ -395,6 +438,7 @@ ProposedEventPayload memory payload = ProposedEventPayload({
 **Location**: `Inbox.sol:871-873`
 
 **Suggestion**: Encode directly without intermediate struct
+
 ```solidity
 function _emitProposedEvent(
     Proposal memory _proposal,
@@ -416,6 +460,7 @@ function _emitProposedEvent(
 ### Current Deep Copy
 
 #### TransitionRecordHashAndDeadline parameter (Line 473)
+
 ```solidity
 TransitionRecordHashAndDeadline memory _hashAndDeadline
 ```
@@ -423,6 +468,7 @@ TransitionRecordHashAndDeadline memory _hashAndDeadline
 **Location**: `Inbox.sol:473`
 
 **Suggestion**: Pass individual fields instead
+
 ```solidity
 function _storeTransitionRecord(
     uint48 _proposalId,
@@ -458,18 +504,21 @@ function _storeTransitionRecord(
 ## Summary of Recommendations by Priority
 
 ### HIGH PRIORITY (Significant gas savings)
+
 1. **Line 885**: CoreState copy in `_finalize()` - Optimize by modifying in place
 2. **Line 914**: TransitionRecord copy in loop in `_finalize()` - Use direct array access
 3. **Line 204**: ProposeInput deep copy - Consider custom decoding
 4. **Line 270**: ProveInput deep copy - Consider custom decoding
 
 ### MEDIUM PRIORITY (Moderate gas savings)
+
 5. **Line 222**: ConsumptionResult copy - Return tuple instead of struct
 6. **Line 240**: Derivation copy - Build inline or avoid intermediate storage
 7. **Line 897**: TransitionRecordHashAndDeadline copy in loop - Return separate values
 8. **Line 871**: ProposedEventPayload copy - Encode directly
 
 ### LOW PRIORITY (Minor gas savings)
+
 9. **Line 962**: Checkpoint parameter - Change to calldata
 10. **Line 446**: TransitionRecordHashAndDeadline creation - Return separate values
 11. **Line 473**: TransitionRecordHashAndDeadline parameter - Pass individual fields
@@ -480,18 +529,23 @@ function _storeTransitionRecord(
 ## General Optimization Patterns
 
 ### Pattern 1: Calldata References
+
 When possible, use `calldata` instead of `memory` for function parameters that are not modified.
 
 ### Pattern 2: Return Multiple Values
+
 Instead of returning structs, return multiple values using tuples to avoid struct copy overhead.
 
 ### Pattern 3: Direct Array Access
+
 Access array elements directly without copying to local variables when only a few fields are needed.
 
 ### Pattern 4: In-Place Modification
+
 Modify structs in place rather than copying, modifying, and returning.
 
 ### Pattern 5: Struct Decomposition
+
 Break apart small structs into individual variables when they're only used for a few operations.
 
 ---
@@ -499,6 +553,7 @@ Break apart small structs into individual variables when they're only used for a
 ## Testing Recommendations
 
 After implementing optimizations:
+
 1. Run gas profiling to measure actual savings
 2. Ensure all tests pass with no behavioral changes
 3. Profile both single-proposal and batch operations

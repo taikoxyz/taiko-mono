@@ -209,14 +209,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+            _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            coreState.lastProposalBlockId = uint48(block.number);
+            input.coreState.lastProposalBlockId = uint48(block.number);
 
             // Verify capacity for new proposals
-            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+            require(_getAvailableCapacity(input.coreState) > 0, NotEnoughCapacity());
 
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
@@ -246,16 +246,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
             Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
+                id: input.coreState.nextProposalId++,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(coreState),
+                coreStateHash: _hashCoreState(input.coreState),
                 derivationHash: _hashDerivation(derivation)
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, input.coreState);
         }
     }
 
@@ -878,9 +878,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
     /// Set minCheckpointDelay to 0 to disable rate limiting.
-    /// @param _input Contains transition records and the end block header.
-    /// @return _ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    /// @param _input Contains transition records and the end block header. The coreState field is
+    /// modified in-place.
+    function _finalize(ProposeInput memory _input) private {
         unchecked {
             uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
             uint256 lastFinalizedRecordIdx;
@@ -947,8 +947,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     _input.coreState
                 );
             }
-
-            return _input.coreState;
         }
     }
 
