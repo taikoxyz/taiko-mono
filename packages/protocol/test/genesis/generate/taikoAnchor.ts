@@ -49,6 +49,7 @@ export async function deployTaikoAnchor(
         config.withdrawalDelay,
         config.minBond,
         config.bondToken,
+        config.pacayaTaikoAnchor,
     );
 
     const storageLayouts: any = {};
@@ -128,6 +129,7 @@ async function generateContractConfigs(
     withdrawalDelay: number,
     minBond: number,
     bondToken: string,
+    pacayaTaikoAnchor: string,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -178,6 +180,12 @@ async function generateContractConfigs(
         ),
         BondManagerImpl: require(
             path.join(ARTIFACTS_PATH, "./BondManager.sol/BondManager.json"),
+        ),
+        AnchorForkRouterImpl: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./AnchorForkRouter.sol/AnchorForkRouter.json",
+            ),
         ),
         // Libraries
         LibNetwork: require(
@@ -232,6 +240,10 @@ async function generateContractConfigs(
             "bondManager",
             "l1ChainId",
         ]),
+    );
+    const anchorForkRouterReferencesMap: any = getImmutableReference(
+        "AnchorForkRouter",
+        ["oldFork", "newFork"],
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -719,8 +731,37 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        TaikoAnchor: {
-            address: addressMap.TaikoAnchor,
+        AnchorForkRouterImpl: {
+            address: addressMap.AnchorForkRouterImpl,
+            deployedBytecode: replaceImmutableValues(
+                contractArtifacts.AnchorForkRouterImpl,
+                [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.AnchorForkRouterImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.oldFork.id,
+                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.newFork.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
+                        ),
+                    },
+                ],
+            ).deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
+            },
+        },
+        TaikoAnchorImpl: {
+            address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.TaikoAnchor, [
                     {
@@ -771,6 +812,10 @@ async function generateContractConfigs(
                     ancestorsHash: ethers.constants.HashZero,
                 },
             },
+            slots: {
+                [IMPLEMENTATION_SLOT]: addressMap.AnchorForkRouterImpl,
+            },
+            isProxy: true,
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
