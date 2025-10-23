@@ -171,9 +171,6 @@ async function generateContractConfigs(
             ),
         ),
         // Rollup Contracts
-        TaikoAnchor: require(
-            path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
-        ),
         TaikoAnchorImpl: require(
             path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
         ),
