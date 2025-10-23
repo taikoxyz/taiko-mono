@@ -144,10 +144,6 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclien
 const erc20BalanceOfABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
 const erc20BondBalanceOfABI = `[{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"bondBalanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
 
-type ERC20 interface {
-	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
-}
-
 func (b *BalanceMonitor) getEthBalance(ctx context.Context, client *ethclient.Client, address common.Address) (*big.Int, error) {
 	balance, err := client.BalanceAt(ctx, address, nil)
 	if err != nil {
