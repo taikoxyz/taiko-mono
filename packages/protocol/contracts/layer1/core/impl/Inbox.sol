@@ -911,26 +911,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (hashAndDeadline.recordHash == 0) break;
 
-                TransitionRecord memory transitionRecord = _input.transitionRecords[i];
-
+                // Access array element directly without copying
+                bytes32 recordHash = _hashTransitionRecord(_input.transitionRecords[i]);
                 require(
-                    _hashTransitionRecord(transitionRecord) == hashAndDeadline.recordHash,
+                    recordHash == hashAndDeadline.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 
                 coreState.lastFinalizedProposalId = proposalId;
-                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+                coreState.lastFinalizedTransitionHash = _input.transitionRecords[i].transitionHash;
 
-                uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
+                // Only copy bondInstructions array when needed
+                LibBonds.BondInstruction[] memory bondInstructions =
+                    _input.transitionRecords[i].bondInstructions;
+                uint256 bondInstructionLen = bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
+                        coreState.bondInstructionsHash, bondInstructions[j]
                     );
                 }
 
-                require(transitionRecord.span > 0, InvalidSpan());
+                require(_input.transitionRecords[i].span > 0, InvalidSpan());
 
-                uint48 nextProposalId = proposalId + transitionRecord.span;
+                uint48 nextProposalId = proposalId + _input.transitionRecords[i].span;
                 require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
 
                 proposalId = nextProposalId;
