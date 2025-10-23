@@ -327,9 +327,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
+        (recordHash_, finalizationDeadline_) =
             _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
-        return (hashAndDeadline.finalizationDeadline, hashAndDeadline.recordHash);
     }
 
     /// @inheritdoc IInbox
@@ -495,7 +494,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
-    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
+    /// @return recordHash_ The hash of the transition record.
+    /// @return finalizationDeadline_ The finalization deadline for the transition.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -503,10 +503,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+        TransitionRecordHashAndDeadline storage hashAndDeadline =
+            _transitionRecordHashAndDeadline[compositeKey];
+        return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
@@ -894,27 +896,27 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                TransitionRecordHashAndDeadline memory hashAndDeadline =
+                (bytes26 recordHash, uint48 finalizationDeadline) =
                     _getTransitionRecordHashAndDeadline(
                         proposalId, coreState.lastFinalizedTransitionHash
                     );
 
                 if (i >= transitionCount) {
-                    if (hashAndDeadline.recordHash == 0) break;
+                    if (recordHash == 0) break;
 
-                    if (currentTimestamp >= hashAndDeadline.finalizationDeadline) {
+                    if (currentTimestamp >= finalizationDeadline) {
                         revert TransitionRecordNotProvided();
                     }
 
                     break;
                 }
 
-                if (hashAndDeadline.recordHash == 0) break;
+                if (recordHash == 0) break;
 
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 
                 require(
-                    _hashTransitionRecord(transitionRecord) == hashAndDeadline.recordHash,
+                    _hashTransitionRecord(transitionRecord) == recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 
