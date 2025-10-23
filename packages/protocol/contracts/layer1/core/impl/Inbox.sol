@@ -912,17 +912,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Avoid deep copy: access array element directly
                 require(
-                    _hashTransitionRecord(_input.transitionRecords[i]) == hashAndDeadline.recordHash,
+                    _hashTransitionRecord(_input.transitionRecords[i])
+                        == hashAndDeadline.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 
                 _input.coreState.lastFinalizedProposalId = proposalId;
-                _input.coreState.lastFinalizedTransitionHash = _input.transitionRecords[i].transitionHash;
+                _input.coreState.lastFinalizedTransitionHash =
+                _input.transitionRecords[i].transitionHash;
 
                 uint256 bondInstructionLen = _input.transitionRecords[i].bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     _input.coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        _input.coreState.bondInstructionsHash, _input.transitionRecords[i].bondInstructions[j]
+                        _input.coreState.bondInstructionsHash,
+                        _input.transitionRecords[i].bondInstructions[j]
                     );
                 }
 
