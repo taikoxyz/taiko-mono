@@ -14,6 +14,7 @@ export interface Config {
     withdrawalDelay: number;
     minBond: number;
     bondToken: string;
+    pacayaTaikoAnchor: string;
 }
 
 export interface Result {
