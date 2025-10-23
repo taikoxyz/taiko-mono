@@ -896,10 +896,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) =
-                    _getTransitionRecordHashAndDeadline(
-                        proposalId, coreState.lastFinalizedTransitionHash
-                    );
+                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                    proposalId, coreState.lastFinalizedTransitionHash
+                );
 
                 if (i >= transitionCount) {
                     if (recordHash == 0) break;
