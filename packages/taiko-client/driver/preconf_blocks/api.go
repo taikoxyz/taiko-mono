@@ -128,7 +128,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if s.latestSeenProposal != nil {
 		if s.latestSeenProposal.IsShasta() {
-			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.UpdateStateSelector) &&
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) &&
 				s.latestSeenProposal.IsShasta() {
 				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
 
