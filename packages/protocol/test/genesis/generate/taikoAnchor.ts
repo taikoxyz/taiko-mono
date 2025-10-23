@@ -210,6 +210,7 @@ async function generateContractConfigs(
     contractArtifacts.SignalService = proxy;
     contractArtifacts.SharedResolver = proxy;
     // Rollup Contracts
+    contractArtifacts.TaikoAnchor = contractArtifacts.AnchorForkRouterImpl;
     contractArtifacts.RollupResolver = proxy;
     contractArtifacts.BondManager = proxy;
 
@@ -765,7 +766,7 @@ async function generateContractConfigs(
         Anchor: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(contractArtifacts.TaikoAnchor, [
+                replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
                     {
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
