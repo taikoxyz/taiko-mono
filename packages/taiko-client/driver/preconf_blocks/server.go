@@ -103,8 +103,7 @@ func New(
 	cors string,
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
-	pacayaAnchorAddress common.Address,
-	shastaAnchorAddress common.Address,
+	taikoAnchorAddress common.Address,
 	pacayaChainSyncer preconfBlockChainSyncer,
 	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
@@ -112,8 +111,7 @@ func New(
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(
-		pacayaAnchorAddress,
-		shastaAnchorAddress,
+		taikoAnchorAddress,
 		cli.L2.ChainID,
 		cli,
 	)

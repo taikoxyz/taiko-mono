@@ -22,8 +22,7 @@ func (s *AnchorTxValidatorTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
 	validator, err := New(
-		common.HexToAddress(os.Getenv("PACAYA_ANCHOR")),
-		common.HexToAddress(os.Getenv("SHASTA_ANCHOR")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		s.RPCClient.L2.ChainID,
 		s.RPCClient,
 	)
@@ -53,7 +52,7 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 		GasTipCap:  common.Big1,
 		GasFeeCap:  common.Big1,
 		Gas:        1,
-		To:         &s.v.pacayaAnchorAddress,
+		To:         &s.v.taikoAnchorAddress,
 		Value:      common.Big0,
 		Data:       []byte{},
 		AccessList: types.AccessList{},
