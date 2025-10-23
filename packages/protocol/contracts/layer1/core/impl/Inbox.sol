@@ -943,7 +943,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
-                    _input.checkpoint, _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash, coreState
+                    _input.checkpoint,
+                    _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash,
+                    coreState
                 );
             }
 
