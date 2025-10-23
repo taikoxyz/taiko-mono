@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/governance/Controller.sol";
 import "./LibFasterReentryLock.sol";
+import "src/shared/governance/Controller.sol";
 
 /// @title MainnetDAOController
 /// @notice This contract maintains ownership of all contracts and assets, and is itself owned by

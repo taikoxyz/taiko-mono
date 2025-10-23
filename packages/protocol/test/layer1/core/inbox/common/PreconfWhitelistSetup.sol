@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title PreconfWhitelistSetup
@@ -53,7 +53,10 @@ contract PreconfWhitelistSetup is CommonTest {
     // Proposer Selection Helper Functions
     // ---------------------------------------------------------------
 
-    function _selectProposer(IProposerChecker _proposerChecker, address _proposer)
+    function _selectProposer(
+        IProposerChecker _proposerChecker,
+        address _proposer
+    )
         public
         returns (address)
     {

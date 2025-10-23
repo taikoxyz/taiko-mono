@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibBondInstruction } from "src/layer1/core/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Import errors from Inbox implementation
 import "src/layer1/core/impl/Inbox.sol";
@@ -20,6 +26,13 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
     bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
+
+    struct RingBufferFillResult {
+        IInbox.ProposedEventPayload first;
+        IInbox.ProposedEventPayload second;
+        IInbox.ProposedEventPayload last;
+        IInbox.Proposal[] proposals;
+    }
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
@@ -408,6 +421,150 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     // Multiple Proposal Tests
     // ---------------------------------------------------------------
 
+    function test_propose_RevertWhen_RingBufferFull() public {
+        vm.startPrank(currentProposer);
+
+        RingBufferFillResult memory fill = _fillRingBufferToCapacity();
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
+
+        assertEq(
+            fill.last.proposal.id, uint48(ringBufferSize - 1), "Should reach ring buffer capacity"
+        );
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
+        parentProposals[0] = fill.last.proposal;
+        parentProposals[1] = _createGenesisProposal();
+
+        IInbox.ProposeInput memory nextInput = _createProposeInputWithCustomParams(
+            0, _createBlobRef(0, 1, 0), parentProposals, fill.last.coreState
+        );
+        bytes memory proposeData = _codec().encodeProposeInput(nextInput);
+
+        vm.expectRevert(NotEnoughCapacity.selector);
+        inbox.propose(bytes(""), proposeData);
+
+        vm.stopPrank();
+    }
+
+    function test_propose_ReuseRingBuffer() public {
+        vm.startPrank(currentProposer);
+
+        RingBufferFillResult memory fill = _fillRingBufferToCapacity();
+
+        IInbox.Config memory config = inbox.getConfig();
+        assertEq(fill.last.proposal.id, uint48(config.ringBufferSize - 1), "unexpected fill result");
+
+        uint48 provingWindow = config.provingWindow;
+        uint48 extendedProvingWindow = config.extendedProvingWindow;
+
+        vm.stopPrank();
+
+        bytes32 parentTransitionHash = _getGenesisTransitionHash();
+        (IInbox.TransitionRecord memory firstRecord,) = _proveProposalForRingBuffer(
+            fill.first.proposal, parentTransitionHash, provingWindow, extendedProvingWindow
+        );
+
+        parentTransitionHash = firstRecord.transitionHash;
+
+        (
+            IInbox.TransitionRecord memory secondRecord,
+            ICheckpointStore.Checkpoint memory secondCheckpoint
+        ) = _proveProposalForRingBuffer(
+            fill.second.proposal, parentTransitionHash, provingWindow, extendedProvingWindow
+        );
+
+        vm.startPrank(currentProposer);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+        _setupBlobHashes();
+
+        IInbox.ProposedEventPayload memory firstNewPayload;
+        {
+            IInbox.Proposal[] memory firstParents = _buildParentArrayForSlot(
+                fill, fill.last.proposal, inbox.getProposalHash(fill.last.proposal.id + 1)
+            );
+
+            IInbox.TransitionRecord[] memory finalizeRecords = new IInbox.TransitionRecord[](2);
+            finalizeRecords[0] = firstRecord;
+            finalizeRecords[1] = secondRecord;
+
+            IInbox.ProposeInput memory firstInput;
+            firstInput.deadline = 0;
+            firstInput.coreState = fill.last.coreState;
+            firstInput.parentProposals = firstParents;
+            firstInput.blobReference = _createBlobRef(0, 1, 0);
+            firstInput.transitionRecords = finalizeRecords;
+            firstInput.checkpoint = secondCheckpoint;
+            firstInput.numForcedInclusions = 0;
+
+            vm.recordLogs();
+            inbox.propose(bytes(""), _codec().encodeProposeInput(firstInput));
+            firstNewPayload = _decodeLastProposedEvent();
+        }
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+        _setupBlobHashes();
+
+        IInbox.ProposedEventPayload memory reusedPayload;
+        {
+            IInbox.Proposal[] memory reuseParents = _buildParentArrayForSlot(
+                fill,
+                firstNewPayload.proposal,
+                inbox.getProposalHash(firstNewPayload.proposal.id + 1)
+            );
+
+            IInbox.ProposeInput memory reuseInput;
+            reuseInput.deadline = 0;
+            reuseInput.coreState = firstNewPayload.coreState;
+            reuseInput.parentProposals = reuseParents;
+            reuseInput.blobReference = _createBlobRef(0, 1, 0);
+            reuseInput.transitionRecords = new IInbox.TransitionRecord[](0);
+            reuseInput.checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(100))
+            });
+            reuseInput.numForcedInclusions = 0;
+
+            vm.recordLogs();
+            vm.startSnapshotGas(
+                "shasta-propose", string.concat("propose_reuse_ring_buffer_", inboxContractName)
+            );
+            inbox.propose(bytes(""), _codec().encodeProposeInput(reuseInput));
+            vm.stopSnapshotGas();
+
+            reusedPayload = _decodeLastProposedEvent();
+        }
+
+        assertEq(
+            reusedPayload.proposal.id,
+            firstNewPayload.coreState.nextProposalId,
+            "proposal id mismatch"
+        );
+        assertEq(
+            reusedPayload.coreState.lastFinalizedProposalId,
+            fill.second.proposal.id,
+            "last finalized proposal id mismatch"
+        );
+
+        bytes32 expectedHash = _codec().hashProposal(reusedPayload.proposal);
+        assertEq(
+            inbox.getProposalHash(reusedPayload.proposal.id), expectedHash, "stored hash mismatch"
+        );
+        assertEq(
+            inbox.getProposalHash(fill.first.proposal.id),
+            expectedHash,
+            "ring buffer slot should have been reused"
+        );
+
+        vm.stopPrank();
+    }
+
     function test_propose_twoConsecutiveProposals() public virtual {
         _setupBlobHashes();
 
@@ -443,7 +600,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastProposalBlockId: uint48(block.number - 1), // Previous block (first proposal was
-                // made there)
+            // made there)
             lastFinalizedProposalId: 0,
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
@@ -570,6 +727,255 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         inbox.propose(bytes(""), proposeData);
     }
 
+    // ---------------------------------------------------------------
+    // Ring Buffer Helper Functions
+    // ---------------------------------------------------------------
+
+    function _fillRingBufferToCapacity() internal returns (RingBufferFillResult memory result) {
+        _setupBlobHashes();
+
+        if (block.number < 2) {
+            vm.roll(2);
+        }
+
+        vm.warp(block.timestamp + 1);
+
+        uint48 ringCapacity = uint48(inbox.getConfig().ringBufferSize - 1);
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](ringCapacity);
+
+        IInbox.ProposedEventPayload memory firstPayload =
+            _proposeAndDecode(_createFirstProposeInput());
+        proposals[0] = firstPayload.proposal;
+
+        IInbox.ProposedEventPayload memory lastPayload = firstPayload;
+        IInbox.ProposedEventPayload memory secondPayload;
+
+        for (uint48 proposalId = 2; proposalId <= ringCapacity; ++proposalId) {
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 1);
+
+            IInbox.ProposeInput memory input = _buildNextProposeInput(lastPayload);
+            IInbox.ProposedEventPayload memory payload = _proposeAndDecode(input);
+
+            proposals[proposalId - 1] = payload.proposal;
+
+            if (proposalId == 2) {
+                secondPayload = payload;
+            }
+
+            lastPayload = payload;
+        }
+
+        result = RingBufferFillResult({
+            first: firstPayload, second: secondPayload, last: lastPayload, proposals: proposals
+        });
+    }
+
+    function _buildNextProposeInput(IInbox.ProposedEventPayload memory parentPayload)
+        internal
+        view
+        returns (IInbox.ProposeInput memory)
+    {
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = parentPayload.proposal;
+
+        return _createProposeInputWithCustomParams(
+            0, _createBlobRef(0, 1, 0), parentProposals, parentPayload.coreState
+        );
+    }
+
+    function _proposeAndDecode(IInbox.ProposeInput memory input)
+        internal
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        bytes memory proposeData = _codec().encodeProposeInput(input);
+        vm.recordLogs();
+        inbox.propose(bytes(""), proposeData);
+        return _decodeLastProposedEvent();
+    }
+
+    function _buildFinalizeProposeInput(
+        IInbox.CoreState memory coreState,
+        IInbox.Proposal[] memory parentProposals,
+        IInbox.TransitionRecord[] memory records,
+        ICheckpointStore.Checkpoint memory checkpoint
+    )
+        internal
+        pure
+        returns (IInbox.ProposeInput memory)
+    {
+        return IInbox.ProposeInput({
+            deadline: 0,
+            coreState: coreState,
+            parentProposals: parentProposals,
+            blobReference: _createBlobRef(0, 1, 0),
+            transitionRecords: records,
+            checkpoint: checkpoint,
+            numForcedInclusions: 0
+        });
+    }
+
+    function _wrapSingleProposal(IInbox.Proposal memory proposal)
+        internal
+        pure
+        returns (IInbox.Proposal[] memory)
+    {
+        IInbox.Proposal[] memory parents = new IInbox.Proposal[](1);
+        parents[0] = proposal;
+        return parents;
+    }
+
+    function _wrapDoubleProposal(
+        IInbox.Proposal memory head,
+        IInbox.Proposal memory previous
+    )
+        internal
+        pure
+        returns (IInbox.Proposal[] memory)
+    {
+        IInbox.Proposal[] memory parents = new IInbox.Proposal[](2);
+        parents[0] = head;
+        parents[1] = previous;
+        return parents;
+    }
+
+    function _wrapSingleRecord(IInbox.TransitionRecord memory record)
+        internal
+        pure
+        returns (IInbox.TransitionRecord[] memory)
+    {
+        IInbox.TransitionRecord[] memory records = new IInbox.TransitionRecord[](1);
+        records[0] = record;
+        return records;
+    }
+
+    function _locateParentForSlot(
+        RingBufferFillResult memory fill,
+        bytes32 storedHash
+    )
+        internal
+        view
+        returns (IInbox.Proposal memory)
+    {
+        if (storedHash == bytes32(0)) revert("empty slot");
+
+        IInbox.Proposal memory genesis = _createGenesisProposal();
+        if (_codec().hashProposal(genesis) == storedHash) {
+            return genesis;
+        }
+
+        for (uint256 i; i < fill.proposals.length; ++i) {
+            if (_codec().hashProposal(fill.proposals[i]) == storedHash) {
+                return fill.proposals[i];
+            }
+        }
+
+        revert("parent proposal not found");
+    }
+
+    function _buildParentArrayForSlot(
+        RingBufferFillResult memory fill,
+        IInbox.Proposal memory head,
+        bytes32 storedHash
+    )
+        internal
+        view
+        returns (IInbox.Proposal[] memory)
+    {
+        if (storedHash == bytes32(0)) {
+            return _wrapSingleProposal(head);
+        }
+
+        IInbox.Proposal memory secondary = _locateParentForSlot(fill, storedHash);
+        return _wrapDoubleProposal(head, secondary);
+    }
+
+    function _proveProposalForRingBuffer(
+        IInbox.Proposal memory proposal,
+        bytes32 parentTransitionHash,
+        uint48 provingWindow,
+        uint48 extendedProvingWindow
+    )
+        internal
+        returns (
+            IInbox.TransitionRecord memory record,
+            ICheckpointStore.Checkpoint memory checkpoint
+        )
+    {
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        IInbox.Transition memory transition =
+            _createTransitionForProposal(proposal, parentTransitionHash);
+        IInbox.TransitionMetadata memory metadata =
+            _createTransitionMetadata(nextProposer, nextProposer);
+
+        {
+            IInbox.ProveInput memory proveInput;
+            proveInput.proposals = new IInbox.Proposal[](1);
+            proveInput.proposals[0] = proposal;
+
+            proveInput.transitions = new IInbox.Transition[](1);
+            proveInput.transitions[0] = transition;
+
+            proveInput.metadata = new IInbox.TransitionMetadata[](1);
+            proveInput.metadata[0] = metadata;
+
+            vm.prank(nextProposer);
+            inbox.prove(_codec().encodeProveInput(proveInput), _creatProof());
+        }
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            LibBondInstruction.calculateBondInstructions(
+                provingWindow, extendedProvingWindow, proposal, metadata
+            );
+
+        record = IInbox.TransitionRecord({
+            span: 1,
+            bondInstructions: bondInstructions,
+            transitionHash: _codec().hashTransition(transition),
+            checkpointHash: _codec().hashCheckpoint(transition.checkpoint)
+        });
+
+        checkpoint = transition.checkpoint;
+    }
+
+    function _createTransitionForProposal(
+        IInbox.Proposal memory proposal,
+        bytes32 parentTransitionHash
+    )
+        internal
+        view
+        returns (IInbox.Transition memory)
+    {
+        return IInbox.Transition({
+            proposalHash: _codec().hashProposal(proposal),
+            parentTransitionHash: parentTransitionHash,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(200))
+            })
+        });
+    }
+
+    function _createTransitionMetadata(
+        address designatedProver,
+        address actualProver
+    )
+        internal
+        pure
+        returns (IInbox.TransitionMetadata memory)
+    {
+        return IInbox.TransitionMetadata({
+            designatedProver: designatedProver, actualProver: actualProver
+        });
+    }
+
+    function _creatProof() internal pure returns (bytes memory) {
+        return abi.encode("valid_proof");
+    }
+
     // Convenience overload with default blob parameters using currentProposer
     function _buildExpectedProposedPayload(uint48 _proposalId)
         internal
@@ -592,7 +998,10 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
-    function _enqueueForcedInclusion(LibBlobs.BlobReference memory _ref, address _payer)
+    function _enqueueForcedInclusion(
+        LibBlobs.BlobReference memory _ref,
+        address _payer
+    )
         internal
         returns (LibBlobs.BlobSlice memory)
     {

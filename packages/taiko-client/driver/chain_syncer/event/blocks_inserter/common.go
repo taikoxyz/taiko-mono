@@ -46,7 +46,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -568,7 +568,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 }
 
 // assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
-// and the `ShastaAnchor.updateState` transaction for the given Shasta block.
+// and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
 func assembleCreateExecutionPayloadMetaShasta(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -640,7 +640,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		"root", anchorBlockHeaderRoot,
 	)
 
-	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
 		meta.GetProposal().Id,
@@ -657,7 +657,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		baseFee,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal.

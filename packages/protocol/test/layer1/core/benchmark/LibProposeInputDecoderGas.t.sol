@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
@@ -42,9 +42,8 @@ contract LibProposeInputDecoderGas is Test {
     )
         private
     {
-        IInbox.ProposeInput memory input = _createTestData(
-            _proposalCount, _transitionCount, _totalBondInstructions
-        );
+        IInbox.ProposeInput memory input =
+            _createTestData(_proposalCount, _transitionCount, _totalBondInstructions);
 
         // Prepare encoded data
         bytes memory abiEncoded = abi.encode(input);

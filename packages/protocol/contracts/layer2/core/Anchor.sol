@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { IBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -55,6 +55,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
+    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
@@ -62,6 +63,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Stored block-level state for the latest anchor.
+    /// @dev 2 slots
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
@@ -114,10 +116,18 @@ contract Anchor is EssentialContract {
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
-    // State variables
+    // Pacaya slots for storage compatibility
     // ---------------------------------------------------------------
 
-    // Proposal-level state (set on first block of proposal)
+    /// @dev slot0:  _blockhashes
+    ///      slot1: publicInputHash
+    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
+    ///      slot3: l1ChainId
+    uint256[4] private _pacayaSlots;
+
+    // ---------------------------------------------------------------
+    // State variables
+    // ---------------------------------------------------------------
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
@@ -125,10 +135,8 @@ contract Anchor is EssentialContract {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
-    // Block-level state (updated per block)
-
     /// @notice Storage gap for upgrade safety.
-    uint256[49] private __gap;
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -208,16 +216,19 @@ contract Anchor is EssentialContract {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchor(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
+    function anchorV4(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
         external
         onlyValidSenderAndHeight
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalState, _proposalParams);
+            _validateProposal(_proposalParams);
         }
 
-        _validateBlock(_blockState, _blockParams);
+        _validateBlock(_blockParams);
 
         emit Anchored(
             _proposalState.bondInstructionsHash,
@@ -233,7 +244,10 @@ contract Anchor is EssentialContract {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(address _token, address _to)
+    function withdraw(
+        address _token,
+        address _to
+    )
         external
         nonZeroAddr(_to)
         onlyOwner
@@ -309,7 +323,11 @@ contract Anchor is EssentialContract {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
     /// @return provingFee_ The proving fee in Wei (0 if validation fails).
-    function validateProverAuth(uint48 _proposalId, address _proposer, bytes calldata _proverAuth)
+    function validateProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
         public
         pure
         returns (address signer_, uint256 provingFee_)
@@ -348,19 +366,15 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _validateProposal(
-        ProposalState storage _proposalState,
-        ProposalParams calldata _proposalParams
-    )
-        private
-    {
+    function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) = getDesignatedProver(
-            _proposalParams.proposalId,
-            _proposalParams.proposer,
-            _proposalParams.proverAuth,
-            _proposalState.designatedProver
-        );
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
+            getDesignatedProver(
+                _proposalParams.proposalId,
+                _proposalParams.proposer,
+                _proposalParams.proverAuth,
+                _proposalState.designatedProver
+            );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
@@ -376,9 +390,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(BlockState storage _blockState, BlockParams calldata _blockParams)
-        private
-    {
+    function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         bytes32 expectedCurrAncestorsHash =
