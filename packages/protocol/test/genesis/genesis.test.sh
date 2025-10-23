@@ -51,7 +51,7 @@ echo "Starting generate_genesis tests..."
 rm -rf out && pnpm compile:genesis
 
 # run the task
-pnpm run genesis:gen $DIR/test_config.js
+pnpm run genesis:gen
 
 # generate complete genesis json
 cat "$DIR/data/genesis_alloc.json" >> "$GENESIS_JSON"

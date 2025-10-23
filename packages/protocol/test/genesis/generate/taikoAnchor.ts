@@ -82,8 +82,10 @@ export async function deployTaikoAnchor(
             ? "DefaultResolver"
             : storageLayoutName;
 
-        storageLayoutName =
-            storageLayoutName === "TaikoAnchor" ? "Anchor" : storageLayoutName;
+        // TaikoAnchor is the ForkRouter proxy
+        if (storageLayoutName === "TaikoAnchor") {
+            storageLayoutName = "AnchorForkRouter";
+        }
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -170,6 +172,9 @@ async function generateContractConfigs(
         ),
         // Rollup Contracts
         TaikoAnchor: require(
+            path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
+        ),
+        TaikoAnchorImpl: require(
             path.join(ARTIFACTS_PATH, "./Anchor.sol/Anchor.json"),
         ),
         RollupResolverImpl: require(
@@ -760,7 +765,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
             },
         },
-        TaikoAnchorImpl: {
+        Anchor: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.TaikoAnchor, [
@@ -812,10 +817,35 @@ async function generateContractConfigs(
                     ancestorsHash: ethers.constants.HashZero,
                 },
             },
-            slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.AnchorForkRouterImpl,
+        },
+        TaikoAnchor: {
+            address: addressMap.TaikoAnchor,
+            deployedBytecode: replaceImmutableValues(
+                contractArtifacts.AnchorForkRouterImpl,
+                [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.oldFork.id,
+                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.newFork.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
+                        ),
+                    },
+                ],
+            ).deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
             },
-            isProxy: true,
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
