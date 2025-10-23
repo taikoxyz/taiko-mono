@@ -37,7 +37,6 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// @inheritdoc IPreconfSlasherL2
     function slash(
         Fault _fault,
-        uint256 _evidenceBlockNumber,
         bytes32 _registrationRoot,
         SignedCommitment calldata _signedCommitment
     )
@@ -47,26 +46,21 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             abi.decode(_signedCommitment.commitment.payload, (Preconfirmation));
 
         ShastaAnchor.PreconfMeta memory preconfMeta;
+        preconfMeta = ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
 
-        if (_isEOPOnlyPreconfirmation(preconfirmation)) {
-            preconfMeta = ShastaAnchor(taikoAnchor).getPreconfMeta(_evidenceBlockNumber);
-        } else {
-            preconfMeta = ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
+        // Protection against a scenario where a previous preconfer submitted an extra block
+        // that it never preconfirmed.
+        require(
+            preconfirmation.parentRawTxListHash == preconfMeta.parentRawTxListHash,
+            ParentRawTxListHashMismatch()
+        );
 
-            // Protection against a scenario where a previous preconfer submitted an extra block
-            // that it never preconfirmed.
-            require(
-                preconfirmation.parentRawTxListHash == preconfMeta.parentRawTxListHash,
-                ParentRawTxListHashMismatch()
-            );
-
-            // Protection against a scenario where a previous preconfer submitted an extra block
-            // with the same `rawTxListHash` as the one preconfirmed by the current preconfer.
-            require(
-                preconfirmation.parentSubmissionWindowEnd == preconfMeta.parentSubmissionWindowEnd,
-                ParentSubmissionWindowEndMismatch()
-            );
-        }
+        // Protection against a scenario where a previous preconfer submitted an extra block
+        // with the same `rawTxListHash` as the one preconfirmed by the current preconfer.
+        require(
+            preconfirmation.parentSubmissionWindowEnd == preconfMeta.parentSubmissionWindowEnd,
+            ParentSubmissionWindowEndMismatch()
+        );
 
         if (_fault == Fault.MissedSubmission) {
             _validateMissedSubmissionFault(preconfirmation, preconfMeta);
@@ -124,7 +118,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             UnexpectedExtraProposalsInPreviousWindow()
         );
 
-        // Next block must be submitted in the next window
+        // Confirm that the block with missing EOP is the last block in it's
+        // submission window
         ShastaAnchor.PreconfMeta memory nextPreconfMeta =
             ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber + 1);
         require(
@@ -175,8 +170,9 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         require(_preconfirmation.eop, InvalidEOPFlag());
 
         // If it's an EOP-only preconfirmation, we already have enough evidence for a violation
-        // (i.e a block is proposed in the window where an EOP-only preconfirmation was issue).
-        // Otherwise, validate that another block was proposed after issuing an EOP
+        // (i.e a block is proposed in the window where an EOP-only preconfirmation was issued).
+        // Otherwise, validate that another block was submitted in the same window after issuing
+        // an EOP
         if (_preconfirmation.rawTxListHash != bytes32(0)) {
             ShastaAnchor.PreconfMeta memory nextPreconfMeta =
                 ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber + 1);

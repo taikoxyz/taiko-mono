@@ -75,14 +75,11 @@ interface IPreconfSlasherL2 {
     /// @notice Validates if a preconfirmation is slashable and forwards the fault to the
     /// L1 preconfirmation slasher.
     /// @param _fault The fault that needs to be checked
-    /// @param _evidenceBlockNumber An "evidence" height to fetch the `PreconfMeta` for an EOP-only
-    /// preconfirmation
     /// @param _registrationRoot The urc registration root of the operator being
     /// slashed
     /// @param _signedCommitment The signed preconfirmation commitment to slash
     function slash(
         Fault _fault,
-        uint256 _evidenceBlockNumber,
         bytes32 _registrationRoot,
         SignedCommitment calldata _signedCommitment
     )
