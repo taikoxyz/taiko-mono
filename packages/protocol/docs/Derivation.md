@@ -186,7 +186,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
+Should any of these validation checks fail (as determined by the `anchorV4` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -256,6 +256,8 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
+If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
+
 ### Metadata Validation and Computation
 
 With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
@@ -312,6 +314,8 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
+After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
+
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
 The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are defined as follows:
@@ -339,7 +343,7 @@ A parent proposal L1 transaction may revert, potentially causing the subsequent 
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `updateState` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
 
 The `ProverAuth` structure used in Shasta for prover authentication:
 
@@ -347,18 +351,16 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 /// @notice Structure for prover authentication
 /// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
 struct ProverAuth {
-  address prover;
-  address feeToken;
-  uint96 fee;
-  uint64 validUntil; // optional
-  uint64 batchId; // optional
+  uint48 proposalId;
+  address proposer;
+  uint256 provingFee; // denominated in Wei
   bytes signature;
 }
 ```
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `updateState` function designates the prover for the entire proposal.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal.
 
 ##### 1. Authentication and Validation
 
@@ -367,11 +369,11 @@ The `_validateProverAuth` function processes prover authentication data with the
 - **Signature Verification**:
 
   - Validates the `ProverAuth` struct from the provided bytes
-  - Decodes the `ProverAuth` containing: `prover`, `feeToken`, `fee`, `validUntil`, `batchId`, and ECDSA `signature`
+  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
   - Returns the authenticated prover address and fee information
 
-- **Validation Failures**: If authentication fails (insufficient data length < 161 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
+- **Validation Failures**: If authentication fails (insufficient data length < 225 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
@@ -460,7 +462,7 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 #### Block Index Monotonicity
 
-The `_blockIndex` parameter in the anchor transaction's `updateState` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+The `_blockIndex` parameter in the anchor transaction's `anchorV4` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
 
 - First source's blocks: `_blockIndex = 0, 1, 2, ...`
 - Second source's blocks: `_blockIndex` continues from where the first source ended
@@ -512,9 +514,11 @@ The following block header fields are also set before transaction execution but 
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
+For Shasta specifically, consensus pins the base fee to `25_000_000 wei` for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
+
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
 
 | Parameter            | Type              | Description                                              |
 | -------------------- | ----------------- | -------------------------------------------------------- |
@@ -540,7 +544,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 1. **Fork validation and duplicate prevention**
 
    - Verifies the current block number is at or after the Shasta fork height
-   - Tracks parent block hash to prevent duplicate `updateState` calls within the same block
+   - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (blockIndex == 0 only)
 

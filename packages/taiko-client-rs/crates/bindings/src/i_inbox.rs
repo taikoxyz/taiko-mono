@@ -6,6 +6,7 @@ interface IInbox {
     struct Config {
         address codec;
         address bondToken;
+        address signalService;
         address proofVerifier;
         address proposerChecker;
         uint48 provingWindow;
@@ -17,13 +18,15 @@ interface IInbox {
         uint256 minForcedInclusionCount;
         uint16 forcedInclusionDelay;
         uint64 forcedInclusionFeeInGwei;
-        uint16 maxCheckpointHistory;
         uint16 minCheckpointDelay;
         uint8 permissionlessInclusionMultiplier;
+        uint16 compositeKeyVersion;
     }
 
     event Proposed(bytes data);
     event Proved(bytes data);
+    event TransitionConflictDetected();
+    event TransitionDuplicateDetected();
 
     function getConfig() external view returns (Config memory config_);
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
@@ -53,6 +56,11 @@ interface IInbox {
           },
           {
             "name": "bondToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signalService",
             "type": "address",
             "internalType": "address"
           },
@@ -112,11 +120,6 @@ interface IInbox {
             "internalType": "uint64"
           },
           {
-            "name": "maxCheckpointHistory",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
             "name": "minCheckpointDelay",
             "type": "uint16",
             "internalType": "uint16"
@@ -125,6 +128,11 @@ interface IInbox {
             "name": "permissionlessInclusionMultiplier",
             "type": "uint8",
             "internalType": "uint8"
+          },
+          {
+            "name": "compositeKeyVersion",
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
       }
@@ -240,6 +248,18 @@ interface IInbox {
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TransitionConflictDetected",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TransitionDuplicateDetected",
+    "inputs": [],
+    "anonymous": false
   }
 ]
 ```*/
@@ -276,7 +296,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address bondToken; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint16 maxCheckpointHistory; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+struct Config { address codec; address bondToken; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -285,6 +305,8 @@ struct Config { address codec; address bondToken; address proofVerifier; address
         pub codec: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub bondToken: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub signalService: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub proofVerifier: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -308,11 +330,11 @@ struct Config { address codec; address bondToken; address proofVerifier; address
         #[allow(missing_docs)]
         pub forcedInclusionFeeInGwei: u64,
         #[allow(missing_docs)]
-        pub maxCheckpointHistory: u16,
-        #[allow(missing_docs)]
         pub minCheckpointDelay: u16,
         #[allow(missing_docs)]
         pub permissionlessInclusionMultiplier: u8,
+        #[allow(missing_docs)]
+        pub compositeKeyVersion: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -328,6 +350,7 @@ struct Config { address codec; address bondToken; address proofVerifier; address
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
+            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -338,11 +361,12 @@ struct Config { address codec; address bondToken; address proofVerifier; address
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<16>,
-            alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<8>,
+            alloy::sol_types::sol_data::Uint<16>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
@@ -357,8 +381,8 @@ struct Config { address codec; address bondToken; address proofVerifier; address
             u16,
             u64,
             u16,
-            u16,
             u8,
+            u16,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -378,6 +402,7 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                 (
                     value.codec,
                     value.bondToken,
+                    value.signalService,
                     value.proofVerifier,
                     value.proposerChecker,
                     value.provingWindow,
@@ -389,9 +414,9 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     value.minForcedInclusionCount,
                     value.forcedInclusionDelay,
                     value.forcedInclusionFeeInGwei,
-                    value.maxCheckpointHistory,
                     value.minCheckpointDelay,
                     value.permissionlessInclusionMultiplier,
+                    value.compositeKeyVersion,
                 )
             }
         }
@@ -402,20 +427,21 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                 Self {
                     codec: tuple.0,
                     bondToken: tuple.1,
-                    proofVerifier: tuple.2,
-                    proposerChecker: tuple.3,
-                    provingWindow: tuple.4,
-                    extendedProvingWindow: tuple.5,
-                    maxFinalizationCount: tuple.6,
-                    finalizationGracePeriod: tuple.7,
-                    ringBufferSize: tuple.8,
-                    basefeeSharingPctg: tuple.9,
-                    minForcedInclusionCount: tuple.10,
-                    forcedInclusionDelay: tuple.11,
-                    forcedInclusionFeeInGwei: tuple.12,
-                    maxCheckpointHistory: tuple.13,
+                    signalService: tuple.2,
+                    proofVerifier: tuple.3,
+                    proposerChecker: tuple.4,
+                    provingWindow: tuple.5,
+                    extendedProvingWindow: tuple.6,
+                    maxFinalizationCount: tuple.7,
+                    finalizationGracePeriod: tuple.8,
+                    ringBufferSize: tuple.9,
+                    basefeeSharingPctg: tuple.10,
+                    minForcedInclusionCount: tuple.11,
+                    forcedInclusionDelay: tuple.12,
+                    forcedInclusionFeeInGwei: tuple.13,
                     minCheckpointDelay: tuple.14,
                     permissionlessInclusionMultiplier: tuple.15,
+                    compositeKeyVersion: tuple.16,
                 }
             }
         }
@@ -433,6 +459,9 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.bondToken,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.signalService,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proofVerifier,
@@ -477,15 +506,15 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.maxCheckpointHistory),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
                     > as alloy_sol_types::SolType>::tokenize(&self.minCheckpointDelay),
                     <alloy::sol_types::sol_data::Uint<
                         8,
                     > as alloy_sol_types::SolType>::tokenize(
                         &self.permissionlessInclusionMultiplier,
                     ),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.compositeKeyVersion),
                 )
             }
             #[inline]
@@ -560,7 +589,7 @@ struct Config { address codec; address bondToken; address proofVerifier; address
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address bondToken,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint16 maxCheckpointHistory,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address codec,address bondToken,address signalService,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
                 )
             }
             #[inline]
@@ -582,6 +611,10 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.bondToken,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.signalService,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
@@ -647,12 +680,6 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.maxCheckpointHistory,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.minCheckpointDelay,
                         )
                         .0,
@@ -660,6 +687,12 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                         8,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.permissionlessInclusionMultiplier,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.compositeKeyVersion,
                         )
                         .0,
                 ]
@@ -676,6 +709,9 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.bondToken,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.signalService,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.proofVerifier,
@@ -731,17 +767,17 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     + <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.maxCheckpointHistory,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.minCheckpointDelay,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         8,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.permissionlessInclusionMultiplier,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.compositeKeyVersion,
                     )
             }
             #[inline]
@@ -758,6 +794,10 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.bondToken,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.signalService,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -825,12 +865,6 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                 <alloy::sol_types::sol_data::Uint<
                     16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.maxCheckpointHistory,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    16,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.minCheckpointDelay,
                     out,
                 );
@@ -838,6 +872,12 @@ struct Config { address codec; address bondToken; address proofVerifier; address
                     8,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.permissionlessInclusionMultiplier,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    16,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.compositeKeyVersion,
                     out,
                 );
             }
@@ -1062,6 +1102,206 @@ event Proved(bytes data);
         impl From<&Proved> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &Proved) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `TransitionConflictDetected()` and selector `0xedbbc170a31039722f1b233fdedcee87c58f692be26627dc755b33f28537c627`.
+```solidity
+event TransitionConflictDetected();
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct TransitionConflictDetected;
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for TransitionConflictDetected {
+            type DataTuple<'a> = ();
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
+            const SIGNATURE: &'static str = "TransitionConflictDetected()";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                237u8, 187u8, 193u8, 112u8, 163u8, 16u8, 57u8, 114u8, 47u8, 27u8, 35u8,
+                63u8, 222u8, 220u8, 238u8, 135u8, 197u8, 143u8, 105u8, 43u8, 226u8,
+                102u8, 39u8, 220u8, 117u8, 91u8, 51u8, 242u8, 133u8, 55u8, 198u8, 39u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {}
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                ()
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(),)
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for TransitionConflictDetected {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&TransitionConflictDetected> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &TransitionConflictDetected,
+            ) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `TransitionDuplicateDetected()` and selector `0xf1846d1634477b5b2542d27b601bfcaa46ebc2bff80f941c2b07f862778e491b`.
+```solidity
+event TransitionDuplicateDetected();
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct TransitionDuplicateDetected;
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for TransitionDuplicateDetected {
+            type DataTuple<'a> = ();
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
+            const SIGNATURE: &'static str = "TransitionDuplicateDetected()";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                241u8, 132u8, 109u8, 22u8, 52u8, 71u8, 123u8, 91u8, 37u8, 66u8, 210u8,
+                123u8, 96u8, 27u8, 252u8, 170u8, 70u8, 235u8, 194u8, 191u8, 248u8, 15u8,
+                148u8, 28u8, 43u8, 7u8, 248u8, 98u8, 119u8, 142u8, 73u8, 27u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {}
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                ()
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(),)
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for TransitionDuplicateDetected {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&TransitionDuplicateDetected> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &TransitionDuplicateDetected,
+            ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -2124,6 +2364,10 @@ function prove(bytes memory _data, bytes memory _proof) external;
         Proposed(Proposed),
         #[allow(missing_docs)]
         Proved(Proved),
+        #[allow(missing_docs)]
+        TransitionConflictDetected(TransitionConflictDetected),
+        #[allow(missing_docs)]
+        TransitionDuplicateDetected(TransitionDuplicateDetected),
     }
     #[automatically_derived]
     impl IInboxEvents {
@@ -2144,12 +2388,22 @@ function prove(bytes memory _data, bytes memory _proof) external;
                 165u8, 30u8, 78u8, 108u8, 189u8, 250u8, 41u8, 73u8, 98u8, 120u8, 145u8,
                 238u8, 41u8, 198u8, 228u8, 40u8, 26u8, 187u8, 141u8, 160u8, 60u8,
             ],
+            [
+                237u8, 187u8, 193u8, 112u8, 163u8, 16u8, 57u8, 114u8, 47u8, 27u8, 35u8,
+                63u8, 222u8, 220u8, 238u8, 135u8, 197u8, 143u8, 105u8, 43u8, 226u8,
+                102u8, 39u8, 220u8, 117u8, 91u8, 51u8, 242u8, 133u8, 55u8, 198u8, 39u8,
+            ],
+            [
+                241u8, 132u8, 109u8, 22u8, 52u8, 71u8, 123u8, 91u8, 37u8, 66u8, 210u8,
+                123u8, 96u8, 27u8, 252u8, 170u8, 70u8, 235u8, 194u8, 191u8, 248u8, 15u8,
+                148u8, 28u8, 43u8, 7u8, 248u8, 98u8, 119u8, 142u8, 73u8, 27u8,
+            ],
         ];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for IInboxEvents {
         const NAME: &'static str = "IInboxEvents";
-        const COUNT: usize = 2usize;
+        const COUNT: usize = 4usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -2162,6 +2416,24 @@ function prove(bytes memory _data, bytes memory _proof) external;
                 Some(<Proved as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <Proved as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Proved)
+                }
+                Some(
+                    <TransitionConflictDetected as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <TransitionConflictDetected as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::TransitionConflictDetected)
+                }
+                Some(
+                    <TransitionDuplicateDetected as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <TransitionDuplicateDetected as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::TransitionDuplicateDetected)
                 }
                 _ => {
                     alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
@@ -2187,6 +2459,12 @@ function prove(bytes memory _data, bytes memory _proof) external;
                 Self::Proved(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::TransitionConflictDetected(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
+                Self::TransitionDuplicateDetected(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
             }
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
@@ -2195,6 +2473,12 @@ function prove(bytes memory _data, bytes memory _proof) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Proved(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::TransitionConflictDetected(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::TransitionDuplicateDetected(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
             }
@@ -2419,6 +2703,18 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ///Creates a new event filter for the [`Proved`] event.
         pub fn Proved_filter(&self) -> alloy_contract::Event<&P, Proved, N> {
             self.event_filter::<Proved>()
+        }
+        ///Creates a new event filter for the [`TransitionConflictDetected`] event.
+        pub fn TransitionConflictDetected_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, TransitionConflictDetected, N> {
+            self.event_filter::<TransitionConflictDetected>()
+        }
+        ///Creates a new event filter for the [`TransitionDuplicateDetected`] event.
+        pub fn TransitionDuplicateDetected_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, TransitionDuplicateDetected, N> {
+            self.event_filter::<TransitionDuplicateDetected>()
         }
     }
 }

@@ -128,7 +128,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if s.latestSeenProposal != nil {
 		if s.latestSeenProposal.IsShasta() {
-			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.UpdateStateSelector) &&
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) &&
 				s.latestSeenProposal.IsShasta() {
 				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
 
@@ -299,28 +299,30 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				)
 			}
 
-			if err := s.p2pNode.GossipOut().PublishL2Payload(
-				ctx,
-				&eth.ExecutionPayloadEnvelope{
-					ExecutionPayload: &eth.ExecutionPayload{
-						BaseFeePerGas: eth.Uint256Quantity(u256),
-						ParentHash:    header.ParentHash,
-						FeeRecipient:  header.Coinbase,
-						ExtraData:     header.Extra,
-						PrevRandao:    eth.Bytes32(header.MixDigest),
-						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-						GasLimit:      eth.Uint64Quantity(header.GasLimit),
-						GasUsed:       eth.Uint64Quantity(header.GasUsed),
-						Timestamp:     eth.Uint64Quantity(header.Time),
-						BlockHash:     header.Hash(),
-						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-					},
-					EndOfSequencing:   reqBody.EndOfSequencing,
-					IsForcedInclusion: &isForcedInclusion,
-					Signature:         sigBytes,
+			// Build envelope once, cache locally, then publish to P2P.
+			env := &eth.ExecutionPayloadEnvelope{
+				ExecutionPayload: &eth.ExecutionPayload{
+					BaseFeePerGas: eth.Uint256Quantity(u256),
+					ParentHash:    header.ParentHash,
+					FeeRecipient:  header.Coinbase,
+					ExtraData:     header.Extra,
+					PrevRandao:    eth.Bytes32(header.MixDigest),
+					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:      eth.Uint64Quantity(header.GasLimit),
+					GasUsed:       eth.Uint64Quantity(header.GasUsed),
+					Timestamp:     eth.Uint64Quantity(header.Time),
+					BlockHash:     header.Hash(),
+					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 				},
-				s.p2pSigner,
-			); err != nil {
+				EndOfSequencing:   reqBody.EndOfSequencing,
+				IsForcedInclusion: &isForcedInclusion,
+				Signature:         sigBytes,
+			}
+
+			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
+			s.tryPutEnvelopeIntoCache(env, s.p2pNode.Host().ID())
+
+			if err := s.p2pNode.GossipOut().PublishL2Payload(ctx, env, s.p2pSigner); err != nil {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
 			}
 		}
