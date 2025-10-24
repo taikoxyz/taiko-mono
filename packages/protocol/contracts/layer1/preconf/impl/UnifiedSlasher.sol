@@ -26,9 +26,9 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
 
     /// @inheritdoc ISlasher
     function slash(
-        Delegation calldata,
+        Delegation calldata, /* delegation */
         Commitment calldata _commitment,
-        address,
+        address, /* committer */
         bytes calldata _evidence,
         address _challenger
     )
