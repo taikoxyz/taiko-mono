@@ -81,8 +81,8 @@ func (m *TaikoProposalMetadataShasta) GetCoinbase() common.Address {
 	return common.Address{}
 }
 
-func (m *TaikoProposalMetadataShasta) GetLog() types.Log {
-	return m.Log
+func (m *TaikoProposalMetadataShasta) GetLog() *types.Log {
+	return &m.Log
 }
 
 // GetBlobHashes returns blob hashes in this proposal.

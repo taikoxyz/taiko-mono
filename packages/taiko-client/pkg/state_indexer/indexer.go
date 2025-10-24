@@ -36,7 +36,7 @@ type ProposalPayload struct {
 	Derivation     *shastaBindings.IInboxDerivation
 	RawBlockHash   common.Hash
 	RawBlockHeight *big.Int
-	Log            types.Log
+	Log            *types.Log
 }
 
 // TransitionPayload represents the payload in a Shasta Proved event.

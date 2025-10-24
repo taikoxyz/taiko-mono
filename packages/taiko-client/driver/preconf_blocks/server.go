@@ -1160,7 +1160,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 						Proposal:   *recordedProposal.Proposal,
 						Derivation: *recordedProposal.Derivation,
 						CoreState:  *recordedProposal.CoreState,
-					}, recordedProposal.Log),
+					}, *recordedProposal.Log),
 					PreconfChainReorged: true,
 				})
 			}
@@ -1177,7 +1177,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 	defer s.mutex.Unlock()
 
 	log.Info(
-		"Received latest batch seen in event",
+		"Received latest proposal seen in event",
 		"batchID", proposal.Pacaya().GetBatchID(),
 		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
 	)
