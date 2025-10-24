@@ -4,35 +4,29 @@ pragma solidity ^0.8.24;
 import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
 import { LibPreconfUtils } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import { IBridge } from "src/shared/bridge/IBridge.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
 import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
 /// @title PreconfSlasherL1
+/// @dev This is a stateless contract intended to be delegatecall-ed to by the `UnifiedSlasher`
 /// @notice This contract is called by the L2 slasher contract via the native bridge. This
 /// interfaces with the URC and slashes for preconfirmation faults.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfSlasherL1 is IPreconfSlasherL1, EssentialContract {
+contract PreconfSlasherL1 is IPreconfSlasherL1 {
     address public immutable urc;
     address public immutable preconfSlasherL2;
     address public immutable bridge;
 
-    constructor(address _urc, address _preconfSlasherL2, address _bridge) EssentialContract() {
+    constructor(address _urc, address _preconfSlasherL2, address _bridge) {
         urc = _urc;
         preconfSlasherL2 = _preconfSlasherL2;
         bridge = _bridge;
     }
 
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
-    /// @inheritdoc ISlasher
+    /// @inheritdoc IPreconfSlasherL1
     function slash(
-        Delegation calldata, /* delegation */
-        Commitment calldata _commitment,
-        address, /* committer */
+        ISlasher.Commitment calldata _commitment,
         bytes calldata _evidence,
         address _challenger
     )

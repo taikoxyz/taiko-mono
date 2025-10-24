@@ -198,7 +198,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // Ring buffer for proposed batches and a some recent verified batches.
         mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+        mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId))
+            transitionIds;
         // Ring buffer for transitions
         mapping(
             uint256 batchId_mod_batchRingBufferSize

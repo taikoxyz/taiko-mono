@@ -46,12 +46,7 @@ contract DevnetInbox is TaikoInbox {
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
-                ontake: 0,
-                pacaya: 0,
-                shasta: 10,
-                unzen: 0,
-                etna: 0,
-                fuji: 0
+                ontake: 0, pacaya: 0, shasta: 10, unzen: 0, etna: 0, fuji: 0
             })
         });
     }

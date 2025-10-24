@@ -316,12 +316,18 @@ abstract contract PacayaAnchor is OntakeAnchor {
         }
 
         assembly {
-            currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            currPublicInputHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
 
         inputs[_blockId % 255] = blockhash(_blockId);
         assembly {
-            newPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newPublicInputHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
     }
 }

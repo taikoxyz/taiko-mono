@@ -109,9 +109,8 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
             _buildPreconfirmationCommitment(preconfedBlockHeader);
 
         // Set a non zero beacon block root at preconfer's slot
-        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            preconferSlotTimestamp, bytes32(uint256(1))
-        );
+        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT))
+            .set(preconferSlotTimestamp, bytes32(uint256(1)));
 
         // Slash the violated preconf
         uint256 slashedAmount =

@@ -43,7 +43,7 @@ contract MainnetInbox is TaikoInbox {
                 gasIssuancePerSecond: 1_000_000,
                 minGasExcess: 1_440_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-             }),
+            }),
             provingWindow: 2 hours,
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
@@ -62,12 +62,7 @@ contract MainnetInbox is TaikoInbox {
 
     function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
         return ITaikoInbox.ForkHeights({
-            ontake: 538_304,
-            pacaya: 1_166_000,
-            shasta: 0,
-            unzen: 0,
-            etna: 0,
-            fuji: 0
+            ontake: 538_304, pacaya: 1_166_000, shasta: 0, unzen: 0, etna: 0, fuji: 0
         });
     }
 

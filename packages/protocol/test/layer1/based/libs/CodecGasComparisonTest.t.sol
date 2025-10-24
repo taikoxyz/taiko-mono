@@ -44,9 +44,7 @@ contract CodecGasComparisonTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 1024,
-                timestamp: 1_672_531_200
+                blobHashes: blobHashes, offset: 1024, timestamp: 1_672_531_200
             })
         });
 

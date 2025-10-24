@@ -95,7 +95,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         returns (uint256 numCacheOps_)
     {
         CacheAction[] memory actions = // actions for caching
-         _verifySignalReceived(_chainId, _app, _signal, _proof, true);
+            _verifySignalReceived(_chainId, _app, _signal, _proof, true);
 
         for (uint256 i; i < actions.length; ++i) {
             numCacheOps_ += _cache(actions[i]);

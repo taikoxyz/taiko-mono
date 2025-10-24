@@ -120,7 +120,14 @@ library LibEIP1559 {
     /// @param _gasTarget The current gas target.
     /// @param _gasExcess The current gas excess.
     /// @return ethQty_ The calculated exponential value.
-    function ethQty(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256 ethQty_) {
+    function ethQty(
+        uint64 _gasTarget,
+        uint64 _gasExcess
+    )
+        internal
+        pure
+        returns (uint256 ethQty_)
+    {
         assert(_gasTarget != 0);
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;
         if (input > MAX_EXP_INPUT) {

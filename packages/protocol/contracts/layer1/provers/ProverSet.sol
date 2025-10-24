@@ -36,7 +36,13 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     }
 
     /// @notice Proves multiple Taiko batches.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
+    function proveBatches(
+        bytes calldata _params,
+        bytes calldata _proof
+    )
+        external
+        onlyProver
+    {
         ITaikoInbox(inbox).v4ProveBatches(_params, _proof);
     }
 
@@ -62,7 +68,13 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     }
 
     /// @notice Propose a Taiko block.
-    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
+    function proposeBlockV2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+    {
         inbox.functionCall(abi.encodeWithSignature("proposeBlockV2(bytes,bytes)", _params, _txList));
     }
 

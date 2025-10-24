@@ -49,7 +49,14 @@ contract ERC20Airdrop is MerkleClaimable {
     /// @param user The address of the user.
     /// @param amount The amount of tokens to claim.
     /// @param proof The merkle proof.
-    function claim(address user, uint256 amount, bytes32[] calldata proof) external nonReentrant {
+    function claim(
+        address user,
+        uint256 amount,
+        bytes32[] calldata proof
+    )
+        external
+        nonReentrant
+    {
         // Check if this can be claimed
         _verifyClaim(abi.encode(user, amount), proof);
 

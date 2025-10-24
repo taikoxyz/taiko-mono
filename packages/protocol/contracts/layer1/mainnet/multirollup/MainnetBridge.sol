@@ -35,7 +35,14 @@ contract MainnetBridge is Bridge {
     }
 
     /// @inheritdoc Bridge
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal override {
+    function _storeContext(
+        bytes32 _msgHash,
+        address _from,
+        uint64 _srcChainId
+    )
+        internal
+        override
+    {
         assembly {
             tstore(_CTX_SLOT, _msgHash)
             tstore(add(_CTX_SLOT, 1), _from)

@@ -21,10 +21,7 @@ contract InboxTest_Params is InboxTestBase {
         assertEq(info.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
-    function test_validateParams_reverts_when_anchorBlockId_too_small()
-        external
-        transactBy(Alice)
-    {
+    function test_validateParams_reverts_when_anchorBlockId_too_small() external transactBy(Alice) {
         ITaikoInbox.Config memory config = inbox.v4GetConfig();
 
         // Advance the block number to create the appropriate test scenario
@@ -39,10 +36,7 @@ contract InboxTest_Params is InboxTestBase {
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
-    function test_validateParams_reverts_when_anchorBlockId_too_large()
-        external
-        transactBy(Alice)
-    {
+    function test_validateParams_reverts_when_anchorBlockId_too_large() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         // Calculate an invalid anchorBlockId (too large)

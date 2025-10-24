@@ -14,8 +14,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
         address proofVerifier,
         address proposerChecker
     )
-        InboxOptimized1(
-            IInbox.Config({
+        InboxOptimized1(IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
                 proofVerifier: proofVerifier,
@@ -32,7 +31,6 @@ contract TestInboxOptimized1 is InboxOptimized1 {
                 maxCheckpointHistory: maxCheckpointHistory,
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5
-            })
-        )
+            }))
     { }
 }

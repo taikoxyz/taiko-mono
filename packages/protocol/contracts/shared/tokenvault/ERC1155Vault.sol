@@ -40,7 +40,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+        if (msg.value < _op.fee) {
+            revert VAULT_INSUFFICIENT_FEE();
+        }
 
         {
             uint256 size = _op.amounts.length;
@@ -245,9 +247,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                IERC1155(_op.token).safeBatchTransferFrom(
-                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
-                );
+                IERC1155(_op.token)
+                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
                 uint256 size = _op.tokenIds.length;
                 for (uint256 i; i < size; ++i) {
                     IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
@@ -261,9 +262,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     name: safeName(_op.token)
                 });
 
-                IERC1155(_op.token).safeBatchTransferFrom(
-                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
-                );
+                IERC1155(_op.token)
+                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
             }
         }
         msgData_ = abi.encodeCall(

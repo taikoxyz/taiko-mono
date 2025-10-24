@@ -134,8 +134,7 @@ contract TestERC1155Vault is CommonTest {
         eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
-    function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
-    )
+    function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155()
         public
     {
         vm.prank(Alice);
@@ -168,10 +167,7 @@ contract TestERC1155Vault is CommonTest {
 
         amounts[0] = 2;
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "",
-            name: ""
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "", name: ""
         });
 
         vm.chainId(taikoChainId);
@@ -188,9 +184,7 @@ contract TestERC1155Vault is CommonTest {
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
     }
 
-    function test_1155Vault_receiveTokens_but_mint_not_deploy_if_bridged_second_time_1155()
-        public
-    {
+    function test_1155Vault_receiveTokens_but_mint_not_deploy_if_bridged_second_time_1155() public {
         vm.prank(Alice);
         eERC1155Token.setApprovalForAll(address(eVault), true);
 
@@ -220,10 +214,7 @@ contract TestERC1155Vault is CommonTest {
         assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "",
-            name: ""
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "", name: ""
         });
 
         vm.chainId(taikoChainId);
@@ -306,10 +297,7 @@ contract TestERC1155Vault is CommonTest {
 
         amounts[0] = 2;
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "",
-            name: ""
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "", name: ""
         });
 
         vm.chainId(taikoChainId);
@@ -410,10 +398,7 @@ contract TestERC1155Vault is CommonTest {
         assertEq(eERC1155Token.balanceOf(address(eVault), 2), 5);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "",
-            name: ""
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "", name: ""
         });
 
         vm.chainId(taikoChainId);
@@ -463,10 +448,7 @@ contract TestERC1155Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "TT",
-            name: "TT"
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "TT", name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -572,10 +554,7 @@ contract TestERC1155Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "TT",
-            name: "TT"
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "TT", name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -655,10 +634,7 @@ contract TestERC1155Vault is CommonTest {
         assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "",
-            name: ""
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "", name: ""
         });
 
         vm.chainId(taikoChainId);
@@ -720,10 +696,7 @@ contract TestERC1155Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId,
-            addr: address(eERC1155Token),
-            symbol: "TT",
-            name: "TT"
+            chainId: ethereumChainId, addr: address(eERC1155Token), symbol: "TT", name: "TT"
         });
 
         vm.chainId(taikoChainId);

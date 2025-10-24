@@ -32,12 +32,7 @@ contract MockTaikoInbox is EssentialContract {
             maxSignalsToReceive: 10,
             maxBlocksPerBatch: 100,
             forkHeights: ITaikoInbox.ForkHeights({
-                ontake: 0,
-                pacaya: 0,
-                shasta: 0,
-                unzen: 0,
-                etna: 0,
-                fuji: 0
+                ontake: 0, pacaya: 0, shasta: 0, unzen: 0, etna: 0, fuji: 0
             })
         });
     }

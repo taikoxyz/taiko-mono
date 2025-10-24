@@ -9,8 +9,8 @@ pragma solidity ^0.8.24;
 /// - The token should be ERC-20 compliant
 /// - Supply increases should only be caused by mints from the vault. Notably, rebasing tokens are
 /// not supported.
-/// - Token balances should change by exactly the given amounts on `transfer`/`mint`/`burn`. Notable,
-/// tokens with fees on transfers are not supported.
+/// - Token balances should change by exactly the given amounts on `transfer`/`mint`/`burn`.
+/// Notable, tokens with fees on transfers are not supported.
 /// - If the bridged token is not directly deployed by the Bridge (ERC20Vault), - for example a USDT
 /// token bytecode deployed on Taiko to support native tokens - it might be necessary to implement
 /// an intermediary adapter contract which should conform mint() and burn() interfaces, so that the

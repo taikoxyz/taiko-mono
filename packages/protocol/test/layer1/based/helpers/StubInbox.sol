@@ -29,7 +29,12 @@ contract StubInbox is ITaikoInbox {
         return address(0);
     }
 
-    function v4GetBatch(uint64 _batchId) external view virtual returns (ITaikoInbox.Batch memory) { }
+    function v4GetBatch(uint64 _batchId)
+        external
+        view
+        virtual
+        returns (ITaikoInbox.Batch memory)
+    { }
 
     function v4GetTransitionById(
         uint64 _batchId,

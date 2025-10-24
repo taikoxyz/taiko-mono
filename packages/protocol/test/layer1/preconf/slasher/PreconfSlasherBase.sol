@@ -58,7 +58,9 @@ contract PreconfSlasherBase is CommonTest {
 
         address preconfSlasherAddress = deploy({
             name: "preconf_slasher",
-            impl: address(new PreconfSlasher(urc, fallbackPreconfer, address(taikoInbox), taikoAnchor)),
+            impl: address(
+                new PreconfSlasher(urc, fallbackPreconfer, address(taikoInbox), taikoAnchor)
+            ),
             data: ""
         });
         preconfSlasher = PreconfSlasher(preconfSlasherAddress);

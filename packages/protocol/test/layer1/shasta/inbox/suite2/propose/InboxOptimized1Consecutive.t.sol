@@ -61,14 +61,15 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
         // No additional roll needed - we already advanced by 1 block above
 
         // Create second proposal input after block roll
-        bytes memory secondProposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, // no deadline
-                _createBlobRef(0, 1, 0),
-                secondParentProposals,
-                secondCoreState
-            )
-        );
+        bytes memory secondProposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, // no deadline
+                    _createBlobRef(0, 1, 0),
+                    secondParentProposals,
+                    secondCoreState
+                )
+            );
 
         // Build expected event data after block roll to match timestamps
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);

@@ -67,9 +67,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint64 _feeInGwei = store.feeInGwei();
 
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
 
         (
@@ -90,9 +88,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
         store.storeForcedInclusion{ value: 0 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
     }
 
@@ -102,16 +98,12 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint64 feeInGwei = store.feeInGwei();
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: feeInGwei * 1 gwei - 1 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
 
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: feeInGwei * 1 gwei + 1 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
     }
 
@@ -123,9 +115,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
 
         assertEq(store.head(), 0);
@@ -152,9 +142,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
 
         assertEq(store.head(), 0);
@@ -180,9 +168,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(whitelistedProposer);
         store.storeForcedInclusion{ value: store.feeInGwei() * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
+            blobIndex: 0, blobByteOffset: 0, blobByteSize: 1024
         });
 
         // Verify the stored request is correct
