@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ISlasher} from "@eth-fabric/urc/ISlasher.sol";
-import {IBridge} from "src/shared/bridge/IBridge.sol";
+import {IBridge, IMessageInvocable} from "src/shared/bridge/IBridge.sol";
 
 /// @title IPreconfSlasherL1
 /// @dev This contract inherits from ISlasher which contains the definition for the `slash` function
