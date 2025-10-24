@@ -23,7 +23,7 @@ const (
 	MaxBlockGasLimitChangePermyriad = 10 // 0.1%
 	// MinBlockGasLimit The minimum block gas limit, refer to LibManifest.MIN_BLOCK_GAS_LIMIT.
 	MinBlockGasLimit = 10_000_000
-	// MaxBlockGasLimit The minimum block gas limit, refer to LibManifest.MAX_BLOCK_GAS_LIMIT.
+	// MaxBlockGasLimit The maximum block gas limit, refer to LibManifest.MAX_BLOCK_GAS_LIMIT.
 	MaxBlockGasLimit = 100_000_000
 	// The delay in processing bond instructions relative to the current proposal. A value
 	// of 1 signifies that the bond instructions of the immediate parent proposal will be
