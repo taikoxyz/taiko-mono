@@ -15,6 +15,15 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
 
     error UnsupportedCommitmentType();
 
+    constructor(address _preconfSlasherL1, address _lookaheadSlasher) EssentialContract() {
+        preconfSlasherL1 = _preconfSlasherL1;
+        lookaheadSlasher = _lookaheadSlasher;
+    }
+
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
     /// @inheritdoc ISlasher
     function slash(
         Delegation calldata,
