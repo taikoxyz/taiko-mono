@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
 import { ILookaheadSlasher } from "src/layer1/preconf/iface/ILookaheadSlasher.sol";
 import { IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
 /// @title UnifiedSlasher
 /// @custom:security-contact security@taiko.xyz
