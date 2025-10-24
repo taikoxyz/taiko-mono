@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../governance/BuildProposal.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
 
 // To print the proposal action data: `P=0004 pnpm proposal`
 // To dryrun the proposal on L1: `P=0004 pnpm proposal:dryrun:l1`
