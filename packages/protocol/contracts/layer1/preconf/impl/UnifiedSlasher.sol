@@ -9,6 +9,9 @@ import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
 /// @title UnifiedSlasher
+/// @dev A common entry point for `PreconfSlasherL1` and `LookaheadSlasher.
+/// @dev The operators are only required to opt-in to the unified slasher in order
+/// to preconf and post lookaheads.
 /// @custom:security-contact security@taiko.xyz
 contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
     address public immutable preconfSlasherL1;
