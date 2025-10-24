@@ -400,7 +400,12 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     /// @notice Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
+    function _processSingleTransitionAtIndex(
+        ProveInput memory _input,
+        uint256 _index
+    )
+        internal
+    {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -864,9 +869,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal,
-            derivation: _derivation,
-            coreState: _coreState
+            proposal: _proposal, derivation: _derivation, coreState: _coreState
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -1020,8 +1023,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _getTransitionRecordHashAndDeadline(_proposalId, _coreState.lastFinalizedTransitionHash);
+        TransitionRecordHashAndDeadline memory hashAndDeadline = _getTransitionRecordHashAndDeadline(
+            _proposalId, _coreState.lastFinalizedTransitionHash
+        );
 
         if (hashAndDeadline.recordHash == 0) return (false, _proposalId);
 

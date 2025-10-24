@@ -28,7 +28,15 @@ contract MockDefaultResolver {
         mockERC20Vault = _mockERC20Vault;
     }
 
-    function getAddress(uint64, /*chainId*/ bytes32 /*name*/ ) public view returns (address) {
+    function getAddress(
+        uint64,
+        /*chainId*/
+        bytes32 /*name*/
+    )
+        public
+        view
+        returns (address)
+    {
         return mockERC20Vault;
     }
 }

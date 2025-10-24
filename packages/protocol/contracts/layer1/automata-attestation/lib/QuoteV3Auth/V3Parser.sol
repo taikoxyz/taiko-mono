@@ -61,9 +61,7 @@ library V3Parser {
         V3Struct.EnclaveReport memory localEnclaveReport = parseEnclaveReport(rawLocalEnclaveReport);
 
         v3ParsedQuote = V3Struct.ParsedV3QuoteStruct({
-            header: header,
-            localEnclaveReport: localEnclaveReport,
-            v3AuthData: authDataV3
+            header: header, localEnclaveReport: localEnclaveReport, v3AuthData: authDataV3
         });
         success = true;
     }

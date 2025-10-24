@@ -179,8 +179,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_inbox_propose_1block_per_batch_and_prove_many_blocks_with_first_transition_being_correct(
-    )
+    function test_inbox_propose_1block_per_batch_and_prove_many_blocks_with_first_transition_being_correct()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
@@ -258,8 +257,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         }
     }
 
-    function test_inbox_propose_7block_per_batch_and_prove_many_blocks_with_first_transition_being_correct(
-    )
+    function test_inbox_propose_7block_per_batch_and_prove_many_blocks_with_first_transition_being_correct()
         external
         WhenEachBatchHasMultipleBlocks(7)
         transactBy(Alice)
@@ -463,8 +461,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(!EssentialContract(address(inbox)).paused());
     }
 
-    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_or_state_root_will_pause_inbox(
-    )
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_or_state_root_will_pause_inbox()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(1)
@@ -488,8 +485,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(EssentialContract(address(inbox)).paused());
     }
 
-    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_pause_inbox(
-    )
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_pause_inbox()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
@@ -739,8 +735,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     //     console2.log(str);
     //     vm.writeFile(
-    //         "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness.txt",
-    //         str
+    // 
+    // "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness.txt", str
     //     );
     // }
 

@@ -90,19 +90,13 @@ contract TestSignalService is CommonTest {
         // app being address(0) will revert
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         mockSignalService.proveSignalReceived({
-            _chainId: 1,
-            _app: address(0),
-            _signal: randBytes32(),
-            _proof: abi.encode(proofs)
+            _chainId: 1, _app: address(0), _signal: randBytes32(), _proof: abi.encode(proofs)
         });
 
         // signal being 0 will revert
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         mockSignalService.proveSignalReceived({
-            _chainId: ethereumChainId,
-            _app: randAddress(),
-            _signal: 0,
-            _proof: abi.encode(proofs)
+            _chainId: ethereumChainId, _app: randAddress(), _signal: 0, _proof: abi.encode(proofs)
         });
     }
 
@@ -110,10 +104,7 @@ contract TestSignalService is CommonTest {
         // "undecodable proof" is not decodable into SignalService.HopProof[] memory
         vm.expectRevert();
         mockSignalService.proveSignalReceived({
-            _chainId: 0,
-            _app: randAddress(),
-            _signal: randBytes32(),
-            _proof: "undecodable proof"
+            _chainId: 0, _app: randAddress(), _signal: randBytes32(), _proof: "undecodable proof"
         });
     }
 
@@ -139,10 +130,7 @@ contract TestSignalService is CommonTest {
         // With zero-length proof bytes, decoding reverts; expect a generic revert
         vm.expectRevert();
         mockSignalService.proveSignalReceived({
-            _chainId: ethereumChainId,
-            _app: randAddress(),
-            _signal: randBytes32(),
-            _proof: hex""
+            _chainId: ethereumChainId, _app: randAddress(), _signal: randBytes32(), _proof: hex""
         });
 
         // proofs.length must > 0 in order not to revert
@@ -374,8 +362,16 @@ contract TestSignalService is CommonTest {
 
         // Add two trusted hop relayers
         vm.startPrank(deployer);
-        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.registerAddress(
+            proofs[0].chainId,
+            "signal_service",
+            randAddress() /*relay1*/
+        );
+        resolver.registerAddress(
+            proofs[1].chainId,
+            "signal_service",
+            randAddress() /*relay2*/
+        );
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
@@ -428,8 +424,16 @@ contract TestSignalService is CommonTest {
 
         // Add two trusted hop relayers
         vm.startPrank(deployer);
-        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.registerAddress(
+            proofs[0].chainId,
+            "signal_service",
+            randAddress() /*relay1*/
+        );
+        resolver.registerAddress(
+            proofs[1].chainId,
+            "signal_service",
+            randAddress() /*relay2*/
+        );
         vm.stopPrank();
 
         vm.prank(taiko);
@@ -528,7 +532,11 @@ contract TestSignalService is CommonTest {
         vm.startPrank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
         for (uint256 i; i < proofs.length; ++i) {
-            resolver.registerAddress(proofs[i].chainId, "signal_service", randAddress() /*relay1*/ );
+            resolver.registerAddress(
+                proofs[i].chainId,
+                "signal_service",
+                randAddress() /*relay1*/
+            );
         }
         vm.stopPrank();
 

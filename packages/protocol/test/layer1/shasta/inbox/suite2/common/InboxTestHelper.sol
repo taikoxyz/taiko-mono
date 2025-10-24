@@ -163,9 +163,7 @@ abstract contract InboxTestHelper is CommonTest {
         returns (LibBlobs.BlobReference memory)
     {
         return LibBlobs.BlobReference({
-            blobStartIndex: _blobStartIndex,
-            numBlobs: _numBlobs,
-            offset: _offset
+            blobStartIndex: _blobStartIndex, numBlobs: _numBlobs, offset: _offset
         });
     }
 
@@ -206,9 +204,7 @@ abstract contract InboxTestHelper is CommonTest {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: selectedBlobHashes,
-                offset: _offset,
-                timestamp: uint48(block.timestamp)
+                blobHashes: selectedBlobHashes, offset: _offset, timestamp: uint48(block.timestamp)
             })
         });
 
@@ -231,9 +227,7 @@ abstract contract InboxTestHelper is CommonTest {
         });
 
         return IInbox.ProposedEventPayload({
-            proposal: expectedProposal,
-            derivation: expectedDerivation,
-            coreState: expectedCoreState
+            proposal: expectedProposal, derivation: expectedDerivation, coreState: expectedCoreState
         });
     }
 
@@ -386,6 +380,7 @@ abstract contract InboxTestHelper is CommonTest {
     function _selectProposer(address _proposer) internal returns (address) {
         return proposerHelper._selectProposer(proposerChecker, _proposer);
     }
+
     // ---------------------------------------------------------------
     // Additional Utility Functions
     // ---------------------------------------------------------------

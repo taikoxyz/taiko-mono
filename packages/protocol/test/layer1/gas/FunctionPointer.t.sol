@@ -23,7 +23,7 @@ contract Bar is Base {
         a(_x, _setX);
     }
 
-    function a(uint256 _x, function(uint) _setFunc) internal {
+    function a(uint256 _x, function(uint256) _setFunc) internal {
         _setFunc(_x);
     }
 

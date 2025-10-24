@@ -177,7 +177,7 @@ contract TestTaikoAnchor is Layer2Test {
             gasIssuancePerSecond: 5_000_000,
             minGasExcess: 1_340_000_000,
             maxGasIssuancePerBlock: 600_000_000 // two minutes
-         });
+        });
 
         anchor.anchorV3(
             ++anchorBlockId, anchorStateRoot, parentGasUsed, baseFeeConfig, new bytes32[](0)

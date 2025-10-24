@@ -42,9 +42,8 @@ contract UpgradeShastaL1 is DeployCapability {
         });
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
-        address bondToken = IResolver(vm.envAddress("SHARED_RESOLVER")).resolve(
-            uint64(block.chainid), "bond_token", false
-        );
+        address bondToken = IResolver(vm.envAddress("SHARED_RESOLVER"))
+            .resolve(uint64(block.chainid), "bond_token", false);
         address codec = address(new CodecOptimized());
 
         address newFork = deployProxy({

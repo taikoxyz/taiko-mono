@@ -26,6 +26,7 @@ library LibVerification {
         uint8 _count
     )
         public // reduce code size
+
     {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
@@ -39,8 +40,8 @@ library LibVerification {
                 SyncBlock memory synced;
 
                 uint256 stopBatchId = uint256(
-                    _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
-                ).min(_stats2.numBatches);
+                        _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
+                    ).min(_stats2.numBatches);
 
                 for (++batchId; batchId < stopBatchId; ++batchId) {
                     slot = batchId % _config.batchRingBufferSize;

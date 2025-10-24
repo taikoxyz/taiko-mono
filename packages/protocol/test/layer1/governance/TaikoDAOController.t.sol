@@ -37,13 +37,11 @@ contract TestTaikoDAOController is Layer1Test {
 
         super.setUpOnEthereum();
         daoController = TaikoDAOController(
-            payable(
-                deploy({
+            payable(deploy({
                     name: "TaikoDAOController",
                     impl: address(new TaikoDAOController()),
                     data: abi.encodeCall(TaikoDAOController.init, (owner))
-                })
-            )
+                }))
         );
 
         dummyEssentialContract = DummyEssentialContract(

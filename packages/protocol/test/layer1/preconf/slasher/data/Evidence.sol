@@ -59,10 +59,10 @@ library Evidence {
         storageProof[6] =
             hex"f8419e20c2e9f305fdf66a9bb7451d5779df504b2268bb9ed928c7e12ec5b787d8a1a0d6d919eacb75ec22afc33a26391ca0db028d270d2515ee7bf20915531a40a881";
 
-        return IPreconfSlasher.BlockhashProofs({
-            accountProof: accountProof,
-            storageProof: storageProof
-        });
+        return
+            IPreconfSlasher.BlockhashProofs({
+                accountProof: accountProof, storageProof: storageProof
+            });
     }
 
     /// @dev Proof for blockhash of Taiko mainnet block 1200403 stored within TaikoAnchor
@@ -116,9 +116,9 @@ library Evidence {
         storageProof[6] =
             hex"f8419e20b949107e9d76d56cc80b0ff9df13aead925f658b49d3ab2e92a9ae1664a1a00f7c9f6fcde5e1a3c2983db4513b21844c8101e4150eee907103b01dc2ba17fa";
 
-        return IPreconfSlasher.BlockhashProofs({
-            accountProof: accountProof,
-            storageProof: storageProof
-        });
+        return
+            IPreconfSlasher.BlockhashProofs({
+                accountProof: accountProof, storageProof: storageProof
+            });
     }
 }

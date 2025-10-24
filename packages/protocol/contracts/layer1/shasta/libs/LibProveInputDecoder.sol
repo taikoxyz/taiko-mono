@@ -16,11 +16,7 @@ library LibProveInputDecoder {
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
+    function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
         // Calculate total size needed
         uint256 bufferSize =
             _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);

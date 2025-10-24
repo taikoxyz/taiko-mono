@@ -18,17 +18,15 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
 
         // Wait for operators to become active (2 epochs delay)
-        uint256 activeEpoch = epochOneStart
-            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 activeEpoch = epochOneStart + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2)
+            * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
-            numTransactions: 1,
-            timeShift: 1,
-            signalSlots: new bytes32[](0)
+            numTransactions: 1, timeShift: 1, signalSlots: new bytes32[](0)
         });
 
         ITaikoInbox.BlobParams memory blobParams;
@@ -69,8 +67,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Wait for operators to become active (2 epochs delay)
-        uint256 activeEpoch = epochOneStart
-            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 activeEpoch = epochOneStart + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2)
+            * LibPreconfConstants.SECONDS_IN_EPOCH;
         _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
         // Warp to when operators are active
@@ -93,17 +91,15 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Wait for operators to become active (2 epochs delay)
-        uint256 activeEpoch = epochOneStart
-            + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 activeEpoch = epochOneStart + (LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS + 2)
+            * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         _setupMockBeacon(activeEpoch, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
-            numTransactions: 1,
-            timeShift: 1,
-            signalSlots: new bytes32[](0)
+            numTransactions: 1, timeShift: 1, signalSlots: new bytes32[](0)
         });
 
         ITaikoInbox.BlobParams memory blobParams;
@@ -131,12 +127,16 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         router.v4ProposeBatch(abi.encode(params), "", "");
     }
 
-    function _setupMockBeacon(uint256 epochTimestamp, MockBeaconBlockRoot mockBeacon) internal {
+    function _setupMockBeacon(
+        uint256 epochTimestamp,
+        MockBeaconBlockRoot mockBeacon
+    )
+        internal
+    {
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
         vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
         // Set the beacon root for the current epoch timestamp
-        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            epochTimestamp, mockRoot
-        );
+        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT))
+            .set(epochTimestamp, mockRoot);
     }
 }

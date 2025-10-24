@@ -36,8 +36,7 @@ contract ShastaMainnetInbox is InboxOptimized2 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized2(
-            IInbox.Config({
+        InboxOptimized2(IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 codec: _codec,
                 proofVerifier: _proofVerifier,
@@ -54,8 +53,7 @@ contract ShastaMainnetInbox is InboxOptimized2 {
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5
-            })
-        )
+            }))
     { }
 
     // ---------------------------------------------------------------

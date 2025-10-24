@@ -30,9 +30,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
     }
 
-    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer_in_proving_window()
-        external
-    {
+    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer_in_proving_window() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;

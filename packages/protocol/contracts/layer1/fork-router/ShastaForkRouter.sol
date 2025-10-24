@@ -62,7 +62,8 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.pacayaConfig.selector
                 || _selector == IPacayaFork.isOnL1.selector
                 || _selector == IPacayaFork.v4GetConfig.selector
-                || _selector == IPacayaFork.pause.selector || _selector == IPacayaFork.unpause.selector
+                || _selector == IPacayaFork.pause.selector
+                || _selector == IPacayaFork.unpause.selector
                 || _selector == IPacayaFork.paused.selector
         ) return true;
 

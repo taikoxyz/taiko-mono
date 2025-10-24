@@ -105,7 +105,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService
+    )
+        EssentialResolverContract(_resolver)
+    {
         signalService = ISignalService(_signalService);
     }
 
@@ -355,7 +360,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         whenNotPaused
         nonReentrant
     {
-        if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+        if (msg.sender != _message.destOwner) {
+            revert B_PERMISSION_DENIED();
+        }
 
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
@@ -528,7 +535,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
+        ) returns (
+            uint256 numCacheOps
+        ) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
@@ -661,7 +670,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // since
             // neither revert or assert consume all gas since Solidity 0.8.20
             // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
-            /// @solidity memory-safe-assembly
+            // / @solidity memory-safe-assembly
             assembly {
                 invalid()
             }

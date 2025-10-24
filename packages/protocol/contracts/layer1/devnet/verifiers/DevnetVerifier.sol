@@ -45,11 +45,9 @@ contract DevnetVerifier is ComposeVerifier {
             return false;
         }
 
-        return (
-            _verifiers[refVerifierIdx] == opVerifier
+        return (_verifiers[refVerifierIdx] == opVerifier
                 || _verifiers[refVerifierIdx] == sgxRethVerifier
                 || _verifiers[refVerifierIdx] == risc0RethVerifier
-                || _verifiers[refVerifierIdx] == sp1RethVerifier
-        );
+                || _verifiers[refVerifierIdx] == sp1RethVerifier);
     }
 }

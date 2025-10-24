@@ -161,14 +161,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
             {
                 info_ = BatchInfo({
                     txsHash: bytes32(0), // to be initialised later
-                    //
-                    // Data to build L2 blocks
+                        //
+                        // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    // The client must ensure that the lower 128 bits of the extraData field in the
-                    // header of each block in this batch match the specified value.
-                    // The upper 128 bits of the extraData field are validated using off-chain
-                    // protocol logic.
+                        // The client must ensure that the lower 128 bits of the extraData field in
+                        // the
+                        // header of each block in this batch match the specified value.
+                        // The upper 128 bits of the extraData field are validated using off-chain
+                        // protocol logic.
                     extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
@@ -238,9 +239,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
                         _debitBond(meta_.prover, config.livenessBond);
 
                         if (info_.proposer != meta_.prover) {
-                            IERC20(auth.feeToken).safeTransferFrom(
-                                info_.proposer, meta_.prover, auth.fee
-                            );
+                            IERC20(auth.feeToken)
+                                .safeTransferFrom(info_.proposer, meta_.prover, auth.fee);
                         }
                     }
                 }
@@ -277,7 +277,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
     }
 
     /// @inheritdoc IProveBatches
-    function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
+    function v4ProveBatches(
+        bytes calldata _params,
+        bytes calldata _proof
+    )
+        external
+        nonReentrant
+    {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
@@ -562,7 +568,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
+    function __Taiko_init(
+        address _owner,
+        bytes32 _genesisBlockHash
+    )
+        internal
+        onlyInitializing
+    {
         __Essential_init(_owner);
 
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());

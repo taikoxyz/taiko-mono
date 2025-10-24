@@ -169,7 +169,13 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit in gwei
     /// @return bondDebited_ The actual amount debited in gwei
-    function _debitBond(address _address, uint256 _bond) internal returns (uint256 bondDebited_) {
+    function _debitBond(
+        address _address,
+        uint256 _bond
+    )
+        internal
+        returns (uint256 bondDebited_)
+    {
         Bond storage bond_ = bond[_address];
 
         if (bond_.balance <= _bond) {

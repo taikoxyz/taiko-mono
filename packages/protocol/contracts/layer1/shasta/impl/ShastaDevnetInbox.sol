@@ -35,8 +35,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
         address _proposerChecker,
         address _taikoToken
     )
-        InboxOptimized2(
-            IInbox.Config({
+        InboxOptimized2(IInbox.Config({
                 bondToken: _taikoToken,
                 codec: _codec,
                 proofVerifier: _proofVerifier,
@@ -53,8 +52,7 @@ contract ShastaDevnetInbox is InboxOptimized2 {
                 maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY,
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5
-            })
-        )
+            }))
     { }
 
     // ---------------------------------------------------------------

@@ -35,7 +35,7 @@ abstract contract InboxTestBase is Layer1Test {
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-             }),
+            }),
             provingWindow: 1 hours,
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
@@ -222,8 +222,9 @@ abstract contract InboxTestBase is Layer1Test {
             auth.feeToken = address(bondToken);
             auth.fee = 5 ether;
             auth.validUntil = uint64(block.timestamp + 1 hours);
-            auth.batchId =
-                i == 0 ? inbox.v4GetStats2().numBatches : inbox.v4GetStats2().numBatches + uint64(i);
+            auth.batchId = i == 0
+                ? inbox.v4GetStats2().numBatches
+                : inbox.v4GetStats2().numBatches + uint64(i);
 
             // Calculate txListHash
             bytes32 txListHash = keccak256(txList);
@@ -289,7 +290,9 @@ abstract contract InboxTestBase is Layer1Test {
     }
 
     function _logAllBatchesAndTransitions() internal view {
-        console2.log(unicode"|───────────────────────────────────────────────────────────────");
+        console2.log(
+            unicode"|───────────────────────────────────────────────────────────────"
+        );
         ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
@@ -315,7 +318,9 @@ abstract contract InboxTestBase is Layer1Test {
             } else {
                 console2.log(unicode"|─── batch#", batch.batchId);
             }
-            console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash)));
+            console2.log(
+                unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash))
+            );
             console2.log(unicode"│    |── lastBlockTimestamp:", batch.lastBlockTimestamp);
             console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
             console2.log(unicode"│    |── livenessBond:", batch.livenessBond);
