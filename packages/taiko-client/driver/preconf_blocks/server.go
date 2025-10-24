@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	blocksinserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	txlistdecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -311,169 +312,101 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 		return nil
 	}
 
-	// Determine fork: only reconstruct Pacaya blocks here
-	if pc.BlockNumber.Uint64() >= s.rpc.ShastaClients.ForkHeight.Uint64() {
-		// Shasta reconstruction: fetch proposal context and build AnchorV4+payload deterministically.
-		last := s.shastaIndexer.GetLastProposal()
-		if last == nil || last.Proposal == nil {
-			log.Warn("Shasta indexer has no proposal; cannot reconstruct", "block", pc.BlockNumber)
-			return nil
-		}
-
-		// 1) Decode txlist to []*types.Transaction
-		txs := s.txListDecompressor.TryDecompress(compressed, false)
-		if len(txs) == 0 {
-			log.Warn("empty or invalid txlist for Shasta reconstruction")
-			return nil
-		}
-
-		// 2) Try fetch derivation source (manifest) for proverAuth, else default
-		meta := &shastaMetaFromIndexer{p: last}
-		derivationIdx := 0
-		sp, err := s.derivationFetcher.Fetch(ctx, meta, derivationIdx)
-		if err != nil {
-			log.Warn("failed to fetch Shasta derivation source; using defaults", "err", err)
-			sp = &shastaManifest.ShastaDerivationSourcePayload{Default: true}
-		}
-		// Prepare payload with one block
-		parentBlock, err := s.rpc.L2.BlockByHash(ctx, parentHeader.Hash())
-		if err == nil {
-			sp.ParentBlock = parentBlock
-		}
-		if len(sp.BlockPayloads) == 0 {
-			sp.BlockPayloads = []*shastaManifest.ShastaBlockPayload{{}}
-		}
-		bp := sp.BlockPayloads[0]
-		bp.AnchorBlockNumber = pc.AnchorBlockNumber.Uint64()
-		bp.Transactions = txs
-		if bp.Timestamp == 0 {
-			bp.Timestamp = parentHeader.Time + 1
-		}
-		if bp.GasLimit == 0 {
-			bp.GasLimit = parentHeader.GasLimit
-		}
-		if bp.Coinbase == (common.Address{}) {
-			bp.Coinbase = s.CurrentPreconferCommitter()
-		}
-
-		// 3) Validate/adjust metadata
-		// Determine parent anchor block number from anchor state
-		latestState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parentHeader.Hash()})
-		if err != nil {
-			log.Warn("failed to fetch latest Shasta anchor state", "err", err)
-			return nil
-		}
-		if err := shastaManifest.ValidateMetadata(ctx, s.rpc, sp, false, *last.Proposal, parentHeader.Number.Uint64(), last.CoreState.BondInstructionsHash, latestState.AnchorBlockNumber.Uint64()); err != nil {
-			log.Warn("Shasta metadata validation failed", "err", err)
-			return nil
-		}
-		if err := shastaManifest.AssembleBondInstructions(ctx, last.Proposal.Id, s.shastaIndexer, sp, last.CoreState.BondInstructionsHash, parentHeader.Number.Uint64(), derivationIdx, s.rpc); err != nil {
-			log.Warn("Shasta bond instruction assembly failed", "err", err)
-			return nil
-		}
-
-		// 4) Compute difficulty and base fee
-		diffBytes, err := encoding.CalculateShastaDifficulty(parentHeader.Difficulty, pc.BlockNumber)
-		if err != nil {
-			log.Warn("failed to compute shasta difficulty", "err", err)
-			return nil
-		}
-		baseFee, err := s.rpc.CalculateBaseFee(ctx, parentHeader, nil, bp.Timestamp)
-		if err != nil {
-			log.Warn("failed to compute shasta base fee", "err", err)
-			return nil
-		}
-
-		// 5) Determine anchor header (hash/root) based on anchor block number
-		anchorBlockID := new(big.Int).SetUint64(bp.AnchorBlockNumber)
-		var anchorHash, anchorRoot common.Hash
-		if bp.AnchorBlockNumber > latestState.AnchorBlockNumber.Uint64() {
-			ah, err := s.rpc.L1.HeaderByNumber(ctx, anchorBlockID)
-			if err != nil {
-				log.Warn("failed to fetch L1 anchor header", "err", err, "height", anchorBlockID)
-				return nil
-			}
-			anchorHash = ah.Hash()
-			anchorRoot = ah.Root
-		}
-
-		// 6) Build AnchorV4 transaction
-		anchorTx, err := s.anchorConstructor.AssembleAnchorV4Tx(
-			ctx,
-			parentHeader,
-			last.Proposal.Id,
-			last.Proposal.Proposer,
-			sp.ProverAuthBytes,
-			bp.BondInstructionsHash,
-			bp.BondInstructions,
-			0,
-			anchorBlockID,
-			anchorHash,
-			anchorRoot,
-			last.Proposal.EndOfSubmissionWindowTimestamp,
-			pc.BlockNumber,
-			baseFee,
-		)
-		if err != nil {
-			log.Warn("failed to assemble AnchorV4", "err", err)
-			return nil
-		}
-
-		// 7) Encode tx list: anchor first, then user txs
-		rlpBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, bp.Transactions...))
-		if err != nil {
-			log.Warn("failed to RLP-encode tx list", "err", err)
-			return nil
-		}
-
-		// 8) Build payload attributes and send to engine
-		extra := []byte{byte(last.Derivation.BasefeeSharingPctg), 0x00}
-		attrs := &engine.PayloadAttributes{
-			Timestamp:             bp.Timestamp,
-			Random:                common.BytesToHash(diffBytes),
-			SuggestedFeeRecipient: bp.Coinbase,
-			Withdrawals:           make([]*types.Withdrawal, 0),
-			BlockMetadata: &engine.BlockMetadata{
-				Beneficiary: bp.Coinbase,
-				GasLimit:    bp.GasLimit,
-				Timestamp:   bp.Timestamp,
-				TxList:      rlpBytes,
-				MixHash:     common.BytesToHash(diffBytes),
-				ExtraData:   extra,
-			},
-			BaseFeePerGas: baseFee,
-			L1Origin: &rawdb.L1Origin{
-				BlockID:       pc.BlockNumber,
-				L2BlockHash:   common.Hash{},
-				L1BlockHeight: last.RawBlockHeight,
-				L1BlockHash:   last.RawBlockHash,
-			},
-		}
-
-		// Step 1, prepare a payload
-		fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: parentHeader.Hash()}, attrs)
-		if err != nil || fcRes.PayloadID == nil || fcRes.PayloadStatus.Status != engine.VALID {
-			return nil
-		}
-		// Step 2, get the payload
-		payload, err := s.rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
-		if err != nil {
-			return nil
-		}
-		// Step 3, execute the payload
-		if _, err := s.rpc.L2Engine.NewPayload(ctx, payload); err != nil {
-			return nil
-		}
-		// Step 4, update fork choice with new head
-		if _, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}, nil); err != nil {
-			return nil
-		}
-		log.Info("Reconstructed and inserted Shasta block", "block", pc.BlockNumber, "hash", payload.BlockHash)
+	// Shasta reconstruction (post-Shasta runtime only): fetch proposal context and build AnchorV4+payload deterministically.
+	last := s.shastaIndexer.GetLastProposal()
+	if last == nil || last.Proposal == nil {
+		log.Warn("Shasta indexer has no proposal; cannot reconstruct", "block", pc.BlockNumber)
 		return nil
 	}
 
-	// Pacaya: do not reconstruct from preconfirmations; rely on normal sync.
-	log.Info("Skipping Pacaya preconfirmation reconstruction", "block", pc.BlockNumber)
+	// 1) Decode txlist to []*types.Transaction
+	txs := s.txListDecompressor.TryDecompress(compressed, false)
+	if len(txs) == 0 {
+		log.Warn("empty or invalid txlist for Shasta reconstruction")
+		return nil
+	}
+
+	// 2) Try fetch derivation source (manifest) for proverAuth, else default
+	meta := &shastaMetaFromIndexer{p: last}
+	derivationIdx := 0
+	sp, err := s.derivationFetcher.Fetch(ctx, meta, derivationIdx)
+	if err != nil {
+		log.Warn("failed to fetch Shasta derivation source; using defaults", "err", err)
+		sp = &shastaManifest.ShastaDerivationSourcePayload{Default: true}
+	}
+	// Prepare payload with one block
+	parentBlock, err := s.rpc.L2.BlockByHash(ctx, parentHeader.Hash())
+	if err == nil {
+		sp.ParentBlock = parentBlock
+	}
+	if len(sp.BlockPayloads) == 0 {
+		sp.BlockPayloads = []*shastaManifest.ShastaBlockPayload{{}}
+	}
+	bp := sp.BlockPayloads[0]
+	bp.AnchorBlockNumber = pc.AnchorBlockNumber.Uint64()
+	bp.Transactions = txs
+	if bp.Timestamp == 0 {
+		bp.Timestamp = parentHeader.Time + 1
+	}
+	if bp.GasLimit == 0 {
+		bp.GasLimit = parentHeader.GasLimit
+	}
+	if bp.Coinbase == (common.Address{}) {
+		bp.Coinbase = s.CurrentPreconferCommitter()
+	}
+
+	// 3) Validate/adjust metadata
+	// Determine parent anchor block number from anchor state
+	latestState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parentHeader.Hash()})
+	if err != nil {
+		log.Warn("failed to fetch latest Shasta anchor state", "err", err)
+		return nil
+	}
+	if err := shastaManifest.ValidateMetadata(ctx, s.rpc, sp, false, *last.Proposal, parentHeader.Number.Uint64(), last.CoreState.BondInstructionsHash, latestState.AnchorBlockNumber.Uint64()); err != nil {
+		log.Warn("Shasta metadata validation failed", "err", err)
+		return nil
+	}
+	if err := shastaManifest.AssembleBondInstructions(ctx, last.Proposal.Id, s.shastaIndexer, sp, last.CoreState.BondInstructionsHash, parentHeader.Number.Uint64(), derivationIdx, s.rpc); err != nil {
+		log.Warn("Shasta bond instruction assembly failed", "err", err)
+		return nil
+	}
+
+	// Build payload attributes using shared helper and send to engine
+	attrs, _, _, err := blocksinserter.BuildShastaPayload(
+		ctx,
+		s.rpc,
+		s.anchorConstructor,
+		&shastaMetaFromIndexer{p: last},
+		sp,
+		parentHeader,
+		0,
+		0,
+		false,
+	)
+	if err != nil {
+		log.Warn("failed to build Shasta payload", "err", err)
+		return nil
+	}
+
+	// Step 1, prepare a payload
+	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: parentHeader.Hash()}, attrs)
+	if err != nil || fcRes.PayloadID == nil || fcRes.PayloadStatus.Status != engine.VALID {
+		return nil
+	}
+	// Step 2, get the payload
+	payload, err := s.rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	if err != nil {
+		return nil
+	}
+	// Step 3, execute the payload
+	if _, err := s.rpc.L2Engine.NewPayload(ctx, payload); err != nil {
+		return nil
+	}
+	// Step 4, update fork choice with new head
+	if _, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}, nil); err != nil {
+		return nil
+	}
+	log.Info("Reconstructed and inserted Shasta block", "block", pc.BlockNumber, "hash", payload.BlockHash)
 	return nil
 }
 
