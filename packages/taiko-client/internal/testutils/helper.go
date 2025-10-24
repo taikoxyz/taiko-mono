@@ -33,10 +33,7 @@ import (
 )
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	isShasta := l2Head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, isShasta, l2Head.Number.Uint64()))
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -72,10 +69,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	// RLP encoded empty list
 	s.InitShastaGenesisProposal()
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	isShasta := l2Head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, isShasta, l2Head.Number.Uint64()))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
@@ -291,7 +285,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 
 	log.Info("Forking into Shasta", "numBlocks", len(txList))
 
-	s.Nil(proposer.ProposeTxLists(context.Background(), txList, isShasta, head.Number.Uint64()))
+	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 	s.InitShastaGenesisProposal()
 
@@ -299,10 +293,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 		s.L1Mine()
 	}
 
-	head2, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	isShasta = head2.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, isShasta, head2.Number.Uint64()))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

@@ -155,13 +155,9 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	isShasta := new(big.Int).Add(head.Number, common.Big1).Cmp(s.p.rpc.ShastaClients.ForkHeight) >= 0
-
 	s.Nil(s.p.ProposeTxLists(
 		context.Background(),
 		[]types.Transactions{{}},
-		isShasta,
-		head.Number.Uint64(),
 	))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
@@ -472,12 +468,9 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	isShasta := new(big.Int).Add(l2Head1.Number, common.Big1).Cmp(s.p.rpc.ShastaClients.ForkHeight) >= 0
 	s.Nil(s.p.ProposeTxLists(
 		context.Background(),
 		txsBatch,
-		isShasta,
-		l2Head1.Number.Uint64(),
 	))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 

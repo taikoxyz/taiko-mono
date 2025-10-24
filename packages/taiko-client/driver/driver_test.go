@@ -458,13 +458,9 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Nil(err)
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	isShasta := new(big.Int).Add(l2Head1.Number, common.Big1).Cmp(s.d.rpc.ShastaClients.ForkHeight) >= 0
-
 	s.Nil(s.p.ProposeTxLists(
 		context.Background(),
 		[]types.Transactions{{}},
-		isShasta,
-		l2Head1.Number.Uint64(),
 	))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
@@ -482,13 +478,9 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	isShasta = new(big.Int).Add(l2Head2.Number(), common.Big1).Cmp(s.d.rpc.ShastaClients.ForkHeight) >= 0
-
 	s.Nil(s.p.ProposeTxLists(
 		context.Background(),
 		[]types.Transactions{{}},
-		isShasta,
-		l2Head2.Number().Uint64(),
 	))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
