@@ -45,22 +45,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         Preconfirmation memory preconfirmation =
             abi.decode(_signedCommitment.commitment.payload, (Preconfirmation));
 
-        ShastaAnchor.PreconfMeta memory preconfMeta;
-        preconfMeta = ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
-
-        // Protection against a scenario where a previous preconfer submitted an extra block
-        // that it never preconfirmed.
-        require(
-            preconfirmation.parentRawTxListHash == preconfMeta.parentRawTxListHash,
-            ParentRawTxListHashMismatch()
-        );
-
-        // Protection against a scenario where a previous preconfer submitted an extra block
-        // with the same `rawTxListHash` as the one preconfirmed by the current preconfer.
-        require(
-            preconfirmation.parentSubmissionWindowEnd == preconfMeta.parentSubmissionWindowEnd,
-            ParentSubmissionWindowEndMismatch()
-        );
+        ShastaAnchor.PreconfMeta memory preconfMeta =
+            ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
 
         if (_fault == Fault.MissedSubmission) {
             _validateMissedSubmissionFault(preconfirmation, preconfMeta);
@@ -137,6 +123,20 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         internal
         view
     {
+        // Protection against a scenario where a previous preconfer submitted an extra block
+        // that it never preconfirmed.
+        require(
+            _preconfirmation.parentRawTxListHash == _preconfMeta.parentRawTxListHash,
+            ParentRawTxListHashMismatch()
+        );
+
+        // Protection against a scenario where a previous preconfer submitted an extra block
+        // with the same `rawTxListHash` as the one preconfirmed by the current preconfer.
+        require(
+            _preconfirmation.parentSubmissionWindowEnd == _preconfMeta.parentSubmissionWindowEnd,
+            ParentSubmissionWindowEndMismatch()
+        );
+
         // The submission must have landed in the assigned window, otherwise it may be a
         // potential `MissedSubmissionFault`
         require(
