@@ -30,7 +30,6 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
-      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       AnchorForkRouterImpl: getConstantAddress(`0${this.chainId}`, 10004),
@@ -54,7 +53,6 @@ module.exports = {
   },
   // Option to pre-deploy an ERC-20 token.
   predeployERC20: true,
-  shastaForkHeight: 2048,
   livenessBond: "128000000000000000000",
   provabilityBond: "128000000000000000000",
   withdrawalDelay: 3600,
