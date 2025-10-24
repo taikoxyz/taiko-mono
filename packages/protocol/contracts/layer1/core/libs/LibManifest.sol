@@ -30,7 +30,7 @@ library LibManifest {
 
     /// @notice The maximum block gas limit.
     /// @dev This ensures that the increased block gas limit never rises above the critical threshold.
-    uint256 internal constant MAX_BLOCK_GAS_LIMIT = 240_000_000;
+    uint256 internal constant MAX_BLOCK_GAS_LIMIT = 100_000_000;
 
     /// @notice The delay in processing bond instructions relative to the current proposal. A value
     /// of 1 signifies that the bond instructions of the immediate parent proposal will be
