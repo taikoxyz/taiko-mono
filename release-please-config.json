@@ -60,6 +60,18 @@
   ],
   "separate-pull-requests": true,
   "packages": {
+    "packages/blobindexer-rs": {
+      "package-name": "blobindexer-rs",
+      "release-type": "simple",
+      "component": "blobindexer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
@@ -80,7 +92,6 @@
     "packages/taiko-client-rs": {
       "package-name": "taiko-alethia-client-rs",
       "release-type": "simple",
-      "release-as": "2.0.0",
       "component": "taiko-alethia-client-rs",
       "extra-files": [
         {

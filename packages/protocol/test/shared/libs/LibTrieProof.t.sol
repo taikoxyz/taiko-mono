@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibTrieProof.sol";
 import "../CommonTest.sol";
+import "src/shared/libs/LibTrieProof.sol";
 
 /// forge-config: default.allow_internal_expect_revert = true
 contract TestLibTrieProof is CommonTest {
@@ -48,7 +48,7 @@ contract TestLibTrieProof is CommonTest {
 
         bytes[] memory storageProof = new bytes[](1);
         storageProof[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
+        hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(
@@ -109,7 +109,7 @@ contract TestLibTrieProof is CommonTest {
         storageProof[0] =
             hex"f851808080808080808080a0975a3f014f4327c4888214faf0188d7b80bbf53eab9e5d48268203a6d34dece180808080a0f4866524e70f0a9821f3dfe7662a9ddd69ab2da3484d0295836be53c2fd34c078080";
         storageProof[1] =
-            hex"e2a03a8bfe0ed27165791e835ec7589f879ea653f4041176e376a0ae8a0b98accda101";
+        hex"e2a03a8bfe0ed27165791e835ec7589f879ea653f4041176e376a0ae8a0b98accda101";
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(

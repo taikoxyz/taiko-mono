@@ -2,10 +2,12 @@
 members = [
     "bin/client",
     "crates/bindings",
+    "crates/driver",
     "crates/event-indexer",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
+    "crates/test-harness",
 ]
 resolver = "2"
 
@@ -63,21 +65,28 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.2.1-alpha"
+event-scanner = "=0.3.0-alpha"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
 alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
+  "serde",
+] }
 alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main" }
 
 # types
 anyhow = "1"
 dashmap = "6.1.0"
 flate2 = { version = "1.0", default-features = false, features = ["zlib"] }
+once_cell = "1.19"
+reqwest = { version = "0.12", features = ["json"] }
 thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# testing
+serial_test = { version = "3", features = ["async"] }

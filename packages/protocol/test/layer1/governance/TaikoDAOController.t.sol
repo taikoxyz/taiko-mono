@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "src/layer1/mainnet/TaikoDAOController.sol";
-import "../Layer1Test.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
+import "test/shared/CommonTest.sol";
 
 contract DummyContract {
     function someFunction() public pure returns (string memory) {
@@ -23,8 +23,8 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract TestTaikoDAOController is Layer1Test {
-    TaikoDAOController internal daoController;
+contract TestMainnetDAOController is CommonTest {
+    MainnetDAOController internal daoController;
     address owner = Alice;
     address newOwner = Bob;
     address target = address(new DummyContract());
@@ -36,14 +36,12 @@ contract TestTaikoDAOController is Layer1Test {
         vm.deal(Carol, 1 ether);
 
         super.setUpOnEthereum();
-        daoController = TaikoDAOController(
-            payable(
-                deploy({
-                    name: "TaikoDAOController",
-                    impl: address(new TaikoDAOController()),
-                    data: abi.encodeCall(TaikoDAOController.init, (owner))
-                })
-            )
+        daoController = MainnetDAOController(
+            payable(deploy({
+                    name: "MainnetDAOController",
+                    impl: address(new MainnetDAOController()),
+                    data: abi.encodeCall(MainnetDAOController.init, (owner))
+                }))
         );
 
         dummyEssentialContract = DummyEssentialContract(
@@ -55,11 +53,11 @@ contract TestTaikoDAOController is Layer1Test {
         );
     }
 
-    function test_TaikoDAOController_InitialOwner() public view {
+    function test_MainnetDAOController_InitialOwner() public view {
         assertEq(daoController.owner(), owner, "Owner should be set correctly");
     }
 
-    function test_TaikoDAOController_execute() public {
+    function test_MainnetDAOController_execute() public {
         vm.startPrank(owner);
         (bool success,) = target.call(data);
         require(success);
@@ -74,7 +72,7 @@ contract TestTaikoDAOController is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_TaikoDAOController_executeNotOwner() public {
+    function test_MainnetDAOController_executeNotOwner() public {
         Controller.Action[] memory actions = new Controller.Action[](1);
         actions[0] = Controller.Action({ target: target, value: 0, data: data });
 
@@ -84,7 +82,7 @@ contract TestTaikoDAOController is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_TaikoDAOController_acceptOwnershipOf() public {
+    function test_MainnetDAOController_acceptOwnershipOf() public {
         vm.startPrank(Bob);
         dummyEssentialContract.transferOwnership(address(daoController));
         assertEq(dummyEssentialContract.owner(), Bob);
@@ -93,7 +91,7 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(dummyEssentialContract.owner(), address(daoController));
     }
 
-    function test_TaikoDAOController_receiveAndSendEther() public {
+    function test_MainnetDAOController_receiveAndSendEther() public {
         vm.prank(Carol);
         (bool success,) = payable(address(daoController)).call{ value: 0.1 ether }("");
         require(success);
@@ -111,7 +109,7 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(address(Frank).balance, 0.02 ether);
     }
 
-    function test_TaikoDAOController_transferERC20() public {
+    function test_MainnetDAOController_transferERC20() public {
         IERC20 erc20 = new MyERC20(address(daoController), 1000 ether);
         assertEq(erc20.balanceOf(address(daoController)), 1000 ether);
 

@@ -46,7 +46,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -568,7 +568,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 }
 
 // assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
-// and the `ShastaAnchor.updateState` transaction for the given Shasta block.
+// and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
 func assembleCreateExecutionPayloadMetaShasta(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -605,7 +605,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
-	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
+	latestState, err := rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
@@ -640,7 +640,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		"root", anchorBlockHeaderRoot,
 	)
 
-	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
 		meta.GetProposal().Id,
@@ -657,7 +657,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		baseFee,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
@@ -982,28 +982,5 @@ func IsBasedOnCanonicalChain(
 		return true, nil
 	}
 
-	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
-	currentParent, err := cli.L2.HeaderByHash(ctx, envelope.Payload.ParentHash)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", envelope.Payload.ParentHash, err)
-	}
-	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
-		if currentParent, err = cli.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
-			return false, fmt.Errorf("failed to fetch current parent block (%s): %w", currentParent.ParentHash, err)
-		}
-	}
-
-	// If the current parent block hash matches the L2 block hash in the head L1 origin, it is in the canonical chain.
-	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
-
-	log.Debug(
-		"Check if block is based on canonical chain",
-		"blockID", uint64(envelope.Payload.BlockNumber),
-		"blockHash", envelope.Payload.BlockHash,
-		"parentHash", envelope.Payload.ParentHash,
-		"headL1OriginBlockID", headL1Origin.BlockID,
-		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
-	)
-
-	return isBasedOnCanonicalChain, nil
+	return false, nil
 }

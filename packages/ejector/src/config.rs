@@ -49,6 +49,10 @@ pub struct Config {
     // minimum number of operators to keep in the whitelist
     #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
     pub min_operators: u64,
+
+    // Address of preconfRouter
+    #[arg(long, env = "PRECONF_ROUTER_ADDRESS")]
+    pub preconf_router_address: String,
 }
 
 // tests
@@ -61,6 +65,8 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
+            "--preconf-router-address",
+            "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l2-ws-url",
@@ -86,6 +92,7 @@ mod tests {
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
+        assert_eq!(config.preconf_router_address, "0x789");
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
         assert_eq!(config.l2_ws_url, "ws://test-l2.com");
         assert_eq!(config.l2_target_block_time, 3);
