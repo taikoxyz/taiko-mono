@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 
 /// @title LibProposedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProposedEventEncoder
@@ -114,7 +114,11 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 
-    function testFuzz_encodeDecodeBlobSlice(uint24 _offset, uint48 _timestamp, uint8 _blobHashCount)
+    function testFuzz_encodeDecodeBlobSlice(
+        uint24 _offset,
+        uint48 _timestamp,
+        uint8 _blobHashCount
+    )
         public
         pure
     {

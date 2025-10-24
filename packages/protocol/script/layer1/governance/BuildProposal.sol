@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Script.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/mainnet/MainnetDAOController.sol";
-import "src/shared/bridge/IBridge.sol";
+import "forge-std/src/Script.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
+import "src/shared/bridge/IBridge.sol";
 
 abstract contract BuildProposal is Script {
     error TargetIsZeroAddress();
@@ -97,7 +97,10 @@ abstract contract BuildProposal is Script {
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(l2Actions));
     }
 
-    function buildUpgradeAction(address _target, address _newImpl)
+    function buildUpgradeAction(
+        address _target,
+        address _newImpl
+    )
         internal
         pure
         returns (Controller.Action memory)

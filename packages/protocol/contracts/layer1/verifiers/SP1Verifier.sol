@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@sp1-contracts/src/ISP1Verifier.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "src/shared/libs/LibNames.sol";
+import "./IProofVerifier.sol";
 import "./LibPublicInput.sol";
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@sp1-contracts/src/ISP1Verifier.sol";
+import "src/shared/libs/LibNames.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
@@ -46,7 +46,14 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
+    function verifyProof(
+        uint256, /* _proposalAge */
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
         require(_proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof[0:32]);

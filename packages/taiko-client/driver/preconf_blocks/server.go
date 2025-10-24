@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -22,15 +23,15 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/websocket"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/holiman/uint256"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	lru "github.com/hashicorp/golang-lru/v2"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -46,6 +47,8 @@ var (
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
+// monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with Pacaya on-chain state.
+const monitorLatestProposalOnChainInterval = 10 * time.Second
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -99,8 +102,7 @@ func New(
 	cors string,
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
-	pacayaAnchorAddress common.Address,
-	shastaAnchorAddress common.Address,
+	taikoAnchorAddress common.Address,
 	pacayaChainSyncer preconfBlockChainSyncer,
 	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
@@ -108,8 +110,7 @@ func New(
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(
-		pacayaAnchorAddress,
-		shastaAnchorAddress,
+		taikoAnchorAddress,
 		cli.L2.ChainID,
 		cli,
 	)
@@ -1026,6 +1027,9 @@ func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common
 
 // LatestSeenProposalEventLoop is a goroutine that listens for the latest seen proposal events
 func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context) {
+	ticker := time.NewTicker(monitorLatestProposalOnChainInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1033,6 +1037,89 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			return
 		case proposal := <-s.latestSeenProposalCh:
 			s.recordLatestSeenProposal(proposal)
+		case <-ticker.C:
+			s.monitorLatestProposalOnChain(ctx)
+		}
+	}
+}
+
+// monitorLatestProposalOnChain refreshes the latest proposal from L1 if the cached proposal reorgs.
+func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context) {
+	proposal := s.latestSeenProposal
+	if proposal == nil {
+		return
+	}
+
+	if proposal.IsPacaya() {
+		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			log.Error("Failed to get states from Pacaya Inbox", "error", err)
+			return
+		}
+
+		numBatches := stateVars.Stats2.NumBatches
+		if numBatches == 0 {
+			return
+		}
+
+		latestSeenBatchID := proposal.Pacaya().GetBatchID()
+		latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
+		if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
+			return
+		}
+
+		iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
+			&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
+		)
+		if err != nil {
+			log.Error("Failed to filter batch proposed event", "err", err)
+			return
+		}
+		defer iterPacaya.Close()
+
+		for iterPacaya.Next() {
+			if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
+				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
+					PreconfChainReorged:   true,
+				})
+			}
+		}
+
+		if err := iterPacaya.Error(); err != nil {
+			log.Error("Failed to iterate batch proposed events", "err", err)
+		}
+	} else {
+		latestSeenProposalID := proposal.Shasta().GetProposal().Id
+		shastaProposal := s.shastaIndexer.GetLastProposal()
+		if latestSeenProposalID.Cmp(shastaProposal.Proposal.Id) <= 0 {
+			return
+		}
+		iterShasta, err := s.rpc.ShastaClients.Inbox.FilterProposed(
+			&bind.FilterOpts{Start: shastaProposal.RawBlockHeight.Uint64(), Context: ctx},
+		)
+		if err != nil {
+			log.Error("Failed to filter proposed event", "err", err)
+			return
+		}
+		defer iterShasta.Close()
+
+		for iterShasta.Next() {
+			proposedEventPayload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, iterShasta.Event.Data)
+			if err != nil {
+				log.Error("Failed to decode proposed event data", "err", err)
+				return
+			}
+			if proposedEventPayload.Proposal.Id.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, iterShasta.Event.Raw),
+					PreconfChainReorged:   true,
+				})
+			}
+		}
+
+		if err := iterShasta.Error(); err != nil {
+			log.Error("Failed to iterate proposed events", "err", err)
 		}
 	}
 }

@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { CommonTest } from "test/shared/CommonTest.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IProofVerifier } from "src/layer1/core/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxTestHelper
 /// @notice Combined utility functions and setup logic for Inbox tests
@@ -25,17 +25,9 @@ abstract contract InboxTestHelper is CommonTest {
 
     address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
-    uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
-    uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
-    uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
-    uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     uint256 internal constant DEFAULT_TEST_BLOB_COUNT = 9;
-
-    // Forced inclusion
-    uint64 internal constant INCLUSION_DELAY = 10 minutes;
-    uint64 internal constant FEE_IN_GWEI = 100;
 
     // ---------------------------------------------------------------
     // Core Test Infrastructure
@@ -159,7 +151,11 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return BlobReference struct
-    function _createBlobRef(uint8 _blobStartIndex, uint8 _numBlobs, uint24 _offset)
+    function _createBlobRef(
+        uint8 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
         internal
         pure
         returns (LibBlobs.BlobReference memory)
@@ -223,7 +219,7 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: _currentProposer,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
-                // endOfSubmissionWindowTimestamp
+            // endOfSubmissionWindowTimestamp
             coreStateHash: _codec().hashCoreState(expectedCoreState),
             derivationHash: _codec().hashDerivation(expectedDerivation)
         });
@@ -306,7 +302,10 @@ abstract contract InboxTestHelper is CommonTest {
     /// @param _numBlobs Number of blobs to reference
     /// @param _offset Offset within the blob data
     /// @return ProposeInput struct with specified blob configuration
-    function _createProposeInputWithBlobs(uint8 _numBlobs, uint24 _offset)
+    function _createProposeInputWithBlobs(
+        uint8 _numBlobs,
+        uint24 _offset
+    )
         internal
         view
         returns (IInbox.ProposeInput memory)

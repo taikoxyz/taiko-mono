@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -105,7 +105,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService
+    )
+        EssentialResolverContract(_resolver)
+    {
         signalService = ISignalService(_signalService);
     }
 
@@ -169,7 +174,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function recallMessage(Message calldata _message, bytes calldata _proof)
+    function recallMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         sameChain(_message.srcChainId)
         diffChain(_message.destChainId)
@@ -212,7 +220,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
-    function processMessage(Message calldata _message, bytes calldata _proof)
+    function processMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         whenNotPaused
         nonReentrant
@@ -304,7 +315,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function retryMessage(Message calldata _message, bool _isLastAttempt)
+    function retryMessage(
+        Message calldata _message,
+        bool _isLastAttempt
+    )
         external
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
@@ -367,7 +381,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
-    function isMessageFailed(Message calldata _message, bytes calldata _proof)
+    function isMessageFailed(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         view
         returns (bool)
@@ -387,7 +404,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has been received, false otherwise.
-    function isMessageReceived(Message calldata _message, bytes calldata _proof)
+    function isMessageReceived(
+        Message calldata _message,
+        bytes calldata _proof
+    )
         external
         view
         returns (bool)
@@ -514,7 +534,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
+        ) returns (
+            uint256 numCacheOps
+        ) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
@@ -557,7 +579,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 
-    function _unableToInvokeMessageCall(Message calldata _message, ISignalService _signalService)
+    function _unableToInvokeMessageCall(
+        Message calldata _message,
+        ISignalService _signalService
+    )
         private
         view
         returns (bool)

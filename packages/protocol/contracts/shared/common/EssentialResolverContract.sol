@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IResolver.sol";
 import "./EssentialContract.sol";
+import "./IResolver.sol";
 
 abstract contract EssentialResolverContract is EssentialContract {
     // ---------------------------------------------------------------
@@ -58,7 +58,11 @@ abstract contract EssentialResolverContract is EssentialContract {
     /// @param _name The name to resolve
     /// @param _allowZeroAddress Whether to allow resolving to the zero address
     /// @return The resolved address
-    function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress)
+    function resolve(
+        uint64 _chainId,
+        bytes32 _name,
+        bool _allowZeroAddress
+    )
         internal
         view
         returns (address)

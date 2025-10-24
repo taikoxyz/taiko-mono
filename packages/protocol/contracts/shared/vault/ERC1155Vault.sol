@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
-import "./IBridgedERC1155.sol";
 import "./BaseNFTVault.sol";
+import "./IBridgedERC1155.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /// @title ERC1155Vault
 /// @dev Labeled in address resolver as "erc1155_vault"
@@ -128,7 +128,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IRecallableSender
-    function onMessageRecalled(IBridge.Message calldata message, bytes32 msgHash)
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -171,7 +174,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @notice See {ERC1155ReceiverUpgradeable-onERC1155Received}.
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    )
         external
         pure
         returns (bytes4)

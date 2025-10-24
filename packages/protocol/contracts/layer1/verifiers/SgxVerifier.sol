@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./IProofVerifier.sol";
+import "./LibPublicInput.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/libs/LibNames.sol";
 import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "./LibPublicInput.sol";
-import "src/layer1/core/iface/IProofVerifier.sol";
+import "src/shared/libs/LibNames.sol";
 
 /// @title SgxVerifier
-/// @notice This contract is the implementation of verifying SGX signature proofs
-/// onchain.
-/// @dev Please see references below:
-/// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
-/// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
+/// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
+/// Each instance is registered via remote attestation and can verify proofs until expiry.
+/// @dev Side-channel protection is achieved through mandatory instance expiry (INSTANCE_EXPIRY),
+/// requiring periodic re-attestation with new keypairs.
 /// @custom:security-contact security@taiko.xyz
 contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @dev Each public-private key pair (Ethereum address) is generated within
@@ -36,34 +35,29 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
-    /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
-    /// set a new pub key, just write storage once.
+    /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
     /// Slot 1.
     uint256 public nextInstanceId;
 
-    /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA public key
-    /// (or rather ethereum address). Once that address is used (by proof verification) it has to be
-    /// overwritten by a new one (representing the same instance). This is due to side-channel
-    /// protection. Also this public key shall expire after some time
-    /// (for now it is a long enough 6 months setting).
+    /// @dev One SGX instance is uniquely identified (on-chain) by its ECDSA public key
+    /// (or rather ethereum address). The instance address remains valid for INSTANCE_EXPIRY
+    /// duration (365 days) to protect against side-channel attacks through forced key expiry.
+    /// After expiry, the instance must be re-attested and registered with a new address.
     /// Slot 2.
     mapping(uint256 instanceId => Instance instance) public instances;
 
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
-    /// getting multiple valid instanceIds. While during proving, it is technically possible to
-    /// register the old addresses, it is less of a problem, because the instanceId would be the
-    /// same for those addresses and if deleted - the attestation cannot be reused anyways.
+    /// getting multiple valid instanceIds.
     /// Slot 3.
     mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 
     uint256[47] private __gap;
 
-    /// @notice Emitted when a new SGX instance is added to the registry, or replaced.
+    /// @notice Emitted when a new SGX instance is added to the registry.
     /// @param id The ID of the SGX instance.
     /// @param instance The address of the SGX instance.
-    /// @param replaced The address of the SGX instance that was replaced. If it is the first
-    /// instance, this value is zero address.
+    /// @param replaced Reserved for future use (always zero address).
     /// @param validSince The time since the instance is valid.
     event InstanceAdded(
         uint256 indexed id, address indexed instance, address indexed replaced, uint256 validSince
@@ -130,35 +124,40 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @inheritdoc IProofVerifier
-    function verifyProof(bytes32 _aggregatedProvingHash, bytes calldata _proof) external view {
-        // Size is: 109 bytes
-        // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
-        require(_proof.length == 109, SGX_INVALID_PROOF());
+    function verifyProof(
+        uint256, /* _proposalAge */
+        bytes32 _aggregatedProvingHash,
+        bytes calldata _proof
+    )
+        external
+        view
+    {
+        require(_proof.length == 89, SGX_INVALID_PROOF());
 
-        address oldInstance = address(bytes20(_proof[4:24]));
-        address newInstance = address(bytes20(_proof[24:44]));
+        address instance = address(bytes20(_proof[4:24]));
 
         // Collect public inputs
-        bytes32[] memory publicInputs = new bytes32[](3);
+        bytes32[] memory publicInputs = new bytes32[](2);
         // First public input is the current instance public key
-        publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
-        publicInputs[1] = bytes32(uint256(uint160(newInstance)));
+        publicInputs[0] = bytes32(uint256(uint160(instance)));
 
-        // All other inputs are the block program public inputs (a single 32 byte value)
-        publicInputs[2] = LibPublicInput.hashPublicInputs(
-            _aggregatedProvingHash, address(this), newInstance, taikoChainId
+        publicInputs[1] = LibPublicInput.hashPublicInputs(
+            _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
-        // Verify the blocks
-        bytes memory signature = _proof[44:];
-        require(oldInstance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
+        // Verify the signature was created by the registered instance
+        bytes memory signature = _proof[24:];
+        require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
 
         uint32 id = uint32(bytes4(_proof[:4]));
-        require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
+        require(_isInstanceValid(id, instance), SGX_INVALID_INSTANCE());
     }
 
-    function _addInstances(address[] memory _instances, bool instantValid)
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
         private
         returns (uint256[] memory ids)
     {
@@ -185,13 +184,6 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
 
             ++nextInstanceId;
         }
-    }
-
-    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
-        // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
-        // need to have a cooldown
-        instances[id] = Instance(newInstance, uint64(block.timestamp));
-        emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
     }
 
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {

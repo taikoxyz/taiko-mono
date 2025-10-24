@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
+import { Inbox } from "./Inbox.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
@@ -138,12 +138,16 @@ contract InboxOptimized1 is Inbox {
     ///         4. Fallback to composite key mapping (most expensive)
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return hashAndDeadline_ The transition record hash and finalization deadline
-    function _getTransitionRecordHashAndDeadline(uint48 _proposalId, bytes32 _parentTransitionHash)
+    /// @return recordHash_ The hash of the transition record
+    /// @return finalizationDeadline_ The finalization deadline for the transition
+    function _getTransitionRecordHashAndDeadline(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
         internal
         view
         override
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -153,7 +157,7 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return record.hashAndDeadline;
+            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
         }
 
         // Slow path: composite key mapping (additional SLOAD)

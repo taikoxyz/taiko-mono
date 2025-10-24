@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxOptimized1TransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in InboxOptimized1
@@ -463,7 +463,10 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         return _createProveInputWithParent(_proposal, _getGenesisTransitionHash());
     }
 
-    function _createProveInputWithParent(IInbox.Proposal memory _proposal, bytes32 _parentHash)
+    function _createProveInputWithParent(
+        IInbox.Proposal memory _proposal,
+        bytes32 _parentHash
+    )
         internal
         view
         returns (bytes memory)
@@ -487,7 +490,10 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         return _codec().encodeProveInput(input);
     }
 
-    function _createProveInputForChain(IInbox.Proposal memory _proposal, uint256 _chainIndex)
+    function _createProveInputForChain(
+        IInbox.Proposal memory _proposal,
+        uint256 _chainIndex
+    )
         internal
         view
         returns (bytes memory)
@@ -512,7 +518,10 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)

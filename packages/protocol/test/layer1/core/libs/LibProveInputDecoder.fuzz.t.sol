@@ -35,7 +35,10 @@ contract LibProveInputDecoderFuzzTest is Test {
         bytes32 parentTransitionHash = keccak256(abi.encode("parent", proposalId));
         bytes32 endBlockHash = keccak256(abi.encode("block", endBlockNumber));
         bytes32 endStateRoot = keccak256(abi.encode("state", endBlockNumber));
-        address actualProver = address(uint160(designatedProver) + 1);
+        uint160 designated = uint160(designatedProver);
+        // avoid overflow
+        address actualProver =
+            designated == type(uint160).max ? address(designated - 1) : address(designated + 1);
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
@@ -162,7 +165,13 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test for size efficiency
-    function testFuzz_sizeEfficiency(uint8 proposalCount, uint8 transitionCount) public pure {
+    function testFuzz_sizeEfficiency(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
+        public
+        pure
+    {
         // Bound counts - proposals and transitions must be equal per the library requirement
         proposalCount = uint8(bound(proposalCount, 1, 10));
         transitionCount = proposalCount; // Ensure equal counts
@@ -295,7 +304,10 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Helper function to create test data
-    function _createTestData(uint256 proposalCount, uint256 transitionCount)
+    function _createTestData(
+        uint256 proposalCount,
+        uint256 transitionCount
+    )
         private
         pure
         returns (IInbox.ProveInput memory proveInput)
@@ -343,7 +355,9 @@ contract LibProveInputDecoderFuzzTest is Test {
 
         // Most random data should fail to decode properly
         // We expect a revert in most cases
-        try wrapper.decode(randomData) returns (IInbox.ProveInput memory) {
+        try wrapper.decode(randomData) returns (
+            IInbox.ProveInput memory
+        ) {
         // If it doesn't revert, that's okay - some random data might be valid
         }
             catch {

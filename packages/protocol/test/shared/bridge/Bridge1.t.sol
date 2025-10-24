@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 import "../CommonTest.sol";
+import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
 // A contract which is not our registered ERCXXXVault. In such case, the sent funds are still
 // recoverable, but not via the onMessageRecall() but Bridge will send it back
 contract UnregisteredVault {
-    function sendMessage(address bridge, IBridge.Message memory message, uint256 message_value)
+    function sendMessage(
+        address bridge,
+        IBridge.Message memory message,
+        uint256 message_value
+    )
         public
         returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
     {

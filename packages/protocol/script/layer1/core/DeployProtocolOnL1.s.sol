@@ -1,36 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import "@p256-verifier/contracts/P256Verifier.sol";
-import "src/shared/common/DefaultResolver.sol";
-import "src/shared/libs/LibNames.sol";
-import "src/shared/vault/BridgedERC1155.sol";
-import "src/shared/vault/BridgedERC20.sol";
-import "src/shared/vault/BridgedERC721.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/devnet/DevnetVerifier.sol";
+import "src/layer1/devnet/OpVerifier.sol";
 import "src/layer1/mainnet/MainnetBridge.sol";
 import "src/layer1/mainnet/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
-import "src/shared/signal/SignalService.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/devnet/OpVerifier.sol";
-import "src/layer1/devnet/DevnetVerifier.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+import "src/shared/common/DefaultResolver.sol";
+import "src/shared/libs/LibNames.sol";
+import "src/shared/signal/SignalService.sol";
+import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/BridgedERC20.sol";
+import "src/shared/vault/BridgedERC721.sol";
+import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
+import "test/shared/DeployCapability.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
-import "test/shared/DeployCapability.sol";
-import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
 
 /// @title DeployProtocolOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -129,7 +129,10 @@ contract DeployProtocolOnL1 is DeployCapability {
             _deployZKVerifiers(config.contractOwner, config.l2ChainId);
     }
 
-    function _deployProofVerifier(VerifierAddresses memory verifiers, bool useDummyVerifiers)
+    function _deployProofVerifier(
+        VerifierAddresses memory verifiers,
+        bool useDummyVerifiers
+    )
         private
         returns (address proofVerifier)
     {
@@ -211,7 +214,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
     }
 
-    function _transferOwnerships(address sharedResolver, address shastaInbox, address newOwner)
+    function _transferOwnerships(
+        address sharedResolver,
+        address shastaInbox,
+        address newOwner
+    )
         private
     {
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -252,7 +259,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         _deployVaults(sharedResolver, config.contractOwner);
     }
 
-    function _deployOrRegisterTaikoToken(address sharedResolver, DeploymentConfig memory config)
+    function _deployOrRegisterTaikoToken(
+        address sharedResolver,
+        DeploymentConfig memory config
+    )
         private
     {
         address taikoToken = config.taikoToken;
@@ -283,7 +293,9 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         // Check if SignalService already exists
         try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false) returns (address) {
+            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false) returns (
+            address
+        ) {
             // Already exists, skip deployment
             return;
         } catch {
@@ -367,7 +379,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function _deployZKVerifiers(address owner, uint64 l2ChainId)
+    function _deployZKVerifiers(
+        address owner,
+        uint64 l2ChainId
+    )
         private
         returns (address risc0Verifier, address sp1Verifier)
     {

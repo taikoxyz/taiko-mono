@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibNames.sol";
 import "./IBridgedERC20.sol";
 import "./LibBridgedToken.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -88,7 +88,10 @@ contract BridgedERC20 is
     }
 
     /// @inheritdoc IBridgedERC20Migratable
-    function changeMigrationStatus(address _migratingAddress, bool _migratingInbound)
+    function changeMigrationStatus(
+        address _migratingAddress,
+        bool _migratingInbound
+    )
         external
         whenNotPaused
         onlyFrom(erc20Vault)
@@ -161,7 +164,11 @@ contract BridgedERC20 is
             || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
-    function _beforeTokenTransfer(address _from, address _to, uint256 _amount)
+    function _beforeTokenTransfer(
+        address _from,
+        address _to,
+        uint256 _amount
+    )
         internal
         override
         whenNotPaused

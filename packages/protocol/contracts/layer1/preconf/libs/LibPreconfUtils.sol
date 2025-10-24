@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../iface/ILookaheadStore.sol";
 import "./LibPreconfConstants.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @title LibPreconfUtils
 /// @custom:security-contact security@taiko.xyz
@@ -82,8 +82,7 @@ library LibPreconfUtils {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = block.timestamp - genesisTimestamp;
         /// forge-lint: disable-start(divide-before-multiply)
-        uint256 timePassedUptoCurrentEpoch =
-            (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+        uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
         /// forge-lint: disable-end
 
@@ -97,8 +96,7 @@ library LibPreconfUtils {
     function getEpochtimestampForSlot(uint256 _slotTimestamp) internal view returns (uint256) {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = _slotTimestamp - genesisTimestamp;
-        uint256 timePassedUptoEpoch =
-            (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+        uint256 timePassedUptoEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
         return genesisTimestamp + timePassedUptoEpoch;
     }

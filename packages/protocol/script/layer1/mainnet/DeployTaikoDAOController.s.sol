@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/mainnet/MainnetDAOController.sol";
 import "script/BaseScript.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
 
 contract DeployMainnetDAOController is BaseScript {
     function run() external broadcast {

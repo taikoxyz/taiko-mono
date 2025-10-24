@@ -69,7 +69,10 @@ contract BondManager is EssentialContract, IBondManager {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
-    function debitBond(address _address, uint256 _bond)
+    function debitBond(
+        address _address,
+        uint256 _bond
+    )
         external
         onlyFrom(authorized)
         returns (uint256 amountDebited_)
@@ -111,7 +114,10 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function hasSufficientBond(address _address, uint256 _additionalBond)
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
+    )
         external
         view
         returns (bool)
@@ -163,7 +169,13 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit in gwei
     /// @return bondDebited_ The actual amount debited in gwei
-    function _debitBond(address _address, uint256 _bond) internal returns (uint256 bondDebited_) {
+    function _debitBond(
+        address _address,
+        uint256 _bond
+    )
+        internal
+        returns (uint256 bondDebited_)
+    {
         Bond storage bond_ = bond[_address];
 
         if (bond_.balance <= _bond) {
@@ -189,9 +201,9 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _to The recipient address
     /// @param _amount The amount to withdraw
     function _withdraw(address _from, address _to, uint256 _amount) internal {
-        _debitBond(_from, _amount);
-        bondToken.safeTransfer(_to, _amount);
-        emit BondWithdrawn(_from, _amount);
+        uint256 debited = _debitBond(_from, _amount);
+        bondToken.safeTransfer(_to, debited);
+        emit BondWithdrawn(_from, debited);
     }
 
     /// @dev Internal implementation for getting the bond balance
