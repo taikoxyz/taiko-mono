@@ -306,7 +306,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
 1. **Define bounds**:
 
    - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
+   - `upperBound = min(parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MAX_BLOCK_GAS_LIMIT)`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
