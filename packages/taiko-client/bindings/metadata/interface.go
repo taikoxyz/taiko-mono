@@ -58,5 +58,5 @@ type TaikoProposalMetaDataShasta interface {
 	GetBlobTimestamp(int) uint64
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
-	GetLog() types.Log
+	GetLog() *types.Log
 }
