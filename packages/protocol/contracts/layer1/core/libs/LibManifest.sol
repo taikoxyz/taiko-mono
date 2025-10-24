@@ -26,7 +26,7 @@ library LibManifest {
 
     /// @notice The minimum block gas limit.
     /// @dev This ensures block gas limit never drops below a critical threshold.
-    uint256 internal constant MIN_BLOCK_GAS_LIMIT = 15_000_000;
+    uint256 internal constant MIN_BLOCK_GAS_LIMIT = 10_000_000;
 
     /// @notice The maximum block gas limit.
     /// @dev This ensures that the increased block gas limit never rises above the critical threshold.
