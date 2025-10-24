@@ -6,6 +6,7 @@ import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
 import { ILookaheadSlasher } from "src/layer1/preconf/iface/ILookaheadSlasher.sol";
 import { IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 
 /// @title UnifiedSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -37,7 +38,7 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
         returns (uint256 slashAmount_)
     {
         // Route to the correct slasher contract based on the commitment type
-        if (_commitment.commitmentType == 1) {
+        if (_commitment.commitmentType == LibPreconfConstants.PRECONF_COMMITMENT_TYPE) {
             // Preconfirmation slashing
             (bool success, bytes memory data) = preconfSlasherL1.delegatecall(
                 abi.encodeWithSelector(
@@ -51,7 +52,7 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
                 }
             }
             slashAmount_ = abi.decode(data, (uint256));
-        } else if (_commitment.commitmentType == 2) {
+        } else if (_commitment.commitmentType == LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE) {
             // Lookahead slashing
             (bool success, bytes memory data) = lookaheadSlasher.delegatecall(
                 abi.encodeWithSelector(ILookaheadSlasher.slash.selector, _commitment, _evidence)
