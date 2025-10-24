@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
@@ -31,7 +30,7 @@ contract AnchorTest is Test {
 
     function setUp() external {
         uint256 nonce = vm.getNonce(address(this));
-        address predictedAnchor = vm.computeCreateAddress(address(this), nonce + 4);
+        address predictedAnchor = vm.computeCreateAddress(address(this), nonce + 3);
 
         token = new TestERC20("Mock", "MOCK");
 
@@ -39,19 +38,16 @@ contract AnchorTest is Test {
 
         checkpointStore = new SignalService(predictedAnchor, address(0x1234));
 
-        Anchor impl = new Anchor(
+        anchor = new Anchor(
             checkpointStore,
             bondManager,
             LIVENESS_BOND,
             PROVABILITY_BOND,
-            SHASTA_FORK_HEIGHT,
-            L1_CHAIN_ID
-        );
-        anchor = Anchor(
-            address(new ERC1967Proxy(address(impl), abi.encodeCall(Anchor.init, (address(this)))))
+            L1_CHAIN_ID,
+            address(this)
         );
 
-        assertEq(address(anchor), predictedAnchor, "Anchor proxy address mismatch");
+        assertEq(address(anchor), predictedAnchor, "Anchor address mismatch");
 
         proposer = address(0xA11CE);
         proverKey = 0xBEEF;

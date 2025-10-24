@@ -121,10 +121,9 @@ contract SgxVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_verifyProof_SucceedsWithValidSignature() external {
-        uint256 oldKey = 0xA11CE;
-        address newInstance = address(0xBA5ED);
+        uint256 instanceKey = 0xA11CE;
 
-        (bytes memory proof, bytes32 aggregatedHash) = _prepareValidProof(newInstance, oldKey);
+        (bytes memory proof, bytes32 aggregatedHash) = _prepareValidProof(instanceKey);
 
         verifier.verifyProof(0, aggregatedHash, proof);
     }
@@ -135,10 +134,9 @@ contract SgxVerifierTest is Test {
     }
 
     function test_verifyProof_RevertWhen_InstanceIdUnknown() external {
-        uint256 oldKey = 0xA11CE;
-        address newInstance = address(0xBA5ED);
+        uint256 instanceKey = 0xA11CE;
         // Prepare valid proof to ensure only id mismatch triggers failure.
-        (bytes memory proof,) = _prepareValidProof(newInstance, oldKey);
+        (bytes memory proof,) = _prepareValidProof(instanceKey);
 
         bytes memory badIdProof = new bytes(proof.length);
         bytes memory newId = abi.encodePacked(uint32(1));
@@ -154,20 +152,18 @@ contract SgxVerifierTest is Test {
     }
 
     function test_verifyProof_RevertWhen_AggregatedHashZero() external {
-        uint256 oldKey = 0xA11CE;
-        address newInstance = address(0xBA5ED);
+        uint256 instanceKey = 0xA11CE;
 
-        (bytes memory proof,) = _prepareValidProof(newInstance, oldKey);
+        (bytes memory proof,) = _prepareValidProof(instanceKey);
 
         vm.expectRevert(LibPublicInput.InvalidAggregatedProvingHash.selector);
         verifier.verifyProof(0, bytes32(0), proof);
     }
 
     function test_verifyProof_RevertWhen_InstanceExpired() external {
-        uint256 oldKey = 0xA11CE;
-        address newInstance = address(0xBA5ED);
+        uint256 instanceKey = 0xA11CE;
 
-        (bytes memory proof, bytes32 aggregatedHash) = _prepareValidProof(newInstance, oldKey);
+        (bytes memory proof, bytes32 aggregatedHash) = _prepareValidProof(instanceKey);
 
         vm.warp(block.timestamp + uint256(verifier.INSTANCE_EXPIRY()) + 1);
 
@@ -189,33 +185,29 @@ contract SgxVerifierTest is Test {
             bytes.concat(abi.encodePacked(bytes20(_instance)), padding);
     }
 
-    function _prepareValidProof(
-        address newInstance,
-        uint256 oldKey
-    )
+    function _prepareValidProof(uint256 instanceKey)
         private
         returns (bytes memory proof, bytes32 aggregatedHash)
     {
-        address oldInstance = vm.addr(oldKey);
+        address instance = vm.addr(instanceKey);
 
         address[] memory instances = new address[](1);
-        instances[0] = oldInstance;
+        instances[0] = instance;
         verifier.addInstances(instances);
 
         aggregatedHash = bytes32(uint256(0x1234));
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            aggregatedHash, address(verifier), newInstance, CHAIN_ID
+            aggregatedHash, address(verifier), address(0), CHAIN_ID
         );
 
-        bytes32[] memory publicInputs = new bytes32[](3);
-        publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
-        publicInputs[1] = bytes32(uint256(uint160(newInstance)));
-        publicInputs[2] = publicInput;
+        bytes32[] memory publicInputs = new bytes32[](2);
+        publicInputs[0] = bytes32(uint256(uint160(instance)));
+        publicInputs[1] = publicInput;
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(oldKey, signatureHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(instanceKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        proof = abi.encodePacked(uint32(0), bytes20(oldInstance), bytes20(newInstance), signature);
+        proof = abi.encodePacked(uint32(0), bytes20(instance), signature);
     }
 }
