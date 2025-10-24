@@ -35,7 +35,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("PACAYA_ANCHOR")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
@@ -51,7 +51,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
-		common.HexToAddress(os.Getenv("PACAYA_ANCHOR")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		10_000_000,
 		chainConfig,
 		false,

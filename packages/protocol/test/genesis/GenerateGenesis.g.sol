@@ -168,13 +168,11 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("TaikoAnchor");
         checkDeployedCode("RollupResolver");
 
-        // check proxy implementations
-        checkProxyImplementation("TaikoAnchor", contractOwner);
-        checkProxyImplementation("RollupResolver");
+        Anchor taikoAnchor = Anchor(getPredeployedContractAddress("TaikoAnchor"));
+        assertEq(contractOwner, taikoAnchor.owner());
 
-        // check proxies
-        checkDeployedCode("TaikoAnchor");
-        checkDeployedCode("RollupResolver");
+        // check proxy implementations
+        checkProxyImplementation("RollupResolver");
     }
 
     function testSharedResolver() public {
@@ -243,37 +241,16 @@ contract TestGenerateGenesis is Test {
     }
 
     function testTaikoAnchor() public {
-        Anchor taikoAnchorProxy = Anchor(getPredeployedContractAddress("TaikoAnchor"));
+        Anchor taikoAnchor = Anchor(getPredeployedContractAddress("TaikoAnchor"));
 
-        assertEq(contractOwner, taikoAnchorProxy.owner());
-        assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
-        assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
+        assertEq(contractOwner, taikoAnchor.owner());
+        assertEq(l1ChainId, taikoAnchor.l1ChainId());
         assertEq(
-            getPredeployedContractAddress("SignalService"),
-            address(taikoAnchorProxy.checkpointStore())
+            getPredeployedContractAddress("SignalService"), address(taikoAnchor.checkpointStore())
         );
-        assertEq(
-            getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
-        );
-        assertEq(livenessBond, taikoAnchorProxy.livenessBond());
-        assertEq(provabilityBond, taikoAnchorProxy.provabilityBond());
-
-        vm.startPrank(taikoAnchorProxy.owner());
-
-        taikoAnchorProxy.upgradeTo(
-            address(
-                new Anchor(
-                    ICheckpointStore(getPredeployedContractAddress("SignalService")),
-                    IBondManager(getPredeployedContractAddress("BondManager")),
-                    10_000_000_000_000_000, // livenessBond
-                    10_000_000_000_000_000, // provabilityBond
-                    uint64(shastaForkHeight),
-                    uint64(l1ChainId)
-                )
-            )
-        );
-
-        vm.stopPrank();
+        assertEq(getPredeployedContractAddress("BondManager"), address(taikoAnchor.bondManager()));
+        assertEq(livenessBond, taikoAnchor.livenessBond());
+        assertEq(provabilityBond, taikoAnchor.provabilityBond());
     }
 
     function testSingletonBridge() public {

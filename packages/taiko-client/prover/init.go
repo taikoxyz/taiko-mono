@@ -197,8 +197,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
-		p.cfg.PacayaAnchorAddress,
-		p.cfg.ShastaAnchorAddress,
+		p.cfg.TaikoAnchorAddress,
 		&proofSubmitter.SenderOptions{
 			RPCClient:        p.rpc,
 			Txmgr:            p.txmgr,
