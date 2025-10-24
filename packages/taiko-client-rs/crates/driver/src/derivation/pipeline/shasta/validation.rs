@@ -2,8 +2,8 @@ use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        ANCHOR_MAX_OFFSET, ANCHOR_MIN_OFFSET, BLOCK_GAS_LIMIT_MAX_CHANGE, MIN_BLOCK_GAS_LIMIT,
-        TIMESTAMP_MAX_OFFSET, MAX_BLOCK_GAS_LIMIT,
+        ANCHOR_MAX_OFFSET, ANCHOR_MIN_OFFSET, BLOCK_GAS_LIMIT_MAX_CHANGE, MAX_BLOCK_GAS_LIMIT,
+        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
 };
