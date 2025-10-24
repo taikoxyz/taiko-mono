@@ -224,7 +224,11 @@ func (p *Proposer) Close(_ context.Context) {
 }
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
-func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
+func (p *Proposer) fetchPoolContent(
+	allowEmptyPoolContent bool,
+	isShasta bool,
+	l2Head *types.Header,
+) ([]types.Transactions, error) {
 	var (
 		minTip  = p.MinTip
 		startAt = time.Now()
@@ -234,17 +238,26 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
+	var blockMaxGasLimit uint32
+	if isShasta {
+		blockMaxGasLimit = uint32(min(
+			l2Head.GasLimit*(10000+manifest.MaxBlockGasLimitChangePermyriad)/10000,
+			manifest.MaxBlockGasLimit,
+		))
+	} else {
+		blockMaxGasLimit = p.protocolConfigs.BlockMaxGasLimit()
+	}
 
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		blockMaxGasLimit,
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
-		p.chainConfig,
+		l2Head,
 		p.protocolConfigs.BaseFeeConfig(),
 	)
 	if err != nil {
@@ -310,8 +323,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
+	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	isShasta := new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) >= 0
 	// Fetch pending L2 transactions from mempool.
-	txLists, err := p.fetchPoolContent(allowEmptyPoolContent)
+	txLists, err := p.fetchPoolContent(allowEmptyPoolContent, isShasta, l2Head)
 	if err != nil {
 		return err
 	}

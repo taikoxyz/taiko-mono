@@ -271,8 +271,9 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	isShasta := head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
 	// Already forked into Shasta.
-	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	if isShasta {
 		s.InitShastaGenesisProposal()
 		return
 	}

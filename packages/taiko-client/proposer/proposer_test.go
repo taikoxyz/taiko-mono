@@ -155,7 +155,10 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.p.ProposeTxLists(
+		context.Background(),
+		[]types.Transactions{{}},
+	))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -202,6 +205,8 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 
 	// Empty mempool at first.
 	for {
+		l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
@@ -210,7 +215,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			10,
 			0,
-			s.p.chainConfig,
+			l2Head,
 			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
@@ -272,6 +277,8 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
 		},
 	} {
+		l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
@@ -280,7 +287,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			testCase.maxTransactionsLists,
 			0,
-			s.p.chainConfig,
+			l2Head,
 			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
@@ -323,6 +330,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		batchSize      = 100
 		preBuiltTxList []*miner.PreBuiltTxList
 		err            error
+		l2Head         *types.Header
 	)
 
 	for i := 0; i < batchSize; i++ {
@@ -332,6 +340,8 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	}
 
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
+		l2Head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
 			p.proposerAddress,
@@ -340,7 +350,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			[]common.Address{},
 			p.MaxTxListsPerEpoch,
 			0,
-			p.chainConfig,
+			l2Head,
 			p.protocolConfigs.BaseFeeConfig(),
 		)
 		time.Sleep(time.Second)
@@ -458,7 +468,10 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	s.Nil(s.p.ProposeTxLists(context.Background(), txsBatch))
+	s.Nil(s.p.ProposeTxLists(
+		context.Background(),
+		txsBatch,
+	))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
