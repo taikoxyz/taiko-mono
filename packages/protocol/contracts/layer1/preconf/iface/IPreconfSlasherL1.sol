@@ -8,7 +8,7 @@ import {IBridge, IMessageInvocable} from "src/shared/bridge/IBridge.sol";
 /// @dev This contract inherits from ISlasher which contains the definition for the `slash` function
 /// that is called by the URC.
 /// @custom:security-contact security@taiko.xyz
-interface IPreconfSlasherL1 is ISlasher, IMessageInvocable {
+interface IPreconfSlasherL1 is IMessageInvocable {
     struct SlashAmount {
         uint256 livenessFault;
         uint256 safetyFault;
@@ -18,6 +18,19 @@ interface IPreconfSlasherL1 is ISlasher, IMessageInvocable {
     error ChallengerIsNotSelf();
     error CallerIsNotURC();
     error MissedSlot();
+
+    /// @notice Called by the URC to slash for preconfirmation faults.
+    /// @param _commitment The preconfirmation commitment
+    /// @param _evidence Evidence for the detected fault
+    /// @return Slash amount applied for the given evidence and commitment
+    function slash(
+        ISlasher.Commitment calldata _commitment,
+        bytes calldata _evidence,
+        address _challenger
+    )
+        external
+        view
+        returns (uint256);
 
     /// @notice Returns the slash amount for each violation type
     /// @return slashAmount The slash amount for each violation type
