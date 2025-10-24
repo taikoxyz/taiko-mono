@@ -296,7 +296,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	parentGasLimit := uint64(30_000_000)
 	parentBlockNumber := big.NewInt(1001) // After fork
 
-	// When parent block is after Shasta fork, UpdateStateGasLimit is subtracted
+	// When parent block is after Shasta fork, AnchorV4GasLimit is subtracted
 	// Based on the log output, we can see the effective parent gas limit is 29,000,000 (0x1ba8140)
 	effectiveParentGasLimit := uint64(29_000_000) // This is what actually gets used
 

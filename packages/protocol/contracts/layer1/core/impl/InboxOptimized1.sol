@@ -138,7 +138,8 @@ contract InboxOptimized1 is Inbox {
     ///         4. Fallback to composite key mapping (most expensive)
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return hashAndDeadline_ The transition record hash and finalization deadline
+    /// @return recordHash_ The hash of the transition record
+    /// @return finalizationDeadline_ The finalization deadline for the transition
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -146,7 +147,7 @@ contract InboxOptimized1 is Inbox {
         internal
         view
         override
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -156,7 +157,7 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return record.hashAndDeadline;
+            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
         }
 
         // Slow path: composite key mapping (additional SLOAD)

@@ -38,23 +38,18 @@ export async function deployTaikoAnchor(
 
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
-    console.log({
-        shastaForkHeight: config.shastaForkHeight,
-    });
-    console.log("\n");
-
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
         chainId,
         config.contractAddresses,
         config.param1559,
-        config.shastaForkHeight,
         config.livenessBond,
         config.provabilityBond,
         config.withdrawalDelay,
         config.minBond,
         config.bondToken,
+        config.pacayaTaikoAnchor,
     );
 
     const storageLayouts: any = {};
@@ -87,8 +82,10 @@ export async function deployTaikoAnchor(
             ? "DefaultResolver"
             : storageLayoutName;
 
-        storageLayoutName =
-            storageLayoutName === "TaikoAnchor" ? "Anchor" : storageLayoutName;
+        // TaikoAnchor is the ForkRouter proxy
+        if (storageLayoutName === "TaikoAnchor") {
+            storageLayoutName = "AnchorForkRouter";
+        }
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -129,12 +126,12 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    shastaForkHeight: number,
     livenessBond: string | number,
     provabilityBond: string | number,
     withdrawalDelay: number,
     minBond: number,
     bondToken: string,
+    pacayaTaikoAnchor: string,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -186,6 +183,12 @@ async function generateContractConfigs(
         BondManagerImpl: require(
             path.join(ARTIFACTS_PATH, "./BondManager.sol/BondManager.json"),
         ),
+        AnchorForkRouterImpl: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./AnchorForkRouter.sol/AnchorForkRouter.json",
+            ),
+        ),
         // Libraries
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
@@ -207,7 +210,7 @@ async function generateContractConfigs(
     contractArtifacts.SignalService = proxy;
     contractArtifacts.SharedResolver = proxy;
     // Rollup Contracts
-    contractArtifacts.TaikoAnchor = proxy;
+    contractArtifacts.TaikoAnchor = contractArtifacts.AnchorForkRouterImpl;
     contractArtifacts.RollupResolver = proxy;
     contractArtifacts.BondManager = proxy;
 
@@ -235,12 +238,15 @@ async function generateContractConfigs(
         {},
         getImmutableReference("Anchor", [
             "checkpointStore",
-            "shastaForkHeight",
             "livenessBond",
             "provabilityBond",
             "bondManager",
             "l1ChainId",
         ]),
+    );
+    const anchorForkRouterReferencesMap: any = getImmutableReference(
+        "AnchorForkRouter",
+        ["oldFork", "newFork"],
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -728,35 +734,43 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        TaikoAnchorImpl: {
-            address: addressMap.TaikoAnchorImpl,
-            deployedBytecode: linkContractLibs(
-                replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
+        AnchorForkRouterImpl: {
+            address: addressMap.AnchorForkRouterImpl,
+            deployedBytecode: replaceImmutableValues(
+                contractArtifacts.AnchorForkRouterImpl,
+                [
                     {
                         id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.AnchorForkRouterImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.oldFork.id,
+                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.newFork.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.TaikoAnchorImpl,
                             32,
                         ),
                     },
-                    {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
+                ],
+            ).deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
+            },
+        },
+        Anchor: {
+            address: addressMap.TaikoAnchorImpl,
+            deployedBytecode: linkContractLibs(
+                replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
                     {
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.shastaForkHeight.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(shastaForkHeight),
                             32,
                         ),
                     },
@@ -795,31 +809,41 @@ async function generateContractConfigs(
             ),
             variables: {
                 _owner: contractOwner,
-            },
-        },
-        TaikoAnchor: {
-            address: addressMap.TaikoAnchor,
-            deployedBytecode:
-                contractArtifacts.TaikoAnchor.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 1, // _FALSE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-                // TaikoAnchor - _blockState will be initialized by first anchor call
+                _status: 1,
                 _blockState: {
                     anchorBlockNumber: 0,
                     ancestorsHash: ethers.constants.HashZero,
                 },
             },
-            slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
+        },
+        TaikoAnchor: {
+            address: addressMap.TaikoAnchor,
+            deployedBytecode: replaceImmutableValues(
+                contractArtifacts.AnchorForkRouterImpl,
+                [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.oldFork.id,
+                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
+                    },
+                    {
+                        id: anchorForkRouterReferencesMap.newFork.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
+                        ),
+                    },
+                ],
+            ).deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
             },
-            isProxy: true,
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,

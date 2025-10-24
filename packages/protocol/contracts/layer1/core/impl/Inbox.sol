@@ -327,9 +327,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
+        (recordHash_, finalizationDeadline_) =
             _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
-        return (hashAndDeadline.finalizationDeadline, hashAndDeadline.recordHash);
     }
 
     /// @inheritdoc IInbox
@@ -495,7 +494,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
-    /// @return hashAndDeadline_ Stored metadata for the given proposal/parent pair.
+    /// @return recordHash_ The hash of the transition record.
+    /// @return finalizationDeadline_ The finalization deadline for the transition.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -503,10 +503,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        hashAndDeadline_ = _transitionRecordHashAndDeadline[compositeKey];
+        TransitionRecordHashAndDeadline storage hashAndDeadline =
+            _transitionRecordHashAndDeadline[compositeKey];
+        return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
@@ -883,36 +885,68 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
         unchecked {
             CoreState memory coreState = _input.coreState;
-            TransitionRecord memory lastFinalizedRecord;
-            TransitionRecord memory emptyRecord;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 lastFinalizedRecordIdx;
             uint256 finalizedCount;
+            uint256 transitionCount = _input.transitionRecords.length;
+            uint256 currentTimestamp = block.timestamp;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                bool hasRecord = i < _input.transitionRecords.length;
+                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                    proposalId, coreState.lastFinalizedTransitionHash
+                );
 
-                TransitionRecord memory transitionRecord =
-                    hasRecord ? _input.transitionRecords[i] : emptyRecord;
+                if (i >= transitionCount) {
+                    if (recordHash == 0) break;
 
-                bool finalized;
-                (finalized, proposalId) =
-                    _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
+                    if (currentTimestamp >= finalizationDeadline) {
+                        revert TransitionRecordNotProvided();
+                    }
 
-                if (!finalized) break;
+                    break;
+                }
+
+                if (recordHash == 0) break;
+
+                TransitionRecord memory transitionRecord = _input.transitionRecords[i];
+
+                require(
+                    _hashTransitionRecord(transitionRecord) == recordHash,
+                    TransitionRecordHashMismatchWithStorage()
+                );
+
+                coreState.lastFinalizedProposalId = proposalId;
+                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+
+                uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
+                for (uint256 j; j < bondInstructionLen; ++j) {
+                    coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                        coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
+                    );
+                }
+
+                require(transitionRecord.span > 0, InvalidSpan());
+
+                uint48 nextProposalId = proposalId + transitionRecord.span;
+                require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
+
+                proposalId = nextProposalId;
 
                 // Update state for successful finalization
-                lastFinalizedRecord = _input.transitionRecords[i];
+                lastFinalizedRecordIdx = i;
                 ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
-                    _input.checkpoint, lastFinalizedRecord.checkpointHash, coreState
+                    _input.checkpoint,
+                    _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash,
+                    coreState
                 );
             }
 
@@ -1000,74 +1034,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             }
         }
-    }
-
-    /// @dev Attempts to finalize a single proposal
-    /// @notice Updates core state and processes bond instructions if successful
-    /// @param _coreState Core state to update (passed by reference)
-    /// @param _proposalId The ID of the proposal to finalize
-    /// @param _transitionRecord The expected transition record for verification
-    /// @param _hasTransitionRecord Whether a transition record was provided in input
-    /// @return finalized_ True if proposal was successfully finalized
-    /// @return nextProposalId_ Next proposal ID to process (current + span)
-    function _finalizeProposal(
-        CoreState memory _coreState,
-        uint48 _proposalId,
-        TransitionRecord memory _transitionRecord,
-        bool _hasTransitionRecord
-    )
-        private
-        view
-        returns (bool finalized_, uint48 nextProposalId_)
-    {
-        // Check if transition record exists in storage
-        TransitionRecordHashAndDeadline memory hashAndDeadline = _getTransitionRecordHashAndDeadline(
-            _proposalId, _coreState.lastFinalizedTransitionHash
-        );
-
-        if (hashAndDeadline.recordHash == 0) return (false, _proposalId);
-
-        // If transition record is provided, allow finalization regardless of finalization grace
-        // period
-        // If not provided, and finalization grace period has passed, revert
-        if (!_hasTransitionRecord) {
-            // Check if finalization grace period has passed for forcing
-            if (block.timestamp < hashAndDeadline.finalizationDeadline) {
-                // Cooldown not passed, don't force finalization
-                return (false, _proposalId);
-            }
-            // Cooldown passed, force finalization
-            revert TransitionRecordNotProvided();
-        }
-
-        // Verify transition record hash matches
-        require(
-            _hashTransitionRecord(_transitionRecord) == hashAndDeadline.recordHash,
-            TransitionRecordHashMismatchWithStorage()
-        );
-
-        // Update core state
-        _coreState.lastFinalizedProposalId = _proposalId;
-
-        // Reconstruct the Checkpoint from the transition record hash
-        // Note: We need to decode the checkpointHash to get the actual header
-        // For finalization, we create a transition with empty block header since we only have the
-        // hash
-        _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
-
-        // Process bond instructions
-        for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
-            _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                _coreState.bondInstructionsHash, _transitionRecord.bondInstructions[i]
-            );
-        }
-
-        // Validate and calculate next proposal ID
-        require(_transitionRecord.span > 0, InvalidSpan());
-        nextProposalId_ = _proposalId + _transitionRecord.span;
-        require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
-
-        return (true, nextProposalId_);
     }
 }
 
