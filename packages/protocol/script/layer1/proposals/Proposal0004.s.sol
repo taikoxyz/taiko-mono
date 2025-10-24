@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./BuildProposal.sol";
-import "src/layer1/verifiers/TaikoSP1Verifier.sol";
-import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
+import "../governance/BuildProposal.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
 
 // To print the proposal action data: `P=0004 pnpm proposal`
 // To dryrun the proposal on L1: `P=0004 pnpm proposal:dryrun:l1`
@@ -26,7 +26,7 @@ contract Proposal0004 is BuildProposal {
             target: SP1_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoSP1Verifier.setProgramTrusted,
+                SP1Verifier.setProgramTrusted,
                 (0x008f96447139673b3f2d29b30ad4b43fe6ccb3f31d40f6e61478ac5640201d9e, true)
             )
         });
@@ -35,7 +35,7 @@ contract Proposal0004 is BuildProposal {
             target: SP1_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoSP1Verifier.setProgramTrusted,
+                SP1Verifier.setProgramTrusted,
                 (0x47cb22384e59cecf65a536612d4b43fe36659f987503db9828f158ac40201d9e, true)
             )
         });
@@ -44,7 +44,7 @@ contract Proposal0004 is BuildProposal {
             target: SP1_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoSP1Verifier.setProgramTrusted,
+                SP1Verifier.setProgramTrusted,
                 (0x00a32a15ab7a74a9a79f3b97a71d1b014cd4361b37819004b9322b502b5f5be1, true)
             )
         });
@@ -53,7 +53,7 @@ contract Proposal0004 is BuildProposal {
             target: SP1_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoSP1Verifier.setProgramTrusted,
+                SP1Verifier.setProgramTrusted,
                 (0x51950ad55e9d2a6973e772f471d1b01466a1b0d95e064012726456a02b5f5be1, true)
             )
         });
@@ -64,7 +64,7 @@ contract Proposal0004 is BuildProposal {
             target: RISC0_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoRisc0Verifier.setImageIdTrusted,
+                Risc0Verifier.setImageIdTrusted,
                 (0x3d933868e2ac698df98209b45e6c34c435df2d3c97754bb6739d541d5fd312e3, true)
             )
         });
@@ -73,7 +73,7 @@ contract Proposal0004 is BuildProposal {
             target: RISC0_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                TaikoRisc0Verifier.setImageIdTrusted,
+                Risc0Verifier.setImageIdTrusted,
                 (0x77ff0953ded4fb48bb52b1099cc36c6b8bf603dc4ed9211608c039c7ec31b82b, true)
             )
         });
