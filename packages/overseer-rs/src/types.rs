@@ -55,3 +55,27 @@ pub struct StalledTransaction {
     pub hash: String,
     pub age: std::time::Duration,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::B256;
+
+    #[test]
+    fn preconfirmer_display_uses_identifier() {
+        let preconfirmer = Preconfirmer {
+            id: "node-01".into(),
+            registration_root: B256::ZERO,
+        };
+
+        assert_eq!(preconfirmer.to_string(), "node-01");
+    }
+
+    #[test]
+    fn violation_new_populates_fields() {
+        let violation = Violation::new("criterion", "something went wrong");
+
+        assert_eq!(violation.criterion, "criterion");
+        assert_eq!(violation.reason, "something went wrong");
+    }
+}

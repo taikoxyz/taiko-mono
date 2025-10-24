@@ -21,7 +21,7 @@ pub struct EvaluationContext<'a> {
     pub stalled_transactions: &'a [StalledTransaction],
 }
 
-/// Trait thhat a Criteria must implement to evaluate blacklist conditions.
+/// Trait that a Criteria must implement to evaluate blacklist conditions.
 #[async_trait]
 pub trait BlacklistCriterion: Send + Sync {
     /// Performs an evaluation and returns a violation when the criterion fails.

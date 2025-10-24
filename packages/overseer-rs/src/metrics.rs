@@ -3,8 +3,9 @@ use std::{net::SocketAddr, sync::Arc};
 use anyhow::Result;
 use hyper::{
     body::Body,
+    header::HeaderValue,
     service::{make_service_fn, service_fn},
-    Response, Server, StatusCode,
+    Request, Response, Server, StatusCode,
 };
 use prometheus::{Encoder, IntCounter, Registry, TextEncoder};
 use tracing::error;
@@ -91,49 +92,143 @@ pub async fn serve(metrics: Arc<Metrics>, addr: SocketAddr) -> Result<()> {
         async move {
             Ok::<_, hyper::Error>(service_fn(move |req| {
                 let metrics = Arc::clone(&metrics);
-                async move {
-                    if req.uri().path() == "/metrics" {
-                        match metrics.encode() {
-                            Ok(body) => Response::builder()
-                                .status(StatusCode::OK)
-                                .header(
-                                    hyper::header::CONTENT_TYPE,
-                                    TextEncoder::new().format_type(),
-                                )
-                                .body(Body::from(body))
-                                .map_err(|err| {
-                                    error!(target: "overseer::metrics", error = ?err, "failed to build metrics response");
-                                    err
-                                }),
-                            Err(err) => {
-                                error!(
-                                    target: "overseer::metrics",
-                                    error = ?err,
-                                    "failed to encode metrics"
-                                );
-                                Response::builder()
-                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(Body::from("failed to encode metrics"))
-                                    .map_err(|err| {
-                                        error!(target: "overseer::metrics", error = ?err, "failed to build error response");
-                                        err
-                                    })
-                            }
-                        }
-                    } else {
-                        Response::builder()
-                            .status(StatusCode::NOT_FOUND)
-                            .body(Body::from("not found"))
-                            .map_err(|err| {
-                                error!(target: "overseer::metrics", error = ?err, "failed to build not-found response");
-                                err
-                            })
-                    }
-                }
+                async move { respond(metrics, req).await }
             }))
         }
     });
 
     Server::bind(&addr).serve(make_service).await?;
     Ok(())
+}
+
+async fn respond(
+    metrics: Arc<Metrics>,
+    req: Request<Body>,
+) -> Result<Response<Body>, hyper::Error> {
+    match req.uri().path() {
+        "/healthz" => {
+            let mut response = Response::new(Body::from("ok"));
+            *response.status_mut() = StatusCode::OK;
+            Ok(response)
+        }
+        "/metrics" => match metrics.encode() {
+            Ok(body) => {
+                let mut response = Response::new(Body::from(body));
+                *response.status_mut() = StatusCode::OK;
+
+                match HeaderValue::from_str(TextEncoder::new().format_type()) {
+                    Ok(value) => {
+                        response
+                            .headers_mut()
+                            .insert(hyper::header::CONTENT_TYPE, value);
+                    }
+                    Err(err) => {
+                        error!(
+                            target: "overseer::metrics",
+                            error = ?err,
+                            "failed to set metrics content-type header"
+                        );
+                        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                        *response.body_mut() = Body::from("failed to encode metrics");
+                    }
+                }
+
+                Ok(response)
+            }
+            Err(err) => {
+                error!(
+                    target: "overseer::metrics",
+                    error = ?err,
+                    "failed to encode metrics"
+                );
+                let mut response = Response::new(Body::from("failed to encode metrics"));
+                *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                Ok(response)
+            }
+        },
+        other => {
+            let mut response = Response::new(Body::from("not found"));
+            *response.status_mut() = StatusCode::NOT_FOUND;
+            error!(
+                target: "overseer::metrics",
+                path = %other,
+                "failed to build not-found response"
+            );
+            Ok(response)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hyper::{body::to_bytes, Body, Request};
+
+    #[test]
+    fn metrics_encode_contains_registered_counters() {
+        let metrics = Metrics::new().expect("metrics should construct");
+        let buffer = metrics.encode().expect("encode should succeed");
+        let text = String::from_utf8(buffer).expect("metrics output must be utf8");
+
+        assert!(text.contains("overseer_blacklist_calls_total"));
+        assert!(text.contains("overseer_blacklist_errors_total"));
+    }
+
+    #[test]
+    fn counter_increment_reflected_in_encode() {
+        let metrics = Metrics::new().expect("metrics should construct");
+        metrics.inc_blacklist_calls();
+        let text = String::from_utf8(metrics.encode().unwrap()).unwrap();
+
+        assert!(text.contains("overseer_blacklist_calls_total 1"));
+    }
+
+    #[tokio::test]
+    async fn healthz_route_returns_ok() {
+        let metrics = Arc::new(Metrics::new().unwrap());
+        let req = Request::builder()
+            .uri("/healthz")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = respond(metrics, req)
+            .await
+            .expect("response should succeed");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(body.as_ref(), b"ok");
+    }
+
+    #[tokio::test]
+    async fn metrics_route_returns_scraped_metrics() {
+        let metrics = Arc::new(Metrics::new().unwrap());
+        metrics.inc_observation_errors();
+
+        let req = Request::builder()
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let response = respond(Arc::clone(&metrics), req)
+            .await
+            .expect("response should succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.contains("overseer_observation_errors_total 1"));
+    }
+
+    #[tokio::test]
+    async fn unknown_route_returns_not_found() {
+        let metrics = Arc::new(Metrics::new().unwrap());
+        let req = Request::builder()
+            .uri("/does-not-exist")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = respond(metrics, req)
+            .await
+            .expect("response should succeed");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
 }

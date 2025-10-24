@@ -20,6 +20,7 @@ All runtime configuration is provided via environment variables:
 - `MAX_L1_FORK_DEPTH`: Safety buffer when selecting canonical blocks (default `2`).
 - `INDEX_BLOCK_BATCH_SIZE`: Maximum number of blocks indexed per batch when catching up (default `25`).
 - `RUST_LOG`: Logging level (default `info`).
+- `HEALTH_SERVER_ADDR`: Optional address for the HTTP health check server (default `0.0.0.0:8080`).
 
 ## Running locally
 
@@ -42,4 +43,4 @@ The indexer container runs as soon as the MySQL health check succeeds and will e
 
 ## Intended consumers
 
-This binary does not expose an API. Instead, other Taiko services should depend on the populated MySQL tables to reconstruct URC lookahead information or other committee queries. The schema mirrors the upstream `urc` crate tables and remains compatible with existing consumers in the monorepo.
+This binary exposes a minimal HTTP server for infrastructure health checks at `GET /healthz`. Other Taiko services should continue to depend on the populated MySQL tables to reconstruct URC lookahead information or other committee queries. The schema mirrors the upstream `urc` crate tables and remains compatible with existing consumers in the monorepo.
