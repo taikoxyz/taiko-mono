@@ -382,4 +382,64 @@ abstract contract AbstractCodecTest is Test {
 
         assertNotEq(hash1, hash2, "Arrays with different lengths should have different hashes");
     }
+
+    function test_decodeProveInput_RoundTrip() public view {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = IInbox.Proposal({
+            id: 42,
+            timestamp: 1_234_567,
+            endOfSubmissionWindowTimestamp: 1_234_777,
+            proposer: address(0xBEEF),
+            coreStateHash: bytes32(uint256(0x1111)),
+            derivationHash: bytes32(uint256(0x2222))
+        });
+
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 9999,
+            blockHash: bytes32(uint256(0x3333)),
+            stateRoot: bytes32(uint256(0x4444))
+        });
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
+            proposalHash: bytes32(uint256(0x5555)),
+            parentTransitionHash: bytes32(uint256(0x6666)),
+            checkpoint: checkpoint
+        });
+
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: address(0xCAFE), actualProver: address(0xC0FFEE)
+        });
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals, transitions: transitions, metadata: metadata
+        });
+
+        bytes memory encoded = codec.encodeProveInput(proveInput);
+        IInbox.ProveInput memory decoded = codec.decodeProveInput(encoded);
+
+        assertEq(decoded.proposals.length, 1);
+        assertEq(decoded.transitions.length, 1);
+        assertEq(decoded.metadata.length, 1);
+
+        assertEq(decoded.proposals[0].id, proposals[0].id);
+        assertEq(decoded.proposals[0].timestamp, proposals[0].timestamp);
+        assertEq(
+            decoded.proposals[0].endOfSubmissionWindowTimestamp,
+            proposals[0].endOfSubmissionWindowTimestamp
+        );
+        assertEq(decoded.proposals[0].proposer, proposals[0].proposer);
+        assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
+        assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
+
+        assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
+        assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
+        assertEq(decoded.transitions[0].checkpoint.blockNumber, checkpoint.blockNumber);
+        assertEq(decoded.transitions[0].checkpoint.blockHash, checkpoint.blockHash);
+        assertEq(decoded.transitions[0].checkpoint.stateRoot, checkpoint.stateRoot);
+
+        assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver);
+        assertEq(decoded.metadata[0].actualProver, metadata[0].actualProver);
+    }
 }
