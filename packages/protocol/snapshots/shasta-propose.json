@@ -1,0 +1,14 @@
+{
+  "forced_inclusion_multiple_Inbox": "112119",
+  "forced_inclusion_multiple_InboxOptimized1": "112119",
+  "forced_inclusion_multiple_InboxOptimized2": "105222",
+  "forced_inclusion_single_Inbox": "107753",
+  "forced_inclusion_single_InboxOptimized1": "107748",
+  "forced_inclusion_single_InboxOptimized2": "101304",
+  "propose_reuse_ring_buffer_Inbox": "61950",
+  "propose_reuse_ring_buffer_InboxOptimized1": "62282",
+  "propose_reuse_ring_buffer_InboxOptimized2": "48279",
+  "propose_single_empty_ring_buffer_Inbox": "72522",
+  "propose_single_empty_ring_buffer_InboxOptimized1": "72522",
+  "propose_single_empty_ring_buffer_InboxOptimized2": "67237"
+}
