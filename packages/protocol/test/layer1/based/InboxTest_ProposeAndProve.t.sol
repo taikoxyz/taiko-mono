@@ -735,7 +735,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     //     console2.log(str);
     //     vm.writeFile(
-    // 
+    //
     // "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness.txt", str
     //     );
     // }
