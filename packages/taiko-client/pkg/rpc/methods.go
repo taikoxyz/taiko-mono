@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -983,34 +984,6 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 
 	var ok bool
 	switch method.Name {
-	case "anchor":
-		args := map[string]interface{}{}
-
-		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
-			return common.Hash{}, 0, 0, fmt.Errorf("failed to unpack anchor transaction calldata: %w", err)
-		}
-
-		l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
-		if !ok {
-			return common.Hash{},
-				0,
-				0,
-				errors.New("failed to parse l1StateRoot from anchor transaction calldata")
-		}
-		l1Height, ok = args["_l1BlockId"].(uint64)
-		if !ok {
-			return common.Hash{},
-				0,
-				0,
-				errors.New("failed to parse l1Height from anchor transaction calldata")
-		}
-		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
-		if !ok {
-			return common.Hash{},
-				0,
-				0,
-				errors.New("failed to parse parentGasUsed from anchor transaction calldata")
-		}
 	case "anchorV2", "anchorV3":
 		args := map[string]interface{}{}
 
@@ -1039,31 +1012,65 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 				0,
 				errors.New("failed to parse parentGasUsed from anchorV2 / anchorV3 transaction calldata")
 		}
-	case "updateState":
+	case "anchorV4":
 		args := map[string]interface{}{}
 
 		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
 			return common.Hash{}, 0, 0, err
 		}
 
-		l1HeightBigInt, ok := args["_anchorBlockNumber"].(*big.Int)
+		blockParams, exists := args["_blockParams"]
+		if !exists {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("anchor transaction calldata missing block params")
+		}
+
+		blockValue := reflect.ValueOf(blockParams)
+		if blockValue.Kind() != reflect.Struct {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("unexpected block params type in anchor transaction calldata")
+		}
+
+		blockNumberField := blockValue.FieldByName("AnchorBlockNumber")
+		if !blockNumberField.IsValid() {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("anchorBlockNumber field missing in anchor transaction calldata")
+		}
+
+		blockNumber, ok := blockNumberField.Interface().(*big.Int)
 		if !ok {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("failed to parse anchorBlockNumber from updateState transaction calldata")
+				errors.New("failed to parse anchorBlockNumber from anchor transaction calldata")
 		}
-		l1Height = l1HeightBigInt.Uint64()
-		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
+		l1Height = blockNumber.Uint64()
+
+		stateRootField := blockValue.FieldByName("AnchorStateRoot")
+		if !stateRootField.IsValid() {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("anchorStateRoot field missing in anchor transaction calldata")
+		}
+
+		root, ok := stateRootField.Interface().([32]byte)
 		if !ok {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("failed to parse anchorStateRoot from updateState transaction calldata")
+				errors.New("failed to parse anchorStateRoot from anchor transaction calldata")
 		}
+		l1StateRoot = root
 	default:
 		return common.Hash{}, 0, 0, fmt.Errorf(
-			"invalid method name for anchor / anchorV2 / anchorV3 / updateState transaction: %s",
+			"invalid method name for anchor / anchorV2 / anchorV3 / anchorV4 transaction: %s",
 			method.Name,
 		)
 	}
@@ -1395,7 +1402,11 @@ func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int)
 }
 
 // GetShastaAnchorState gets the anchor state from Shasta Anchor contract.
-func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.ShastaAnchorState, error) {
+func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
+	*shastaBindings.AnchorBlockState,
+	*shastaBindings.AnchorProposalState,
+	error,
+) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1403,7 +1414,17 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.Shast
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.Anchor.GetState(opts)
+	blockState, err := c.ShastaClients.Anchor.GetBlockState(opts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor block state: %w", err)
+	}
+
+	proposalState, err := c.ShastaClients.Anchor.GetProposalState(opts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor proposal state: %w", err)
+	}
+
+	return &blockState, &proposalState, nil
 }
 
 // GetShastaInboxConfigs gets the Shasta Inbox contract configurations.
