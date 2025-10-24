@@ -33,7 +33,10 @@ import (
 )
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	isShasta := l2Head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, isShasta, l2Head.Number.Uint64()))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -69,7 +72,10 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	// RLP encoded empty list
 	s.InitShastaGenesisProposal()
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	isShasta := l2Head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, isShasta, l2Head.Number.Uint64()))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
@@ -271,8 +277,9 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	isShasta := head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
 	// Already forked into Shasta.
-	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	if isShasta {
 		s.InitShastaGenesisProposal()
 		return
 	}
@@ -284,7 +291,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 
 	log.Info("Forking into Shasta", "numBlocks", len(txList))
 
-	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
+	s.Nil(proposer.ProposeTxLists(context.Background(), txList, isShasta, head.Number.Uint64()))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 	s.InitShastaGenesisProposal()
 
@@ -292,7 +299,10 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 		s.L1Mine()
 	}
 
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	head2, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	isShasta = head2.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64()
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, isShasta, head2.Number.Uint64()))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

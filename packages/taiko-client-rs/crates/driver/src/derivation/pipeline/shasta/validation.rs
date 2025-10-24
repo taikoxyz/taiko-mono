@@ -3,7 +3,7 @@ use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
         ANCHOR_MAX_OFFSET, ANCHOR_MIN_OFFSET, BLOCK_GAS_LIMIT_MAX_CHANGE, MIN_BLOCK_GAS_LIMIT,
-        TIMESTAMP_MAX_OFFSET,
+        TIMESTAMP_MAX_OFFSET, MAX_BLOCK_GAS_LIMIT,
     },
     manifest::DerivationSourceManifest,
 };
@@ -188,7 +188,7 @@ fn adjust_gas_limit(
         let upper_factor =
             u128::from(GAS_LIMIT_BASIS_POINTS.saturating_add(BLOCK_GAS_LIMIT_MAX_CHANGE));
         let upper_bound = parent.saturating_mul(upper_factor) / basis_points;
-        let upper_bound = upper_bound.min(u64::MAX as u128) as u64;
+        let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
 
         if block.gas_limit < lower_bound {
             block.gas_limit = lower_bound;

@@ -518,16 +518,11 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
-	chainConfig *config.ChainConfig,
+	l2Head *types.Header,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
-
-	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
 
 	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
 	if err != nil {

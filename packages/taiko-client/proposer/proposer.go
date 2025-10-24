@@ -224,7 +224,11 @@ func (p *Proposer) Close(_ context.Context) {
 }
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
-func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
+func (p *Proposer) fetchPoolContent(
+	allowEmptyPoolContent bool,
+	isShasta bool,
+	l2Head *types.Header,
+) ([]types.Transactions, error) {
 	var (
 		minTip  = p.MinTip
 		startAt = time.Now()
@@ -234,17 +238,26 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
+	var blockMaxGasLimit uint32
+	if isShasta {
+		blockMaxGasLimit = uint32(min(
+			l2Head.GasLimit*(10000+manifest.MaxBlockGasLimitChangePermyriad)/10000,
+			manifest.MaxBlockGasLimit,
+		))
+	} else {
+		blockMaxGasLimit = p.protocolConfigs.BlockMaxGasLimit()
+	}
 
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		blockMaxGasLimit,
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
-		p.chainConfig,
+		l2Head,
 		p.protocolConfigs.BaseFeeConfig(),
 	)
 	if err != nil {
@@ -310,8 +323,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
+	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	isShasta := new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) >= 0
 	// Fetch pending L2 transactions from mempool.
-	txLists, err := p.fetchPoolContent(allowEmptyPoolContent)
+	txLists, err := p.fetchPoolContent(allowEmptyPoolContent, isShasta, l2Head)
 	if err != nil {
 		return err
 	}
@@ -322,27 +340,17 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists)
+	return p.ProposeTxLists(ctx, txLists, isShasta, l2Head.Number.Uint64())
 }
 
 // ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
+	isShasta bool,
+	l2Head uint64,
 ) error {
-	var l2HeadNumber *big.Int
-	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
-	if err != nil {
-		log.Warn("Failed to get L2 head L1 origin", "error", err)
-		l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 head: %w", err)
-		}
-		l2HeadNumber = l2Head.Number
-	} else {
-		l2HeadNumber = headL1Origin.BlockID
-	}
-	if new(big.Int).Add(l2HeadNumber, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+	if !isShasta {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
@@ -350,13 +358,13 @@ func (p *Proposer) ProposeTxLists(
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
 		}
 		// Ensure we are not proposing too many tx lists before Shasta fork.
-		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1) {
+		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head-1) {
 			log.Warn(
 				"Too many tx lists, trimming to fit before Shasta fork",
 				"txLists", len(txLists),
-				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1,
+				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head-1,
 			)
-			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1]
+			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head-1]
 		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
