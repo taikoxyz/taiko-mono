@@ -9,6 +9,7 @@ bin
 coverage.out
 prover/dbPath
 dbdata
+driver/.gocache
 
 # Test binary, built with `go test -c`
 *.test
