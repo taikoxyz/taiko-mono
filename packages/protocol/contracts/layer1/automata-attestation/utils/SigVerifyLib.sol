@@ -13,6 +13,7 @@ contract SigVerifyLib is ISigVerifyLib {
     address private immutable __es256Verifier;
 
     constructor(address es256Verifier) {
+        require(es256Verifier != address(0), "Invalid es256 verifier");
         __es256Verifier = es256Verifier;
     }
 
