@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.31.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.2...docs-site-v1.31.3) (2025-10-25)
+
+
+### Documentation
+
+* **docs-site:** add troubleshooting entry for genesis header hash mismatch ([#20516](https://github.com/taikoxyz/taiko-mono/issues/20516)) ([c716f0c](https://github.com/taikoxyz/taiko-mono/commit/c716f0c3342b1db67b6fc52306e63f953ebd1f80))
+
 ## [1.31.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.1...docs-site-v1.31.2) (2025-10-07)
 
 
