@@ -72,16 +72,18 @@ sort_imports = true
 pow_no_space = false
 call_compact_args = true
 
-[profile.lint]
-# Updated syntax for lints in newer Foundry versions
-deny = [
-    "asm-keccak256",
+[lint]
+exclude_lints = [
     "unaliased-plain-import",
-    "mixed-case-function",
     "mixed-case-variable",
-    "screaming-snake-case-const",
     "screaming-snake-case-immutable",
+    "screaming-snake-case-const",
+    "named-struct-fields",
     "pascal-case-struct",
+    "unsafe-typecast",
+    "unwrapped-modifier-logic",
+    "mixed-case-function",
+    "unsafe-cheatcode"
 ]
 
 [profile.layer1]
