@@ -209,14 +209,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+            _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            coreState.lastProposalBlockId = uint48(block.number);
+            input.coreState.lastProposalBlockId = uint48(block.number);
 
             // Verify capacity for new proposals
-            require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
+            require(_getAvailableCapacity(input.coreState) > 0, NotEnoughCapacity());
 
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
@@ -246,16 +246,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
             Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
+                id: input.coreState.nextProposalId++,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(coreState),
+                coreStateHash: _hashCoreState(input.coreState),
                 derivationHash: _hashDerivation(derivation)
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, input.coreState);
         }
     }
 
@@ -880,12 +880,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
     /// Set minCheckpointDelay to 0 to disable rate limiting.
-    /// @param _input Contains transition records and the end block header.
-    /// @return _ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    /// @param _input Contains transition records and the end block header. The coreState field is
+    /// modified in-place with new finalization counters.
+    function _finalize(ProposeInput memory _input) private {
         unchecked {
-            CoreState memory coreState = _input.coreState;
-            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint48 proposalId = _input.coreState.lastFinalizedProposalId + 1;
             uint256 lastFinalizedRecordIdx;
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
@@ -893,11 +892,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
-                if (proposalId >= coreState.nextProposalId) break;
+                if (proposalId >= _input.coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
                 (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
-                    proposalId, coreState.lastFinalizedTransitionHash
+                    proposalId, _input.coreState.lastFinalizedTransitionHash
                 );
 
                 if (i >= transitionCount) {
@@ -919,20 +918,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     TransitionRecordHashMismatchWithStorage()
                 );
 
-                coreState.lastFinalizedProposalId = proposalId;
-                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+                _input.coreState.lastFinalizedProposalId = proposalId;
+                _input.coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
 
                 uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
-                    coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
+                    _input.coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                        _input.coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
                     );
                 }
 
                 require(transitionRecord.span > 0, InvalidSpan());
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
-                require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
+                require(nextProposalId <= _input.coreState.nextProposalId, SpanOutOfBounds());
 
                 proposalId = nextProposalId;
 
@@ -946,11 +945,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _syncCheckpointIfNeeded(
                     _input.checkpoint,
                     _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash,
-                    coreState
+                    _input.coreState
                 );
             }
-
-            return coreState;
         }
     }
 
