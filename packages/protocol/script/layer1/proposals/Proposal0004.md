@@ -31,5 +31,6 @@ This proposal includes the following actions on Ethereum mainnet to upgrade/chan
 ## TODO
 
 - Yue: why setMrEnclave is called twice for SGX-RETH attester but once for SGX-GETH?
-- Describe setMrEnclave
-- Provide verification links and instructions for program IDs
+- Yue: Regarding [Upgrade Risc0 verifier](https://codediff.taiko.xyz/?addr=0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE&newimpl=0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36&chainid=1&filter=changed) The diff tools shows only changes in the Inbox's proposeBatch function is changed.
+- Yue: Describe setMrEnclave
+- Yue: Provide verification links and instructions for program IDs
