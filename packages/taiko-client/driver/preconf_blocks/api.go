@@ -48,6 +48,8 @@ type BuildPreconfBlockRequestBody struct {
 	ExecutableData    *ExecutableData `json:"executableData"`
 	EndOfSequencing   *bool           `json:"endOfSequencing"`
 	IsForcedInclusion *bool           `json:"isForcedInclusion"`
+	// Optional preconfirmation SignedCommitment from the sidecar, to be gossiped as-is.
+	Preconfirmation *p2p.SignedCommitment `json:"preconfirmation"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
@@ -275,31 +277,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
-			// sign the block hash, persist it to L1Origin as the signature
-			sigBytes, err := s.p2pSigner.Sign(
-				ctx,
-				p2p.SigningDomainBlocksV1,
-				s.rpc.L2.ChainID,
-				header.Hash().Bytes(),
-			)
-			if err != nil {
-				log.Warn(
-					"Failed to sign the preconfirmation block payload",
-					"blockHash", executablePayload.BlockHash.Hex(),
-					"blockID", header.Number.Uint64(),
+			var sigBytes *[65]byte
+			// For pre-Shasta, we still persist the signature to L1Origin.
+			if header.Number.Uint64() < s.rpc.ShastaClients.ForkHeight.Uint64() && s.p2pSigner != nil {
+				b, err := s.p2pSigner.Sign(
+					ctx,
+					p2p.SigningDomainBlocksV1,
+					s.rpc.L2.ChainID,
+					header.Hash().Bytes(),
 				)
-				return s.returnError(c, http.StatusInternalServerError, fmt.Errorf("failed to sign payload: %w", err))
+				if err != nil {
+					return s.returnError(c, http.StatusInternalServerError, fmt.Errorf("failed to sign payload: %w", err))
+				}
+				sigBytes = b
+				if _, err = s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes); err != nil {
+					return s.returnError(
+						c,
+						http.StatusInternalServerError,
+						fmt.Errorf("failed to update L1 origin signature: %w", err),
+					)
+				}
 			}
 
-			if _, err = s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes); err != nil {
-				return s.returnError(
-					c,
-					http.StatusInternalServerError,
-					fmt.Errorf("failed to update L1 origin signature: %w", err),
-				)
-			}
-
-			// Build envelope once, cache locally, then publish to P2P.
+			// Build envelope and cache locally.
 			env := &eth.ExecutionPayloadEnvelope{
 				ExecutionPayload: &eth.ExecutionPayload{
 					BaseFeePerGas: eth.Uint256Quantity(u256),
@@ -318,12 +318,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				IsForcedInclusion: &isForcedInclusion,
 				Signature:         sigBytes,
 			}
-
-			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
 			s.tryPutEnvelopeIntoCache(env, s.p2pNode.Host().ID())
 
-			if err := s.p2pNode.GossipOut().PublishL2Payload(ctx, env, s.p2pSigner); err != nil {
-				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+			// Publish sidecar-provided SignedCommitment if present; do not sign here.
+			if reqBody.Preconfirmation != nil {
+				if err := s.publishPreconfirmationFromSidecar(ctx, reqBody.Preconfirmation, reqBody.ExecutableData, parent); err != nil {
+					log.Warn("Failed to publish preconfirmation commitment", "err", err)
+				}
+			} else {
+				log.Warn("No sidecar preconfirmation provided; skipping P2P publish")
 			}
 		}
 	} else {

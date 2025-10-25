@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -587,59 +586,97 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
 	}
 
+	meta := metadata.Shasta()
+
+	attrs, _, anchorTx, err := BuildShastaPayload(
+		ctx, rpc, anchorConstructor, meta, sourcePayload, parent, blockIndex, startBlockIdx, isLowBondProposal,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Set batchID only for the last block in the proposal
+	var batchID *big.Int
+	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
+		batchID = meta.GetProposal().Id
+	}
+
+	blockID := new(big.Int).Add(parent.Number, common.Big1)
+	blockInfo := sourcePayload.BlockPayloads[blockIndex]
+
+	return &createExecutionPayloadsMetaData{
+		BlockID:               blockID,
+		BatchID:               batchID,
+		ExtraData:             attrs.BlockMetadata.ExtraData,
+		SuggestedFeeRecipient: attrs.BlockMetadata.Beneficiary,
+		GasLimit:              attrs.BlockMetadata.GasLimit,
+		Difficulty:            attrs.Random,
+		Timestamp:             attrs.Timestamp,
+		ParentHash:            parent.Hash(),
+		L1Origin:              attrs.L1Origin,
+		Txs:                   blockInfo.Transactions,
+		Withdrawals:           make([]*types.Withdrawal, 0),
+		BaseFee:               attrs.BaseFeePerGas,
+	}, anchorTx, nil
+}
+
+// BuildShastaPayload assembles the Shasta AnchorV4 transaction and builds the engine payload attributes
+// and RLP-encoded tx list for a single block at the given index.
+func BuildShastaPayload(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	meta metadata.TaikoProposalMetaDataShasta,
+	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	parent *types.Header,
+	blockIndex int,
+	startBlockIdx uint16,
+	isLowBondProposal bool,
+) (*engine.PayloadAttributes, []byte, *types.Transaction, error) {
+	if blockIndex >= len(sourcePayload.BlockPayloads) {
+		return nil, nil, nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
+	}
+
 	var (
-		meta          = metadata.Shasta()
 		blockID       = new(big.Int).Add(parent.Number, common.Big1)
 		blockInfo     = sourcePayload.BlockPayloads[blockIndex]
 		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
 	)
+
+	// Difficulty and basefee
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
-
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, blockInfo.Timestamp)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
-	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
-
+	// Determine parent anchor state
 	latestState, err := rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
-	var parentAnchorBlockNumber = latestState.AnchorBlockNumber.Uint64()
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.NumberU64() != 0 {
-		if _, parentAnchorBlockNumber, _, err = rpc.GetSyncedL1SnippetFromAnchor(
-			sourcePayload.ParentBlock.Transactions()[0],
-		); err != nil {
-			return nil, nil, err
+	parentAnchorBlockNumber := latestState.AnchorBlockNumber.Uint64()
+	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock != nil && sourcePayload.ParentBlock.NumberU64() != 0 {
+		if _, parentAnchorBlockNumber, _, err = rpc.GetSyncedL1SnippetFromAnchor(sourcePayload.ParentBlock.Transactions()[0]); err != nil {
+			return nil, nil, nil, err
 		}
 	}
 
-	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	// Anchor header root/hash
+	var anchorHash, anchorRoot common.Hash
+	if anchorBlockID.Uint64() > parentAnchorBlockNumber {
+		anchorHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to fetch anchor L1 header: %w", err)
+		}
+		anchorHash = anchorHeader.Hash()
+		anchorRoot = anchorHeader.Root
 	}
-	var (
-		anchorBlockHeaderHash = anchorBlockHeader.Hash()
-		anchorBlockHeaderRoot = anchorBlockHeader.Root
-	)
 
-	// If anchorBlockNumber == parent.metadata.anchorBlockNumber: Both anchorBlockHash and anchorStateRoot must be zero
-	if anchorBlockID.Uint64() <= parentAnchorBlockNumber {
-		anchorBlockHeaderHash = common.Hash{}
-		anchorBlockHeaderRoot = common.Hash{}
-	}
-	log.Info(
-		"L2 anchor block",
-		"number", anchorBlockID,
-		"latestStateAnchorBlockNumber", latestState.AnchorBlockNumber,
-		"hash", anchorBlockHeaderHash,
-		"root", anchorBlockHeaderRoot,
-	)
-
+	// Assemble AnchorV4
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
@@ -650,47 +687,51 @@ func assembleCreateExecutionPayloadMetaShasta(
 		blockInfo.BondInstructions,
 		startBlockIdx+uint16(blockIndex),
 		anchorBlockID,
-		anchorBlockHeaderHash,
-		anchorBlockHeaderRoot,
+		anchorHash,
+		anchorRoot,
 		meta.GetProposal().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to assemble AnchorV4: %w", err)
 	}
 
-	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
+	// Encode extraData
 	extraData, err := encodeShastaExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
-	// Set batchID only for the last block in the proposal
-	var batchID *big.Int
-	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetProposal().Id
+	// RLP tx list (anchor first)
+	rlpBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, blockInfo.Transactions...))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to RLP-encode tx list: %w", err)
 	}
 
-	return &createExecutionPayloadsMetaData{
-		BlockID:               blockID,
-		BatchID:               batchID,
-		ExtraData:             extraData,
-		SuggestedFeeRecipient: blockInfo.Coinbase,
-		GasLimit:              blockInfo.GasLimit,
-		Difficulty:            common.BytesToHash(difficulty),
+	attrs := &engine.PayloadAttributes{
 		Timestamp:             blockInfo.Timestamp,
-		ParentHash:            parent.Hash(),
+		Random:                common.BytesToHash(difficulty),
+		SuggestedFeeRecipient: blockInfo.Coinbase,
+		Withdrawals:           make([]*types.Withdrawal, 0),
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: blockInfo.Coinbase,
+			GasLimit:    blockInfo.GasLimit,
+			Timestamp:   blockInfo.Timestamp,
+			TxList:      rlpBytes,
+			MixHash:     common.BytesToHash(difficulty),
+			ExtraData:   extraData,
+		},
+		BaseFeePerGas: baseFee,
 		L1Origin: &rawdb.L1Origin{
 			BlockID:       blockID,
-			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L2BlockHash:   common.Hash{},
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
 		},
-		Txs:         blockInfo.Transactions,
-		Withdrawals: make([]*types.Withdrawal, 0),
-		BaseFee:     baseFee,
-	}, anchorTx, nil
+	}
+
+	return attrs, rlpBytes, anchorTx, nil
 }
 
 // updateL1OriginForBatchPacaya updates the L1 origin for the given batch of blocks.
