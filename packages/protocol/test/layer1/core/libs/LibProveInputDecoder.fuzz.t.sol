@@ -35,7 +35,10 @@ contract LibProveInputDecoderFuzzTest is Test {
         bytes32 parentTransitionHash = keccak256(abi.encode("parent", proposalId));
         bytes32 endBlockHash = keccak256(abi.encode("block", endBlockNumber));
         bytes32 endStateRoot = keccak256(abi.encode("state", endBlockNumber));
-        address actualProver = address(uint160(designatedProver) + 1);
+        uint160 designated = uint160(designatedProver);
+        // avoid overflow
+        address actualProver =
+            designated == type(uint160).max ? address(designated - 1) : address(designated + 1);
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
