@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/src/Script.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
-import "src/layer1/mainnet/MainnetDAOController.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
-import "src/shared/bridge/IBridge.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
 
 abstract contract BuildProposal is Script {
     error TargetIsZeroAddress();
