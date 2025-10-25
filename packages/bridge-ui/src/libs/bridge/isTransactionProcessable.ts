@@ -18,11 +18,19 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // the block number with the cross chain block number.
   if (!receipt || !message) return false;
 
-  // Any other status that's not NEW we assume this bridge tx
-  // has already been processed (was processable)
-  // TODO: do better job here as this is to make the UI happy
-
-  if (msgStatus !== MessageStatus.NEW) return true;
+  // Handle different message statuses appropriately
+  if (msgStatus === MessageStatus.DONE || msgStatus === MessageStatus.RECALLED) {
+    // These statuses indicate the transaction has been fully processed
+    return false;
+  }
+  
+  if (msgStatus === MessageStatus.RETRIABLE || msgStatus === MessageStatus.FAILED) {
+    // These statuses indicate the transaction can be processed (retry/release)
+    return true;
+  }
+  
+  // For NEW status, we need to check if the transaction is processable
+  // by verifying that the source chain has been synced to the destination chain
 
   const destSignalServiceAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
   const srcChain = chains.find((chain) => chain.id === Number(srcChainId));
