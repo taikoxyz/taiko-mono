@@ -12,17 +12,11 @@ pub struct BeaconClient {
 impl BeaconClient {
     // fetches and constructs a BeaconClient from the given base URL
     pub async fn new(base_url: Url) -> Result<Self> {
-        let genesis = Self::fetch_genesis(base_url.clone()).await?;
-
-        let spec = Self::fetch_spec(base_url.clone()).await?;
+        let genesis = Self::fetch_json(&base_url, "eth/v1/beacon/genesis").await?;
+        let spec = Self::fetch_json(&base_url, "eth/v1/config/spec").await?;
 
         // Validate beacon spec invariants to prevent divide-by-zero at runtime
-        if spec.seconds_per_slot == 0 {
-            return Err(eyre!("Invalid beacon spec: seconds_per_slot must be > 0"));
-        }
-        if spec.slots_per_epoch == 0 {
-            return Err(eyre!("Invalid beacon spec: slots_per_epoch must be > 0"));
-        }
+        Self::validate_spec(&spec)?;
 
         Ok(Self {
             seconds_per_slot: spec.seconds_per_slot,
@@ -36,11 +30,7 @@ impl BeaconClient {
     }
 
     pub fn current_slot(&self) -> u64 {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("System time before unix epoch")
-            .as_secs();
-
+        let now = Self::now_unix_seconds();
         (now - self.genesis_time_sec) / self.seconds_per_slot
     }
 
@@ -56,48 +46,43 @@ impl BeaconClient {
         self.slots_per_epoch
     }
 
-    async fn fetch_genesis(base_url: Url) -> Result<Genesis> {
-        let genesis_url = base_url
-            .join("eth/v1/beacon/genesis")
-            .map_err(|_| eyre!("Invalid URL for genesis endpoint"))?;
+    async fn fetch_json<T: for<'de> Deserialize<'de>>(base_url: &Url, path: &str) -> Result<T> {
+        let full_url = base_url
+            .join(path)
+            .map_err(|_| eyre!("Invalid URL for {path} endpoint"))?;
 
         let http_client = reqwest::Client::new();
         let response = http_client
-            .get(genesis_url)
+            .get(full_url.clone())
             .send()
             .await
-            .map_err(|_| eyre!("Failed to fetch genesis data"))?;
+            .map_err(|_| eyre!("Failed to fetch data from {full_url}"))?;
 
         if !response.status().is_success() {
-            return Err(eyre!("Failed to fetch genesis data: {}", response.status()));
+            return Err(eyre!("Failed to fetch data from {full_url}: {}", response.status()));
         }
 
-        let beacon_response: BeaconApiResponse<Genesis> =
-            response.json().await.map_err(|_| eyre!("Failed to parse genesis data"))?;
+        let beacon_response: BeaconApiResponse<T> =
+            response.json().await.map_err(|_| eyre!("Failed to parse data from {full_url}"))?;
 
         Ok(beacon_response.data)
     }
 
-    async fn fetch_spec(base_url: Url) -> Result<Spec> {
-        let spec_url = base_url
-            .join("eth/v1/config/spec")
-            .map_err(|_| eyre!("Invalid URL for spec endpoint"))?;
-
-        let http_client = reqwest::Client::new();
-        let response = http_client
-            .get(spec_url)
-            .send()
-            .await
-            .map_err(|_| eyre!("Failed to fetch spec data"))?;
-
-        if !response.status().is_success() {
-            return Err(eyre!("Failed to fetch spec data: {}", response.status()));
+    fn validate_spec(spec: &Spec) -> Result<()> {
+        if spec.seconds_per_slot == 0 {
+            return Err(eyre!("Invalid beacon spec: seconds_per_slot must be > 0"));
         }
+        if spec.slots_per_epoch == 0 {
+            return Err(eyre!("Invalid beacon spec: slots_per_epoch must be > 0"));
+        }
+        Ok(())
+    }
 
-        let beacon_response: BeaconApiResponse<Spec> =
-            response.json().await.map_err(|_| eyre!("Failed to parse spec data"))?;
-
-        Ok(beacon_response.data)
+    fn now_unix_seconds() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("System time before unix epoch")
+            .as_secs()
     }
 }
 
@@ -190,7 +175,7 @@ mod tests {
             Err(err) => err,
         };
         let msg = format!("{err}");
-        assert!(msg.contains("Failed to fetch genesis data"));
+        assert!(msg.contains("Failed to fetch data"));
     }
 
     #[tokio::test]
