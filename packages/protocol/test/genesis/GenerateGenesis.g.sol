@@ -70,7 +70,7 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("RollupResolver");
 
         // check proxy implementations
-        // checkProxyImplementation("TaikoAnchor", contractOwner);
+        checkProxyImplementation("TaikoAnchor", contractOwner);
         checkProxyImplementation("RollupResolver");
 
         // check proxies
