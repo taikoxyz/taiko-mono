@@ -50,6 +50,15 @@ library LibBlockHeader {
     }
 
     function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
-        return keccak256(encodeRLP(_blockHeader));
+        // Original: return keccak256(encodeRLP(_blockHeader));
+        // Optimized using inline assembly to reduce gas cost
+        bytes memory rlpEncoded = encodeRLP(_blockHeader);
+        bytes32 result;
+        assembly {
+            // rlpEncoded in memory: [length (32 bytes)][data...]
+            // keccak256 needs: pointer to data start and data length
+            result := keccak256(add(rlpEncoded, 0x20), mload(rlpEncoded))
+        }
+        return result;
     }
 }

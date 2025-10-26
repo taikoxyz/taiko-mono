@@ -145,7 +145,15 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
             _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
-        bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
+        // Original: bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
+        // Optimized using inline assembly to reduce gas cost
+        bytes32 signatureHash;
+        assembly {
+            // publicInputs is a bytes32[] array with 2 elements
+            // In memory: [length (32 bytes)][elem0 (32 bytes)][elem1 (32 bytes)]
+            // abi.encodePacked packs them tightly, so we hash 2 * 32 = 64 bytes
+            signatureHash := keccak256(add(publicInputs, 0x20), 0x40)
+        }
         // Verify the signature was created by the registered instance
         bytes memory signature = _proof[24:];
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());

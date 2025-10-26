@@ -24,11 +24,29 @@ library LibPublicInput {
         returns (bytes32)
     {
         require(_aggregatedProvingHash != bytes32(0), InvalidAggregatedProvingHash());
-        return keccak256(
-            abi.encode(
-                "VERIFY_PROOF", _chainId, _verifierContract, _aggregatedProvingHash, _newInstance
-            )
-        );
+        // Original: return keccak256(abi.encode("VERIFY_PROOF", _chainId, _verifierContract, _aggregatedProvingHash, _newInstance));
+        // Optimized using inline assembly to reduce gas cost
+        bytes32 hash;
+        assembly {
+            // Get free memory pointer
+            let ptr := mload(0x40)
+
+            // abi.encode layout: 5 * 32 bytes for main params + string data
+            mstore(ptr, 0xa0) // offset to string data (5 * 32 = 160 = 0xa0)
+            mstore(add(ptr, 0x20), _chainId) // uint64 padded to 32 bytes
+            mstore(add(ptr, 0x40), _verifierContract) // address padded to 32 bytes
+            mstore(add(ptr, 0x60), _aggregatedProvingHash) // bytes32
+            mstore(add(ptr, 0x80), _newInstance) // address padded to 32 bytes
+
+            // Store string at offset 0xa0
+            // "VERIFY_PROOF" = 12 bytes
+            mstore(add(ptr, 0xa0), 0x0c) // length = 12
+            mstore(add(ptr, 0xc0), "VERIFY_PROOF") // string data
+
+            // Total size: 160 + 64 = 224 = 0xe0
+            hash := keccak256(ptr, 0xe0)
+        }
+        return hash;
     }
 
     // ---------------------------------------------------------------
