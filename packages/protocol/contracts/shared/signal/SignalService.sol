@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialContract, ISignalService {
+contract SignalService is Ownable2Step, ISignalService {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -34,14 +33,15 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
+
     // ---------------------------------------------------------------
     // Pre shasta storage variables
     // ---------------------------------------------------------------
 
-    /// @dev Deprecated slots used by the old SignalService
+    /// @dev Deprecated slots used by the old SignalService. This includes the slots from `EssentialContract` and:
     // - `topBlockId`
     // - `authorized`
-    uint256[2] private _slotsUsedByPacaya;
+    uint256[253] private _slotsUsedByPacaya;
 
     /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
@@ -61,20 +61,16 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService) {
+    constructor(address authorizedSyncer, address remoteSignalService, address _owner) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
+        require(_owner != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-    }
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+        _transferOwnership(_owner);
     }
-
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
@@ -193,11 +189,12 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _value
     )
         private
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        nonZeroBytes32(_value)
         returns (bytes32 slot_)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+        require(_value != bytes32(0), ZERO_VALUE());
+        
         slot_ = getSignalSlot(uint64(block.chainid), _app, _signal);
         assembly {
             sstore(slot_, _value)
@@ -211,10 +208,12 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
         returns (bytes32)
     {
+
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
         return _loadSignalValue(slot);
     }
@@ -233,9 +232,10 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
             require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
@@ -276,3 +276,5 @@ error SS_INVALID_CHECKPOINT();
 error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
+error ZERO_ADDRESS();
+error ZERO_VALUE();
