@@ -130,7 +130,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _chainId The chainId of the signal.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
-    /// @return The slot for the signal.
+    /// @return slot_ The slot for the signal.
     function getSignalSlot(
         uint64 _chainId,
         address _app,
@@ -138,9 +138,20 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         pure
-        returns (bytes32)
+        returns (bytes32 slot_)
     {
-        return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
+        assembly {
+            let ptr := mload(0x40)
+            let firstSlot := or(
+                shl(208, 0x5349474e414c),
+                or(shl(144, _chainId), shr(16, _app))
+            )
+            mstore(ptr, firstSlot)
+            let secondSlot := or(shl(240, _app), shr(16, _signal))
+            mstore(add(ptr, 32), secondSlot)
+            mstore(add(ptr, 64), shl(240, _signal))
+            slot_ := keccak256(ptr, 66)
+        }
     }
 
     /// @inheritdoc ICheckpointStore
