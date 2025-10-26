@@ -3285,7 +3285,7 @@ struct TransitionMetadata { address designatedProver; address actualProver; }
 struct TransitionRecord { uint8 span; LibBonds.BondInstruction[] bondInstructions; bytes32 transitionHash; bytes32 checkpointHash; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct TransitionRecord {
         #[allow(missing_docs)]
         pub span: u8,

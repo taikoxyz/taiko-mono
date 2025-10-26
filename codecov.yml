@@ -18,6 +18,9 @@ flag_management:
     - name: relayer
       paths:
         - packages/relayer/
+    - name: protocol
+      paths:
+        - packages/protocol/
 
 comment:
   show_carryforward_flags: true

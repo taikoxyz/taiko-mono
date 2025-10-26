@@ -1,17 +1,11 @@
 use std::{str::FromStr, time::Duration};
 
 use alloy_primitives::Address;
-use clap::{Parser, ValueEnum};
+use clap::{Args, ValueEnum};
 use url::Url;
 
 /// Runtime configuration parsed from CLI flags and environment variables.
-#[derive(Clone, Debug, Parser)]
-#[command(
-    name = "blobindexer",
-    author,
-    version,
-    about = "Taiko blob sidecar indexer"
-)]
+#[derive(Clone, Debug, Args)]
 pub struct Config {
     /// Beacon node REST API endpoint (e.g. https://beacon.taiko:5052)
     #[arg(long, env = "BLOB_INDEXER_BEACON_URL")]

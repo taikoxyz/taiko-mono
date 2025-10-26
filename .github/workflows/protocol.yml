@@ -91,6 +91,23 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
 
+      - name: Generate coverage report
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        working-directory: ./packages/protocol
+        run: |
+          forge coverage --report lcov
+          mkdir -p coverage
+          mv lcov.info coverage/lcov.info
+
+      - name: Upload coverage to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./packages/protocol/coverage/lcov.info
+          flags: protocol
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Check for changes
         id: git_status
         run: |
