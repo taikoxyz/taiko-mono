@@ -1,28 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "./IBondManager.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IBondManager } from "./IBondManager.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
-/// it's not upgradable itself.
-/// @dev This contract implements:
+/// @dev This contract directly inherits EssentialContract:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
+///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is Ownable2Step, ReentrancyGuard {
+contract Anchor is EssentialContract {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -57,7 +55,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
-    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
@@ -65,7 +62,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Stored block-level state for the latest anchor.
-    /// @dev 2 slots
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
@@ -111,22 +107,17 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Bond amount in Wei for provability guarantees.
     uint256 public immutable provabilityBond;
 
+    /// @notice Block height at which the Shasta fork is activated.
+    uint64 public immutable shastaForkHeight;
+
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
-    // Pacaya slots for storage compatibility
-    // ---------------------------------------------------------------
-
-    /// @dev slot0:  _blockhashes
-    ///      slot1: publicInputHash
-    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    ///      slot3: l1ChainId
-    uint256[4] private _pacayaSlots;
-
-    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
+
+    // Proposal-level state (set on first block of proposal)
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
@@ -134,8 +125,10 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    // Block-level state (updated per block)
+
     /// @notice Storage gap for upgrade safety.
-    uint256[42] private __gap;
+    uint256[49] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -155,8 +148,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     // Modifiers
     // ---------------------------------------------------------------
 
-    modifier onlyValidSender() {
+    modifier onlyValidSenderAndHeight() {
         require(msg.sender == GOLDEN_TOUCH_ADDRESS, InvalidSender());
+        require(block.number >= shastaForkHeight, InvalidForkHeight());
         _;
     }
 
@@ -169,19 +163,19 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @param _bondManager The address of the bond manager.
     /// @param _livenessBond The liveness bond amount in Wei.
     /// @param _provabilityBond The provability bond amount in Wei.
+    /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
         uint256 _livenessBond,
         uint256 _provabilityBond,
-        uint64 _l1ChainId,
-        address _owner
+        uint64 _shastaForkHeight,
+        uint64 _l1ChainId
     ) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
-        require(_owner != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -192,14 +186,19 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         bondManager = _bondManager;
         livenessBond = _livenessBond;
         provabilityBond = _provabilityBond;
+        shastaForkHeight = _shastaForkHeight;
         l1ChainId = _l1ChainId;
-
-        _transferOwnership(_owner);
     }
 
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
@@ -209,19 +208,19 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
-    function anchorV4(
+    function anchor(
         ProposalParams calldata _proposalParams,
         BlockParams calldata _blockParams
     )
         external
-        onlyValidSender
+        onlyValidSenderAndHeight
         nonReentrant
     {
         if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalParams);
+            _validateProposal(_proposalState, _proposalParams);
         }
 
-        _validateBlock(_blockParams);
+        _validateBlock(_blockState, _blockParams);
 
         emit Anchored(
             _proposalState.bondInstructionsHash,
@@ -237,8 +236,15 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
-    function withdraw(address _token, address _to) external onlyOwner nonReentrant {
-        require(_to != address(0), InvalidAddress());
+    function withdraw(
+        address _token,
+        address _to
+    )
+        external
+        nonZeroAddr(_to)
+        onlyOwner
+        nonReentrant
+    {
         uint256 amount;
         if (_token == address(0)) {
             amount = address(this).balance;
@@ -352,15 +358,20 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _validateProposal(ProposalParams calldata _proposalParams) private {
+    function _validateProposal(
+        ProposalState storage _proposalState,
+        ProposalParams calldata _proposalParams
+    )
+        private
+    {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-            getDesignatedProver(
-                _proposalParams.proposalId,
-                _proposalParams.proposer,
-                _proposalParams.proverAuth,
-                _proposalState.designatedProver
-            );
+        getDesignatedProver(
+            _proposalParams.proposalId,
+            _proposalParams.proposer,
+            _proposalParams.proverAuth,
+            _proposalState.designatedProver
+        );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
@@ -376,12 +387,17 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(BlockParams calldata _blockParams) private {
+    function _validateBlock(
+        BlockState storage _blockState,
+        BlockParams calldata _blockParams
+    )
+        private
+    {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        if (_blockState.ancestorsHash != bytes32(0)) {
-            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
-        }
+        bytes32 expectedCurrAncestorsHash =
+            block.number == shastaForkHeight ? bytes32(0) : oldAncestorsHash;
+        require(_blockState.ancestorsHash == expectedCurrAncestorsHash, AncestorsHashMismatch());
         _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
@@ -467,18 +483,12 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         }
 
         assembly {
-            oldAncestorsHash_ := keccak256(
-                inputs,
-                8192 /*mul(256, 32)*/
-            )
+            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
-            newAncestorsHash_ := keccak256(
-                inputs,
-                8192 /*mul(256, 32)*/
-            )
+            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
@@ -496,26 +506,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     }
 
     /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
-    /// Original: return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFee));
-    /// Optimized with inline assembly to save 210 gas (76.1% reduction)
-    function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32 result_) {
-        assembly {
-            // Get free memory pointer
-            let ptr := mload(0x40)
-
-            // abi.encode pads each value to 32 bytes
-            // Load proposalId (offset 0x00 in struct)
-            mstore(ptr, mload(_auth))
-
-            // Load proposer (offset 0x20 in struct)
-            mstore(add(ptr, 0x20), mload(add(_auth, 0x20)))
-
-            // Load provingFee (offset 0x40 in struct)
-            mstore(add(ptr, 0x40), mload(add(_auth, 0x40)))
-
-            // Hash 96 bytes (3 * 32)
-            result_ := keccak256(ptr, 0x60)
-        }
+    function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFee));
     }
 
     // ---------------------------------------------------------------
@@ -527,6 +520,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
+    error InvalidForkHeight();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
