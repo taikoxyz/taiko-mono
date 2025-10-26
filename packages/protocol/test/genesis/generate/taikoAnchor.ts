@@ -107,6 +107,20 @@ export async function deployTaikoAnchor(
                 alloc[contractConfig.address].storage[slot] = val;
             }
         }
+
+        if (contractName === "TaikoAnchor") {
+            const routerLayout = await getStorageLayout("AnchorForkRouter");
+            const routerSlots = computeStorageSlots(routerLayout, {
+                _initialized: 1,
+                _initializing: false,
+                _owner: contractOwner,
+                _pendingOwner: ethers.constants.AddressZero,
+            });
+
+            for (const slot of routerSlots) {
+                alloc[contractConfig.address].storage[slot.key] = slot.val;
+            }
+        }
     }
 
     result.alloc = Object.assign(result.alloc, alloc);
