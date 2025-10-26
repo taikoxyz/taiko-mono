@@ -50,15 +50,7 @@ library LibBlockHeader {
     }
 
     function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
-        // Original: return keccak256(encodeRLP(_blockHeader));
-        // Optimized using inline assembly: saves ~25-50 gas (depends on block size)
-        bytes memory rlpEncoded = encodeRLP(_blockHeader);
-        bytes32 result;
-        assembly {
-            // rlpEncoded in memory: [length (32 bytes)][data...]
-            // keccak256 needs: pointer to data start and data length
-            result := keccak256(add(rlpEncoded, 0x20), mload(rlpEncoded))
-        }
-        return result;
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(encodeRLP(_blockHeader));
     }
 }

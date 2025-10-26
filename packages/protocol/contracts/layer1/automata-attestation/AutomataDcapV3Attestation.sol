@@ -313,15 +313,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 break;
             }
 
-            // Original: bytes32 issuerPubKeyHash = keccak256(issuer.pubKey);
-            // Optimized using inline assembly to reduce gas cost (~10-20 gas saved)
-            bytes memory pubKey = issuer.pubKey;
-            bytes32 issuerPubKeyHash;
-            assembly {
-                // pubKey is bytes in memory: [length (32 bytes)][data...]
-                // keccak256 needs: pointer to data start and data length
-                issuerPubKeyHash := keccak256(add(pubKey, 0x20), mload(pubKey))
-            }
+            /// forge-lint: disable-next-line(asm-keccak256)
+            bytes32 issuerPubKeyHash = keccak256(issuer.pubKey);
 
             if (issuerPubKeyHash == ROOTCA_PUBKEY_HASH) {
                 certChainCanBeTrusted = true;
