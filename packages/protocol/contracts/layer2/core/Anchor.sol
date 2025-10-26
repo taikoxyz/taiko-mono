@@ -497,6 +497,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
     function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFee));
     }
 
