@@ -6,6 +6,7 @@ import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 import "src/layer2/core/Anchor.sol";
+import "src/layer2/core/AnchorForkRouter.sol";
 import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
@@ -159,18 +160,9 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(taikoAnchorProxy.owner());
 
-        // UUPS.upgradeTo(
-        //     address(
-        //         new Anchor(
-        //             ICheckpointStore(getPredeployedContractAddress("SignalService")),
-        //             IBondManager(getPredeployedContractAddress("BondManager")),
-        //             10_000_000_000_000_000, // livenessBond
-        //             10_000_000_000_000_000, // provabilityBond
-        //             uint64(shastaForkHeight),
-        //             uint64(l1ChainId)
-        //         )
-        //     )
-        // );
+        UUPSUpgradeable(address(taikoAnchorProxy)).upgradeTo(
+            address(new AnchorForkRouter(address(1), address(2)))
+        );
 
         vm.stopPrank();
     }
