@@ -6,6 +6,7 @@ import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 import "src/layer2/core/Anchor.sol";
+import "src/layer2/core/AnchorForkRouter.sol";
 import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
@@ -24,10 +25,10 @@ contract TestGenerateGenesis is Test {
     string private genesisDataPath;
     address private contractOwner;
     uint256 private l1ChainId;
-    uint256 private shastaForkHeight;
     uint256 private livenessBond;
     uint256 private provabilityBond;
     address private bondToken;
+    address private pacayaAnchorImpl;
     uint256 private minBond;
     uint48 private withdrawalDelay;
     bool private configInitialized;
@@ -45,22 +46,23 @@ contract TestGenerateGenesis is Test {
 
         contractOwner = configJSON.readAddress(".contractOwner");
         l1ChainId = configJSON.readUint(".l1ChainId");
-        shastaForkHeight = configJSON.readUint(".shastaForkHeight");
         livenessBond = configJSON.readUint(".livenessBond");
         provabilityBond = configJSON.readUint(".provabilityBond");
         bondToken = configJSON.readAddress(".bondToken");
+        pacayaAnchorImpl = configJSON.readAddress(".pacayaTaikoAnchor");
         minBond = configJSON.readUint(".minBond");
         withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
         vm.chainId(configJSON.readUint(".chainId"));
 
-        string memory genesisAllocJSON = vm.readFile(string.concat(genesisDataPath, "genesis_alloc.json"));
+        string memory genesisAllocJSON =
+            vm.readFile(string.concat(genesisDataPath, "genesis_alloc.json"));
         _applyGenesisAlloc(genesisAllocJSON);
 
         configInitialized = true;
     }
 
     function _applyGenesisAlloc(string memory genesisAllocJSON) private {
-        string[22] memory contractNames = [
+        string[23] memory contractNames = [
             "BridgeImpl",
             "ERC20VaultImpl",
             "ERC721VaultImpl",
@@ -72,6 +74,7 @@ contract TestGenerateGenesis is Test {
             "BridgedERC1155Impl",
             "RegularERC20",
             "TaikoAnchorImpl",
+            "AnchorForkRouterImpl",
             "RollupResolverImpl",
             "BondManagerImpl",
             "Bridge",
@@ -90,7 +93,12 @@ contract TestGenerateGenesis is Test {
         }
     }
 
-    function _loadContractState(string memory genesisAllocJSON, string memory contractName) private {
+    function _loadContractState(
+        string memory genesisAllocJSON,
+        string memory contractName
+    )
+        private
+    {
         address contractAddress = getPredeployedContractAddress(contractName);
         _loadContractCode(genesisAllocJSON, contractAddress);
         _loadContractStorage(genesisAllocJSON, contractAddress);
@@ -107,7 +115,12 @@ contract TestGenerateGenesis is Test {
         genesisCodeHashes[contractAddress] = keccak256(codeBytes);
     }
 
-    function _loadContractStorage(string memory genesisAllocJSON, address contractAddress) private {
+    function _loadContractStorage(
+        string memory genesisAllocJSON,
+        address contractAddress
+    )
+        private
+    {
         string memory contractKey = vm.toString(contractAddress);
         string memory storagePath = string.concat(".", contractKey, ".storage");
         if (!genesisAllocJSON.keyExists(storagePath)) {
@@ -240,8 +253,9 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testTaikoAnchor() public {
+    function testTaikoAnchor() public view {
         Anchor taikoAnchor = Anchor(getPredeployedContractAddress("TaikoAnchor"));
+        AnchorForkRouter forkRouter = AnchorForkRouter(payable(address(taikoAnchor)));
 
         assertEq(contractOwner, taikoAnchor.owner());
         assertEq(l1ChainId, taikoAnchor.l1ChainId());
@@ -251,6 +265,8 @@ contract TestGenerateGenesis is Test {
         assertEq(getPredeployedContractAddress("BondManager"), address(taikoAnchor.bondManager()));
         assertEq(livenessBond, taikoAnchor.livenessBond());
         assertEq(provabilityBond, taikoAnchor.provabilityBond());
+        assertEq(pacayaAnchorImpl, forkRouter.oldFork());
+        assertEq(getPredeployedContractAddress("TaikoAnchorImpl"), forkRouter.newFork());
     }
 
     function testSingletonBridge() public {
@@ -455,7 +471,7 @@ contract TestGenerateGenesis is Test {
         return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
     }
 
-    function checkDeployedCode(string memory contractName) private {
+    function checkDeployedCode(string memory contractName) private view {
         address contractAddress = getPredeployedContractAddress(contractName);
         bytes32 expectedHash = genesisCodeHashes[contractAddress];
         bytes32 actualHash = keccak256(address(contractAddress).code);

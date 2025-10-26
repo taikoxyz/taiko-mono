@@ -50,6 +50,7 @@ export async function deployTaikoAnchor(
         config.minBond,
         config.bondToken,
         config.pacayaTaikoAnchor,
+        config.remoteSignalService,
     );
 
     const storageLayouts: any = {};
@@ -132,6 +133,7 @@ async function generateContractConfigs(
     minBond: number,
     bondToken: string,
     pacayaTaikoAnchor: string,
+    remoteSignalService: string,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -224,16 +226,6 @@ async function generateContractConfigs(
         "UUPSUpgradeable",
         ["__self"],
     );
-    // const sharedEssentialContractReferencesMap: any = getImmutableReference(
-    //     "EssentialContract",
-    //     ["__resolver"],
-    //     SHARED_ARTIFACTS_PATH,
-    // );
-    // const sharedUUPSImmutableReferencesMap: any = getImmutableReference(
-    //     "UUPSUpgradeable",
-    //     ["__self"],
-    //     SHARED_ARTIFACTS_PATH,
-    // );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
         getImmutableReference("Anchor", [
@@ -636,7 +628,7 @@ async function generateContractConfigs(
                     {
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(
-                            addressMap.SignalService,
+                            remoteSignalService,
                             32,
                         ),
                     },
