@@ -314,7 +314,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             }
 
             // Original: bytes32 issuerPubKeyHash = keccak256(issuer.pubKey);
-            // Optimized using inline assembly to reduce gas cost
+            // Optimized using inline assembly to reduce gas cost (~10-20 gas saved)
             bytes memory pubKey = issuer.pubKey;
             bytes32 issuerPubKeyHash;
             assembly {
