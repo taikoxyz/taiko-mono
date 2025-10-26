@@ -118,11 +118,10 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     // Pacaya slots for storage compatibility
     // ---------------------------------------------------------------
 
-    /// @dev slot0:  _blockhashes
-    ///      slot1: publicInputHash
-    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    ///      slot3: l1ChainId
-    uint256[4] private _pacayaSlots;
+    /// @dev 255 slots were used in Pacaya(EssentialContract, TaikoAnchorDeprecated, etc.)
+    /// For a full layout of the Pacaya anchor please refer to 
+    /// [the layout table](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/layout/layer2-contracts.md#taikoanchor)
+    uint256[255] private _pacayaSlots;
 
     // ---------------------------------------------------------------
     // State variables
