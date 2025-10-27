@@ -40,7 +40,7 @@ library LibManifest {
     uint256 internal constant MIN_BASE_FEE = 0.005 gwei;
 
     /// @notice The maximum base fee (inclusive) after Shasta fork
-    uint256 internal constant MAX_BASE_FEE = 100 gwei;
+    uint256 internal constant MAX_BASE_FEE = 10 gwei;
 
 
     // ---------------------------------------------------------------
