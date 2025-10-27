@@ -18,6 +18,7 @@ contract AnchorForkRouterTest is Test {
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.skipFeeCheck.selector));
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.publicInputHash.selector));
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.parentGasExcess.selector));
+        assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.lastSyncedBlock.selector));
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.parentTimestamp.selector));
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.parentGasTarget.selector));
         assertTrue(router.shouldRouteToOldFork(IPacayaAnchorLegacy.signalService.selector));

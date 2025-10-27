@@ -12,14 +12,14 @@ use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Bytes, aliases::U48};
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
-use bindings::taiko_anchor::LibBonds::BondInstruction;
+use bindings::anchor::LibBonds::BondInstruction;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 
 use crate::{
-    derivation::{DerivationError, pipeline::shasta::anchor::UpdateStateInput},
+    derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 use tracing::warn;
@@ -486,6 +486,14 @@ where
         state: &ParentState,
         meta: &BundleMeta,
     ) -> Result<bool, DerivationError> {
+        let block_id = BlockId::Hash(RpcBlockHash {
+            block_hash: state.header.hash_slow(),
+            require_canonical: Some(false),
+        });
+
+        let proposal_state =
+            self.rpc.shasta.anchor.getProposalState().block(block_id).call().await?;
+
         let designated_prover_info = self
             .rpc
             .shasta
@@ -494,11 +502,9 @@ where
                 U48::from(meta.proposal_id),
                 meta.proposer,
                 meta.prover_auth_bytes.clone(),
+                proposal_state.designatedProver,
             )
-            .block(BlockId::Hash(RpcBlockHash {
-                block_hash: state.header.hash_slow(),
-                require_canonical: Some(false),
-            }))
+            .block(block_id)
             .call()
             .await?;
 
@@ -612,9 +618,9 @@ where
 
         let tx = self
             .anchor_constructor
-            .assemble_update_state_tx(
+            .assemble_anchor_v4_tx(
                 parent_state.header.hash_slow(),
-                UpdateStateInput {
+                AnchorV4Input {
                     proposal_id: meta.proposal_id,
                     proposer: meta.proposer,
                     prover_auth: meta.prover_auth_bytes.clone().to_vec(),
@@ -624,7 +630,6 @@ where
                     anchor_block_number: block.anchor_block_number,
                     anchor_block_hash,
                     anchor_state_root,
-                    end_of_submission_window_timestamp: meta.end_of_submission_window_timestamp,
                     l2_height: block_number,
                     base_fee: U256::from(block_base_fee),
                 },
