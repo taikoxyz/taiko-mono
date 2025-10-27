@@ -378,7 +378,7 @@ func validateAnchorBlockNumber(
 			continue
 		}
 
-		// 2. Future reference: manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET
+		// 2. Future reference: manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET
 		if sourcePayload.BlockPayloads[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
 			log.Info(
 				"Invalid anchor block number: future reference",
@@ -391,7 +391,7 @@ func validateAnchorBlockNumber(
 			continue
 		}
 
-		// 3. Excessive lag: manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET
+		// 3. Excessive lag: manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET
 		if originBlockNumber > manifest.AnchorMaxOffset &&
 			sourcePayload.BlockPayloads[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
