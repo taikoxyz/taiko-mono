@@ -9,6 +9,7 @@ import "src/layer2/core/Anchor.sol";
 import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20.sol";
@@ -433,11 +434,27 @@ contract TestGenerateGenesis is Test {
         address authorizedSyncer = getPredeployedContractAddress("TaikoAnchor");
         address remoteSignalService = contractOwner;
 
-        signalServiceProxy.upgradeTo(
-            address(new SignalService(authorizedSyncer, remoteSignalService))
+        vm.expectRevert(SS_UNAUTHORIZED.selector);
+        signalServiceProxy.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 1,
+                blockHash: bytes32(uint256(1)),
+                stateRoot: bytes32(uint256(1))
+            })
+        );
+        vm.stopPrank();
+
+        vm.prank(authorizedSyncer);
+        signalServiceProxy.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 1,
+                blockHash: bytes32(uint256(1)),
+                stateRoot: bytes32(uint256(1))
+            })
         );
 
-        vm.stopPrank();
+        vm.prank(remoteSignalService);
+        signalServiceProxy.sendSignal(keccak256("genesis_signal"));
     }
 
     function testERC20() public view {

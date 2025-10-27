@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
@@ -348,9 +347,6 @@ abstract contract InboxTestHelper is CommonTest {
             address(proofVerifier),
             address(proposerChecker)
         );
-
-        _upgradeDependencies();
-
         _initializeContractName(inboxDeployer.getTestContractName());
 
         // Advance block to ensure we have block history
@@ -372,31 +368,16 @@ abstract contract InboxTestHelper is CommonTest {
         // Deploy PreconfWhitelist as the proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
 
-        // Deploy signal service behind a proxy so it can be upgraded once inbox is available
-        SignalService signalServiceImpl =
-            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+        uint256 deployerNonce = vm.getNonce(address(inboxDeployer));
+        // Two contracts (codec + implementation) are deployed before the proxy inside deployInbox
+        address predictedInboxProxy =
+            vm.computeCreateAddress(address(inboxDeployer), deployerNonce + 2);
 
-        signalService = SignalService(
-            address(
-                new ERC1967Proxy(
-                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (owner))
-                )
-            )
+        signalService = new SignalService(
+            predictedInboxProxy, MOCK_REMOTE_SIGNAL_SERVICE, owner
         );
 
         checkpointManager = ICheckpointStore(address(signalService));
-    }
-
-    /// @notice Upgrade dependencies that need the deployed inbox reference
-    function _upgradeDependencies() internal virtual {
-        require(address(signalService) != address(0), "Signal service not deployed");
-        require(address(inbox) != address(0), "Inbox not deployed");
-
-        SignalService upgradedSignalServiceImpl =
-            new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
-
-        vm.prank(owner);
-        signalService.upgradeTo(address(upgradedSignalServiceImpl));
     }
 
     /// @notice Helper function to select and whitelist a proposer

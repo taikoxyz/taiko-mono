@@ -77,11 +77,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy main proof verifier (DevnetVerifier)
         address proofVerifier = _deployProofVerifier(verifiers, config.useDummyVerifiers);
 
-        // Deploy rollup contracts
+        // Deploy rollup contracts (handles SignalService deployment/registration)
         address shastaInbox = _deployRollupContracts(sharedResolver, config, proofVerifier);
 
-        // Finalize SignalService with actual inbox address
-        _upgradeSignalService(sharedResolver, shastaInbox, config);
+        // Deploy bridge and vaults now that SignalService is finalized
+        _deployBridge(sharedResolver, config);
+        _deployVaults(sharedResolver, config.contractOwner);
 
         // Deploy test tokens on non-mainnet chains
         if (block.chainid != 1) {
@@ -175,8 +176,30 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Get dependencies
         address bondToken =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
-        address signalService =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
+
+        address signalService;
+        bool signalServiceExists = true;
+        try IResolver(sharedResolver)
+            .resolve(uint64(block.chainid), "signal_service", false) returns (address existing)
+        {
+            signalService = existing;
+        } catch {
+            signalServiceExists = false;
+        }
+
+        if (!signalServiceExists) {
+            uint256 nonceBefore = vm.getNonce(address(this));
+            // Upcoming creations before the proxy:
+            // 1) SignalService, 2) CodecOptimized, 3) DevnetInbox impl, 4) ERC1967Proxy
+            address predictedShastaInbox =
+                vm.computeCreateAddress(address(this), nonceBefore + 4);
+            signalService = address(
+                new SignalService(predictedShastaInbox, config.remoteSigSvc, config.contractOwner)
+            );
+            register(sharedResolver, "signal_service", signalService);
+            console2.log("SignalService deployed:", signalService);
+        }
+
         address codec = address(new CodecOptimized());
 
         // Deploy inbox
@@ -192,26 +215,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
-    }
-
-    function _upgradeSignalService(
-        address sharedResolver,
-        address shastaInbox,
-        DeploymentConfig memory config
-    )
-        private
-    {
-        address signalService = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
-
-        // Upgrade with actual inbox address
-        address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc));
-        SignalService(signalService).upgradeTo(newImpl);
-
-        // Transfer ownership if needed
-        if (SignalService(signalService).owner() == msg.sender) {
-            SignalService(signalService).transferOwnership(config.contractOwner);
-        }
     }
 
     function _transferOwnerships(
@@ -248,15 +251,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy or register Taiko token
         _deployOrRegisterTaikoToken(sharedResolver, config);
-
-        // Deploy SignalService (with dummy inbox, will be upgraded later)
-        _deploySignalServiceIfNeeded(sharedResolver, config.contractOwner, config.remoteSigSvc);
-
-        // Deploy bridge
-        _deployBridge(sharedResolver, config);
-
-        // Deploy vaults
-        _deployVaults(sharedResolver, config.contractOwner);
     }
 
     function _deployOrRegisterTaikoToken(
@@ -282,31 +276,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Register as bond token as well
         register(sharedResolver, "bond_token", taikoToken);
-    }
-
-    function _deploySignalServiceIfNeeded(
-        address sharedResolver,
-        address owner,
-        address remoteSignalService
-    )
-        private
-    {
-        // Check if SignalService already exists
-        try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false) returns (
-            address
-        ) {
-            // Already exists, skip deployment
-            return;
-        } catch {
-            // Deploy with dummy inbox address (will be upgraded later with actual inbox)
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService(address(1), remoteSignalService)),
-                data: abi.encodeCall(SignalService.init, owner),
-                registerTo: sharedResolver
-            });
-        }
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {

@@ -26,9 +26,7 @@ contract TestSignalService is CommonTest {
     SignalService private signalService;
 
     function setUpOnEthereum() internal override {
-        signalService = deploySignalService(
-            address(new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE))
-        );
+        signalService = deploySignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, deployer);
     }
 
     function test_sendSignal_RecordsSlotAndEmitsEvent() public {
@@ -47,7 +45,7 @@ contract TestSignalService is CommonTest {
     }
 
     function test_sendSignal_RevertWhen_SignalIsZero() public {
-        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
+        vm.expectRevert(ZERO_VALUE.selector);
         signalService.sendSignal(bytes32(0));
     }
 

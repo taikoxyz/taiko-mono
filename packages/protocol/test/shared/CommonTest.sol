@@ -21,6 +21,7 @@ import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
+import "src/shared/signal/SignalService.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {
@@ -150,14 +151,25 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deploySignalService(address signalServiceImpl) internal returns (SignalService) {
-        return SignalService(
-            deploy({
-                name: "signal_service",
-                impl: signalServiceImpl,
-                data: abi.encodeCall(SignalService.init, (address(0)))
-            })
-        );
+    function registerSignalService(
+        SignalService signalService
+    )
+        internal
+        returns (SignalService)
+    {
+        register("signal_service", address(signalService));
+        return signalService;
+    }
+
+    function deploySignalService(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address owner
+    )
+        internal
+        returns (SignalService)
+    {
+        return registerSignalService(new SignalService(authorizedSyncer, remoteSignalService, owner));
     }
 
     function deployTaikoToken() internal returns (TaikoToken) {
