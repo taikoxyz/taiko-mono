@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, metrics]
+    branches: [main]
     tags:
       - "blobindexer-rs-v*"
     paths:
