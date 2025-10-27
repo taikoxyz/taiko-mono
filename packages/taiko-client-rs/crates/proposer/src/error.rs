@@ -28,6 +28,14 @@ pub enum ProposerError {
     #[error("parent block {0} not found")]
     ParentBlockNotFound(u64),
 
+    /// Unsupported chain id when resolving Shasta fork condition
+    #[error("unsupported chain id {0} for shasta fork condition")]
+    UnsupportedChainId(u64),
+
+    /// Unsupported Shasta fork condition (e.g., timestamp-based) for driver logic
+    #[error("unsupported shasta fork condition")]
+    UnsupportedShastaForkCondition,
+
     /// Failed to read propose input from event indexer
     #[error("failed to read propose input from event indexer")]
     ProposeInputUnavailable,

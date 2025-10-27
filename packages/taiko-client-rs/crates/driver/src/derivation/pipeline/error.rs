@@ -82,6 +82,12 @@ pub enum DerivationError {
     /// Execution engine returned an unexpected block number.
     #[error("engine returned block {actual} but derivation expected {expected}")]
     UnexpectedBlockNumber { expected: u64, actual: u64 },
+    /// Unsupported Shasta fork activation condition.
+    #[error("unsupported shasta fork condition")]
+    UnsupportedShastaForkCondition,
+    /// Unsupported chain id encountered while resolving Shasta fork height.
+    #[error("unsupported chain id {0}")]
+    UnsupportedChainId(u64),
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),

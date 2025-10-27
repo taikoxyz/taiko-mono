@@ -9,10 +9,13 @@ use alethia_reth_consensus::{
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
 };
+use alloy_hardforks::ForkCondition;
 use alloy_network::TransactionBuilder;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
-use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
+use protocol::shasta::constants::{
+    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_condition_for_chain,
+};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use tokio::time::interval;
@@ -33,6 +36,7 @@ pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
     cfg: ProposerConfigs,
+    shasta_fork_height: u64,
 }
 
 impl Proposer {
@@ -76,17 +80,26 @@ impl Proposer {
         )
         .await?;
 
-        let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
+        // Fetch the Shasta fork height for the connected chain.
+        let chain_id = rpc_provider.l2_provider.get_chain_id().await?;
+        let shasta_fork_height = match shasta_fork_condition_for_chain(chain_id) {
+            Some(ForkCondition::Block(height)) => height,
+            Some(ForkCondition::Never) |
+            Some(ForkCondition::Timestamp(_)) |
+            Some(ForkCondition::TTD { .. }) => {
+                return Err(ProposerError::UnsupportedShastaForkCondition);
+            }
+            None => return Err(ProposerError::UnsupportedChainId(chain_id)),
+        };
 
-        Ok(Self {
-            rpc_provider: rpc_provider.clone(),
-            cfg,
-            transaction_builder: ShastaProposalTransactionBuilder::new(
-                rpc_provider,
-                indexer,
-                l2_suggested_fee_recipient,
-            ),
-        })
+        let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
+        let transaction_builder = ShastaProposalTransactionBuilder::new(
+            rpc_provider.clone(),
+            indexer,
+            l2_suggested_fee_recipient,
+        );
+
+        Ok(Self { rpc_provider, cfg, transaction_builder, shasta_fork_height })
     }
 
     /// Start the proposer main loop.
@@ -206,17 +219,15 @@ impl Proposer {
 
         // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
         // fee.
-        if parent.number() + 1
-            < self.rpc_provider.shasta.anchor.shastaForkHeight().call().await?
-                + SHASTA_INITIAL_BASE_FEE_BLOCKS
+        if parent.number().saturating_add(1) <
+            self.shasta_fork_height.saturating_add(SHASTA_INITIAL_BASE_FEE_BLOCKS)
         {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
         // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?

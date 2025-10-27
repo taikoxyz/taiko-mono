@@ -12,8 +12,7 @@ use alloy_provider::{
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    anchor::Anchor::AnchorInstance,
-    codec_optimized::CodecOptimized::CodecOptimizedInstance,
+    anchor::Anchor::AnchorInstance, codec_optimized::CodecOptimized::CodecOptimizedInstance,
     i_inbox::IInbox::IInboxInstance,
 };
 use http_body_util::Full;
@@ -130,7 +129,9 @@ impl<P: Provider + Clone> Client<P> {
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 
         Ok(AnchorState {
-            bond_instructions_hash: B256::from_slice(proposal_state.bondInstructionsHash.as_slice()),
+            bond_instructions_hash: B256::from_slice(
+                proposal_state.bondInstructionsHash.as_slice(),
+            ),
             designated_prover: Address::from_slice(proposal_state.designatedProver.as_slice()),
             anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
         })

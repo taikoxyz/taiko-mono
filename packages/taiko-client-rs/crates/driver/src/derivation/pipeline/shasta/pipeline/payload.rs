@@ -491,14 +491,8 @@ where
             require_canonical: Some(false),
         });
 
-        let proposal_state = self
-            .rpc
-            .shasta
-            .anchor
-            .getProposalState()
-            .block(block_id)
-            .call()
-            .await?;
+        let proposal_state =
+            self.rpc.shasta.anchor.getProposalState().block(block_id).call().await?;
 
         let designated_prover_info = self
             .rpc

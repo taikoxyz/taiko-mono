@@ -8,6 +8,7 @@ use alloy::{
     sol_types::SolEvent,
 };
 use alloy_consensus::TxEnvelope;
+use alloy_hardforks::ForkCondition;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use async_trait::async_trait;
 use bindings::{
@@ -15,8 +16,11 @@ use bindings::{
     i_inbox::IInbox::Proposed,
 };
 use event_indexer::indexer::ShastaEventIndexer;
-use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
-use rpc::{blob::BlobDataSource, client::Client};
+use protocol::shasta::{
+    constants::shasta_fork_condition_for_chain,
+    manifest::{DerivationSourceManifest, ProposalManifest},
+};
+use rpc::{blob::BlobDataSource, client::Client, error::RpcClientError};
 
 use crate::{
     derivation::{
@@ -56,6 +60,7 @@ where
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
+    shasta_fork_height: u64,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -82,6 +87,20 @@ where
                 ProposalManifest::decompress_and_decode,
             ));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
+        let chain_id = rpc
+            .l2_provider
+            .get_chain_id()
+            .await
+            .map_err(|err| DerivationError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let shasta_fork_height = match shasta_fork_condition_for_chain(chain_id) {
+            Some(ForkCondition::Block(height)) => height,
+            Some(ForkCondition::Never) |
+            Some(ForkCondition::Timestamp(_)) |
+            Some(ForkCondition::TTD { .. }) => {
+                return Err(DerivationError::UnsupportedShastaForkCondition);
+            }
+            None => return Err(DerivationError::UnsupportedChainId(chain_id)),
+        };
 
         Ok(Self {
             rpc,
@@ -89,6 +108,7 @@ where
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             proposal_manifest_fetcher,
+            shasta_fork_height,
         })
     }
 
@@ -190,10 +210,7 @@ where
             anchor_block_number: anchor_state.anchor_block_number,
         };
 
-        // TODO: retrieve the fork height from protocol configuration once exposed by bindings.
-        let shasta_fork_height = 0u64;
-
-        Ok((state, shasta_fork_height))
+        Ok((state, self.shasta_fork_height))
     }
 }
 
