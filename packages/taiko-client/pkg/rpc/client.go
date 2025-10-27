@@ -147,15 +147,14 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
-	}
-
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 	// Initialize the fork height numbers.
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
 		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
+	}
+	if err := c.initShastaClients(ctx, cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
@@ -280,11 +279,6 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
 	}
 
-	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get shasta fork height: %w", err)
-	}
-
 	config, err := shastaInbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get shasta inbox config: %w", err)
@@ -298,7 +292,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		Inbox:      shastaInbox,
 		InboxCodec: inboxCodec,
 		Anchor:     shastaAnchor,
-		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
+		ForkHeight: new(big.Int).SetUint64(c.PacayaClients.ForkHeights.Shasta),
 	}
 
 	return nil

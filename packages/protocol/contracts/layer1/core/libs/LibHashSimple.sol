@@ -20,6 +20,7 @@ library LibHashSimple {
     /// @param _blobHashes The blob hashes array to hash
     /// @return The hash of the blob hashes array
     function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_blobHashes));
     }
 
@@ -50,6 +51,7 @@ library LibHashSimple {
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_derivation));
     }
 
@@ -97,7 +99,6 @@ library LibHashSimple {
         pure
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
         require(_transitions.length == _metadata.length, InconsistentLengths());
         bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
 
@@ -110,6 +111,7 @@ library LibHashSimple {
                 )
             );
         }
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(transitionHashes));
     }
 
