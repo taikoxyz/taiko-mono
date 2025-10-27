@@ -2,7 +2,7 @@ use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        ANCHOR_MAX_OFFSET, ANCHOR_MIN_OFFSET, BLOCK_GAS_LIMIT_MAX_CHANGE, MIN_BLOCK_GAS_LIMIT,
+        BLOCK_GAS_LIMIT_MAX_CHANGE, MAX_ANCHOR_OFFSET, MIN_ANCHOR_OFFSET, MIN_BLOCK_GAS_LIMIT,
         TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
@@ -118,13 +118,13 @@ fn adjust_anchor_numbers(
             block.anchor_block_number = parent_anchor;
         }
 
-        let future_reference_limit = origin_block_number.saturating_sub(ANCHOR_MIN_OFFSET);
+        let future_reference_limit = origin_block_number.saturating_sub(MIN_ANCHOR_OFFSET);
         if block.anchor_block_number >= future_reference_limit {
             block.anchor_block_number = parent_anchor;
         }
 
-        if origin_block_number > ANCHOR_MAX_OFFSET {
-            let min_allowed = origin_block_number - ANCHOR_MAX_OFFSET;
+        if origin_block_number > MAX_ANCHOR_OFFSET {
+            let min_allowed = origin_block_number - MAX_ANCHOR_OFFSET;
             if block.anchor_block_number < min_allowed {
                 block.anchor_block_number = parent_anchor;
             }

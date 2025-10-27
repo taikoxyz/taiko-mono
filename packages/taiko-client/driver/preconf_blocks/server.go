@@ -32,6 +32,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -1051,77 +1052,123 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 	}
 
 	if proposal.IsPacaya() {
-		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			log.Error("Failed to get states from Pacaya Inbox", "error", err)
-			return
-		}
-
-		numBatches := stateVars.Stats2.NumBatches
-		if numBatches == 0 {
-			return
-		}
-
-		latestSeenBatchID := proposal.Pacaya().GetBatchID()
-		latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
-		if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
-			return
-		}
-
-		iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
-			&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
-		)
-		if err != nil {
-			log.Error("Failed to filter batch proposed event", "err", err)
-			return
-		}
-		defer iterPacaya.Close()
-
-		for iterPacaya.Next() {
-			if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
-				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
-					TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
-					PreconfChainReorged:   true,
-				})
-			}
-		}
-
-		if err := iterPacaya.Error(); err != nil {
-			log.Error("Failed to iterate batch proposed events", "err", err)
-		}
+		s.monitorPacayaProposalOnChain(ctx, proposal)
 	} else {
-		latestSeenProposalID := proposal.Shasta().GetProposal().Id
-		shastaProposal := s.shastaIndexer.GetLastProposal()
-		if latestSeenProposalID.Cmp(shastaProposal.Proposal.Id) <= 0 {
-			return
-		}
-		iterShasta, err := s.rpc.ShastaClients.Inbox.FilterProposed(
-			&bind.FilterOpts{Start: shastaProposal.RawBlockHeight.Uint64(), Context: ctx},
-		)
-		if err != nil {
-			log.Error("Failed to filter proposed event", "err", err)
-			return
-		}
-		defer iterShasta.Close()
+		s.monitorShastaProposalOnChain(ctx, proposal)
+	}
+}
 
-		for iterShasta.Next() {
-			proposedEventPayload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, iterShasta.Event.Data)
-			if err != nil {
-				log.Error("Failed to decode proposed event data", "err", err)
-				return
-			}
-			if proposedEventPayload.Proposal.Id.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
-				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
-					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, iterShasta.Event.Raw),
-					PreconfChainReorged:   true,
-				})
-			}
-		}
+// monitorPacayaProposalOnChain monitors Pacaya proposals for reorgs.
+func (s *PreconfBlockAPIServer) monitorPacayaProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		log.Error("Failed to get states from Pacaya Inbox", "error", err)
+		return
+	}
 
-		if err := iterShasta.Error(); err != nil {
-			log.Error("Failed to iterate proposed events", "err", err)
+	numBatches := stateVars.Stats2.NumBatches
+	if numBatches == 0 {
+		return
+	}
+
+	latestSeenBatchID := proposal.Pacaya().GetBatchID()
+	latestOnChainBatchID := new(big.Int).SetUint64(numBatches - 1)
+	if latestSeenBatchID.Cmp(latestOnChainBatchID) <= 0 {
+		return
+	}
+
+	iterPacaya, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
+		&bind.FilterOpts{Start: stateVars.Stats2.LastProposedIn.Uint64(), Context: ctx},
+	)
+	if err != nil {
+		log.Error("Failed to filter batch proposed event", "err", err)
+		return
+	}
+	defer iterPacaya.Close()
+
+	for iterPacaya.Next() {
+		if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
+			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
+				PreconfChainReorged:   true,
+			})
 		}
 	}
+
+	if err := iterPacaya.Error(); err != nil {
+		log.Error("Failed to iterate batch proposed events", "err", err)
+	}
+}
+
+// monitorShastaProposalOnChain monitors Shasta proposals for reorgs.
+func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
+	shastaProposal := proposal.Shasta()
+	latestSeenProposalID := shastaProposal.GetProposal().Id
+	currentProposal := shastaProposal.GetProposal()
+
+	proposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, &currentProposal)
+	if err != nil {
+		log.Error("Failed to hash shasta proposal", "err", err)
+		return
+	}
+
+	onChainProposalHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, latestSeenProposalID)
+	if err != nil {
+		log.Error("Failed to get shasta proposal on chain", "err", err)
+		return
+	}
+
+	// Check for reorg and handle it
+	if onChainProposalHash != proposalHash {
+		s.handleShastaProposalReorg(ctx, latestSeenProposalID)
+	}
+}
+
+// handleShastaProposalReorg handles reorg detection for Shasta proposals.
+func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
+	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
+
+	// Find the last valid proposal by searching backwards
+	maxIterations := latestSeenProposalID.Int64()
+	for i := int64(1); i <= maxIterations; i++ {
+		currentProposalID := new(big.Int).Sub(latestSeenProposalID, big.NewInt(i))
+
+		onChainHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, currentProposalID)
+		if err != nil {
+			log.Error("Failed to get shasta proposal on chain", "proposalId", currentProposalID, "err", err)
+			return
+		}
+
+		recordedProposal, err := s.shastaIndexer.GetProposalByID(currentProposalID.Uint64())
+		if err != nil {
+			log.Error("Proposal not found in cache", "proposalId", currentProposalID, "err", err)
+			return
+		}
+
+		recordedProposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, recordedProposal.Proposal)
+		if err != nil {
+			log.Error("Failed to hash recorded proposal", "proposalId", currentProposalID, "err", err)
+			return
+		}
+
+		// Found a valid proposal that matches on-chain state
+		if onChainHash == recordedProposalHash {
+			if currentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				log.Info("Found valid proposal after reorg", "proposalId", currentProposalID)
+				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
+						Proposal:   *recordedProposal.Proposal,
+						Derivation: *recordedProposal.Derivation,
+						CoreState:  *recordedProposal.CoreState,
+					}, *recordedProposal.Log),
+					PreconfChainReorged: true,
+				})
+			}
+			return
+		}
+	}
+
+	log.Error("Could not find valid proposal after reorg", "searchedUpTo", latestSeenProposalID)
 }
 
 // recordLatestSeenProposal records the latest seen proposal.
@@ -1130,7 +1177,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 	defer s.mutex.Unlock()
 
 	log.Info(
-		"Received latest batch seen in event",
+		"Received latest proposal seen in event",
 		"batchID", proposal.Pacaya().GetBatchID(),
 		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
 	)
