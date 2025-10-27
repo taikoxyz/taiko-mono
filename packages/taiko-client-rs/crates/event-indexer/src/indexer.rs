@@ -182,8 +182,8 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached)
-                        && !self.historical_indexing_done.swap(true, Ordering::SeqCst)
+                    if matches!(status, ScannerStatus::ChainTipReached) &&
+                        !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
                     }
@@ -497,10 +497,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
         Some(ShastaProposeInput {
             core_state: last_proposal.core_state,
             proposals,
-            transition_records: transitions
-                .iter()
-                .map(|t| t.transition_record.clone())
-                .collect(),
+            transition_records: transitions.iter().map(|t| t.transition_record.clone()).collect(),
             checkpoint,
         })
     }
