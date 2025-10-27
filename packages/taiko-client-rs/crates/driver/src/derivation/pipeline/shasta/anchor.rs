@@ -111,6 +111,8 @@ where
             )
             .await
             .or_else(|err| {
+                // If the nonce cannot be found, which means the account has never been used before,
+                // return zero nonce.
                 if err.to_string().contains("not found") {
                     Ok(U256::ZERO)
                 } else {
