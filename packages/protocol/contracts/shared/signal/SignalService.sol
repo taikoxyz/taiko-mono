@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../common/EssentialContractStorage.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
@@ -10,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is Ownable2Step, ISignalService {
+contract SignalService is EssentialContractStorage, Ownable2Step, ISignalService {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -38,10 +39,10 @@ contract SignalService is Ownable2Step, ISignalService {
     // Pre shasta storage variables
     // ---------------------------------------------------------------
 
-    /// @dev Deprecated slots used by the old SignalService. This includes the slots from `EssentialContract` and:
-    // - `topBlockId`
-    // - `authorized`
-    uint256[253] private _slotsUsedByPacaya;
+    /// @dev Deprecated slots used by the old SignalService. For a full storage layout please refer to:
+    /// [the layout table](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/layout/layer1-contracts.md#signalservice)
+    /// Slots previously occupied by `EssentialContract` are inherited via `EssentialContractStorage`.
+    uint256[2] private _slotsUsedByPacaya;
 
     /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
