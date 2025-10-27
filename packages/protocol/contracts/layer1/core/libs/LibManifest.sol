@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @title LibManifest
+/// @notice This library defines constants and structures for deriving Taiko blocks from manifest data.
+/// @dev It is not utilized directly by the core protocol and thus will not be deployed on L1.
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
     // ---------------------------------------------------------------
