@@ -44,6 +44,10 @@ In essence, the size of the contest bond should mirror the risk and certainty le
 
 Consider Alice proves a transition with a $10,000 bond, and Bob contests it with a bond of $20,000. Now, Cindy can prove this transition with a validity bond of $5,000.
 
+### Bond Distribution Formula
+
+When a contest is resolved, the protocol distributes funds according to a specific formula to prevent collusion and ensure economic security. The losing party's bond is split: **75% is burned** (permanently removed from circulation) and **25% is distributed** among the winning parties as rewards.
+
 **If Cindy's proof upholds Alice:**
 
 - Alice receives $15,000 (= $10,000 + $20,000/4);
