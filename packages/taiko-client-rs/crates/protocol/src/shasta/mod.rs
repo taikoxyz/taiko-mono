@@ -6,4 +6,4 @@ pub mod error;
 pub mod manifest;
 
 pub use blob_coder::BlobCoder;
-pub use error::{ProtocolError, Result};
+pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};

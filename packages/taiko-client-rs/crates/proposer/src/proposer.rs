@@ -9,12 +9,11 @@ use alethia_reth_consensus::{
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
 };
-use alloy_hardforks::ForkCondition;
 use alloy_network::TransactionBuilder;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{
-    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_condition_for_chain,
+    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_height_for_chain,
 };
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
@@ -82,15 +81,8 @@ impl Proposer {
 
         // Fetch the Shasta fork height for the connected chain.
         let chain_id = rpc_provider.l2_provider.get_chain_id().await?;
-        let shasta_fork_height = match shasta_fork_condition_for_chain(chain_id) {
-            Some(ForkCondition::Block(height)) => height,
-            Some(ForkCondition::Never) |
-            Some(ForkCondition::Timestamp(_)) |
-            Some(ForkCondition::TTD { .. }) => {
-                return Err(ProposerError::UnsupportedShastaForkCondition);
-            }
-            None => return Err(ProposerError::UnsupportedChainId(chain_id)),
-        };
+        let shasta_fork_height = shasta_fork_height_for_chain(chain_id)
+            .map_err(|err| ProposerError::Other(err.into()))?;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
         let transaction_builder = ShastaProposalTransactionBuilder::new(

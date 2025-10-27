@@ -1,5 +1,6 @@
 //! Shasta protocol constants and limits.
 
+use crate::shasta::error::{ForkConfigResult, ShastaForkConfigError};
 use alloy_eips::eip4844::{FIELD_ELEMENTS_PER_BLOB, USABLE_BITS_PER_FIELD_ELEMENT};
 use alloy_hardforks::ForkCondition;
 
@@ -67,5 +68,16 @@ pub const fn shasta_fork_block_for_chain(chain_id: u64) -> Option<u64> {
     match shasta_fork_condition_for_chain(chain_id) {
         Some(ForkCondition::Block(height)) => Some(height),
         _ => None,
+    }
+}
+
+/// Returns the Shasta fork activation height for a Taiko chain.
+pub fn shasta_fork_height_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
+    let condition = shasta_fork_condition_for_chain(chain_id)
+        .ok_or(ShastaForkConfigError::UnsupportedChainId(chain_id))?;
+
+    match condition {
+        ForkCondition::Block(height) => Ok(height),
+        _ => Err(ShastaForkConfigError::UnsupportedActivation),
     }
 }

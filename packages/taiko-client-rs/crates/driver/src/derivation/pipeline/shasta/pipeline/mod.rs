@@ -8,7 +8,6 @@ use alloy::{
     sol_types::SolEvent,
 };
 use alloy_consensus::TxEnvelope;
-use alloy_hardforks::ForkCondition;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use async_trait::async_trait;
 use bindings::{
@@ -17,7 +16,7 @@ use bindings::{
 };
 use event_indexer::indexer::ShastaEventIndexer;
 use protocol::shasta::{
-    constants::shasta_fork_condition_for_chain,
+    constants::shasta_fork_height_for_chain,
     manifest::{DerivationSourceManifest, ProposalManifest},
 };
 use rpc::{blob::BlobDataSource, client::Client, error::RpcClientError};
@@ -92,15 +91,8 @@ where
             .get_chain_id()
             .await
             .map_err(|err| DerivationError::Rpc(RpcClientError::Provider(err.to_string())))?;
-        let shasta_fork_height = match shasta_fork_condition_for_chain(chain_id) {
-            Some(ForkCondition::Block(height)) => height,
-            Some(ForkCondition::Never) |
-            Some(ForkCondition::Timestamp(_)) |
-            Some(ForkCondition::TTD { .. }) => {
-                return Err(DerivationError::UnsupportedShastaForkCondition);
-            }
-            None => return Err(DerivationError::UnsupportedChainId(chain_id)),
-        };
+        let shasta_fork_height = shasta_fork_height_for_chain(chain_id)
+            .map_err(|err| DerivationError::Other(err.into()))?;
 
         Ok(Self {
             rpc,
