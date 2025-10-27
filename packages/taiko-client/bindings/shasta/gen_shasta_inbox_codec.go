@@ -29,6 +29,13 @@ var (
 	_ = abi.ConvertType
 )
 
+// ICheckpointStoreCheckpoint is an auto generated low-level Go binding around an user-defined struct.
+type ICheckpointStoreCheckpoint struct {
+	BlockNumber *big.Int
+	BlockHash   [32]byte
+	StateRoot   [32]byte
+}
+
 // IInboxCoreState is an auto generated low-level Go binding around an user-defined struct.
 type IInboxCoreState struct {
 	NextProposalId              *big.Int

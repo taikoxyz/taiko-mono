@@ -78,10 +78,10 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	)
 }
 
-// AssembleUpdateStateTx assembles a signed ShastaAnchor.updateState transaction.
-func (c *AnchorTxConstructor) AssembleUpdateStateTx(
+// AssembleAnchorV4Tx assembles a signed ShastaAnchor.anchorV4 transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	ctx context.Context,
-	// Parameters of the ShastaAnchor.updateState transaction.
+	// Parameters of the ShastaAnchor.anchorV4 transaction.
 	parent *types.Header,
 	proposalId *big.Int,
 	proposer common.Address,
@@ -93,7 +93,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
 	endOfSubmissionWindowTimestamp *big.Int,
-	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
+	// Height of the L2 block which including the ShastaAnchor.anchorV4 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
@@ -103,7 +103,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	}
 
 	log.Info(
-		"UpdateState arguments",
+		"AnchorV4 arguments",
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockNumber,
 		"anchorStateRoot", anchorStateRoot,
@@ -117,18 +117,21 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"blockIndex", blockIndex,
 	)
 
-	return c.rpc.ShastaClients.Anchor.UpdateState(
+	return c.rpc.ShastaClients.Anchor.AnchorV4(
 		opts,
-		proposalId,
-		proposer,
-		proverAuth,
-		bondInstructionsHash,
-		bondInstructions,
-		blockIndex,
-		anchorBlockNumber,
-		anchorBlockHash,
-		anchorStateRoot,
-		endOfSubmissionWindowTimestamp,
+		shastaBindings.AnchorProposalParams{
+			ProposalId:           proposalId,
+			Proposer:             proposer,
+			ProverAuth:           proverAuth,
+			BondInstructionsHash: bondInstructionsHash,
+			BondInstructions:     bondInstructions,
+		},
+		shastaBindings.AnchorBlockParams{
+			BlockIndex:        blockIndex,
+			AnchorBlockNumber: anchorBlockNumber,
+			AnchorBlockHash:   anchorBlockHash,
+			AnchorStateRoot:   anchorStateRoot,
+		},
 	)
 }
 
@@ -161,7 +164,7 @@ func (c *AnchorTxConstructor) transactOpts(
 	// After the verified block ID has exceeded the Pacaya fork height, we can change this value.
 	gasLimit := consensus.AnchorV3GasLimit
 	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Shasta {
-		gasLimit = consensus.UpdateStateGasLimit
+		gasLimit = consensus.AnchorV4GasLimit
 	}
 
 	return &bind.TransactOpts{
@@ -197,7 +200,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction using K = 1 and K = 2")
 		}
 	}
 

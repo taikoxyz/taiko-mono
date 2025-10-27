@@ -33,3 +33,7 @@ url = { workspace = true }
 
 # serialization
 serde_json = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+test-harness = { path = "../test-harness" }
