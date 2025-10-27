@@ -154,6 +154,7 @@ func (ds *BlobDataSource) getBlobFromMServer(ctx context.Context, blobHashes []c
 		); err != nil {
 			return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
 		}
+
 		blobDataSeq = append(blobDataSeq, &BlobData{
 			BlobHash:      blobResp.VersionedHash,
 			KzgCommitment: blobResp.Commitment,
