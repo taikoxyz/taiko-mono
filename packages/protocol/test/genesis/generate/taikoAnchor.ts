@@ -38,6 +38,7 @@ export async function deployTaikoAnchor(
 
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
+
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
@@ -50,6 +51,7 @@ export async function deployTaikoAnchor(
         config.minBond,
         config.bondToken,
         config.pacayaTaikoAnchor,
+        config.remoteSignalService,
     );
 
     const storageLayouts: any = {};
@@ -82,10 +84,8 @@ export async function deployTaikoAnchor(
             ? "DefaultResolver"
             : storageLayoutName;
 
-        // TaikoAnchor is the ForkRouter proxy
-        if (storageLayoutName === "TaikoAnchor") {
-            storageLayoutName = "AnchorForkRouter";
-        }
+        storageLayoutName =
+            storageLayoutName === "TaikoAnchor" ? "Anchor" : storageLayoutName;
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -105,6 +105,20 @@ export async function deployTaikoAnchor(
                 contractConfigs[contractName].slots,
             )) {
                 alloc[contractConfig.address].storage[slot] = val;
+            }
+        }
+
+        if (contractName === "TaikoAnchor") {
+            const routerLayout = await getStorageLayout("AnchorForkRouter");
+            const routerSlots = computeStorageSlots(routerLayout, {
+                _initialized: 1,
+                _initializing: false,
+                _owner: contractOwner,
+                _pendingOwner: ethers.constants.AddressZero,
+            });
+
+            for (const slot of routerSlots) {
+                alloc[contractConfig.address].storage[slot.key] = slot.val;
             }
         }
     }
@@ -132,6 +146,7 @@ async function generateContractConfigs(
     minBond: number,
     bondToken: string,
     pacayaTaikoAnchor: string,
+    remoteSignalService: string,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -210,7 +225,7 @@ async function generateContractConfigs(
     contractArtifacts.SignalService = proxy;
     contractArtifacts.SharedResolver = proxy;
     // Rollup Contracts
-    contractArtifacts.TaikoAnchor = contractArtifacts.AnchorForkRouterImpl;
+    contractArtifacts.TaikoAnchor = proxy;
     contractArtifacts.RollupResolver = proxy;
     contractArtifacts.BondManager = proxy;
 
@@ -224,16 +239,6 @@ async function generateContractConfigs(
         "UUPSUpgradeable",
         ["__self"],
     );
-    // const sharedEssentialContractReferencesMap: any = getImmutableReference(
-    //     "EssentialContract",
-    //     ["__resolver"],
-    //     SHARED_ARTIFACTS_PATH,
-    // );
-    // const sharedUUPSImmutableReferencesMap: any = getImmutableReference(
-    //     "UUPSUpgradeable",
-    //     ["__self"],
-    //     SHARED_ARTIFACTS_PATH,
-    // );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
         getImmutableReference("Anchor", [
@@ -636,7 +641,7 @@ async function generateContractConfigs(
                     {
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(
-                            addressMap.SignalService,
+                            remoteSignalService,
                             32,
                         ),
                     },
@@ -748,7 +753,10 @@ async function generateContractConfigs(
                     },
                     {
                         id: anchorForkRouterReferencesMap.oldFork.id,
-                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
+                        value: ethers.utils.hexZeroPad(
+                            pacayaTaikoAnchor,
+                            32,
+                        ),
                     },
                     {
                         id: anchorForkRouterReferencesMap.newFork.id,
@@ -763,7 +771,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
             },
         },
-        Anchor: {
+        TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
@@ -809,41 +817,24 @@ async function generateContractConfigs(
             ),
             variables: {
                 _owner: contractOwner,
-                _status: 1,
+            },
+        },
+        TaikoAnchor: {
+            address: addressMap.TaikoAnchor,
+            deployedBytecode:
+                contractArtifacts.TaikoAnchor.deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
+                // TaikoAnchor - _blockState will be initialized by first anchor call
                 _blockState: {
                     anchorBlockNumber: 0,
                     ancestorsHash: ethers.constants.HashZero,
                 },
             },
-        },
-        TaikoAnchor: {
-            address: addressMap.TaikoAnchor,
-            deployedBytecode: replaceImmutableValues(
-                contractArtifacts.AnchorForkRouterImpl,
-                [
-                    {
-                        id: uupsImmutableReferencesMap.__self.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchor,
-                            32,
-                        ),
-                    },
-                    {
-                        id: anchorForkRouterReferencesMap.oldFork.id,
-                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
-                    },
-                    {
-                        id: anchorForkRouterReferencesMap.newFork.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchorImpl,
-                            32,
-                        ),
-                    },
-                ],
-            ).deployedBytecode.object,
-            variables: {
-                _owner: contractOwner,
+            slots: {
+                [IMPLEMENTATION_SLOT]: addressMap.AnchorForkRouterImpl,
             },
+            isProxy: true,
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
