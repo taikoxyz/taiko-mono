@@ -12,9 +12,8 @@ use alloy_provider::{
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    codec_optimized::CodecOptimized::CodecOptimizedInstance,
+    anchor::Anchor::AnchorInstance, codec_optimized::CodecOptimized::CodecOptimizedInstance,
     i_inbox::IInbox::IInboxInstance,
-    taiko_anchor::{ShastaAnchor::State, TaikoAnchor::TaikoAnchorInstance},
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -35,7 +34,15 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
     pub inbox: IInboxInstance<P>,
     pub codec: CodecOptimizedInstance<P>,
-    pub anchor: TaikoAnchorInstance<RootProvider>,
+    pub anchor: AnchorInstance<RootProvider>,
+}
+
+/// Snapshot of anchor contract state at a given L2 block.
+#[derive(Clone, Debug)]
+pub struct AnchorState {
+    pub bond_instructions_hash: B256,
+    pub designated_prover: Address,
+    pub anchor_block_number: u64,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
@@ -88,7 +95,7 @@ impl<P: Provider + Clone> Client<P> {
         let inbox = IInboxInstance::new(config.inbox_address, l1_provider.clone());
         let codec =
             CodecOptimizedInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
-        let anchor = TaikoAnchorInstance::new(
+        let anchor = AnchorInstance::new(
             get_treasury_address(l2_provider.get_chain_id().await?),
             l2_auth_provider.clone(),
         );
@@ -115,14 +122,19 @@ impl<P: Provider + Clone> Client<P> {
     }
 
     /// Fetch the Shasta anchor state for the given parent block hash.
-    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<State> {
-        self.shasta
-            .anchor
-            .getState()
-            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
-            .call()
-            .await
-            .map_err(Into::into)
+    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
+        let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
+
+        let proposal_state = self.shasta.anchor.getProposalState().block(block_id).call().await?;
+        let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
+
+        Ok(AnchorState {
+            bond_instructions_hash: B256::from_slice(
+                proposal_state.bondInstructionsHash.as_slice(),
+            ),
+            designated_prover: Address::from_slice(proposal_state.designatedProver.as_slice()),
+            anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
+        })
     }
 }
 

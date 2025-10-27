@@ -6,7 +6,7 @@ interface IInbox {
     struct Config {
         address codec;
         address bondToken;
-        address signalService;
+        address checkpointStore;
         address proofVerifier;
         address proposerChecker;
         uint48 provingWindow;
@@ -60,7 +60,7 @@ interface IInbox {
             "internalType": "address"
           },
           {
-            "name": "signalService",
+            "name": "checkpointStore",
             "type": "address",
             "internalType": "address"
           },
@@ -296,7 +296,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address bondToken; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
+struct Config { address codec; address bondToken; address checkpointStore; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -306,7 +306,7 @@ struct Config { address codec; address bondToken; address signalService; address
         #[allow(missing_docs)]
         pub bondToken: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub signalService: alloy::sol_types::private::Address,
+        pub checkpointStore: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub proofVerifier: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -402,7 +402,7 @@ struct Config { address codec; address bondToken; address signalService; address
                 (
                     value.codec,
                     value.bondToken,
-                    value.signalService,
+                    value.checkpointStore,
                     value.proofVerifier,
                     value.proposerChecker,
                     value.provingWindow,
@@ -427,7 +427,7 @@ struct Config { address codec; address bondToken; address signalService; address
                 Self {
                     codec: tuple.0,
                     bondToken: tuple.1,
-                    signalService: tuple.2,
+                    checkpointStore: tuple.2,
                     proofVerifier: tuple.3,
                     proposerChecker: tuple.4,
                     provingWindow: tuple.5,
@@ -461,7 +461,7 @@ struct Config { address codec; address bondToken; address signalService; address
                         &self.bondToken,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.signalService,
+                        &self.checkpointStore,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proofVerifier,
@@ -589,7 +589,7 @@ struct Config { address codec; address bondToken; address signalService; address
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address bondToken,address signalService,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
+                    "Config(address codec,address bondToken,address checkpointStore,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
                 )
             }
             #[inline]
@@ -614,7 +614,7 @@ struct Config { address codec; address bondToken; address signalService; address
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.signalService,
+                            &self.checkpointStore,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
@@ -711,7 +711,7 @@ struct Config { address codec; address bondToken; address signalService; address
                         &rust.bondToken,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.signalService,
+                        &rust.checkpointStore,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.proofVerifier,
@@ -797,7 +797,7 @@ struct Config { address codec; address bondToken; address signalService; address
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.signalService,
+                    &rust.checkpointStore,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(

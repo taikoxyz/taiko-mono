@@ -94,6 +94,7 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
+      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       AnchorForkRouterImpl: getConstantAddress(`0${this.chainId}`, 10004),
@@ -120,6 +121,7 @@ module.exports = {
   withdrawalDelay: 3600,
   minBond: 0,
   bondToken: "0x0000000000000000000000000000000000000000",
+  remoteSignalService: "0x0000000000000000000000000000000000000000",
   pacayaTaikoAnchor: "0x0000000000000000000000000000000000000000",
 };
 
