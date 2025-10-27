@@ -182,8 +182,8 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) &&
-                        !self.historical_indexing_done.swap(true, Ordering::SeqCst)
+                    if matches!(status, ScannerStatus::ChainTipReached)
+                        && !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
                     }
@@ -282,7 +282,7 @@ impl ShastaEventIndexer {
         let payload = ProvedEventPayload {
             proposal_id,
             transition,
-            transition_record: transitionRecord.into(),
+            transition_record: transitionRecord,
             metadata,
             log: log.clone(),
         };
@@ -499,7 +499,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
             proposals,
             transition_records: transitions
                 .iter()
-                .map(|t| t.transition_record.clone().into())
+                .map(|t| t.transition_record.clone())
                 .collect(),
             checkpoint,
         })
@@ -527,7 +527,7 @@ mod tests {
                 CoreState, Derivation, Proposal as CodecProposal,
                 ProposedEventPayload as CodecProposedEventPayload,
                 ProvedEventPayload as CodecProvedEventPayload, Transition, TransitionMetadata,
-                TransitionRecord as CodecTransitionRecord,
+                TransitionRecord,
             },
         },
         i_inbox::IInbox::IInboxInstance,
@@ -655,7 +655,7 @@ mod tests {
                 parentTransitionHash: B256::from([2u8; 32]).into(),
                 checkpoint,
             },
-            transitionRecord: CodecTransitionRecord {
+            transitionRecord: TransitionRecord {
                 span: 0,
                 bondInstructions: Vec::new(),
                 transitionHash: B256::from([3u8; 32]).into(),
