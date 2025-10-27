@@ -32,11 +32,9 @@ contract UpgradeHekla is DeployCapability {
         address preconfRouter = 0xce04A91Db63aDBe26c83c761f99933CE5f09cf6C;
         address preconfWhitelist = 0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84;
 
-        UUPSUpgradeable(taikoWrapper).upgradeTo(
-            address(new TaikoWrapper(taikoInbox, store, preconfRouter))
-        );
+        UUPSUpgradeable(taikoWrapper).upgradeTo(address(new TaikoWrapper(taikoInbox, store, preconfRouter)));
         UUPSUpgradeable(preconfRouter).upgradeTo(
-            address(new PreconfRouter(taikoWrapper, preconfWhitelist, fallbackPreconfProposer))
+        address(new PreconfRouter(taikoWrapper, preconfWhitelist, fallbackPreconfProposer))
         );
         UUPSUpgradeable(preconfWhitelist).upgradeTo(address(new PreconfWhitelist()));
 

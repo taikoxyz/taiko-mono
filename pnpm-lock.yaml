@@ -441,14 +441,14 @@ importers:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
         version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
       risc0-ethereum:
-        specifier: github:risc0/risc0-ethereum#v3.0.0
-        version: risc0-ethereum#v3.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#32aa0b6f23ddd02dd93fc71717667606e5c7db86
+        specifier: github:risc0/risc0-ethereum#v2.2.2
+        version: risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c
       solady:
         specifier: github:Vectorized/solady#v0.0.231
         version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
-        specifier: github:succinctlabs/sp1-contracts#v5.0.0
-        version: sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306
+        specifier: github:succinctlabs/sp1-contracts#v4.0.0
+        version: sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -10594,8 +10594,8 @@ packages:
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
-  risc0-ethereum#v3.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#32aa0b6f23ddd02dd93fc71717667606e5c7db86:
-    resolution: {commit: 32aa0b6f23ddd02dd93fc71717667606e5c7db86, repo: git@github.com:risc0/risc0-ethereum.git, type: git}
+  risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c:
+    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c}
     version: 0.0.0
 
   rlp@2.2.7:
@@ -10925,8 +10925,8 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306}
+  sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6:
+    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -27222,7 +27222,7 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
 
-  risc0-ethereum#v3.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#32aa0b6f23ddd02dd93fc71717667606e5c7db86: {}
+  risc0-ethereum#v2.2.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/15db3fe560f6174839d676a9b5e732a81131347c: {}
 
   rlp@2.2.7:
     dependencies:
@@ -27684,7 +27684,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306: {}
+  sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6: {}
 
   space-separated-tokens@2.0.2: {}
 

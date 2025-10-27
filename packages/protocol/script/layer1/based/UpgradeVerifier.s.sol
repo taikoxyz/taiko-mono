@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "test/shared/DeployCapability.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 
 contract UpgradeVerifier is DeployCapability {
@@ -22,9 +22,9 @@ contract UpgradeVerifier is DeployCapability {
     }
 
     function run() external broadcast {
-        address sp1RemoteVerifier = address(new SuccinctVerifier());
-        address sp1VerifierImpl = address(new SP1Verifier(taikoChainId, sp1RemoteVerifier));
-        UUPSUpgradeable(sp1Verifier).upgradeTo(sp1VerifierImpl);
+        // address sp1RemoteVerifier = address(new SuccinctVerifier());
+        // address sp1VerifierImpl = address(new TaikoSP1Verifier(taikoChainId, sp1RemoteVerifier));
+        // UUPSUpgradeable(sp1Verifier).upgradeTo(sp1VerifierImpl);
 
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier r0Groth16verifier =
