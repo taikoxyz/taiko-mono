@@ -151,6 +151,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.rpc,
 			d.shastaIndexer,
 			latestSeenProposalCh,
+			d.PreconfTransitionTimestamp,
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
 		}

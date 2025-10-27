@@ -114,6 +114,9 @@ type PreconfBlockAPIServer struct {
 	// Shasta reconstruction helpers
 	derivationFetcher  *shastaManifest.ShastaDerivationSourceFetcher
 	txListDecompressor *txlistdecompressor.TxListDecompressor
+
+	// Transition timestamp when new commitment-based logic activates (unix seconds). 0 means disabled.
+	transitionTimestamp uint64
 }
 
 // shastaMetaFromIndexer adapts the state indexer proposal to the metadata interface.
@@ -159,6 +162,7 @@ func New(
 	cli *rpc.Client,
 	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
+	transitionTimestamp uint64,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(
 		taikoAnchorAddress,
@@ -222,6 +226,7 @@ func New(
 		txlist:                        make(map[common.Hash][]byte),
 		derivationFetcher:             shastaManifest.NewDerivationSourceFetcher(cli, rpc.NewBlobDataSource(context.Background(), cli, nil)),
 		txListDecompressor:            txlistdecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes),
+		transitionTimestamp:           transitionTimestamp,
 	}
 
 	server.echo.HideBanner = true
@@ -244,6 +249,16 @@ func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
 }
 
+// preconfTransitionActive returns true if the current time has reached or passed
+// the configured transition timestamp, and the timestamp is non-zero.
+func (s *PreconfBlockAPIServer) preconfTransitionActive() bool {
+	if s.transitionTimestamp == 0 {
+		return false
+	}
+	now := uint64(time.Now().Unix())
+	return now >= s.transitionTimestamp
+}
+
 // OnUnsafePreconfirmationCommitment handles preconfirmation commitments gossiped over P2P.
 // It validates the slasher address and defers block reconstruction to the driver/engine.
 func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
@@ -251,6 +266,10 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 	from peer.ID,
 	sc *p2p.SignedCommitment,
 ) error {
+	if !s.preconfTransitionActive() {
+		log.Debug("Ignoring preconfirmation commitment before transition", "peer", from)
+		return nil
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -487,6 +506,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
+	s.echo.POST("/preconfBlocksV2", s.BuildPreconfBlockV2)
 
 	// WebSocket routes
 	s.echo.GET("/ws", s.ws.handleWebSocket)
@@ -498,7 +518,102 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
-	log.Debug("Ignoring L2Payload gossip: block gossip disabled")
+	if s.preconfTransitionActive() {
+		log.Debug("Ignoring L2Payload gossip post-transition")
+		return nil
+	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
+	}()
+
+	// Ignore the message if it is from the current P2P node, when `from` is empty,
+	// it means the message is for importing the pending blocks from the cache after
+	// a new L2 EE chain has just finished a beacon-sync.
+	if from != "" && s.p2pNode.Host().ID() == from {
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	if msg == nil || msg.ExecutionPayload == nil {
+		log.Warn("Empty preconfirmation block payload", "peer", from)
+		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
+		return nil
+	}
+
+	var signature [65]byte
+	if msg.Signature != nil {
+		signature = *msg.Signature
+	}
+
+	log.Info(
+		"📢 New preconfirmation block payload from P2P network",
+		"peer", from,
+		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+		"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
+		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
+		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
+		"endOfSequencing", msg.EndOfSequencing != nil && *msg.EndOfSequencing,
+		"isForcedInclusion", msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		"signature", common.Bytes2Hex(signature[:]),
+	)
+	metrics.DriverPreconfEnvelopeCounter.Inc()
+
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
+		)
+		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
+		return nil
+	}
+
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+	if err != nil {
+		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
+	}
+
+	if progress.IsSyncing() {
+		s.tryPutEnvelopeIntoCache(msg, from)
+		return nil
+	}
+
+	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
+	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
+	if err != nil {
+		return fmt.Errorf("failed to check message block number: %w", err)
+	}
+
+	// Try to import the payload into the L2 EE chain, if can't, cache it.
+	quit, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
+	if err != nil {
+		return fmt.Errorf("failed to try importing payload: %w", err)
+	}
+	if quit {
+		return nil
+	}
+
+	s.tryPutEnvelopeIntoCache(msg, from)
+
+	// If the envelope is an end of sequencing message, we need to notify the clients.
+	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
+		s.sequencingEndedForEpochCache.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
+		s.ws.pushEndOfSequencingNotification(s.rpc.L1Beacon.CurrentEpoch())
+	}
+
 	return nil
 }
 
@@ -508,6 +623,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
+	if s.preconfTransitionActive() {
+		log.Debug("Ignoring L2Response gossip post-transition")
+		return nil
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -517,10 +636,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(float64(elapsedMs) / 1_000)
 		log.Debug("OnUnsafeL2Response completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
-
-	// Block gossip disabled: ignore all block responses
-	log.Debug("Ignoring L2Response: block gossip disabled")
-	return nil
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -608,6 +723,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	from peer.ID,
 	hash common.Hash,
 ) error {
+	if s.preconfTransitionActive() {
+		log.Debug("Ignoring L2Request post-transition", "peer", from, "hash", hash.Hex())
+		return nil
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -618,8 +737,73 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		log.Debug("OnUnsafeL2Request completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
-	// Block gossip disabled: ignore block requests entirely
-	log.Debug("Ignoring L2Request: block gossip disabled", "peer", from, "hash", hash.Hex())
+	// Ignore the message if it is from the current P2P node.
+	if from != "" && s.p2pNode.Host().ID() == from {
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	log.Info("🔊 New preconfirmation block request from P2P network", "peer", from, "hash", hash.Hex())
+
+	metrics.DriverPreconfOnL2UnsafeRequestCounter.Inc()
+
+	// Fetch the block from L2 EE and gossip it out.
+	block, err := s.rpc.L2.BlockByHash(ctx, hash)
+	if err != nil {
+		log.Debug(
+			"Failed to fetch preconfirmation request block by hash",
+			"peer", from,
+			"hash", hash.Hex(),
+			"error", err,
+		)
+		return nil
+	}
+	l1Origin, err := s.rpc.L2.L1OriginByID(ctx, block.Number())
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		log.Debug(
+			"Failed to fetch L1 origin for the block",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+			"error", err,
+		)
+		return nil
+	}
+
+	sig := l1Origin.Signature
+	endOfSequencing := false
+	for epoch := range s.sequencingEndedForEpochCache.Keys() {
+		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
+			endOfSequencing = true
+			break
+		}
+	}
+
+	envelope, err := blockToEnvelope(block, &endOfSequencing, &l1Origin.IsForcedInclusion, &sig)
+	if err != nil {
+		return fmt.Errorf("failed to convert block to envelope: %w", err)
+	}
+
+	log.Info(
+		"Publish preconfirmation block response",
+		"blockID", block.NumberU64(),
+		"hash", hash.Hex(),
+		"signature", common.Bytes2Hex(sig[:]),
+	)
+
+	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
+		log.Warn(
+			"Failed to publish preconfirmation block response",
+			"hash", hash.Hex(),
+			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			"error", err,
+		)
+	}
+
+	s.tryPutEnvelopeIntoCache(envelope, from)
+
+	s.responseSeenCache.Add(hash, time.Now().UTC())
+
 	return nil
 }
 
@@ -629,6 +813,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	from peer.ID,
 	epoch uint64,
 ) error {
+	if s.preconfTransitionActive() {
+		log.Debug("Ignoring EndOfSequencing request post-transition", "peer", from, "epoch", epoch)
+		return nil
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -753,8 +941,53 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		parentNum := uint64(currentPayload.Payload.BlockNumber - 1)
 		parentPayload := s.envelopesCache.get(parentNum, currentPayload.Payload.ParentHash)
 		if parentPayload == nil {
-			// Block gossip disabled: do not publish L2Request for missing ancestors.
-			return nil
+			// If the parent payload is not found in the cache and chain is not syncing,
+			// we may publish a request to the P2P network prior to transition; post-transition we skip.
+			if s.preconfTransitionActive() {
+				return nil
+			}
+			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
+				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+				if err != nil {
+					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
+				}
+
+				if progress.IsSyncing() {
+					log.Debug("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
+					return nil
+				}
+
+				publishRequest := func() {
+					log.Info(
+						"Publishing preconfirmation block request",
+						"blockID", parentNum,
+						"hash", currentPayload.Payload.ParentHash.Hex(),
+					)
+
+					if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.Payload.ParentHash); err != nil {
+						log.Warn(
+							"Failed to publish preconfirmation block request",
+							"blockID", parentNum,
+							"hash", currentPayload.Payload.BlockHash.Hex(),
+							"error", err,
+						)
+					} else {
+						s.blockRequestsCache.Add(currentPayload.Payload.ParentHash, struct{}{})
+					}
+				}
+
+				tip := progress.HighestOriginBlockID.Uint64()
+
+				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
+					log.Debug(
+						"Skipping request for very old block",
+						"tip", tip,
+						"margin", requestSyncMargin,
+					)
+				} else {
+					publishRequest()
+				}
+			}
 
 			return fmt.Errorf(
 				"failed to find parent payload in the cache, number %d, hash %s",
