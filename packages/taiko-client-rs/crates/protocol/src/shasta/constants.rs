@@ -10,12 +10,12 @@ use alloy_hardforks::ForkCondition;
 pub const PROPOSAL_MAX_BLOCKS: usize = 384;
 
 /// The maximum anchor block number offset from the proposal origin block number.
-/// NOTE: Should be same with `ANCHOR_MAX_OFFSET` in contracts/layer1/libs/LibManifest.sol.
-pub const ANCHOR_MAX_OFFSET: u64 = 128;
+/// NOTE: Should be same with `MAX_ANCHOR_OFFSET` in contracts/layer1/libs/LibManifest.sol.
+pub const MAX_ANCHOR_OFFSET: u64 = 128;
 
 /// The minimum anchor block number offset from the proposal origin block number.
-/// NOTE: Should be same with `ANCHOR_MIN_OFFSET` in contracts/layer1/libs/LibManifest.sol.
-pub const ANCHOR_MIN_OFFSET: u64 = 2;
+/// NOTE: Should be same with `MIN_ANCHOR_OFFSET` in contracts/layer1/libs/LibManifest.sol.
+pub const MIN_ANCHOR_OFFSET: u64 = 2;
 
 /// The maximum timestamp offset from the proposal origin timestamp.
 /// NOTE: Should be same with `TIMESTAMP_MAX_OFFSET` in
