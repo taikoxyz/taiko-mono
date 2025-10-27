@@ -186,11 +186,14 @@ where
         let state = ParentState {
             parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
             header: parent_header,
-            bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
-            anchor_block_number: anchor_state.anchorBlockNumber.to::<u64>(),
+            bond_instructions_hash: anchor_state.bond_instructions_hash,
+            anchor_block_number: anchor_state.anchor_block_number,
         };
 
-        Ok((state, self.rpc.shasta.anchor.shastaForkHeight().call().await?))
+        // TODO: retrieve the fork height from protocol configuration once exposed by bindings.
+        let shasta_fork_height = 0u64;
+
+        Ok((state, shasta_fork_height))
     }
 }
 
@@ -247,10 +250,6 @@ where
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
                 bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
                 prover_auth_bytes,
-                end_of_submission_window_timestamp: payload
-                    .proposal
-                    .endOfSubmissionWindowTimestamp
-                    .to::<u64>(),
             },
             sources: manifest_segments,
         };

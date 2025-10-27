@@ -41,7 +41,7 @@ use crate::{
 };
 
 /// The payload body of a Shasta protocol Proposed event.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProposedEventPayload {
     /// Proposal metadata emitted by the inbox contract.
     pub proposal: Proposal,
@@ -54,7 +54,7 @@ pub struct ProposedEventPayload {
 }
 
 /// The payload body of a Shasta protocol Proved event.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProvedEventPayload {
     /// Proposal that the proof proves.
     pub proposal_id: U256,
@@ -79,7 +79,6 @@ pub struct ShastaEventIndexerConfig {
 
 /// Maintains live caches of Shasta inbox activity and providing higher-level inputs
 /// for downstream components such as the proposer.
-#[derive(Debug)]
 pub struct ShastaEventIndexer {
     /// Configuration for the indexer instance.
     config: ShastaEventIndexerConfig,
@@ -183,8 +182,8 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) &&
-                        !self.historical_indexing_done.swap(true, Ordering::SeqCst)
+                    if matches!(status, ScannerStatus::ChainTipReached)
+                        && !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
                     }
@@ -283,7 +282,7 @@ impl ShastaEventIndexer {
         let payload = ProvedEventPayload {
             proposal_id,
             transition,
-            transition_record: transitionRecord,
+            transition_record: transitionRecord.into(),
             metadata,
             log: log.clone(),
         };
@@ -498,7 +497,10 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
         Some(ShastaProposeInput {
             core_state: last_proposal.core_state,
             proposals,
-            transition_records: transitions.iter().map(|t| t.transition_record.clone()).collect(),
+            transition_records: transitions
+                .iter()
+                .map(|t| t.transition_record.clone().into())
+                .collect(),
             checkpoint,
         })
     }
@@ -525,7 +527,7 @@ mod tests {
                 CoreState, Derivation, Proposal as CodecProposal,
                 ProposedEventPayload as CodecProposedEventPayload,
                 ProvedEventPayload as CodecProvedEventPayload, Transition, TransitionMetadata,
-                TransitionRecord,
+                TransitionRecord as CodecTransitionRecord,
             },
         },
         i_inbox::IInbox::IInboxInstance,
@@ -653,7 +655,7 @@ mod tests {
                 parentTransitionHash: B256::from([2u8; 32]).into(),
                 checkpoint,
             },
-            transitionRecord: TransitionRecord {
+            transitionRecord: CodecTransitionRecord {
                 span: 0,
                 bondInstructions: Vec::new(),
                 transitionHash: B256::from([3u8; 32]).into(),

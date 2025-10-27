@@ -206,16 +206,17 @@ impl Proposer {
 
         // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
         // fee.
-        if parent.number() + 1 <
-            self.rpc_provider.shasta.anchor.shastaForkHeight().call().await? +
-                SHASTA_INITIAL_BASE_FEE_BLOCKS
+        if parent.number() + 1
+            < self.rpc_provider.shasta.anchor.shastaForkHeight().call().await?
+                + SHASTA_INITIAL_BASE_FEE_BLOCKS
         {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
         // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
-        let parent_block_time = parent.header.timestamp -
-            self.rpc_provider
+        let parent_block_time = parent.header.timestamp
+            - self
+                .rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?
