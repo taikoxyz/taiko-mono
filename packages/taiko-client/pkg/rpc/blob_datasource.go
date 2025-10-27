@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 
@@ -11,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
 type BlobDataSource struct {
@@ -79,31 +76,33 @@ func (ds *BlobDataSource) GetBlobs(
 		sidecars []*structs.Sidecar
 		err      error
 	)
-	if ds.client.L1Beacon == nil {
-		sidecars, err = nil, pkg.ErrBeaconNotFound
-	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+	// if ds.client.L1Beacon == nil {
+	// 	sidecars, err = nil, pkg.ErrBeaconNotFound
+	// } else {
+	// 	sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+	// }
+	// if err != nil {
+	// if !errors.Is(err, pkg.ErrBeaconNotFound) {
+	// 	log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
+	// }
+
+	if ds.blobServerEndpoint == nil {
+		log.Info("No blob server endpoint set")
+		return nil, err
 	}
+	blobs, err := ds.getBlobFromServer(ctx, blobHashes)
 	if err != nil {
-		if !errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
-		}
-		if ds.blobServerEndpoint == nil {
-			log.Info("No blob server endpoint set")
-			return nil, err
-		}
-		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
-		if err != nil {
-			return nil, err
-		}
-		sidecars = make([]*structs.Sidecar, len(blobs.Data))
-		for index, value := range blobs.Data {
-			sidecars[index] = &structs.Sidecar{
-				KzgCommitment: value.KzgCommitment,
-				Blob:          value.Blob,
-			}
+		return nil, err
+	}
+	sidecars = make([]*structs.Sidecar, len(blobs.Data))
+	for index, value := range blobs.Data {
+		sidecars[index] = &structs.Sidecar{
+			KzgCommitment: value.KzgCommitment,
+			Blob:          value.Blob,
 		}
 	}
+	// }
+
 	return sidecars, nil
 }
 
