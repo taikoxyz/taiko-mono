@@ -3,16 +3,15 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
 type BlobDataSource struct {
@@ -20,6 +19,11 @@ type BlobDataSource struct {
 	client             *Client
 	blobServerEndpoint *url.URL
 }
+
+const (
+	blobFetchRetryInterval        = time.Second
+	blobFetchMaxRetries    uint64 = 5
+)
 
 type BlobData struct {
 	BlobHash      string `json:"blob_hash"`
@@ -79,62 +83,81 @@ func (ds *BlobDataSource) GetBlobs(
 		sidecars []*structs.Sidecar
 		err      error
 	)
-	if ds.client.L1Beacon == nil {
-		sidecars, err = nil, pkg.ErrBeaconNotFound
-	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+	// if ds.client.L1Beacon == nil {
+	// 	sidecars, err = nil, pkg.ErrBeaconNotFound
+	// } else {
+	// 	sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+	// }
+	// if err != nil {
+	// if !errors.Is(err, pkg.ErrBeaconNotFound) {
+	// 	log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
+	// }
+
+	if ds.blobServerEndpoint == nil {
+		log.Info("No blob server endpoint set")
+		return nil, err
 	}
+	blobs, err := ds.getBlobFromMServer(ctx, blobHashes)
 	if err != nil {
-		if !errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
-		}
-		if ds.blobServerEndpoint == nil {
-			log.Info("No blob server endpoint set")
-			return nil, err
-		}
-		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
-		if err != nil {
-			return nil, err
-		}
-		sidecars = make([]*structs.Sidecar, len(blobs.Data))
-		for index, value := range blobs.Data {
-			sidecars[index] = &structs.Sidecar{
-				KzgCommitment: value.KzgCommitment,
-				Blob:          value.Blob,
-			}
+		return nil, err
+	}
+	sidecars = make([]*structs.Sidecar, len(blobs.Data))
+	for index, value := range blobs.Data {
+		sidecars[index] = &structs.Sidecar{
+			KzgCommitment: value.KzgCommitment,
+			Blob:          value.Blob,
 		}
 	}
+	// }
+
 	return sidecars, nil
 }
 
-// getBlobFromServer get blob data from server path `/blob` or `/blobs`.
-func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
+// getBlobFromMServer gets blob data from the m-server `/blobs/{hash}` endpoint with retry semantics.
+func (ds *BlobDataSource) getBlobFromMServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
 	blobDataSeq := make([]*BlobData, 0, len(blobHashes))
+	restyClient := resty.New()
 	for _, blobHash := range blobHashes {
 		requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
 		if err != nil {
 			return nil, err
 		}
-		resp, err := resty.New().R().
-			SetResult(BlobServerResponse{}).
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Accept", "application/json").
-			Get(requestURL)
-		if err != nil {
+		var blobResp *BlobServerResponse
+		op := func() error {
+			resp, err := restyClient.R().
+				SetResult(BlobServerResponse{}).
+				SetContext(ctx).
+				SetHeader("Content-Type", "application/json").
+				SetHeader("Accept", "application/json").
+				Get(requestURL)
+			if err != nil {
+				log.Warn("Failed to get blob from m-server, retrying", "hash", blobHash.Hex(), "url", requestURL, "error", err)
+				return err
+			}
+			if !resp.IsSuccess() {
+				err := fmt.Errorf(
+					"unable to connect blobscan endpoint, status code: %v",
+					resp.StatusCode(),
+				)
+				log.Warn("Blob m-server returned non-success status", "hash", blobHash.Hex(), "url", requestURL, "status", resp.StatusCode())
+				return err
+			}
+			blobResp = resp.Result().(*BlobServerResponse)
+			return nil
+		}
+		if err := backoff.Retry(
+			op,
+			backoff.WithContext(
+				backoff.WithMaxRetries(backoff.NewConstantBackOff(blobFetchRetryInterval), blobFetchMaxRetries),
+				ctx,
+			),
+		); err != nil {
 			return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
 		}
-		if !resp.IsSuccess() {
-			return nil, fmt.Errorf(
-				"unable to connect blobscan endpoint, status code: %v",
-				resp.StatusCode(),
-			)
-		}
-		response := resp.Result().(*BlobServerResponse)
 		blobDataSeq = append(blobDataSeq, &BlobData{
-			BlobHash:      response.VersionedHash,
-			KzgCommitment: response.Commitment,
-			Blob:          response.Data,
+			BlobHash:      blobResp.VersionedHash,
+			KzgCommitment: blobResp.Commitment,
+			Blob:          blobResp.Data,
 		})
 	}
 	return &BlobDataSeq{
