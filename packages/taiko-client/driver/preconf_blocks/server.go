@@ -150,6 +150,7 @@ func (m *shastaMetaFromIndexer) GetBlobTimestamp(i int) uint64 {
 }
 func (m *shastaMetaFromIndexer) GetRawBlockHeight() *big.Int  { return m.p.RawBlockHeight }
 func (m *shastaMetaFromIndexer) GetRawBlockHash() common.Hash { return m.p.RawBlockHash }
+func (m *shastaMetaFromIndexer) GetLog() *types.Log           { return m.p.Log }
 
 // New creates a new preconfirmation block server instance, and starts the server.
 func New(
@@ -426,6 +427,22 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 		return nil
 	}
 	log.Info("Reconstructed and inserted Shasta block", "block", pc.BlockNumber, "hash", payload.BlockHash)
+
+	// Cache a corresponding envelope locally to aid orphan handling/ancient import.
+	// Fetch the inserted block and convert to envelope; signature is not required here.
+	inserted, err := s.rpc.L2.BlockByHash(ctx, payload.BlockHash)
+	if err == nil && inserted != nil {
+		eop := pc.EOP
+		forced := false
+		env, err := blockToEnvelope(inserted, &eop, &forced, nil)
+		if err == nil {
+			s.tryPutEnvelopeIntoCache(env, from)
+		} else {
+			log.Debug("failed to convert inserted block to envelope for caching", "err", err)
+		}
+	} else if err != nil {
+		log.Debug("failed to fetch inserted block for caching", "err", err)
+	}
 	return nil
 }
 
@@ -636,6 +653,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(float64(elapsedMs) / 1_000)
 		log.Debug("OnUnsafeL2Response completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
+
+	// add responses seen to cache.
+	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now().UTC())
+
+	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -724,9 +746,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	hash common.Hash,
 ) error {
 	if s.preconfTransitionActive() {
-		log.Debug("Ignoring L2Request post-transition", "peer", from, "hash", hash.Hex())
+		log.Debug("Ignoring L2Response gossip post-transition")
 		return nil
 	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -747,6 +770,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 	metrics.DriverPreconfOnL2UnsafeRequestCounter.Inc()
 
+	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
@@ -756,21 +784,78 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"hash", hash.Hex(),
 			"error", err,
 		)
+		return fmt.Errorf("failed to fetch preconfirmation request block by hash: %w", err)
+	}
+
+	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
+		log.Debug(
+			"Ignore the message for outdated block",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+			"parentHash", block.ParentHash().Hex(),
+		)
+
 		return nil
 	}
+
 	l1Origin, err := s.rpc.L2.L1OriginByID(ctx, block.Number())
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		log.Debug(
+	if err != nil {
+		log.Warn(
 			"Failed to fetch L1 origin for the block",
 			"peer", from,
 			"blockID", block.NumberU64(),
 			"hash", block.Hash().Hex(),
 			"error", err,
 		)
-		return nil
+		return fmt.Errorf("failed to fetch L1 origin for the block: %w", err)
 	}
 
+	log.Info(
+		"Fetched L1 Origin",
+		"blockID", l1Origin.BlockID.Uint64(),
+		"l2BlockHash", l1Origin.L2BlockHash.Hex(),
+		"l1BlockHash", l1Origin.L1BlockHash.Hex(),
+		"l1OriginBlockID", l1Origin.BlockID.Uint64(),
+		"l1OriginIsForcedInclusion", l1Origin.IsForcedInclusion,
+		"l1OriginBlockHeight", l1Origin.L1BlockHeight.Uint64(),
+		"l1OriginSignature", common.Bytes2Hex(l1Origin.Signature[:]),
+	)
+
 	sig := l1Origin.Signature
+	if sig == [65]byte{} {
+		log.Warn(
+			"Empty L1 origin signature, unable to propagate block",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+			"parentHash", block.ParentHash().Hex(),
+			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
+		)
+
+		return err
+	}
+
+	// we have the block, now wait a deterministic jitter before responding.
+	// this will reduce "response storms" when many nodes receive the request for the block.
+	wait := deterministicJitter(s.p2pNode.Host().ID(), hash, 1*time.Second)
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		// If any response for this hash was seen recently, skip ours.
+		if ts, ok := s.responseSeenCache.Get(hash); ok && time.Since(ts) < 10*time.Second {
+			log.Debug(
+				"Skip responding; recent response already seen",
+				"peer", from,
+				"hash", hash.Hex(),
+			)
+			return nil
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	endOfSequencing := false
 	for epoch := range s.sequencingEndedForEpochCache.Keys() {
 		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
