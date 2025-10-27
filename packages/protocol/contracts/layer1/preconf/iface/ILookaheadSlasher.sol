@@ -31,7 +31,8 @@ interface ILookaheadSlasher is ISlasher {
         // at `EvidenceLookahead.slotTimestamp`
         BLS.G1Point beaconLookaheadValPubKey;
         // Inclusion proof for the beacon validator pub key in the beacon lookahead
-        LibEIP4788.InclusionProof beaconValidatorInclusionProof;
+        // Todo: change usage
+        LibEIP4788.BeaconProofs beaconValidatorInclusionProof;
     }
 
     /// @dev Evidence suggesting that `preconfLookaheadValPubKey` was inserted into the
