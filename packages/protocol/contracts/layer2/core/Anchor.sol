@@ -7,10 +7,10 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EssentialContractStorage } from "src/shared/common/EssentialContractStorage.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { PacayaAnchorStorage } from "./PacayaAnchorStorage.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -23,7 +23,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContractStorage, Ownable2Step, ReentrancyGuard {
+contract Anchor is PacayaAnchorStorage, Ownable2Step, ReentrancyGuard {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -114,16 +114,6 @@ contract Anchor is EssentialContractStorage, Ownable2Step, ReentrancyGuard {
 
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
-
-    // ---------------------------------------------------------------
-    // Pacaya slots for storage compatibility
-    // ---------------------------------------------------------------
-
-    /// @dev 255 slots were used in Pacaya(EssentialContract, TaikoAnchorDeprecated, etc.)
-    /// For a full layout of the Pacaya anchor please refer to
-    /// [the layout table](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/layout/layer2-contracts.md#taikoanchor)
-    /// We inherit 251 of these slots via `EssentialContractStorage` to maintain compatibility.
-    uint256[4] private _pacayaSlots;
 
     // ---------------------------------------------------------------
     // State variables
