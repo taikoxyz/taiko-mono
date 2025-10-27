@@ -43,6 +43,7 @@ pub async fn serve(
 
 fn build_router() -> Router<AppState> {
     Router::new()
+        .route("/", get(health))
         .route("/healthz", get(health))
         .route("/v1/status", get(status))
         .route("/v1/status/head", get(get_head_status))

@@ -48,6 +48,7 @@ pub async fn serve(
 ) -> Result<()> {
     let state = AppState { handle };
     let app = Router::new()
+        .route("/", get(health))
         .route("/healthz", get(health))
         .route("/metrics", get(metrics_endpoint))
         .with_state(state);
