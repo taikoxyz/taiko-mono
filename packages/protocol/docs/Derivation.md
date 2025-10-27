@@ -217,7 +217,7 @@ For each `DerivationSource[i]`, the validator performs:
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
-7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
+7. **Block Count Validation**: Verify `manifest.blocks.length <=` [`PROPOSAL_MAX_BLOCKS`](#proposal-structure-constants)
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
@@ -267,7 +267,7 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 Timestamp validation is performed collectively across all blocks and may result in block count reduction:
 
 1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
+2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp -` [`TIMESTAMP_MAX_OFFSET`](#timestamp-constants)`)`
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
 
 #### `anchorBlockNumber` Validation
@@ -277,8 +277,8 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET`
-- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber -` [`MIN_ANCHOR_OFFSET`](#anchor-constants)
+- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber -` [`MAX_ANCHOR_OFFSET`](#anchor-constants)
 
 **Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
 
@@ -299,14 +299,14 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by [`BLOCK_GAS_LIMIT_MAX_CHANGE`](#gas-limit-constants) permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below [`MIN_BLOCK_GAS_LIMIT`](#gas-limit-constants):
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
+   - `lowerBound = max(parent.metadata.gasLimit * (10000 -` [`BLOCK_GAS_LIMIT_MAX_CHANGE`](#gas-limit-constants)`) / 10000,` [`MIN_BLOCK_GAS_LIMIT`](#gas-limit-constants)`)`
+   - `upperBound = parent.metadata.gasLimit * (10000 +` [`BLOCK_GAS_LIMIT_MAX_CHANGE`](#gas-limit-constants)`) / 10000`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -339,7 +339,7 @@ enum BondType {
 
 Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
 
-A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is `BOND_PROCESSING_DELAY` proposals prior to the current one. If `BOND_PROCESSING_DELAY` is set to 1, it effectively processes the parent proposal's instructions.
+A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is [`BOND_PROCESSING_DELAY`](#bond-processing-constants) proposals prior to the current one. If [`BOND_PROCESSING_DELAY`](#bond-processing-constants) is set to 1, it effectively processes the parent proposal's instructions.
 
 ### Designated Prover System
 
@@ -564,8 +564,24 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
-### Transaction Execution
-
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
+
+## Constants
+
+The following constants govern the block derivation process:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| **PROPOSAL_MAX_BLOCKS** | `384` | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch. |
+| **MAX_ANCHOR_OFFSET** | `128` | The maximum anchor block number offset from the proposal origin block number. |
+| **MIN_ANCHOR_OFFSET** | `2` | The minimum anchor block number offset from the proposal origin block number. |
+| **TIMESTAMP_MAX_OFFSET** | `384` (12 * 32) | The maximum number timestamp offset from the proposal origin timestamp. |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10` | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%. |
+| **MIN_BLOCK_GAS_LIMIT** | `15,000,000` | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold. |
+| **BOND_PROCESSING_DELAY** | `6` | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
+| **INITIAL_BASE_FEE** | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block. |
+| **MIN_BASE_FEE** | `0.005 gwei` (5,000,000 wei) | The minimum base fee (inclusive) after Shasta fork. |
+| **MAX_BASE_FEE** | `1 gwei` (1,000,000,000 wei) | The maximum base fee (inclusive) after Shasta fork. |
+| **BLOCK_TIME_TARGET** | `2 seconds` | The block time target. |
