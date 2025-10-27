@@ -277,8 +277,8 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
-- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET`
+- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
 **Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
 

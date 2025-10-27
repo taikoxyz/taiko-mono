@@ -12,10 +12,10 @@ library LibManifest {
     uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.
-    uint256 internal constant ANCHOR_MAX_OFFSET = 128;
+    uint256 internal constant MAX_ANCHOR_OFFSET = 128;
 
     /// @notice The minimum anchor block number offset from the proposal origin block number.
-    uint256 internal constant ANCHOR_MIN_OFFSET = 2;
+    uint256 internal constant MIN_ANCHOR_OFFSET = 2;
 
     /// @notice The maximum number timestamp offset from the proposal origin timestamp.
     uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
@@ -32,6 +32,16 @@ library LibManifest {
     /// of 1 signifies that the bond instructions of the immediate parent proposal will be
     /// processed.
     uint256 internal constant BOND_PROCESSING_DELAY = 6;
+
+    /// @notice The initial base fee for the first Shasta block.
+    uint256 internal constant INITIAL_BASE_FEE = 0.025 gwei;
+
+    /// @notice The minimum base fee (inclusive) after Shasta fork
+    uint256 internal constant MIN_BASE_FEE = 0.01 gwei;
+
+    /// @notice The maximum base fee (inclusive) after Shasta fork
+    uint256 internal constant MAX_BASE_FEE = 100 gwei;
+
 
     // ---------------------------------------------------------------
     // Structs
