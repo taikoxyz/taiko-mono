@@ -28,7 +28,6 @@ alloy-sol-types = { workspace = true }
 # taiko
 bindings = { path = "../bindings" }
 event-scanner = { workspace = true }
-rpc = { path = "../rpc" }
 
 # types
 anyhow = { workspace = true }

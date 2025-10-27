@@ -1,17 +1,14 @@
-use std::str::FromStr;
-
-use alloy::{eips::BlockNumberOrTag, transports::http::reqwest::Url};
+use alloy::eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use event_indexer::{
     indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
     interface::ShastaProposeInputReader,
 };
-use rpc::SubscriptionSource;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = ShastaEventIndexerConfig {
-        l1_subscription_source: SubscriptionSource::Ws(Url::from_str("ws://127.0.0.1:8546")?),
+        l1_subscription_connection_string: "ws://127.0.0.1:8546".to_string(),
         inbox_address: Address::ZERO,
     };
 

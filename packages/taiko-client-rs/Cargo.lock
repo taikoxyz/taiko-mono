@@ -3362,7 +3362,6 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "metrics 0.24.2",
- "rpc",
  "thiserror 2.0.16",
  "tokio",
  "tokio-retry",

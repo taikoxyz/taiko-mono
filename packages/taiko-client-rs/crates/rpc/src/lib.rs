@@ -130,6 +130,15 @@ impl TryFrom<&str> for SubscriptionSource {
     }
 }
 
+impl std::fmt::Display for SubscriptionSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SubscriptionSource::Ipc(path) => write!(f, "{}", path.to_string_lossy()),
+            SubscriptionSource::Ws(url) => write!(f, "{url}"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

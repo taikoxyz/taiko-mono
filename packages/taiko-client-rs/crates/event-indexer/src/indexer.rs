@@ -8,7 +8,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use alloy::{eips::BlockNumberOrTag, rpc::types::Log, sol_types::SolEvent};
+use alloy::{
+    eips::BlockNumberOrTag, network::Ethereum, rpc::types::Log, sol_types::SolEvent,
+    transports::http::reqwest::Url,
+};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
@@ -26,16 +29,16 @@ use bindings::{
 use dashmap::DashMap;
 use event_scanner::{
     EventFilter,
+    event_scanner::EventScanner,
     types::{ScannerMessage, ScannerStatus},
 };
-use rpc::SubscriptionSource;
 use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
-    error::Result,
+    error::{IndexerError, Result},
     interface::{ShastaProposeInput, ShastaProposeInputReader},
     metrics::IndexerMetrics,
 };
@@ -71,8 +74,8 @@ pub struct ProvedEventPayload {
 /// Configuration for the Shasta event indexer.
 #[derive(Debug, Clone)]
 pub struct ShastaEventIndexerConfig {
-    /// Source for L1 log streaming.
-    pub l1_subscription_source: SubscriptionSource,
+    /// Source for L1 log streaming. Can be a WebSocket or IPC connection string.
+    pub l1_subscription_connection_string: String,
     /// Address of the Shasta inbox contract.
     pub inbox_address: Address,
 }
@@ -106,13 +109,14 @@ impl ShastaEventIndexer {
     #[instrument(skip(config), err)]
     pub async fn new(config: ShastaEventIndexerConfig) -> Result<Arc<Self>> {
         let inbox_address = config.inbox_address;
-        let provider = match &config.l1_subscription_source {
-            SubscriptionSource::Ipc(path) => {
-                ProviderBuilder::new().connect_ipc(IpcConnect::new(path.clone())).await?
+        let provider = match config.l1_subscription_connection_string.as_str() {
+            s if s.starts_with("ws://") || s.starts_with("wss://") => {
+                let url = s
+                    .parse::<Url>()
+                    .map_err(|e| IndexerError::Rpc(format!("invalid websocket url: {e}")))?;
+                ProviderBuilder::new().connect_ws(WsConnect::new(url)).await?
             }
-            SubscriptionSource::Ws(url) => {
-                ProviderBuilder::new().connect_ws(WsConnect::new(url.to_string())).await?
-            }
+            path => ProviderBuilder::new().connect_ipc(IpcConnect::new(path.to_string())).await?,
         };
 
         let inbox = IInbox::new(inbox_address, provider.clone());
@@ -145,13 +149,19 @@ impl ShastaEventIndexer {
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
     #[instrument(skip(self), err, fields(?start_tag))]
     async fn run_inner(self: Arc<Self>, start_tag: BlockNumberOrTag) -> Result<()> {
-        let source = &self.config.l1_subscription_source;
-        info!(
-            connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
-            "subscribing to L1"
-        );
-
-        let mut event_scanner = source.to_event_scanner().await?;
+        let mut event_scanner = match self.config.l1_subscription_connection_string.as_str() {
+            s if s.starts_with("ws://") || s.starts_with("wss://") => {
+                info!(connection_type = "WebSocket", "subscribing to L1");
+                let url = s
+                    .parse::<Url>()
+                    .map_err(|e| IndexerError::Rpc(format!("invalid websocket url: {e}")))?;
+                EventScanner::new().connect_ws::<Ethereum>(url).await?
+            }
+            path => {
+                info!(connection_type = "IPC", "subscribing to L1");
+                EventScanner::new().connect_ipc(path.to_string()).await?
+            }
+        };
 
         // Filter for inbox events.
         let filter = EventFilter::new()
@@ -555,7 +565,7 @@ mod tests {
             .connect_http(Url::from_str(&env::var("L1_HTTP")?)?);
 
         let config = ShastaEventIndexerConfig {
-            l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
+            l1_subscription_connection_string: env::var("L1_WS")?.to_string(),
             inbox_address: env::var("SHASTA_INBOX")?.parse()?,
         };
 

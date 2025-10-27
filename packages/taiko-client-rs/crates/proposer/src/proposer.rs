@@ -48,7 +48,7 @@ impl Proposer {
 
         // Initialize RPC client.
         let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.l1_provider_source.clone(),
+            l1_subscription_connection_string: cfg.l1_provider_source.to_string(),
             inbox_address: cfg.inbox_address,
         })
         .await?;

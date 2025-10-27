@@ -3,7 +3,6 @@
 use alloy::transports::TransportErrorKind;
 use alloy_json_rpc::RpcError;
 use event_scanner::event_scanner::EventScannerError;
-use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -45,12 +44,5 @@ impl From<RpcError<TransportErrorKind>> for IndexerError {
 impl From<alloy_sol_types::Error> for IndexerError {
     fn from(err: alloy_sol_types::Error) -> Self {
         IndexerError::LogDecode(err.to_string())
-    }
-}
-
-// Manual From implementation for RpcClientError
-impl From<RpcClientError> for IndexerError {
-    fn from(err: RpcClientError) -> Self {
-        IndexerError::Rpc(err.to_string())
     }
 }
