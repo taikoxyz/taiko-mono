@@ -1,9 +1,6 @@
 name: Protocol
 
 on:
-  push:
-    branches:
-      - test-protocol-ci
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
