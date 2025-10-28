@@ -34,7 +34,8 @@ contract MainnetInbox is InboxOptimized2 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized2(IInbox.Config({
+        InboxOptimized2(
+            IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
                 codec: _codec,
@@ -52,7 +53,8 @@ contract MainnetInbox is InboxOptimized2 {
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------

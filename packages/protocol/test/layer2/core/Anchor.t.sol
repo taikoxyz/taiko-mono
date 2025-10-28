@@ -138,7 +138,10 @@ contract AnchorTest is Test {
 
     function test_validateProverAuth_ReturnsProposerWhenSignatureInvalid() external view {
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
-            proposalId: 1, proposer: proposer, provingFee: 1 ether, signature: new bytes(0)
+            proposalId: 1,
+            proposer: proposer,
+            provingFee: 1 ether,
+            signature: new bytes(0)
         });
 
         (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, abi.encode(auth));
@@ -209,7 +212,10 @@ contract AnchorTest is Test {
         returns (bytes memory)
     {
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
-            proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: ""
+            proposalId: proposalId,
+            proposer: proposer,
+            provingFee: provingFee,
+            signature: ""
         });
 
         bytes32 messageHash = keccak256(abi.encode(proposalId, proposer, provingFee));

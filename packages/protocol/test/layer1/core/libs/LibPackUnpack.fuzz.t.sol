@@ -298,14 +298,7 @@ contract LibPackUnpackFuzzTest is Test {
     // Fuzzy tests for simple structs
     // ---------------------------------------------------------------
 
-    function testFuzz_simpleStruct(
-        uint8 flag,
-        uint16 counter,
-        uint32 timestamp
-    )
-        public
-        pure
-    {
+    function testFuzz_simpleStruct(uint8 flag, uint16 counter, uint32 timestamp) public pure {
         SimpleStruct memory original =
             SimpleStruct({ flag: flag, counter: counter, timestamp: timestamp });
 
@@ -546,13 +539,7 @@ contract LibPackUnpackFuzzTest is Test {
         assertEq(read24, val24);
     }
 
-    function testFuzz_packUnpackSymmetry_mediumIntegers(
-        uint32 val32,
-        uint48 val48
-    )
-        public
-        pure
-    {
+    function testFuzz_packUnpackSymmetry_mediumIntegers(uint32 val32, uint48 val48) public pure {
         bytes memory buffer = new bytes(50);
         uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
