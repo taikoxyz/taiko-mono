@@ -30,6 +30,7 @@ reqwest = { version = "0.12" }
 
 # ethereum
 alloy = { version = "1.0.13", features = ["full"] }
+alloy-eips = "1.0.38"
 alloy-serde = "0.11.0"
 
 # types

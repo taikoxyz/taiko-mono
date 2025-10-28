@@ -1800,6 +1800,7 @@ name = "ejector"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "alloy-eips",
  "alloy-serde 0.11.1",
  "axum",
  "clap",

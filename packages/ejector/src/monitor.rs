@@ -8,6 +8,7 @@ use alloy::{
     providers::{Provider, ProviderBuilder, WsConnect},
     transports::http::reqwest::Url,
 };
+use alloy_eips::BlockNumberOrTag;
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
@@ -30,6 +31,7 @@ pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
     l2_ws_url: Url,
+    l2_http_url: Url,
     l1_http_url: Url,
     target_block_time: Duration,
     eject_after: Duration,
@@ -46,6 +48,7 @@ impl Monitor {
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
         l2_ws_url: Url,
+        l2_http_url: Url,
         l1_http_url: Url,
         target_block_time_secs: u64,
         eject_after_n_slots_missed: u64,
@@ -63,6 +66,7 @@ impl Monitor {
             beacon_client,
             l1_signer,
             l2_ws_url,
+            l2_http_url,
             l1_http_url,
             target_block_time,
             eject_after,
@@ -109,6 +113,9 @@ impl Monitor {
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let preconf_router =
             crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider);
+
+        // L2 HTTP provider used to check chain recency via latest block timestamp
+        let l2_http_provider = ProviderBuilder::new().connect_http(self.l2_http_url.clone());
 
         // watchdog task
         let _watchdog = tokio::spawn(async move {
@@ -182,7 +189,42 @@ impl Monitor {
                 let elapsed = last_seen_for_watch.lock().await.elapsed();
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
+                    // Fetch latest L2 block and check its timestamp. If the latest block
+                    // timestamp is too old, assume a global stall/restart and skip eject.
+                    let chain_recent_enough = match l2_http_provider
+                        .get_block_by_number(BlockNumberOrTag::Latest)
+                        .await
+                    {
+                        Ok(Some(block)) => {
+                            let now_secs = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .expect("time went backwards")
+                                .as_secs();
+                            let block_ts = block.header.timestamp;
+                            let age = now_secs.saturating_sub(block_ts);
+                            debug!("Latest L2 block timestamp age: {}s", age);
+                            age <= max.as_secs()
+                        }
+                        Ok(None) => {
+                            warn!("No latest L2 block returned; skipping eject this tick");
+                            false
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Failed to fetch latest L2 block for timestamp check: {e:?}; skipping eject this tick"
+                            );
+                            false
+                        }
+                    };
 
+                    if !chain_recent_enough {
+                        warn!(
+                            "Skipping eject: latest L2 block is older than threshold (likely global stall)"
+                        );
+                        continue;
+                    }
+
+                    // Chain is recent, but we haven't observed blocks in our window → eject.
                     if let Err(e) = eject_operator(
                         l1_http_url.clone(),
                         signer.clone(),
