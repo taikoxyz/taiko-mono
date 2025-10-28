@@ -43,6 +43,8 @@ alloy-consensus = { version = "1.0.36", default-features = false, features = ["s
 alloy-rlp = { version = "0.3.12", default-features = false, features = ["std"] }
 alloy-primitives = { version = "1.0.36", default-features = false, features = ["std", "serde"] }
 humantime = "2.1"
+metrics = "0.22"
+metrics-exporter-prometheus = "0.15"
 
 [dev-dependencies]
 http-body-util = "0.1"

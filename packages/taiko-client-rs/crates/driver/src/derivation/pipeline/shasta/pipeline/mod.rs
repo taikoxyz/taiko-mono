@@ -15,8 +15,11 @@ use bindings::{
     i_inbox::IInbox::Proposed,
 };
 use event_indexer::indexer::ShastaEventIndexer;
-use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
-use rpc::{blob::BlobDataSource, client::Client};
+use protocol::shasta::{
+    constants::shasta_fork_height_for_chain,
+    manifest::{DerivationSourceManifest, ProposalManifest},
+};
+use rpc::{blob::BlobDataSource, client::Client, error::RpcClientError};
 
 use crate::{
     derivation::{
@@ -56,6 +59,7 @@ where
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
+    shasta_fork_height: u64,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -82,6 +86,13 @@ where
                 ProposalManifest::decompress_and_decode,
             ));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
+        let chain_id = rpc
+            .l2_provider
+            .get_chain_id()
+            .await
+            .map_err(|err| DerivationError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let shasta_fork_height = shasta_fork_height_for_chain(chain_id)
+            .map_err(|err| DerivationError::Other(err.into()))?;
 
         Ok(Self {
             rpc,
@@ -89,6 +100,7 @@ where
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             proposal_manifest_fetcher,
+            shasta_fork_height,
         })
     }
 
@@ -186,11 +198,11 @@ where
         let state = ParentState {
             parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
             header: parent_header,
-            bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
-            anchor_block_number: anchor_state.anchorBlockNumber.to::<u64>(),
+            bond_instructions_hash: anchor_state.bond_instructions_hash,
+            anchor_block_number: anchor_state.anchor_block_number,
         };
 
-        Ok((state, self.rpc.shasta.anchor.shastaForkHeight().call().await?))
+        Ok((state, self.shasta_fork_height))
     }
 }
 
@@ -247,10 +259,6 @@ where
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
                 bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
                 prover_auth_bytes,
-                end_of_submission_window_timestamp: payload
-                    .proposal
-                    .endOfSubmissionWindowTimestamp
-                    .to::<u64>(),
             },
             sources: manifest_segments,
         };
