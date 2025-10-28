@@ -89,7 +89,12 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
+    function onMessageInvocation(bytes calldata _data)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
 
@@ -266,19 +271,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
 // Storage Layout ---------------------------------------------------------------
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
-//   bridgedToCanonical             | mapping(address => struct BaseNFTVault.CanonicalNFT) | Slot: 301  | Offset: 0    | Bytes: 32  
-//   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32  
+//   bridgedToCanonical             | mapping(address => struct BaseNFTVault.CanonicalNFT) | Slot: 301  | Offset: 0    | Bytes: 32
+//   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600

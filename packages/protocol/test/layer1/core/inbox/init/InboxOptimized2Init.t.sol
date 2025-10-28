@@ -21,14 +21,19 @@ contract InboxOptimized2Init is AbstractInitTest {
 
     function _decodeEvent(bytes memory data)
         internal
-       pure 
+        pure
         override
         returns (IInbox.ProposedEventPayload memory)
     {
         return LibProposedEventEncoder.decode(data);
     }
 
-    function _expectedTransitionHash(bytes32 genesisHash) internal pure override returns (bytes32) {
+    function _expectedTransitionHash(bytes32 genesisHash)
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = genesisHash;
         return LibHashOptimized.hashTransition(transition);

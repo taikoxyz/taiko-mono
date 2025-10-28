@@ -76,13 +76,16 @@ contract LibForcedInclusionTest is Test {
 
         uint48 beforeCallTimestamp = uint48(block.timestamp);
         vm.expectEmit();
-        emit IForcedInclusionStore
-            .ForcedInclusionSaved(IForcedInclusionStore.ForcedInclusion({
+        emit IForcedInclusionStore.ForcedInclusionSaved(
+            IForcedInclusionStore.ForcedInclusion({
                 feeInGwei: feeInGwei,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: _singleHashArray(hashes[0]),
                     offset: ref.offset,
-                    timestamp: beforeCallTimestamp }) }));
+                    timestamp: beforeCallTimestamp
+                })
+            })
+        );
 
         harness.save{ value: expectedFee }(feeInGwei, ref);
 

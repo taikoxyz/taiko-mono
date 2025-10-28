@@ -35,14 +35,7 @@ contract MainnetBridge is Bridge {
     }
 
     /// @inheritdoc Bridge
-    function _storeContext(
-        bytes32 _msgHash,
-        address _from,
-        uint64 _srcChainId
-    )
-        internal
-        override
-    {
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal override {
         assembly {
             tstore(_CTX_SLOT, _msgHash)
             tstore(add(_CTX_SLOT, 1), _from)
@@ -66,21 +59,21 @@ contract MainnetBridge is Bridge {
 
 // Storage Layout ---------------------------------------------------------------
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __reserved1                    | uint64                                             | Slot: 251  | Offset: 0    | Bytes: 8   
-//   nextMessageId                  | uint64                                             | Slot: 251  | Offset: 8    | Bytes: 8   
-//   messageStatus                  | mapping(bytes32 => enum IBridge.Status)            | Slot: 252  | Offset: 0    | Bytes: 32  
-//   __ctx                          | struct IBridge.Context                             | Slot: 253  | Offset: 0    | Bytes: 64  
-//   __reserved2                    | uint256                                            | Slot: 255  | Offset: 0    | Bytes: 32  
-//   __reserved3                    | uint256                                            | Slot: 256  | Offset: 0    | Bytes: 32  
+//   __reserved1                    | uint64                                             | Slot: 251  | Offset: 0    | Bytes: 8
+//   nextMessageId                  | uint64                                             | Slot: 251  | Offset: 8    | Bytes: 8
+//   messageStatus                  | mapping(bytes32 => enum IBridge.Status)            | Slot: 252  | Offset: 0    | Bytes: 32
+//   __ctx                          | struct IBridge.Context                             | Slot: 253  | Offset: 0    | Bytes: 64
+//   __reserved2                    | uint256                                            | Slot: 255  | Offset: 0    | Bytes: 32
+//   __reserved3                    | uint256                                            | Slot: 256  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
