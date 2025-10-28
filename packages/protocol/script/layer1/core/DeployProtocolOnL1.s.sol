@@ -205,7 +205,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
         // Upgrade with actual inbox address
-        address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc));
+        address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc, 0));
         SignalService(signalService).upgradeTo(newImpl);
 
         // Transfer ownership if needed
@@ -302,7 +302,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             // Deploy with dummy inbox address (will be upgraded later with actual inbox)
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService(address(1), remoteSignalService)),
+                impl: address(new SignalService(address(1), remoteSignalService, 0)),
                 data: abi.encodeCall(SignalService.init, owner),
                 registerTo: sharedResolver
             });

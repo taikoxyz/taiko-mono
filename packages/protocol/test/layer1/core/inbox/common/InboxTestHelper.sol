@@ -374,7 +374,7 @@ abstract contract InboxTestHelper is CommonTest {
 
         // Deploy signal service behind a proxy so it can be upgraded once inbox is available
         SignalService signalServiceImpl =
-            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE, 0);
 
         signalService = SignalService(
             address(
@@ -393,7 +393,7 @@ abstract contract InboxTestHelper is CommonTest {
         require(address(inbox) != address(0), "Inbox not deployed");
 
         SignalService upgradedSignalServiceImpl =
-            new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
+            new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE, 0);
 
         vm.prank(owner);
         signalService.upgradeTo(address(upgradedSignalServiceImpl));

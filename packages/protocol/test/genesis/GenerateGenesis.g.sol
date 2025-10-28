@@ -348,7 +348,7 @@ contract TestGenerateGenesis is Test {
         address remoteSignalService = contractOwner;
 
         signalServiceProxy.upgradeTo(
-            address(new SignalService(authorizedSyncer, remoteSignalService))
+            address(new SignalService(authorizedSyncer, remoteSignalService, 0))
         );
 
         vm.stopPrank();

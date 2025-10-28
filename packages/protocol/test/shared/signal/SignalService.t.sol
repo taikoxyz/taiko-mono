@@ -27,7 +27,7 @@ contract TestSignalService is CommonTest {
 
     function setUpOnEthereum() internal override {
         signalService = deploySignalService(
-            address(new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE))
+            address(new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, 0))
         );
     }
 

@@ -50,10 +50,15 @@ contract SignalService is LegacySignalService, ISignalService {
 
     constructor(address authorizedSyncer, address remoteSignalService, uint256 shastaForkHeight) LegacySignalService(remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
-        require(shastaForkHeight > 0, ZERO_VALUE());
 
         _authorizedSyncer = authorizedSyncer;
         _shastaForkHeight = shastaForkHeight;
+    }
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     // ---------------------------------------------------------------

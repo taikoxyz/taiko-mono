@@ -11,7 +11,8 @@ contract SignalService_WithoutProofVerification is SignalService {
     constructor(address _resolver)
         SignalService(
             address(uint160(uint256(keccak256("MOCK_INBOX")))), // Mock inbox address
-            address(uint160(uint256(keccak256("MOCK_REMOTE_SS")))) // Mock remote signal service
+            address(uint160(uint256(keccak256("MOCK_REMOTE_SS")))), // Mock remote signal service
+            0
         )
     { }
 

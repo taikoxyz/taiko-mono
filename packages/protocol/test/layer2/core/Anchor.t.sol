@@ -36,7 +36,7 @@ contract AnchorTest is Test {
 
         bondManager = new BondManager(predictedAnchor, address(token), 0, 0);
 
-        checkpointStore = new SignalService(predictedAnchor, address(0x1234));
+        checkpointStore = new SignalService(predictedAnchor, address(0x1234), 0);
 
         anchor = new Anchor(
             checkpointStore,
