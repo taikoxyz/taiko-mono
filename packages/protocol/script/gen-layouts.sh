@@ -175,10 +175,33 @@ case "$profile" in
         ;;
 esac
 
-# Process each contract
+# Process each contract and track failures
+failed_contracts=()
+success_count=0
+
 for contract in "${contracts[@]}"; do
-    update_contract_layout "$contract" "$profile" || continue
+    if update_contract_layout "$contract" "$profile"; then
+        ((success_count++))
+    else
+        failed_contracts+=("$contract")
+        echo "✗ Failed: $contract"
+    fi
 done
 
 echo ""
-echo "Storage layout comments updated successfully!"
+echo "=========================================="
+echo "Summary:"
+echo "  Success: $success_count/${#contracts[@]} contracts"
+if [ ${#failed_contracts[@]} -gt 0 ]; then
+    echo "  Failed:  ${#failed_contracts[@]} contracts"
+    echo ""
+    echo "Failed contracts:"
+    for contract in "${failed_contracts[@]}"; do
+        echo "  - $contract"
+    done
+    echo ""
+    echo "⚠️  Some contracts failed to update. Please review errors above."
+    exit 1
+else
+    echo "✓ All storage layout comments updated successfully!"
+fi
