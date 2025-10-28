@@ -6,7 +6,7 @@ pragma solidity ^0.8.24;
 library LibManifest {
     // ---------------------------------------------------------------
     // Structs
-     // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Represents a signed Ethereum transaction
     /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
