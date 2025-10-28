@@ -45,69 +45,6 @@ contract MainnetDAOController is Controller {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __reserved0                    | uint256                                            | Slot: 251  | Offset: 0    | Bytes: 32
-//   lastExecutionId                | uint64                                             | Slot: 252  | Offset: 0    | Bytes: 8
-//   __reserved1                    | address                                            | Slot: 252  | Offset: 8    | Bytes: 20
-//   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
-//   __gap                          | bytes32[50]                                        | Slot: 301  | Offset: 0    | Bytes: 1600
-// solhint-enable max-line-length
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __reserved0                    | uint256                                            | Slot: 251  | Offset: 0    | Bytes: 32
-//   lastExecutionId                | uint64                                             | Slot: 252  | Offset: 0    | Bytes: 8
-//   __reserved1                    | address                                            | Slot: 252  | Offset: 8    | Bytes: 20
-//   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
-//   __gap                          | bytes32[50]                                        | Slot: 301  | Offset: 0    | Bytes: 1600
-// solhint-enable max-line-length
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __reserved0                    | uint256                                            | Slot: 251  | Offset: 0    | Bytes: 32
-//   lastExecutionId                | uint64                                             | Slot: 252  | Offset: 0    | Bytes: 8
-//   __reserved1                    | address                                            | Slot: 252  | Offset: 8    | Bytes: 20
-//   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
-//   __gap                          | bytes32[50]                                        | Slot: 301  | Offset: 0    | Bytes: 1600
-// solhint-enable max-line-length
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
