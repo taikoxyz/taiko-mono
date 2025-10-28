@@ -92,7 +92,7 @@ jobs:
         run: pnpm snapshot:l1 && pnpm layout:l1
 
       - name: Generate coverage report
-        if: github.event.pull_request.head.repo.fork == false
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         working-directory: ./packages/protocol
         run: |
           forge coverage --report lcov
