@@ -32,7 +32,7 @@ contract SignalService is LegacySignalService, ISignalService {
 
 
     /// @dev The height of the shasta fork.
-    uint256 internal immutable _shastaForkHeight;
+    uint256 internal immutable _shastaForkTimestamp;
 
     // ---------------------------------------------------------------
     // Post shasta storage variables
@@ -48,11 +48,11 @@ contract SignalService is LegacySignalService, ISignalService {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService, uint256 shastaForkHeight) LegacySignalService(remoteSignalService) {
+    constructor(address authorizedSyncer, address remoteSignalService, uint256 shastaForkTimestamp) LegacySignalService(remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
-        _shastaForkHeight = shastaForkHeight;
+        _shastaForkTimestamp = shastaForkTimestamp;
     }
 
     /// @notice Initializes the contract.
@@ -72,6 +72,9 @@ contract SignalService is LegacySignalService, ISignalService {
 
     /// @inheritdoc ISignalService
     /// @dev This function may revert.
+    /// @dev This function routes to different internal functions based on the `block.timestamp` to handle the fork period.
+    /// Before `_shastaForkTimestamp`, this function will call the `_verifySignalReceivedLegacy` function and do hop caching.
+    /// After `_shastaForkTimestamp`, this function will call the `_verifySignalReceived` function and populate the `_receivedSignals` mapping.
     function proveSignalReceived(
         uint64 _chainId,
         address _app,
@@ -83,7 +86,7 @@ contract SignalService is LegacySignalService, ISignalService {
         returns (uint256)
     {
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
-        if (block.timestamp < _shastaForkHeight) {
+        if (block.timestamp < _shastaForkTimestamp) {
         // Pre shasta logic
             CacheAction[] memory actions = // actions for caching
             _verifySignalReceivedLegacy(_chainId, _app, _signal, _proof, true);
@@ -103,6 +106,9 @@ contract SignalService is LegacySignalService, ISignalService {
 
     /// @inheritdoc ISignalService
     /// @dev This function may revert.
+    /// @dev This function routes to different internal functions based on the `block.timestamp` to handle the fork period.
+    /// Before `_shastaForkTimestamp`, this function will call the `_verifySignalReceivedLegacy` function.
+    /// After `_shastaForkTimestamp`, this function will call the `_verifySignalReceived` function.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -113,7 +119,7 @@ contract SignalService is LegacySignalService, ISignalService {
         view
         virtual
     {
-        if (block.timestamp < _shastaForkHeight) {
+        if (block.timestamp < _shastaForkTimestamp) {
             // Pre shasta logic
             _verifySignalReceivedLegacy(_chainId, _app, _signal, _proof, false);
             return; 
