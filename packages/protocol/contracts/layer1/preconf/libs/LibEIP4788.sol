@@ -147,12 +147,10 @@ library LibEIP4788 {
 
         // Extract the u64 little-endian encoded validator index and make it
         // u256 little-endian
-        bytes32 expectedValidatorIndex = (
-            (
-                _beaconProofs.proposerLookaheadProof.proposerLookaheadChunk
-                    << (proposerLookaheadChunkSegmentIndex * 64)
-            ) >> 192
-        ) << 192;
+        bytes32 expectedValidatorIndex =
+            ((_beaconProofs.proposerLookaheadProof.proposerLookaheadChunk
+                        << (proposerLookaheadChunkSegmentIndex * 64))
+                    >> 192) << 192;
 
         // Verify that the validator index in the validator chunk proof matches the one in the lookahead
         // proof

@@ -53,7 +53,8 @@ contract TestGenerateGenesis is Test {
         withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
         vm.chainId(configJSON.readUint(".chainId"));
 
-        string memory genesisAllocJSON = vm.readFile(string.concat(genesisDataPath, "genesis_alloc.json"));
+        string memory genesisAllocJSON =
+            vm.readFile(string.concat(genesisDataPath, "genesis_alloc.json"));
         _applyGenesisAlloc(genesisAllocJSON);
 
         configInitialized = true;
@@ -90,13 +91,23 @@ contract TestGenerateGenesis is Test {
         }
     }
 
-    function _loadContractState(string memory genesisAllocJSON, string memory contractName) private {
+    function _loadContractState(
+        string memory genesisAllocJSON,
+        string memory contractName
+    )
+        private
+    {
         address contractAddress = getPredeployedContractAddress(contractName);
         _loadContractCode(genesisAllocJSON, contractAddress);
         _loadContractStorage(genesisAllocJSON, contractAddress);
     }
 
-    function _loadContractCode(string memory genesisAllocJSON, address contractAddress) private {
+    function _loadContractCode(
+        string memory genesisAllocJSON,
+        address contractAddress
+    )
+        private
+    {
         string memory contractKey = vm.toString(contractAddress);
         string memory codePath = string.concat(".", contractKey, ".code");
         bytes memory codeBytes = bytes("");
@@ -107,7 +118,12 @@ contract TestGenerateGenesis is Test {
         genesisCodeHashes[contractAddress] = keccak256(codeBytes);
     }
 
-    function _loadContractStorage(string memory genesisAllocJSON, address contractAddress) private {
+    function _loadContractStorage(
+        string memory genesisAllocJSON,
+        address contractAddress
+    )
+        private
+    {
         string memory contractKey = vm.toString(contractAddress);
         string memory storagePath = string.concat(".", contractKey, ".storage");
         if (!genesisAllocJSON.keyExists(storagePath)) {
