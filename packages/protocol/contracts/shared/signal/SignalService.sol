@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
-import "../libs/LibTrieProof.sol";
+import "./LegacySignalService.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
@@ -11,7 +9,7 @@ import "./ISignalService.sol";
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialContract, ISignalService {
+contract SignalService is LegacySignalService, ISignalService {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -32,20 +30,9 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev This is the `inbox` on L1 and the `anchor` on L2.
     address internal immutable _authorizedSyncer;
 
-    /// @dev Address of the remote signal service.
-    address internal immutable _remoteSignalService;
-    // ---------------------------------------------------------------
-    // Pre shasta storage variables
-    // ---------------------------------------------------------------
 
-    /// @dev Deprecated slots used by the old SignalService
-    // - `topBlockId`
-    // - `authorized`
-    uint256[2] private _slotsUsedByPacaya;
-
-    /// @dev Cache for received signals.
-    /// @dev Once written, subsequent verifications can skip the merkle proof validation.
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+    /// @dev The height of the shasta fork.
+    uint256 internal immutable _shastaForkHeight;
 
     // ---------------------------------------------------------------
     // Post shasta storage variables
@@ -61,18 +48,12 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService) {
+    constructor(address authorizedSyncer, address remoteSignalService, uint256 shastaForkHeight) LegacySignalService(remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
-        require(remoteSignalService != address(0), ZERO_ADDRESS());
+        require(shastaForkHeight > 0, ZERO_VALUE());
 
         _authorizedSyncer = authorizedSyncer;
-        _remoteSignalService = remoteSignalService;
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+        _shastaForkHeight = shastaForkHeight;
     }
 
     // ---------------------------------------------------------------
@@ -96,8 +77,22 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (uint256)
     {
+        bytes32 slot = getSignalSlot(_chainId, _app, _signal);
+        if (block.timestamp < _shastaForkHeight) {
+        // Pre shasta logic
+            CacheAction[] memory actions = // actions for caching
+            _verifySignalReceivedLegacy(_chainId, _app, _signal, _proof, true);
+
+            uint256 numCacheOps;
+            for (uint256 i; i < actions.length; ++i) {
+                numCacheOps += _cacheLegacy(actions[i]);
+            }
+            return numCacheOps;
+        }
+
+        // Post shasta logic
         _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
+        _receivedSignals[slot] = true;
         return 0;
     }
 
@@ -113,6 +108,13 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
     {
+        if (block.timestamp < _shastaForkHeight) {
+            // Pre shasta logic
+            _verifySignalReceivedLegacy(_chainId, _app, _signal, _proof, false);
+            return; 
+        }
+
+        // Post shasta logic
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
 
@@ -124,23 +126,6 @@ contract SignalService is EssentialContract, ISignalService {
     /// @inheritdoc ISignalService
     function isSignalSent(bytes32 _signalSlot) public view returns (bool) {
         return _loadSignalValue(_signalSlot) != 0;
-    }
-
-    /// @notice Returns the slot for a signal.
-    /// @param _chainId The chainId of the signal.
-    /// @param _app The address that initiated the signal.
-    /// @param _signal The signal (message) that was sent.
-    /// @return The slot for the signal.
-    function getSignalSlot(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal
-    )
-        public
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
     /// @inheritdoc ICheckpointStore
