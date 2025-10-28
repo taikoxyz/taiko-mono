@@ -75,7 +75,7 @@ update_contract_layout() {
 
     echo "Processing ${contract}..."
 
-    [ -f "$file_path" ] || { echo "Warning: Contract file not found: $file_path"; return 1; }
+    [ -f "$file_path" ] || { echo "⚠️  Warning: Contract file not found: $file_path"; return 1; }
 
     # Generate storage layout and convert to plain text format
     local forge_output layout_comments
@@ -83,15 +83,15 @@ update_contract_layout() {
     # First, run forge inspect and capture output + check for errors
     if ! forge_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
         forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1); then
-        echo "Error: forge inspect failed for ${contract}"
-        echo "Output: ${forge_output}"
+        echo "❌ Error: forge inspect failed for ${contract}"
+        echo "   Output: ${forge_output}"
         return 1
     fi
 
     # Check if output looks like a valid storage layout table
     if ! echo "$forge_output" | grep -q "^[╭|]"; then
-        echo "Error: forge inspect did not produce valid storage layout output for ${contract}"
-        echo "Output: ${forge_output}"
+        echo "❌ Error: forge inspect did not produce valid storage layout output for ${contract}"
+        echo "   Output: ${forge_output}"
         return 1
     fi
 
@@ -122,7 +122,7 @@ update_contract_layout() {
 
     # Verify we got some output
     if [ -z "$layout_comments" ]; then
-        echo "Error: Failed to parse storage layout for ${contract}"
+        echo "❌ Error: Failed to parse storage layout for ${contract}"
         return 1
     fi
 
@@ -169,6 +169,8 @@ case "$profile" in
         contracts=("${contracts_layer2[@]}")
         ;;
     *)
+        echo "❌ Error: Invalid profile '$profile'"
+        echo ""
         echo "Usage: $0 <profile>"
         echo "  profile: shared, layer1, or layer2"
         exit 1
@@ -184,7 +186,7 @@ for contract in "${contracts[@]}"; do
         ((success_count++))
     else
         failed_contracts+=("$contract")
-        echo "✗ Failed: $contract"
+        echo "❌ Failed: $contract"
     fi
 done
 
@@ -195,7 +197,7 @@ echo "  Success: $success_count/${#contracts[@]} contracts"
 if [ ${#failed_contracts[@]} -gt 0 ]; then
     echo "  Failed:  ${#failed_contracts[@]} contracts"
     echo ""
-    echo "Failed contracts:"
+    echo "❌ Failed contracts:"
     for contract in "${failed_contracts[@]}"; do
         echo "  - $contract"
     done
@@ -203,5 +205,5 @@ if [ ${#failed_contracts[@]} -gt 0 ]; then
     echo "⚠️  Some contracts failed to update. Please review errors above."
     exit 1
 else
-    echo "✓ All storage layout comments updated successfully!"
+    echo "✅ All storage layout comments updated successfully!"
 fi
