@@ -48,7 +48,7 @@ library LibPublicInput {
             hash := keccak256(ptr, 0xe0)
 
             // Update free memory pointer to prevent memory corruption
-            mstore(0x40,ptr)
+            mstore(0x40, ptr)
         }
         return hash;
     }
