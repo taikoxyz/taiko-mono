@@ -114,7 +114,10 @@ contract LibBondInstructionTest is Test {
         returns (LibBonds.BondInstruction memory)
     {
         return LibBonds.BondInstruction({
-            proposalId: _proposalId, bondType: _bondType, payer: _payer, payee: _payee
+            proposalId: _proposalId,
+            bondType: _bondType,
+            payer: _payer,
+            payee: _payee
         });
     }
 

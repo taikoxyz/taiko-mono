@@ -186,8 +186,7 @@ abstract contract CommonTest is Test, Script {
                 name: "erc20_token",
                 impl: address(new BridgedERC20(erc20Vault)),
                 data: abi.encodeCall(
-                    BridgedERC20.init,
-                    (address(0), srcToken, _ethereumChainId, decimals, symbol, name)
+                    BridgedERC20.init, (address(0), srcToken, _ethereumChainId, decimals, symbol, name)
                 )
             })
         );
@@ -196,7 +195,9 @@ abstract contract CommonTest is Test, Script {
     function deployBridge(address bridgeImpl) internal returns (Bridge) {
         return Bridge(
             deploy({
-                name: "bridge", impl: bridgeImpl, data: abi.encodeCall(Bridge.init, (address(0)))
+                name: "bridge",
+                impl: bridgeImpl,
+                data: abi.encodeCall(Bridge.init, (address(0)))
             })
         );
     }
