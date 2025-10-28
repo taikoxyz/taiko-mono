@@ -8,6 +8,9 @@ import "./ISignalService.sol";
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
+/// This contract has logic to handle the fork period during the shasta fork.
+/// IMPORTANT: Proofs that are generated before the fork will need to be generated again, because the
+/// state root they are verified against is stored in a different location.
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is LegacySignalService, ISignalService {
     // ---------------------------------------------------------------
