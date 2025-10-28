@@ -125,30 +125,26 @@ update_contract_layout() {
     fi
 
     # Remove old storage layout comments if they exist
-    # Find the last closing brace and remove everything after it (including old storage layouts)
+    # Remove everything from START_LABEL to end of file, including preceding empty lines and markers
     if grep -q "$START_LABEL" "$file_path"; then
-        # Keep only up to and including the last }
-        awk '
-            /^}[[:space:]]*$/ {
-                last_brace_line = NR
-                for (i = 1; i <= NR; i++) {
-                    lines[i] = saved_lines[i]
-                }
-            }
-            { saved_lines[NR] = $0 }
-            END {
-                if (last_brace_line > 0) {
-                    for (i = 1; i <= last_brace_line; i++) {
-                        print lines[i]
-                    }
-                } else {
-                    # No closing brace found, print everything
-                    for (i = 1; i <= NR; i++) {
-                        print saved_lines[i]
-                    }
-                }
-            }
-        ' "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
+        # Find the line number where START_LABEL appears
+        local start_line=$(grep -n "$START_LABEL" "$file_path" | head -1 | cut -d: -f1)
+
+        # Go backwards from start_line to find where content ends (skip empty lines and marker lines)
+        local keep_until=$((start_line - 1))
+        while [ $keep_until -gt 0 ]; do
+            local line_content=$(sed -n "${keep_until}p" "$file_path")
+            # If line is empty or is a marker line, keep going back
+            if [ -z "$line_content" ] || echo "$line_content" | grep -q "^// -\+$"; then
+                keep_until=$((keep_until - 1))
+            else
+                # Found actual content, stop here
+                break
+            fi
+        done
+
+        # Keep only up to keep_until line
+        sed -n "1,${keep_until}p" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
     fi
 
     # Append new storage layout comment block
