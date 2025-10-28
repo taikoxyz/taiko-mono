@@ -44,7 +44,7 @@ contracts_shared=(
 contracts_layer1=(
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/core/impl/Inbox.sol:Inbox"
+"contracts/layer1/core/impl/Inbo.sol:Inbox"
 "contracts/layer1/core/impl/InboxOptimized1.sol:InboxOptimized1"
 "contracts/layer1/core/impl/InboxOptimized2.sol:InboxOptimized2"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
@@ -149,7 +149,7 @@ ${END_LABEL}
 ${END_MARKER}
 EOF
 
-    echo "✓ Updated: $file_path"
+    echo "✅ Updated: $file_path"
 }
 
 # Main script
