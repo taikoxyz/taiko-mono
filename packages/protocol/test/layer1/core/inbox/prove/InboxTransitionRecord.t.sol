@@ -132,9 +132,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         proposals[0] = proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory proveData2 = _codec().encodeProveInput(input);
@@ -274,9 +272,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         proposals[0] = proposal1;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory conflictingProveData = _codec().encodeProveInput(input);
@@ -343,11 +339,12 @@ contract InboxTransitionRecord is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, _createBlobRef(0, 1, 0), parentProposals, coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, _createBlobRef(0, 1, 0), parentProposals, coreState
+                )
+            );
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -373,9 +370,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         metadata[0] = _createMetadataForTransition(currentProver, currentProver);
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -416,9 +411,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         proposals[0] = _proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -449,8 +442,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver,
-            actualProver: actualProver
+            designatedProver: designatedProver, actualProver: actualProver
         });
     }
 

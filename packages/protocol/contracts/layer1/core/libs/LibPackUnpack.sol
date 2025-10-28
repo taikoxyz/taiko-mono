@@ -120,7 +120,14 @@ library LibPackUnpack {
     /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
     /// @param _value The uint256 value to pack
     /// @return newPos_ Updated position after writing (pos + 32)
-    function packUint256(uint256 _pos, uint256 _value) internal pure returns (uint256 newPos_) {
+    function packUint256(
+        uint256 _pos,
+        uint256 _value
+    )
+        internal
+        pure
+        returns (uint256 newPos_)
+    {
         assembly {
             mstore(_pos, _value)
             newPos_ := add(_pos, 32)
@@ -132,7 +139,14 @@ library LibPackUnpack {
     /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
     /// @param _value The bytes32 value to pack (hash, identifier, etc.)
     /// @return newPos_ Updated position after writing (pos + 32)
-    function packBytes32(uint256 _pos, bytes32 _value) internal pure returns (uint256 newPos_) {
+    function packBytes32(
+        uint256 _pos,
+        bytes32 _value
+    )
+        internal
+        pure
+        returns (uint256 newPos_)
+    {
         assembly {
             mstore(_pos, _value)
             newPos_ := add(_pos, 32)
@@ -145,7 +159,14 @@ library LibPackUnpack {
     /// @param _pos Absolute memory position to write at
     /// @param _value The address to pack
     /// @return newPos_ Updated position after writing (pos + 20)
-    function packAddress(uint256 _pos, address _value) internal pure returns (uint256 newPos_) {
+    function packAddress(
+        uint256 _pos,
+        address _value
+    )
+        internal
+        pure
+        returns (uint256 newPos_)
+    {
         assembly {
             // Shift address left by 12 bytes (96 bits) to align it properly in a 32-byte word
             // This places the 20-byte address at the start of the word with 12 bytes of padding
