@@ -187,7 +187,7 @@ success_count=0
 
 for contract in "${contracts[@]}"; do
     if update_contract_layout "$contract" "$profile"; then
-        ((success_count++))
+        success_count=$((success_count + 1))
     else
         failed_contracts+=("$contract")
         # Error message already printed by update_contract_layout
