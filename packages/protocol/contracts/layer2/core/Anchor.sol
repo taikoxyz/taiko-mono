@@ -10,6 +10,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { PacayaAnchorStorage } from "./PacayaAnchorStorage.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -22,7 +23,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is Ownable2Step, ReentrancyGuard {
+contract Anchor is PacayaAnchorStorage, Ownable2Step, ReentrancyGuard {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -113,16 +114,6 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
-
-    // ---------------------------------------------------------------
-    // Pacaya slots for storage compatibility
-    // ---------------------------------------------------------------
-
-    /// @dev slot0:  _blockhashes
-    ///      slot1: publicInputHash
-    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    ///      slot3: l1ChainId
-    uint256[4] private _pacayaSlots;
 
     // ---------------------------------------------------------------
     // State variables
