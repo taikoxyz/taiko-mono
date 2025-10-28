@@ -140,7 +140,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             .encodeProposeInput(_createProposeInputWithDeadline(uint48(block.timestamp - 1 hours)));
 
         // Should revert with DeadlineExceeded
-        vm.expectRevert(DeadlineExceeded.selector);
+        vm.expectRevert(Inbox.DeadlineExceeded.selector);
         vm.prank(currentProposer);
         vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
@@ -443,7 +443,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         );
         bytes memory proposeData = _codec().encodeProposeInput(nextInput);
 
-        vm.expectRevert(NotEnoughCapacity.selector);
+        vm.expectRevert(Inbox.NotEnoughCapacity.selector);
         inbox.propose(bytes(""), proposeData);
 
         vm.stopPrank();

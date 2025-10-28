@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Storage Layout Generation Script
+#
+# This script generates storage layout information for smart contracts and automatically
+# appends them as comments at the end of each contract file.
+#
+# Usage: ./gen-layouts.sh <profile>
+#   profile: shared, layer1, or layer2
+#
+# The storage layout comments are marked with a single line:
+#   // Storage Layout ---------------------------------------------------------------
+#
+# Re-running the script will replace old storage layout comments with updated ones.
+
+set -e
+set -o pipefail  # Fail on any command in a pipeline
+
+# Storage layout comment marker
+readonly LAYOUT_MARKER="// Storage Layout ---------------------------------------------------------------"
+
 # Define the list of contracts to inspect
 # Please try not to change the order
 # Contracts shared between layer 1 and layer 2
@@ -19,12 +38,10 @@ contracts_shared=(
 # Layer 1 contracts
 contracts_layer1=(
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
-"contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
-"contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
-"contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
-"contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/core/impl/Inbox.sol:Inbox"
+"contracts/layer1/core/impl/InboxOptimized1.sol:InboxOptimized1"
+"contracts/layer1/core/impl/InboxOptimized2.sol:InboxOptimized2"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
@@ -45,49 +62,152 @@ contracts_layer2=(
 "contracts/layer2/core/Anchor.sol:Anchor"
 )
 
+# Function to update storage layout for a single contract
+update_contract_layout() {
+    local contract=$1
+    local profile=$2
+    local file_path=$(echo "${contract}" | cut -d':' -f1)
+
+    [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found: $file_path)"; return 1; }
+
+    # Generate storage layout and convert to plain text format
+    local forge_output layout_comments
+
+    # First, run forge inspect and capture output + check for errors
+    if ! forge_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
+        forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1); then
+        echo "❌ Error: forge inspect failed for ${contract}"
+        echo "   Output: ${forge_output}"
+        return 1
+    fi
+
+    # Check if output looks like a valid storage layout table
+    if ! echo "$forge_output" | grep -q "^[╭|]"; then
+        echo "❌ Error: forge inspect did not produce valid storage layout output for ${contract}"
+        echo "   Output: ${forge_output}"
+        return 1
+    fi
+
+    # Parse and format the output
+    layout_comments=$(echo "$forge_output" \
+        | awk '
+            BEGIN { FS="|"; }
+            # Skip table borders
+            /^[╭╰─=+]+$/ { next; }
+            # Process data rows with pipes
+            /^\|.*\|.*\|.*\|.*\|/ {
+                # Extract fields by pipe delimiter and trim spaces
+                name = $2; gsub(/^[ \t]+|[ \t]+$/, "", name);
+                type = $3; gsub(/^[ \t]+|[ \t]+$/, "", type);
+                slot = $4; gsub(/^[ \t]+|[ \t]+$/, "", slot);
+                offset = $5; gsub(/^[ \t]+|[ \t]+$/, "", offset);
+                bytes = $6; gsub(/^[ \t]+|[ \t]+$/, "", bytes);
+
+                # Skip header and empty rows
+                if (name == "Name" || name == "") next;
+
+                # Format output
+                printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n",
+                       name, type, slot, offset, bytes;
+            }
+        ' \
+        | sed 's/^/\/\/ /')
+
+    # Verify we got some output
+    if [ -z "$layout_comments" ]; then
+        echo "❌ Error: Failed to parse storage layout for ${contract}"
+        return 1
+    fi
+
+    # Remove old storage layout comments if they exist
+    # Simply remove everything from the marker line to end of file
+    if grep -q "$LAYOUT_MARKER" "$file_path"; then
+        # Find the line number where the marker appears
+        local marker_line
+        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
+
+        # Keep everything before the marker line, also remove all preceding blank lines
+        local keep_until=$((marker_line - 1))
+
+        # Walk backwards removing all blank lines before the marker
+        while [ "$keep_until" -gt 0 ]; do
+            local line_content
+            line_content=$(sed -n "${keep_until}p" "$file_path")
+            if [ -z "$line_content" ]; then
+                keep_until=$((keep_until - 1))
+            else
+                break
+            fi
+        done
+
+        sed -n "1,${keep_until}p" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
+    fi
+
+    # Append new storage layout comment block
+    cat >> "$file_path" << EOF
+
+${LAYOUT_MARKER}
+// solhint-disable max-line-length
+//
+${layout_comments}
+// solhint-enable max-line-length
+EOF
+
+    echo "✅ Updated: ${contract}"
+}
+
+# Main script
 profile=$1
 
-if [ "$profile" == "shared" ]; then
-    echo "Generating shared contract layouts..."
-    contracts=("${contracts_shared[@]}")
-elif [ "$profile" == "layer1" ]; then
-    echo "Generating layer 1 contract layouts..."
-    contracts=("${contracts_layer1[@]}")
-elif [ "$profile" == "layer2" ]; then
-    echo "Generating layer 2 contract layouts..."
-    contracts=("${contracts_layer2[@]}")
-else
-    echo "Invalid profile. Please enter either 'shared','layer1' or 'layer2'."
-    exit 1
-fi
+case "$profile" in
+    shared)
+        echo "Generating shared contract layouts..."
+        contracts=("${contracts_shared[@]}")
+        ;;
+    layer1)
+        echo "Generating layer 1 contract layouts..."
+        contracts=("${contracts_layer1[@]}")
+        ;;
+    layer2)
+        echo "Generating layer 2 contract layouts..."
+        contracts=("${contracts_layer2[@]}")
+        ;;
+    *)
+        echo "❌ Error: Invalid profile '$profile'"
+        echo ""
+        echo "Usage: $0 <profile>"
+        echo "  profile: shared, layer1, or layer2"
+        exit 1
+        ;;
+esac
 
-# Empty the output file initially
-output_file="layout/${profile}-contracts.txt"
-> $output_file
+# Process each contract and track failures
+failed_contracts=()
+success_count=0
 
-# Loop over each contract
 for contract in "${contracts[@]}"; do
-    # Run forge inspect and append to the file
-    # Ensure correct concatenation of the command without commas
-    echo "inspect ${contract}"
-
-    echo "## ${contract}" >> $output_file
-    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout >> $output_file
-    echo "" >> $output_file
+    if update_contract_layout "$contract" "$profile"; then
+        success_count=$((success_count + 1))
+    else
+        failed_contracts+=("$contract")
+        # Error message already printed by update_contract_layout
+    fi
 done
 
-sed_pattern='s|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g'
-
-if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "$sed_pattern" "$output_file"
+echo ""
+echo "=========================================="
+echo "Summary:"
+echo "  Success: $success_count/${#contracts[@]} contracts"
+if [ ${#failed_contracts[@]} -gt 0 ]; then
+    echo "  Failed:  ${#failed_contracts[@]} contracts"
+    echo ""
+    echo "❌ Failed contracts:"
+    for contract in "${failed_contracts[@]}"; do
+        echo "  - $contract"
+    done
+    echo ""
+    echo "⚠️  Some contracts failed to update. Please review errors above."
+    exit 1
 else
-    sed -i "$sed_pattern" "$output_file"
+    echo "✅ All storage layout comments updated successfully!"
 fi
-
-# Use awk to remove the last column and write to a temporary file
-temp_file="${output_file}_temp"
-while IFS= read -r line; do
-    # Remove everything behind the second-to-last "|"
-    echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
-done < "$output_file" > "$temp_file"
-mv "$temp_file" "$output_file"

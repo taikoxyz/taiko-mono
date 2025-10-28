@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "src/layer1/mainnet/LibFasterReentryLock.sol";
+import "src/shared/signal/SignalService.sol";
+
+/// @title MainnetSignalService
+/// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
+/// mainnet to reduce gas cost.
+/// @notice See the documentation in {SignalService}.
+/// @custom:security-contact security@taiko.xyz
+contract MainnetSignalService is SignalService {
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
+    constructor(
+        address authorizedSyncer,
+        address remoteSignalService
+    )
+        SignalService(authorizedSyncer, remoteSignalService)
+    { }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    function _storeReentryLock(uint8 _reentry) internal override {
+        LibFasterReentryLock.storeReentryLock(_reentry);
+    }
+
+    function _loadReentryLock() internal view override returns (uint8) {
+        return LibFasterReentryLock.loadReentryLock();
+    }
+}
+
+// Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
+//
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
+//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
+//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
+//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
+//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
+//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
+//   _slotsUsedByPacaya             | uint256[2]                                         | Slot: 251  | Offset: 0    | Bytes: 64
+//   _receivedSignals               | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32
+//   _checkpoints                   | mapping(uint48 => struct SignalService.CheckpointRecord) | Slot: 254  | Offset: 0    | Bytes: 32
+//   __gap                          | uint256[44]                                        | Slot: 255  | Offset: 0    | Bytes: 1408
+// solhint-enable max-line-length
