@@ -112,6 +112,7 @@ contract BridgedERC721 is
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -135,3 +136,4 @@ contract BridgedERC721 is
 //   srcToken                       | address                                            | Slot: 351  | Offset: 0    | Bytes: 20  
 //   srcChainId                     | uint256                                            | Slot: 352  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[48]                                        | Slot: 353  | Offset: 0    | Bytes: 1536
+// solhint-enable max-line-length

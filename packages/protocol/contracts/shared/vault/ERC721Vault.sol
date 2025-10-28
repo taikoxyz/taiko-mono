@@ -89,7 +89,12 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
+    function onMessageInvocation(bytes calldata _data)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
 
@@ -265,6 +270,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -282,3 +288,4 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 //   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
+// solhint-enable max-line-length

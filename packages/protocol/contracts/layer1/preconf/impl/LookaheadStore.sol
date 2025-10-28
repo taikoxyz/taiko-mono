@@ -230,7 +230,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ProposerContext memory context_)
     {
         context_.submissionWindowStart =
-        _data.currLookahead[_data.currLookahead.length - 1].timestamp;
+            _data.currLookahead[_data.currLookahead.length - 1].timestamp;
 
         if (_data.nextLookahead.length == 0) {
             // This is the case when the next lookahead is empty
@@ -447,7 +447,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
                 );
                 require(
                     (lookaheadSlot.timestamp - _nextEpochTimestamp)
-                            % LibPreconfConstants.SECONDS_IN_SLOT == 0,
+                        % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -506,8 +506,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
-        uint256 prevEpochTimestamp =
-            _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Use the general operator validation first
         (operatorData_, slasherCommitment_) =
@@ -638,26 +637,30 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
+            commitmentType: 0,
+            payload: abi.encode(_lookahead),
+            slasher: lookaheadSlasher
         });
     }
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
-//   overseers                      | mapping(address => bool)                           | Slot: 0    | Offset: 0    | Bytes: 32  
-//   blacklist                      | mapping(bytes32 => struct IBlacklist.BlacklistTimestamps) | Slot: 1    | Offset: 0    | Bytes: 32  
+//   overseers                      | mapping(address => bool)                           | Slot: 0    | Offset: 0    | Bytes: 32
+//   blacklist                      | mapping(bytes32 => struct IBlacklist.BlacklistTimestamps) | Slot: 1    | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 2    | Offset: 0    | Bytes: 1536
-//   _initialized                   | uint8                                              | Slot: 50   | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 50   | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 50   | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 50   | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 51   | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 151  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 151  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 152  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 201  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 251  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 251  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 251  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 251  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 252  | Offset: 0    | Bytes: 1568
-//   lookahead                      | mapping(uint256 => struct ILookaheadStore.LookaheadHash) | Slot: 301  | Offset: 0    | Bytes: 32  
+//   lookahead                      | mapping(uint256 => struct ILookaheadStore.LookaheadHash) | Slot: 301  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 302  | Offset: 0    | Bytes: 1568
+// solhint-enable max-line-length

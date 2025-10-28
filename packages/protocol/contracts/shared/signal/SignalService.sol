@@ -149,9 +149,8 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
-            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
-        });
+        _checkpoints[_checkpoint.blockNumber] =
+            CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -183,7 +182,9 @@ contract SignalService is EssentialContract, ISignalService {
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
         checkpoint = Checkpoint({
-            blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
+            blockNumber: _blockNumber,
+            blockHash: blockHash,
+            stateRoot: record.stateRoot
         });
     }
 
@@ -278,6 +279,7 @@ error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -294,3 +296,4 @@ error SS_SIGNAL_NOT_RECEIVED();
 //   _receivedSignals               | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _checkpoints                   | mapping(uint48 => struct SignalService.CheckpointRecord) | Slot: 254  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[44]                                        | Slot: 255  | Offset: 0    | Bytes: 1408
+// solhint-enable max-line-length

@@ -247,8 +247,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                IERC1155(_op.token)
-                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
                 uint256 size = _op.tokenIds.length;
                 for (uint256 i; i < size; ++i) {
                     IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
@@ -262,8 +263,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     name: safeName(_op.token)
                 });
 
-                IERC1155(_op.token)
-                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
             }
         }
         msgData_ = abi.encodeCall(
@@ -312,6 +314,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -331,3 +334,4 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
 //   __gap                          | uint256[50]                                        | Slot: 401  | Offset: 0    | Bytes: 1600
 //   __gap                          | uint256[50]                                        | Slot: 451  | Offset: 0    | Bytes: 1600
+// solhint-enable max-line-length

@@ -119,6 +119,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -150,3 +151,4 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 //   __gap                          | uint256[48]                                        | Slot: 355  | Offset: 0    | Bytes: 1536
 //   _nonces                        | mapping(address => struct CountersUpgradeable.Counter) | Slot: 403  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[49]                                        | Slot: 404  | Offset: 0    | Bytes: 1568
+// solhint-enable max-line-length

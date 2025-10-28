@@ -52,15 +52,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         return address(this);
     }
 
-    function getAddress(
-        uint256 _chainId,
-        bytes32 _name
-    )
-        internal
-        view
-        override
-        returns (address)
-    {
+    function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
         return __addresses[_chainId][_name];
     }
 
@@ -68,6 +60,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -82,3 +75,4 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __addresses                    | mapping(uint256 => mapping(bytes32 => address))    | Slot: 251  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[49]                                        | Slot: 252  | Offset: 0    | Bytes: 1568
+// solhint-enable max-line-length

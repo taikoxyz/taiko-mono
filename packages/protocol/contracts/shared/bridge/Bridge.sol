@@ -105,12 +105,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    constructor(
-        address _resolver,
-        address _signalService
-    )
-        EssentialResolverContract(_resolver)
-    {
+    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
         signalService = ISignalService(_signalService);
     }
 
@@ -203,8 +198,9 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from)
-            .onMessageRecalled{ value: _message.value }(_message, msgHash);
+            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+                _message, msgHash
+            );
 
             // Must reset the context after the message call
             _storeContext(
@@ -534,9 +530,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (
-            uint256 numCacheOps
-        ) {
+        ) returns (uint256 numCacheOps) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
@@ -686,6 +680,7 @@ contract Bridge is EssentialResolverContract, IBridge {
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
@@ -705,3 +700,4 @@ contract Bridge is EssentialResolverContract, IBridge {
 //   __reserved2                    | uint256                                            | Slot: 255  | Offset: 0    | Bytes: 32  
 //   __reserved3                    | uint256                                            | Slot: 256  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
+// solhint-enable max-line-length

@@ -400,12 +400,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(
-        ProveInput memory _input,
-        uint256 _index
-    )
-        internal
-    {
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -871,7 +866,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, derivation: _derivation, coreState: _coreState
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -896,7 +893,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                (bytes26 recordHash, uint48 finalizationDeadline) =
+                _getTransitionRecordHashAndDeadline(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
@@ -1036,54 +1034,56 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
     // ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
 
-error CannotProposeInCurrentBlock();
-error CheckpointMismatch();
-error CheckpointNotProvided();
-error DeadlineExceeded();
-error EmptyProposals();
-error ForkNotActive();
-error InconsistentParams();
-error IncorrectProposalCount();
-error InsufficientBond();
-error InvalidLastProposalProof();
-error InvalidSpan();
-error InvalidState();
-error LastProposalHashMismatch();
-error LastProposalProofNotEmpty();
-error NextProposalHashMismatch();
-error NoBondToWithdraw();
-error NotEnoughCapacity();
-error ProposalHashMismatch();
-error ProposalHashMismatchWithStorage();
-error ProposalHashMismatchWithTransition();
-error ProposalIdMismatch();
-error ProposerBondInsufficient();
-error RingBufferSizeZero();
-error SpanOutOfBounds();
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
-error UnprocessedForcedInclusionIsDue();
+    error CannotProposeInCurrentBlock();
+    error CheckpointMismatch();
+    error CheckpointNotProvided();
+    error DeadlineExceeded();
+    error EmptyProposals();
+    error ForkNotActive();
+    error InconsistentParams();
+    error IncorrectProposalCount();
+    error InsufficientBond();
+    error InvalidLastProposalProof();
+    error InvalidSpan();
+    error InvalidState();
+    error LastProposalHashMismatch();
+    error LastProposalProofNotEmpty();
+    error NextProposalHashMismatch();
+    error NoBondToWithdraw();
+    error NotEnoughCapacity();
+    error ProposalHashMismatch();
+    error ProposalHashMismatchWithStorage();
+    error ProposalHashMismatchWithTransition();
+    error ProposalIdMismatch();
+    error ProposerBondInsufficient();
+    error RingBufferSizeZero();
+    error SpanOutOfBounds();
+    error TransitionRecordHashMismatchWithStorage();
+    error TransitionRecordNotProvided();
+    error UnprocessedForcedInclusionIsDue();
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
-//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1   
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
+//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20
+//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1
+//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32
+//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
+// solhint-enable max-line-length

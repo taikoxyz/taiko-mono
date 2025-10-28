@@ -123,14 +123,16 @@ update_contract_layout() {
     # Simply remove everything from the marker line to end of file
     if grep -q "$LAYOUT_MARKER" "$file_path"; then
         # Find the line number where the marker appears
-        local marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
+        local marker_line
+        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
 
         # Keep everything before the marker line, also remove all preceding blank lines
         local keep_until=$((marker_line - 1))
 
         # Walk backwards removing all blank lines before the marker
-        while [ $keep_until -gt 0 ]; do
-            local line_content=$(sed -n "${keep_until}p" "$file_path")
+        while [ "$keep_until" -gt 0 ]; do
+            local line_content
+            line_content=$(sed -n "${keep_until}p" "$file_path")
             if [ -z "$line_content" ]; then
                 keep_until=$((keep_until - 1))
             else
@@ -145,8 +147,10 @@ update_contract_layout() {
     cat >> "$file_path" << EOF
 
 ${LAYOUT_MARKER}
+// solhint-disable max-line-length
 //
 ${layout_comments}
+// solhint-enable max-line-length
 EOF
 
     echo "✅ Updated: ${contract}"
@@ -183,7 +187,7 @@ success_count=0
 
 for contract in "${contracts[@]}"; do
     if update_contract_layout "$contract" "$profile"; then
-        ((success_count++))
+        success_count=$((success_count + 1))
     else
         failed_contracts+=("$contract")
         # Error message already printed by update_contract_layout

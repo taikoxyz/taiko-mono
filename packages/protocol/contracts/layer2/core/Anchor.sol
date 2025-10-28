@@ -355,12 +355,12 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-            getDesignatedProver(
-                _proposalParams.proposalId,
-                _proposalParams.proposer,
-                _proposalParams.proverAuth,
-                _proposalState.designatedProver
-            );
+        getDesignatedProver(
+            _proposalParams.proposalId,
+            _proposalParams.proposer,
+            _proposalParams.proverAuth,
+            _proposalState.designatedProver
+        );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
@@ -467,18 +467,12 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         }
 
         assembly {
-            oldAncestorsHash_ := keccak256(
-                inputs,
-                8192 /*mul(256, 32)*/
-            )
+            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
-            newAncestorsHash_ := keccak256(
-                inputs,
-                8192 /*mul(256, 32)*/
-            )
+            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
@@ -521,11 +515,13 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 }
 
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
-//   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20  
-//   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20  
-//   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32  
-//   _pacayaSlots                   | uint256[4]                                         | Slot: 3    | Offset: 0    | Bytes: 128 
-//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64  
-//   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64  
+//   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20
+//   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20
+//   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32
+//   _pacayaSlots                   | uint256[4]                                         | Slot: 3    | Offset: 0    | Bytes: 128
+//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64
+//   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[42]                                        | Slot: 11   | Offset: 0    | Bytes: 1344
+// solhint-enable max-line-length
