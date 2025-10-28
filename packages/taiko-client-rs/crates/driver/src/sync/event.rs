@@ -64,7 +64,7 @@ where
         };
 
         let anchor_state = self.rpc.shasta_anchor_state_by_hash(latest_block.hash()).await?;
-        let anchor_block_number = anchor_state.anchorBlockNumber.to::<u64>();
+        let anchor_block_number = anchor_state.anchor_block_number;
 
         if anchor_block_number != 0 {
             return Ok(anchor_block_number);

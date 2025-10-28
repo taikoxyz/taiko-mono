@@ -39,6 +39,8 @@ interface IPacayaAnchorLegacy {
 
     function parentGasExcess() external view returns (uint64);
 
+    function lastSyncedBlock() external view returns (uint64);
+
     function parentTimestamp() external view returns (uint64);
 
     function parentGasTarget() external view returns (uint64);
@@ -62,6 +64,7 @@ contract AnchorForkRouter is ForkRouter {
                 || _selector == IPacayaAnchorLegacy.skipFeeCheck.selector
                 || _selector == IPacayaAnchorLegacy.publicInputHash.selector
                 || _selector == IPacayaAnchorLegacy.parentGasExcess.selector
+                || _selector == IPacayaAnchorLegacy.lastSyncedBlock.selector
                 || _selector == IPacayaAnchorLegacy.parentTimestamp.selector
                 || _selector == IPacayaAnchorLegacy.parentGasTarget.selector
                 || _selector == IPacayaAnchorLegacy.signalService.selector

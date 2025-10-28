@@ -17,6 +17,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # ethereum
 alloy = { workspace = true }
 alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
 alloy-network = { workspace = true }
 
 # taiko

@@ -30,6 +30,20 @@ pub enum ProtocolError {
     Other(#[from] anyhow::Error),
 }
 
+/// Result type alias for fork configuration lookups.
+pub type ForkConfigResult<T> = StdResult<T, ShastaForkConfigError>;
+
+/// Errors returned when resolving Shasta fork activation metadata.
+#[derive(Debug, Error)]
+pub enum ShastaForkConfigError {
+    /// Chain ID is not recognised.
+    #[error("unsupported chain id {0} for shasta fork configuration")]
+    UnsupportedChainId(u64),
+    /// The fork activation is not block-based (e.g. configured as timestamp/TTD).
+    #[error("unsupported shasta fork activation condition")]
+    UnsupportedActivation,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
