@@ -50,7 +50,6 @@ impl DriverSubCommand {
             self.driver_flags.retry_interval(),
             l1_beacon,
             l2_checkpoint,
-            self.driver_flags.devnet_shasta_timestamp,
         ))
     }
 

@@ -11,9 +11,7 @@ use alloy::{
 use alloy_network::TransactionBuilder;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
-use protocol::shasta::constants::{
-    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain,
-};
+use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use tokio::time::interval;
@@ -34,7 +32,6 @@ pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
     cfg: ProposerConfigs,
-    shasta_fork_timestamp: u64,
 }
 
 impl Proposer {
@@ -77,19 +74,13 @@ impl Proposer {
         )
         .await?;
 
-        // Fetch the Shasta fork activation timestamp for the connected chain.
-        let chain_id = rpc_provider.l2_provider.get_chain_id().await?;
-        let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
-            .map_err(|err| ProposerError::Other(err.into()))?;
-
-        let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
             indexer,
-            l2_suggested_fee_recipient,
+            cfg.l2_suggested_fee_recipient,
         );
 
-        Ok(Self { rpc_provider, cfg, transaction_builder, shasta_fork_timestamp })
+        Ok(Self { rpc_provider, cfg, transaction_builder })
     }
 
     /// Start the proposer main loop.

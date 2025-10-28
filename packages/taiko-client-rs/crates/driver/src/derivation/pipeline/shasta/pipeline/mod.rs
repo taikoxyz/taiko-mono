@@ -66,13 +66,10 @@ where
         rpc: Client<P>,
         blob_source: BlobDataSource,
         indexer: Arc<ShastaEventIndexer>,
-        devnet_shasta_timestamp: u64,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
             Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
-        let _ = devnet_shasta_timestamp;
-
         Ok(Self {
             rpc,
             indexer,

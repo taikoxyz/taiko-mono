@@ -114,13 +114,9 @@ where
         indexer.spawn();
 
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
-        let derivation_pipeline = ShastaDerivationPipeline::new(
-            self.rpc.clone(),
-            blob_source,
-            self.indexer.clone(),
-            self.cfg.devnet_shasta_timestamp,
-        )
-        .await?;
+        let derivation_pipeline =
+            ShastaDerivationPipeline::new(self.rpc.clone(), blob_source, self.indexer.clone())
+                .await?;
         let derivation: Arc<
             dyn DerivationPipeline<
                 Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
