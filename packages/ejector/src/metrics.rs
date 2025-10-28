@@ -1,6 +1,6 @@
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
-use prometheus::{Encoder, IntCounter, IntCounterVec, Registry};
+use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, Registry};
 
 // registry we can re-use
 static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
@@ -24,6 +24,19 @@ static WS_RECONNECTIONS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
         .expect("ws_reconnections_total metric can be created")
 });
 
+static LAST_SEEN_DRIFT_SECONDS: Lazy<IntGauge> = Lazy::new(|| {
+    IntGauge::new(
+        "last_seen_drift_seconds",
+        "Seconds since the ejector watchdog last reset its timer",
+    )
+    .expect("last_seen_drift_seconds metric can be created")
+});
+
+static LAST_BLOCK_AGE_SECONDS: Lazy<IntGauge> = Lazy::new(|| {
+    IntGauge::new("last_block_age_seconds", "Seconds since the ejector observed an L2 block header")
+        .expect("last_block_age_seconds metric can be created")
+});
+
 pub fn init() {
     REGISTRY
         .register(Box::new(L2_BLOCKS_TOTAL.clone()))
@@ -34,6 +47,12 @@ pub fn init() {
     REGISTRY
         .register(Box::new(WS_RECONNECTIONS_TOTAL.clone()))
         .expect("ws_reconnections_total metric can be registered");
+    REGISTRY
+        .register(Box::new(LAST_SEEN_DRIFT_SECONDS.clone()))
+        .expect("last_seen_drift_seconds metric can be registered");
+    REGISTRY
+        .register(Box::new(LAST_BLOCK_AGE_SECONDS.clone()))
+        .expect("last_block_age_seconds metric can be registered");
 }
 
 pub fn router() -> axum::Router {
@@ -68,4 +87,12 @@ pub fn inc_eject_error(addr: &str) {
 
 pub fn inc_ws_reconnections() {
     WS_RECONNECTIONS_TOTAL.inc();
+}
+
+pub fn set_last_seen_drift_seconds(seconds: u64) {
+    LAST_SEEN_DRIFT_SECONDS.set(seconds as i64);
+}
+
+pub fn set_last_block_age_seconds(seconds: u64) {
+    LAST_BLOCK_AGE_SECONDS.set(seconds as i64);
 }

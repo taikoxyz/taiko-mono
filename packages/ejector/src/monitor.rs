@@ -81,9 +81,13 @@ impl Monitor {
         info!("Running block watcher at {}", self.l2_ws_url);
 
         let last_seen = Arc::new(Mutex::new(Instant::now()));
+        let last_block_seen = Arc::new(Mutex::new(Instant::now()));
+        metrics::set_last_seen_drift_seconds(0);
+        metrics::set_last_block_age_seconds(0);
         let tick = self.target_block_time;
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
+        let last_block_for_watch = last_block_seen.clone();
 
         let l1_http_url = self.l1_http_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
@@ -155,6 +159,7 @@ impl Monitor {
 
                 if curr_resp != prev_resp {
                     *last_seen_for_watch.lock().await = Instant::now();
+                    metrics::set_last_seen_drift_seconds(0);
                     tracing::info!(
                         "Preconf responsibility changed to {:?} (epoch {}). Reset timer.",
                         curr_resp.lookahead,
@@ -167,6 +172,7 @@ impl Monitor {
                     Ok(false) => {
                         // zero out the last seen
                         *last_seen_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
                         debug!("Preconfs are disabled, skipping block watch and resetting timer");
                         continue;
                     }
@@ -180,6 +186,9 @@ impl Monitor {
                 }
 
                 let elapsed = last_seen_for_watch.lock().await.elapsed();
+                metrics::set_last_seen_drift_seconds(elapsed.as_secs());
+                let block_age = last_block_for_watch.lock().await.elapsed();
+                metrics::set_last_block_age_seconds(block_age.as_secs());
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
 
@@ -195,6 +204,7 @@ impl Monitor {
                         error!("Error during eject action: {:?}", e);
                     }
                     *last_seen_for_watch.lock().await = Instant::now();
+                    metrics::set_last_seen_drift_seconds(0);
                 }
             }
         });
@@ -230,7 +240,17 @@ impl Monitor {
                                         );
 
                                         metrics::inc_l2_blocks();
-                                        *last_seen.lock().await = Instant::now();
+                                        let now = Instant::now();
+                                        {
+                                            let mut guard = last_seen.lock().await;
+                                            *guard = now;
+                                        }
+                                        metrics::set_last_seen_drift_seconds(0);
+                                        {
+                                            let mut guard = last_block_seen.lock().await;
+                                            *guard = now;
+                                        }
+                                        metrics::set_last_block_age_seconds(0);
                                         backoff = Duration::from_secs(1); // reset after good event
                                     }
                                     None => {
