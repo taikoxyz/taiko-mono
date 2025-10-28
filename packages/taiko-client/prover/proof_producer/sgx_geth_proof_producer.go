@@ -16,6 +16,7 @@ import (
 // SgxGethProofProducer generates a sgx geth proof for the given block.
 type SgxGethProofProducer struct {
 	Verifier            common.Address
+	VerifierID          uint8
 	RaikoHostEndpoint   string // a prover RPC endpoint
 	ApiKey              string // ApiKey provided by Raiko
 	Dummy               bool
@@ -85,7 +86,7 @@ func (s *SgxGethProofProducer) Aggregate(
 
 	if s.Dummy {
 		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, ProofTypeSgxGeth)
-		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
+		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier, VerifierID: s.VerifierID}, nil
 	}
 
 	batches := make([]*RaikoBatches, 0, len(items))
@@ -109,7 +110,11 @@ func (s *SgxGethProofProducer) Aggregate(
 		return nil, err
 	}
 
-	return &BatchProofs{BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]), Verifier: s.Verifier}, nil
+	return &BatchProofs{
+		BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
+		Verifier:   s.Verifier,
+		VerifierID: s.VerifierID,
+	}, nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.

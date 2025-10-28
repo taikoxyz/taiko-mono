@@ -37,10 +37,11 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox      *shastaBindings.ShastaInboxClient
-	InboxCodec *shastaBindings.CodecOptimizedClient
-	Anchor     *shastaBindings.ShastaAnchor
-	ForkHeight *big.Int
+	Inbox           *shastaBindings.ShastaInboxClient
+	InboxCodec      *shastaBindings.CodecOptimizedClient
+	Anchor          *shastaBindings.ShastaAnchor
+	ComposeVerifier *shastaBindings.ComposeVerifier
+	ForkHeight      *big.Int
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -287,12 +288,16 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}
-
+	composeVerifier, err := shastaBindings.NewComposeVerifier(config.ProofVerifier, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
+	}
 	c.ShastaClients = &ShastaClients{
-		Inbox:      shastaInbox,
-		InboxCodec: inboxCodec,
-		Anchor:     shastaAnchor,
-		ForkHeight: new(big.Int).SetUint64(c.PacayaClients.ForkHeights.Shasta),
+		Inbox:           shastaInbox,
+		InboxCodec:      inboxCodec,
+		Anchor:          shastaAnchor,
+		ComposeVerifier: composeVerifier,
+		ForkHeight:      new(big.Int).SetUint64(c.PacayaClients.ForkHeights.Shasta),
 	}
 
 	return nil

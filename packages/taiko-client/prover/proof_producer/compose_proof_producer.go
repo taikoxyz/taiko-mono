@@ -33,7 +33,7 @@ type RaikoRequestProofBodyV3Pacaya struct {
 type RaikoProposals struct {
 	ProposalId             *big.Int   `json:"proposal_id"`
 	L1InclusionBlockNumber *big.Int   `json:"l1_inclusion_block_number"`
-	l2BlockNumbers         *[]big.Int `json:"l2_block_numbers"`
+	L2BlockNumbers         []*big.Int `json:"l2_block_numbers"`
 }
 
 // RaikoRequestProofBodyV3Shasta represents the JSON body for requesting the proof.
@@ -46,7 +46,10 @@ type RaikoRequestProofBodyV3Shasta struct {
 
 // ComposeProofProducer generates a compose proof for the given block.
 type ComposeProofProducer struct {
-	Verifiers           map[ProofType]common.Address
+	// We use Verifiers for Pacaya proof
+	Verifiers map[ProofType]common.Address
+	// We use VerifierIDs for Shasta proof
+	VerifierIDs         map[ProofType]uint8
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	ApiKey              string // ApiKey provided by Raiko
@@ -90,8 +93,8 @@ func (s *ComposeProofProducer) RequestProof(
 		} else {
 			if resp, err := s.requestBatchProof(
 				ctx,
-				[]*ProofRequestOptions{&opts},
-				[]*metadata.TaikoProposalMetaData{&meta},
+				[]ProofRequestOptions{opts},
+				[]metadata.TaikoProposalMetaData{meta},
 				false,
 				s.ProofType,
 				requestAt,
@@ -149,6 +152,10 @@ func (s *ComposeProofProducer) Aggregate(
 	if !exist {
 		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
 	}
+	verifierID, exist := s.VerifierIDs[proofType]
+	if !exist {
+		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
+	}
 	log.Info(
 		"Aggregate batch proofs from raiko-host service",
 		"proofType", proofType,
@@ -161,14 +168,14 @@ func (s *ComposeProofProducer) Aggregate(
 		sgxGethBatchProofs *BatchProofs
 		batchProofs        []byte
 		batchIDs           = make([]*big.Int, 0, len(items))
-		opts               = make([]*ProofRequestOptions, 0, len(items))
-		metas              = make([]*metadata.TaikoProposalMetaData, 0, len(items))
+		opts               = make([]ProofRequestOptions, 0, len(items))
+		metas              = make([]metadata.TaikoProposalMetaData, 0, len(items))
 		g                  = new(errgroup.Group)
 		err                error
 	)
 	for _, item := range items {
-		opts = append(opts, &item.Opts)
-		metas = append(metas, &item.Meta)
+		opts = append(opts, item.Opts)
+		metas = append(metas, item.Meta)
 		batchIDs = append(batchIDs, item.Meta.Pacaya().GetBatchID())
 	}
 	g.Go(func() error {
@@ -216,6 +223,7 @@ func (s *ComposeProofProducer) Aggregate(
 		BatchIDs:             batchIDs,
 		ProofType:            proofType,
 		Verifier:             verifier,
+		VerifierID:           verifierID,
 		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
 	}, nil
@@ -224,8 +232,8 @@ func (s *ComposeProofProducer) Aggregate(
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
 func (s *ComposeProofProducer) requestBatchProof(
 	ctx context.Context,
-	opts []*ProofRequestOptions,
-	metas []*metadata.TaikoProposalMetaData,
+	opts []ProofRequestOptions,
+	metas []metadata.TaikoProposalMetaData,
 	isAggregation bool,
 	proofType ProofType,
 	requestAt time.Time,
@@ -249,7 +257,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 			proposals = append(proposals, &RaikoProposals{
 				ProposalId:             meta.Shasta().GetProposal().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-				l2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

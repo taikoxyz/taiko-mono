@@ -21,42 +21,53 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-// ProofSubmitterPacaya is responsible requesting proofs for the given L2
+// ProofSubmitterShasta is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterShasta struct {
 	rpc *rpc.Client
 	// Proof producers
-	opProofProducer proofProducer.ProofProducer
+	baseLevelProofProducer proofProducer.ProofProducer
+	zkvmProofProducer      proofProducer.ProofProducer
 	// Channels
-	batchResultCh     chan *proofProducer.BatchProofs
-	proofSubmissionCh chan *proofProducer.ProofRequestBody
+	batchResultCh          chan *proofProducer.BatchProofs
+	batchAggregationNotify chan proofProducer.ProofType
+	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	// Utilities
 	txBuilder *transaction.ProveBatchesTxBuilder
 	sender    *transaction.Sender
 	indexer   *shastaIndexer.Indexer
 	// Addresses
 	proverAddress common.Address
+	// Batch proof related
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	// Intervals
-	proofPollingInterval time.Duration
+	forceBatchProvingInterval time.Duration
+	proofPollingInterval      time.Duration
 }
 
 // NewProofSubmitterShasta creates a new Shasta ProofSubmitter instance.
 func NewProofSubmitterShasta(
-	opProver proofProducer.ProofProducer,
+	baseLevelProofProducer proofProducer.ProofProducer,
+	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
+	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	indexer *shastaIndexer.Indexer,
 	senderOpts *SenderOptions,
 	builder *transaction.ProveBatchesTxBuilder,
 	proofPollingInterval time.Duration,
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
+	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterShasta, error) {
 	return &ProofSubmitterShasta{
-		rpc:               senderOpts.RPCClient,
-		opProofProducer:   opProver,
-		batchResultCh:     batchResultCh,
-		proofSubmissionCh: proofSubmissionCh,
-		indexer:           indexer,
-		txBuilder:         builder,
+		rpc:                    senderOpts.RPCClient,
+		baseLevelProofProducer: baseLevelProofProducer,
+		zkvmProofProducer:      zkvmProofProducer,
+		batchResultCh:          batchResultCh,
+		batchAggregationNotify: batchAggregationNotify,
+		proofSubmissionCh:      proofSubmissionCh,
+		indexer:                indexer,
+		txBuilder:              builder,
 		sender: transaction.NewSender(
 			senderOpts.RPCClient,
 			senderOpts.Txmgr,
@@ -64,8 +75,10 @@ func NewProofSubmitterShasta(
 			senderOpts.ProverSetAddress,
 			senderOpts.GasLimit,
 		),
-		proverAddress:        senderOpts.Txmgr.From(),
-		proofPollingInterval: proofPollingInterval,
+		proverAddress:             senderOpts.Txmgr.From(),
+		proofPollingInterval:      proofPollingInterval,
+		proofBuffers:              proofBuffers,
+		forceBatchProvingInterval: forceBatchProvingInterval,
 	}, nil
 }
 
@@ -81,6 +94,25 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 
+	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatch(
+		ctx,
+		new(big.Int).Sub(meta.Shasta().GetProposal().Id, common.Big1),
+	)
+	if err != nil {
+		return err
+	}
+	lastOrigin, err := s.rpc.LastL1OriginInBatch(ctx, meta.Shasta().GetProposal().Id)
+	if err != nil {
+		return err
+	}
+	l2BlockLength := lastOrigin.BlockID.Uint64() - lastOriginInLastProposal.BlockID.Uint64()
+	l2BlockNums := make([]*big.Int, 0, l2BlockLength)
+	for i := range l2BlockLength {
+		l2BlockNums = append(
+			l2BlockNums,
+			new(big.Int).SetUint64(i+lastOriginInLastProposal.BlockID.Uint64()+1),
+		)
+	}
 	// Request proof.
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
@@ -88,9 +120,11 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			ProverAddress: s.proverAddress,
 			EventL1Hash:   meta.GetRawBlockHash(),
 			Headers:       []*types.Header{header},
+			L2BlockNums:   l2BlockNums,
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
+		useZK         = true
 	)
 
 	// Send the generated proof.
@@ -136,21 +170,75 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return nil
 		}
 
-		if proofResponse, err = s.opProofProducer.RequestProof(
-			ctx,
-			opts,
-			meta.Shasta().GetProposal().Id,
-			meta,
-			startAt,
-		); err != nil {
-			return fmt.Errorf("failed to request proof: %w", err)
+		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
+		if s.zkvmProofProducer != nil && useZK {
+			if proofResponse, err = s.zkvmProofProducer.RequestProof(
+				ctx,
+				opts,
+				meta.Shasta().GetProposal().Id,
+				meta,
+				startAt,
+			); err != nil {
+				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
+					if time.Since(startAt) > maxProofRequestTimeout {
+						log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
+						useZK = false
+						startAt = time.Now()
+					} else {
+						return fmt.Errorf("zk proof is WIP, status: %w", err)
+					}
+				} else {
+					log.Debug(
+						"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
+						"proposalID", opts.ProposalID,
+					)
+					useZK = false
+					startAt = time.Now()
+				}
+			}
+		}
+		// If zk proof is not enabled or zk proof is not drawn, request the base level proof.
+		if proofResponse == nil {
+			if proofResponse, err = s.baseLevelProofProducer.RequestProof(
+				ctx,
+				opts,
+				meta.Shasta().GetProposal().Id,
+				meta,
+				startAt,
+			); err != nil {
+				if time.Since(startAt) > maxProofRequestTimeout {
+					log.Warn("WARN: Proof generation taking too long, please investigate")
+				}
+				return fmt.Errorf("failed to request base proof, error: %w", err)
+			}
+		}
+		// Try to add the proof to the buffer.
+		proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
+		if !exist {
+			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+		}
+		bufferSize, err := proofBuffer.Write(proofResponse)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
+				meta.Shasta().GetProposal().Id,
+				bufferSize,
+				err,
+			)
 		}
 
 		log.Info(
 			"Proof generated successfully for Shasta batch",
-			"batchID", meta.Shasta().GetProposal().Id,
+			"proposalID", meta.Shasta().GetProposal().Id,
+			"bufferSize", bufferSize,
+			"maxBufferSize", proofBuffer.MaxLength,
 			"proofType", proofResponse.ProofType,
+			"bufferIsAggregating", proofBuffer.IsAggregating(),
+			"bufferFirstItemAt", proofBuffer.FirstItemAt(),
 		)
+
+		// Try to aggregate the proofs in the buffer.
+		s.TryAggregate(proofBuffer, proofResponse.ProofType)
 
 		return nil
 	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
@@ -159,7 +247,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			!errors.Is(err, proofProducer.ErrRetry) {
 			log.Error("Failed to request a Shasta proof", "batchID", meta.Shasta().GetProposal().Id, "error", err)
 		} else {
-			log.Debug("Expected Pacaya proof generation error", "error", err, "batchID", meta.Shasta().GetProposal().Id)
+			log.Debug("Expected Shasta proof generation error", "error", err, "batchID", meta.Shasta().GetProposal().Id)
 		}
 		return err
 	}
@@ -185,7 +273,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
-	// Build the Shata Inbox.prove transaction and send it to the L1 node.
+	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesShasta(batchProof),
@@ -212,7 +300,71 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	return nil
 }
 
+// TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
+// or the forced aggregation interval has passed.
+func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
+	if !buffer.IsAggregating() &&
+		(uint64(buffer.Len()) >= buffer.MaxLength ||
+			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
+		s.batchAggregationNotify <- proofType
+		buffer.MarkAggregating()
+		return true
+	}
+	return false
+}
+
 // AggregateProofsByType aggregates proofs of the specified type and submits them in a batch.
 func (s *ProofSubmitterShasta) AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error {
-	return errors.New("not implemented")
+	proofBuffer, exist := s.proofBuffers[proofType]
+	if !exist {
+		return fmt.Errorf("failed to get expected proof type: %s", proofType)
+	}
+	var producer proofProducer.ProofProducer
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
+	switch proofType {
+	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
+		producer = s.baseLevelProofProducer
+	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
+		producer = s.zkvmProofProducer
+	default:
+		return fmt.Errorf("unknown proof type: %s", proofType)
+	}
+	startAt := time.Now()
+	buffer, err := proofBuffer.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read proof from buffer: %w", err)
+	}
+	// If the buffer is empty, skip the aggregation.
+	if len(buffer) == 0 {
+		log.Debug("Buffer is empty now, skip aggregating")
+		return nil
+	}
+	if err := backoff.Retry(
+		func() error {
+			result, err := producer.Aggregate(ctx, buffer, startAt)
+			if err != nil {
+				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
+					log.Debug(
+						"Aggregating proofs",
+						"status", err,
+						"batchSize", len(buffer),
+						"firstID", buffer[0].BatchID,
+						"lastID", buffer[len(buffer)-1].BatchID,
+						"proofType", proofType,
+					)
+				} else {
+					log.Error("Failed to request proof aggregation", "err", err)
+				}
+				return err
+			}
+			s.batchResultCh <- result
+			return nil
+		},
+		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
+	); err != nil {
+		log.Error("Aggregate proof error", "error", err)
+		return err
+	}
+	return nil
 }

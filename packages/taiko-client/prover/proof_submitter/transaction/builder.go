@@ -59,7 +59,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			err         error
 			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
 			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.ProofResponses))
-			subProofs   = make([]encoding.SubProof, 2)
+			subProofs   = make([]encoding.SubProofPacaya, 2)
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
 		for i, proof := range batchProof.ProofResponses {
@@ -83,18 +83,24 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			)
 		}
 		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxGethProofVerifier.Bytes()) < 0 {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
+			subProofs[0] = encoding.SubProofPacaya{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
+			subProofs[1] = encoding.SubProofPacaya{
+				Verifier: batchProof.SgxGethProofVerifier,
+				Proof:    batchProof.SgxGethBatchProof,
+			}
 		} else {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
+			subProofs[0] = encoding.SubProofPacaya{
+				Verifier: batchProof.SgxGethProofVerifier,
+				Proof:    batchProof.SgxGethBatchProof,
+			}
+			subProofs[1] = encoding.SubProofPacaya{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 		}
 
 		input, err := encoding.EncodeProveBatchesInput(metas, transitions)
 		if err != nil {
 			return nil, err
 		}
-		encodedSubProofs, err := encoding.EncodeBatchesSubProofs(subProofs)
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofsPacaya(subProofs)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +151,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 					"batchID", proposals[i].Id,
 					"error", err,
 				)
-				if parentTransitionHash, err = a.WaitParnetShastaTransitionHash(txOpts.Context, proposals[i].Id); err != nil {
+				if parentTransitionHash, err = a.WaitParentShastaTransitionHash(txOpts.Context, proposals[i].Id); err != nil {
 					log.Error("Failed to get parent Shasta transition hash", "batchID", proposals[i].Id, "error", err)
 					return nil, err
 				}
@@ -191,7 +197,22 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			return nil, encoding.TryParsingCustomError(err)
 		}
 
-		data, err := encoding.ShastaInboxABI.Pack("prove", inputData, batchProof.BatchProof)
+		subProofs := []encoding.SubProofShasta{
+			{
+				VerifierID: batchProof.SgxGethVerifierID,
+				Proof:      batchProof.SgxGethBatchProof,
+			},
+			{
+				VerifierID: batchProof.VerifierID,
+				Proof:      batchProof.BatchProof,
+			},
+		}
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofsShasta(subProofs)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := encoding.ShastaInboxABI.Pack("prove", inputData, encodedSubProofs)
 		if err != nil {
 			return nil, err
 		}
@@ -204,8 +225,8 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 	}
 }
 
-// WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
-func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
+// WaitParentShastaTransitionHash keeps waiting for the parent transition of the given batchID.
+func (a *ProveBatchesTxBuilder) WaitParentShastaTransitionHash(
 	ctx context.Context,
 	batchID *big.Int,
 ) (common.Hash, error) {
