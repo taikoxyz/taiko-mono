@@ -10,6 +10,7 @@ license.workspace = true
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
 alloy-rlp = { workspace = true }
 
 # types

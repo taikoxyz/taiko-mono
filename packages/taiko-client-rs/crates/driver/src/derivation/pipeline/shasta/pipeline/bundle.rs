@@ -26,5 +26,4 @@ pub(super) struct BundleMeta {
     pub(super) basefee_sharing_pctg: u8,
     pub(super) bond_instructions_hash: B256,
     pub(super) prover_auth_bytes: Bytes,
-    pub(super) end_of_submission_window_timestamp: u64,
 }

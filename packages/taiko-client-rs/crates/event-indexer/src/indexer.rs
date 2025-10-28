@@ -41,7 +41,7 @@ use crate::{
 };
 
 /// The payload body of a Shasta protocol Proposed event.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProposedEventPayload {
     /// Proposal metadata emitted by the inbox contract.
     pub proposal: Proposal,
@@ -54,7 +54,7 @@ pub struct ProposedEventPayload {
 }
 
 /// The payload body of a Shasta protocol Proved event.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProvedEventPayload {
     /// Proposal that the proof proves.
     pub proposal_id: U256,
@@ -79,7 +79,6 @@ pub struct ShastaEventIndexerConfig {
 
 /// Maintains live caches of Shasta inbox activity and providing higher-level inputs
 /// for downstream components such as the proposer.
-#[derive(Debug)]
 pub struct ShastaEventIndexer {
     /// Configuration for the indexer instance.
     config: ShastaEventIndexerConfig,

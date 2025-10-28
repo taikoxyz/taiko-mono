@@ -13,6 +13,7 @@ export interface Config {
     withdrawalDelay: number;
     minBond: number;
     bondToken: string;
+    remoteSignalService: string;
     pacayaTaikoAnchor: string;
 }
 

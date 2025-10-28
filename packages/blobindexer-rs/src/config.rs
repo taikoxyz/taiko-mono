@@ -1,17 +1,11 @@
 use std::{str::FromStr, time::Duration};
 
 use alloy_primitives::Address;
-use clap::{Parser, ValueEnum};
+use clap::{Args, ValueEnum};
 use url::Url;
 
 /// Runtime configuration parsed from CLI flags and environment variables.
-#[derive(Clone, Debug, Parser)]
-#[command(
-    name = "blobindexer",
-    author,
-    version,
-    about = "Taiko blob sidecar indexer"
-)]
+#[derive(Clone, Debug, Args)]
 pub struct Config {
     /// Beacon node REST API endpoint (e.g. https://beacon.taiko:5052)
     #[arg(long, env = "BLOB_INDEXER_BEACON_URL")]
@@ -24,6 +18,14 @@ pub struct Config {
     /// HTTP bind address for the public API
     #[arg(long, env = "BLOB_INDEXER_HTTP_BIND", default_value = "0.0.0.0:9000")]
     pub http_bind: std::net::SocketAddr,
+
+    /// Bind address for the internal monitoring server (health checks, metrics)
+    #[arg(
+        long,
+        env = "BLOB_INDEXER_METRICS_BIND",
+        default_value = "0.0.0.0:9500"
+    )]
+    pub metrics_bind: std::net::SocketAddr,
 
     /// Polling interval for checking beacon head updates
     #[arg(long, env = "BLOB_INDEXER_POLL_INTERVAL", default_value = "6s", value_parser = parse_duration)]
