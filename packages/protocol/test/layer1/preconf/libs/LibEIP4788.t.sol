@@ -10,7 +10,7 @@ import { LibEIP4788 } from "src/layer1/preconf/libs/LibEIP4788.sol";
 /// @dev Proofs are for validator at index 328 in the validator list and
 /// at index 30 within the proposer lookahead
 contract TestLibEIP4788 is Test {
-    Wrapper libEIP4788;
+    Wrapper internal libEIP4788;
 
     function setUp() external {
         libEIP4788 = new Wrapper();
