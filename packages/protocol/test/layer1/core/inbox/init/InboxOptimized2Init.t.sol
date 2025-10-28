@@ -21,7 +21,7 @@ contract InboxOptimized2Init is AbstractInitTest {
 
     function _decodeEvent(bytes memory data)
         internal
-       pure 
+        pure
         override
         returns (IInbox.ProposedEventPayload memory)
     {
