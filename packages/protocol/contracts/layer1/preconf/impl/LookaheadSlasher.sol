@@ -282,6 +282,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -296,3 +297,4 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
+/* solhint-enable max-line-length */

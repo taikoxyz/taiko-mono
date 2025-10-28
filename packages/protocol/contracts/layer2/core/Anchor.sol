@@ -514,6 +514,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     error ZeroBlockCount();
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20
@@ -523,3 +524,4 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 //   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64
 //   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[42]                                        | Slot: 11   | Offset: 0    | Bytes: 1344
+/* solhint-enable max-line-length */

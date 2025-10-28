@@ -22,6 +22,7 @@ contract MainnetERC20Vault is ERC20Vault {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -41,3 +42,4 @@ contract MainnetERC20Vault is ERC20Vault {
 //   btokenDenylist                 | mapping(address => bool)                           | Slot: 303  | Offset: 0    | Bytes: 32
 //   lastMigrationStart             | mapping(uint256 => mapping(address => uint256))    | Slot: 304  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[46]                                        | Slot: 305  | Offset: 0    | Bytes: 1472
+/* solhint-enable max-line-length */

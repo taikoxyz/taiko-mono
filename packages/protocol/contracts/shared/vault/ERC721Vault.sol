@@ -269,6 +269,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -287,3 +288,4 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 //   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
+/* solhint-enable max-line-length */

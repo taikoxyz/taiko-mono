@@ -125,6 +125,14 @@ update_contract_layout() {
         # Find the line number where the marker appears
         local marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
 
+        # Check if there's a solhint-disable comment before the marker
+        if [ $marker_line -gt 1 ]; then
+            local prev_line=$((marker_line - 1))
+            if sed -n "${prev_line}p" "$file_path" | grep -q "solhint-disable"; then
+                marker_line=$prev_line
+            fi
+        fi
+
         # Keep everything before the marker line, also remove all preceding blank lines
         local keep_until=$((marker_line - 1))
 
@@ -144,9 +152,11 @@ update_contract_layout() {
     # Append new storage layout comment block
     cat >> "$file_path" << EOF
 
+/* solhint-disable max-line-length */
 ${LAYOUT_MARKER}
 //
 ${layout_comments}
+/* solhint-enable max-line-length */
 EOF
 
     echo "✅ Updated: ${contract}"

@@ -120,6 +120,7 @@ contract BridgedERC1155 is
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -143,3 +144,4 @@ contract BridgedERC1155 is
 //   symbol                         | string                                             | Slot: 353  | Offset: 0    | Bytes: 32
 //   name                           | string                                             | Slot: 354  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[46]                                        | Slot: 355  | Offset: 0    | Bytes: 1472
+/* solhint-enable max-line-length */

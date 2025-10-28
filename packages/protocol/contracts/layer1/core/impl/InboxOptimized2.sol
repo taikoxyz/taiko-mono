@@ -177,6 +177,7 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -199,3 +200,4 @@ contract InboxOptimized2 is InboxOptimized1 {
 //   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 343  | Offset: 0    | Bytes: 1600
+/* solhint-enable max-line-length */

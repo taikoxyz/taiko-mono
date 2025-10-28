@@ -50,6 +50,7 @@ contract DelegateController is Controller, IMessageInvocable {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -68,3 +69,4 @@ contract DelegateController is Controller, IMessageInvocable {
 //   __reserved1                    | address                                            | Slot: 252  | Offset: 8    | Bytes: 20
 //   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 301  | Offset: 0    | Bytes: 1600
+/* solhint-enable max-line-length */

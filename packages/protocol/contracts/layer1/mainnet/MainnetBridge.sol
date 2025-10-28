@@ -57,6 +57,7 @@ contract MainnetBridge is Bridge {
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -77,3 +78,4 @@ contract MainnetBridge is Bridge {
 //   __reserved2                    | uint256                                            | Slot: 255  | Offset: 0    | Bytes: 32
 //   __reserved3                    | uint256                                            | Slot: 256  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
+/* solhint-enable max-line-length */

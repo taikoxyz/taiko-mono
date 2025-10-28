@@ -278,6 +278,7 @@ error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
@@ -295,3 +296,4 @@ error SS_SIGNAL_NOT_RECEIVED();
 //   _receivedSignals               | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32
 //   _checkpoints                   | mapping(uint48 => struct SignalService.CheckpointRecord) | Slot: 254  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[44]                                        | Slot: 255  | Offset: 0    | Bytes: 1408
+/* solhint-enable max-line-length */

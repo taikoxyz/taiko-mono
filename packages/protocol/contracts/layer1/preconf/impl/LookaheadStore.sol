@@ -644,6 +644,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 }
 
+/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
 //
 //   overseers                      | mapping(address => bool)                           | Slot: 0    | Offset: 0    | Bytes: 32
@@ -662,3 +663,4 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 //   __gap                          | uint256[49]                                        | Slot: 252  | Offset: 0    | Bytes: 1568
 //   lookahead                      | mapping(uint256 => struct ILookaheadStore.LookaheadHash) | Slot: 301  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 302  | Offset: 0    | Bytes: 1568
+/* solhint-enable max-line-length */
