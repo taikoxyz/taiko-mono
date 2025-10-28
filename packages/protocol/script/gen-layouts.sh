@@ -103,7 +103,12 @@ update_contract_layout() {
             ((last_content_line--))
         done
 
-        sed -i '' "1,${last_content_line}!d" "$file_path"
+        # Use different sed syntax for macOS vs Linux
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "1,${last_content_line}!d" "$file_path"
+        else
+            sed -i "1,${last_content_line}!d" "$file_path"
+        fi
     fi
 
     # Append new storage layout
