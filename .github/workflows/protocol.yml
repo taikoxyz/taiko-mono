@@ -1,6 +1,9 @@
 name: Protocol
 
 on:
+  push:
+    branches:
+      - test-protocol-ci
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -24,6 +27,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  codecov_token: ${{ secrets.CODECOV_TOKEN }}
 jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
@@ -91,22 +96,22 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
 
-      # - name: Generate coverage report
-      #   if: ${{ secrets.CODECOV_TOKEN != '' }}
-      #   working-directory: ./packages/protocol
-      #   run: |
-      #     forge coverage --report lcov
-      #     mkdir -p coverage
-      #     mv lcov.info coverage/lcov.info
+      - name: Generate coverage report
+        if: ${{ env.codecov_token != '' }}
+        working-directory: ./packages/protocol
+        run: |
+          forge coverage --report lcov
+          mkdir -p coverage
+          mv lcov.info coverage/lcov.info
 
-      # - name: Upload coverage to Codecov
-      #   if: ${{ secrets.CODECOV_TOKEN != '' }}
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     files: ./packages/protocol/coverage/lcov.info
-      #     flags: protocol
-      #   env:
-      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage to Codecov
+        if: ${{ env.codecov_token != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./packages/protocol/coverage/lcov.info
+          flags: protocol
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Check for changes
         id: git_status
