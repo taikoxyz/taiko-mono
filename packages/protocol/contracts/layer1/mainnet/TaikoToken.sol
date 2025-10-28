@@ -89,8 +89,8 @@ contract TaikoToken is TaikoTokenBase {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -123,4 +123,4 @@ contract TaikoToken is TaikoTokenBase {
 //   _totalSupplyCheckpoints        | struct ERC20VotesUpgradeable.Checkpoint[]          | Slot: 456  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[47]                                        | Slot: 457  | Offset: 0    | Bytes: 1504
 //   __gap                          | uint256[50]                                        | Slot: 504  | Offset: 0    | Bytes: 1600
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

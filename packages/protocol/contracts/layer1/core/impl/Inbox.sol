@@ -1066,8 +1066,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error UnprocessedForcedInclusionIsDue();
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -1086,4 +1086,4 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 //   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

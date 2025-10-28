@@ -180,8 +180,8 @@ contract BridgedERC20 is
     function _authorizedMintBurn(address addr) private onlyFromOwnerOr(erc20Vault) { }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -206,4 +206,4 @@ contract BridgedERC20 is
 //   migratingAddress               | address                                            | Slot: 303  | Offset: 0    | Bytes: 20
 //   migratingInbound               | bool                                               | Slot: 303  | Offset: 20   | Bytes: 1
 //   __gap                          | uint256[47]                                        | Slot: 304  | Offset: 0    | Bytes: 1504
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

@@ -42,8 +42,8 @@ contract MainnetDAOController is Controller {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -61,4 +61,4 @@ contract MainnetDAOController is Controller {
 //   __reserved1                    | address                                            | Slot: 252  | Offset: 8    | Bytes: 20
 //   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
 //   __gap                          | bytes32[50]                                        | Slot: 301  | Offset: 0    | Bytes: 1600
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

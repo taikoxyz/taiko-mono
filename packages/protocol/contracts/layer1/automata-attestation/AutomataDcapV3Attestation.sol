@@ -506,8 +506,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -529,4 +529,4 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 //   tcbInfo                        | mapping(string => struct TCBInfoStruct.TCBInfo)    | Slot: 256  | Offset: 0    | Bytes: 32
 //   qeIdentity                     | struct EnclaveIdStruct.EnclaveId                   | Slot: 257  | Offset: 0    | Bytes: 128
 //   __gap                          | uint256[39]                                        | Slot: 261  | Offset: 0    | Bytes: 1248
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

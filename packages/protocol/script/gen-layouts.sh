@@ -152,11 +152,11 @@ update_contract_layout() {
     # Append new storage layout comment block
     cat >> "$file_path" << EOF
 
-/* solhint-disable max-line-length */
 ${LAYOUT_MARKER}
+// solhint-disable max-line-length
 //
 ${layout_comments}
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length
 EOF
 
     echo "✅ Updated: ${contract}"

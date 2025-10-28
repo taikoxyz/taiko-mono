@@ -313,8 +313,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -334,4 +334,4 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
 //   __gap                          | uint256[50]                                        | Slot: 401  | Offset: 0    | Bytes: 1600
 //   __gap                          | uint256[50]                                        | Slot: 451  | Offset: 0    | Bytes: 1600
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

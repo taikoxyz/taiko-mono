@@ -335,8 +335,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -357,4 +357,4 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 //   havingPerfectOperators         | bool                                               | Slot: 253  | Offset: 3    | Bytes: 1
 //   ejecters                       | mapping(address => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[45]                                        | Slot: 255  | Offset: 0    | Bytes: 1440
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

@@ -457,8 +457,8 @@ contract ERC20Vault is BaseVault {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -477,4 +477,4 @@ contract ERC20Vault is BaseVault {
 //   btokenDenylist                 | mapping(address => bool)                           | Slot: 303  | Offset: 0    | Bytes: 32
 //   lastMigrationStart             | mapping(uint256 => mapping(address => uint256))    | Slot: 304  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[46]                                        | Slot: 305  | Offset: 0    | Bytes: 1472
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

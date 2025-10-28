@@ -22,8 +22,8 @@ contract MainnetERC721Vault is ERC721Vault {
     }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -41,4 +41,4 @@ contract MainnetERC721Vault is ERC721Vault {
 //   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length

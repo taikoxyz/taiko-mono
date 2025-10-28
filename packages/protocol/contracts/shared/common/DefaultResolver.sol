@@ -59,8 +59,8 @@ contract DefaultResolver is EssentialContract, ResolverBase {
     function _authorizePause(address, bool) internal pure override notImplemented { }
 }
 
-/* solhint-disable max-line-length */
 // Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
 //
 //   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
 //   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
@@ -75,4 +75,4 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __addresses                    | mapping(uint256 => mapping(bytes32 => address))    | Slot: 251  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 252  | Offset: 0    | Bytes: 1568
-/* solhint-enable max-line-length */
+// solhint-enable max-line-length
