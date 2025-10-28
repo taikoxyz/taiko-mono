@@ -523,6 +523,18 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
+//   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20
+//   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20
+//   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32
+//   _pacayaSlots                   | uint256[4]                                         | Slot: 3    | Offset: 0    | Bytes: 128
+//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64
+//   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64
+//   __gap                          | uint256[42]                                        | Slot: 11   | Offset: 0    | Bytes: 1344
+// solhint-enable max-line-length
+
+// Storage Layout ---------------------------------------------------------------
+// solhint-disable max-line-length
+//
 //   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20  
 //   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20  
 //   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32  
