@@ -50,7 +50,7 @@ func (s *SgxGethProofProducer) RequestProof(
 		false,
 		ProofTypeSgxGeth,
 		requestAt,
-		opts.PacayaOptions().IsGethProofGenerated,
+		opts.PacayaOptions().GethProofGenerated,
 	)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func (s *SgxGethProofProducer) Aggregate(
 		true,
 		ProofTypeSgxGeth,
 		requestAt,
-		items[0].Opts.PacayaOptions().IsGethProofAggregationGenerated,
+		items[0].Opts.PacayaOptions().GethProofAggregationGenerated,
 	)
 	if err != nil {
 		return nil, err

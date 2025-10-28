@@ -84,7 +84,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	// Request proof.
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
-			BatchID:       meta.Shasta().GetProposal().Id,
+			ProposalID:    meta.Shasta().GetProposal().Id,
 			ProverAddress: s.proverAddress,
 			EventL1Hash:   meta.GetRawBlockHash(),
 			Headers:       []*types.Header{header},
@@ -96,7 +96,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	// Send the generated proof.
 	if err := backoff.Retry(func() error {
 		if ctx.Err() != nil {
-			log.Error("Failed to request proof, context is canceled", "batchID", opts.BatchID, "error", ctx.Err())
+			log.Error("Failed to request proof, context is canceled", "batchID", opts.ProposalID, "error", ctx.Err())
 			return nil
 		}
 		if s.indexer.GetLastCoreState().LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
