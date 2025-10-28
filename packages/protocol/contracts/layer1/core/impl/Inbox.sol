@@ -1035,9 +1035,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         }
     }
-}
-
-// ---------------------------------------------------------------
+    // ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
 
@@ -1068,6 +1066,7 @@ error SpanOutOfBounds();
 error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error UnprocessedForcedInclusionIsDue();
+}
 
 // Storage Layout ---------------------------------------------------------------
 //
