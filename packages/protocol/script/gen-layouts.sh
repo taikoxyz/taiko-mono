@@ -73,9 +73,7 @@ update_contract_layout() {
     local profile=$2
     local file_path=$(echo "${contract}" | cut -d':' -f1)
 
-    echo "Processing ${contract}..."
-
-    [ -f "$file_path" ] || { echo "⚠️  Warning: Contract file not found: $file_path"; return 1; }
+    [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found: $file_path)"; return 1; }
 
     # Generate storage layout and convert to plain text format
     local forge_output layout_comments
@@ -149,7 +147,7 @@ ${END_LABEL}
 ${END_MARKER}
 EOF
 
-    echo "✅ Updated: $file_path"
+    echo "✅ Updated: ${contract}"
 }
 
 # Main script
@@ -186,7 +184,7 @@ for contract in "${contracts[@]}"; do
         ((success_count++))
     else
         failed_contracts+=("$contract")
-        echo "❌ Failed: $contract"
+        # Error message already printed by update_contract_layout
     fi
 done
 
