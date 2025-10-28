@@ -93,9 +93,9 @@ update_contract_layout() {
 
     # Remove everything from marker onwards (including preceding blank lines)
     if grep -q "$LAYOUT_MARKER" "$file_path"; then
-        # Find marker line, walk back past blank lines, delete from there to end
+        # Find first marker line, walk back past blank lines, delete from there to end
         local marker_line last_content_line
-        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | cut -d: -f1)
+        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
         last_content_line=$((marker_line - 1))
 
         # Skip blank lines before marker
