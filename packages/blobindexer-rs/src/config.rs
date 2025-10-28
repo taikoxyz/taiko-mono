@@ -19,6 +19,14 @@ pub struct Config {
     #[arg(long, env = "BLOB_INDEXER_HTTP_BIND", default_value = "0.0.0.0:9000")]
     pub http_bind: std::net::SocketAddr,
 
+    /// Bind address for the internal monitoring server (health checks, metrics)
+    #[arg(
+        long,
+        env = "BLOB_INDEXER_METRICS_BIND",
+        default_value = "0.0.0.0:9500"
+    )]
+    pub metrics_bind: std::net::SocketAddr,
+
     /// Polling interval for checking beacon head updates
     #[arg(long, env = "BLOB_INDEXER_POLL_INTERVAL", default_value = "6s", value_parser = parse_duration)]
     pub poll_interval: Duration,

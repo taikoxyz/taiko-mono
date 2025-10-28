@@ -10,6 +10,7 @@ use serde::Serialize;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower_http::trace::TraceLayer;
+use tracing::info;
 
 use crate::{
     beacon::BeaconClient,
@@ -42,6 +43,7 @@ pub async fn serve(
 
 fn build_router() -> Router<AppState> {
     Router::new()
+        .route("/", get(health))
         .route("/healthz", get(health))
         .route("/v1/status", get(status))
         .route("/v1/status/head", get(get_head_status))
@@ -174,6 +176,8 @@ async fn get_blob_by_hash(
     State(state): State<AppState>,
     Path(versioned_hash): Path<String>,
 ) -> RestResult<Json<BlobServerResponse>> {
+    info!(%versioned_hash, "Fetching blob by versioned hash");
+
     let hash =
         decode_b256(&versioned_hash).map_err(|err| ApiError::bad_request(err.to_string()))?;
     let blob = state
@@ -184,6 +188,8 @@ async fn get_blob_by_hash(
         .ok_or_else(|| ApiError::not_found("blob not found"))?;
 
     let response = BlobServerResponse::try_from(blob)?;
+    info!(%versioned_hash, "Blob found and returned");
+
     Ok(Json(response))
 }
 
