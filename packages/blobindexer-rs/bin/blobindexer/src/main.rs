@@ -1,7 +1,9 @@
 use blobindexer::{
-    beacon::BeaconClient, config::Config, errors::Result, http, indexer::Indexer, storage::Storage,
+    beacon::BeaconClient, config::Config, errors::Result, http, indexer::Indexer, monitoring,
+    storage::Storage,
 };
 use clap::{Parser, Subcommand};
+use metrics_exporter_prometheus::PrometheusHandle;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
 
@@ -36,16 +38,18 @@ async fn main() -> Result<()> {
     let Cli { config, command } = Cli::parse();
     blobindexer::utils::telemetry::init_tracing(&config)?;
 
+    let metrics = monitoring::init_metrics()?;
+
     match command.unwrap_or(Commands::Run) {
-        Commands::Run => run_all(config).await,
-        Commands::Indexer => run_indexer_only(config).await,
-        Commands::Api => run_api_only(config).await,
+        Commands::Run => run_all(config, metrics.clone()).await,
+        Commands::Indexer => run_indexer_only(config, metrics.clone()).await,
+        Commands::Api => run_api_only(config, metrics).await,
     }
 }
 
-async fn run_all(config: Config) -> Result<()> {
+async fn run_all(config: Config, metrics: PrometheusHandle) -> Result<()> {
     let shutdown = CancellationToken::new();
-    let shutdown_signal = shutdown.clone();
+    let metrics_bind = config.metrics_bind;
 
     let (storage, beacon) = init_dependencies(&config).await?;
 
@@ -60,11 +64,14 @@ async fn run_all(config: Config) -> Result<()> {
         config.clone(),
         storage.clone(),
         beacon.clone(),
-        shutdown_signal.clone(),
+        shutdown.clone(),
     );
+
+    let monitoring = monitoring::serve(metrics_bind, shutdown.clone(), metrics);
 
     let indexer_task = tokio::spawn(indexer.run());
     let server_task = tokio::spawn(api);
+    let metrics_task = tokio::spawn(monitoring);
 
     tokio::select! {
         res = indexer_task => {
@@ -76,6 +83,12 @@ async fn run_all(config: Config) -> Result<()> {
         res = server_task => {
             if let Err(err) = res? {
                 tracing::error!(error = ?err, "HTTP server task exited with error");
+                shutdown.cancel();
+            }
+        }
+        res = metrics_task => {
+            if let Err(err) = res? {
+                tracing::error!(error = ?err, "Monitoring server exited with error");
                 shutdown.cancel();
             }
         }
@@ -90,17 +103,26 @@ async fn run_all(config: Config) -> Result<()> {
     Ok(())
 }
 
-async fn run_indexer_only(config: Config) -> Result<()> {
+async fn run_indexer_only(config: Config, metrics: PrometheusHandle) -> Result<()> {
     let shutdown = CancellationToken::new();
+    let metrics_bind = config.metrics_bind;
     let (storage, beacon) = init_dependencies(&config).await?;
 
     let indexer = Indexer::new(config, storage, beacon, shutdown.clone());
+    let monitoring = monitoring::serve(metrics_bind, shutdown.clone(), metrics);
     let indexer_task = tokio::spawn(indexer.run());
+    let metrics_task = tokio::spawn(monitoring);
 
     tokio::select! {
         res = indexer_task => {
             if let Err(err) = res? {
                 tracing::error!(error = ?err, "Indexer task exited with error");
+                shutdown.cancel();
+            }
+        }
+        res = metrics_task => {
+            if let Err(err) = res? {
+                tracing::error!(error = ?err, "Monitoring server exited with error");
                 shutdown.cancel();
             }
         }
@@ -115,16 +137,24 @@ async fn run_indexer_only(config: Config) -> Result<()> {
     Ok(())
 }
 
-async fn run_api_only(config: Config) -> Result<()> {
+async fn run_api_only(config: Config, metrics: PrometheusHandle) -> Result<()> {
     let shutdown = CancellationToken::new();
+    let metrics_bind = config.metrics_bind;
     let (storage, beacon) = init_dependencies(&config).await?;
 
     let server_task = tokio::spawn(http::serve(config, storage, beacon, shutdown.clone()));
+    let metrics_task = tokio::spawn(monitoring::serve(metrics_bind, shutdown.clone(), metrics));
 
     tokio::select! {
         res = server_task => {
             if let Err(err) = res? {
                 tracing::error!(error = ?err, "HTTP server task exited with error");
+                shutdown.cancel();
+            }
+        }
+        res = metrics_task => {
+            if let Err(err) = res? {
+                tracing::error!(error = ?err, "Monitoring server exited with error");
                 shutdown.cancel();
             }
         }
