@@ -14,6 +14,8 @@ import "solady/src/utils/Base64.sol";
 import "solady/src/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
 
+
+
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
