@@ -71,11 +71,31 @@ update_contract_layout() {
 
     [ -f "$file_path" ] || { echo "Warning: Contract file not found: $file_path"; return 1; }
 
-    # Generate storage layout and format as comments (remove last two columns)
+    # Generate storage layout and convert to plain text format
     local layout_comments
     layout_comments=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
         forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1 \
-        | sed -E 's/\|[^|]*\|[^|]*$/|/' \
+        | awk '
+            BEGIN { FS="|"; }
+            # Skip table borders
+            /^[╭╰─=+]+$/ { next; }
+            # Process data rows with pipes
+            /^\|.*\|.*\|.*\|.*\|/ {
+                # Extract fields by pipe delimiter and trim spaces
+                name = $2; gsub(/^[ \t]+|[ \t]+$/, "", name);
+                type = $3; gsub(/^[ \t]+|[ \t]+$/, "", type);
+                slot = $4; gsub(/^[ \t]+|[ \t]+$/, "", slot);
+                offset = $5; gsub(/^[ \t]+|[ \t]+$/, "", offset);
+                bytes = $6; gsub(/^[ \t]+|[ \t]+$/, "", bytes);
+
+                # Skip header and empty rows
+                if (name == "Name" || name == "") next;
+
+                # Format output
+                printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n",
+                       name, type, slot, offset, bytes;
+            }
+        ' \
         | sed 's/^/\/\/ /') || { echo "Error generating layout for ${contract}"; return 1; }
 
     # Remove old storage layout comments if they exist
