@@ -88,17 +88,17 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __addresses                    | mapping(uint256 => mapping(bytes32 => address))    | Slot: 251  | Offset: 0    | Bytes: 32  
+//   __addresses                    | mapping(uint256 => mapping(bytes32 => address))    | Slot: 251  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 252  | Offset: 0    | Bytes: 1568
 // solhint-enable max-line-length
