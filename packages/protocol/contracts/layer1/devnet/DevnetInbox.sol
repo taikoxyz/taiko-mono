@@ -35,7 +35,8 @@ contract DevnetInbox is InboxOptimized2 {
         address _taikoToken,
         address _checkpointStore
     )
-        InboxOptimized2(IInbox.Config({
+        InboxOptimized2(
+            IInbox.Config({
                 bondToken: _taikoToken,
                 checkpointStore: _checkpointStore,
                 codec: _codec,
@@ -53,7 +54,8 @@ contract DevnetInbox is InboxOptimized2 {
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------

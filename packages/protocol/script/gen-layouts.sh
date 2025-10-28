@@ -3,6 +3,7 @@
 # Define the list of contracts to inspect
 # Please try not to change the order
 # Contracts shared between layer 1 and layer 2
+# Contracts shared between layer 1 and layer 2
 contracts_shared=(
 "contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
 "contracts/shared/vault/ERC20Vault.sol:ERC20Vault"
@@ -19,12 +20,10 @@ contracts_shared=(
 # Layer 1 contracts
 contracts_layer1=(
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
-"contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
-"contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
-"contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
-"contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/core/impl/Inbox.sol:Inbox"
+"contracts/layer1/core/impl/InboxOptimized1.sol:InboxOptimized1"
+"contracts/layer1/core/impl/InboxOptimized2.sol:InboxOptimized2"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"

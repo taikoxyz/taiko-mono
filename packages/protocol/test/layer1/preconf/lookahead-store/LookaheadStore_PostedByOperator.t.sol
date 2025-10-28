@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
-    /*
+/*
             // Lookahead posting accepted
             // -------------------------------------------------------------------
 
@@ -838,5 +838,4 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
                 _updateLookahead(signedCommitment);
             }
             */
-
-    }
+}

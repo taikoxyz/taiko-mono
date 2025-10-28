@@ -31,7 +31,7 @@ contract InboxOptimized2Prove is AbstractProveTest {
         bytes memory proof = _createValidProof();
 
         // InboxOptimized2's decoder misinterprets abi.encode format and sees empty arrays
-        vm.expectRevert(EmptyProposals.selector);
+        vm.expectRevert(Inbox.EmptyProposals.selector);
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
     }

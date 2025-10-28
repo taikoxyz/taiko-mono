@@ -400,12 +400,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(
-        ProveInput memory _input,
-        uint256 _index
-    )
-        internal
-    {
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -871,7 +866,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, derivation: _derivation, coreState: _coreState
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -896,7 +893,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                (bytes26 recordHash, uint48 finalizationDeadline) =
+                _getTransitionRecordHashAndDeadline(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
@@ -1035,36 +1033,36 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CannotProposeInCurrentBlock();
+    error CheckpointMismatch();
+    error CheckpointNotProvided();
+    error DeadlineExceeded();
+    error EmptyProposals();
+    error ForkNotActive();
+    error InconsistentParams();
+    error IncorrectProposalCount();
+    error InsufficientBond();
+    error InvalidLastProposalProof();
+    error InvalidSpan();
+    error InvalidState();
+    error LastProposalHashMismatch();
+    error LastProposalProofNotEmpty();
+    error NextProposalHashMismatch();
+    error NoBondToWithdraw();
+    error NotEnoughCapacity();
+    error ProposalHashMismatch();
+    error ProposalHashMismatchWithStorage();
+    error ProposalHashMismatchWithTransition();
+    error ProposalIdMismatch();
+    error ProposerBondInsufficient();
+    error RingBufferSizeZero();
+    error SpanOutOfBounds();
+    error TransitionRecordHashMismatchWithStorage();
+    error TransitionRecordNotProvided();
+    error UnprocessedForcedInclusionIsDue();
 }
-
-// ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
-
-error CannotProposeInCurrentBlock();
-error CheckpointMismatch();
-error CheckpointNotProvided();
-error DeadlineExceeded();
-error EmptyProposals();
-error ForkNotActive();
-error InconsistentParams();
-error IncorrectProposalCount();
-error InsufficientBond();
-error InvalidLastProposalProof();
-error InvalidSpan();
-error InvalidState();
-error LastProposalHashMismatch();
-error LastProposalProofNotEmpty();
-error NextProposalHashMismatch();
-error NoBondToWithdraw();
-error NotEnoughCapacity();
-error ProposalHashMismatch();
-error ProposalHashMismatchWithStorage();
-error ProposalHashMismatchWithTransition();
-error ProposalIdMismatch();
-error ProposerBondInsufficient();
-error RingBufferSizeZero();
-error SpanOutOfBounds();
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
-error UnprocessedForcedInclusionIsDue();

@@ -53,10 +53,8 @@ library LibForcedInclusion {
 
         require(msg.value == _forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
-        IForcedInclusionStore.ForcedInclusion memory inclusion =
-            IForcedInclusionStore.ForcedInclusion({
-                feeInGwei: _forcedInclusionFeeInGwei, blobSlice: blobSlice
-            });
+        IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore
+            .ForcedInclusion({ feeInGwei: _forcedInclusionFeeInGwei, blobSlice: blobSlice });
 
         $.queue[$.tail++] = inclusion;
 

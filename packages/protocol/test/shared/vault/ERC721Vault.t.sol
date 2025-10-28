@@ -123,7 +123,8 @@ contract TestERC721Vault is CommonTest {
         eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
-    function test_721Vault_receiveFreeMintERC721Tokens_from_newly_deployed_bridged_contract_on_destination_chain_721()
+    function test_721Vault_receiveFreeMintERC721Tokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
+    )
         public
     {
         vm.prank(Alice);
@@ -153,7 +154,10 @@ contract TestERC721Vault is CommonTest {
         assertEq(eFreeMintERC721Token.ownerOf(1), address(eVault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -170,7 +174,8 @@ contract TestERC721Vault is CommonTest {
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
     }
 
-    function test_721Vault_receiveFreeMintERC721Tokens_but_mint_not_deploy_if_bridged_second_time_721()
+    function test_721Vault_receiveFreeMintERC721Tokens_but_mint_not_deploy_if_bridged_second_time_721(
+    )
         public
     {
         vm.prank(Alice);
@@ -205,7 +210,10 @@ contract TestERC721Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -285,7 +293,10 @@ contract TestERC721Vault is CommonTest {
         assertEq(eFreeMintERC721Token.ownerOf(1), address(eVault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -378,7 +389,10 @@ contract TestERC721Vault is CommonTest {
         assertEq(eFreeMintERC721Token.ownerOf(2), address(eVault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -429,7 +443,10 @@ contract TestERC721Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -523,7 +540,10 @@ contract TestERC721Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -602,7 +622,10 @@ contract TestERC721Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
@@ -629,9 +652,8 @@ contract TestERC721Vault is CommonTest {
         BridgedERC721(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try CanSayHelloWorld(deployedContract).helloWorld() {
-        // It should support now this function call
-        }
-        catch {
+            // It should support now this function call
+        } catch {
             fail();
         }
     }
@@ -669,7 +691,10 @@ contract TestERC721Vault is CommonTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: ethereumChainId, addr: address(eFreeMintERC721Token), symbol: "TT", name: "TT"
+            chainId: ethereumChainId,
+            addr: address(eFreeMintERC721Token),
+            symbol: "TT",
+            name: "TT"
         });
 
         vm.chainId(taikoChainId);
