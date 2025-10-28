@@ -123,22 +123,17 @@ update_contract_layout() {
     # Simply remove everything from the marker line to end of file
     if grep -q "$LAYOUT_MARKER" "$file_path"; then
         # Find the line number where the marker appears
-        local marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
-
-        # Check if there's a solhint-disable comment before the marker
-        if [ $marker_line -gt 1 ]; then
-            local prev_line=$((marker_line - 1))
-            if sed -n "${prev_line}p" "$file_path" | grep -q "solhint-disable"; then
-                marker_line=$prev_line
-            fi
-        fi
+        local marker_line
+        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
 
         # Keep everything before the marker line, also remove all preceding blank lines
         local keep_until=$((marker_line - 1))
 
         # Walk backwards removing all blank lines before the marker
-        while [ $keep_until -gt 0 ]; do
-            local line_content=$(sed -n "${keep_until}p" "$file_path")
+        while [ "$keep_until" -gt 0 ]; do
+            # Use head and tail instead of sed -n for better portability
+            local line_content
+            line_content=$(head -n "$keep_until" "$file_path" | tail -n 1)
             if [ -z "$line_content" ]; then
                 keep_until=$((keep_until - 1))
             else
@@ -146,7 +141,7 @@ update_contract_layout() {
             fi
         done
 
-        sed -n "1,${keep_until}p" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
+        head -n "$keep_until" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
     fi
 
     # Append new storage layout comment block
