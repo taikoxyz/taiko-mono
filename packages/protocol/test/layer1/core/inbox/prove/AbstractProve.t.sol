@@ -340,9 +340,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         proposals[0] = proposal;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory proveData = _codec().encodeProveInput(input);
@@ -431,9 +429,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -518,14 +514,15 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
 
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _createProposeInputWithCustomParams(
-                0, // no deadline
-                _createBlobRef(0, 1, 0),
-                parentProposals,
-                coreState
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _createProposeInputWithCustomParams(
+                    0, // no deadline
+                    _createBlobRef(0, 1, 0),
+                    parentProposals,
+                    coreState
+                )
+            );
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -568,9 +565,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: _proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: _proposals, transitions: transitions, metadata: metadata
         });
 
         return _codec().encodeProveInput(input);
@@ -601,8 +596,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver,
-            actualProver: actualProver
+            designatedProver: designatedProver, actualProver: actualProver
         });
     }
 
