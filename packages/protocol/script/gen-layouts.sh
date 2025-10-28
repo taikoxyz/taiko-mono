@@ -2,25 +2,21 @@
 
 # Storage Layout Generation Script
 #
-# This script generates storage layout information for smart contracts and automatically
-# appends them as comments at the end of each contract file.
+# Generates storage layout comments for smart contracts and appends them to contract files.
 #
 # Usage: ./gen-layouts.sh <profile>
 #   profile: shared, layer1, or layer2
 #
-# The storage layout comments are marked with a single line:
+# The storage layout is marked with:
 #   // Storage Layout ---------------------------------------------------------------
 #
-# Re-running the script will replace old storage layout comments with updated ones.
+# Re-running the script replaces old storage layout comments with updated ones.
 
-set -e
-set -o pipefail  # Fail on any command in a pipeline
+set -euo pipefail
 
 # Storage layout comment marker
 readonly LAYOUT_MARKER="// Storage Layout ---------------------------------------------------------------"
 
-# Define the list of contracts to inspect
-# Please try not to change the order
 # Contracts shared between layer 1 and layer 2
 contracts_shared=(
 "contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
@@ -62,89 +58,55 @@ contracts_layer2=(
 "contracts/layer2/core/Anchor.sol:Anchor"
 )
 
-# Function to update storage layout for a single contract
+# Update storage layout for a single contract
 update_contract_layout() {
     local contract=$1
     local profile=$2
-    local file_path=$(echo "${contract}" | cut -d':' -f1)
+    local file_path="${contract%%:*}"  # Extract path before colon
 
-    [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found: $file_path)"; return 1; }
+    [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found)"; return 1; }
 
-    # Generate storage layout and convert to plain text format
-    local forge_output layout_comments
-
-    # First, run forge inspect and capture output + check for errors
-    if ! forge_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
-        forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1); then
-        echo "❌ Error: forge inspect failed for ${contract}"
-        echo "   Output: ${forge_output}"
+    # Generate storage layout
+    local layout_output
+    layout_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE="${profile}" \
+        forge inspect -C "./contracts/${profile}" -o "./out/${profile}" "${contract}" storagelayout 2>&1) || {
+        echo "❌ Failed: ${contract} (forge inspect failed)"
         return 1
-    fi
+    }
 
-    # Check if output looks like a valid storage layout table (contains pipes)
-    if ! echo "$forge_output" | grep -q "|"; then
-        echo "❌ Error: forge inspect did not produce valid storage layout output for ${contract}"
-        echo "   Output: ${forge_output}"
-        return 1
-    fi
+    # Parse layout table: extract data rows with pipes, skip headers and borders
+    local layout_comments
+    layout_comments=$(echo "$layout_output" | awk -F'|' '
+        NF >= 6 && /\|/ {
+            # Trim whitespace from each field
+            for (i=1; i<=NF; i++) gsub(/^[ \t]+|[ \t]+$/, "", $i);
+            name=$2; type=$3; slot=$4; offset=$5; bytes=$6;
 
-    # Parse and format the output
-    # This is more robust - just look for lines with pipes and parse the 6 columns
-    layout_comments=$(echo "$forge_output" \
-        | awk '
-            BEGIN { FS="|"; }
-            # Process any row with at least 6 pipe-separated fields
-            NF >= 6 && /\|/ {
-                # Extract fields by pipe delimiter and trim spaces
-                name = $2; gsub(/^[ \t]+|[ \t]+$/, "", name);
-                type = $3; gsub(/^[ \t]+|[ \t]+$/, "", type);
-                slot = $4; gsub(/^[ \t]+|[ \t]+$/, "", slot);
-                offset = $5; gsub(/^[ \t]+|[ \t]+$/, "", offset);
-                bytes = $6; gsub(/^[ \t]+|[ \t]+$/, "", bytes);
+            # Skip headers, empty rows, and border characters
+            if (name == "Name" || name == "" || slot == "Slot" || name ~ /^[─═╭╰│┤┐└┴┬├┼+\-]+$/) next;
 
-                # Skip header rows and empty rows
-                if (name == "Name" || name == "" || slot == "Slot") next;
-                # Skip rows that are just border characters
-                if (name ~ /^[─═╭╰╯╮│┤┐└┴┬├┼╪╬╩╦╠═╣╚╔╗╝+\-]+$/) next;
+            printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n", name, type, slot, offset, bytes;
+        }
+    ' | sed 's/^/\/\/ /')
 
-                # Format output
-                printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n",
-                       name, type, slot, offset, bytes;
-            }
-        ' \
-        | sed 's/^/\/\/ /')
+    [ -n "$layout_comments" ] || { echo "❌ Failed: ${contract} (no layout data)"; return 1; }
 
-    # Verify we got some output
-    if [ -z "$layout_comments" ]; then
-        echo "❌ Error: Failed to parse storage layout for ${contract}"
-        return 1
-    fi
-
-    # Remove old storage layout comments if they exist
-    # Simply remove everything from the marker line to end of file
+    # Remove everything from marker onwards (including preceding blank lines)
     if grep -q "$LAYOUT_MARKER" "$file_path"; then
-        # Find the line number where the marker appears
-        local marker_line
-        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | head -1 | cut -d: -f1)
+        # Find marker line, walk back past blank lines, delete from there to end
+        local marker_line last_content_line
+        marker_line=$(grep -n "$LAYOUT_MARKER" "$file_path" | cut -d: -f1)
+        last_content_line=$((marker_line - 1))
 
-        # Keep everything before the marker line, also remove all preceding blank lines
-        local keep_until=$((marker_line - 1))
-
-        # Walk backwards removing all blank lines before the marker
-        while [ "$keep_until" -gt 0 ]; do
-            local line_content
-            line_content=$(sed -n "${keep_until}p" "$file_path")
-            if [ -z "$line_content" ]; then
-                keep_until=$((keep_until - 1))
-            else
-                break
-            fi
+        # Skip blank lines before marker
+        while [ $last_content_line -gt 0 ] && [ -z "$(sed -n "${last_content_line}p" "$file_path")" ]; do
+            ((last_content_line--))
         done
 
-        sed -n "1,${keep_until}p" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
+        sed -i '' "1,${last_content_line}!d" "$file_path"
     fi
 
-    # Append new storage layout comment block
+    # Append new storage layout
     cat >> "$file_path" << EOF
 
 ${LAYOUT_MARKER}
@@ -157,58 +119,28 @@ EOF
     echo "✅ Updated: ${contract}"
 }
 
-# Main script
+# Main
 profile=$1
 
 case "$profile" in
-    shared)
-        echo "Generating shared contract layouts..."
-        contracts=("${contracts_shared[@]}")
-        ;;
-    layer1)
-        echo "Generating layer 1 contract layouts..."
-        contracts=("${contracts_layer1[@]}")
-        ;;
-    layer2)
-        echo "Generating layer 2 contract layouts..."
-        contracts=("${contracts_layer2[@]}")
-        ;;
-    *)
-        echo "❌ Error: Invalid profile '$profile'"
-        echo ""
-        echo "Usage: $0 <profile>"
-        echo "  profile: shared, layer1, or layer2"
-        exit 1
-        ;;
+    shared) echo "Generating shared contract layouts..."; contracts=("${contracts_shared[@]}") ;;
+    layer1) echo "Generating layer 1 contract layouts..."; contracts=("${contracts_layer1[@]}") ;;
+    layer2) echo "Generating layer 2 contract layouts..."; contracts=("${contracts_layer2[@]}") ;;
+    *) echo "❌ Error: Invalid profile '$profile'"; echo "Usage: $0 <shared|layer1|layer2>"; exit 1 ;;
 esac
 
-# Process each contract and track failures
-failed_contracts=()
-success_count=0
-
+# Process contracts
+failed=0
 for contract in "${contracts[@]}"; do
-    if update_contract_layout "$contract" "$profile"; then
-        success_count=$((success_count + 1))
-    else
-        failed_contracts+=("$contract")
-        # Error message already printed by update_contract_layout
-    fi
+    update_contract_layout "$contract" "$profile" || ((failed++))
 done
 
+# Summary
 echo ""
 echo "=========================================="
-echo "Summary:"
-echo "  Success: $success_count/${#contracts[@]} contracts"
-if [ ${#failed_contracts[@]} -gt 0 ]; then
-    echo "  Failed:  ${#failed_contracts[@]} contracts"
-    echo ""
-    echo "❌ Failed contracts:"
-    for contract in "${failed_contracts[@]}"; do
-        echo "  - $contract"
-    done
-    echo ""
-    echo "⚠️  Some contracts failed to update. Please review errors above."
-    exit 1
+if [ $failed -eq 0 ]; then
+    echo "✅ All ${#contracts[@]} contracts updated successfully!"
 else
-    echo "✅ All storage layout comments updated successfully!"
+    echo "⚠️  ${failed}/${#contracts[@]} contracts failed"
+    exit 1
 fi
