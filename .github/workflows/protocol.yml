@@ -100,7 +100,7 @@ jobs:
           mv lcov.info coverage/lcov.info
 
       - name: Upload coverage to Codecov
-        if: github.event.pull_request.head.repo.fork == false
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v5
         with:
           files: ./packages/protocol/coverage/lcov.info
