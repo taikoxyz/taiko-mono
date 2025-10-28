@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
 import { LibPreconfUtils } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import { IBridge } from "src/shared/bridge/IBridge.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
 import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
@@ -44,20 +44,20 @@ contract PreconfSlasherL1 is IPreconfSlasherL1, EssentialContract {
         require(_challenger == address(this), ChallengerIsNotSelf());
         require(msg.sender == urc, CallerIsNotURC());
 
-        IPreconfSlasherL2.Fault fault = abi.decode(_evidence, (IPreconfSlasherL2.Fault));
-        IPreconfSlasherL2.Preconfirmation memory preconfirmation =
-            abi.decode(_commitment.payload, (IPreconfSlasherL2.Preconfirmation));
+        IPreconfSlasher.Fault fault = abi.decode(_evidence, (IPreconfSlasher.Fault));
+        IPreconfSlasher.Preconfirmation memory preconfirmation =
+            abi.decode(_commitment.payload, (IPreconfSlasher.Preconfirmation));
 
         SlashAmount memory slashAmount = getSlashAmount();
         if (
-            fault == IPreconfSlasherL2.Fault.MissedSubmission
-                || fault == IPreconfSlasherL2.Fault.MissingEOP
+            fault == IPreconfSlasher.Fault.MissedSubmission
+                || fault == IPreconfSlasher.Fault.MissingEOP
         ) {
             // If the preconfer has missed its L1 slot, these faults are classified under liveness
             // faults, and incur a smaller penalty.
             if (
                 LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd)
-                    != bytes32(0)
+                    == bytes32(0)
             ) {
                 return slashAmount.livenessFault;
             }
@@ -66,6 +66,7 @@ contract PreconfSlasherL1 is IPreconfSlasherL1, EssentialContract {
         return slashAmount.safetyFault;
     }
 
+    /// @inheritdoc IMessageInvocable
     /// @dev Invoked by the L2 preconf slasher
     function onMessageInvocation(bytes calldata _data) external payable {
         // Verify that the sender on the L2 side is the preconf slasher contract
@@ -73,10 +74,10 @@ contract PreconfSlasherL1 is IPreconfSlasherL1, EssentialContract {
         require(ctx.from == preconfSlasherL2, CallerIsNotPreconfSlasherL2());
 
         (
-            IPreconfSlasherL2.Fault fault,
+            IPreconfSlasher.Fault fault,
             bytes32 registrationRoot,
             ISlasher.SignedCommitment memory signedCommitment
-        ) = abi.decode(_data, (IPreconfSlasherL2.Fault, bytes32, ISlasher.SignedCommitment));
+        ) = abi.decode(_data, (IPreconfSlasher.Fault, bytes32, ISlasher.SignedCommitment));
 
         // Slash the operator via the URC
         IRegistry(urc).slashCommitment(registrationRoot, signedCommitment, abi.encode(fault));

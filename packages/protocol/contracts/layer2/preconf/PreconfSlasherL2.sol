@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
 import { ShastaAnchor } from "src/layer2/based/ShastaAnchor.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -36,25 +37,25 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @inheritdoc IPreconfSlasherL2
     function slash(
-        Fault _fault,
+        IPreconfSlasher.Fault _fault,
         bytes32 _registrationRoot,
         SignedCommitment calldata _signedCommitment
     )
         external
     {
-        Preconfirmation memory preconfirmation =
-            abi.decode(_signedCommitment.commitment.payload, (Preconfirmation));
+        IPreconfSlasher.Preconfirmation memory preconfirmation =
+            abi.decode(_signedCommitment.commitment.payload, (IPreconfSlasher.Preconfirmation));
 
         ShastaAnchor.PreconfMeta memory preconfMeta =
             ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
 
-        if (_fault == Fault.MissedSubmission) {
+        if (_fault == IPreconfSlasher.Fault.MissedSubmission) {
             _validateMissedSubmissionFault(preconfirmation, preconfMeta);
-        } else if (_fault == Fault.MissingEOP) {
+        } else if (_fault == IPreconfSlasher.Fault.MissingEOP) {
             _validateMissingEOPFault(preconfirmation, preconfMeta);
-        } else if (_fault == Fault.RawTxListHashOrAnchorBlockMismatch) {
+        } else if (_fault == IPreconfSlasher.Fault.RawTxListHashOrAnchorBlockMismatch) {
             _validateRawTxListHashOrAnchorBlockMismatchFault(preconfirmation, preconfMeta);
-        } else if (_fault == Fault.InvalidEOP) {
+        } else if (_fault == IPreconfSlasher.Fault.InvalidEOP) {
             _validateInvalidEOPFault(preconfirmation, preconfMeta);
         }
 
@@ -66,11 +67,11 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @dev Validates that a preconfirmation was never submitted to the inbox.
     function _validateMissedSubmissionFault(
-        Preconfirmation memory _preconfirmation,
+        IPreconfSlasher.Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
-        view
+        pure
     {
         // EOP-only preconfirmations are not expected to be submitted
         require(
@@ -88,7 +89,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// @dev Validates that the last preconfirmation in the assigned window does not have
     /// the eop flag set to true
     function _validateMissingEOPFault(
-        Preconfirmation memory _preconfirmation,
+        IPreconfSlasher.Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
@@ -110,18 +111,18 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber + 1);
         require(
             nextPreconfMeta.submissionWindowEnd > _preconfirmation.submissionWindowEnd,
-            NotALivenessFault()
+            NotAMissingEOP()
         );
     }
 
     /// @dev Validates that the tx list hash or the anchor block values on the preconfirmation
     /// does not match the submitted values
     function _validateRawTxListHashOrAnchorBlockMismatchFault(
-        Preconfirmation memory _preconfirmation,
+        IPreconfSlasher.Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
-        view
+        pure
     {
         // Protection against a scenario where a previous preconfer submitted an extra block
         // that it never preconfirmed.
@@ -153,7 +154,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @dev Validates that a non-terminal preconfirmation has it's eop flag set to true
     function _validateInvalidEOPFault(
-        Preconfirmation memory _preconfirmation,
+        IPreconfSlasher.Preconfirmation memory _preconfirmation,
         ShastaAnchor.PreconfMeta memory _preconfMeta
     )
         internal
@@ -185,9 +186,9 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @dev EOP-only preconfirmations are issued when the preconfer does not intend to
     /// preconf even a single block in its assigned window.
-    function _isEOPOnlyPreconfirmation(Preconfirmation memory _preconfirmation)
+    function _isEOPOnlyPreconfirmation(IPreconfSlasher.Preconfirmation memory _preconfirmation)
         internal
-        view
+        pure
         returns (bool)
     {
         return (_preconfirmation.eop && _preconfirmation.rawTxListHash == bytes32(0));
@@ -195,7 +196,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @dev Invokes a call to L1 preconf slasher's onMessageInvocation(bytes) via the bridge
     function _invokePreconfSlasherL1(
-        Fault _fault,
+        IPreconfSlasher.Fault _fault,
         bytes32 _registrationRoot,
         SignedCommitment memory _signedCommitment
     )
