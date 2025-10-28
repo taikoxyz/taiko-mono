@@ -226,9 +226,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
         _validateBlock(_blockParams);
 
-        uint parentNumber = block.number - 1;
+        uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
-        
+
         emit Anchored(
             _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
