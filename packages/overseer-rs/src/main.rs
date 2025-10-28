@@ -75,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
     .await?;
 
     let ethereum_client: Arc<dyn EthereumClient> =
-        Arc::new(RpcEthereumClient::new(config.rpc_url.clone()));
+        Arc::new(RpcEthereumClient::new(&config.rpc_url)?);
     let blacklist_contract: Arc<dyn BlacklistContract> = Arc::new(
         OnchainBlacklistContract::new(
             &config.rpc_url,

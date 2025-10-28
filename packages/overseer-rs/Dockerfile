@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 
 ## Build stage: compile the overseer binary
-FROM rust:1.77-slim AS builder
+FROM rust:1.90-slim AS builder
 
 WORKDIR /app
 
