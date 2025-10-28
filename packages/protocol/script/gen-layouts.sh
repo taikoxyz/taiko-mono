@@ -3,7 +3,6 @@
 # Define the list of contracts to inspect
 # Please try not to change the order
 # Contracts shared between layer 1 and layer 2
-# Contracts shared between layer 1 and layer 2
 contracts_shared=(
 "contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
 "contracts/shared/vault/ERC20Vault.sol:ERC20Vault"
