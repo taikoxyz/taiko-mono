@@ -1069,7 +1069,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error UnprocessedForcedInclusionIsDue();
 }
 
-
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
