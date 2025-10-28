@@ -16,6 +16,7 @@
 # Re-running the script will replace old storage layout comments with updated ones.
 
 set -e
+set -o pipefail  # Fail on any command in a pipeline
 
 # Storage layout comment markers
 readonly START_MARKER="// ---------------------------------------------------------------"
@@ -77,9 +78,25 @@ update_contract_layout() {
     [ -f "$file_path" ] || { echo "Warning: Contract file not found: $file_path"; return 1; }
 
     # Generate storage layout and convert to plain text format
-    local layout_comments
-    layout_comments=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
-        forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1 \
+    local forge_output layout_comments
+
+    # First, run forge inspect and capture output + check for errors
+    if ! forge_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} \
+        forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout 2>&1); then
+        echo "Error: forge inspect failed for ${contract}"
+        echo "Output: ${forge_output}"
+        return 1
+    fi
+
+    # Check if output looks like a valid storage layout table
+    if ! echo "$forge_output" | grep -q "^[╭|]"; then
+        echo "Error: forge inspect did not produce valid storage layout output for ${contract}"
+        echo "Output: ${forge_output}"
+        return 1
+    fi
+
+    # Parse and format the output
+    layout_comments=$(echo "$forge_output" \
         | awk '
             BEGIN { FS="|"; }
             # Skip table borders
@@ -101,7 +118,13 @@ update_contract_layout() {
                        name, type, slot, offset, bytes;
             }
         ' \
-        | sed 's/^/\/\/ /') || { echo "Error generating layout for ${contract}"; return 1; }
+        | sed 's/^/\/\/ /')
+
+    # Verify we got some output
+    if [ -z "$layout_comments" ]; then
+        echo "Error: Failed to parse storage layout for ${contract}"
+        return 1
+    fi
 
     # Remove old storage layout comments if they exist
     if grep -q "$START_LABEL" "$file_path"; then
