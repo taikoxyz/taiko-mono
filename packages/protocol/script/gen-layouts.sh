@@ -131,9 +131,8 @@ update_contract_layout() {
 
         # Walk backwards removing all blank lines before the marker
         while [ "$keep_until" -gt 0 ]; do
-            # Use head and tail instead of sed -n for better portability
             local line_content
-            line_content=$(head -n "$keep_until" "$file_path" | tail -n 1)
+            line_content=$(sed -n "${keep_until}p" "$file_path")
             if [ -z "$line_content" ]; then
                 keep_until=$((keep_until - 1))
             else
@@ -141,7 +140,7 @@ update_contract_layout() {
             fi
         done
 
-        head -n "$keep_until" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
+        sed -n "1,${keep_until}p" "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
     fi
 
     # Append new storage layout comment block
