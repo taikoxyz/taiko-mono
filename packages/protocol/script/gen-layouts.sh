@@ -81,21 +81,20 @@ update_contract_layout() {
         return 1
     fi
 
-    # Check if output looks like a valid storage layout table
-    if ! echo "$forge_output" | grep -q "^[╭|]"; then
+    # Check if output looks like a valid storage layout table (contains pipes)
+    if ! echo "$forge_output" | grep -q "|"; then
         echo "❌ Error: forge inspect did not produce valid storage layout output for ${contract}"
         echo "   Output: ${forge_output}"
         return 1
     fi
 
     # Parse and format the output
+    # This is more robust - just look for lines with pipes and parse the 6 columns
     layout_comments=$(echo "$forge_output" \
         | awk '
             BEGIN { FS="|"; }
-            # Skip table borders
-            /^[╭╰─=+]+$/ { next; }
-            # Process data rows with pipes
-            /^\|.*\|.*\|.*\|.*\|/ {
+            # Process any row with at least 6 pipe-separated fields
+            NF >= 6 && /\|/ {
                 # Extract fields by pipe delimiter and trim spaces
                 name = $2; gsub(/^[ \t]+|[ \t]+$/, "", name);
                 type = $3; gsub(/^[ \t]+|[ \t]+$/, "", type);
@@ -103,8 +102,10 @@ update_contract_layout() {
                 offset = $5; gsub(/^[ \t]+|[ \t]+$/, "", offset);
                 bytes = $6; gsub(/^[ \t]+|[ \t]+$/, "", bytes);
 
-                # Skip header and empty rows
-                if (name == "Name" || name == "") next;
+                # Skip header rows and empty rows
+                if (name == "Name" || name == "" || slot == "Slot") next;
+                # Skip rows that are just border characters
+                if (name ~ /^[─═╭╰╯╮│┤┐└┴┬├┼╪╬╩╦╠═╣╚╔╗╝+\-]+$/) next;
 
                 # Format output
                 printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n",
