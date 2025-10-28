@@ -1,6 +1,7 @@
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
 use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, Registry};
+use std::convert::TryFrom;
 
 // registry we can re-use
 static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
@@ -90,9 +91,11 @@ pub fn inc_ws_reconnections() {
 }
 
 pub fn set_last_seen_drift_seconds(seconds: u64) {
-    LAST_SEEN_DRIFT_SECONDS.set(seconds as i64);
+    let clamped_seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
+    LAST_SEEN_DRIFT_SECONDS.set(clamped_seconds);
 }
 
 pub fn set_last_block_age_seconds(seconds: u64) {
-    LAST_BLOCK_AGE_SECONDS.set(seconds as i64);
+    let clamped_seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
+    LAST_BLOCK_AGE_SECONDS.set(clamped_seconds);
 }
