@@ -44,7 +44,7 @@ contracts_shared=(
 contracts_layer1=(
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/core/impl/Inbo.sol:Inbox"
+"contracts/layer1/core/impl/Inbox.sol:Inbox"
 "contracts/layer1/core/impl/InboxOptimized1.sol:InboxOptimized1"
 "contracts/layer1/core/impl/InboxOptimized2.sol:InboxOptimized2"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
@@ -125,11 +125,29 @@ update_contract_layout() {
     fi
 
     # Remove old storage layout comments if they exist
+    # Find the last closing brace and remove everything after it (including old storage layouts)
     if grep -q "$START_LABEL" "$file_path"; then
-        awk -v start="$START_LABEL" -v end="$END_LABEL" '
-            $0 ~ start { skip=1; next }
-            $0 ~ end { skip=0; next }
-            !skip { print }
+        # Keep only up to and including the last }
+        awk '
+            /^}[[:space:]]*$/ {
+                last_brace_line = NR
+                for (i = 1; i <= NR; i++) {
+                    lines[i] = saved_lines[i]
+                }
+            }
+            { saved_lines[NR] = $0 }
+            END {
+                if (last_brace_line > 0) {
+                    for (i = 1; i <= last_brace_line; i++) {
+                        print lines[i]
+                    }
+                } else {
+                    # No closing brace found, print everything
+                    for (i = 1; i <= NR; i++) {
+                        print saved_lines[i]
+                    }
+                }
+            }
         ' "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
     fi
 
