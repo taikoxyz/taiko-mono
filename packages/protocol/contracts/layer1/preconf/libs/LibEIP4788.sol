@@ -3,53 +3,84 @@
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
 pragma solidity ^0.8.24;
 
-import "./LibBeaconMerkleUtils.sol";
-import "@eth-fabric/urc/lib/BLSUtils.sol";
-import "@solady/src/utils/ext/ithaca/BLS.sol";
+import { BLSUtils } from "@eth-fabric/urc/lib/BLSUtils.sol";
+import { BLS } from "@solady/src/utils/ext/ithaca/BLS.sol";
 
 /// @title LibEIP4788
 /// @custom:security-contact security@taiko.xyz
 library LibEIP4788 {
-    struct InclusionProof {
-        // `Chunks` of the SSZ encoded validator
-        bytes32[8] validator;
-        // Index of the validator in the beacon state validator list
+    /// @dev Proof of inclusion of the first validator chunk in the beacon
+    /// state.
+    struct ValidatorChunkProof {
+        // Index of the validator in the validator list
         uint256 validatorIndex;
-        // Proof of inclusion of validator in beacon state validator list
-        bytes32[] validatorProof;
-        // Root of the validator list in the beacon state
-        bytes32 validatorsRoot;
-        // Proof of inclusion of the root of validators list in the beacon state
-        bytes32[] validatorsRootProof;
-        // Index of the validator in the beacon state proposer lookahead
-        uint256 proposerLookaheadIndex;
-        // Proof of inclusion of validator index in the proposer lookahead
-        bytes32[] validatorIndexProof;
-        // Root of the proposer lookahead in the beacon state
-        bytes32 proposerLookaheadRoot;
-        // Proof of inclusion of the root of proposer lookahead in the beacon state
-        bytes32[] proposerLookaheadRootProof;
-        // Root of the beacon state
+        // This is intended to be the chunk at the 0-th index.
+        // This is the hash tree root of the validator's public key
+        bytes32 validatorChunk;
+        // Merkle root of the merkle-ized validator chunks
+        bytes32 validatorRoot;
+        // Merkle root of the merkle-ized validator list
+        bytes32 validatorsListRoot;
+        // Merkle root of the merkle-ized beacon state
         bytes32 beaconStateRoot;
-        // Proof of inclusion of beacon state in the beacon block
-        bytes32[] beaconStateRootProof;
+        // Proof of inclusion of the chunk in the validator
+        bytes32[] proofOfInclusionInValidator;
+        // Proof of incluson of the validator in the validator list
+        bytes32[] proofOfInclusionInValidatorList;
+        // Proof of incluson of the validator list in the beacon state
+        bytes32[] proofOfInclusionInBeaconState;
     }
 
-    error InvalidValidatorPubKey();
-    error ValidatorProofVerificationFailed();
-    error ValidatorsRootProofVerificationFailed();
-    error InvalidProposerLookaheadIndex();
-    error ValidatorIndexProofVerificationFailed();
-    error BeaconStateProofVerificationFailed();
+    /// @dev Proof of inclusion of a certain validator index at a certain proposer
+    /// lookahead index
+    struct ProposerLookaheadProof {
+        // The lookahead index whose value we are trying to prove
+        uint256 proposerLookaheadIndex;
+        // The proposer lookahead chunk containing the expected validator index
+        bytes32 proposerLookaheadChunk;
+        // Merkle root of the merkle-ized proposer lookahead
+        bytes32 proposerLookaheadRoot;
+        // Merkle root of the merkle-ized beacon state
+        bytes32 beaconStateRoot;
+        // Proof of inclusion of validator index in proposer lookahead
+        bytes32[] proofOfInclusionInProposerLookahead;
+        // Proof of incluson of the proposer lookahead in the beacon state
+        bytes32[] proofOfInclusionInBeaconState;
+    }
 
-    function verifyValidator(
-        uint256 _expectedProposerLookaheadIndex,
-        BLS.G1Point memory _validatorPubKey,
-        bytes32 _beaconBlockRoot,
-        InclusionProof memory _inclusionProof
+    /// @dev Proof of inclusion of the beacon state root in the beacon block header
+    struct BeaconStateProof {
+        // Merkle root of the merkle-ized beacon state
+        bytes32 beaconStateRoot;
+        // Merkle root of the beacon block
+        // Note: This must be same as the root made available via EIP-4788
+        bytes32 beaconBlockHeaderRoot;
+        // Proof of incluson of the beacon state root in a certain beacon block
+        bytes32[] proofOfInclusionInBeaconBlock;
+    }
+
+    struct BeaconProofs {
+        ValidatorChunkProof validatorChunkProof;
+        ProposerLookaheadProof proposerLookaheadProof;
+        BeaconStateProof beaconStateProof;
+    }
+
+    error ValidatorChunkProof_InvalidValidatorChunk();
+    error ValidatorIndexMismatch();
+    error BeaconStateRootMismatch();
+    error ValidatorChunkProof_ProofOfInclusionInValidatorFailed();
+    error ValidatorChunkProof_ProofOfInclusionInValidatorListFailed();
+    error ValidatorChunkProof_ProofOfInclusionInBeaconStateFailed();
+    error ProposerLookaheadProof_ProofOfInclusionInProposerLookaheadFailed();
+    error ProposerLookaheadProof_ProofOfInclusionInBeaconStateFailed();
+    error BeaconStateProof_ProofOfInclusionInBeaconBlockFailed();
+
+    function verifyBeaconProofs(
+        BLS.G1Point calldata _validatorPubKey,
+        BeaconProofs calldata _beaconProofs
     )
         internal
-        pure
+        view
     {
         BLS.Fp memory compressedValidatorPubKeyFp = BLSUtils.compress(_validatorPubKey);
 
@@ -57,57 +88,170 @@ library LibEIP4788 {
         bytes32 x = compressedValidatorPubKeyFp.a << 128 | compressedValidatorPubKeyFp.b >> 128;
         bytes32 y = compressedValidatorPubKeyFp.b << 128;
 
-        // Verify: Validator chunks contains the validator public key
+        // Verify that the `ValidatorChunkProof.validatorChunk` is the validator public key's
+        // hash tree root
         bytes32 pubKeyHashTreeRoot = sha256(abi.encodePacked(x, y));
-        require(pubKeyHashTreeRoot == _inclusionProof.validator[0], InvalidValidatorPubKey());
-
-        // Verify: Validator is a part of the validator list in the beacon state
-        bytes32 validatorHashTreeRoot = LibBeaconMerkleUtils.merkleize(_inclusionProof.validator);
         require(
-            LibBeaconMerkleUtils.verifyProof(
-                _inclusionProof.validatorProof,
-                _inclusionProof.validatorsRoot,
-                validatorHashTreeRoot,
-                _inclusionProof.validatorIndex
-            ),
-            ValidatorProofVerificationFailed()
+            pubKeyHashTreeRoot == _beaconProofs.validatorChunkProof.validatorChunk,
+            ValidatorChunkProof_InvalidValidatorChunk()
         );
 
-        // Verify: Validator list is a part of the beacon state
+        // Verify that the beacon state root matches in all proofs
+        bytes32 beaconStateRoot_ = _beaconProofs.validatorChunkProof.beaconStateRoot;
         require(
-            LibBeaconMerkleUtils.verifyProof(
-                _inclusionProof.validatorsRootProof,
-                _inclusionProof.beaconStateRoot,
-                _inclusionProof.validatorsRoot,
-                11
-            ),
-            ValidatorsRootProofVerificationFailed()
+            beaconStateRoot_ == _beaconProofs.proposerLookaheadProof.beaconStateRoot
+                && beaconStateRoot_ == _beaconProofs.beaconStateProof.beaconStateRoot,
+            BeaconStateRootMismatch()
         );
 
-        // Verify: Validator index is a part of the proposer lookahead at the expected index
+        // Verify that the validator chunk is a part of the validator
         require(
-            _inclusionProof.proposerLookaheadIndex == _expectedProposerLookaheadIndex,
-            InvalidProposerLookaheadIndex()
-        );
-        require(
-            LibBeaconMerkleUtils.verifyProof(
-                _inclusionProof.validatorIndexProof,
-                _inclusionProof.proposerLookaheadRoot,
-                LibBeaconMerkleUtils.toLittleEndian(_inclusionProof.validatorIndex),
-                _inclusionProof.proposerLookaheadIndex
+            _verifyProof(
+                _beaconProofs.validatorChunkProof.proofOfInclusionInValidator,
+                _beaconProofs.validatorChunkProof.validatorRoot,
+                _beaconProofs.validatorChunkProof.validatorChunk,
+                0 // chunk at 0-th index
             ),
-            ValidatorIndexProofVerificationFailed()
+            ValidatorChunkProof_ProofOfInclusionInValidatorFailed()
         );
 
-        // Verify: Beacon state is a part of the beacon block
+        // Verify that the validator root is a part of the validator list
         require(
-            LibBeaconMerkleUtils.verifyProof(
-                _inclusionProof.beaconStateRootProof,
-                _beaconBlockRoot,
-                _inclusionProof.beaconStateRoot,
-                3
+            _verifyProof(
+                _beaconProofs.validatorChunkProof.proofOfInclusionInValidatorList,
+                _beaconProofs.validatorChunkProof.validatorsListRoot,
+                _beaconProofs.validatorChunkProof.validatorRoot,
+                _beaconProofs.validatorChunkProof.validatorIndex
             ),
-            BeaconStateProofVerificationFailed()
+            ValidatorChunkProof_ProofOfInclusionInValidatorListFailed()
         );
+
+        // Verify that the validators list is a part of the beacon state
+        require(
+            _verifyProof(
+                _beaconProofs.validatorChunkProof.proofOfInclusionInBeaconState,
+                _beaconProofs.validatorChunkProof.beaconStateRoot,
+                _beaconProofs.validatorChunkProof.validatorsListRoot,
+                11 // validators index in beacon state
+            ),
+            ValidatorChunkProof_ProofOfInclusionInBeaconStateFailed()
+        );
+
+        // Chunk index and the index of the segment within the chunk that is expected to have the validator
+        // index.
+        // Each chunk has 4 64-bit segments, each containing one validator index.
+        uint256 proposerLookaheadChunkIndex =
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex / 4;
+        uint256 proposerLookaheadChunkSegmentIndex =
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex % 4;
+
+        // Extract the u64 little-endian encoded validator index and make it
+        // u256 little-endian
+        bytes32 expectedValidatorIndex = (
+            (
+                _beaconProofs.proposerLookaheadProof.proposerLookaheadChunk
+                    << (proposerLookaheadChunkSegmentIndex * 64)
+            ) >> 192
+        ) << 192;
+
+        // Verify that the validator index in the validator chunk proof matches the one in the lookahead
+        // proof
+        require(
+            _toLittleEndian(_beaconProofs.validatorChunkProof.validatorIndex)
+                == expectedValidatorIndex,
+            ValidatorIndexMismatch()
+        );
+
+        // Verify that the chunk is a part of the proposer lookahead
+        require(
+            _verifyProof(
+                _beaconProofs.proposerLookaheadProof.proofOfInclusionInProposerLookahead,
+                _beaconProofs.proposerLookaheadProof.proposerLookaheadRoot,
+                _beaconProofs.proposerLookaheadProof.proposerLookaheadChunk,
+                proposerLookaheadChunkIndex
+            ),
+            ProposerLookaheadProof_ProofOfInclusionInProposerLookaheadFailed()
+        );
+
+        // Verify that the proposer lookahead is a part of the beacon state
+        require(
+            _verifyProof(
+                _beaconProofs.proposerLookaheadProof.proofOfInclusionInBeaconState,
+                _beaconProofs.proposerLookaheadProof.beaconStateRoot,
+                _beaconProofs.proposerLookaheadProof.proposerLookaheadRoot,
+                37 // proposer_lookahead index in beacon state
+            ),
+            ProposerLookaheadProof_ProofOfInclusionInBeaconStateFailed()
+        );
+
+        // Verify that the beacon state is a part of the beacon block
+        require(
+            _verifyProof(
+                _beaconProofs.beaconStateProof.proofOfInclusionInBeaconBlock,
+                _beaconProofs.beaconStateProof.beaconBlockHeaderRoot,
+                _beaconProofs.beaconStateProof.beaconStateRoot,
+                3 // state_root index in beacon block
+            ),
+            BeaconStateProof_ProofOfInclusionInBeaconBlockFailed()
+        );
+    }
+
+    function _verifyProof(
+        bytes32[] calldata proof,
+        bytes32 root,
+        bytes32 leaf,
+        uint256 leafIndex
+    )
+        internal
+        view
+        returns (bool)
+    {
+        bytes32 h = leaf;
+        uint256 index = leafIndex;
+
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+
+            // if index is even -> sha256(h, proofElement)
+            // else -> sha256(proofElement, h)
+            assembly {
+                let ptr := mload(0x40)
+
+                switch and(index, 1)
+                case 0 {
+                    mstore(ptr, h)
+                    mstore(add(ptr, 0x20), proofElement)
+                }
+                default {
+                    mstore(ptr, proofElement)
+                    mstore(add(ptr, 0x20), h)
+                }
+
+                // sha256 precompile
+                if iszero(staticcall(gas(), 0x02, ptr, 0x40, ptr, 0x20)) { revert(0, 0) }
+                h := mload(ptr)
+
+                // Reclaim memory
+                mstore(0x40, ptr)
+            }
+
+            index = index / 2;
+        }
+
+        return h == root;
+    }
+
+    function _toLittleEndian(uint256 n) internal pure returns (bytes32) {
+        uint256 v = n;
+        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8)
+            | ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
+        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16)
+            | ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
+        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32)
+            | ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
+        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64)
+            | ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
+        v = (v >> 128) | (v << 128);
+        return bytes32(v);
     }
 }
