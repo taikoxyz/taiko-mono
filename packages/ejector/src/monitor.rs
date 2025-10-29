@@ -112,7 +112,7 @@ impl Monitor {
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let preconf_router =
-            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider);
+            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
 
         // watchdog task
         let _watchdog = tokio::spawn(async move {
@@ -191,6 +191,45 @@ impl Monitor {
                 metrics::set_last_block_age_seconds(block_age.as_secs());
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
+
+                    // Query L1 sync state and decide whether to skip this tick.
+                    let mut skip_due_to_l1 = false;
+                    match http_provider.syncing().await {
+                        Ok(syncing) => match serde_json::to_value(&syncing) {
+                            Ok(serde_json::Value::Bool(false)) => {
+                                // Fully synced; proceed to eject
+                            }
+                            Ok(serde_json::Value::Object(_)) => {
+                                warn!("L1 node is syncing; skipping eject this tick");
+                                skip_due_to_l1 = true;
+                            }
+                            Ok(unexpected) => {
+                                warn!(
+                                    "Unexpected L1 sync status format: {unexpected:?}; skipping eject this tick"
+                                );
+                                skip_due_to_l1 = true;
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to process L1 sync status: {e:?}; skipping eject this tick"
+                                );
+                                skip_due_to_l1 = true;
+                            }
+                        },
+                        Err(e) => {
+                            warn!(
+                                "Failed to query L1 sync status: {e:?}; skipping eject this tick"
+                            );
+                            skip_due_to_l1 = true;
+                        }
+                    }
+
+                    if skip_due_to_l1 {
+                        // Reset timer so we don't immediately eject when node catches up
+                        *last_seen_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
+                        continue;
+                    }
 
                     if let Err(e) = eject_operator(
                         l1_http_url.clone(),
