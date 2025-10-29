@@ -11,12 +11,12 @@ set -e
 
 echo "Setting up local git ignores for generated files..."
 
-# Mark all *_Layout.sol files to be ignored locally
-layout_files=$(find contracts -name "*_Layout.sol" 2>/dev/null || true)
+# Mark all *_Layout.sol files to be ignored locally using git pattern matching
+layout_files=$(git ls-files 'contracts/**/*_Layout.sol' 2>/dev/null || true)
 
 if [ -n "$layout_files" ]; then
     echo "$layout_files" | xargs git update-index --skip-worktree
-    count=$(echo "$layout_files" | wc -l)
+    count=$(echo "$layout_files" | wc -l | tr -d ' ')
     echo "✅ Marked $count *_Layout.sol files to skip locally"
 else
     echo "ℹ️  No *_Layout.sol files found"
@@ -41,4 +41,4 @@ echo "These files will be ignored in your local git status,"
 echo "but the GitHub CI workflow will still track and commit them."
 echo ""
 echo "To undo this setup, run:"
-echo "  find contracts -name '*_Layout.sol' | xargs git update-index --no-skip-worktree"
+echo "  git ls-files 'contracts/**/*_Layout.sol' | xargs git update-index --no-skip-worktree"

@@ -71,7 +71,7 @@ jobs:
           git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
           git ls-files layout/ | xargs -r git update-index --no-skip-worktree || true
           git ls-files snapshots/ | xargs -r git update-index --no-skip-worktree || true
-          find contracts -name "*_Layout.sol" | xargs -r git update-index --no-skip-worktree || true
+          git ls-files 'contracts/**/*_Layout.sol' | xargs -r git update-index --no-skip-worktree || true
           # Configure merge strategy for auto-generated files
           git config merge.ours.driver true
 
