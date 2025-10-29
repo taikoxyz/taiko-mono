@@ -73,6 +73,14 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         bytes32 ancestorsHash;
     }
 
+    /// @notice Tracks the identity and progression of the active proposal.
+    /// @dev 1 slot
+    struct ProposalProgress {
+        uint48 proposalId;
+        uint16 nextBlockIndex;
+        address proposer;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -136,11 +144,14 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    /// @notice Tracks the active proposal ID, proposer, and expected block index.
+    ProposalProgress internal _proposalProgress;
+
     /// @notice Mapping from block number to block hash.
     mapping(uint256 => bytes32) public blockHashes;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -222,7 +233,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         onlyValidSender
         nonReentrant
     {
-        if (_blockParams.blockIndex == 0) {
+        bool isFirstBlock = _validateProgress(_proposalParams, _blockParams);
+
+        if (isFirstBlock) {
             _validateProposal(_proposalParams);
         }
 
@@ -403,6 +416,53 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
             );
             _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
+    }
+
+    /// @dev Validates proposal continuity and block index sequencing.
+    /// @param _proposalParams Proposal-level parameters containing all proposal data.
+    /// @param _blockParams Block-level parameters specific to this block in the proposal.
+    /// @return isFirstBlock_ True if the call processes the first block of a proposal.
+    function _validateProgress(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
+        private
+        returns (bool isFirstBlock_)
+    {
+        ProposalProgress memory progress = _proposalProgress;
+
+        if (_blockParams.blockIndex == 0) {
+            if (progress.proposalId != 0 && _proposalParams.proposalId <= progress.proposalId) {
+                // Ensure the proposal ID is increasing on the first block
+                revert ProposalIdMismatch();
+            }
+            _proposalProgress = ProposalProgress({
+                proposalId: _proposalParams.proposalId,
+                nextBlockIndex: 1,
+                proposer: _proposalParams.proposer
+            });
+            return true;
+        }
+
+        if (progress.proposalId == 0) {
+            revert NonZeroBlockIndex();
+        }
+        if (_proposalParams.proposalId != progress.proposalId) {
+            revert ProposalIdMismatch();
+        }
+        if (_proposalParams.proposer != progress.proposer) {
+            revert ProposerMismatch();
+        }
+        if (_blockParams.blockIndex != progress.nextBlockIndex) {
+            revert InvalidBlockIndex();
+        }
+        if (progress.nextBlockIndex == type(uint16).max) {
+            revert InvalidBlockIndex();
+        }
+
+        _proposalProgress.nextBlockIndex = uint16(progress.nextBlockIndex + 1);
+
+        return false;
     }
 
     /// @dev Processes bond instructions with cumulative hash verification.

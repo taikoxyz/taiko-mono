@@ -112,6 +112,72 @@ contract AnchorTest is Test {
         anchor.anchorV4(proposalParams, blockParams);
     }
 
+    function test_anchorV4_RevertWhen_BlockIndexNotZeroOnFirstBlock() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+        blockParams.blockIndex = 1;
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.startPrank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.NonZeroBlockIndex.selector);
+        anchor.anchorV4(proposalParams, blockParams);
+        vm.stopPrank();
+    }
+
+    function test_anchorV4_RevertWhen_ProposalIdMismatch() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        blockParams.blockIndex = 1;
+        proposalParams.proposalId = 2;
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.startPrank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.ProposalIdMismatch.selector);
+        anchor.anchorV4(proposalParams, blockParams);
+        vm.stopPrank();
+    }
+
+    function test_anchorV4_RevertWhen_BlockIndexSkips() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        blockParams.blockIndex = 2;
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.startPrank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.InvalidBlockIndex.selector);
+        anchor.anchorV4(proposalParams, blockParams);
+        vm.stopPrank();
+    }
+
+    function test_anchorV4_AllowsSequentialBlocks() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        blockParams.blockIndex = 1;
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        Anchor.ProposalState memory proposalState = anchor.getProposalState();
+        Anchor.BlockState memory blockState = anchor.getBlockState();
+
+        assertEq(proposalState.designatedProver, proverCandidate);
+        assertFalse(proposalState.isLowBondProposal);
+        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
+    }
+
     // ---------------------------------------------------------------
     // getDesignatedProver
     // ---------------------------------------------------------------
