@@ -80,13 +80,9 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
-   
-
-    // ---------------------------------------------------------------
-    // Constructor 
-    // ---------------------------------------------------------------
-
- 
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Constructor
+    // ══════════════════════════════════════════════════════════════════════════════════════
 
     constructor(
         uint64 _remoteChainId,
@@ -104,9 +100,9 @@ contract Bridge is EssentialContract, IBridge {
         signalService = ISignalService(_signalService);
     }
 
-    // ---------------------------------------------------------------
-    // External & Public Functions
-    // ---------------------------------------------------------------
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // External Functions
+    // ══════════════════════════════════════════════════════════════════════════════════════
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -395,8 +391,6 @@ contract Bridge is EssentialContract, IBridge {
         return _isSignalReceived(signalService, hashMessage(_message), _message.srcChainId, _proof);
     }
 
-  
-
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
     function context() external view returns (Context memory ctx_) {
@@ -405,6 +399,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CONTEXT();
         }
     }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Public Functions
+    // ══════════════════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
@@ -424,6 +422,28 @@ contract Bridge is EssentialContract, IBridge {
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Internal Functions
+    // ══════════════════════════════════════════════════════════════════════════════════════
+
+    /// @notice Stores the call context
+    /// @param _msgHash The message hash.
+    /// @param _from The sender's address.
+    /// @param _srcChainId The source chain ID.
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
+        __ctx = Context(_msgHash, _from, _srcChainId);
+    }
+
+    /// @notice Loads and returns the call context.
+    /// @return ctx_ The call context.
+    function _loadContext() internal view virtual returns (Context memory) {
+        return __ctx;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Private Functions
+    // ══════════════════════════════════════════════════════════════════════════════════════
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
@@ -477,14 +497,6 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageStatusChanged(_msgHash, _status);
     }
 
-    /// @notice Stores the call context
-    /// @param _msgHash The message hash.
-    /// @param _from The sender's address.
-    /// @param _srcChainId The source chain ID.
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
-        __ctx = Context(_msgHash, _from, _srcChainId);
-    }
-
     /// @notice Checks if the signal was received and caches cross-chain data if requested.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
@@ -509,12 +521,6 @@ contract Bridge is EssentialContract, IBridge {
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
         }
-    }
-
-    /// @notice Loads and returns the call context.
-    /// @return ctx_ The call context.
-    function _loadContext() internal view virtual returns (Context memory) {
-        return __ctx;
     }
 
     /// @notice Checks if the signal was received.
@@ -583,9 +589,19 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
+    /// @dev Validates that a message is being sent from the correct chain
+    /// to the expected remote chain.
+    function _validateMessageSending(Message calldata _message) private view {
+        if (_message.srcChainId != block.chainid) revert B_INVALID_CHAINID();
+        if (_message.destChainId != remoteChainId) revert B_INVALID_CHAINID();
+    }
+
+    /// @dev Validates that a message is being received on the correct chain
+    /// from the expected remote chain.
+    function _validateMessageReceiving(Message calldata _message) private view {
+        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
+        if (_message.srcChainId != remoteChainId) revert B_INVALID_CHAINID();
+    }
 
     /// @dev Suggested by OpenZeppelin and copied from
     /// https://github.com/OpenZeppelin/openzeppelin-contracts/
@@ -644,29 +660,11 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-  
-
-       /// @dev Validates that a message is being sent from the correct chain
-    /// to the expected remote chain.
-    function _validateMessageSending(Message calldata _message) private view {
-        if (_message.srcChainId != block.chainid) revert B_INVALID_CHAINID();
-        if (_message.destChainId != remoteChainId) revert B_INVALID_CHAINID();
-    }
-
-    /// @dev Validates that a message is being received on the correct chain
-    /// from the expected remote chain.
-    function _validateMessageReceiving(Message calldata _message) private view {
-        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
-        if (_message.srcChainId != remoteChainId) revert B_INVALID_CHAINID();
-    }
-
- 
-  // ---------------------------------------------------------------
+    // ══════════════════════════════════════════════════════════════════════════════════════
     // Errors
-    // ---------------------------------------------------------------
+    // ══════════════════════════════════════════════════════════════════════════════════════
 
-
-     error B_INVALID_CHAINID();
+    error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
