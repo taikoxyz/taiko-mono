@@ -149,8 +149,9 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[_checkpoint.blockNumber] =
-            CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
+        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
+            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
+        });
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -182,9 +183,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
         checkpoint = Checkpoint({
-            blockNumber: _blockNumber,
-            blockHash: blockHash,
-            stateRoot: record.stateRoot
+            blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
         });
     }
 

@@ -9,7 +9,15 @@ import "src/shared/libs/LibNetwork.sol";
 /// @dev Resolver used by multiple based rollups.
 /// @custom:security-contact security@taiko.xyz
 contract SharedResolver is ResolverBase {
-    function getAddress(uint256 _chainId, bytes32 _name) internal pure override returns (address) {
+    function getAddress(
+        uint256 _chainId,
+        bytes32 _name
+    )
+        internal
+        pure
+        override
+        returns (address)
+    {
         if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
             if (_name == LibNames.B_BRIDGE) {
                 return 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
