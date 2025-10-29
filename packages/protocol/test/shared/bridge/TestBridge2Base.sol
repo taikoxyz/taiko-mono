@@ -31,7 +31,8 @@ contract TestBridge2Base is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        // Remote bridge is the Taiko bridge address
+        eBridge = deployBridge(address(new Bridge(address(eSignalService), tBridge)));
         vm.deal(address(eBridge), 10_000 ether);
     }
 

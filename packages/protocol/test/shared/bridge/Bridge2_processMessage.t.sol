@@ -63,16 +63,10 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         vm.stopPrank();
 
-        vm.prank(deployer);
-        resolver.registerAddress(message.srcChainId, "bridge", address(0));
-
-        vm.startPrank(Alice);
-
-        message.id += 1;
-        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
-
-        vm.stopPrank();
+        // NOTE: The following test has been removed because Bridge no longer uses
+        // resolver to look up remote bridge addresses. The remote bridge is now
+        // an immutable constructor parameter, so resolver changes don't affect it.
+        // Previous test: expected RESOLVED_TO_ZERO_ADDRESS after setting bridge to address(0)
     }
 
     function test_bridge2_processMessage__special_to_address__0_fee__nonezero_gaslimit()

@@ -21,7 +21,8 @@ contract TestDelegateController is Layer2Test {
         tSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
+        // Remote bridge is the dao controller on Ethereum
+        tBridge = deployBridge(address(new Bridge(address(tSignalService), daoController)));
         tDelegateController =
             deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }

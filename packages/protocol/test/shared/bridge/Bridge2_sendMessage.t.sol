@@ -28,15 +28,16 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         eBridge.sendMessage(message);
 
-        message.destChainId = taikoChainId + 1;
-        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage(message);
+        // NOTE: With the new Bridge design using immutable remoteBridge,
+        // destination chain validation has been removed. Any non-zero chain
+        // ID different from the current chain is now accepted.
+        // The test for "destChainId not enabled" has been removed.
 
         message.destChainId = ethereumChainId;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         eBridge.sendMessage(message);
 
-        // an bridge has been registered for destChainId
+        // Any valid destination chain ID works now
         message.destChainId = taikoChainId;
         eBridge.sendMessage(message); // id = 0
 

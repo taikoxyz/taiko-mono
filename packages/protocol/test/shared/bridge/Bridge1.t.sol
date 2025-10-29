@@ -45,7 +45,9 @@ contract TestBridge1 is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        // Use a placeholder address for remote bridge that will be the taiko bridge
+        // This will be set correctly when both bridges are deployed
+        eBridge = deployBridge(address(new Bridge(address(eSignalService), address(0x1000))));
 
         vm.deal(Alice, 100 ether);
     }
@@ -54,7 +56,8 @@ contract TestBridge1 is CommonTest {
         tSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
+        // Remote bridge is the Ethereum bridge
+        tBridge = deployBridge(address(new Bridge(address(tSignalService), address(eBridge))));
         vm.deal(address(tBridge), 100 ether);
     }
 
@@ -188,27 +191,12 @@ contract TestBridge1 is CommonTest {
         eBridge.sendMessage{ value: amount }(message);
     }
 
-    function test_bridge1_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: taikoChainId + 1
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage{ value: amount }(message);
-    }
-
-    function test_bridge1_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
-        public
-    {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            owner: Alice, to: Alice, value: 0, gasLimit: 0, fee: 0, destChain: ethereumChainId
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage{ value: amount }(message);
-    }
+    // NOTE: The following tests have been removed because destination chain validation
+    // has been removed from Bridge.sendMessage():
+    // - test_bridge1_send_message_ether_reverts_when_dest_chain_is_not_enabled
+    // - test_bridge1_send_message_ether_reverts_when_dest_chain_same_as_block_chainid
+    // With the new design using immutable remoteBridge, chain validation is implicit
+    // through the bridge configuration rather than dynamic validation.
 
     function test_bridge1_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;

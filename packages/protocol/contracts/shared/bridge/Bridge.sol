@@ -56,7 +56,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Place holder value when not using transient storage
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
-    address public immutable remoteBridge;
+    address public immutable destBridge;
     ISignalService public immutable signalService;
 
     /// @notice The next message ID.
@@ -108,11 +108,11 @@ contract Bridge is EssentialContract, IBridge {
 
     constructor(
         address _signalService,
-        address _remoteBridge
+        address _destBridge
     )
     {
         signalService = ISignalService(_signalService);
-        remoteBridge = _remoteBridge;
+        destBridge = _destBridge;
     }
 
     // ---------------------------------------------------------------
@@ -517,7 +517,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
-            _chainId, remoteBridge, _signal, _proof
+            _chainId, destBridge, _signal, _proof
         ) returns (
             uint256 numCacheOps
         ) {
@@ -551,7 +551,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try _signalService.verifySignalReceived(
-            _chainId, remoteBridge, _signal, _proof
+            _chainId, destBridge, _signal, _proof
         ) {
             return true;
         } catch {
