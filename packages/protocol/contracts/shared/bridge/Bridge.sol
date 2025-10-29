@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialResolverContract.sol";
-import "../libs/LibAddress.sol";
-import "../libs/LibMath.sol";
-import "../libs/LibNames.sol";
-import "../libs/LibNetwork.sol";
-import "../signal/ISignalService.sol";
-import "./IBridge.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { LibAddress } from  "../libs/LibAddress.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { LibMath } from "../libs/LibMath.sol";
+import { LibNetwork } from "../libs/LibNetwork.sol";
+import { ISignalService } from "../signal/ISignalService.sol";
+import { IBridge,IRecallableSender,IMessageInvocable } from "./IBridge.sol";
+import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract Bridge is EssentialResolverContract, IBridge {
+contract Bridge is EssentialContract, IBridge {
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -56,6 +56,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev Place holder value when not using transient storage
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
+    address public immutable remoteBridge;
     ISignalService public immutable signalService;
 
     /// @notice The next message ID.
@@ -106,12 +107,12 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     constructor(
-        address _resolver,
-        address _signalService
+        address _signalService,
+        address _remoteBridge
     )
-        EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        remoteBridge = _remoteBridge;
     }
 
     // ---------------------------------------------------------------
@@ -150,12 +151,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         } else if (_invocationGasLimit(_message) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
-
-        // Check if the destination chain is enabled.
-        (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
-
-        // Verify destination chain.
-        if (!destChainEnabled) revert B_INVALID_CHAINID();
 
         // Ensure the sent value matches the expected amount.
         if (_message.value + _message.fee != msg.value) revert B_INVALID_VALUE();
@@ -416,18 +411,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         return _isSignalReceived(signalService, hashMessage(_message), _message.srcChainId, _proof);
     }
 
-    /// @notice Checks if the destination chain is enabled.
-    /// @param _chainId The destination chain ID.
-    /// @return enabled_ True if the destination chain is enabled.
-    /// @return destBridge_ The bridge of the destination chain.
-    function isDestChainEnabled(uint64 _chainId)
-        public
-        view
-        returns (bool enabled_, address destBridge_)
-    {
-        destBridge_ = resolve(_chainId, LibNames.B_BRIDGE, true);
-        enabled_ = destBridge_ != address(0);
-    }
+  
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
@@ -533,7 +517,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
-            _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
+            _chainId, remoteBridge, _signal, _proof
         ) returns (
             uint256 numCacheOps
         ) {
@@ -567,7 +551,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         returns (bool)
     {
         try _signalService.verifySignalReceived(
-            _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
+            _chainId, remoteBridge, _signal, _proof
         ) {
             return true;
         } catch {
