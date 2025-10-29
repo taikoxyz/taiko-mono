@@ -14,6 +14,9 @@ import "solady/src/utils/Base64.sol";
 import "solady/src/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./AutomataDcapV3AttestationLayout.sol";
+
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
@@ -287,13 +290,11 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 issuer = certs[i + 1];
                 if (i == n - 2) {
                     // this cert is expected to be signed by the root
-                    certRevoked = serialNumIsRevoked[
-                        uint256(IPEMCertChainLib.CRL.ROOT)
-                    ][certs[i].serialNumber];
+                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
+                        .serialNumber];
                 } else if (certs[i].isPck) {
-                    certRevoked = serialNumIsRevoked[
-                        uint256(IPEMCertChainLib.CRL.PCK)
-                    ][certs[i].serialNumber];
+                    certRevoked =
+                        serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i].serialNumber];
                 }
                 if (certRevoked) {
                     break;
@@ -394,7 +395,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,,,
+            bool successful,
+            ,
+            ,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
@@ -426,8 +429,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             }
             if (
                 !verifiedEnclaveIdSuccessfully
-                    || qeTcbStatus
-                        == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
+                    || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
             ) {
                 return (false, retData);
             }
@@ -510,24 +512,24 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   sigVerifyLib                   | contract ISigVerifyLib                             | Slot: 251  | Offset: 0    | Bytes: 20  
-//   pemCertLib                     | contract IPEMCertChainLib                          | Slot: 252  | Offset: 0    | Bytes: 20  
-//   checkLocalEnclaveReport        | bool                                               | Slot: 252  | Offset: 20   | Bytes: 1   
-//   trustedUserMrEnclave           | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32  
-//   trustedUserMrSigner            | mapping(bytes32 => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32  
-//   serialNumIsRevoked             | mapping(uint256 => mapping(bytes => bool))         | Slot: 255  | Offset: 0    | Bytes: 32  
-//   tcbInfo                        | mapping(string => struct TCBInfoStruct.TCBInfo)    | Slot: 256  | Offset: 0    | Bytes: 32  
-//   qeIdentity                     | struct EnclaveIdStruct.EnclaveId                   | Slot: 257  | Offset: 0    | Bytes: 128 
+//   sigVerifyLib                   | contract ISigVerifyLib                             | Slot: 251  | Offset: 0    | Bytes: 20
+//   pemCertLib                     | contract IPEMCertChainLib                          | Slot: 252  | Offset: 0    | Bytes: 20
+//   checkLocalEnclaveReport        | bool                                               | Slot: 252  | Offset: 20   | Bytes: 1
+//   trustedUserMrEnclave           | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32
+//   trustedUserMrSigner            | mapping(bytes32 => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32
+//   serialNumIsRevoked             | mapping(uint256 => mapping(bytes => bool))         | Slot: 255  | Offset: 0    | Bytes: 32
+//   tcbInfo                        | mapping(string => struct TCBInfoStruct.TCBInfo)    | Slot: 256  | Offset: 0    | Bytes: 32
+//   qeIdentity                     | struct EnclaveIdStruct.EnclaveId                   | Slot: 257  | Offset: 0    | Bytes: 128
 //   __gap                          | uint256[39]                                        | Slot: 261  | Offset: 0    | Bytes: 1248
 // solhint-enable max-line-length

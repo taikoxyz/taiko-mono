@@ -91,23 +91,11 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         vm.stopPrank();
     }
 
-    function setMrEnclave(
-        address _attestationAddress,
-        bytes32 _mrEnclave,
-        bool enable
-    )
-        internal
-    {
+    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave, bool enable) internal {
         AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, enable);
     }
 
-    function setMrSigner(
-        address _attestationAddress,
-        bytes32 _mrSigner,
-        bool enable
-    )
-        internal
-    {
+    function setMrSigner(address _attestationAddress, bytes32 _mrSigner, bool enable) internal {
         AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, enable);
     }
 

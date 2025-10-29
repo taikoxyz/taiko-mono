@@ -8,6 +8,9 @@ import "./LibBridgedToken.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./BridgedERC20Layout.sol";
+
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
@@ -183,27 +186,27 @@ contract BridgedERC20 is
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _balances                      | mapping(address => uint256)                        | Slot: 251  | Offset: 0    | Bytes: 32  
-//   _allowances                    | mapping(address => mapping(address => uint256))    | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _totalSupply                   | uint256                                            | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _name                          | string                                             | Slot: 254  | Offset: 0    | Bytes: 32  
-//   _symbol                        | string                                             | Slot: 255  | Offset: 0    | Bytes: 32  
+//   _balances                      | mapping(address => uint256)                        | Slot: 251  | Offset: 0    | Bytes: 32
+//   _allowances                    | mapping(address => mapping(address => uint256))    | Slot: 252  | Offset: 0    | Bytes: 32
+//   _totalSupply                   | uint256                                            | Slot: 253  | Offset: 0    | Bytes: 32
+//   _name                          | string                                             | Slot: 254  | Offset: 0    | Bytes: 32
+//   _symbol                        | string                                             | Slot: 255  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[45]                                        | Slot: 256  | Offset: 0    | Bytes: 1440
-//   srcToken                       | address                                            | Slot: 301  | Offset: 0    | Bytes: 20  
-//   __srcDecimals                  | uint8                                              | Slot: 301  | Offset: 20   | Bytes: 1   
-//   srcChainId                     | uint256                                            | Slot: 302  | Offset: 0    | Bytes: 32  
-//   migratingAddress               | address                                            | Slot: 303  | Offset: 0    | Bytes: 20  
-//   migratingInbound               | bool                                               | Slot: 303  | Offset: 20   | Bytes: 1   
+//   srcToken                       | address                                            | Slot: 301  | Offset: 0    | Bytes: 20
+//   __srcDecimals                  | uint8                                              | Slot: 301  | Offset: 20   | Bytes: 1
+//   srcChainId                     | uint256                                            | Slot: 302  | Offset: 0    | Bytes: 32
+//   migratingAddress               | address                                            | Slot: 303  | Offset: 0    | Bytes: 20
+//   migratingInbound               | bool                                               | Slot: 303  | Offset: 20   | Bytes: 1
 //   __gap                          | uint256[47]                                        | Slot: 304  | Offset: 0    | Bytes: 1504
 // solhint-enable max-line-length

@@ -7,6 +7,9 @@ import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./SignalServiceLayout.sol";
+
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
@@ -149,9 +152,8 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
-            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
-        });
+        _checkpoints[_checkpoint.blockNumber] =
+            CheckpointRecord({ blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot });
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -183,7 +185,9 @@ contract SignalService is EssentialContract, ISignalService {
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
         checkpoint = Checkpoint({
-            blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
+            blockNumber: _blockNumber,
+            blockHash: blockHash,
+            stateRoot: record.stateRoot
         });
     }
 
@@ -276,23 +280,3 @@ error SS_INVALID_CHECKPOINT();
 error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _slotsUsedByPacaya             | uint256[2]                                         | Slot: 251  | Offset: 0    | Bytes: 64  
-//   _receivedSignals               | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _checkpoints                   | mapping(uint48 => struct SignalService.CheckpointRecord) | Slot: 254  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[44]                                        | Slot: 255  | Offset: 0    | Bytes: 1408
-// solhint-enable max-line-length

@@ -66,15 +66,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         );
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    firstPayload.coreState,
-                    _buildParentArray(firstPayload.proposal),
-                    _wrapSingleRecord(proven.record),
-                    proven.checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(proven.record),
+                proven.checkpoint
+            )
+        );
 
         vm.recordLogs();
         vm.roll(block.number + 1);
@@ -123,15 +122,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         records[0] = firstProven.record;
         records[1] = secondProven.record;
 
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    secondPayload.coreState,
-                    _buildParentArray(secondPayload.proposal),
-                    records,
-                    secondProven.checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                secondPayload.coreState,
+                _buildParentArray(secondPayload.proposal),
+                records,
+                secondProven.checkpoint
+            )
+        );
 
         vm.recordLogs();
         vm.roll(block.number + 1);
@@ -171,15 +169,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             records[i] = proven[i].record;
         }
 
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    payload.coreState,
-                    _buildParentArray(payload.proposal),
-                    records,
-                    proven[maxFinalizationCount - 1].checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                records,
+                proven[maxFinalizationCount - 1].checkpoint
+            )
+        );
 
         vm.recordLogs();
         vm.roll(block.number + 1);
@@ -222,15 +219,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         assertGt(proven.record.bondInstructions.length, 0, "Expected non-empty bond instructions");
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    firstPayload.coreState,
-                    _buildParentArray(firstPayload.proposal),
-                    _wrapSingleRecord(proven.record),
-                    proven.checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(proven.record),
+                proven.checkpoint
+            )
+        );
 
         vm.recordLogs();
         vm.roll(block.number + 1);
@@ -254,15 +250,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory secondPayload = _proposeNext(firstPayload.proposal);
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    secondPayload.coreState,
-                    _buildParentArray(secondPayload.proposal),
-                    _wrapSingleRecord(firstProven.record),
-                    firstProven.checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                secondPayload.coreState,
+                _buildParentArray(secondPayload.proposal),
+                _wrapSingleRecord(firstProven.record),
+                firstProven.checkpoint
+            )
+        );
 
         vm.recordLogs();
         vm.roll(block.number + 1);
@@ -298,15 +293,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         tampered.transitionHash = keccak256("mismatch");
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    firstPayload.coreState,
-                    _buildParentArray(firstPayload.proposal),
-                    _wrapSingleRecord(tampered),
-                    proven.checkpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(tampered),
+                proven.checkpoint
+            )
+        );
 
         vm.expectRevert(Inbox.TransitionRecordHashMismatchWithStorage.selector);
         vm.roll(block.number + 1);
@@ -348,15 +342,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         wrongCheckpoint.stateRoot = bytes32(uint256(123_456));
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    firstPayload.coreState,
-                    _buildParentArray(firstPayload.proposal),
-                    _wrapSingleRecord(proven.record),
-                    wrongCheckpoint
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(proven.record),
+                wrongCheckpoint
+            )
+        );
 
         vm.expectRevert(Inbox.CheckpointMismatch.selector);
         vm.roll(block.number + 1);
@@ -371,15 +364,14 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         );
 
         _setupBlobHashes();
-        bytes memory proposeData = _codec()
-            .encodeProposeInput(
-                _buildFinalizeInput(
-                    firstPayload.coreState,
-                    _buildParentArray(firstPayload.proposal),
-                    _wrapSingleRecord(proven.record),
-                    ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
-                )
-            );
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(proven.record),
+                ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+            )
+        );
 
         vm.expectRevert(Inbox.CheckpointNotProvided.selector);
         vm.roll(block.number + 1);
@@ -481,7 +473,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         metadataArr[0] = metadata;
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals, transitions: transitions, metadata: metadataArr
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadataArr
         });
 
         IInbox.TransitionRecord memory record;
@@ -499,7 +493,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         inbox.prove(proveData, proof);
 
         result = ProvenProposal({
-            proposal: proposal, record: record, checkpoint: transition.checkpoint
+            proposal: proposal,
+            record: record,
+            checkpoint: transition.checkpoint
         });
     }
 
@@ -594,7 +590,8 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver, actualProver: actualProver
+            designatedProver: designatedProver,
+            actualProver: actualProver
         });
     }
 

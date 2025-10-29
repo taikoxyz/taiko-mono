@@ -107,9 +107,7 @@ abstract contract AbstractCodecTest is Test {
         blobHashes1[0] = bytes32(uint256(0x7777));
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes1, offset: 100, timestamp: 3_000_000
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes1, offset: 100, timestamp: 3_000_000 })
         });
 
         bytes32[] memory blobHashes2 = new bytes32[](2);
@@ -117,9 +115,7 @@ abstract contract AbstractCodecTest is Test {
         blobHashes2[1] = bytes32(uint256(0x9999));
         sources[1] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes2, offset: 200, timestamp: 4_000_000
-            })
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes2, offset: 200, timestamp: 4_000_000 })
         });
 
         IInbox.Derivation memory testDerivation = IInbox.Derivation({
@@ -185,13 +181,16 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](3);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x1111), actualProver: address(0x1111)
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
         });
         metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: address(0x2222), actualProver: address(0x2222)
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
         });
         metadata[2] = IInbox.TransitionMetadata({
-            designatedProver: address(0x3333), actualProver: address(0x3333)
+            designatedProver: address(0x3333),
+            actualProver: address(0x3333)
         });
         bytes32 hash = codec.hashTransitionsWithMetadata(transitions, metadata);
         assertNotEq(hash, bytes32(0), "Transitions array hash should not be zero");
@@ -230,7 +229,8 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x1111), actualProver: address(0x1111)
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
         });
         bytes32 hash = codec.hashTransitionsWithMetadata(singleArray, metadata);
         assertNotEq(hash, bytes32(0), "Single transition array should not be zero");
@@ -257,10 +257,12 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x1111), actualProver: address(0x1111)
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
         });
         metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: address(0x2222), actualProver: address(0x2222)
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
         });
         bytes32 hash = codec.hashTransitionsWithMetadata(twoArray, metadata);
         assertNotEq(hash, bytes32(0), "Two transitions array should not be zero");
@@ -366,15 +368,18 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata1 = new IInbox.TransitionMetadata[](1);
         metadata1[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x1111), actualProver: address(0x1111)
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
         });
 
         IInbox.TransitionMetadata[] memory metadata2 = new IInbox.TransitionMetadata[](2);
         metadata2[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x1111), actualProver: address(0x1111)
+            designatedProver: address(0x1111),
+            actualProver: address(0x1111)
         });
         metadata2[1] = IInbox.TransitionMetadata({
-            designatedProver: address(0x2222), actualProver: address(0x2222)
+            designatedProver: address(0x2222),
+            actualProver: address(0x2222)
         });
 
         bytes32 hash1 = codec.hashTransitionsWithMetadata(array1, metadata1);
@@ -409,11 +414,14 @@ abstract contract AbstractCodecTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0xCAFE), actualProver: address(0xC0FFEE)
+            designatedProver: address(0xCAFE),
+            actualProver: address(0xC0FFEE)
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals, transitions: transitions, metadata: metadata
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
         });
 
         bytes memory encoded = codec.encodeProveInput(proveInput);

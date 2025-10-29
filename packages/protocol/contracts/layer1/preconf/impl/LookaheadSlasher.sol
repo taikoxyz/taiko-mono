@@ -9,6 +9,9 @@ import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./LookaheadSlasherLayout.sol";
+
 /// @title LookaheadSlasher
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
@@ -187,7 +190,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                .pubkey
+                    .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -195,9 +198,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         // Verify that this preconf lookahead validator does not match the beacon lookahead
         // validator
         require(
-            !_isG1Equal(
-                evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey
-            ),
+            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
@@ -227,7 +228,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-        evidenceMissingOperator.operatorRegistrationProof;
+            evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -241,8 +242,9 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that this operator was valid at the reference timestamp.
         // This reverts if the operator is not valid at the reference timestamp.
-        ILookaheadStore(lookaheadStore)
-            .isLookaheadOperatorValid(referenceTimestamp, registrationProof.registrationRoot);
+        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
+            referenceTimestamp, registrationProof.registrationRoot
+        );
     }
 
     // Internal helpers
@@ -286,16 +288,16 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
 // solhint-enable max-line-length

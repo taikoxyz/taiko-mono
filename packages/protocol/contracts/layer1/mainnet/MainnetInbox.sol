@@ -6,6 +6,9 @@ import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./MainnetInboxLayout.sol";
+
 /// @title ShastaMainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation and efficient hashing.
@@ -34,7 +37,8 @@ contract MainnetInbox is InboxOptimized2 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized2(IInbox.Config({
+        InboxOptimized2(
+            IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
                 codec: _codec,
@@ -52,7 +56,8 @@ contract MainnetInbox is InboxOptimized2 {
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------
@@ -77,24 +82,24 @@ contract MainnetInbox is InboxOptimized2 {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
-//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1   
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
+//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20
+//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1
+//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32
+//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32  
+//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 343  | Offset: 0    | Bytes: 1600
 // solhint-enable max-line-length

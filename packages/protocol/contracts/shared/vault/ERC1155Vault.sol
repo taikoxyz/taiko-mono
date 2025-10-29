@@ -8,6 +8,9 @@ import "./IBridgedERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
+// Layout file (auto-generated, do not edit):
+import "./ERC1155VaultLayout.sol";
+
 /// @title ERC1155Vault
 /// @dev Labeled in address resolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
@@ -247,8 +250,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                IERC1155(_op.token)
-                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
                 uint256 size = _op.tokenIds.length;
                 for (uint256 i; i < size; ++i) {
                     IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
@@ -262,8 +266,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     name: safeName(_op.token)
                 });
 
-                IERC1155(_op.token)
-                    .safeBatchTransferFrom(msg.sender, address(this), _op.tokenIds, _op.amounts, "");
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
             }
         }
         msgData_ = abi.encodeCall(
@@ -314,20 +319,20 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 // Storage Layout ---------------------------------------------------------------
 // solhint-disable max-line-length
 //
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
-//   bridgedToCanonical             | mapping(address => struct BaseNFTVault.CanonicalNFT) | Slot: 301  | Offset: 0    | Bytes: 32  
-//   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32  
+//   bridgedToCanonical             | mapping(address => struct BaseNFTVault.CanonicalNFT) | Slot: 301  | Offset: 0    | Bytes: 32
+//   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
 //   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
 //   __gap                          | uint256[50]                                        | Slot: 401  | Offset: 0    | Bytes: 1600

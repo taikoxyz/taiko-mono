@@ -122,7 +122,10 @@ interface ICodec {
     /// @notice Hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
-    function hashDerivation(IInbox.Derivation calldata _derivation) external pure returns (bytes32);
+    function hashDerivation(IInbox.Derivation calldata _derivation)
+        external
+        pure
+        returns (bytes32);
 
     /// @notice Hashing for Proposal structs
     /// @param _proposal The proposal to hash
@@ -132,7 +135,10 @@ interface ICodec {
     /// @notice Hashing for Transition structs
     /// @param _transition The transition to hash
     /// @return The hash of the transition
-    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
+    function hashTransition(IInbox.Transition calldata _transition)
+        external
+        pure
+        returns (bytes32);
 
     /// @notice Hashing for TransitionRecord structs
     /// @param _transitionRecord The transition record to hash
