@@ -14,8 +14,7 @@ contract TestInbox is Inbox {
         address proofVerifier,
         address proposerChecker
     )
-        Inbox(
-            IInbox.Config({
+        Inbox(IInbox.Config({
                 codec: codec,
                 bondToken: bondToken,
                 checkpointStore: checkpointStore,
@@ -33,7 +32,6 @@ contract TestInbox is Inbox {
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            })
-        )
+            }))
     { }
 }
