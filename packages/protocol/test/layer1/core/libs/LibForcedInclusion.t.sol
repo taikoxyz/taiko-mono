@@ -12,6 +12,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
     using LibForcedInclusion for LibForcedInclusion.Storage;
 
     LibForcedInclusion.Storage private _store;
+    uint16 private _forcedInclusionDelay;
 
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference)
         external
@@ -22,8 +23,13 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         _store.saveForcedInclusion(feeInGwei, _blobReference);
     }
 
-    function isOldestForcedInclusionDue() external view override returns (bool) {
-        return _store.isOldestForcedInclusionDue(0);
+    function getDueForcedInclusions()
+        external
+        view
+        override
+        returns (ForcedInclusion[] memory dueInclusions_)
+    {
+        return _store.getDueForcedInclusions(_forcedInclusionDelay);
     }
 
     function save(
@@ -36,8 +42,16 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         _store.saveForcedInclusion(_feeInGwei, _blobReference);
     }
 
-    function isDue(uint16 _delay) external view returns (bool) {
-        return _store.isOldestForcedInclusionDue(_delay);
+    function setForcedInclusionDelay(uint16 _delay) external {
+        _forcedInclusionDelay = _delay;
+    }
+
+    function getDue(uint16 _delay)
+        external
+        view
+        returns (ForcedInclusion[] memory dueInclusions_)
+    {
+        return _store.getDueForcedInclusions(_delay);
     }
 
     function queue(uint48 _idx) external view returns (ForcedInclusion memory) {
@@ -105,10 +119,10 @@ contract LibForcedInclusionTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // isOldestForcedInclusionDue
+    // getDueForcedInclusions
     // ---------------------------------------------------------------
 
-    function test_isOldestForcedInclusionDue_ReturnsTrueAfterDelay() external {
+    function test_getDueForcedInclusions_ReturnsDueAfterDelay() external {
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
 
@@ -117,14 +131,16 @@ contract LibForcedInclusionTest is Test {
         uint48 inclusionTimestamp = harness.queue(0).blobSlice.timestamp;
         vm.warp(inclusionTimestamp + 15);
 
-        assertTrue(harness.isDue(10), "Inclusion should be due once delay elapsed");
+        IForcedInclusionStore.ForcedInclusion[] memory due = harness.getDue(10);
+        assertEq(due.length, 1, "Inclusion should be due once delay elapsed");
+        assertEq(due[0].feeInGwei, 1, "Should return stored inclusion data");
     }
 
-    function test_isOldestForcedInclusionDue_ReturnsFalseWhenQueueEmpty() external view {
-        assertFalse(harness.isDue(10));
+    function test_getDueForcedInclusions_ReturnsEmptyWhenQueueEmpty() external view {
+        assertEq(harness.getDue(10).length, 0);
     }
 
-    function test_isOldestForcedInclusionDue_RespectsLastProcessedAt() external {
+    function test_getDueForcedInclusions_RespectsLastProcessedAt() external {
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
         harness.save{ value: 1 gwei }(1, ref);
@@ -133,10 +149,53 @@ contract LibForcedInclusionTest is Test {
         harness.setLastProcessedAt(timestamp + 5);
 
         vm.warp(timestamp + 14);
-        assertFalse(harness.isDue(10), "Should not be due before lastProcessedAt + delay");
+        assertEq(harness.getDue(10).length, 0, "Should not be due before lastProcessedAt + delay");
 
         vm.warp(timestamp + 16);
-        assertTrue(harness.isDue(10), "Should be due after processing delay");
+        assertEq(harness.getDue(10).length, 1, "Should be due after processing delay");
+    }
+
+    function test_getDueForcedInclusions_ReturnsAllDueInOrder() external {
+        bytes32[] memory hashes = _setupBlobHashes(3);
+        harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
+
+        vm.warp(block.timestamp + 1);
+        harness.save{ value: 1 gwei }(1, _makeRef(1, 1, 0));
+
+        vm.warp(block.timestamp + 1);
+        harness.save{ value: 1 gwei }(1, _makeRef(2, 1, 0));
+
+        uint48 firstTimestamp = harness.queue(0).blobSlice.timestamp;
+        vm.warp(firstTimestamp + 20);
+
+        IForcedInclusionStore.ForcedInclusion[] memory due = harness.getDue(10);
+        assertEq(due.length, 3, "All inclusions should be due");
+        for (uint256 i; i < due.length; ++i) {
+            assertEq(due[i].feeInGwei, 1, "Fee should be preserved");
+            assertEq(due[i].blobSlice.blobHashes.length, 1, "Blob slice should be intact");
+            assertEq(due[i].blobSlice.blobHashes[0], hashes[i], "Blob hash order should be preserved");
+        }
+    }
+
+    function test_getDueForcedInclusions_StopsAtFirstNotDue() external {
+        _setupBlobHashes(2);
+
+        harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
+        uint48 firstTimestamp = harness.queue(0).blobSlice.timestamp;
+
+        vm.warp(firstTimestamp + 11);
+        harness.save{ value: 1 gwei }(1, _makeRef(1, 1, 0));
+        uint48 secondTimestamp = harness.queue(1).blobSlice.timestamp;
+
+        vm.warp(firstTimestamp + 15);
+
+        IForcedInclusionStore.ForcedInclusion[] memory due = harness.getDue(10);
+        assertEq(due.length, 1, "Only first inclusion should be due");
+        assertEq(due[0].blobSlice.timestamp, firstTimestamp, "First timestamp should match");
+
+        vm.warp(secondTimestamp + 15);
+        due = harness.getDue(10);
+        assertEq(due.length, 2, "Both inclusions should eventually be due");
     }
 
     // ---------------------------------------------------------------

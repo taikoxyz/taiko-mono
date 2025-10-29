@@ -300,8 +300,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
+    function getDueForcedInclusions()
+        external
+        view
+        returns (IForcedInclusionStore.ForcedInclusion[] memory dueInclusions_)
+    {
+        return LibForcedInclusion.getDueForcedInclusions(
             _forcedInclusionStorage, _forcedInclusionDelay
         );
     }

@@ -22,7 +22,10 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Checks if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
-    function isOldestForcedInclusionDue() external view returns (bool);
+    /// @notice Returns all forced inclusions that are due for processing.
+    /// @return dueInclusions_ Array of inclusions that satisfy the forced inclusion delay.
+    function getDueForcedInclusions()
+        external
+        view
+        returns (ForcedInclusion[] memory dueInclusions_);
 }

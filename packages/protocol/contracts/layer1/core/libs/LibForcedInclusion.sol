@@ -63,25 +63,50 @@ library LibForcedInclusion {
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
-    /// @dev See `IInbox.isOldestForcedInclusionDue`
-    function isOldestForcedInclusionDue(
+    /// @dev Returns all forced inclusions that are currently due based on delay configuration.
+    function getDueForcedInclusions(
         Storage storage $,
         uint16 _forcedInclusionDelay
     )
-        public
+        internal
         view
-        returns (bool)
+        returns (IForcedInclusionStore.ForcedInclusion[] memory dueInclusions_)
     {
-        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
-        return isOldestForcedInclusionDue($, head, tail, lastProcessedAt, _forcedInclusionDelay);
+        unchecked {
+            uint48 head = $.head;
+            uint48 tail = $.tail;
+            uint48 lastProcessedAt = $.lastProcessedAt;
+
+            if (head == tail) {
+                return dueInclusions_;
+            }
+
+            uint256 capacity = tail - head;
+            dueInclusions_ = new IForcedInclusionStore.ForcedInclusion[](capacity);
+
+            uint256 dueCount;
+            for (uint48 i = head; i < tail; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[i];
+                uint256 timestamp = inclusion.blobSlice.timestamp;
+                if (timestamp == 0) break;
+
+                uint256 effectiveTimestamp = timestamp.max(lastProcessedAt);
+                if (block.timestamp < effectiveTimestamp + _forcedInclusionDelay) break;
+
+                dueInclusions_[dueCount++] = inclusion;
+            }
+
+            assembly {
+                mstore(dueInclusions_, dueCount)
+            }
+        }
     }
 
     // ---------------------------------------------------------------
     // Internal functions
     // ---------------------------------------------------------------
 
-    /// @dev Checks if the oldest remaining forced inclusion is due (internal variant with
-    /// parameters)
+    /// @dev Checks if the oldest remaining forced inclusion is due
     /// @param $ Storage reference
     /// @param _head Current queue head position
     /// @param _tail Current queue tail position
