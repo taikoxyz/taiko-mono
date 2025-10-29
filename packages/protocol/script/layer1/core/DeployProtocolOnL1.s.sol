@@ -118,7 +118,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("OpVerifier deployed:", verifiers.op);
 
         // Deploy automata attestation for SGX
-        (address automataProxy, address sgxGethAutomataProxy)  = _deployAutomataAttestation(config.contractOwner);
+        (address automataProxy, address sgxGethAutomataProxy) =
+            _deployAutomataAttestation(config.contractOwner);
 
         // Deploy SGX verifier
         verifiers.sgx =
@@ -126,7 +127,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
         verifiers.sgxGeth =
-                        address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
@@ -147,12 +148,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
         proofVerifier = address(
-            new DevnetVerifier(
-        verifiers.sgxGeth,
-                verifiers.sgx,
-                verifiers.risc0,
-                verifiers.sp1
-            )
+            new DevnetVerifier(verifiers.sgxGeth, verifiers.sgx, verifiers.risc0, verifiers.sp1)
         );
 
         console2.log(
@@ -365,7 +361,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function _deployAutomataAttestation(address owner) private returns (address automataProxy, address automataProxySgxGeth) {
+    function _deployAutomataAttestation(address owner)
+        private
+        returns (address automataProxy, address automataProxySgxGeth)
+    {
         // Deploy library dependencies
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
