@@ -17,8 +17,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-// Layout file (auto-generated, do not edit):
-import "./Inbox_Layout.sol";
+import "./Inbox_Layout.sol"; // auto-generated, do not edit
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in

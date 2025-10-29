@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/signal/SignalService.sol";
 
-// Layout file (auto-generated, do not edit):
-import "./MainnetSignalService_Layout.sol";
+import "./MainnetSignalService_Layout.sol"; // auto-generated, do not edit
 
 /// @title MainnetSignalService
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

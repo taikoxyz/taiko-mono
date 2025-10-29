@@ -7,8 +7,7 @@ import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
-// Layout file (auto-generated, do not edit):
-import "./SignalService_Layout.sol";
+import "./SignalService_Layout.sol"; // auto-generated, do not edit
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.

@@ -10,8 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-// Layout file (auto-generated, do not edit):
-import "./ERC20Vault_Layout.sol";
+import "./ERC20Vault_Layout.sol"; // auto-generated, do not edit
 
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have

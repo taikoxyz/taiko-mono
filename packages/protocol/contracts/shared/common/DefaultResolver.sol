@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
-// Layout file (auto-generated, do not edit):
-import "./DefaultResolver_Layout.sol";
+import "./DefaultResolver_Layout.sol"; // auto-generated, do not edit
 
 /// @title DefaultResolver
 /// @notice Storage-based address resolver.
