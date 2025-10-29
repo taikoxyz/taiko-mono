@@ -136,11 +136,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
 
         address instance = address(bytes20(_proof[4:24]));
 
-        bytes32 publicInputsHash = LibPublicInput.hashPublicInputs(
-            _aggregatedProvingHash, address(this), address(0), taikoChainId
+        bytes32 signatureHash = EfficientHashLib.hash(
+            bytes32(uint256(uint160(instance))),
+            LibPublicInput.hashPublicInputs(
+                _aggregatedProvingHash, address(this), address(0), taikoChainId
+            )
         );
-        bytes32 signatureHash =
-            EfficientHashLib.hash(bytes32(uint256(uint160(instance))), publicInputsHash);
 
         // Verify the signature was created by the registered instance
         bytes memory signature = _proof[24:];
