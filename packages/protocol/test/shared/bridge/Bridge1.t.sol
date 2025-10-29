@@ -47,7 +47,9 @@ contract TestBridge1 is CommonTest {
         );
         // Use a placeholder address for remote bridge that will be the taiko bridge
         // remoteChainId is taikoChainId, remoteBridge placeholder, signalService
-        eBridge = deployBridge(address(new Bridge(taikoChainId, address(0x1000), address(eSignalService))));
+        eBridge = deployBridge(
+            address(new Bridge(taikoChainId, address(0x1000), address(eSignalService)))
+        );
 
         vm.deal(Alice, 100 ether);
     }
@@ -57,7 +59,9 @@ contract TestBridge1 is CommonTest {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         // Remote bridge is the Ethereum bridge, remoteChainId is ethereumChainId
-        tBridge = deployBridge(address(new Bridge(ethereumChainId, address(eBridge), address(tSignalService))));
+        tBridge = deployBridge(
+            address(new Bridge(ethereumChainId, address(eBridge), address(tSignalService)))
+        );
         vm.deal(address(tBridge), 100 ether);
     }
 

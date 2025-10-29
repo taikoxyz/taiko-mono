@@ -2,13 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { LibAddress } from  "../libs/LibAddress.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 import { LibMath } from "../libs/LibMath.sol";
 import { LibNetwork } from "../libs/LibNetwork.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
-import { IBridge,IRecallableSender,IMessageInvocable } from "./IBridge.sol";
-import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import { IBridge, IMessageInvocable, IRecallableSender } from "./IBridge.sol";
+import {
+    ERC20VotesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -80,16 +82,11 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
     // Constructor
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
 
-    constructor(
-        uint64 _remoteChainId,
-        address _remoteBridge,
-        address _signalService
-    )
-    {
+    constructor(uint64 _remoteChainId, address _remoteBridge, address _signalService) {
         require(_remoteChainId != 0, B_INVALID_CHAINID());
         require(_remoteChainId != block.chainid, B_INVALID_CHAINID());
         require(_remoteBridge != address(0), ZERO_ADDRESS());
@@ -102,7 +99,7 @@ contract Bridge is EssentialContract, IBridge {
 
     // ---------------------------------------------------------------
     // External Functions
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -327,11 +324,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function failMessage(Message calldata _message)
-        external
-        whenNotPaused
-        nonReentrant
-    {
+    function failMessage(Message calldata _message) external whenNotPaused nonReentrant {
         _validateMessageReceiving(_message);
 
         if (msg.sender != _message.destOwner) {
@@ -402,7 +395,7 @@ contract Bridge is EssentialContract, IBridge {
 
     // ---------------------------------------------------------------
     // Public Functions
-   // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
@@ -423,9 +416,9 @@ contract Bridge is EssentialContract, IBridge {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
     // Internal Functions
-   // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
 
     /// @notice Stores the call context
     /// @param _msgHash The message hash.
@@ -443,7 +436,7 @@ contract Bridge is EssentialContract, IBridge {
 
     // ---------------------------------------------------------------
     // Private Functions
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
@@ -512,9 +505,7 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (uint32 numCacheOps_)
     {
-        try _signalService.proveSignalReceived(
-            _chainId, remoteBridge, _signal, _proof
-        ) returns (
+        try _signalService.proveSignalReceived(_chainId, remoteBridge, _signal, _proof) returns (
             uint256 numCacheOps
         ) {
             numCacheOps_ = uint32(numCacheOps);
@@ -540,9 +531,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        try _signalService.verifySignalReceived(
-            _chainId, remoteBridge, _signal, _proof
-        ) {
+        try _signalService.verifySignalReceived(_chainId, remoteBridge, _signal, _proof) {
             return true;
         } catch {
             return false;
@@ -660,9 +649,9 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
     // Errors
-    // --------------------------------------------------------------- 
+    // ---------------------------------------------------------------
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
