@@ -8,7 +8,7 @@ import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./SignalServiceLayout.sol";
+import "./SignalService_Layout.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.

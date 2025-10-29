@@ -6,7 +6,7 @@ import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./DevnetInboxLayout.sol";
+import "./DevnetInbox_Layout.sol";
 
 /// @title DevnetInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment

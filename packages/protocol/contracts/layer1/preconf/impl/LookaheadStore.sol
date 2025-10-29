@@ -13,7 +13,7 @@ import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./LookaheadStoreLayout.sol";
+import "./LookaheadStore_Layout.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz

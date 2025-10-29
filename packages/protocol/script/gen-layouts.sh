@@ -62,11 +62,11 @@ update_contract_layout() {
 
     [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found)"; return 1; }
 
-    # Derive layout file path: replace .sol with Layout.sol
+    # Derive layout file path: replace .sol with _Layout.sol
     local dir_path="${file_path%/*}"
     local base_name="${file_path##*/}"
     local base_name_no_ext="${base_name%.sol}"
-    local layout_file_path="${dir_path}/${base_name_no_ext}Layout.sol"
+    local layout_file_path="${dir_path}/${base_name_no_ext}_Layout.sol"
 
     # Generate storage layout
     local layout_output

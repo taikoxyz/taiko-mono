@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverU
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./ERC1155VaultLayout.sol";
+import "./ERC1155Vault_Layout.sol";
 
 /// @title ERC1155Vault
 /// @dev Labeled in address resolver as "erc1155_vault"

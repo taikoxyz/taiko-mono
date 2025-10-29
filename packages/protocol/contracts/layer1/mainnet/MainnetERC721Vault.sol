@@ -5,7 +5,7 @@ import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/vault/ERC721Vault.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./MainnetERC721VaultLayout.sol";
+import "./MainnetERC721Vault_Layout.sol";
 
 /// @title MainnetERC721Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

@@ -5,7 +5,7 @@ import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/signal/SignalService.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./MainnetSignalServiceLayout.sol";
+import "./MainnetSignalService_Layout.sol";
 
 /// @title MainnetSignalService
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

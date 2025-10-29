@@ -15,7 +15,7 @@ import "solady/src/utils/LibString.sol";
 import "src/shared/common/EssentialContract.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./AutomataDcapV3AttestationLayout.sol";
+import "./AutomataDcapV3Attestation_Layout.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz

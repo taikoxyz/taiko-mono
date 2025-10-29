@@ -5,7 +5,7 @@ import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/bridge/Bridge.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./MainnetBridgeLayout.sol";
+import "./MainnetBridge_Layout.sol";
 
 /// @title MainnetBridge
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

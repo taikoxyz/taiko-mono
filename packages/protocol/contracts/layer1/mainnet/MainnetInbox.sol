@@ -7,7 +7,7 @@ import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.so
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./MainnetInboxLayout.sol";
+import "./MainnetInbox_Layout.sol";
 
 /// @title ShastaMainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment

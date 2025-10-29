@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/governance/TaikoTokenBase.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./TaikoTokenLayout.sol";
+import "./TaikoToken_Layout.sol";
 
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral

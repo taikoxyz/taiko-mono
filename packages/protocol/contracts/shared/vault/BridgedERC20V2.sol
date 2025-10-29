@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./BridgedERC20V2Layout.sol";
+import "./BridgedERC20V2_Layout.sol";
 
 /// @title BridgedERC20V2
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from

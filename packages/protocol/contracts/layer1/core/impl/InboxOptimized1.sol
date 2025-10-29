@@ -6,7 +6,7 @@ import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { Inbox } from "./Inbox.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./InboxOptimized1Layout.sol";
+import "./InboxOptimized1_Layout.sol";
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation

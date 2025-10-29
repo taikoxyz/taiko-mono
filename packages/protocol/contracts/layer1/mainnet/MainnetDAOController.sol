@@ -5,7 +5,7 @@ import "./LibFasterReentryLock.sol";
 import "src/shared/governance/Controller.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./MainnetDAOControllerLayout.sol";
+import "./MainnetDAOController_Layout.sol";
 
 /// @title MainnetDAOController
 /// @notice This contract maintains ownership of all contracts and assets, and is itself owned by

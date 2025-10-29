@@ -8,7 +8,7 @@ import "./LibBridgedToken.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./BridgedERC721Layout.sol";
+import "./BridgedERC721_Layout.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.

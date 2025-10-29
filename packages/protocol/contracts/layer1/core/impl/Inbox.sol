@@ -18,7 +18,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./InboxLayout.sol";
+import "./Inbox_Layout.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in

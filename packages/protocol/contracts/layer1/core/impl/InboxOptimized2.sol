@@ -12,7 +12,7 @@ import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./InboxOptimized2Layout.sol";
+import "./InboxOptimized2_Layout.sol";
 
 /// @title InboxOptimized2
 /// @notice Second optimization layer with merged event, calldata, and hashing optimizations

@@ -5,7 +5,7 @@ import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
 // Layout file (auto-generated, do not edit):
-import "./DefaultResolverLayout.sol";
+import "./DefaultResolver_Layout.sol";
 
 /// @title DefaultResolver
 /// @notice Storage-based address resolver.
