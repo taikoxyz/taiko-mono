@@ -209,7 +209,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+            (
+                CoreState memory coreState,
+                LibBonds.BondInstruction[] memory bondInstructions
+            ) = _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
@@ -255,7 +258,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, coreState, bondInstructions);
         }
     }
 
@@ -383,7 +386,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _setProposalHash(0, _hashProposal(proposal));
 
-        _emitProposedEvent(proposal, derivation, coreState);
+        _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
 
     /// @dev Builds and persists transition records for batch proof submissions
@@ -866,12 +869,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _emitProposedEvent(
         Proposal memory _proposal,
         Derivation memory _derivation,
-        CoreState memory _coreState
+        CoreState memory _coreState,
+        LibBonds.BondInstruction[] memory _bondInstructions
     )
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, derivation: _derivation, coreState: _coreState
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState,
+            bondInstructions: _bondInstructions
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -881,8 +888,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
     /// Set minCheckpointDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
-    /// @return _ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    /// @return coreState_ Updated core state with new finalization counters.
+    /// @return bondInstructions_ Array of bond instructions from finalized proposals.
+    function _finalize(ProposeInput memory _input)
+        private
+        returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
+    {
         unchecked {
             CoreState memory coreState = _input.coreState;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
@@ -890,6 +901,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
             uint256 currentTimestamp = block.timestamp;
+            uint256 totalBondInstructionCount;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
@@ -929,6 +941,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     );
                 }
 
+                totalBondInstructionCount += bondInstructionLen;
+
                 require(transitionRecord.span > 0, InvalidSpan());
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
@@ -950,7 +964,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             }
 
-            return coreState;
+            if (totalBondInstructionCount > 0) {
+                bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
+                uint256 bondInstructionIndex;
+
+                for (uint256 i; i < finalizedCount; ++i) {
+                    LibBonds.BondInstruction[] memory instructions =
+                    _input.transitionRecords[i].bondInstructions;
+                    uint256 instructionsLen = instructions.length;
+
+                    for (uint256 j; j < instructionsLen; ++j) {
+                        bondInstructions_[bondInstructionIndex++] = instructions[j];
+                    }
+                }
+            }
+
+            return (coreState, bondInstructions_);
         }
     }
 
