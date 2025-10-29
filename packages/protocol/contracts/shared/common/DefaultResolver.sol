@@ -55,7 +55,15 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         return address(this);
     }
 
-    function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
+    function getAddress(
+        uint256 _chainId,
+        bytes32 _name
+    )
+        internal
+        view
+        override
+        returns (address)
+    {
         return __addresses[_chainId][_name];
     }
 

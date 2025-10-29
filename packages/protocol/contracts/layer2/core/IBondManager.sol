@@ -61,7 +61,12 @@ interface IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit
     /// @return amountDebited_ The actual amount debited
-    function debitBond(address _address, uint256 _bond) external returns (uint256 amountDebited_);
+    function debitBond(
+        address _address,
+        uint256 _bond
+    )
+        external
+        returns (uint256 amountDebited_);
 
     /// @notice Credits a bond to an address
     /// @param _address The address to credit the bond to

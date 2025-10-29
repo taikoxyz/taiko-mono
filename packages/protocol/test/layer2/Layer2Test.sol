@@ -15,13 +15,11 @@ abstract contract Layer2Test is CommonTest {
         returns (DelegateController)
     {
         return DelegateController(
-            payable(
-                deploy({
+            payable(deploy({
                     name: "delegate_controller",
                     impl: address(new DelegateController(l1ChainId, l2Bridge, daoController)),
                     data: abi.encodeCall(DelegateController.init, ())
-                })
-            )
+                }))
         );
     }
 }

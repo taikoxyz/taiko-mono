@@ -108,7 +108,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService
+    )
+        EssentialResolverContract(_resolver)
+    {
         signalService = ISignalService(_signalService);
     }
 
@@ -201,9 +206,8 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
-                _message, msgHash
-            );
+            IRecallableSender(_message.from)
+            .onMessageRecalled{ value: _message.value }(_message, msgHash);
 
             // Must reset the context after the message call
             _storeContext(
@@ -533,7 +537,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
+        ) returns (
+            uint256 numCacheOps
+        ) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();

@@ -55,23 +55,18 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: endBlockNumber,
-                blockHash: endBlockHash,
-                stateRoot: endStateRoot
+                blockNumber: endBlockNumber, blockHash: endBlockHash, stateRoot: endStateRoot
             })
         });
 
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: designatedProver,
-            actualProver: actualProver
+            designatedProver: designatedProver, actualProver: actualProver
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         // Encode
@@ -145,9 +140,7 @@ contract LibProveInputDecoderFuzzTest is Test {
         }
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         // Encode
@@ -172,7 +165,13 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test for size efficiency
-    function testFuzz_sizeEfficiency(uint8 proposalCount, uint8 transitionCount) public pure {
+    function testFuzz_sizeEfficiency(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
+        public
+        pure
+    {
         // Bound counts - proposals and transitions must be equal per the library requirement
         proposalCount = uint8(bound(proposalCount, 1, 10));
         transitionCount = proposalCount; // Ensure equal counts
@@ -245,9 +244,7 @@ contract LibProveInputDecoderFuzzTest is Test {
             IInbox.TransitionMetadata({ designatedProver: proposer2, actualProver: proposer1 });
 
         IInbox.ProveInput memory original = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         // First round trip
@@ -292,14 +289,11 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(type(uint160).max),
-            actualProver: address(type(uint160).max)
+            designatedProver: address(type(uint160).max), actualProver: address(type(uint160).max)
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -361,9 +355,12 @@ contract LibProveInputDecoderFuzzTest is Test {
 
         // Most random data should fail to decode properly
         // We expect a revert in most cases
-        try wrapper.decode(randomData) returns (IInbox.ProveInput memory) {
-            // If it doesn't revert, that's okay - some random data might be valid
-        } catch {
+        try wrapper.decode(randomData) returns (
+            IInbox.ProveInput memory
+        ) {
+        // If it doesn't revert, that's okay - some random data might be valid
+        }
+            catch {
             // Expected behavior for most random data
         }
     }
