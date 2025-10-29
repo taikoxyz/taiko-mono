@@ -8,7 +8,7 @@ import "src/layer1/core/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 
-import "./PreconfWhitelist_Layout.sol"; // auto-generated, do not edit
+import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz

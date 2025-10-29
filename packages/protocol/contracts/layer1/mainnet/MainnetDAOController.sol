@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./LibFasterReentryLock.sol";
 import "src/shared/governance/Controller.sol";
 
-import "./MainnetDAOController_Layout.sol"; // auto-generated, do not edit
+import "./MainnetDAOController_Layout.sol"; // DO NOT DELETE
 
 /// @title MainnetDAOController
 /// @notice This contract maintains ownership of all contracts and assets, and is itself owned by

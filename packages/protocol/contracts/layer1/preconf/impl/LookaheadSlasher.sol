@@ -9,7 +9,7 @@ import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
-import "./LookaheadSlasher_Layout.sol"; // auto-generated, do not edit
+import "./LookaheadSlasher_Layout.sol"; // DO NOT DELETE
 
 /// @title LookaheadSlasher
 /// @custom:security-contact security@taiko.xyz

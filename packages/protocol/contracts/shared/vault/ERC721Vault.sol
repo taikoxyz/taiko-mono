@@ -8,7 +8,7 @@ import "./IBridgedERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-import "./ERC721Vault_Layout.sol"; // auto-generated, do not edit
+import "./ERC721Vault_Layout.sol"; // DO NOT DELETE
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages

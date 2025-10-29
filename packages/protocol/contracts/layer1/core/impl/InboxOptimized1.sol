@@ -5,7 +5,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { Inbox } from "./Inbox.sol";
 
-import "./InboxOptimized1_Layout.sol"; // auto-generated, do not edit
+import "./InboxOptimized1_Layout.sol"; // DO NOT DELETE
 
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation

@@ -6,7 +6,7 @@ import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
-import "./MainnetInbox_Layout.sol"; // auto-generated, do not edit
+import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title ShastaMainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment

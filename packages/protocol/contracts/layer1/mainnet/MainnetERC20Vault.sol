@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/vault/ERC20Vault.sol";
 
-import "./MainnetERC20Vault_Layout.sol"; // auto-generated, do not edit
+import "./MainnetERC20Vault_Layout.sol"; // DO NOT DELETE
 
 /// @title MainnetERC20Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

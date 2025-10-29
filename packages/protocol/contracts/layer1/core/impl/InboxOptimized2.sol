@@ -11,7 +11,7 @@ import { Inbox } from "./Inbox.sol";
 import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-import "./InboxOptimized2_Layout.sol"; // auto-generated, do not edit
+import "./InboxOptimized2_Layout.sol"; // DO NOT DELETE
 
 /// @title InboxOptimized2
 /// @notice Second optimization layer with merged event, calldata, and hashing optimizations

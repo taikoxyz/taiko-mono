@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/bridge/Bridge.sol";
 
-import "./MainnetBridge_Layout.sol"; // auto-generated, do not edit
+import "./MainnetBridge_Layout.sol"; // DO NOT DELETE
 
 /// @title MainnetBridge
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
