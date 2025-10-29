@@ -10,11 +10,10 @@ import "./ISignalServiceLegacy.sol";
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy {
-    
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
-    
+
     /// @notice Mapping to store the top blockId.
     /// @dev Slot 1.
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
@@ -66,10 +65,7 @@ contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy 
 
     /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
     /// @param _signalSlots The signal slots to mark as received.
-    function receiveSignals(bytes32[] calldata _signalSlots)
-        external
-        onlyFromNamed(B_TAIKO)
-    {
+    function receiveSignals(bytes32[] calldata _signalSlots) external onlyFromNamed(B_TAIKO) {
         for (uint256 i; i < _signalSlots.length; ++i) {
             _receivedSignals[_signalSlots[i]] = true;
         }
@@ -110,7 +106,7 @@ contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy 
         returns (uint256 numCacheOps_)
     {
         CacheAction[] memory actions = // actions for caching
-         _verifySignalReceived(_chainId, _app, _signal, _proof, true);
+            _verifySignalReceived(_chainId, _app, _signal, _proof, true);
 
         for (uint256 i; i < actions.length; ++i) {
             numCacheOps_ += _cache(actions[i]);
@@ -277,9 +273,7 @@ contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy 
 
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
             numCacheOps_ = 1;
-            _syncChainData(
-                _action.chainId, H_STATE_ROOT, _action.blockId, _action.rootHash
-            );
+            _syncChainData(_action.chainId, H_STATE_ROOT, _action.blockId, _action.rootHash);
         }
 
         // cache signal root
@@ -288,9 +282,7 @@ contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy 
 
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
             numCacheOps_ += 1;
-            _syncChainData(
-                _action.chainId, H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
-            );
+            _syncChainData(_action.chainId, H_SIGNAL_ROOT, _action.blockId, _action.signalRoot);
         }
     }
 
@@ -390,9 +382,7 @@ contract LegacySignalService is EssentialResolverContract, ISignalServiceLegacy 
             }
 
             signal = signalForChainData(
-                chainId,
-                isFullProof ? H_STATE_ROOT : H_SIGNAL_ROOT,
-                hop.blockId
+                chainId, isFullProof ? H_STATE_ROOT : H_SIGNAL_ROOT, hop.blockId
             );
             value = hop.rootHash;
             chainId = hop.chainId;
