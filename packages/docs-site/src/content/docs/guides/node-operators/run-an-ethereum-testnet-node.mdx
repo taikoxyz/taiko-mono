@@ -47,7 +47,8 @@ This guide will help you get a Hoodi archive node up and running.
 
 4. Start Docker containers
     <Aside type="tip">
-    The Fusaka upgrade is rolling out to Ethereum Hoodi October 28, 2025, at slot 1,622,016. This means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
+    As of October 28, 2025, at slot 1,622,016, the Fusaka upgrade has rolled out to Ethereum Hoodi. With this upgrade comes [EIP-7594](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7594.md),
+    which introduces data sampling instead of full downloads; this means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
     you L2 node may experience blob unavailability or chain divergence.
 
     Please configure your beacon client with the respective flags (detailed below) before the Fusaka hard fork date to avoid interruptions!
