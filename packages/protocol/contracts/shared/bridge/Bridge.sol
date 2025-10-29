@@ -80,9 +80,9 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // Constructor
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     constructor(
         uint64 _remoteChainId,
@@ -100,9 +100,9 @@ contract Bridge is EssentialContract, IBridge {
         signalService = ISignalService(_signalService);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // External Functions
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -400,9 +400,9 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // Public Functions
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
@@ -423,9 +423,9 @@ contract Bridge is EssentialContract, IBridge {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // Internal Functions
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     /// @notice Stores the call context
     /// @param _msgHash The message hash.
@@ -441,9 +441,9 @@ contract Bridge is EssentialContract, IBridge {
         return __ctx;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // Private Functions
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
@@ -660,9 +660,9 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
     // Errors
-    // ══════════════════════════════════════════════════════════════════════════════════════
+    // 
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
