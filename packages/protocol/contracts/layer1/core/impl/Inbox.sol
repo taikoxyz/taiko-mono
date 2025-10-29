@@ -1035,36 +1035,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CannotProposeInCurrentBlock();
+    error CheckpointMismatch();
+    error CheckpointNotProvided();
+    error DeadlineExceeded();
+    error EmptyProposals();
+    error InconsistentParams();
+    error IncorrectProposalCount();
+    error InvalidLastProposalProof();
+    error InvalidSpan();
+    error InvalidState();
+    error NextProposalHashMismatch();
+    error NoBondToWithdraw();
+    error NotEnoughCapacity();
+    error ProposalHashMismatch();
+    error ProposalHashMismatchWithTransition();
+    error RingBufferSizeZero();
+    error SpanOutOfBounds();
+    error TransitionRecordHashMismatchWithStorage();
+    error TransitionRecordNotProvided();
+    error UnprocessedForcedInclusionIsDue();
 }
-
-// ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
-
-error CannotProposeInCurrentBlock();
-error CheckpointMismatch();
-error CheckpointNotProvided();
-error DeadlineExceeded();
-error EmptyProposals();
-error ForkNotActive();
-error InconsistentParams();
-error IncorrectProposalCount();
-error InsufficientBond();
-error InvalidLastProposalProof();
-error InvalidSpan();
-error InvalidState();
-error LastProposalHashMismatch();
-error LastProposalProofNotEmpty();
-error NextProposalHashMismatch();
-error NoBondToWithdraw();
-error NotEnoughCapacity();
-error ProposalHashMismatch();
-error ProposalHashMismatchWithStorage();
-error ProposalHashMismatchWithTransition();
-error ProposalIdMismatch();
-error ProposerBondInsufficient();
-error RingBufferSizeZero();
-error SpanOutOfBounds();
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
-error UnprocessedForcedInclusionIsDue();

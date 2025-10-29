@@ -134,8 +134,11 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    /// @notice Mapping from block number to block hash.
+    mapping(uint256 => bytes32) public blockHashes;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -222,6 +225,9 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         }
 
         _validateBlock(_blockParams);
+
+        uint256 parentNumber = block.number - 1;
+        blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
             _proposalState.bondInstructionsHash,
