@@ -41,6 +41,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address risc0;
         address sp1;
         address op;
+        address sgxGeth;
     }
 
     struct DeploymentConfig {
@@ -117,12 +118,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("OpVerifier deployed:", verifiers.op);
 
         // Deploy automata attestation for SGX
-        address automataProxy = _deployAutomataAttestation(config.contractOwner);
+        (address automataProxy, address sgxGethAutomataProxy)  = _deployAutomataAttestation(config.contractOwner);
 
         // Deploy SGX verifier
         verifiers.sgx =
             address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
         console2.log("SgxVerifier deployed:", verifiers.sgx);
+
+        verifiers.sgxGeth =
+                        address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+        console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
         (verifiers.risc0, verifiers.sp1) =
@@ -143,8 +148,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
         proofVerifier = address(
             new DevnetVerifier(
-                verifiers.op,
-                verifiers.sgx, // OpVerifier for dummy mode, SgxVerifier for real mode
+        verifiers.sgxGeth,
+                verifiers.sgx,
                 verifiers.risc0,
                 verifiers.sp1
             )
@@ -360,7 +365,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function _deployAutomataAttestation(address owner) private returns (address automataProxy) {
+    function _deployAutomataAttestation(address owner) private returns (address automataProxy, address automataProxySgxGeth) {
         // Deploy library dependencies
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
@@ -371,6 +376,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy automata attestation proxy
         automataProxy = deployProxy({
             name: "automata_dcap_attestation",
+            impl: address(new AutomataDcapV3Attestation()),
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init,
+                (owner, address(sigVerifyLib), address(pemCertChainLib))
+            )
+        });
+        // Deploy sgx-geth automata attestation proxy
+        automataProxySgxGeth = deployProxy({
+            name: "sgx_geth_automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init,
