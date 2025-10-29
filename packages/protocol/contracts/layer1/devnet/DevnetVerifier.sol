@@ -46,7 +46,7 @@ contract DevnetVerifier is ComposeVerifier {
         }
 
         // The second verifier must be one of: OP, RISC0, or SP1
-        return _verifiers[secondVerifierIdx] == sgxGethVerifier
+        return _verifiers[secondVerifierIdx] == sgxRethVerifier
             || _verifiers[secondVerifierIdx] == risc0RethVerifier
             || _verifiers[secondVerifierIdx] == sp1RethVerifier;
     }
