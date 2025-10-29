@@ -56,7 +56,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Place holder value when not using transient storage
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
-    address public immutable destBridge;
+    uint64 public immutable remoteChainId;
+    address public immutable remoteBridge;
     ISignalService public immutable signalService;
 
     /// @notice The next message ID.
@@ -79,40 +80,28 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
-    error B_INVALID_CHAINID();
-    error B_INVALID_CONTEXT();
-    error B_INVALID_FEE();
-    error B_INVALID_GAS_LIMIT();
-    error B_INVALID_STATUS();
-    error B_INVALID_VALUE();
-    error B_INSUFFICIENT_GAS();
-    error B_MESSAGE_NOT_SENT();
-    error B_PERMISSION_DENIED();
-    error B_PROOF_TOO_LARGE();
-    error B_RETRY_FAILED();
-    error B_SIGNAL_NOT_RECEIVED();
+   
 
     // ---------------------------------------------------------------
-    // Modifiers
+    // Constructor 
     // ---------------------------------------------------------------
 
-    modifier sameChain(uint64 _chainId) {
-        _checkSameChain(_chainId);
-        _;
-    }
-
-    modifier diffChain(uint64 _chainId) {
-        _checkDiffChain(_chainId);
-        _;
-    }
+ 
 
     constructor(
-        address _signalService,
-        address _destBridge
+        uint64 _remoteChainId,
+        address _remoteBridge,
+        address _signalService
     )
     {
+        require(_remoteChainId != 0, B_INVALID_CHAINID());
+        require(_remoteChainId != block.chainid, B_INVALID_CHAINID());
+        require(_remoteBridge != address(0), ZERO_ADDRESS());
+        require(_signalService != address(0), ZERO_ADDRESS());
+
+        remoteChainId = _remoteChainId;
+        remoteBridge = _remoteBridge;
         signalService = ISignalService(_signalService);
-        destBridge = _destBridge;
     }
 
     // ---------------------------------------------------------------
@@ -141,11 +130,12 @@ contract Bridge is EssentialContract, IBridge {
         nonZeroAddr(_message.srcOwner)
         nonZeroAddr(_message.destOwner)
         nonZeroAddr(_message.to)
-        diffChain(_message.destChainId)
         whenNotPaused
         nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
+        if (_message.destChainId != remoteChainId) revert B_INVALID_CHAINID();
+
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
         } else if (_invocationGasLimit(_message) == 0) {
@@ -174,11 +164,11 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        sameChain(_message.srcChainId)
-        diffChain(_message.destChainId)
         whenNotPaused
         nonReentrant
     {
+        _validateMessageSending(_message);
+
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
 
@@ -226,13 +216,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         uint256 gasStart = gasleft();
 
-        // same as `sameChain(_message.destChainId)` but without stack-too-deep
-        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
-
-        // same as `diffChain(_message.srcChainId)` but without stack-too-deep
-        if (_message.srcChainId == 0 || _message.srcChainId == block.chainid) {
-            revert B_INVALID_CHAINID();
-        }
+        _validateMessageReceiving(_message);
 
         ProcessingStats memory stats;
         stats.processedByRelayer = msg.sender != _message.destOwner;
@@ -315,11 +299,11 @@ contract Bridge is EssentialContract, IBridge {
         bool _isLastAttempt
     )
         external
-        sameChain(_message.destChainId)
-        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
+        _validateMessageReceiving(_message);
+
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
@@ -349,11 +333,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function failMessage(Message calldata _message)
         external
-        sameChain(_message.destChainId)
-        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
+        _validateMessageReceiving(_message);
+
         if (msg.sender != _message.destOwner) {
             revert B_PERMISSION_DENIED();
         }
@@ -517,7 +501,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
-            _chainId, destBridge, _signal, _proof
+            _chainId, remoteBridge, _signal, _proof
         ) returns (
             uint256 numCacheOps
         ) {
@@ -551,7 +535,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try _signalService.verifySignalReceived(
-            _chainId, destBridge, _signal, _proof
+            _chainId, remoteBridge, _signal, _proof
         ) {
             return true;
         } catch {
@@ -660,11 +644,38 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    function _checkSameChain(uint64 _chainId) internal view {
-        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
+  
+
+       /// @dev Validates that a message is being sent from the correct chain
+    /// to the expected remote chain.
+    function _validateMessageSending(Message calldata _message) private view {
+        if (_message.srcChainId != block.chainid) revert B_INVALID_CHAINID();
+        if (_message.destChainId != remoteChainId) revert B_INVALID_CHAINID();
     }
 
-    function _checkDiffChain(uint64 _chainId) internal view {
-        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
+    /// @dev Validates that a message is being received on the correct chain
+    /// from the expected remote chain.
+    function _validateMessageReceiving(Message calldata _message) private view {
+        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
+        if (_message.srcChainId != remoteChainId) revert B_INVALID_CHAINID();
     }
+
+ 
+  // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+
+     error B_INVALID_CHAINID();
+    error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
+    error B_INVALID_GAS_LIMIT();
+    error B_INVALID_STATUS();
+    error B_INVALID_VALUE();
+    error B_INSUFFICIENT_GAS();
+    error B_MESSAGE_NOT_SENT();
+    error B_PERMISSION_DENIED();
+    error B_PROOF_TOO_LARGE();
+    error B_RETRY_FAILED();
+    error B_SIGNAL_NOT_RECEIVED();
 }

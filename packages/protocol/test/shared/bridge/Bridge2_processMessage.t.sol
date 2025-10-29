@@ -47,7 +47,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         eBridge.processMessage(message, FAKE_PROOF);
 
         message.srcChainId = taikoChainId + 1;
-        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         eBridge.processMessage(message, FAKE_PROOF);
 
         message.srcChainId = taikoChainId;

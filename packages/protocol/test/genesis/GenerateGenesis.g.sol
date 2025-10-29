@@ -230,6 +230,7 @@ contract TestGenerateGenesis is Test {
         bridgeProxy.upgradeTo(
             address(
                 new Bridge(
+                    uint64(l1ChainId),
                     getPredeployedContractAddress("SignalService"),
                     address(0) // remoteBridge must be configured after deployment
                 )

@@ -313,9 +313,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         address signalService = IResolver(sharedResolver)
             .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
+        // Remote bridge address will be configured after L2 deployment
+        address remoteBridge = address(0);
+
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(new MainnetBridge(config.l2ChainId, signalService, remoteBridge)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

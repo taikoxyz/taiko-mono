@@ -25,10 +25,11 @@ contract MainnetBridge is Bridge {
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     constructor(
-        address _signalService,
-        address _remoteBridge
+        uint64 _remoteChainId,
+        address _remoteBridge,
+        address _signalService
     )
-        Bridge(_signalService, _remoteBridge)
+        Bridge(_remoteChainId, _remoteBridge, _signalService)
     { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
