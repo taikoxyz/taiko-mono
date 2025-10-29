@@ -5,24 +5,20 @@ import "src/layer1/mainnet/TaikoToken.sol";
 import "test/shared/DeployCapability.sol";
 
 contract DeployTaikoToken is DeployCapability {
-    uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    // MAINNET_SECURITY_COUNCIL: council.taiko.eth (0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd)
-    address public securityCouncil = vm.envAddress("SECURITY_COUNCIL");
-    address public premintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
     modifier broadcast() {
-        require(privateKey != 0, "invalid private key");
         vm.startBroadcast();
         _;
         vm.stopBroadcast();
     }
 
     function run() external broadcast {
-        // Deploy the TaikoToken contract, use securityCouncil address as the owner.
-        deployProxy({
-            name: "taiko_token",
-            impl: address(new TaikoToken()),
-            data: abi.encodeCall(TaikoToken.init, (securityCouncil, premintRecipient))
-        });
+       address taikoToken = address(new TaikoToken());
+       console2.log("TaikoToken deployed:", taikoToken);
     }
 }
+
+// FOUNDRY_PROFILE=layer1 forge script script/layer1/core/DeployTaikoToken.s.sol:DeployTaikoToken --chain-id 1 --rpc-url https://mainnet.infura.io/v3/29974e05282b45c89417014706857666 \
+    // --etherscan-api-key ZH85M18BZKJXSUT9RWFPB8JFIHYJ19E5ER --verifier etherscan  \
+    // --private-key 0x687d8a1aa66aef7f87c561f6c7c05260b9cbd39c34d7ba4d479f674810adc695 \
+    // --broadcast --verify
