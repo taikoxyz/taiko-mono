@@ -514,8 +514,6 @@ The following block header fields are also set before transaction execution but 
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
-For Shasta specifically, consensus pins the base fee to `INITIAL_BASE_FEE` for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
-
 ### Anchor Transaction
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
@@ -569,6 +567,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
 
+The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calcualted value must be clamped within `MIN_BASE_FEE` and `MAX_BASE_FEE`.
 
 ## Constants
 
@@ -583,7 +582,7 @@ The following constants govern the block derivation process:
 | **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10` | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%. |
 | **MIN_BLOCK_GAS_LIMIT** | `15,000,000` | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold. |
 | **BOND_PROCESSING_DELAY** | `6` | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
-| **INITIAL_BASE_FEE** | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first three Shasta blocks. |
+| **INITIAL_BASE_FEE** | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis. |
 | **MIN_BASE_FEE** | `0.005 gwei` (5,000,000 wei) | The minimum base fee (inclusive) after Shasta fork. |
 | **MAX_BASE_FEE** | `1 gwei` (1,000,000,000 wei) | The maximum base fee (inclusive) after Shasta fork. |
 | **BLOCK_TIME_TARGET** | `2 seconds` | The block time target. |
