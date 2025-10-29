@@ -46,11 +46,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         _forcedInclusionDelay = _delay;
     }
 
-    function getDue(uint16 _delay)
-        external
-        view
-        returns (ForcedInclusion[] memory dueInclusions_)
-    {
+    function getDue(uint16 _delay) external view returns (ForcedInclusion[] memory dueInclusions_) {
         return _store.getDueForcedInclusions(_delay);
     }
 
@@ -173,7 +169,9 @@ contract LibForcedInclusionTest is Test {
         for (uint256 i; i < due.length; ++i) {
             assertEq(due[i].feeInGwei, 1, "Fee should be preserved");
             assertEq(due[i].blobSlice.blobHashes.length, 1, "Blob slice should be intact");
-            assertEq(due[i].blobSlice.blobHashes[0], hashes[i], "Blob hash order should be preserved");
+            assertEq(
+                due[i].blobSlice.blobHashes[0], hashes[i], "Blob hash order should be preserved"
+            );
         }
     }
 
