@@ -23,9 +23,8 @@ library LibProposedEventEncoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = calculateProposedEventSize(
-            _payload.derivation.sources, _payload.bondInstructions
-        );
+        uint256 bufferSize =
+            calculateProposedEventSize(_payload.derivation.sources, _payload.bondInstructions);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -147,8 +146,7 @@ library LibProposedEventEncoder {
         (bondInstructionsLength, ptr) = P.unpackUint16(ptr);
 
         if (bondInstructionsLength > 0) {
-            payload_.bondInstructions =
-                new LibBonds.BondInstruction[](bondInstructionsLength);
+            payload_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
 
             for (uint256 i; i < bondInstructionsLength; ++i) {
                 (payload_.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);

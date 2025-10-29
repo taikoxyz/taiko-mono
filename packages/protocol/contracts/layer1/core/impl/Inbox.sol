@@ -209,10 +209,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            (
-                CoreState memory coreState,
-                LibBonds.BondInstruction[] memory bondInstructions
-            ) = _finalize(input);
+            (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
+                _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer

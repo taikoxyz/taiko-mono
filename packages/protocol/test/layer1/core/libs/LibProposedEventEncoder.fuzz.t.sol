@@ -85,13 +85,9 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.bondInstructions.length, 1);
         assertEq(decoded.bondInstructions[0].proposalId, _id);
-        assertEq(
-            uint8(decoded.bondInstructions[0].bondType), uint8(_basefeeSharingPctg % 3)
-        );
+        assertEq(uint8(decoded.bondInstructions[0].bondType), uint8(_basefeeSharingPctg % 3));
         assertEq(decoded.bondInstructions[0].payer, _proposer);
-        assertEq(
-            decoded.bondInstructions[0].payee, address(uint160(uint256(_coreStateHash)))
-        );
+        assertEq(decoded.bondInstructions[0].payee, address(uint160(uint256(_coreStateHash))));
     }
 
     function testFuzz_encodeDecodeCoreState(
@@ -293,22 +289,13 @@ contract LibProposedEventEncoderFuzzTest is Test {
         }
         assertEq(decoded.bondInstructions.length, instructionCount);
         for (uint256 i; i < instructionCount; ++i) {
-            assertEq(
-                decoded.bondInstructions[i].proposalId,
-                payload.bondInstructions[i].proposalId
-            );
+            assertEq(decoded.bondInstructions[i].proposalId, payload.bondInstructions[i].proposalId);
             assertEq(
                 uint8(decoded.bondInstructions[i].bondType),
                 uint8(payload.bondInstructions[i].bondType)
             );
-            assertEq(
-                decoded.bondInstructions[i].payer,
-                payload.bondInstructions[i].payer
-            );
-            assertEq(
-                decoded.bondInstructions[i].payee,
-                payload.bondInstructions[i].payee
-            );
+            assertEq(decoded.bondInstructions[i].payer, payload.bondInstructions[i].payer);
+            assertEq(decoded.bondInstructions[i].payee, payload.bondInstructions[i].payee);
         }
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
         assertEq(
@@ -416,21 +403,14 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded2.bondInstructions.length, instructionCount);
         for (uint256 i; i < instructionCount; ++i) {
             assertEq(
-                decoded1.bondInstructions[i].proposalId,
-                decoded2.bondInstructions[i].proposalId
+                decoded1.bondInstructions[i].proposalId, decoded2.bondInstructions[i].proposalId
             );
             assertEq(
                 uint8(decoded1.bondInstructions[i].bondType),
                 uint8(decoded2.bondInstructions[i].bondType)
             );
-            assertEq(
-                decoded1.bondInstructions[i].payer,
-                decoded2.bondInstructions[i].payer
-            );
-            assertEq(
-                decoded1.bondInstructions[i].payee,
-                decoded2.bondInstructions[i].payee
-            );
+            assertEq(decoded1.bondInstructions[i].payer, decoded2.bondInstructions[i].payer);
+            assertEq(decoded1.bondInstructions[i].payee, decoded2.bondInstructions[i].payee);
         }
     }
 
