@@ -178,6 +178,8 @@ interface IInbox {
         Derivation derivation;
         /// @notice The core state after the proposal.
         CoreState coreState;
+        /// @notice Bond instructions finalized while processing this proposal.
+        LibBonds.BondInstruction[] finalizedBondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event

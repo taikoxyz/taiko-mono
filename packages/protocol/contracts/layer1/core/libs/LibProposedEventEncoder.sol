@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProposedEventEncoder
 /// @notice Library for encoding and decoding ProposedEventPayload structures using compact
@@ -22,7 +23,9 @@ library LibProposedEventEncoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = calculateProposedEventSize(_payload.derivation.sources);
+        uint256 bufferSize = calculateProposedEventSize(
+            _payload.derivation.sources, _payload.finalizedBondInstructions
+        );
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -70,6 +73,18 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.coreState.lastCheckpointTimestamp);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
+
+        uint256 finalizedBondInstructionsLength = _payload.finalizedBondInstructions.length;
+        P.checkArrayLength(finalizedBondInstructionsLength);
+        ptr = P.packUint16(ptr, uint16(finalizedBondInstructionsLength));
+
+        for (uint256 i; i < finalizedBondInstructionsLength; ++i) {
+            LibBonds.BondInstruction memory instruction = _payload.finalizedBondInstructions[i];
+            ptr = P.packUint48(ptr, instruction.proposalId);
+            ptr = P.packUint8(ptr, uint8(instruction.bondType));
+            ptr = P.packAddress(ptr, instruction.payer);
+            ptr = P.packAddress(ptr, instruction.payee);
+        }
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
@@ -127,18 +142,40 @@ library LibProposedEventEncoder {
         (payload_.coreState.lastCheckpointTimestamp, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+
+        uint16 finalizedBondInstructionsLength;
+        (finalizedBondInstructionsLength, ptr) = P.unpackUint16(ptr);
+
+        if (finalizedBondInstructionsLength > 0) {
+            payload_.finalizedBondInstructions =
+                new LibBonds.BondInstruction[](finalizedBondInstructionsLength);
+
+            for (uint256 i; i < finalizedBondInstructionsLength; ++i) {
+                (payload_.finalizedBondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
+
+                uint8 bondType;
+                (bondType, ptr) = P.unpackUint8(ptr);
+                payload_.finalizedBondInstructions[i].bondType = LibBonds.BondType(bondType);
+
+                (payload_.finalizedBondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
+                (payload_.finalizedBondInstructions[i].payee, ptr) = P.unpackAddress(ptr);
+            }
+        }
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _sources Array of derivation sources
     /// @return size_ The total byte size needed for encoding
-    function calculateProposedEventSize(IInbox.DerivationSource[] memory _sources)
+    function calculateProposedEventSize(
+        IInbox.DerivationSource[] memory _sources,
+        LibBonds.BondInstruction[] memory _bondInstructions
+    )
         internal
         pure
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 231 bytes (without blob data)
+            // Fixed size: 233 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
@@ -147,9 +184,10 @@ library LibProposedEventEncoder {
             // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
             //           bondInstructionsHash(32) = 88
-            // Total fixed: 38 + 39 + 2 + 64 + 88 = 231
+            // Bond instructions length prefix: 2
+            // Total fixed: 38 + 39 + 2 + 64 + 88 + 2 = 233
 
-            size_ = 231;
+            size_ = 233;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {
@@ -158,6 +196,8 @@ library LibProposedEventEncoder {
                 // Plus each blob hash: 32 bytes each
                 size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);
             }
+
+            size_ += _bondInstructions.length * (6 + 1 + 20 + 20);
         }
     }
 }

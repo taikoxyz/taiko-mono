@@ -12,6 +12,7 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -225,7 +226,10 @@ abstract contract InboxTestHelper is CommonTest {
         });
 
         return IInbox.ProposedEventPayload({
-            proposal: expectedProposal, derivation: expectedDerivation, coreState: expectedCoreState
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState,
+            finalizedBondInstructions: new LibBonds.BondInstruction[](0)
         });
     }
 

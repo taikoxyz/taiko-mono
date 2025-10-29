@@ -5,6 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProposedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProposedEventEncoder
@@ -50,6 +51,14 @@ contract LibProposedEventEncoderFuzzTest is Test {
         });
         payload.derivation.sources = sources;
 
+        payload.finalizedBondInstructions = new LibBonds.BondInstruction[](1);
+        payload.finalizedBondInstructions[0] = LibBonds.BondInstruction({
+            proposalId: _id,
+            bondType: LibBonds.BondType(uint8(_basefeeSharingPctg % 3)),
+            payer: _proposer,
+            payee: address(uint160(uint256(_coreStateHash)))
+        });
+
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
         IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
@@ -72,6 +81,16 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decoded.derivation.sources[0].isForcedInclusion,
             payload.derivation.sources[0].isForcedInclusion
+        );
+
+        assertEq(decoded.finalizedBondInstructions.length, 1);
+        assertEq(decoded.finalizedBondInstructions[0].proposalId, _id);
+        assertEq(
+            uint8(decoded.finalizedBondInstructions[0].bondType), uint8(_basefeeSharingPctg % 3)
+        );
+        assertEq(decoded.finalizedBondInstructions[0].payer, _proposer);
+        assertEq(
+            decoded.finalizedBondInstructions[0].payee, address(uint160(uint256(_coreStateHash)))
         );
     }
 
@@ -112,6 +131,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
             payload.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
+        assertEq(decoded.finalizedBondInstructions.length, 0);
     }
 
     function testFuzz_encodeDecodeBlobSlice(
@@ -164,6 +184,8 @@ contract LibProposedEventEncoderFuzzTest is Test {
                 payload.derivation.sources[0].blobSlice.blobHashes[i]
             );
         }
+
+        assertEq(decoded.finalizedBondInstructions.length, 0);
     }
 
     function testFuzz_encodeDecodeComplete(
@@ -212,6 +234,17 @@ contract LibProposedEventEncoderFuzzTest is Test {
         });
         payload.derivation.sources = sources;
 
+        uint256 instructionCount = _blobHashCount % 5;
+        payload.finalizedBondInstructions = new LibBonds.BondInstruction[](instructionCount);
+        for (uint256 i; i < instructionCount; ++i) {
+            payload.finalizedBondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(uint256(keccak256(abi.encode(_id, i)))),
+                bondType: LibBonds.BondType(uint8(i % 3)),
+                payer: address(uint160(uint256(keccak256(abi.encode(_proposer, i))))),
+                payee: address(uint160(uint256(keccak256(abi.encode(_timestamp, i)))))
+            });
+        }
+
         // Create CoreState with derived values
         payload.coreState.nextProposalId =
             uint48(uint256(keccak256(abi.encode("next", _id))) % MAX_UINT48);
@@ -256,6 +289,25 @@ contract LibProposedEventEncoderFuzzTest is Test {
             assertEq(
                 decoded.derivation.sources[0].blobSlice.blobHashes[i],
                 payload.derivation.sources[0].blobSlice.blobHashes[i]
+            );
+        }
+        assertEq(decoded.finalizedBondInstructions.length, instructionCount);
+        for (uint256 i; i < instructionCount; ++i) {
+            assertEq(
+                decoded.finalizedBondInstructions[i].proposalId,
+                payload.finalizedBondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded.finalizedBondInstructions[i].bondType),
+                uint8(payload.finalizedBondInstructions[i].bondType)
+            );
+            assertEq(
+                decoded.finalizedBondInstructions[i].payer,
+                payload.finalizedBondInstructions[i].payer
+            );
+            assertEq(
+                decoded.finalizedBondInstructions[i].payee,
+                payload.finalizedBondInstructions[i].payee
             );
         }
         assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId);
@@ -328,6 +380,17 @@ contract LibProposedEventEncoderFuzzTest is Test {
         original.coreState.lastFinalizedTransitionHash = keccak256(abi.encode("finalized", _id));
         original.coreState.bondInstructionsHash = keccak256(abi.encode("bonds", _id));
 
+        uint256 instructionCount = (_blobHashCount % 4);
+        original.finalizedBondInstructions = new LibBonds.BondInstruction[](instructionCount);
+        for (uint256 i; i < instructionCount; ++i) {
+            original.finalizedBondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(uint256(keccak256(abi.encode(_id, i)))),
+                bondType: LibBonds.BondType(uint8(i % 3)),
+                payer: address(uint160(uint256(keccak256(abi.encode(_proposer, i))))),
+                payee: address(uint160(uint256(keccak256(abi.encode(_timestamp, i)))))
+            });
+        }
+
         // First round trip
         bytes memory encoded1 = LibProposedEventEncoder.encode(original);
         IInbox.ProposedEventPayload memory decoded1 = LibProposedEventEncoder.decode(encoded1);
@@ -349,6 +412,26 @@ contract LibProposedEventEncoderFuzzTest is Test {
             decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
         );
         assertEq(encoded1, encoded2);
+        assertEq(decoded1.finalizedBondInstructions.length, instructionCount);
+        assertEq(decoded2.finalizedBondInstructions.length, instructionCount);
+        for (uint256 i; i < instructionCount; ++i) {
+            assertEq(
+                decoded1.finalizedBondInstructions[i].proposalId,
+                decoded2.finalizedBondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded1.finalizedBondInstructions[i].bondType),
+                uint8(decoded2.finalizedBondInstructions[i].bondType)
+            );
+            assertEq(
+                decoded1.finalizedBondInstructions[i].payer,
+                decoded2.finalizedBondInstructions[i].payer
+            );
+            assertEq(
+                decoded1.finalizedBondInstructions[i].payee,
+                decoded2.finalizedBondInstructions[i].payee
+            );
+        }
     }
 
     function _createPayload(uint8 _blobHashCount)
@@ -386,5 +469,19 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.coreState.lastFinalizedProposalId = 120;
         payload.coreState.lastFinalizedTransitionHash = keccak256("finalized");
         payload.coreState.bondInstructionsHash = keccak256("bonds");
+
+        payload.finalizedBondInstructions = new LibBonds.BondInstruction[](2);
+        payload.finalizedBondInstructions[0] = LibBonds.BondInstruction({
+            proposalId: 1,
+            bondType: LibBonds.BondType.PROVABILITY,
+            payer: address(0x1111),
+            payee: address(0x2222)
+        });
+        payload.finalizedBondInstructions[1] = LibBonds.BondInstruction({
+            proposalId: 2,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: address(0x3333),
+            payee: address(0x4444)
+        });
     }
 }
