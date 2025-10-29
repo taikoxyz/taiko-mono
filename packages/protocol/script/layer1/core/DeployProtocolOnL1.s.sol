@@ -318,7 +318,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(config.l2ChainId, signalService, remoteBridge)),
+            impl: address(new MainnetBridge(config.l2ChainId, remoteBridge, signalService)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

@@ -26,7 +26,7 @@ contract TestERC20Vault is CommonTest {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         // Remote bridge will be the Taiko bridge - using placeholder for now
-        eBridge = deployBridge(address(new Bridge(taikoChainId, address(eSignalService), address(0x4000))));
+        eBridge = deployBridge(address(new Bridge(taikoChainId, address(0x4000), address(eSignalService))));
         eVault = deployERC20Vault();
 
         eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");

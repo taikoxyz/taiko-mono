@@ -24,7 +24,7 @@ contract TestERC1155Vault is CommonTest {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         // Remote bridge will be the Taiko bridge - using placeholder for now
-        eBridge = deployBridge(address(new Bridge(taikoChainId, address(eSignalService), address(0x2000))));
+        eBridge = deployBridge(address(new Bridge(taikoChainId, address(0x2000), address(eSignalService))));
         eVault = deployERC1155Vault();
 
         register("bridged_erc1155", address(new BridgedERC1155(address(eVault))));

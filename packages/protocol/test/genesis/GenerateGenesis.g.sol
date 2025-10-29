@@ -231,8 +231,8 @@ contract TestGenerateGenesis is Test {
             address(
                 new Bridge(
                     uint64(l1ChainId),
-                    getPredeployedContractAddress("SignalService"),
-                    address(0) // remoteBridge must be configured after deployment
+                    address(0), // remoteBridge must be configured after deployment
+                    getPredeployedContractAddress("SignalService")
                 )
             )
         );
