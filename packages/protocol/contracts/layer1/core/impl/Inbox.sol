@@ -17,8 +17,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-import "./Inbox_Layout.sol"; // auto-generated, do not edit
-
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based rollup architecture.
@@ -1047,23 +1045,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error CheckpointNotProvided();
     error DeadlineExceeded();
     error EmptyProposals();
-    error ForkNotActive();
     error InconsistentParams();
     error IncorrectProposalCount();
-    error InsufficientBond();
     error InvalidLastProposalProof();
     error InvalidSpan();
     error InvalidState();
-    error LastProposalHashMismatch();
-    error LastProposalProofNotEmpty();
     error NextProposalHashMismatch();
     error NoBondToWithdraw();
     error NotEnoughCapacity();
     error ProposalHashMismatch();
-    error ProposalHashMismatchWithStorage();
     error ProposalHashMismatchWithTransition();
-    error ProposalIdMismatch();
-    error ProposerBondInsufficient();
     error RingBufferSizeZero();
     error SpanOutOfBounds();
     error TransitionRecordHashMismatchWithStorage();
