@@ -14,6 +14,7 @@ contracts_shared=(
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
+"contracts/shared/signal/LegacySignalService.sol:LegacySignalService"
 )
 
 # Layer 1 contracts
