@@ -7,6 +7,8 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -503,7 +505,11 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
     function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
-        return keccak256(abi.encode(_auth.proposalId, _auth.proposer, _auth.provingFee));
+        return EfficientHashLib.hash(
+            bytes32(uint256(_auth.proposalId)),
+            bytes32(uint256(uint160(_auth.proposer))),
+            bytes32(uint256(_auth.provingFee))
+        );
     }
 
     // ---------------------------------------------------------------
