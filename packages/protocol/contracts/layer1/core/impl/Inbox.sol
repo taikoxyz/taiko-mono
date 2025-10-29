@@ -17,6 +17,8 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
+import "./Inbox_Layout.sol"; // auto-generated, do not edit
+
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based rollup architecture.
@@ -1068,25 +1070,3 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
 }
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
-//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1   
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-// solhint-enable max-line-length

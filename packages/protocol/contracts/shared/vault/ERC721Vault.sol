@@ -8,6 +8,8 @@ import "./IBridgedERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
+import "./ERC721Vault_Layout.sol"; // auto-generated, do not edit
+
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
 /// the mapping between canonical tokens and their bridged tokens.
@@ -263,24 +265,3 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         });
     }
 }
-
-// Storage Layout ---------------------------------------------------------------
-// solhint-disable max-line-length
-//
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
-//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
-//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
-//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
-//   bridgedToCanonical             | mapping(address => struct BaseNFTVault.CanonicalNFT) | Slot: 301  | Offset: 0    | Bytes: 32  
-//   canonicalToBridged             | mapping(uint256 => mapping(address => address))    | Slot: 302  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[48]                                        | Slot: 303  | Offset: 0    | Bytes: 1536
-//   __gap                          | uint256[50]                                        | Slot: 351  | Offset: 0    | Bytes: 1600
-// solhint-enable max-line-length
