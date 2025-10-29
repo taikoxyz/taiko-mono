@@ -150,12 +150,12 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deploySignalService(address signalServiceImpl) internal returns (SignalService) {
-        return SignalService(
+    function deploySignalService(address signalServiceImpl) internal returns (LegacySignalService) {
+        return LegacySignalService(
             deploy({
                 name: "signal_service",
                 impl: signalServiceImpl,
-                data: abi.encodeCall(SignalService.init, (address(0)))
+                data: abi.encodeCall(LegacySignalService.init, (address(0)))
             })
         );
     }

@@ -10,7 +10,6 @@ import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
 import { TCBInfoStruct } from "./lib/TCBInfoStruct.sol";
 import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibString } from "solady/src/utils/LibString.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";

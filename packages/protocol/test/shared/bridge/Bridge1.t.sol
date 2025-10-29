@@ -32,11 +32,11 @@ contract EmptyContract_WithInfiniteFallback {
 contract TestBridge1 is CommonTest {
     // Contracts on Ethereum
     MessageReceiver_SendingHalfEtherBalance private eMessageReceiver;
-    SignalService private eSignalService;
+    LegacySignalService private eSignalService;
     Bridge private eBridge;
 
     // Contracts on Taiko
-    SignalService private tSignalService;
+    LegacySignalService private tSignalService;
     Bridge private tBridge;
 
     function setUpOnEthereum() internal override {

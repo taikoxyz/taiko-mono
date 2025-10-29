@@ -8,7 +8,7 @@ contract TestBridge2Base is CommonTest {
     bytes internal constant FAKE_PROOF = "";
 
     // Contracts on Ethereum
-    SignalService internal eSignalService;
+    LegacySignalService internal eSignalService;
     Bridge internal eBridge;
 
     // Contracts on Taiko

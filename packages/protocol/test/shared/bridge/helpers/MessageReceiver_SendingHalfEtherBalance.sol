@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/signal/SignalService.sol";
 
 contract MessageReceiver_SendingHalfEtherBalance is IMessageInvocable {
     receive() external payable { }

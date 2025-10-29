@@ -6,14 +6,14 @@ import "./ERC20Vault.h.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
-    SignalService private eSignalService;
+    LegacySignalService private eSignalService;
     Bridge private eBridge;
     ERC20Vault private eVault;
     FreeMintERC20Token private eERC20Token1;
     FreeMintERC20Token private eERC20Token2;
 
     // Contracts on Taiko
-    SignalService private tSignalService;
+    LegacySignalService private tSignalService;
     PrankDestBridge private tBridge;
     PrankTaikoInbox private taikoInbox;
     ERC20Vault private tVault;

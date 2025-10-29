@@ -17,7 +17,7 @@ contract TestERC721Vault is CommonTest {
     PrankDestBridge private tBridge;
 
     function setUpOnEthereum() internal override {
-        SignalService ss = deploySignalService(
+        LegacySignalService ss = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         eBridge = deployBridge(address(new Bridge(address(resolver), address(ss))));

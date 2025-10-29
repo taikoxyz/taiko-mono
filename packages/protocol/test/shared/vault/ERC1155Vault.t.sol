@@ -8,12 +8,12 @@ contract TestERC1155Vault is CommonTest {
 
     // Contracts on Ethereum
     FreeMintERC1155Token private eERC1155Token;
-    SignalService private eSignalService;
+    LegacySignalService private eSignalService;
     Bridge private eBridge;
     ERC1155Vault private eVault;
 
     // Contracts on Taiko
-    SignalService private tSignalService;
+    LegacySignalService private tSignalService;
     PrankDestBridge private tBridge;
     ERC1155Vault private tVault;
 
