@@ -34,7 +34,9 @@ contract TestDelegateController is Layer2Test {
 
         Controller.Action[] memory actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
-            target: address(stub1), value: 0, data: abi.encodeCall(EssentialContract.pause, ())
+            target: address(stub1),
+            value: 0,
+            data: abi.encodeCall(EssentialContract.pause, ())
         });
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
@@ -75,7 +77,9 @@ contract TestDelegateController is Layer2Test {
 
         Controller.Action[] memory actions = new Controller.Action[](4);
         actions[0] = Controller.Action({
-            target: address(stub1), value: 0, data: abi.encodeCall(EssentialContract.pause, ())
+            target: address(stub1),
+            value: 0,
+            data: abi.encodeCall(EssentialContract.pause, ())
         });
 
         actions[1] = Controller.Action({
@@ -137,9 +141,7 @@ contract TestDelegateController is Layer2Test {
             deploy({
                 name: name,
                 impl: impl,
-                data: abi.encodeCall(
-                    EssentialContract_EmptyStub.init, (address(tDelegateController))
-                )
+                data: abi.encodeCall(EssentialContract_EmptyStub.init, (address(tDelegateController)))
             })
         );
     }

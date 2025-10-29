@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@solady/src/utils/LibRLP.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { LibRLP } from "solady/src/utils/LibRLP.sol";
 
 /// @title LibBlockHeader
 /// @custom:security-contact security@taiko.xyz
@@ -50,7 +51,6 @@ library LibBlockHeader {
     }
 
     function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(encodeRLP(_blockHeader));
+        return EfficientHashLib.hash(encodeRLP(_blockHeader));
     }
 }
