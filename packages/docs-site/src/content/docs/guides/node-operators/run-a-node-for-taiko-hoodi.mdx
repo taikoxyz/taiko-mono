@@ -115,7 +115,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
     <Aside type="tip">
     The Fusaka upgrade is rolling out to Ethereum Hoodi October 28, 2025, at slot 1,622,016. With this upgrade comes [EIP-7594](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7594.md),
-    which introduces data sampling instead of full downloads; this means that if you are not running an Etherum Hoodi semi-supernode or supernode beacon client,
+    which introduces data sampling instead of full downloads; this means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
     you L2 node may experience blob unavailability or chain divergence.
 
     Please configure your beacon client with the respective flags (detailed below) before the Fusaka hard fork date to avoid interruptions!
@@ -126,7 +126,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
     - Lodestar: **`--supernode`**
     - Nimbus: **`--debug-peerdas-supernode`**
 
-    Alternatively, you may set a `--blob.server` url if you wish to use a a thirdparty or self hosted blob indexer service.
+    Alternatively, you may set a `--blob.server` url if you wish to use a thirdparty or self hosted blob indexer service.
     This can be done with `$BLOB_SERVER_URL` in `simple-taiko-node`'s `.env`.
     </Aside>
 
