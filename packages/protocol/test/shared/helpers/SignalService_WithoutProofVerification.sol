@@ -8,7 +8,11 @@ import "src/shared/signal/SignalService.sol";
 ///      For tests that need a SignalService without proof verification,
 ///      this mock provides empty implementations of verification methods.
 contract SignalService_WithoutProofVerification is SignalService {
-    constructor(address authorizedSyncer, address remoteSignalService, address owner)
+    constructor(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address owner
+    )
         SignalService(authorizedSyncer, remoteSignalService, owner)
     { }
 

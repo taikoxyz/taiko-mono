@@ -15,13 +15,13 @@ import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20V2.sol";
 import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
-import "src/shared/signal/SignalService.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {
@@ -151,12 +151,7 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function registerSignalService(
-        SignalService signalService
-    )
-        internal
-        returns (SignalService)
-    {
+    function registerSignalService(SignalService signalService) internal returns (SignalService) {
         register("signal_service", address(signalService));
         return signalService;
     }
@@ -169,7 +164,8 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        return registerSignalService(new SignalService(authorizedSyncer, remoteSignalService, owner));
+        return
+            registerSignalService(new SignalService(authorizedSyncer, remoteSignalService, owner));
     }
 
     function deployTaikoToken() internal returns (TaikoToken) {

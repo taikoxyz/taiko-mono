@@ -64,6 +64,7 @@ contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalServi
 
         _transferOwnership(_owner);
     }
+
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
@@ -195,15 +196,7 @@ contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalServi
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(
-        address _app,
-        bytes32 _signal
-    )
-        private
-        view
-        returns (bytes32)
-    {
-
+    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32) {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
 

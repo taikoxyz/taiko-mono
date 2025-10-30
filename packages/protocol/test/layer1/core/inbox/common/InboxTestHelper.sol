@@ -377,9 +377,7 @@ abstract contract InboxTestHelper is CommonTest {
         address predictedInboxProxy =
             vm.computeCreateAddress(address(inboxDeployer), deployerNonce + 2);
 
-        signalService = new SignalService(
-            predictedInboxProxy, MOCK_REMOTE_SIGNAL_SERVICE, owner
-        );
+        signalService = new SignalService(predictedInboxProxy, MOCK_REMOTE_SIGNAL_SERVICE, owner);
 
         checkpointManager = ICheckpointStore(address(signalService));
     }

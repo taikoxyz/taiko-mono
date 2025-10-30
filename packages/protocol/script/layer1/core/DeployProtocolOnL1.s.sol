@@ -180,8 +180,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         address signalService;
         bool signalServiceExists = true;
         try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), "signal_service", false) returns (address existing)
-        {
+            .resolve(uint64(block.chainid), "signal_service", false) returns (
+            address existing
+        ) {
             signalService = existing;
         } catch {
             signalServiceExists = false;
@@ -191,8 +192,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             uint256 nonceBefore = vm.getNonce(address(this));
             // Upcoming creations before the proxy:
             // 1) SignalService, 2) CodecOptimized, 3) DevnetInbox impl, 4) ERC1967Proxy
-            address predictedShastaInbox =
-                vm.computeCreateAddress(address(this), nonceBefore + 4);
+            address predictedShastaInbox = vm.computeCreateAddress(address(this), nonceBefore + 4);
             signalService = address(
                 new SignalService(predictedShastaInbox, config.remoteSigSvc, config.contractOwner)
             );

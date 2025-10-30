@@ -13,8 +13,9 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgrade
 /// PROXY -> FORK_ROUTER--|
 ///                         +--> oldFork
 ///
-/// @dev WARNING: This contract uses 151 slots [0..150]. Routed contracts should reserve 151 slots to avoid collisions.
-/// This is because calls are made via `delegatecall`, which means they this and the routed contract share the same storage.
+/// @dev WARNING: This contract uses 151 slots [0..150]. Routed contracts should reserve 151 slots
+/// to avoid collisions. This is because calls are made via `delegatecall`, which means they this
+/// and the routed contract share the same storage.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
     address public immutable oldFork;

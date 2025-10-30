@@ -350,9 +350,7 @@ contract TestGenerateGenesis is Test {
         vm.expectRevert(SS_UNAUTHORIZED.selector);
         signalServiceProxy.saveCheckpoint(
             ICheckpointStore.Checkpoint({
-                blockNumber: 1,
-                blockHash: bytes32(uint256(1)),
-                stateRoot: bytes32(uint256(1))
+                blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(1))
             })
         );
         vm.stopPrank();
@@ -360,9 +358,7 @@ contract TestGenerateGenesis is Test {
         vm.prank(authorizedSyncer);
         signalServiceProxy.saveCheckpoint(
             ICheckpointStore.Checkpoint({
-                blockNumber: 1,
-                blockHash: bytes32(uint256(1)),
-                stateRoot: bytes32(uint256(1))
+                blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(1))
             })
         );
 

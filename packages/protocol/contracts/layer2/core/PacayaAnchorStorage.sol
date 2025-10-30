@@ -6,8 +6,9 @@ import { EssentialContractStorage } from "src/shared/common/EssentialContractSto
 /// @title PacayaAnchorStorage
 /// @dev This contract is used for maintaining compatibility with the storage layout of the Pacaya anchor.
 /// @dev 255 slots were used in Pacaya(EssentialContract, TaikoAnchorDeprecated, etc.)
-/// For a full layout of the Pacaya anchor please refer to
-/// [the layout table](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/layout/layer2-contracts.md#taikoanchor)
+/// For a full layout of the Pacaya anchor please refer to [the layout table]
+// solhint-disable-next-line max-line-length
+/// (https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/layout/layer2-contracts.md#taikoanchor)
 contract PacayaAnchorStorage is EssentialContractStorage {
     /// @dev Slots used by the Pacaya anchor contract itself.
     /// slot0: _blockhashes

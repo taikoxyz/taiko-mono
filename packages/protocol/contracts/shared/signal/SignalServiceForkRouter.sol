@@ -10,7 +10,11 @@ contract SignalServiceForkRouter is ForkRouter {
     /// @notice Timestamp that flips routing from the legacy (Pacaya) implementation to the Shasta version.
     uint64 public immutable shastaForkTimestamp;
 
-    constructor(address _oldFork, address _newFork, uint64 _shastaForkTimestamp)
+    constructor(
+        address _oldFork,
+        address _newFork,
+        uint64 _shastaForkTimestamp
+    )
         ForkRouter(_oldFork, _newFork)
     {
         shastaForkTimestamp = _shastaForkTimestamp;

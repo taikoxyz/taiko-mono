@@ -8,11 +8,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+import { PacayaAnchorStorage } from "./PacayaAnchorStorage.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { PacayaAnchorStorage } from "./PacayaAnchorStorage.sol";
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
