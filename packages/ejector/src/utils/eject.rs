@@ -82,6 +82,9 @@ where
     for i in 0..operator_count {
         let addr = preconf_whitelist.operatorMapping(U256::from(i)).call().await?;
         let info = preconf_whitelist.operators(addr).call().await?;
+        let sequencer_addr = info.sequencerAddress.to_string();
+        metrics::ensure_eject_metric_labels(&sequencer_addr);
+
         if info.inactiveSince == 0 && info.activeSince != 0 {
             count += 1;
         }
@@ -96,4 +99,14 @@ where
     info!("Active operatorcount: {}", count);
 
     Ok(count)
+}
+
+pub async fn initialize_eject_metrics<P>(
+    preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+) -> eyre::Result<()>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    let _ = active_operator_count(preconf_whitelist).await?;
+    Ok(())
 }
