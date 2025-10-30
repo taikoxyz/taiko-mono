@@ -30,7 +30,10 @@ interface IForcedInclusionStore {
     /// @return inclusions_ Forced inclusions starting from `_start`. The array length always equals
     ///         `_maxCount` (unless `_maxCount` is zero). Entries without stored data return default
     ///         values (zero fee and an empty blob slice).
-    function getForcedInclusions(uint48 _start, uint48 _maxCount)
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
         external
         view
         returns (ForcedInclusion[] memory inclusions_);

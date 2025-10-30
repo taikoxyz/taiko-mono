@@ -301,14 +301,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function getForcedInclusions(uint48 _start, uint48 _maxCount)
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
         external
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
-        return LibForcedInclusion.getForcedInclusions(
-            _forcedInclusionStorage, _start, _maxCount
-        );
+        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
     }
 
     /// @inheritdoc IForcedInclusionStore

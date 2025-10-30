@@ -22,7 +22,10 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         _store.saveForcedInclusion(feeInGwei, _blobReference);
     }
 
-    function getForcedInclusions(uint48 _start, uint48 _maxCount)
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
         external
         view
         override
@@ -40,7 +43,10 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         return _store.getForcedInclusionState();
     }
 
-    function save(uint64 _feeInGwei, LibBlobs.BlobReference memory _blobReference)
+    function save(
+        uint64 _feeInGwei,
+        LibBlobs.BlobReference memory _blobReference
+    )
         external
         payable
     {
@@ -164,10 +170,16 @@ contract LibForcedInclusionTest is Test {
             harness.getForcedInclusions(1, 5);
         assertEq(inclusions.length, 5, "Should return the requested number of entries");
         assertEq(inclusions[0].feeInGwei, 2, "First returned entry should match index 1");
-        assertEq(inclusions[0].blobSlice.blobHashes[0], hashes[1], "Expected blob hash for stored entry");
+        assertEq(
+            inclusions[0].blobSlice.blobHashes[0], hashes[1], "Expected blob hash for stored entry"
+        );
         for (uint256 i = 1; i < inclusions.length; ++i) {
             assertEq(inclusions[i].feeInGwei, 0, "Out-of-range slots should return default fee");
-            assertEq(inclusions[i].blobSlice.timestamp, 0, "Out-of-range slots should return default slice");
+            assertEq(
+                inclusions[i].blobSlice.timestamp,
+                0,
+                "Out-of-range slots should return default slice"
+            );
         }
     }
 
@@ -179,7 +191,9 @@ contract LibForcedInclusionTest is Test {
             harness.getForcedInclusions(1, 2);
         assertEq(inclusions.length, 2, "Should return the requested number of default entries");
         assertEq(inclusions[0].feeInGwei, 0, "First default entry should have zero fee");
-        assertEq(inclusions[1].blobSlice.timestamp, 0, "Second default entry should have zero timestamp");
+        assertEq(
+            inclusions[1].blobSlice.timestamp, 0, "Second default entry should have zero timestamp"
+        );
     }
 
     function test_getForcedInclusions_ReturnsDataForIndexBeforeHead() external {
