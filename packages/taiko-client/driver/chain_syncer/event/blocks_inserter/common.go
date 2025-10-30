@@ -609,14 +609,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
-	var parentAnchorBlockNumber = latestState.AnchorBlockNumber.Uint64()
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.NumberU64() != 0 {
-		if _, parentAnchorBlockNumber, _, err = rpc.GetSyncedL1SnippetFromAnchor(
-			sourcePayload.ParentBlock.Transactions()[0],
-		); err != nil {
-			return nil, nil, err
-		}
-	}
 
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
@@ -627,11 +619,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		anchorBlockHeaderRoot = anchorBlockHeader.Root
 	)
 
-	// If anchorBlockNumber == parent.metadata.anchorBlockNumber: Both anchorBlockHash and anchorStateRoot must be zero
-	if anchorBlockID.Uint64() <= parentAnchorBlockNumber {
-		anchorBlockHeaderHash = common.Hash{}
-		anchorBlockHeaderRoot = common.Hash{}
-	}
 	log.Info(
 		"L2 anchor block",
 		"number", anchorBlockID,

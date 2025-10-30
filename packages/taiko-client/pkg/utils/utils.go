@@ -74,17 +74,17 @@ func EncodeAndCompressDerivationSourceShasta(proposal manifest.DerivationSourceM
 	return compressed, nil
 }
 
-// EncodeAndCompressProposalManifestShasta encodes and compresses the given Shasta proposal manifest using RLP encoding
-// followed by zlib compression.
-func EncodeAndCompressProposalManifestShasta(proposal manifest.ProposalManifest) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(proposal)
+// EncodeAndCompressSourceManifestShasta encodes and compresses the given Shasta derivation source manifest using RLP
+// encoding followed by zlib compression.
+func EncodeAndCompressSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(sourceManifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode Shasta proposal manifest: %w", err)
+		return nil, fmt.Errorf("failed to RLP encode Shasta derivation source manifest: %w", err)
 	}
 
 	compressed, err := Compress(b)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded Shasta proposal manifest: %w", err)
+		return nil, fmt.Errorf("failed to compress RLP encoded Shasta derivation source manifest: %w", err)
 	}
 
 	return compressed, nil
