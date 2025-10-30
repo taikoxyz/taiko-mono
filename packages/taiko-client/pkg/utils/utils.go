@@ -42,52 +42,38 @@ func IsNil(i interface{}) bool {
 	return reflect2.IsNil(i)
 }
 
-// EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
-// followed by zlib compression.
-func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(txs)
+// EncodeAndCompress RLP-encodes the provided data and returns the zlib-compressed bytes.
+// The descriptor clarifies the type of data in error messages.
+func EncodeAndCompress[T any](data T, descriptor string) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode transactions: %w", err)
+		return nil, fmt.Errorf("failed to RLP encode %s: %w", descriptor, err)
 	}
 
 	compressed, err := Compress(b)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded transactions: %w", err)
+		return nil, fmt.Errorf("failed to compress RLP encoded %s: %w", descriptor, err)
 	}
 
 	return compressed, nil
+}
+
+// EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
+// followed by zlib compression.
+func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
+	return EncodeAndCompress(txs, "transactions")
 }
 
 // EncodeAndCompressDerivationSourceShasta encodes and compresses the given Shasta derivation source using RLP encoding
 // followed by zlib compression.
 func EncodeAndCompressDerivationSourceShasta(proposal manifest.DerivationSourceManifest) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(proposal)
-	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode Shasta derivation source manifest: %w", err)
-	}
-
-	compressed, err := Compress(b)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded Shasta derivation source manifest: %w", err)
-	}
-
-	return compressed, nil
+	return EncodeAndCompress(proposal, "Shasta derivation source manifest")
 }
 
 // EncodeAndCompressSourceManifestShasta encodes and compresses the given Shasta derivation source manifest using RLP
 // encoding followed by zlib compression.
 func EncodeAndCompressSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(sourceManifest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode Shasta derivation source manifest: %w", err)
-	}
-
-	compressed, err := Compress(b)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded Shasta derivation source manifest: %w", err)
-	}
-
-	return compressed, nil
+	return EncodeAndCompress(sourceManifest, "Shasta derivation source manifest")
 }
 
 // Compress compresses the given txList bytes using zlib.
