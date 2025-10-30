@@ -7,12 +7,15 @@ use alloy::{
     primitives::{Address, B256, U256},
     providers::Provider,
 };
-use alloy_consensus::{Transaction as _, TxEnvelope};
+use alloy_consensus::TxEnvelope;
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
-use alloy_primitives::{Bytes, aliases::U48};
+use alloy_primitives::aliases::U48;
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
-use bindings::anchor::LibBonds::BondInstruction;
+use bindings::{
+    anchor::LibBonds::BondInstruction,
+    codec_optimized::LibBonds::BondInstruction as CodecBondInstruction,
+};
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
@@ -30,8 +33,8 @@ use super::{
     bundle::{BundleMeta, SourceManifestSegment},
     state::ParentState,
     util::{
-        calculate_bond_instruction_hash, calculate_shasta_difficulty,
-        compute_build_payload_args_id, encode_extra_data, encode_transactions,
+        calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
+        encode_transactions,
     },
 };
 
@@ -116,7 +119,7 @@ struct BondInstructionData {
     /// Instructions that must be embedded into the anchor transaction.
     instructions: Vec<BondInstruction>,
     /// Rolling hash after applying the block's bond instructions.
-    next_hash: B256,
+    hash: B256,
 }
 
 /// Aggregated parameters required to assemble the anchor transaction.
@@ -338,7 +341,7 @@ where
             block_number,
             block_base_fee,
             bond_instructions: &bond_data.instructions,
-            bond_instructions_hash: bond_data.next_hash,
+            bond_instructions_hash: bond_data.hash,
         };
 
         let anchor_tx = self.build_anchor_transaction(&*state, meta, anchor_inputs).await?;
@@ -366,7 +369,7 @@ where
         );
 
         let applied = applier.apply_payload(&payload, forkchoice_state).await?;
-        *state = state.advance(block, &applied.payload, bond_data.next_hash)?;
+        *state = state.advance(block, &applied.payload, bond_data.hash)?;
 
         self.sync_l1_origin(meta, &payload, &applied.outcome, position.is_final()).await?;
 
@@ -516,82 +519,35 @@ where
         &self,
         state: &ParentState,
         meta: &BundleMeta,
-        position: &BlockPosition,
+        _position: &BlockPosition,
     ) -> Result<BondInstructionData, DerivationError> {
-        let mut aggregated_hash = state.bond_instructions_hash;
-        let mut instructions = Vec::new();
-
-        // Only the first block of a proposal needs to incorporate delayed bond instructions.
-        if position.segment_index == 0 &&
-            position.block_index == 0 &&
-            meta.proposal_id > BOND_PROCESSING_DELAY
-        {
-            let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
-            let target_payload = self
-                .indexer
-                .get_proposal_by_id(U256::from(target_id))
-                .ok_or(DerivationError::IncompleteMetadata(target_id))?;
-
-            let expected_hash =
-                B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
-
-            if aggregated_hash != expected_hash {
-                let tx_hash = target_payload
-                    .log
-                    .transaction_hash
-                    .ok_or(DerivationError::MissingProposeTxHash { proposal_id: target_id })?;
-
-                let tx = self
-                    .rpc
-                    .l1_provider
-                    .get_transaction_by_hash(tx_hash)
-                    .await
-                    .map_err(|err| DerivationError::ProposeTransactionQuery {
-                        proposal_id: target_id,
-                        reason: err.to_string(),
-                    })?
-                    .ok_or_else(|| DerivationError::MissingProposeTransaction {
-                        proposal_id: target_id,
-                        tx_hash,
-                    })?;
-
-                let input: Bytes = tx.input().clone();
-                let decoded =
-                    self.rpc.shasta.codec.decodeProposeInput(input).call().await.map_err(
-                        |err| DerivationError::ProposeInputDecode {
-                            proposal_id: target_id,
-                            reason: err.to_string(),
-                        },
-                    )?;
-
-                'outer: for record in decoded.transitionRecords {
-                    for instruction in record.bondInstructions {
-                        let instruction = BondInstruction {
-                            proposalId: instruction.proposalId,
-                            bondType: instruction.bondType,
-                            payer: instruction.payer,
-                            payee: instruction.payee,
-                        };
-                        aggregated_hash =
-                            calculate_bond_instruction_hash(aggregated_hash, &instruction);
-                        instructions.push(instruction);
-
-                        if aggregated_hash == expected_hash {
-                            break 'outer;
-                        }
-                    }
-                }
-
-                if aggregated_hash != expected_hash {
-                    return Err(DerivationError::BondInstructionsMismatch {
-                        expected: expected_hash,
-                        actual: aggregated_hash,
-                    });
-                }
-            }
+        if meta.proposal_id <= BOND_PROCESSING_DELAY {
+            return Ok(BondInstructionData {
+                instructions: Vec::new(),
+                hash: state.bond_instructions_hash,
+            });
         }
 
-        Ok(BondInstructionData { instructions, next_hash: aggregated_hash })
+        let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
+        let target_payload = self
+            .indexer
+            .get_proposal_by_id(U256::from(target_id))
+            .ok_or(DerivationError::IncompleteMetadata(target_id))?;
+
+        let next_hash = B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
+
+        let instructions = target_payload
+            .bond_instructions
+            .into_iter()
+            .map(|instruction: CodecBondInstruction| BondInstruction {
+                proposalId: instruction.proposalId,
+                bondType: instruction.bondType,
+                payer: instruction.payer,
+                payee: instruction.payee,
+            })
+            .collect();
+
+        Ok(BondInstructionData { instructions, hash: next_hash })
     }
 
     // Build the anchor transaction for the given block.
