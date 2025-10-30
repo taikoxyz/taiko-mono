@@ -145,7 +145,19 @@ where
             }
         });
 
-        while let Some(ScannerMessage::Data(logs)) = stream.next().await {
+        while let Some(message) = stream.next().await {
+            let logs = match message {
+                ScannerMessage::Data(logs) => logs,
+                ScannerMessage::Error(err) => {
+                    error!(?err, "error receiving proposal logs from event scanner");
+                    continue;
+                }
+                ScannerMessage::Status(status) => {
+                    info!(?status, "event scanner status update");
+                    continue;
+                }
+            };
+
             for log in logs {
                 let retry_strategy =
                     ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
