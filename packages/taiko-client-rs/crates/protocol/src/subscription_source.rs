@@ -12,7 +12,7 @@ use alloy_provider::{
     fillers::{FillProvider, JoinFill, WalletFiller},
     utils::JoinedRecommendedFillers,
 };
-use event_scanner::{EventScanner, EventScannerBuilder, SyncFromBlock};
+use event_scanner::{EventScanner, EventScannerBuilder, SyncFromBlock, SyncFromLatestEvents};
 use thiserror::Error;
 
 /// Convenience alias for the recommended filler stack with a wallet.
@@ -95,25 +95,44 @@ impl SubscriptionSource {
     }
 
     /// Convert the source into an `EventScanner` configured to synchronize from `start_tag`.
-    pub async fn to_event_scanner(
+    pub async fn to_event_scanner_from_tag(
         &self,
         start_tag: BlockNumberOrTag,
     ) -> Result<EventScanner<SyncFromBlock, Ethereum>, SubscriptionSourceError> {
         let client = match self {
-            SubscriptionSource::Ipc(path) => {
-                let ipc_path = path.to_string_lossy().into_owned();
-                EventScannerBuilder::sync()
-                    .from_block(start_tag)
-                    .connect_ipc::<Ethereum>(ipc_path)
-                    .await
-                    .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?
-            }
+            SubscriptionSource::Ipc(path) => EventScannerBuilder::sync()
+                .from_block(start_tag)
+                .connect_ipc::<Ethereum>(path.to_string_lossy().into_owned())
+                .await
+                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
             SubscriptionSource::Ws(url) => EventScannerBuilder::sync()
                 .from_block(start_tag)
                 .connect_ws::<Ethereum>(url.clone())
                 .await
                 .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
         };
+        Ok(client)
+    }
+
+    /// Convert the source into an `EventScanner` configured to synchronize from the latest X events
+    /// and then follow new events.
+    pub async fn to_event_scanner_sync_from_latest_scanning(
+        &self,
+        count: usize,
+    ) -> Result<EventScanner<SyncFromLatestEvents, Ethereum>, SubscriptionSourceError> {
+        let client = match self {
+            SubscriptionSource::Ipc(path) => EventScannerBuilder::sync()
+                .from_latest(count)
+                .connect_ipc::<Ethereum>(path.to_string_lossy().into_owned())
+                .await
+                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+            SubscriptionSource::Ws(url) => EventScannerBuilder::sync()
+                .from_latest(count)
+                .connect_ws::<Ethereum>(url.clone())
+                .await
+                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+        };
+
         Ok(client)
     }
 }

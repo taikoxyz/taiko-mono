@@ -111,8 +111,7 @@ where
 
         // Kick off the background indexer before waiting for its historical pass to finish.
         let indexer = self.indexer.clone();
-        // TODO: change to fetch last X proposal when indexer supports it.
-        indexer.spawn(start_tag);
+        indexer.spawn();
 
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let derivation_pipeline =
@@ -131,7 +130,7 @@ where
             .cfg
             .client
             .l1_provider_source
-            .to_event_scanner(start_tag)
+            .to_event_scanner_from_tag(start_tag)
             .await
             .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
         let filter = EventFilter::new()

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use alloy::{eips::BlockNumberOrTag, transports::http::reqwest::Url};
+use alloy::transports::http::reqwest::Url;
 use alloy_primitives::Address;
 use event_indexer::{
     indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create and spawn the indexer.
     let indexer = ShastaEventIndexer::new(config).await?;
-    indexer.clone().spawn(BlockNumberOrTag::Number(0));
+    indexer.clone().spawn();
     indexer.wait_historical_indexing_finished().await;
 
     // Read cached input parameters from the indexer, for submitting a `propose` transaction to

@@ -8,7 +8,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use alloy::{eips::BlockNumberOrTag, rpc::types::Log, sol_types::SolEvent};
+use alloy::{rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
@@ -139,15 +139,15 @@ impl ShastaEventIndexer {
     }
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
-    #[instrument(skip(self), err, fields(?start_tag))]
-    async fn run_inner(self: Arc<Self>, start_tag: BlockNumberOrTag) -> Result<()> {
+    #[instrument(skip(self), err)]
+    async fn run_inner(self: Arc<Self>) -> Result<()> {
         let source = &self.config.l1_subscription_source;
         info!(
             connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
             "subscribing to L1"
         );
 
-        let mut event_scanner = source.to_event_scanner(start_tag).await?;
+        let mut event_scanner = source.to_event_scanner_sync_from_latest_scanning(100).await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()
@@ -221,8 +221,8 @@ impl ShastaEventIndexer {
 
     /// Start the indexer event processing loop on a background task.
     #[instrument(skip(self))]
-    pub fn spawn(self: Arc<Self>, start_tag: BlockNumberOrTag) -> JoinHandle<Result<()>> {
-        spawn(async move { self.run_inner(start_tag).await })
+    pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
+        spawn(async move { self.run_inner().await })
     }
 
     /// Decode and cache a `Proposed` event payload.
