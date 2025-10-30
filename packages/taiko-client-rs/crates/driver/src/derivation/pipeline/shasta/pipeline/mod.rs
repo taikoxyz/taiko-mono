@@ -71,10 +71,7 @@ where
         indexer: Arc<ShastaEventIndexer>,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(
-                blob_source.clone(),
-                DerivationSourceManifest::decompress_and_decode,
-            ));
+            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
         let chain_id = rpc
             .l2_provider
