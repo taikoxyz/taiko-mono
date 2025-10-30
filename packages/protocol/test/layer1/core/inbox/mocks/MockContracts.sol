@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "src/layer1/verifiers/IProofVerifier.sol";
+import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 
 /// @title MockERC20
 /// @notice Mock ERC20 token for testing bond mechanics
@@ -18,8 +19,21 @@ contract MockERC20 is ERC20 {
 
 /// @title MockProofVerifier
 /// @notice Mock proof verifier that always accepts proofs
-contract MockProofVerifier is IProofVerifier {
-    function verifyProof(uint256, bytes32, bytes calldata) external pure {
+contract MockProofVerifier is ComposeVerifier {
+    constructor()
+        ComposeVerifier(address(0), address(0), address(0), address(0), address(0), address(0))
+    { }
+
+    function verifyProof(uint256, bytes32, bytes calldata) external pure override {
         // Always accept
+    }
+
+    function areVerifiersSufficient(address[] memory _verifiers)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        return true;
     }
 }
