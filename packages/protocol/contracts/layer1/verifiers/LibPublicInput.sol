@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+
 /// @title LibPublicInput
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk
 /// proofs.
@@ -24,10 +26,12 @@ library LibPublicInput {
         returns (bytes32)
     {
         require(_aggregatedProvingHash != bytes32(0), InvalidAggregatedProvingHash());
-        return keccak256(
-            abi.encode(
-                "VERIFY_PROOF", _chainId, _verifierContract, _aggregatedProvingHash, _newInstance
-            )
+        return EfficientHashLib.hash(
+            bytes32("VERIFY_PROOF"),
+            bytes32(uint256(_chainId)),
+            bytes32(uint256(uint160(_verifierContract))),
+            _aggregatedProvingHash,
+            bytes32(uint256(uint160(_newInstance)))
         );
     }
 
