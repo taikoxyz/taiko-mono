@@ -20,6 +20,7 @@ use bindings::{
             ProvedEventPayload as InboxProvedEventPayload, Transition, TransitionMetadata,
             TransitionRecord,
         },
+        LibBonds::BondInstruction,
     },
     i_inbox::IInbox::{self, Proposed, Proved},
 };
@@ -46,6 +47,8 @@ pub struct ProposedEventPayload {
     pub core_state: CoreState,
     /// Derivation data required to reproduce the proposal off-chain.
     pub derivation: Derivation,
+    /// Bond instructions finalized while processing this proposal.
+    pub bond_instructions: Vec<BondInstruction>,
     /// Raw log of the event.
     pub log: Log,
 }
@@ -231,7 +234,7 @@ impl ShastaEventIndexer {
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
         // Decode the event payload using the contract codec.
-        let InboxProposedEventPayload { proposal, derivation, coreState } = self
+        let InboxProposedEventPayload { proposal, derivation, coreState, bondInstructions } = self
             .inbox_codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
@@ -244,6 +247,7 @@ impl ShastaEventIndexer {
                 proposal: proposal.clone(),
                 core_state: coreState.clone(),
                 derivation: derivation.clone(),
+                bond_instructions: bondInstructions,
                 log: log.clone(),
             },
         );
@@ -610,6 +614,7 @@ mod tests {
             proposal: proposal_with_id(1),
             derivation: empty_derivation(),
             coreState: empty_core_state(),
+            bondInstructions: Vec::new(),
         };
 
         let encoded =
