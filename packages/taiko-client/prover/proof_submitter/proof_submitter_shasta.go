@@ -107,7 +107,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	}
 	l2BlockLength := lastOrigin.BlockID.Uint64() - lastOriginInLastProposal.BlockID.Uint64()
 	l2BlockNums := make([]*big.Int, 0, l2BlockLength)
-	for i := range l2BlockLength {
+	for i := uint64(0); i < l2BlockLength; i++ {
 		l2BlockNums = append(
 			l2BlockNums,
 			new(big.Int).SetUint64(i+lastOriginInLastProposal.BlockID.Uint64()+1),
@@ -273,12 +273,29 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
+	// TODO: check if there is valid proof on chain
+	var (
+		latestProvenBlockID = common.Big0
+		uint64ProposalIDs   []uint64
+	)
+	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
+	if !exist {
+		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
+	}
+	// Extract all block IDs and the highest block ID in the batches.
+	for _, proof := range batchProof.ProofResponses {
+		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
+		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
+			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
+		}
+	}
 	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesShasta(batchProof),
 		batchProof,
 	); err != nil {
+		proofBuffer.ClearItems(uint64ProposalIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -291,11 +308,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
-
-	lastHeader := batchProof.ProofResponses[len(batchProof.ProofResponses)-1].Opts.ShastaOptions().
-		Headers[len(batchProof.ProofResponses[len(batchProof.ProofResponses)-1].Opts.ShastaOptions().Headers)-1]
-
-	metrics.ProverLatestProvenBlockIDGauge.Set(float64(lastHeader.Number.Uint64()))
+	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
 	return nil
 }
