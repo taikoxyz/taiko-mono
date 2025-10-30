@@ -186,7 +186,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
@@ -310,7 +310,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
