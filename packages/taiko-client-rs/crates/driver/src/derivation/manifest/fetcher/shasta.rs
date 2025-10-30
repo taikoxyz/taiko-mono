@@ -3,9 +3,7 @@ use std::sync::Arc;
 use alloy_consensus::BlobTransactionSidecar;
 use async_trait::async_trait;
 use protocol::shasta::{
-    BlobCoder,
-    error::Result as ProtocolResult,
-    manifest::{DerivationSourceManifest, ProposalManifest},
+    BlobCoder, error::Result as ProtocolResult, manifest::DerivationSourceManifest,
 };
 use rpc::blob::BlobDataSource;
 
@@ -79,5 +77,4 @@ where
     }
 }
 
-pub type ShastaProposalManifestFetcher = ShastaManifestFetcher<ProposalManifest>;
 pub type ShastaSourceManifestFetcher = ShastaManifestFetcher<DerivationSourceManifest>;

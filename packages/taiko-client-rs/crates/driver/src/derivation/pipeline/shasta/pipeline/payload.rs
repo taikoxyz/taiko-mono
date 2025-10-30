@@ -145,11 +145,11 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     }
 
     let block = &manifest.blocks[0];
-    block.timestamp == 0
-        && block.coinbase == Address::ZERO
-        && block.anchor_block_number == 0
-        && block.gas_limit == 0
-        && block.transactions.is_empty()
+    block.timestamp == 0 &&
+        block.coinbase == Address::ZERO &&
+        block.anchor_block_number == 0 &&
+        block.gas_limit == 0 &&
+        block.transactions.is_empty()
 }
 
 impl SegmentPosition {
