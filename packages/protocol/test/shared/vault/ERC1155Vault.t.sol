@@ -739,9 +739,9 @@ contract TestERC1155Vault is CommonTest {
         // After setApprovalForAll() ERC1155Vault can transfer and burn
         vm.prank(Alice);
         ERC1155(deployedContract).setApprovalForAll(address(tVault), true);
-       vm.prank(Alice);
-       tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
-   }
+        vm.prank(Alice);
+        tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+    }
 
     function _deployMockSignalService(bytes32 label) private returns (SignalService) {
         return registerSignalService(
