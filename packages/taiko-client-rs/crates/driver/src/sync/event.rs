@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
 use alloy_provider::Provider;
 use bindings::i_inbox::IInbox::Proposed;
-use event_scanner::{EventFilter, types::ScannerMessage};
+use event_scanner::{EventFilter, ScannerMessage};
 use tokio::spawn;
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -131,17 +131,17 @@ where
             .cfg
             .client
             .l1_provider_source
-            .to_event_scanner()
+            .to_event_scanner(start_tag)
             .await
             .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
         let filter = EventFilter::new()
-            .with_contract_address(self.cfg.client.inbox_address)
-            .with_event(Proposed::SIGNATURE);
+            .contract_address(self.cfg.client.inbox_address)
+            .event(Proposed::SIGNATURE);
 
-        let mut stream = scanner.create_event_stream(filter);
+        let mut stream = scanner.subscribe(filter);
 
         spawn(async move {
-            if let Err(err) = scanner.start_scanner(start_tag, None).await {
+            if let Err(err) = scanner.start().await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });

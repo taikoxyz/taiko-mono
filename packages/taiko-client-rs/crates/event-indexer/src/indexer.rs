@@ -24,11 +24,8 @@ use bindings::{
     i_inbox::IInbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
-use event_scanner::{
-    EventFilter,
-    types::{ScannerMessage, ScannerStatus},
-};
-use rpc::SubscriptionSource;
+use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
+use protocol::subscription_source::SubscriptionSource;
 use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -150,21 +147,19 @@ impl ShastaEventIndexer {
             "subscribing to L1"
         );
 
-        let mut event_scanner = source.to_event_scanner().await?;
+        let mut event_scanner = source.to_event_scanner(start_tag).await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()
-            .with_contract_address(self.config.inbox_address)
-            .with_event(Proposed::SIGNATURE)
-            .with_event(Proved::SIGNATURE);
+            .contract_address(self.config.inbox_address)
+            .event(Proposed::SIGNATURE)
+            .event(Proved::SIGNATURE);
 
-        let mut stream = event_scanner.create_event_stream(filter);
+        let mut stream = event_scanner.subscribe(filter);
 
         // Start the event scanner in a separate task.
         tokio::spawn(async move {
-            // TODO: change to fetch the last X events when the event scanner supports it in next
-            // release.
-            if let Err(err) = event_scanner.start_scanner(start_tag, None).await {
+            if let Err(err) = event_scanner.start().await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
@@ -182,7 +177,7 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) &&
+                    if matches!(status, ScannerStatus::SwitchingToLive) &&
                         !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();

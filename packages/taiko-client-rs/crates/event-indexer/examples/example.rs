@@ -6,7 +6,7 @@ use event_indexer::{
     indexer::{ShastaEventIndexer, ShastaEventIndexerConfig},
     interface::ShastaProposeInputReader,
 };
-use rpc::SubscriptionSource;
+use protocol::subscription_source::SubscriptionSource;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
