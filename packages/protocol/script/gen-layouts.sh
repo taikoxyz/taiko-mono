@@ -27,7 +27,6 @@ contracts_layer1=(
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/MainnetSignalService.sol:MainnetSignalService"
 "contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
