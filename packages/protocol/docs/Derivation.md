@@ -317,7 +317,7 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload (`bondInstructionsHash` and `bondInstructions`) in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
 
 ```solidity
 /// @notice Represents a bond instruction for processing in the anchor transaction
