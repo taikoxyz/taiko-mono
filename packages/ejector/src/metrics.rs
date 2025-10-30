@@ -79,6 +79,11 @@ pub fn inc_l2_blocks() {
     L2_BLOCKS_TOTAL.inc();
 }
 
+pub fn ensure_eject_metric_labels(addr: &str) {
+    let _ = EJECTIONS_TOTAL.with_label_values(&["success", addr]);
+    let _ = EJECTIONS_TOTAL.with_label_values(&["error", addr]);
+}
+
 pub fn inc_eject_success(addr: &str) {
     EJECTIONS_TOTAL.with_label_values(&["success", addr]).inc();
 }
