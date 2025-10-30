@@ -174,6 +174,8 @@ struct ProposalManifest {
 /// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
+  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
+  bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
@@ -284,10 +286,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
-The anchor hash and state root must maintain consistency with the anchor block number (enforced by the Taiko node/driver):
-
-- If `anchorBlockNumber == parent.metadata.anchorBlockNumber`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
-- Otherwise: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
+The anchor hash and state root must always correspond to the actual L1 block referenced by `anchorBlockNumber`. The Taiko node/driver enforces that both `anchorBlockHash` and `anchorStateRoot` accurately reflect the L1 state for that block.
 
 #### `coinbase` Assignment
 
@@ -318,7 +317,7 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are defined as follows:
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
 
 ```solidity
 /// @notice Represents a bond instruction for processing in the anchor transaction
@@ -360,7 +359,7 @@ struct ProverAuth {
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal. For every subsequent block (`_blockIndex > 0`), the same `proverAuthBytes` payload is still in the `anchorV4` parameters, but it won't be processed again.
 
 ##### 1. Authentication and Validation
 
