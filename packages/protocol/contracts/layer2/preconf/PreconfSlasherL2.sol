@@ -15,18 +15,18 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
 contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
-    address public immutable preconfSlasherL1;
+    address public immutable unifiedSlasher;
     address public immutable taikoAnchor;
     address public immutable bridge;
 
     constructor(
-        address _preconfSlasherL1,
+        address _unifiedSlasher,
         address _taikoAnchor,
         address _bridge
     )
         EssentialContract()
     {
-        preconfSlasherL1 = _preconfSlasherL1;
+        unifiedSlasher = _unifiedSlasher;
         taikoAnchor = _taikoAnchor;
         bridge = _bridge;
     }
@@ -195,6 +195,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     }
 
     /// @dev Invokes a call to L1 preconf slasher's onMessageInvocation(bytes) via the bridge
+    /// @dev The invocation happens on the `UnifiedSlasher` on L1 which further delegatecalls
+    /// to `PreconfSlasherL1`
     function _invokePreconfSlasherL1(
         IPreconfSlasher.Fault _fault,
         bytes32 _registrationRoot,
@@ -216,7 +218,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             srcOwner: msg.sender,
             destChainId: uint64(LibNetwork.ETHEREUM_MAINNET),
             destOwner: msg.sender,
-            to: preconfSlasherL1,
+            to: unifiedSlasher,
             value: 0,
             data: callData
         });

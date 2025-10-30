@@ -23,6 +23,8 @@ library LibPreconfConstants {
     uint256 internal constant RANDOMNESS_DELAY_EPOCHS = 2;
 
     bytes32 internal constant PRECONF_DOMAIN_SEPARATOR = keccak256("TAIKO_ALETHIA_PRECONF");
+    uint64 internal constant PRECONF_COMMITMENT_TYPE = 1;
+    uint64 internal constant LOOKAHEAD_COMMITMENT_TYPE = 2;
 
     function getGenesisTimestamp(uint256 _chainid) internal pure returns (uint256) {
         if (_chainid == LibNetwork.ETHEREUM_MAINNET) {
