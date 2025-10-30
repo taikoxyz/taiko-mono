@@ -121,7 +121,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	// Try to RLP decode the manifest bytes.
 	if err = rlp.DecodeBytes(encoded, derivationSourceManifest); err != nil {
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
-		return defaultPayload, err
+		return defaultPayload, nil
 	}
 	// For forced-inclusion sources, reset certain fields to zero.
 	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
