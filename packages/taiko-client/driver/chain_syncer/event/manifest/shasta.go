@@ -420,9 +420,7 @@ func validateCoinbase(
 		if isForcedInclusion {
 			// Forced inclusions always use proposal.proposer
 			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
-		}
-
-		if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
+		} else if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
 			// Use proposal.proposer as fallback if manifest coinbase is zero
 			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
 		}
