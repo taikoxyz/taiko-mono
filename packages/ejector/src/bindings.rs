@@ -3,6 +3,7 @@ use alloy::sol;
 sol! {
     #[sol(rpc)]
     interface IPreconfWhitelist {
+        event OperatorAdded(address indexed proposer, address indexed sequencer, uint256 activeSince);
         uint8 public operatorCount;
         function getOperatorForCurrentEpoch() external view returns (address);
         function getOperatorForNextEpoch() external view returns (address);

@@ -174,6 +174,8 @@ struct ProposalManifest {
 /// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
+  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
+  bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
@@ -284,10 +286,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
-The anchor hash and state root must maintain consistency with the anchor block number (enforced by the Taiko node/driver):
-
-- If `anchorBlockNumber == parent.metadata.anchorBlockNumber`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
-- Otherwise: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
+The anchor hash and state root must always correspond to the actual L1 block referenced by `anchorBlockNumber`. The Taiko node/driver enforces that both `anchorBlockHash` and `anchorStateRoot` accurately reflect the L1 state for that block.
 
 #### `coinbase` Assignment
 
@@ -318,7 +317,7 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are defined as follows:
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload (`bondInstructionsHash` and `bondInstructions`) in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
 
 ```solidity
 /// @notice Represents a bond instruction for processing in the anchor transaction
@@ -360,7 +359,7 @@ struct ProverAuth {
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal. For every subsequent block (`_blockIndex > 0`), the same `proverAuthBytes` payload is still in the `anchorV4` parameters, but it won't be processed again.
 
 ##### 1. Authentication and Validation
 
@@ -514,8 +513,6 @@ The following block header fields are also set before transaction execution but 
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
-For Shasta specifically, consensus pins the base fee to `25_000_000 wei` for the first three blocks after the fork. EIP-4396 derives the next base fee from the parent block time (`parent.timestamp - parent.parent.timestamp`); when the fork starts from genesis this delta may be enormous. Maintaining a three-block fixed-fee window absorbs that anomaly and prevents an outsized jump—the fourth Shasta block and onward go to the normal EIP-4396 calculation.
-
 ### Anchor Transaction
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
@@ -564,26 +561,26 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
-
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
 
+The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within `MIN_BASE_FEE` and `MAX_BASE_FEE`.
 
 ## Constants
 
 The following constants govern the block derivation process:
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| **PROPOSAL_MAX_BLOCKS** | `384` | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch. |
-| **MAX_ANCHOR_OFFSET** | `128` | The maximum anchor block number offset from the proposal origin block number. |
-| **MIN_ANCHOR_OFFSET** | `2` | The minimum anchor block number offset from the proposal origin block number. |
-| **TIMESTAMP_MAX_OFFSET** | `384` (12 * 32) | The maximum number timestamp offset from the proposal origin timestamp. |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10` | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%. |
-| **MIN_BLOCK_GAS_LIMIT** | `15,000,000` | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold. |
-| **BOND_PROCESSING_DELAY** | `6` | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
-| **INITIAL_BASE_FEE** | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block. |
-| **MIN_BASE_FEE** | `0.005 gwei` (5,000,000 wei) | The minimum base fee (inclusive) after Shasta fork. |
-| **MAX_BASE_FEE** | `1 gwei` (1,000,000,000 wei) | The maximum base fee (inclusive) after Shasta fork. |
-| **BLOCK_TIME_TARGET** | `2 seconds` | The block time target. |
+| Constant                       | Value                         | Description                                                                                                                                                                       |
+| ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                   |
+| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                                     |
+| **MIN_ANCHOR_OFFSET**          | `2`                           | The minimum anchor block number offset from the proposal origin block number.                                                                                                     |
+| **TIMESTAMP_MAX_OFFSET**       | `384` (12 \* 32)              | The maximum number timestamp offset from the proposal origin timestamp.                                                                                                           |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                             |
+| **MIN_BLOCK_GAS_LIMIT**        | `15,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                                 |
+| **BOND_PROCESSING_DELAY**      | `6`                           | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
+| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                                      |
+| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                            |

@@ -161,9 +161,8 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(taikoAnchorProxy.owner());
 
-        UUPSUpgradeable(address(taikoAnchorProxy)).upgradeTo(
-            address(new AnchorForkRouter(address(1), address(2)))
-        );
+        UUPSUpgradeable(address(taikoAnchorProxy))
+            .upgradeTo(address(new AnchorForkRouter(address(1), address(2))));
 
         vm.stopPrank();
     }

@@ -308,7 +308,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 )
             );
 
-        vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
+        vm.expectRevert(Inbox.TransitionRecordHashMismatchWithStorage.selector);
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -332,7 +332,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
 
-        vm.expectRevert(TransitionRecordNotProvided.selector);
+        vm.expectRevert(Inbox.TransitionRecordNotProvided.selector);
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -358,7 +358,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 )
             );
 
-        vm.expectRevert(CheckpointMismatch.selector);
+        vm.expectRevert(Inbox.CheckpointMismatch.selector);
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -381,7 +381,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 )
             );
 
-        vm.expectRevert(CheckpointNotProvided.selector);
+        vm.expectRevert(Inbox.CheckpointNotProvided.selector);
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);

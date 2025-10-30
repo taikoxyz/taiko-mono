@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./interfaces/IAttestation.sol";
-import "./interfaces/ISigVerifyLib.sol";
-import "./lib/EnclaveIdStruct.sol";
-import "./lib/PEMCertChainLib.sol";
-import "./lib/QuoteV3Auth/V3Parser.sol";
-import "./lib/QuoteV3Auth/V3Struct.sol";
-import "./lib/TCBInfoStruct.sol";
-import "./lib/interfaces/IPEMCertChainLib.sol";
-import "./utils/BytesUtils.sol";
-import "solady/src/utils/Base64.sol";
-import "solady/src/utils/LibString.sol";
-import "src/shared/common/EssentialContract.sol";
+import { IAttestation } from "./interfaces/IAttestation.sol";
+import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
+import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
+import { PEMCertChainLib } from "./lib/PEMCertChainLib.sol";
+import { V3Parser } from "./lib/QuoteV3Auth/V3Parser.sol";
+import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
+import { TCBInfoStruct } from "./lib/TCBInfoStruct.sol";
+import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
+import { BytesUtils } from "./utils/BytesUtils.sol";
+import { Base64 } from "solady/src/utils/Base64.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { LibString } from "solady/src/utils/LibString.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
@@ -313,9 +314,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 break;
             }
 
-            bytes32 issuerPubKeyHash = keccak256(issuer.pubKey);
-
-            if (issuerPubKeyHash == ROOTCA_PUBKEY_HASH) {
+            if (EfficientHashLib.hash(issuer.pubKey) == ROOTCA_PUBKEY_HASH) {
                 certChainCanBeTrusted = true;
                 break;
             }
