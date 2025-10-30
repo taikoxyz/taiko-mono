@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/console2.sol";
-import "solady/src/utils/LibString.sol";
 import "script/BaseScript.sol";
+import "solady/src/utils/LibString.sol";
 import "test/layer1/automata-attestation/AttestationBase.sol";
 
 /// @title ConfigureSgxVerifier
