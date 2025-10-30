@@ -241,7 +241,6 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 
-	log.Info("Print verifier info", "verifier", verifier, "verifierID", verifierID)
 	return &BatchProofs{
 		ProofResponses:       items,
 		BatchProof:           batchProofs,
