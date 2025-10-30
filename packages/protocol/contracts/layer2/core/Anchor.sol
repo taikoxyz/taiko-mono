@@ -221,11 +221,10 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         onlyValidSender
         nonReentrant
     {
-
         uint48 lastProposalId = _proposalState.proposalId;
 
         if (_proposalParams.proposalId < lastProposalId) {
-        // Proposal ID cannot go backward
+            // Proposal ID cannot go backward
             revert ProposalIdMismatch();
         }
 

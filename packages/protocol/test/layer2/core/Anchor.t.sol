@@ -194,7 +194,8 @@ contract AnchorTest is Test {
             payee: address(0xCA2)
         });
 
-        bytes32 expectedHash2 = LibBonds.aggregateBondInstruction(previousBondHash, instructions2[0]);
+        bytes32 expectedHash2 =
+            LibBonds.aggregateBondInstruction(previousBondHash, instructions2[0]);
         expectedHash2 = LibBonds.aggregateBondInstruction(expectedHash2, instructions2[1]);
 
         uint256 provingFee2 = 2 ether;
