@@ -63,43 +63,43 @@ library LibForcedInclusion {
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
-    /// @dev Returns all forced inclusions that are currently due based on delay configuration.
-    function getDueForcedInclusions(
+    /// @dev Returns `_maxCount` forced inclusions starting at `_start`.
+    function getForcedInclusions(
         Storage storage $,
-        uint16 _forcedInclusionDelay
+        uint48 _start,
+        uint48 _maxCount
     )
         internal
         view
-        returns (IForcedInclusionStore.ForcedInclusion[] memory dueInclusions_)
+        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
-            uint48 head = $.head;
-            uint48 tail = $.tail;
-            uint48 lastProcessedAt = $.lastProcessedAt;
-
-            if (head == tail) {
-                return dueInclusions_;
+            if (_maxCount == 0) {
+                return inclusions_;
             }
 
-            uint256 capacity = tail - head;
-            dueInclusions_ = new IForcedInclusionStore.ForcedInclusion[](capacity);
+            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](_maxCount);
 
-            uint256 dueCount;
-            for (uint48 i = head; i < tail; ++i) {
-                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[i];
-                uint256 timestamp = inclusion.blobSlice.timestamp;
-                if (timestamp == 0) break;
-
-                uint256 effectiveTimestamp = timestamp.max(lastProcessedAt);
-                if (block.timestamp < effectiveTimestamp + _forcedInclusionDelay) break;
-
-                dueInclusions_[dueCount++] = inclusion;
-            }
-
-            assembly {
-                mstore(dueInclusions_, dueCount)
+            for (uint256 i; i < _maxCount; ++i) {
+                uint256 idx = uint256(_start) + i;
+                inclusions_[i] = $.queue[idx];
             }
         }
+    }
+
+    /// @dev Returns the queue pointers for the forced inclusion storage.
+    /// @param $ Storage instance tracking the forced inclusion queue.
+    /// @return head_ Index of the next forced inclusion to dequeue.
+    /// @return tail_ Index where the next forced inclusion will be enqueued.
+    /// @return lastProcessedAt_ Timestamp of the most recent forced inclusion processing.
+    function getForcedInclusionState(Storage storage $)
+        internal
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+    {
+        head_ = $.head;
+        tail_ = $.tail;
+        lastProcessedAt_ = $.lastProcessedAt;
     }
 
     // ---------------------------------------------------------------

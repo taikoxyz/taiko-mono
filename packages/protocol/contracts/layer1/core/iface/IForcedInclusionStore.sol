@@ -22,10 +22,25 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Returns all forced inclusions that are due for processing.
-    /// @return dueInclusions_ Array of inclusions that satisfy the forced inclusion delay.
-    function getDueForcedInclusions()
+    /// @notice Returns forced inclusions stored starting from a given index.
+    /// @dev This function does not validate whether the requested indices have been processed or
+    ///       even exist. Callers must inspect the returned data to determine if an entry is valid.
+    /// @param _start The queue index to start reading from.
+    /// @param _maxCount The number of inclusions to return. Passing zero returns an empty array.
+    /// @return inclusions_ Forced inclusions starting from `_start`. The array length always equals
+    ///         `_maxCount` (unless `_maxCount` is zero). Entries without stored data return default
+    ///         values (zero fee and an empty blob slice).
+    function getForcedInclusions(uint48 _start, uint48 _maxCount)
         external
         view
-        returns (ForcedInclusion[] memory dueInclusions_);
+        returns (ForcedInclusion[] memory inclusions_);
+
+    /// @notice Returns the queue pointers for the forced inclusion store.
+    /// @return head_ Index of the oldest forced inclusion in the queue.
+    /// @return tail_ Index of the next free slot in the queue.
+    /// @return lastProcessedAt_ Timestamp when the last forced inclusion was processed.
+    function getForcedInclusionState()
+        external
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
 }
