@@ -7,8 +7,6 @@ use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::eth::Withdrawal;
 use sha2::{Digest, Sha256};
 
-use bindings::anchor::LibBonds::BondInstruction;
-
 sol! {
     struct ShastaDifficultyInput {
         bytes32 parentDifficulty;

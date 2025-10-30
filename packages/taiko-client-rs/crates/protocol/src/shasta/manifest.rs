@@ -37,6 +37,9 @@ pub struct BlockManifest {
 #[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
 pub struct DerivationSourceManifest {
+    /// Raw prover authentication payload.
+    #[serde(default)]
+    pub prover_auth_bytes: Bytes,
     /// Blocks included in this source.
     pub blocks: Vec<BlockManifest>,
 }
@@ -44,7 +47,7 @@ pub struct DerivationSourceManifest {
 impl Default for DerivationSourceManifest {
     /// Create the default derivation source manifest.
     fn default() -> Self {
-        Self { blocks: vec![BlockManifest::default()] }
+        Self { prover_auth_bytes: Bytes::new(), blocks: vec![BlockManifest::default()] }
     }
 }
 
