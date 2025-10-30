@@ -145,11 +145,11 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
     }
 
     let block = &manifest.blocks[0];
-    block.timestamp == 0 &&
-        block.coinbase == Address::ZERO &&
-        block.anchor_block_number == 0 &&
-        block.gas_limit == 0 &&
-        block.transactions.is_empty()
+    block.timestamp == 0
+        && block.coinbase == Address::ZERO
+        && block.anchor_block_number == 0
+        && block.gas_limit == 0
+        && block.transactions.is_empty()
 }
 
 impl SegmentPosition {
@@ -567,7 +567,7 @@ where
         } = inputs;
 
         let (anchor_block_hash, anchor_state_root) =
-            self.resolve_anchor_block_fields(block.anchor_block_number, parent_state).await?;
+            self.resolve_anchor_block_fields(block.anchor_block_number).await?;
 
         let block_index = u16::try_from(position.global_index())
             .map_err(|_| DerivationError::BlockIndexOverflow { index: position.global_index() })?;
@@ -595,16 +595,11 @@ where
         Ok(tx)
     }
 
-    // Fetch and validate the anchor block fields.
+    // Fetch the anchor block fields.
     async fn resolve_anchor_block_fields(
         &self,
         anchor_block_number: u64,
-        parent_state: &ParentState,
     ) -> Result<(B256, B256), DerivationError> {
-        if anchor_block_number == 0 || anchor_block_number <= parent_state.anchor_block_number {
-            return Ok((B256::ZERO, B256::ZERO));
-        }
-
         let block = self
             .rpc
             .l1_provider
@@ -616,10 +611,7 @@ where
             })?
             .ok_or(DerivationError::AnchorBlockMissing { block_number: anchor_block_number })?;
 
-        let block_hash = block.header.hash;
-        let state_root = block.header.inner.state_root;
-
-        Ok((block_hash, state_root))
+        Ok((block.header.hash, block.header.inner.state_root))
     }
 }
 
