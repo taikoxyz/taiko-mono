@@ -144,6 +144,7 @@ func (s *SgxGethProofProducer) requestBatchProof(
 				ProposalId:             meta.Shasta().GetProposal().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

@@ -109,6 +109,7 @@ type ProofRequestOptionsShasta struct {
 	RethProofGenerated            bool
 	RethProofAggregationGenerated bool
 	L2BlockNums                   []*big.Int
+	DesignatedProver              common.Address
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.

@@ -34,6 +34,7 @@ type RaikoProposals struct {
 	ProposalId             *big.Int   `json:"proposal_id"`
 	L1InclusionBlockNumber *big.Int   `json:"l1_inclusion_block_number"`
 	L2BlockNumbers         []*big.Int `json:"l2_block_numbers"`
+	DesignatedProver       string     `json:"designated_prover"`
 }
 
 // RaikoRequestProofBodyV3Shasta represents the JSON body for requesting the proof.
@@ -71,7 +72,6 @@ func (s *ComposeProofProducer) RequestProof(
 		"Request proof from raiko-host service",
 		"proposalID", proposalID,
 		"proofType", s.ProofType,
-		"coinbase", meta.GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
 
@@ -283,6 +283,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 				ProposalId:             meta.Shasta().GetProposal().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
