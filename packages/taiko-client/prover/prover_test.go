@@ -188,6 +188,8 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.Nil(s.p.requestProofOp(req.Meta))
 	if m.IsPacaya() {
 		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
+	} else {
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
 	}
 	if m.IsPacaya() {
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))

@@ -105,7 +105,11 @@ func (s *ComposeProofProducer) RequestProof(
 			} else {
 				proofType = resp.ProofType
 				// Note: we mark the `IsRethProofGenerated` with true to record if it is first time generated
-				opts.PacayaOptions().RethProofGenerated = true
+				if opts.IsShasta() {
+					opts.ShastaOptions().RethProofGenerated = true
+				} else {
+					opts.PacayaOptions().RethProofGenerated = true
+				}
 				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
 					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
@@ -120,7 +124,11 @@ func (s *ComposeProofProducer) RequestProof(
 			return err
 		} else {
 			// Note: we mark the `IsGethProofGenerated` with true to record if it is the first time generated
-			opts.PacayaOptions().GethProofGenerated = true
+			if opts.IsShasta() {
+				opts.ShastaOptions().GethProofGenerated = true
+			} else {
+				opts.PacayaOptions().GethProofGenerated = true
+			}
 			return nil
 		}
 	})
@@ -148,14 +156,22 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, ErrInvalidLength
 	}
 	proofType := items[0].ProofType
-	verifier, exist := s.Verifiers[proofType]
-	if !exist {
-		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
+	isShasta := items[0].Meta.IsShasta()
+	var (
+		verifierID uint8
+		verifier   common.Address
+		exist      bool
+	)
+	if isShasta {
+		if verifierID, exist = s.VerifierIDs[proofType]; !exist {
+			return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
+		}
+	} else {
+		if verifier, exist = s.Verifiers[proofType]; !exist {
+			return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
+		}
 	}
-	verifierID, exist := s.VerifierIDs[proofType]
-	if !exist {
-		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
-	}
+
 	log.Info(
 		"Aggregate batch proofs from raiko-host service",
 		"proofType", proofType,
@@ -176,7 +192,7 @@ func (s *ComposeProofProducer) Aggregate(
 	for _, item := range items {
 		opts = append(opts, item.Opts)
 		metas = append(metas, item.Meta)
-		batchIDs = append(batchIDs, item.Meta.Pacaya().GetBatchID())
+		batchIDs = append(batchIDs, item.Meta.GetProposalID())
 	}
 	g.Go(func() error {
 		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
@@ -184,7 +200,11 @@ func (s *ComposeProofProducer) Aggregate(
 		} else {
 			// Note: we mark the `IsGethProofAggregationGenerated` in the first item with true
 			// to record if it is first time generated
-			items[0].Opts.PacayaOptions().GethProofAggregationGenerated = true
+			if items[0].Opts.IsShasta() {
+				items[0].Opts.ShastaOptions().GethProofAggregationGenerated = true
+			} else {
+				items[0].Opts.PacayaOptions().GethProofAggregationGenerated = true
+			}
 			return nil
 		}
 	})
@@ -201,13 +221,17 @@ func (s *ComposeProofProducer) Aggregate(
 				true,
 				proofType,
 				requestAt,
-				items[0].Opts.PacayaOptions().RethProofAggregationGenerated,
+				items[0].Opts.IsRethProofAggregationGenerated(),
 			); err != nil {
 				return err
 			} else {
 				// Note: we mark the `IsRethProofAggregationGenerated` in the first item with true
 				// to record if it is first time generated
-				items[0].Opts.PacayaOptions().RethProofAggregationGenerated = true
+				if items[0].Opts.IsShasta() {
+					items[0].Opts.ShastaOptions().RethProofAggregationGenerated = true
+				} else {
+					items[0].Opts.PacayaOptions().RethProofAggregationGenerated = true
+				}
 				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 			}
 		}
@@ -217,6 +241,7 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 
+	log.Info("Print verifier info", "verifier", verifier, "verifierID", verifierID)
 	return &BatchProofs{
 		ProofResponses:       items,
 		BatchProof:           batchProofs,
@@ -226,6 +251,7 @@ func (s *ComposeProofProducer) Aggregate(
 		VerifierID:           verifierID,
 		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
+		SgxGethVerifierID:    sgxGethBatchProofs.VerifierID,
 	}, nil
 }
 

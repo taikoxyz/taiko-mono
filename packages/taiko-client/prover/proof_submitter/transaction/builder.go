@@ -199,11 +199,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 		subProofs := []encoding.SubProofShasta{
 			{
-				VerifierID: batchProof.SgxGethVerifierID,
+				VerifierId: batchProof.SgxGethVerifierID,
 				Proof:      batchProof.SgxGethBatchProof,
 			},
 			{
-				VerifierID: batchProof.VerifierID,
+				VerifierId: batchProof.VerifierID,
 				Proof:      batchProof.BatchProof,
 			},
 		}

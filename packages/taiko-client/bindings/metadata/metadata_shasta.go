@@ -110,6 +110,11 @@ func (m *TaikoProposalMetadataShasta) GetProposal() shastaBindings.IInboxProposa
 	return m.IInboxProposal
 }
 
+// GetProposalID returns proposal ID.
+func (m *TaikoProposalMetadataShasta) GetProposalID() *big.Int {
+	return m.IInboxProposal.Id
+}
+
 // GetDerivation returns the transaction hash.
 func (m *TaikoProposalMetadataShasta) GetDerivation() shastaBindings.IInboxDerivation {
 	return m.IInboxDerivation

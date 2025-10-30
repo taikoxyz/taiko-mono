@@ -41,7 +41,7 @@ type SubProofPacaya struct {
 
 // SubProofShasta should be same with Shasta ComposeVerifier.SubProof.
 type SubProofShasta struct {
-	VerifierID uint8
+	VerifierId uint8
 	Proof      []byte
 }
 
