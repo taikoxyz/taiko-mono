@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use alloy::{
     primitives::{Address, U256},
@@ -21,7 +21,7 @@ pub async fn eject_operator(
 
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
 
-    let active_operators = active_operator_count(&preconf_whitelist).await?;
+    let active_operators = active_operator_count(&preconf_whitelist, None).await?;
 
     if min_operators > 0 && active_operators <= min_operators {
         warn!(
@@ -72,10 +72,12 @@ pub async fn eject_operator(
 // active operators have activeSince != 0 and inactiveSince == 0
 async fn active_operator_count<P>(
     preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+    seen: Option<&mut HashSet<(Address, Address)>>,
 ) -> eyre::Result<u64>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    let mut seen = seen;
     let operator_count = preconf_whitelist.operatorCount().call().await?;
 
     let mut count = 0u64;
@@ -84,6 +86,10 @@ where
         let info = preconf_whitelist.operators(addr).call().await?;
         let sequencer_addr = info.sequencerAddress.to_string();
         metrics::ensure_eject_metric_labels(&sequencer_addr);
+
+        if let Some(set) = seen.as_deref_mut() {
+            set.insert((addr, info.sequencerAddress));
+        }
 
         if info.inactiveSince == 0 && info.activeSince != 0 {
             count += 1;
@@ -103,10 +109,11 @@ where
 
 pub async fn initialize_eject_metrics<P>(
     preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
-) -> eyre::Result<()>
+) -> eyre::Result<HashSet<(Address, Address)>>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    let _ = active_operator_count(preconf_whitelist).await?;
-    Ok(())
+    let mut initialized = HashSet::new();
+    let _ = active_operator_count(preconf_whitelist, Some(&mut initialized)).await?;
+    Ok(initialized)
 }

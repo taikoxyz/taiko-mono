@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -11,7 +12,7 @@ use alloy::{
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
@@ -117,15 +118,21 @@ impl Monitor {
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
-        if let Err(e) = initialize_eject_metrics(&preconf_whitelist).await {
-            warn!("Failed to initialize eject metrics: {e:?}");
+        let known_operators = Arc::new(RwLock::new(HashSet::new()));
+        match initialize_eject_metrics(&preconf_whitelist).await {
+            Ok(initialized) => {
+                *known_operators.write().await = initialized;
+            }
+            Err(e) => {
+                warn!("Failed to initialize eject metrics: {e:?}");
+            }
         }
         let preconf_router =
             crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
         let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
             l1_ws_url.clone(),
-            l1_http_url.clone(),
             whitelist_address,
+            known_operators.clone(),
         ));
 
         // watchdog task
@@ -336,13 +343,13 @@ impl Monitor {
         responsibility_for_slot(slot, self.beacon_client.slots_per_epoch, self.handover_slots)
     }
 
-    async fn operator_added_listener(l1_ws_url: Url, l1_http_url: Url, whitelist_address: Address) {
+    async fn operator_added_listener(
+        l1_ws_url: Url,
+        whitelist_address: Address,
+        known_operators: Arc<RwLock<HashSet<(Address, Address)>>>,
+    ) {
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
-
-        let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
-        let http_whitelist =
-            crate::bindings::IPreconfWhitelist::new(whitelist_address, http_provider.clone());
 
         loop {
             info!("Connecting to OperatorAdded event stream at {}", l1_ws_url);
@@ -381,13 +388,19 @@ impl Monitor {
                                             "OperatorAdded event received"
                                         );
 
-                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        let key = (event.proposer, event.sequencer);
+                                        let is_new = {
+                                            let mut guard = known_operators.write().await;
+                                            guard.insert(key)
+                                        };
 
-                                        if let Err(e) =
-                                            initialize_eject_metrics(&http_whitelist).await
-                                        {
-                                            warn!(
-                                                "Failed to refresh eject metrics after OperatorAdded: {e:?}"
+                                        if is_new {
+                                            metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        } else {
+                                            debug!(
+                                                %proposer_hex,
+                                                %sequencer_hex,
+                                                "Operator already initialized; skipping metric setup"
                                             );
                                         }
                                     }
