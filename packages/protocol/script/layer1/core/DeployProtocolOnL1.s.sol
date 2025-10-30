@@ -189,10 +189,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (!signalServiceExists) {
-            uint256 nonceBefore = vm.getNonce(address(this));
+            uint256 nonceBefore = vm.getNonce(msg.sender);
             // Upcoming creations before the proxy:
             // 1) SignalService, 2) CodecOptimized, 3) DevnetInbox impl, 4) ERC1967Proxy
-            address predictedShastaInbox = vm.computeCreateAddress(address(this), nonceBefore + 4);
+            address predictedShastaInbox = vm.computeCreateAddress(msg.sender, nonceBefore + 3);
             signalService = address(
                 new SignalService(predictedShastaInbox, config.remoteSigSvc, config.contractOwner)
             );
