@@ -239,17 +239,25 @@ func GetShastaGenesisTransition(
 	ctx context.Context,
 	rpc *rpc.Client,
 ) (*shastaBindings.IInboxTransition, error) {
-	header, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(rpc.ShastaClients.ForkHeight, common.Big1))
+	// Use Pacaya Inbox to derive the last Pacaya block ID, which becomes the
+	// checkpoint of the Shasta genesis transition.
+	blockNumber, err := rpc.LastPacayaBlockID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch genesis block header: %w", err)
+		return nil, fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
 	}
+
+	header, err := rpc.L2.HeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch L2 header at last Pacaya block: %w", err)
+	}
+
 	return &shastaBindings.IInboxTransition{
 		ProposalHash:         common.Hash{},
 		ParentTransitionHash: common.Hash{},
 		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-			BlockNumber: common.Big0,
+			BlockNumber: blockNumber,
 			BlockHash:   header.Hash(),
-			StateRoot:   common.Hash{},
+			StateRoot:   header.Root,
 		},
 	}, nil
 }

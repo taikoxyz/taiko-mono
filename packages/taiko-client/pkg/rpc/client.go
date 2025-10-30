@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 	"time"
 
@@ -40,7 +39,8 @@ type ShastaClients struct {
 	Inbox      *shastaBindings.ShastaInboxClient
 	InboxCodec *shastaBindings.CodecOptimizedClient
 	Anchor     *shastaBindings.ShastaAnchor
-	ForkHeight *big.Int
+	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
+	ForkTime uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -292,7 +292,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		Inbox:      shastaInbox,
 		InboxCodec: inboxCodec,
 		Anchor:     shastaAnchor,
-		ForkHeight: new(big.Int).SetUint64(c.PacayaClients.ForkHeights.Shasta),
+		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
 	}
 
 	return nil
@@ -315,7 +315,7 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-		"shastaForkHeight", c.PacayaClients.ForkHeights.Shasta,
+		"shastaForkTime", c.ShastaClients.ForkTime,
 	)
 
 	return nil

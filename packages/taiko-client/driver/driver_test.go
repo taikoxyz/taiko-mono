@@ -325,7 +325,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head4.Number.Uint64(), s.RPCClient.ShastaClients.ForkHeight.Uint64()-1)
+	s.True(l2Head4.Time >= s.RPCClient.ShastaClients.ForkTime)
 	s.Equal(l2Head2.Number.Uint64()+1, l2Head4.Number.Uint64())
 
 	s.InitShastaGenesisProposal()

@@ -80,7 +80,7 @@ func (s *ClientTestSuite) SetupTest() {
 	s.ShastaStateIndexer, err = shastaIndexer.New(
 		context.Background(),
 		rpcCli,
-		rpcCli.ShastaClients.ForkHeight,
+		rpcCli.ShastaClients.ForkTime,
 	)
 	s.Nil(err)
 	s.Nil(s.ShastaStateIndexer.Start())

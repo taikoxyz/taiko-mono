@@ -262,8 +262,12 @@ func (s *Syncer) processShastaProposal(
 	if meta.GetProposal().Id.Cmp(common.Big1) == 0 {
 		// For the first Shasta proposal, its parent block is the last Pacaya block.
 		lastPacayaBlockID := common.Big0
-		if s.rpc.ShastaClients.ForkHeight.Cmp(common.Big0) > 0 {
-			lastPacayaBlockID = new(big.Int).Sub(s.rpc.ShastaClients.ForkHeight, common.Big1)
+		if s.rpc.ShastaClients.ForkTime > 0 {
+			if id, err := s.rpc.LastPacayaBlockID(ctx); err == nil {
+				lastPacayaBlockID = id
+			} else {
+				log.Warn("Failed to fetch last Pacaya block ID", "err", err)
+			}
 		}
 		log.Info(
 			"First Shasta proposal, fetch last Pacaya block as parent",

@@ -127,7 +127,7 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
+	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkTime); err != nil {
 		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
 
@@ -136,7 +136,7 @@ func (p *Proposer) InitFromConfig(
 		p.rpc.L2.ChainID,
 		p.rpc.PacayaClients.ForkHeights.Ontake,
 		p.rpc.PacayaClients.ForkHeights.Pacaya,
-		p.rpc.PacayaClients.ForkHeights.Shasta,
+		p.rpc.ShastaClients.ForkTime,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
@@ -332,31 +332,43 @@ func (p *Proposer) ProposeTxLists(
 ) error {
 	var l2HeadNumber *big.Int
 	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
-	if err != nil {
-		log.Warn("Failed to get L2 head L1 origin", "error", err)
-		l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 head: %w", err)
-		}
-		l2HeadNumber = l2Head.Number
-	} else {
+	if err == nil {
 		l2HeadNumber = headL1Origin.BlockID
+	} else {
+		log.Warn("Failed to get L2 head L1 origin", "error", err)
 	}
-	if new(big.Int).Add(l2HeadNumber, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+
+	// Always read the latest L2 head for timestamp-based gating.
+	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, l2HeadNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
+	// Timestamp-based activation via chain config
+	shastaActive := p.chainConfig.IsShasta(nil, l2Head.Time)
+
+	if !shastaActive {
+		// Ensure we are not proposing too many tx lists before Shasta fork (time-based trimming).
+		if p.chainConfig.ShastaForkTime != nil && *p.chainConfig.ShastaForkTime > l2Head.Time {
+			const blockTimeSeconds = uint64(2)
+			remaining := (*p.chainConfig.ShastaForkTime - l2Head.Time) / blockTimeSeconds
+			if remaining < uint64(len(txLists)) {
+				log.Warn(
+					"Too many tx lists, trimming to fit before Shasta fork",
+					"txLists", len(txLists),
+					"max", remaining,
+				)
+				txLists = txLists[:remaining]
+				if len(txLists) == 0 {
+					return nil
+				}
+			}
+		}
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
-		}
-		// Ensure we are not proposing too many tx lists before Shasta fork.
-		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1) {
-			log.Warn(
-				"Too many tx lists, trimming to fit before Shasta fork",
-				"txLists", len(txLists),
-				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1,
-			)
-			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1]
 		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {

@@ -127,7 +127,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
-			s.RPCClient.PacayaClients.ForkHeights.Shasta,
+			s.RPCClient.ShastaClients.ForkTime,
 		)
 	)
 
