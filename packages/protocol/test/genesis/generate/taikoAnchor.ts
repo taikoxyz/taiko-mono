@@ -640,10 +640,7 @@ async function generateContractConfigs(
                     },
                     {
                         id: signalServiceReferencesMap._remoteSignalService.id,
-                        value: ethers.utils.hexZeroPad(
-                            remoteSignalService,
-                            32,
-                        ),
+                        value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
                 ]),
                 addressMap,
@@ -657,13 +654,6 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.SignalService.deployedBytecode.object,
             variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 1, // _FALSE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
             },
             slots: {
@@ -753,10 +743,7 @@ async function generateContractConfigs(
                     },
                     {
                         id: anchorForkRouterReferencesMap.oldFork.id,
-                        value: ethers.utils.hexZeroPad(
-                            pacayaTaikoAnchor,
-                            32,
-                        ),
+                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
                     },
                     {
                         id: anchorForkRouterReferencesMap.newFork.id,
@@ -1029,6 +1016,16 @@ function replaceImmutableValues(artifact: any, maps: Array<any>): any {
 
 function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
+
+    // If no offsets found, the immutable might be declared but not used in this artifact's bytecode
+    // This can happen with inherited immutables. Return artifact unchanged.
+    if (!offsets || !Array.isArray(offsets) || offsets.length === 0) {
+        console.log(
+            `No immutable reference offsets found for id ${id} in bytecode, skipping replacement`,
+        );
+        return artifact;
+    }
+
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
     if (value.startsWith("0x")) value = value.substring(2);
