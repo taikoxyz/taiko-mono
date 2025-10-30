@@ -291,8 +291,9 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
 		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
-		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
-			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
+		currentLastBlockID := proof.Opts.ShastaOptions().L2BlockNums[len(proof.Opts.ShastaOptions().L2BlockNums)-1]
+		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {
+			latestProvenBlockID = currentLastBlockID
 		}
 	}
 	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
