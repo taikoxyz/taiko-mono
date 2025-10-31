@@ -167,9 +167,7 @@ abstract contract CommonTest is Test, Script {
         SignalService impl = new SignalService(authorizedSyncer, remoteSignalService);
         SignalService proxy = SignalService(
             deploy({
-                name: "",
-                impl: address(impl),
-                data: abi.encodeCall(SignalService.init, (owner))
+                name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
             })
         );
         return registerSignalService(proxy);
@@ -187,9 +185,7 @@ abstract contract CommonTest is Test, Script {
             new SignalService_WithoutProofVerification(authorizedSyncer, remoteSignalService);
         SignalService proxy = SignalService(
             deploy({
-                name: "",
-                impl: address(impl),
-                data: abi.encodeCall(SignalService.init, (owner))
+                name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
             })
         );
         return registerSignalService(proxy);

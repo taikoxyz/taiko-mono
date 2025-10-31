@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
@@ -8,8 +10,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
@@ -63,8 +63,7 @@ contract AnchorTest is Test {
         BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 
-        SignalService anchorSignalServiceImpl =
-            new SignalService(address(anchor), address(0x1234));
+        SignalService anchorSignalServiceImpl = new SignalService(address(anchor), address(0x1234));
         checkpointStore.upgradeTo(address(anchorSignalServiceImpl));
 
         proposer = address(0xA11CE);

@@ -189,8 +189,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (!signalServiceExists) {
-            SignalService signalServiceImpl =
-                new SignalService(msg.sender, config.remoteSigSvc);
+            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
             signalService = deployProxy({
                 name: "signal_service",
                 impl: address(signalServiceImpl),

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
+import "src/shared/common/EssentialContract.sol";
 import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/shared/common/EssentialContract.sol";
 
 contract TestSignalService is CommonTest {
     address private constant AUTHORIZED_SYNCER =

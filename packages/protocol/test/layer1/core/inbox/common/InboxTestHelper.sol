@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
@@ -15,7 +16,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxTestHelper
 /// @notice Combined utility functions and setup logic for Inbox tests
@@ -355,9 +355,8 @@ abstract contract InboxTestHelper is CommonTest {
 
         assertEq(SignalService(signalService).owner(), owner, "signal service owner mismatch");
         vm.startPrank(owner);
-        SignalService(signalService).upgradeTo(
-            address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE))
-        );
+        SignalService(signalService)
+            .upgradeTo(address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE)));
         vm.stopPrank();
 
         _initializeContractName(inboxDeployer.getTestContractName());
@@ -386,8 +385,7 @@ abstract contract InboxTestHelper is CommonTest {
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
-                    address(signalServiceImpl),
-                    abi.encodeCall(SignalService.init, (owner))
+                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (owner))
                 )
             )
         );
