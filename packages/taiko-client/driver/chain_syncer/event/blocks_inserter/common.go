@@ -275,7 +275,6 @@ func isKnownCanonicalBatchShasta(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-	startBlockIdx uint16,
 	parent *types.Header,
 ) (*types.Header, error) {
 	if !metadata.IsShasta() {
@@ -302,7 +301,6 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				startBlockIdx,
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
@@ -577,7 +575,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
-	startBlockIdx uint16,
 	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
@@ -635,7 +632,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		sourcePayload.ProverAuthBytes,
 		blockInfo.BondInstructionsHash,
 		blockInfo.BondInstructions,
-		startBlockIdx+uint16(blockIndex),
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,
