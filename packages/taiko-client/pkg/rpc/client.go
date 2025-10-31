@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -295,6 +296,14 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
 	}
 
+	// If an environment override is provided, prefer it to keep tests/tools
+	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
+	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
+		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
+			c.ShastaClients.ForkTime = parsed
+		}
+	}
+
 	return nil
 }
 
@@ -311,11 +320,16 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		Shasta: protocolConfigs.ForkHeights.Shasta,
 	}
 
+	// ShastaClients may not yet be initialized here; guard the log value.
+	var shastaForkTime uint64
+	if c.ShastaClients != nil {
+		shastaForkTime = c.ShastaClients.ForkTime
+	}
 	log.Info(
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-		"shastaForkTime", c.ShastaClients.ForkTime,
+		"shastaForkTime", shastaForkTime,
 	)
 
 	return nil

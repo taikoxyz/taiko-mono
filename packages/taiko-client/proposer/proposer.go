@@ -344,13 +344,15 @@ func (p *Proposer) ProposeTxLists(
 		return fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
-	// Timestamp-based activation via chain config
-	shastaActive := p.chainConfig.IsShasta(nil, l2Head.Time)
+	// Timestamp-based activation via chain config. Consider the next block timestamp,
+	// since we're about to propose a new block.
+	const blockTimeSeconds = uint64(2)
+	nextTimestamp := l2Head.Time + blockTimeSeconds
+	shastaActive := p.chainConfig.IsShasta(nextTimestamp)
 
 	if !shastaActive {
 		// Ensure we are not proposing too many tx lists before Shasta fork (time-based trimming).
 		if p.chainConfig.ShastaForkTime != nil && *p.chainConfig.ShastaForkTime > l2Head.Time {
-			const blockTimeSeconds = uint64(2)
 			remaining := (*p.chainConfig.ShastaForkTime - l2Head.Time) / blockTimeSeconds
 			if remaining < uint64(len(txLists)) {
 				log.Warn(

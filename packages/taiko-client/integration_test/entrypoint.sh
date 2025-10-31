@@ -10,6 +10,13 @@ check_command "cast"
 check_command "forge"
 check_command "docker"
 
+# Ensure a Shasta fork activation time is set for taiko-geth and the client.
+# Default to current unix epoch + 20 seconds so the fork activates shortly after startup.
+if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ]; then
+  NOW=$(date -u +%s)
+  export TAIKO_INTERNAL_SHASTA_TIME=$((NOW + 40))
+fi
+
 # Start and stop docker-compose
 internal/docker/start.sh
 trap "internal/docker/stop.sh" EXIT INT KILL ERR

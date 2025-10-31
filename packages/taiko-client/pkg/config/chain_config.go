@@ -92,7 +92,7 @@ func (c *ChainConfig) IsPacaya(num *big.Int) bool {
 
 // IsShasta returns whether the given timestamp has reached the Shasta fork time.
 // Semantics: nil time = not enabled; 0 = activated at genesis.
-func (c *ChainConfig) IsShasta(_ *big.Int, timestamp uint64) bool {
+func (c *ChainConfig) IsShasta(timestamp uint64) bool {
 	if c.ShastaForkTime == nil {
 		return false
 	}

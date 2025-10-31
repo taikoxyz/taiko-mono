@@ -269,7 +269,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	for i := uint64(0); i < s.d.state.ShastaForkHeight.Uint64()-l2Head1.Number.Uint64()-2; i++ {
+	for i := uint64(0); i < s.d.state.ShastaForkTime-l2Head1.Time-2*2; i++ {
 		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 	testnetL1SnapshotID := s.SetL1Snapshot()
@@ -278,7 +278,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(s.d.state.ShastaForkHeight.Uint64()-2, l2Head2.Number.Uint64())
+	s.Equal(s.d.state.ShastaForkTime-2*3, l2Head2.Time)
 	s.InitShastaGenesisProposal()
 
 	var m metadata.TaikoProposalMetaData
@@ -289,7 +289,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.True(m.IsShasta())
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(s.d.state.ShastaForkHeight.Uint64()+3, l2Head3.Number.Uint64())
+	s.Equal(s.d.state.ShastaForkTime+2*3, l2Head3.Time)
 
 	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
 	s.Nil(err)

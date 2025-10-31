@@ -470,10 +470,14 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
-	// Determine if Shasta is active based on timestamp.
-	shastaActiveByTime := c.ShastaClients != nil && c.ShastaClients.ForkTime > 0 && l2Head.Time >= c.ShastaClients.ForkTime
+	// Determine if Shasta is active based on the timestamp of the block being built.
+	// Use currentTimestamp (the candidate block's timestamp), not the parent header time.
+	shastaActiveByTime := c.ShastaClients != nil && c.ShastaClients.ForkTime > 0 && currentTimestamp >= c.ShastaClients.ForkTime
 	if shastaActiveByTime {
-		baseFee := new(big.Int).SetUint64(params.ShastaInitialBaseFee)
+		// If parent header is unavailable (e.g., genesis context), return initial base fee.
+		if l2Head == nil {
+			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
+		}
 
 		// Handle initial ramp-up window differently depending on gating mode.
 		inInitialWindow := false
@@ -496,32 +500,35 @@ func (c *Client) CalculateBaseFee(
 			current = parent
 		}
 
-		if !inInitialWindow {
-			grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
-			}
-
-			// For timestamp-gated activation, pass a dummy ShastaBlock since we are already past the
-			// initial window; CalcEIP4396BaseFee only uses ShastaBlock to gate the initial-blocks branch.
-			config := &params.ChainConfig{ShastaBlock: common.Big0}
-			log.Info(
-				"Fetched params for Shasta base fee calculation",
-				"parentBlockNumber", l2Head.Number,
-				"parentGasLimit", l2Head.GasLimit,
-				"parentGasUsed", l2Head.GasUsed,
-				"parentBaseFee", l2Head.BaseFee,
-				"parentTime", l2Head.Time-grandParentBlock.Time,
-				"elasticityMultiplier", config.ElasticityMultiplier(),
-				"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
-				"shastaForkTime", c.ShastaClients.ForkTime,
-			)
-			baseFee = misc.CalcEIP4396BaseFee(
-				config,
-				l2Head,
-				l2Head.Time-grandParentBlock.Time,
-			)
+		// During the initial window, always return the initial base fee.
+		if inInitialWindow {
+			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
 		}
+
+		grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+		}
+
+		// For timestamp-gated activation, pass a dummy ShastaBlock since we are already past the
+		// initial window; CalcEIP4396BaseFee only uses ShastaBlock to gate the initial-blocks branch.
+		config := &params.ChainConfig{ShastaBlock: common.Big0}
+		log.Info(
+			"Fetched params for Shasta base fee calculation",
+			"parentBlockNumber", l2Head.Number,
+			"parentGasLimit", l2Head.GasLimit,
+			"parentGasUsed", l2Head.GasUsed,
+			"parentBaseFee", l2Head.BaseFee,
+			"parentTime", l2Head.Time-grandParentBlock.Time,
+			"elasticityMultiplier", config.ElasticityMultiplier(),
+			"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
+			"shastaForkTime", c.ShastaClients.ForkTime,
+		)
+		baseFee = misc.CalcEIP4396BaseFee(
+			config,
+			l2Head,
+			l2Head.Time-grandParentBlock.Time,
+		)
 
 		log.Info("Shasta base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number, "shastaByTime", shastaActiveByTime)
 		return baseFee, nil

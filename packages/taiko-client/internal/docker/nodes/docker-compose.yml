@@ -64,3 +64,5 @@ services:
       - --ws.api
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
+      - --taiko.internal-shasta-time
+      - "${TAIKO_INTERNAL_SHASTA_TIME}"
