@@ -83,14 +83,16 @@ library LibForcedInclusion {
         view
         returns (uint64 feeInGwei_)
     {
-        (uint48 head, uint48 tail) = ($.head, $.tail);
-        uint256 numPending = uint256(tail - head);
+            require(_feeDoubleThreshold > 0, InvalidFeeDoubleThreshold());
 
-        // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
-        // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
-        // but avoids floating point arithmetic
-        uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
-        feeInGwei_ = uint64(multipliedFee / _feeDoubleThreshold);
+            (uint48 head, uint48 tail) = ($.head, $.tail);
+            uint256 numPending = uint256(tail - head);
+
+            // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
+            // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
+            // but avoids floating point arithmetic
+            uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
+            feeInGwei_ = uint64((multipliedFee / _feeDoubleThreshold).min(type(uint64).max));
     }
 
     /// @dev See `IForcedInclusionStore.isOldestForcedInclusionDue`
@@ -144,4 +146,5 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     error InsufficientFee();
+    error InvalidFeeDoubleThreshold();
 }
