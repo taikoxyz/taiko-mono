@@ -27,8 +27,9 @@ contract TestInbox is Inbox {
                 ringBufferSize: 100,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                forcedInclusionDelay: 384, // 1 epoch
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
+                forcedInclusionFeeDoubleThreshold: 50,
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
