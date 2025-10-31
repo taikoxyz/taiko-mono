@@ -301,8 +301,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    /// @dev Delegates to LibForcedInclusion.getForcedInclusions which returns actual queue entries
-    ///      within the valid range [head, tail), or an empty array if out of range.
     function getForcedInclusions(
         uint48 _start,
         uint48 _maxCount
