@@ -22,10 +22,6 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Checks if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
-    function isOldestForcedInclusionDue() external view returns (bool);
-
     /// @notice Returns the current dynamic forced inclusion fee based on queue size
     /// The fee scales linearly with queue size using the formula:
     /// fee = baseFee × (1 + numPending / threshold)
