@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.0...docs-site-v1.32.1) (2025-10-30)
+
+
+### Chores
+
+* **whitepaper:** add v2.0.0 ([#20599](https://github.com/taikoxyz/taiko-mono/issues/20599)) ([ec933b4](https://github.com/taikoxyz/taiko-mono/commit/ec933b4732965cc48fc32c7620921c0f59608089))
+
 ## [1.32.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.2...docs-site-v1.32.0) (2025-10-29)
 
 

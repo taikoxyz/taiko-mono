@@ -37,6 +37,7 @@ alethia-reth-primitives = { workspace = true }
 alethia-reth-rpc = { workspace = true }
 bindings = { path = "../bindings" }
 event-scanner = { workspace = true }
+protocol = { path = "../protocol" }
 
 # types
 anyhow = { workspace = true }
