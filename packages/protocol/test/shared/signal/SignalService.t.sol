@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "../CommonTest.sol";
 import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
+import "src/shared/common/EssentialContract.sol";
 
 contract TestSignalService is CommonTest {
     address private constant AUTHORIZED_SYNCER =
@@ -45,7 +46,7 @@ contract TestSignalService is CommonTest {
     }
 
     function test_sendSignal_RevertWhen_SignalIsZero() public {
-        vm.expectRevert(ZERO_VALUE.selector);
+        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         signalService.sendSignal(bytes32(0));
     }
 

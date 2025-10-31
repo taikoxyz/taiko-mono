@@ -15,6 +15,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxTestHelper
 /// @notice Combined utility functions and setup logic for Inbox tests
@@ -351,6 +352,14 @@ abstract contract InboxTestHelper is CommonTest {
             address(proofVerifier),
             address(proposerChecker)
         );
+
+        assertEq(SignalService(signalService).owner(), owner, "signal service owner mismatch");
+        vm.startPrank(owner);
+        SignalService(signalService).upgradeTo(
+            address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE))
+        );
+        vm.stopPrank();
+
         _initializeContractName(inboxDeployer.getTestContractName());
 
         // Advance block to ensure we have block history
@@ -372,12 +381,16 @@ abstract contract InboxTestHelper is CommonTest {
         // Deploy PreconfWhitelist as the proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
 
-        uint256 deployerNonce = vm.getNonce(address(inboxDeployer));
-        // Two contracts (codec + implementation) are deployed before the proxy inside deployInbox
-        address predictedInboxProxy =
-            vm.computeCreateAddress(address(inboxDeployer), deployerNonce + 2);
-
-        signalService = new SignalService(predictedInboxProxy, MOCK_REMOTE_SIGNAL_SERVICE, owner);
+        SignalService signalServiceImpl =
+            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+        signalService = SignalService(
+            address(
+                new ERC1967Proxy(
+                    address(signalServiceImpl),
+                    abi.encodeCall(SignalService.init, (owner))
+                )
+            )
+        );
 
         checkpointManager = ICheckpointStore(address(signalService));
     }

@@ -4,16 +4,13 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/SignalService.sol";
 
 /// @notice Test helper that bypasses proof verification
-/// @dev Note: The new SignalService requires immutable constructor parameters.
+/// @dev Note: The new SignalService requires immutable constructor parameters and an explicit
+///      call to `init` after deployment to set the owner.
 ///      For tests that need a SignalService without proof verification,
 ///      this mock provides empty implementations of verification methods.
 contract SignalService_WithoutProofVerification is SignalService {
-    constructor(
-        address authorizedSyncer,
-        address remoteSignalService,
-        address owner
-    )
-        SignalService(authorizedSyncer, remoteSignalService, owner)
+    constructor(address authorizedSyncer, address remoteSignalService)
+        SignalService(authorizedSyncer, remoteSignalService)
     { }
 
     function proveSignalReceived(

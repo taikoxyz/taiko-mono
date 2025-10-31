@@ -713,12 +713,10 @@ contract TestERC721Vault is CommonTest {
     }
 
     function _deployMockSignalService(bytes32 label) private returns (SignalService) {
-        return registerSignalService(
-            new SignalService_WithoutProofVerification(
-                address(this),
-                address(uint160(uint256(keccak256(abi.encodePacked(label, "_REMOTE_SIGNAL"))))),
-                deployer
-            )
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256(abi.encodePacked(label, "_REMOTE_SIGNAL"))))),
+            deployer
         );
     }
 }

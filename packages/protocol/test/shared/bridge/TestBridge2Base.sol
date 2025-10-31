@@ -43,12 +43,10 @@ contract TestBridge2Base is CommonTest {
     }
 
     function _deployMockSignalService() private returns (SignalService) {
-        return registerSignalService(
-            new SignalService_WithoutProofVerification(
-                address(this),
-                address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_E")))),
-                deployer
-            )
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_E")))),
+            deployer
         );
     }
 }

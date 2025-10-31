@@ -189,13 +189,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (!signalServiceExists) {
-            uint256 nonceBefore = vm.getNonce(msg.sender);
-            // Upcoming creations before the proxy:
-            // 1) SignalService, 2) CodecOptimized, 3) DevnetInbox impl, 4) ERC1967Proxy
-            address predictedShastaInbox = vm.computeCreateAddress(msg.sender, nonceBefore + 3);
-            signalService = address(
-                new SignalService(predictedShastaInbox, config.remoteSigSvc, config.contractOwner)
-            );
+            SignalService signalServiceImpl =
+                new SignalService(msg.sender, config.remoteSigSvc);
+            signalService = deployProxy({
+                name: "signal_service",
+                impl: address(signalServiceImpl),
+                data: abi.encodeCall(SignalService.init, (msg.sender))
+            });
             register(sharedResolver, "signal_service", signalService);
             console2.log("SignalService deployed:", signalService);
         }
@@ -215,6 +215,18 @@ contract DeployProtocolOnL1 is DeployCapability {
             Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
+
+        if (!signalServiceExists) {
+            SignalService upgradedSignalServiceImpl =
+                new SignalService(shastaInbox, config.remoteSigSvc);
+            SignalService(signalService).upgradeTo(address(upgradedSignalServiceImpl));
+            console2.log("SignalService upgraded with Shasta inbox authorized syncer");
+
+            if (config.contractOwner != msg.sender) {
+                Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
+                console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
+            }
+        }
     }
 
     function _transferOwnerships(

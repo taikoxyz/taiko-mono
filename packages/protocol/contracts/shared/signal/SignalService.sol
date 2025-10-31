@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
-import "./PacayaSignalServiceStorage.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
+/// This contract will be initiallly deployed behind the fork router, which uses 151 slots [0..150].
+/// The storage layout of this contract is compatible and aligned with both the Pacaya version and the fork router.
+/// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalService {
+contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -41,6 +43,9 @@ contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalServi
     // Storage variables
     // ---------------------------------------------------------------
 
+    /// @dev Slots used by the Pacaya signal service.
+    uint256[3] private _slotsUsedByPacaya;
+
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps block number to checkpoint data
     mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
@@ -53,18 +58,22 @@ contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalServi
     uint256[44] private __gap;
 
     // ---------------------------------------------------------------
-    // Constructor
+    // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService, address _owner) {
+    constructor(address authorizedSyncer, address remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
-        require(_owner != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
+    }
 
-        _transferOwnership(_owner);
+    /// @notice Initializes the SignalService contract for upgradeable deployments.
+    /// @param _owner Address that will own the contract.
+    function init(address _owner) external initializer {
+        require(_owner != address(0), ZERO_ADDRESS());
+        __Essential_init(_owner);
     }
 
     // ---------------------------------------------------------------
@@ -265,5 +274,3 @@ error SS_INVALID_CHECKPOINT();
 error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
-error ZERO_ADDRESS();
-error ZERO_VALUE();

@@ -164,8 +164,35 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        return
-            registerSignalService(new SignalService(authorizedSyncer, remoteSignalService, owner));
+        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService);
+        SignalService proxy = SignalService(
+            deploy({
+                name: "",
+                impl: address(impl),
+                data: abi.encodeCall(SignalService.init, (owner))
+            })
+        );
+        return registerSignalService(proxy);
+    }
+
+    function deploySignalServiceWithoutProof(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address owner
+    )
+        internal
+        returns (SignalService)
+    {
+        SignalService_WithoutProofVerification impl =
+            new SignalService_WithoutProofVerification(authorizedSyncer, remoteSignalService);
+        SignalService proxy = SignalService(
+            deploy({
+                name: "",
+                impl: address(impl),
+                data: abi.encodeCall(SignalService.init, (owner))
+            })
+        );
+        return registerSignalService(proxy);
     }
 
     function deployTaikoToken() internal returns (TaikoToken) {

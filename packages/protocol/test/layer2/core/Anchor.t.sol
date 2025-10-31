@@ -8,6 +8,8 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
@@ -29,14 +31,25 @@ contract AnchorTest is Test {
     uint256 internal constant INITIAL_PROVER_BOND = 50 ether;
 
     function setUp() external {
-        uint256 nonce = vm.getNonce(address(this));
-        address predictedAnchor = vm.computeCreateAddress(address(this), nonce + 3);
-
         token = new TestERC20("Mock", "MOCK");
 
-        bondManager = new BondManager(predictedAnchor, address(token), 0, 0);
+        BondManager bondManagerImpl = new BondManager(address(this), address(token), 0, 0);
+        bondManager = BondManager(
+            address(
+                new ERC1967Proxy(
+                    address(bondManagerImpl), abi.encodeCall(BondManager.init, (address(this)))
+                )
+            )
+        );
 
-        checkpointStore = new SignalService(predictedAnchor, address(0x1234), address(this));
+        SignalService signalServiceImpl = new SignalService(address(this), address(0x1234));
+        checkpointStore = SignalService(
+            address(
+                new ERC1967Proxy(
+                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (address(this)))
+                )
+            )
+        );
 
         anchor = new Anchor(
             checkpointStore,
@@ -47,7 +60,12 @@ contract AnchorTest is Test {
             address(this)
         );
 
-        assertEq(address(anchor), predictedAnchor, "Anchor address mismatch");
+        BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
+        bondManager.upgradeTo(address(anchorBondManagerImpl));
+
+        SignalService anchorSignalServiceImpl =
+            new SignalService(address(anchor), address(0x1234));
+        checkpointStore.upgradeTo(address(anchorSignalServiceImpl));
 
         proposer = address(0xA11CE);
         proverKey = 0xBEEF;
