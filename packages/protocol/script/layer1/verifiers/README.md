@@ -98,20 +98,24 @@ You can specify multiple TCB files:
 Use `--env` to load predefined contract addresses:
 
 ### Development Networks
+
 - `dev-ontake` / `dev-ontake-sgxreth` - Dev network with sgx-reth
 - `dev-pacaya` / `dev-pacaya-sgxreth` - Dev network Pacaya fork with sgx-reth
 - `dev-sgxgeth` / `dev-pacaya-sgxgeth` - Dev network with sgx-geth
 
 ### Hekla Testnet
+
 - `hekla-ontake` / `hekla-ontake-sgxreth` - Hekla Ontake fork with sgx-reth (deprecated)
 - `hekla-pacaya` / `hekla-pacaya-sgxreth` - Hekla Pacaya fork with sgx-reth
 - `hekla-sgxgeth` / `hekla-pacaya-sgxgeth` - Hekla with sgx-geth
 
 ### Tolba Testnet
+
 - `tolba-ontake` / `tolba-pacaya` / `tolba-pacaya-sgxreth` - Tolba with sgx-reth
 - `tolba-sgxgeth` / `tolba-pacaya-sgxgeth` - Tolba with sgx-geth
 
 ### Mainnet
+
 - `mainnet` / `mainnet-ontake` / `mainnet-ontake-sgxreth` - Mainnet Ontake with sgx-reth
 - `mainnet-pacaya` / `mainnet-pacaya-sgxreth` - Mainnet Pacaya fork with sgx-reth
 - `mainnet-sgxgeth` / `mainnet-pacaya-sgxgeth` - Mainnet with sgx-geth
@@ -123,6 +127,7 @@ Example:
 ```
 
 This automatically sets:
+
 - `ATTESTATION_ADDRESS` - AutomataDcapV3Attestation contract
 - `SGX_VERIFIER_ADDRESS` - SgxVerifier contract
 - `PEM_CERTCHAIN_ADDRESS` - PEMCertChainLib library
@@ -230,6 +235,7 @@ forge script ... --gas-limit 10000000
 ### JSON Parsing Errors
 
 Ensure TCB and QE Identity JSON files:
+
 - Are in the correct format
 - Exist at the specified paths
 - Are readable by the Foundry VM
@@ -237,6 +243,7 @@ Ensure TCB and QE Identity JSON files:
 ### Permission Errors
 
 Ensure the private key corresponds to:
+
 - The owner of `AutomataDcapV3Attestation` (for TCB/QE/MR configuration)
 - Any account with ETH (for instance registration via `registerInstance`)
 
@@ -245,12 +252,14 @@ Ensure the private key corresponds to:
 The script interacts with these contract functions:
 
 ### AutomataDcapV3Attestation
+
 - `setMrEnclave(bytes32 _mrEnclave, bool _trusted)` - Configure MR_ENCLAVE
 - `setMrSigner(bytes32 _mrSigner, bool _trusted)` - Configure MR_SIGNER
 - `configureQeIdentityJson(EnclaveId memory qeIdentityInput)` - Configure QE Identity
 - `configureTcbInfoJson(string memory fmspc, TCBInfo memory tcbInfoInput)` - Configure TCB Info
 
 ### SgxVerifier
+
 - `registerInstance(ParsedV3QuoteStruct memory _attestation)` - Register SGX instance
 
 ## See Also

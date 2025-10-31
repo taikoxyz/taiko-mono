@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/signal/SignalService.sol";
 
+import "./MainnetSignalService_Layout.sol"; // DO NOT DELETE
+
 /// @title MainnetSignalService
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.

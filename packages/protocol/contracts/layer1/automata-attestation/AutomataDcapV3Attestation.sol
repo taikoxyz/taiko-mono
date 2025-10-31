@@ -15,6 +15,8 @@ import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibString } from "solady/src/utils/LibString.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
+import "./AutomataDcapV3Attestation_Layout.sol"; // DO NOT DELETE
+
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
