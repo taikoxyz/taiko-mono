@@ -1,69 +1,48 @@
 ---
 description: Review storage layout changes for upgrade compatibility issues
-argument-hint: [pr-number or base-branch] (defaults to main)
+argument-hint: [pr-number or base-branch] [--post-comment] (defaults to main)
 allowed-tools: Bash(gh *), Bash(git *), Bash(grep *)
 ---
 
 You are a senior smart contract security engineer reviewing storage layout changes. Your task is to think hard about potential storage layout collisions or corruptions in the changes.
 
+## Arguments
+
+Parse the arguments: `$if($ARGUMENTS)$ARGUMENTS$else main$endif`
+
+- If the argument is numeric, treat it as a PR number
+- If the argument is text, treat it as a branch name (defaults to "main")
+- If `--post-comment` flag is present, set a flag to post the review as a PR comment at the end
+- Note: `--post-comment` only works with PR numbers, not branch names
+
 ## Task
 
-Review all \*\_Layout.sol file changes and analyze for upgrade compatibility issues. This command works with both PR numbers and branch names.
+1. **Get the changed `*_Layout.sol` files:**
 
-### Steps
+   - If PR number: use `gh pr diff <number> --name-only | grep '_Layout\.sol$'`
+   - If branch name: use `git diff --name-only <branch>...HEAD | grep '_Layout\.sol$'`
 
-**First, detect if argument is a PR number (numeric) or branch name:**
+2. **For each changed layout file, get the diff:**
 
-```bash
-# Check if argument is numeric (PR number) or text (branch name)
-ARG="$if($ARGUMENTS)$ARGUMENTS$else main$endif"
-if [[ "$ARG" =~ ^[0-9]+$ ]]; then
-  echo "Mode: PR Review (PR #$ARG)"
-else
-  echo "Mode: Branch Comparison (comparing against: $ARG)"
-fi
+   - If PR number: use `gh pr diff <number> -- <file>`
+   - If branch name: use `git diff <branch>...HEAD -- <file>`
+
+3. **Analyze each diff for storage layout safety:**
+
+   - ❌ **CRITICAL**: Variable reordering, type changes (different size), removed variables, inheritance changes
+   - ⚠️ **WARNING**: Variables inserted mid-storage (check if contract is upgradeable)
+   - ✅ **SAFE**: Variables appended at end, storage gaps added/reduced properly
+
+4. **Check if contracts are upgradeable** (look for UUPS/Transparent Proxy patterns, `Initializable`, etc.)
+
+## Output Format
+
+Generate your review in this markdown format:
+
 ```
-
-**Then, based on the mode, get the changed files and diffs:**
-
-**If argument is a PR number (numeric):**
-
-```bash
-# Get PR details
-gh pr view "$ARG" --json baseRefName,headRefName,number,title
-
-# Get changed layout files
-gh pr diff "$ARG" --name-only | grep '_Layout\.sol$'
-
-# For each changed file, get the diff
-gh pr diff "$ARG" -- path/to/File_Layout.sol
-```
-
-**If argument is a branch name (text):**
-
-```bash
-# Get changed layout files
-git diff --name-only "${ARG}...HEAD" | grep '_Layout\.sol$'
-
-# For each changed file, get the diff
-git diff "${ARG}...HEAD" -- path/to/File_Layout.sol
-```
-
-**Analyze each diff for:**
-
-- ❌ **CRITICAL**: Variable reordering, type changes (different size), removed variables, inheritance changes
-- ⚠️ **WARNING**: Variables inserted mid-storage (verify if upgradeable)
-- ✅ **SAFE**: Variables appended at end, storage gaps added/reduced properly
-
-**Determine if contracts are upgradeable** (UUPS/Transparent Proxy patterns)
-
-### Output Format
-
-Output your review using this markdown structure:
-
 ## 🔍 Storage Layout Review
 
-**Target:** `$if($ARGUMENTS)$ARGUMENTS$else main$endif`
+**Target:** [PR #123 or branch:name]
 **Changed files:** X layout file(s)
 
 ### Summary
@@ -74,15 +53,15 @@ Output your review using this markdown structure:
 
 #### ❌ Critical Issues
 
-- `File.sol:45` - Variable removed (orphaned storage), variables reordered, inheritance order changed or anything that breaks the storage layout
+- `File.sol:45` - [Describe the issue and why it's critical]
 
 #### ⚠️ Warnings
 
-- `File.sol:123` - Variable types have been changed, but the size remains the same. Everything looks ok, but better to double check
+- `File.sol:123` - [Describe the warning]
 
 #### ✅ Safe Changes
 
-- `File.sol` - Appended new variable at end
+- `File.sol` - [Describe what changed safely]
 
 ### Recommendations
 
@@ -90,9 +69,16 @@ Output your review using this markdown structure:
 
 ---
 
-_🤖 Automated security review_
+_🤖 Automated security review by Claude Code_
 
 **Key Safety Rules:**
-
 - Safe: Append variables at end, add/reduce storage gaps
 - Dangerous: Reorder, remove, change types (different sizes), alter inheritance
+```
+
+## Final Step
+
+- Always output the review to the terminal
+- If `--post-comment` flag was set AND the target is a PR number:
+  - Post the review as a comment using: `echo "<review>" | gh pr comment <pr_number> --body-file -`
+  - Confirm with: "✅ Comment posted to PR #<number>"

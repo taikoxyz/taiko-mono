@@ -24,6 +24,6 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: /review-layout ${{ github.event.pull_request.number || inputs.pr_number }}
+          prompt: /review-layout ${{ github.event.pull_request.number || inputs.pr_number }} --post-comment
         env:
           GH_TOKEN: ${{ github.token }}
