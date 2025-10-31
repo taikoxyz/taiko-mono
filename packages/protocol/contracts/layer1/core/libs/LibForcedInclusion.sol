@@ -37,7 +37,6 @@ library LibForcedInclusion {
         uint48 lastProcessedAt;
     }
 
-
     // ---------------------------------------------------------------
     //  Public Functions
     // ---------------------------------------------------------------
@@ -54,7 +53,8 @@ library LibForcedInclusion {
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
-        uint64 requiredFeeInGwei = getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
+        uint64 requiredFeeInGwei =
+            getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
         uint256 requiredFee = requiredFeeInGwei * 1 gwei;
         require(msg.value >= requiredFee, InsufficientFee());
 
@@ -83,14 +83,14 @@ library LibForcedInclusion {
         view
         returns (uint64 feeInGwei_)
     {
-            (uint48 head, uint48 tail) = ($.head, $.tail);
-            uint256 numPending = uint256(tail - head);
+        (uint48 head, uint48 tail) = ($.head, $.tail);
+        uint256 numPending = uint256(tail - head);
 
-            // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
-            // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
-            // but avoids floating point arithmetic
-            uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
-            feeInGwei_ = uint64(multipliedFee / _feeDoubleThreshold);
+        // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
+        // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
+        // but avoids floating point arithmetic
+        uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
+        feeInGwei_ = uint64(multipliedFee / _feeDoubleThreshold);
     }
 
     /// @dev See `IForcedInclusionStore.isOldestForcedInclusionDue`

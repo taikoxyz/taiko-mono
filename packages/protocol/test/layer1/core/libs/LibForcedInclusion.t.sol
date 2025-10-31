@@ -25,7 +25,8 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         payable
         override
     {
-        uint256 refund = _store.saveForcedInclusion(_baseFeeInGwei, _feeDoubleThreshold, _blobReference);
+        uint256 refund =
+            _store.saveForcedInclusion(_baseFeeInGwei, _feeDoubleThreshold, _blobReference);
         if (refund > 0) {
             payable(msg.sender).transfer(refund);
         }
@@ -58,7 +59,10 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         return _store.isOldestForcedInclusionDue(_delay);
     }
 
-    function getCurrentForcedInclusionFee(uint64 baseFeeInGwei, uint64 feeDoubleThreshold)
+    function getCurrentForcedInclusionFee(
+        uint64 baseFeeInGwei,
+        uint64 feeDoubleThreshold
+    )
         external
         view
         returns (uint64)
@@ -186,7 +190,9 @@ contract LibForcedInclusionTest is Test {
 
     function test_getCurrentForcedInclusionFee_BaseFeeWhenEmpty() external {
         // Queue is empty (0 pending), should return base fee
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 100, "Empty queue should use base fee");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100), 100, "Empty queue should use base fee"
+        );
 
         // Add 50 items - fee should be 1.5x base (150)
         _setupBlobHashes(1);
@@ -197,7 +203,11 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 50 pending: fee = 100 * (1 + 50/100) = 100 * 1.5 = 150
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 150, "At 50 pending, fee should be 1.5x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            150,
+            "At 50 pending, fee should be 1.5x base"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_DoubleAtThreshold() external {
@@ -211,12 +221,14 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 100 pending: fee = 100 * (1 + 100/100) = 100 * 2 = 200
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 200, "At 100 pending, fee should be 2x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            200,
+            "At 100 pending, fee should be 2x base"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_TripleAtDoubleThreshold() external {
-        
-
         // Add 200 items - fee should triple at 200 pending (2x threshold)
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
@@ -227,12 +239,14 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 200 pending: fee = 100 * (1 + 200/100) = 100 * 3 = 300
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 300, "At 200 pending, fee should be 3x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            300,
+            "At 200 pending, fee should be 3x base"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_LinearScaling() external {
-        
-
         // Add 150 items (1.5x threshold)
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
@@ -243,12 +257,14 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 150 pending: fee = 100 * (1 + 150/100) = 100 * 2.5 = 250
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 250, "At 150 pending, fee should be 2.5x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            250,
+            "At 150 pending, fee should be 2.5x base"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_ThresholdBoundary() external {
-        
-
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
 
@@ -259,21 +275,33 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 99 pending: fee = 100 * (1 + 99/100) = 100 * 1.99 = 199
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 199, "At 99 pending, fee should be 1.99x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            199,
+            "At 99 pending, fee should be 1.99x base"
+        );
 
         // Add 1 more to reach exactly 100
         uint64 fee100 = harness.getCurrentForcedInclusionFee(100, 100);
         harness.save{ value: uint256(fee100) * 1 gwei }(100, 100, ref);
 
         // At 100 pending: fee = 100 * (1 + 100/100) = 100 * 2 = 200
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 200, "At 100 pending, fee should be exactly 2x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            200,
+            "At 100 pending, fee should be exactly 2x base"
+        );
 
         // Add 1 more to go past threshold
         uint64 fee101 = harness.getCurrentForcedInclusionFee(100, 100);
         harness.save{ value: uint256(fee101) * 1 gwei }(100, 100, ref);
 
         // At 101 pending: fee = 100 * (1 + 101/100) = 100 * 2.01 = 201
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 201, "At 101 pending, fee should be 2.01x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            201,
+            "At 101 pending, fee should be 2.01x base"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_FormulaAccuracy() external {
@@ -287,25 +315,29 @@ contract LibForcedInclusionTest is Test {
         uint256[10] memory testSizes = [uint256(0), 1, 25, 50, 75, 99, 100, 150, 200, 300];
         uint256[10] memory expectedFees = [
             uint256(10_000_000), // 0: 1.00x
-            10_100_000,          // 1: 1.01x
-            12_500_000,          // 25: 1.25x
-            15_000_000,          // 50: 1.50x
-            17_500_000,          // 75: 1.75x
-            19_900_000,          // 99: 1.99x
-            20_000_000,          // 100: 2.00x (DOUBLED)
-            25_000_000,          // 150: 2.50x
-            30_000_000,          // 200: 3.00x (TRIPLED)
-            40_000_000           // 300: 4.00x
+            10_100_000, // 1: 1.01x
+            12_500_000, // 25: 1.25x
+            15_000_000, // 50: 1.50x
+            17_500_000, // 75: 1.75x
+            19_900_000, // 99: 1.99x
+            20_000_000, // 100: 2.00x (DOUBLED)
+            25_000_000, // 150: 2.50x
+            30_000_000, // 200: 3.00x (TRIPLED)
+            40_000_000 // 300: 4.00x
         ];
 
         for (uint256 i = 0; i < testSizes.length; i++) {
             // Fill queue to target size
             while (harness.tail() - harness.head() < testSizes[i]) {
-                uint64 currentFee = harness.getCurrentForcedInclusionFee(baseFeeInGwei, feeDoubleThreshold);
-                harness.save{ value: uint256(currentFee) * 1 gwei }(baseFeeInGwei, feeDoubleThreshold, ref);
+                uint64 currentFee =
+                    harness.getCurrentForcedInclusionFee(baseFeeInGwei, feeDoubleThreshold);
+                harness.save{
+                    value: uint256(currentFee) * 1 gwei
+                }(baseFeeInGwei, feeDoubleThreshold, ref);
             }
 
-            uint64 actualFee = harness.getCurrentForcedInclusionFee(baseFeeInGwei, feeDoubleThreshold);
+            uint64 actualFee =
+                harness.getCurrentForcedInclusionFee(baseFeeInGwei, feeDoubleThreshold);
             assertEq(
                 actualFee,
                 expectedFees[i],
@@ -316,13 +348,14 @@ contract LibForcedInclusionTest is Test {
 
     function test_getCurrentForcedInclusionFee_DifferentThresholds() external {
         // Test with threshold = 50
-        
 
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
 
         // At 0 pending with threshold=50
-        assertEq(harness.getCurrentForcedInclusionFee(100, 50), 100, "Empty queue should be 1x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 50), 100, "Empty queue should be 1x base"
+        );
 
         // Fill to 50 pending
         for (uint256 i = 0; i < 50; i++) {
@@ -331,10 +364,11 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 50 pending: fee = 100 * (1 + 50/50) = 200 (should double at threshold)
-        assertEq(harness.getCurrentForcedInclusionFee(100, 50), 200, "At threshold=50, fee should double");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 50), 200, "At threshold=50, fee should double"
+        );
 
         // Test with threshold = 200
-        
 
         // Clear queue by setting new harness
         harness = new LibForcedInclusionHarness();
@@ -345,12 +379,14 @@ contract LibForcedInclusionTest is Test {
             uint64 currentFee = harness.getCurrentForcedInclusionFee(100, 200);
             harness.save{ value: uint256(currentFee) * 1 gwei }(100, 200, ref);
         }
-        assertEq(harness.getCurrentForcedInclusionFee(100, 200), 150, "At 100 pending with threshold=200, fee should be 1.5x");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 200),
+            150,
+            "At 100 pending with threshold=200, fee should be 1.5x"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_HighQueueSize() external {
-        
-
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
 
@@ -361,7 +397,11 @@ contract LibForcedInclusionTest is Test {
         }
 
         // At 500 pending: fee = 100 * (1 + 500/100) = 100 * 6 = 600 (6x base)
-        assertEq(harness.getCurrentForcedInclusionFee(100, 100), 600, "At 500 pending, fee should be 6x base");
+        assertEq(
+            harness.getCurrentForcedInclusionFee(100, 100),
+            600,
+            "At 500 pending, fee should be 6x base"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -371,8 +411,6 @@ contract LibForcedInclusionTest is Test {
     function test_isOldestForcedInclusionDue_ReturnsTrueAfterDelay() external {
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
-
-        
 
         harness.save{ value: 1 gwei }(1, 100, ref);
 
@@ -389,8 +427,6 @@ contract LibForcedInclusionTest is Test {
     function test_isOldestForcedInclusionDue_RespectsLastProcessedAt() external {
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
-
-        
 
         harness.save{ value: 1 gwei }(1, 100, ref);
 
