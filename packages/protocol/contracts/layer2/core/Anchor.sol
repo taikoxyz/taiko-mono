@@ -138,7 +138,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     BlockState internal _blockState;
 
     /// @notice Mapping from block number to block hash.
-    mapping(uint256 => bytes32) public blockHashes;
+    mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
 
     /// @notice Storage gap for upgrade safety.
     uint256[41] private __gap;
