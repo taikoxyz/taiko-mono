@@ -50,7 +50,7 @@ contract DevnetInbox is InboxOptimized2 {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 0,
+                forcedInclusionDelay: 384, // 1 epoch
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
