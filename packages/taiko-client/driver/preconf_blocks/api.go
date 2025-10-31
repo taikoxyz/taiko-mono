@@ -403,22 +403,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlockV2(c echo.Context) error {
 
 	ctx := context.Background()
 
-	// Check if preconfirmation is enabled.
-	if s.rpc.PacayaClients.TaikoWrapper != nil {
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
-		if preconfRouter == rpc.ZeroAddress {
-			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
-			return s.returnError(
-				c,
-				http.StatusInternalServerError,
-				errors.New("preconfirmation is disabled via taikoWrapper"),
-			)
-		}
-	}
-
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 	if err != nil {
@@ -492,6 +476,8 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlockV2(c echo.Context) error {
 			"hash", header.Hash().Hex(),
 			"currentEpoch", currentEpoch,
 		)
+		// Advance lookahead immediately on EOP to avoid waiting for periodic refresh.
+		s.AdvanceLookaheadOnEOP()
 	}
 
 	metrics.DriverL2PreconfBlocksFromRPCGauge.Inc()

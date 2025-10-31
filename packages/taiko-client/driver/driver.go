@@ -145,6 +145,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
+			d.PreconfSlasherAddress,
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
@@ -543,18 +544,23 @@ func (d *Driver) cacheLookaheadLoop() {
 		lastSlot = currentSlot
 		seenBlockNumber = latestSeenBlockNumber
 
-		currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
-		if err != nil {
-			log.Warn("Could not fetch current operator", "err", err)
-
-			return fmt.Errorf("failed to fetch current operator: %w", err)
-		}
-
-		nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
-		if err != nil {
-			log.Warn("Could not fetch next operator", "err", err)
-
-			return fmt.Errorf("failed to fetch next operator: %w", err)
+		var currOp, nextOp common.Address
+		// Whitelist mode: use on-chain whitelist if configured; else reconstruct from commitments
+		if d.rpc.PacayaClients != nil && d.rpc.PacayaClients.PreconfWhitelist != nil {
+			var err error
+			currOp, err = d.rpc.GetPreconfWhiteListOperator(nil)
+			if err != nil {
+				log.Warn("Could not fetch current operator", "err", err)
+				return fmt.Errorf("failed to fetch current operator: %w", err)
+			}
+			nextOp, err = d.rpc.GetNextPreconfWhiteListOperator(nil)
+			if err != nil {
+				log.Warn("Could not fetch next operator", "err", err)
+				return fmt.Errorf("failed to fetch next operator: %w", err)
+			}
+		} else {
+			// Permissionless mode reconstruction
+			currOp, nextOp = d.preconfBlockServer.PermissionlessOperators()
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()

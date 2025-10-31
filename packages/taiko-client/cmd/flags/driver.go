@@ -65,6 +65,13 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
 	}
+	PreconfSlasherAddress = &cli.StringFlag{
+		Name:     "preconfirmation.slasher",
+		Usage:    "Preconfirmation slasher contract L1 `address`",
+		Required: false,
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONFIRMATION_SLASHER"},
+	}
 	DriverTaikoWrapperAddress = &cli.StringFlag{
 		Name:     "taikoWrapper",
 		Usage:    "TaikoWrapper contract `address`",
@@ -97,6 +104,7 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfWhitelistAddress,
+	PreconfSlasherAddress,
 	DriverTaikoWrapperAddress,
 	PreconfTransitionTimestamp,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

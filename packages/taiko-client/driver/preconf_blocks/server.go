@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -29,6 +30,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
+
+	"bytes"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -88,6 +91,8 @@ type PreconfBlockAPIServer struct {
 	// Lookahead information for the current and next operator
 	lookahead      *Lookahead
 	lookaheadMutex sync.Mutex
+	// Permissionless mode committer cache: epoch -> committer address
+	committersByEpoch map[uint64]common.Address
 	// Cache
 	envelopesCache               *envelopeQueue
 	blockRequestsCache           *lru.Cache[common.Hash, struct{}]
@@ -95,6 +100,8 @@ type PreconfBlockAPIServer struct {
 	responseSeenCache            *lru.Cache[common.Hash, time.Time]
 	// ConfigureRoutes
 	preconfOperatorAddress common.Address
+	// Slasher contract address for verifying SignedCommitment.SlasherAddress
+	slasherAddress common.Address
 	// Last seen proposal
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	latestSeenProposal   *encoding.LastSeenProposal
@@ -131,6 +138,9 @@ func (m *shastaMetaFromIndexer) GetDerivation() shastaBindings.IInboxDerivation 
 	return *m.p.Derivation
 }
 func (m *shastaMetaFromIndexer) GetCoreState() shastaBindings.IInboxCoreState { return *m.p.CoreState }
+func (m *shastaMetaFromIndexer) GetBondInstructions() []shastaBindings.LibBondsBondInstruction {
+	return m.p.BondInstructions
+}
 func (m *shastaMetaFromIndexer) GetBlobHashes(i int) []common.Hash {
 	if i >= len(m.p.Derivation.Sources) {
 		return nil
@@ -157,6 +167,7 @@ func New(
 	cors string,
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
+	slasherAddress common.Address,
 	taikoAnchorAddress common.Address,
 	pacayaChainSyncer preconfBlockChainSyncer,
 	shastaChainSyncer preconfBlockChainSyncer,
@@ -215,7 +226,9 @@ func New(
 		shastaIndexer:                 shastaIndexer,
 		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
+		slasherAddress:                slasherAddress,
 		lookahead:                     &Lookahead{},
+		committersByEpoch:             make(map[uint64]common.Address),
 		mutex:                         sync.Mutex{},
 		blockRequestsCache:            blockRequestsCache,
 		sequencingEndedForEpochCache:  endOfSequencingCache,
@@ -291,8 +304,8 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 		return nil
 	}
 
-	// Validate slasher address matches expected committer for current window
-	expected := s.CurrentPreconferCommitter()
+	// Validate slasher address matches configured slasher contract address
+	expected := s.slasherAddress
 	if expected != (common.Address{}) && sc.Commitment.SlasherAddress != expected {
 		log.Warn(
 			"Reject preconfirmation: slasher mismatch",
@@ -304,6 +317,22 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 	}
 
 	pc := sc.Commitment.Preconf
+	// Derive committer from signature and cache by epoch
+	committer, err := s.recoverCommitter(sc)
+	if err == nil && s.rpc.L1Beacon != nil && pc.SubmissionWindowEnd != nil {
+		if epoch, err := s.rpc.L1Beacon.EpochOfTimestamp(pc.SubmissionWindowEnd.Uint64()); err == nil {
+			s.lookaheadMutex.Lock()
+			s.committersByEpoch[epoch] = committer
+			// Update current/next operators opportunistically
+			currEpoch := s.rpc.L1Beacon.CurrentEpoch()
+			if epoch == currEpoch {
+				s.lookahead.CurrOperator = committer
+			} else if epoch == currEpoch+1 {
+				s.lookahead.NextOperator = committer
+			}
+			s.lookaheadMutex.Unlock()
+		}
+	}
 	log.Info(
 		"📢 Preconfirmation commitment received",
 		"peer", from,
@@ -386,7 +415,7 @@ func (s *PreconfBlockAPIServer) OnUnsafePreconfirmationCommitment(
 		log.Warn("Shasta metadata validation failed", "err", err)
 		return nil
 	}
-	if err := shastaManifest.AssembleBondInstructions(ctx, last.Proposal.Id, s.shastaIndexer, sp, last.CoreState.BondInstructionsHash, parentHeader.Number.Uint64(), derivationIdx, s.rpc); err != nil {
+	if err := shastaManifest.AssembleBondInstructions(ctx, last.Proposal.Id, s.shastaIndexer, sp); err != nil {
 		log.Warn("Shasta bond instruction assembly failed", "err", err)
 		return nil
 	}
@@ -1299,12 +1328,71 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 	s.lookahead = lookahead
 }
 
+// AdvanceLookaheadOnEOP advances the lookahead immediately upon receiving an
+// End-Of-Sequencing marker, so the next operator becomes current without
+// waiting for the periodic driver refresh.
+func (s *PreconfBlockAPIServer) AdvanceLookaheadOnEOP() {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	if s.lookahead == nil {
+		return
+	}
+
+	// Promote next -> current ranges/operators.
+	s.lookahead.CurrOperator = s.lookahead.NextOperator
+	s.lookahead.CurrRanges = s.lookahead.NextRanges
+	s.lookahead.UpdatedAt = time.Now().UTC()
+}
+
 // GetLookahead updates the lookahead information.
 func (s *PreconfBlockAPIServer) GetLookahead() *Lookahead {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
 	return s.lookahead
+}
+
+// recoverCommitter derives the ECDSA address that signed the given SignedCommitment.
+// It encodes the commitment payload (without signature) with SSZ and uses the
+// standard block signing domain with the L2 chain ID.
+func (s *PreconfBlockAPIServer) recoverCommitter(sc *p2p.SignedCommitment) (common.Address, error) {
+	var zero common.Address
+	var buf bytes.Buffer
+	if _, err := sc.Commitment.MarshalSSZ(&buf); err != nil {
+		return zero, err
+	}
+	cfg := &rollup.Config{L2ChainID: s.rpc.L2.ChainID}
+	signingHash, err := p2p.BlockSigningHash(cfg, buf.Bytes())
+	if err != nil {
+		return zero, err
+	}
+	pub, err := crypto.SigToPub(signingHash[:], sc.Signature)
+	if err != nil {
+		return zero, err
+	}
+	return crypto.PubkeyToAddress(*pub), nil
+}
+
+// PermissionlessOperators returns the best-known operators in permissionless mode
+// based on observed commitments: current epoch committer and next epoch committer.
+func (s *PreconfBlockAPIServer) PermissionlessOperators() (common.Address, common.Address) {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+	if s.rpc.L1Beacon == nil {
+		return s.lookahead.CurrOperator, s.lookahead.NextOperator
+	}
+	currEpoch := s.rpc.L1Beacon.CurrentEpoch()
+	curr := s.committersByEpoch[currEpoch]
+	next := s.committersByEpoch[currEpoch+1]
+	// Fallback to existing lookahead fields if cache is empty
+	if curr == (common.Address{}) {
+		curr = s.lookahead.CurrOperator
+	}
+	if next == (common.Address{}) {
+		next = s.lookahead.NextOperator
+	}
+	return curr, next
 }
 
 // CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).

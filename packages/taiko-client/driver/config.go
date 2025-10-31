@@ -34,8 +34,8 @@ type Config struct {
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 	PreconfOperatorAddress        common.Address
-	// Unix timestamp when commitment-based preconfirmation logic activates
-	PreconfTransitionTimestamp uint64
+	PreconfSlasherAddress         common.Address
+	PreconfTransitionTimestamp    uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -143,6 +143,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
 		PreconfOperatorAddress:        preconfOperatorAddress,
+		PreconfSlasherAddress:         common.HexToAddress(c.String(flags.PreconfSlasherAddress.Name)),
 		PreconfTransitionTimestamp:    c.Uint64(flags.PreconfTransitionTimestamp.Name),
 	}, nil
 }
