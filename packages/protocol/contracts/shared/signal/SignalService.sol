@@ -132,6 +132,7 @@ contract SignalService is PacayaSignalServiceStorage, Ownable2Step, ISignalServi
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
