@@ -125,7 +125,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 			BondInstructions:     bondInstructions,
 		},
 		shastaBindings.AnchorBlockParams{
-			BlockIndex:        0,
 			AnchorBlockNumber: anchorBlockNumber,
 			AnchorBlockHash:   anchorBlockHash,
 			AnchorStateRoot:   anchorStateRoot,
