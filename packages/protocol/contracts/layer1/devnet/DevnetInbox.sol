@@ -5,6 +5,8 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
+import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
+
 /// @title DevnetInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
