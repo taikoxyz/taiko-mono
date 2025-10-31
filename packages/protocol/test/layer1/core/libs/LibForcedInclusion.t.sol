@@ -73,7 +73,10 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
     }
 
     function isDue(uint16 _delay) external view returns (bool) {
-        return _store.isOldestForcedInclusionDue(_store.head, _store.tail, _store.lastProcessedAt, _delay);
+        return
+            _store.isOldestForcedInclusionDue(
+                _store.head, _store.tail, _store.lastProcessedAt, _delay
+            );
     }
 
     function getCurrentForcedInclusionFee(
