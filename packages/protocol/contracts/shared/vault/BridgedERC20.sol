@@ -8,6 +8,8 @@ import "./LibBridgedToken.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
+import "./BridgedERC20_Layout.sol"; // DO NOT DELETE
+
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
