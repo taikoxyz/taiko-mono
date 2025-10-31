@@ -534,7 +534,12 @@ where
             .get_proposal_by_id(U256::from(target_id))
             .ok_or(DerivationError::IncompleteMetadata(target_id))?;
 
-        let next_hash = B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
+        let target_hash =
+            B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
+
+        if state.bond_instructions_hash == target_hash {
+            return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
+        }
 
         let instructions = target_payload
             .bond_instructions
@@ -547,7 +552,7 @@ where
             })
             .collect();
 
-        Ok(BondInstructionData { instructions, hash: next_hash })
+        Ok(BondInstructionData { instructions, hash: target_hash })
     }
 
     // Build the anchor transaction for the given block.
