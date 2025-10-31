@@ -13,7 +13,7 @@
   import { type NFT, TokenType } from '$libs/token';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
-  import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
+  import { getBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { getLogger } from '$libs/util/logger';
   // import type { NFT } from '$libs/token';
   import { noop } from '$libs/util/noop';
@@ -50,7 +50,7 @@
   let claimedAt = '';
 
   const getInitiatedDate = async () => {
-    const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
+    const blockTimestamp = await getBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
@@ -59,7 +59,7 @@
     try {
       const blockNumber = await getBlockFromTxHash(bridgeTx.destTxHash, bridgeTx.destChainId);
       log('blockNumber', blockNumber);
-      const blockTimestamp = await geBlockTimestamp(bridgeTx.destChainId, blockNumber);
+      const blockTimestamp = await getBlockTimestamp(bridgeTx.destChainId, blockNumber);
       log('blockTimestamp', blockTimestamp);
       claimedAt = formatTimestamp(Number(blockTimestamp));
       log('claimedAt', claimedAt);
