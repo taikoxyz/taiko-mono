@@ -349,7 +349,7 @@ contract LibForcedInclusionTest is Test {
     }
 
     function test_getCurrentForcedInclusionFee_HighQueueSize() external {
-        
+
 
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
@@ -362,6 +362,21 @@ contract LibForcedInclusionTest is Test {
 
         // At 500 pending: fee = 100 * (1 + 500/100) = 100 * 6 = 600 (6x base)
         assertEq(harness.getCurrentForcedInclusionFee(100, 100), 600, "At 500 pending, fee should be 6x base");
+    }
+
+    function test_getCurrentForcedInclusionFee_RevertWhen_ZeroThreshold() external {
+        // Should revert when _feeDoubleThreshold is 0 (division by zero protection)
+        vm.expectRevert(LibForcedInclusion.InvalidFeeDoubleThreshold.selector);
+        harness.getCurrentForcedInclusionFee(100, 0);
+    }
+
+    function test_saveForcedInclusion_RevertWhen_ZeroThreshold() external {
+        _setupBlobHashes(1);
+        LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);
+
+        // Should revert when trying to save with zero threshold
+        vm.expectRevert(LibForcedInclusion.InvalidFeeDoubleThreshold.selector);
+        harness.save{ value: 100 gwei }(100, 0, ref);
     }
 
     // ---------------------------------------------------------------
