@@ -63,7 +63,13 @@ library LibForcedInclusion {
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
     }
 
-    /// @dev Returns `_maxCount` forced inclusions starting at `_start`.
+    /// @notice Returns forced inclusions stored starting from a given index.
+    /// @dev Returns an empty array if `_start` is outside the valid range [head, tail) or if
+    ///      `_maxCount` is zero. Otherwise returns actual stored entries from the queue.
+    /// @param _start The queue index to start reading from (must be in range [head, tail)).
+    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty array.
+    /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
+    ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(
         Storage storage $,
         uint48 _start,
@@ -74,16 +80,19 @@ library LibForcedInclusion {
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
-            if (_maxCount == 0) {
-                return inclusions_;
-            }
+        (uint48 head, uint48 tail) = ($.head, $.tail);
 
-            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](_maxCount);
+        if (_start < head || _start >= tail || _maxCount == 0) {
+            return new IForcedInclusionStore.ForcedInclusion[](0);
+        }
 
-            for (uint256 i; i < _maxCount; ++i) {
-                uint256 idx = uint256(_start) + i;
-                inclusions_[i] = $.queue[idx];
-            }
+        uint256 count = uint256(tail - _start).min(_maxCount);
+
+        inclusions_ = new IForcedInclusionStore.ForcedInclusion[](count);
+
+        for (uint256 i; i < count; ++i) {
+            inclusions_[i] = $.queue[i +_start];
+        }
         }
     }
 
@@ -97,9 +106,7 @@ library LibForcedInclusion {
         view
         returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
     {
-        head_ = $.head;
-        tail_ = $.tail;
-        lastProcessedAt_ = $.lastProcessedAt;
+        (head_, tail_, lastProcessedAt_) = ($.head, $.tail, $.lastProcessedAt);
     }
 
     // ---------------------------------------------------------------
