@@ -126,7 +126,7 @@ func InitFromConfig(
 	if p.shastaIndexer, err = shastaIndexer.New(
 		p.ctx,
 		p.rpc,
-		p.rpc.ShastaClients.ForkHeight,
+		p.rpc.ShastaClients.ForkTime,
 	); err != nil {
 		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}

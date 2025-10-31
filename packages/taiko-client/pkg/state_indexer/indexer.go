@@ -56,7 +56,7 @@ type Indexer struct {
 	rpc                     *rpc.Client
 	proposals               cmap.ConcurrentMap[uint64, *ProposalPayload]
 	transitionRecords       cmap.ConcurrentMap[uint64, *TransitionPayload]
-	shastaForkHeight        *big.Int
+	shastaForkTime          uint64
 	bufferSize              uint64
 	finalizationGracePeriod uint64
 
@@ -69,7 +69,7 @@ type Indexer struct {
 func New(
 	ctx context.Context,
 	rpc *rpc.Client,
-	shastaForkHeight *big.Int,
+	shastaForkTime uint64,
 ) (*Indexer, error) {
 	config, err := rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -80,7 +80,7 @@ func New(
 		rpc:                     rpc,
 		bufferSize:              config.RingBufferSize.Uint64(),
 		finalizationGracePeriod: config.FinalizationGracePeriod.Uint64(),
-		shastaForkHeight:        shastaForkHeight,
+		shastaForkTime:          shastaForkTime,
 		proposals: cmap.NewWithCustomShardingFunction[
 			uint64, *ProposalPayload,
 		](func(key uint64) uint32 { return uint32(key) }),
@@ -185,7 +185,7 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			break
 		}
 		if p, ok := s.proposals.Get(0); ok && p.Proposal.Id.Cmp(common.Big0) == 0 {
-			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkHeight", s.shastaForkHeight)
+			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkTime", s.shastaForkTime)
 			break
 		}
 

@@ -1494,7 +1494,7 @@ func (s *PreconfBlockAPIServer) splitEnvelopesByFork(
 	shasta = []*preconf.Envelope{}
 
 	for _, envelope := range envelopes {
-		if uint64(envelope.Payload.BlockNumber) < s.rpc.ShastaClients.ForkHeight.Uint64() {
+		if s.rpc.ShastaClients.ForkTime > 0 && uint64(envelope.Payload.Timestamp) < s.rpc.ShastaClients.ForkTime {
 			pacaya = append(pacaya, envelope)
 			continue
 		}

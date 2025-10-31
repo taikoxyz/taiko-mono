@@ -28,7 +28,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
-			s.RPCClient.PacayaClients.ForkHeights.Shasta,
+			s.RPCClient.ShastaClients.ForkTime,
 		)
 	)
 
