@@ -161,61 +161,102 @@ contract LibForcedInclusionTest is Test {
         assertEq(inclusions[0].blobSlice.blobHashes[0], hashes[1], "Hash should match queue entry");
     }
 
-    function test_getForcedInclusions_ReturnsDefaultForUnavailableSlots() external {
+    function test_getForcedInclusions_CapsAtAvailableEntries() external {
         bytes32[] memory hashes = _setupBlobHashes(2);
         harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
         harness.save{ value: 2 gwei }(2, _makeRef(1, 1, 0));
 
         IForcedInclusionStore.ForcedInclusion[] memory inclusions =
             harness.getForcedInclusions(1, 5);
-        assertEq(inclusions.length, 5, "Should return the requested number of entries");
+        assertEq(inclusions.length, 1, "Should return only available entries (tail - start = 1)");
         assertEq(inclusions[0].feeInGwei, 2, "First returned entry should match index 1");
         assertEq(
             inclusions[0].blobSlice.blobHashes[0], hashes[1], "Expected blob hash for stored entry"
         );
-        for (uint256 i = 1; i < inclusions.length; ++i) {
-            assertEq(inclusions[i].feeInGwei, 0, "Out-of-range slots should return default fee");
-            assertEq(
-                inclusions[i].blobSlice.timestamp,
-                0,
-                "Out-of-range slots should return default slice"
-            );
-        }
     }
 
-    function test_getForcedInclusions_DefaultsWhenStartEqualsTail() external {
+    function test_getForcedInclusions_EmptyWhenStartEqualsTail() external {
         _setupBlobHashes(1);
         harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
 
         IForcedInclusionStore.ForcedInclusion[] memory inclusions =
             harness.getForcedInclusions(1, 2);
-        assertEq(inclusions.length, 2, "Should return the requested number of default entries");
-        assertEq(inclusions[0].feeInGwei, 0, "First default entry should have zero fee");
-        assertEq(
-            inclusions[1].blobSlice.timestamp, 0, "Second default entry should have zero timestamp"
-        );
+        assertEq(inclusions.length, 0, "Should return empty array when start == tail");
     }
 
-    function test_getForcedInclusions_ReturnsDataForIndexBeforeHead() external {
+    function test_getForcedInclusions_EmptyWhenStartBeforeHead() external {
         _setupBlobHashes(1);
         harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
         harness.setHead(1);
 
         IForcedInclusionStore.ForcedInclusion[] memory inclusions =
             harness.getForcedInclusions(0, 1);
-        assertEq(inclusions.length, 1, "Should return requested number of entries");
-        assertEq(inclusions[0].feeInGwei, 1, "Should still return stored entry for older index");
+        assertEq(inclusions.length, 0, "Should return empty array when start < head");
     }
 
-    function test_getForcedInclusions_DefaultWhenStartAfterTail() external {
+    function test_getForcedInclusions_EmptyWhenStartAfterOrEqualTail() external {
         _setupBlobHashes(1);
         harness.save{ value: 1 gwei }(1, _makeRef(0, 1, 0));
 
         IForcedInclusionStore.ForcedInclusion[] memory inclusions =
             harness.getForcedInclusions(2, 2);
-        assertEq(inclusions.length, 2, "Should return requested number of entries");
-        assertEq(inclusions[0].feeInGwei, 0, "Should fallback to default for non-existent entries");
-        assertEq(inclusions[1].blobSlice.timestamp, 0, "Should fallback to default blob slice");
+        assertEq(inclusions.length, 0, "Should return empty array when start >= tail");
+    }
+
+    function test_getForcedInclusions_ReturnsAllEntriesFromHeadToTail() external {
+        bytes32[] memory hashes = _setupBlobHashes(5);
+        for (uint256 i; i < 5; ++i) {
+            harness.save{ value: (i + 1) * 1 gwei }(uint64(i + 1), _makeRef(uint16(i), 1, 0));
+        }
+
+        // Move head forward to simulate processed entries
+        harness.setHead(2);
+
+        // Request all remaining entries (indices 2, 3, 4)
+        IForcedInclusionStore.ForcedInclusion[] memory inclusions =
+            harness.getForcedInclusions(2, 10);
+        assertEq(inclusions.length, 3, "Should return entries from head to tail");
+
+        for (uint256 i; i < inclusions.length; ++i) {
+            assertEq(inclusions[i].feeInGwei, uint64(i + 3), "Fee should match queue position");
+            assertEq(
+                inclusions[i].blobSlice.blobHashes[0],
+                hashes[i + 2],
+                "Hash should match queue position"
+            );
+        }
+    }
+
+    function test_getForcedInclusions_PartialRangeWithinQueue() external {
+        bytes32[] memory hashes = _setupBlobHashes(5);
+        for (uint256 i; i < 5; ++i) {
+            harness.save{ value: (i + 1) * 1 gwei }(uint64(i + 1), _makeRef(uint16(i), 1, 0));
+        }
+
+        // Request a subset in the middle of the queue
+        IForcedInclusionStore.ForcedInclusion[] memory inclusions =
+            harness.getForcedInclusions(2, 2);
+        assertEq(inclusions.length, 2, "Should return exactly requested count when available");
+        assertEq(inclusions[0].feeInGwei, 3, "First entry should be at index 2");
+        assertEq(inclusions[1].feeInGwei, 4, "Second entry should be at index 3");
+        assertEq(inclusions[0].blobSlice.blobHashes[0], hashes[2], "First hash should match");
+        assertEq(inclusions[1].blobSlice.blobHashes[0], hashes[3], "Second hash should match");
+    }
+
+    function test_getForcedInclusions_EdgeCaseStartAtHead() external {
+        bytes32[] memory hashes = _setupBlobHashes(3);
+        for (uint256 i; i < 3; ++i) {
+            harness.save{ value: (i + 1) * 1 gwei }(uint64(i + 1), _makeRef(uint16(i), 1, 0));
+        }
+
+        harness.setHead(1);
+
+        // Start reading from current head
+        IForcedInclusionStore.ForcedInclusion[] memory inclusions =
+            harness.getForcedInclusions(1, 10);
+        assertEq(inclusions.length, 2, "Should return entries from head to tail");
+        assertEq(inclusions[0].feeInGwei, 2, "First entry should be at head position");
+        assertEq(inclusions[0].blobSlice.blobHashes[0], hashes[1], "Hash should match head entry");
     }
 
     function test_getForcedInclusionState_ReturnsPointers() external {

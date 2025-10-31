@@ -23,13 +23,12 @@ interface IForcedInclusionStore {
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
     /// @notice Returns forced inclusions stored starting from a given index.
-    /// @dev This function does not validate whether the requested indices have been processed or
-    ///       even exist. Callers must inspect the returned data to determine if an entry is valid.
-    /// @param _start The queue index to start reading from.
-    /// @param _maxCount The number of inclusions to return. Passing zero returns an empty array.
-    /// @return inclusions_ Forced inclusions starting from `_start`. The array length always equals
-    ///         `_maxCount` (unless `_maxCount` is zero). Entries without stored data return default
-    ///         values (zero fee and an empty blob slice).
+    /// @dev Returns an empty array if `_start` is outside the valid range [head, tail) or if
+    ///      `_maxCount` is zero. Otherwise returns actual stored entries from the queue.
+    /// @param _start The queue index to start reading from (must be in range [head, tail)).
+    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty array.
+    /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
+    ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(
         uint48 _start,
         uint48 _maxCount
