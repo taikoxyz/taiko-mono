@@ -17,6 +17,8 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
+import "./Inbox_Layout.sol"; // DO NOT DELETE
+
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based rollup architecture.
@@ -86,8 +88,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
 
-    /// @notice The fee for forced inclusions in Gwei.
+    /// @notice The base fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
+
+    /// @notice Queue size at which the fee doubles. See IInbox.Config for formula details.
+    uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
 
     /// @notice The minimum delay between checkpoints in seconds.
     uint16 internal immutable _minCheckpointDelay;
@@ -158,6 +163,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
         _compositeKeyVersion = _config.compositeKeyVersion;
@@ -209,7 +215,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+            (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
+                _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
@@ -255,7 +262,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, coreState, bondInstructions);
         }
     }
 
@@ -290,8 +297,23 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
+        uint256 refund = LibForcedInclusion.saveForcedInclusion(
+            _forcedInclusionStorage,
+            _forcedInclusionFeeInGwei,
+            _forcedInclusionFeeDoubleThreshold,
+            _blobReference
+        );
+
+        // Refund excess payment to the sender
+        if (refund > 0) {
+            msg.sender.sendEtherAndVerify(refund);
+        }
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
+        return LibForcedInclusion.getCurrentForcedInclusionFee(
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
         );
     }
 
@@ -300,10 +322,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, _forcedInclusionDelay
-        );
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+    {
+        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getForcedInclusionState()
+        external
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+    {
+        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -348,6 +384,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             compositeKeyVersion: _compositeKeyVersion
@@ -383,7 +420,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _setProposalHash(0, _hashProposal(proposal));
 
-        _emitProposedEvent(proposal, derivation, coreState);
+        _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
 
     /// @dev Builds and persists transition records for batch proof submissions
@@ -866,12 +903,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _emitProposedEvent(
         Proposal memory _proposal,
         Derivation memory _derivation,
-        CoreState memory _coreState
+        CoreState memory _coreState,
+        LibBonds.BondInstruction[] memory _bondInstructions
     )
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, derivation: _derivation, coreState: _coreState
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState,
+            bondInstructions: _bondInstructions
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -881,8 +922,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
     /// Set minCheckpointDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
-    /// @return _ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    /// @return coreState_ Updated core state with new finalization counters.
+    /// @return bondInstructions_ Array of bond instructions from finalized proposals.
+    function _finalize(ProposeInput memory _input)
+        private
+        returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
+    {
         unchecked {
             CoreState memory coreState = _input.coreState;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
@@ -890,6 +935,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
             uint256 currentTimestamp = block.timestamp;
+            uint256 totalBondInstructionCount;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
@@ -929,6 +975,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     );
                 }
 
+                totalBondInstructionCount += bondInstructionLen;
+
                 require(transitionRecord.span > 0, InvalidSpan());
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
@@ -950,7 +998,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             }
 
-            return coreState;
+            if (totalBondInstructionCount > 0) {
+                bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
+                uint256 bondInstructionIndex;
+
+                for (uint256 i; i < finalizedCount; ++i) {
+                    LibBonds.BondInstruction[] memory instructions =
+                    _input.transitionRecords[i].bondInstructions;
+                    uint256 instructionsLen = instructions.length;
+
+                    for (uint256 j; j < instructionsLen; ++j) {
+                        bondInstructions_[bondInstructionIndex++] = instructions[j];
+                    }
+                }
+            }
+
+            return (coreState, bondInstructions_);
         }
     }
 

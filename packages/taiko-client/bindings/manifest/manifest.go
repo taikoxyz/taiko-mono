@@ -48,12 +48,6 @@ type BlockManifest struct {
 // DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
 // Should be same with LibManifest.DerivationSourceManifest.
 type DerivationSourceManifest struct {
-	Blocks []*BlockManifest `json:"blocks"`
-}
-
-// ProposalManifest represents a proposal manifest containing proposal-level metadata and sources.
-// Should be same with LibManifest.ProposalManifest.
-type ProposalManifest struct {
-	ProverAuthBytes []byte                      `json:"proverAuthBytes"`
-	Sources         []*DerivationSourceManifest `json:"sources"`
+	ProverAuthBytes []byte           `json:"proverAuthBytes"`
+	Blocks          []*BlockManifest `json:"blocks"`
 }

@@ -1,9 +1,9 @@
 //! Error types for the event indexer
 
-use alloy::transports::TransportErrorKind;
+use alloy::transports::{TransportError, TransportErrorKind};
 use alloy_json_rpc::RpcError;
-use event_scanner::event_scanner::EventScannerError;
-use rpc::RpcClientError;
+use event_scanner::ScannerError;
+use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -21,9 +21,13 @@ pub enum IndexerError {
     #[error("RPC error: {0}")]
     Rpc(String),
 
+    /// Provider transport error
+    #[error("transport error: {0}")]
+    Transport(#[from] TransportError<TransportErrorKind>),
+
     /// Event scanner error
     #[error("event scanner error: {0}")]
-    EventScanner(#[from] EventScannerError),
+    EventScanner(#[from] ScannerError),
 
     /// Log decode error
     #[error("log decode error: {0}")]
@@ -48,9 +52,12 @@ impl From<alloy_sol_types::Error> for IndexerError {
     }
 }
 
-// Manual From implementation for RpcClientError
-impl From<RpcClientError> for IndexerError {
-    fn from(err: RpcClientError) -> Self {
-        IndexerError::Rpc(err.to_string())
+// Manual From implementation for SubscriptionSourceError
+impl From<SubscriptionSourceError> for IndexerError {
+    fn from(err: SubscriptionSourceError) -> Self {
+        match err {
+            SubscriptionSourceError::Connection(msg) => IndexerError::Rpc(msg),
+            SubscriptionSourceError::Wallet(msg) => IndexerError::Rpc(msg),
+        }
     }
 }

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -11,7 +12,7 @@ use alloy::{
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
@@ -21,7 +22,7 @@ use crate::{
     bindings::TaikoWrapper,
     metrics,
     utils::{
-        eject::eject_operator,
+        eject::{eject_operator, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
@@ -30,6 +31,7 @@ pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
     l2_ws_url: Url,
+    l1_ws_url: Url,
     l1_http_url: Url,
     target_block_time: Duration,
     eject_after: Duration,
@@ -46,6 +48,7 @@ impl Monitor {
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
         l2_ws_url: Url,
+        l1_ws_url: Url,
         l1_http_url: Url,
         target_block_time_secs: u64,
         eject_after_n_slots_missed: u64,
@@ -63,6 +66,7 @@ impl Monitor {
             beacon_client,
             l1_signer,
             l2_ws_url,
+            l1_ws_url,
             l1_http_url,
             target_block_time,
             eject_after,
@@ -90,6 +94,7 @@ impl Monitor {
         let last_block_for_watch = last_block_seen.clone();
 
         let l1_http_url = self.l1_http_url.clone();
+        let l1_ws_url = self.l1_ws_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
         let signer = self.l1_signer.clone();
@@ -111,8 +116,24 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let preconf_whitelist =
+            crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
+        let known_operators = Arc::new(RwLock::new(HashSet::new()));
+        match initialize_eject_metrics(&preconf_whitelist).await {
+            Ok(initialized) => {
+                *known_operators.write().await = initialized;
+            }
+            Err(e) => {
+                warn!("Failed to initialize eject metrics: {e:?}");
+            }
+        }
         let preconf_router =
             crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
+        let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
+            l1_ws_url.clone(),
+            whitelist_address,
+            known_operators.clone(),
+        ));
 
         // watchdog task
         let _watchdog = tokio::spawn(async move {
@@ -320,6 +341,95 @@ impl Monitor {
     fn responsibility_now(&self) -> Responsibility {
         let slot = self.beacon_client.current_slot();
         responsibility_for_slot(slot, self.beacon_client.slots_per_epoch, self.handover_slots)
+    }
+
+    async fn operator_added_listener(
+        l1_ws_url: Url,
+        whitelist_address: Address,
+        known_operators: Arc<RwLock<HashSet<(Address, Address)>>>,
+    ) {
+        let mut backoff = Duration::from_secs(1);
+        let max_backoff = Duration::from_secs(30);
+
+        loop {
+            info!("Connecting to OperatorAdded event stream at {}", l1_ws_url);
+            match ProviderBuilder::new().connect_ws(WsConnect::new(l1_ws_url.clone())).await {
+                Ok(ws_provider) => {
+                    info!("Connected to OperatorAdded event stream at {}", l1_ws_url);
+                    let contract = crate::bindings::IPreconfWhitelist::new(
+                        whitelist_address,
+                        ws_provider.clone(),
+                    );
+
+                    match contract.OperatorAdded_filter().subscribe().await {
+                        Ok(subscription) => {
+                            backoff = Duration::from_secs(1);
+                            let mut stream = subscription.into_stream();
+
+                            while let Some(item) = stream.next().await {
+                                match item {
+                                    Ok((event, log)) => {
+                                        if log.removed {
+                                            debug!(
+                                                block = ?log.block_number,
+                                                log_index = ?log.log_index,
+                                                "OperatorAdded log removed; skipping"
+                                            );
+                                            continue;
+                                        }
+
+                                        let proposer_hex = format!("{:#x}", event.proposer);
+                                        let sequencer_hex = format!("{:#x}", event.sequencer);
+
+                                        info!(
+                                            %proposer_hex,
+                                            %sequencer_hex,
+                                            active_since = ?event.activeSince,
+                                            "OperatorAdded event received"
+                                        );
+
+                                        let key = (event.proposer, event.sequencer);
+                                        let is_new = {
+                                            let mut guard = known_operators.write().await;
+                                            guard.insert(key)
+                                        };
+
+                                        if is_new {
+                                            metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        } else {
+                                            debug!(
+                                                %proposer_hex,
+                                                %sequencer_hex,
+                                                "Operator already initialized; skipping metric setup"
+                                            );
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!("OperatorAdded stream error: {e:?}");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to subscribe to OperatorAdded events: {e:?}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to connect to OperatorAdded event stream: {e:?}. Retrying after {:?}",
+                        backoff
+                    );
+                }
+            }
+
+            warn!("OperatorAdded subscription disconnected. Reconnecting after {:?}", backoff);
+            sleep(backoff).await;
+            if backoff < max_backoff {
+                backoff = std::cmp::min(max_backoff, backoff * 2);
+            }
+        }
     }
 }
 
