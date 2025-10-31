@@ -1139,10 +1139,15 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
             uint64 currentFee = inbox.getCurrentForcedInclusionFee();
             // Expected: baseFee * (threshold + i) / threshold
-            uint256 expected = (config.forcedInclusionFeeInGwei * (config.forcedInclusionFeeDoubleThreshold + i))
-                / config.forcedInclusionFeeDoubleThreshold;
+            uint256 expected =
+                (config.forcedInclusionFeeInGwei * (config.forcedInclusionFeeDoubleThreshold + i))
+                    / config.forcedInclusionFeeDoubleThreshold;
 
-            assertEq(currentFee, expected, string.concat("Fee at ", vm.toString(i), " pending should match formula"));
+            assertEq(
+                currentFee,
+                expected,
+                string.concat("Fee at ", vm.toString(i), " pending should match formula")
+            );
         }
     }
 }

@@ -310,12 +310,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-     /// @inheritdoc IForcedInclusionStore
+    /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return LibForcedInclusion.getCurrentForcedInclusionFee(
-            _forcedInclusionStorage,
-            _forcedInclusionFeeInGwei,
-            _forcedInclusionFeeDoubleThreshold);
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+        );
     }
 
     // ---------------------------------------------------------------

@@ -37,7 +37,6 @@ library LibForcedInclusion {
         uint48 lastProcessedAt;
     }
 
-
     // ---------------------------------------------------------------
     //  Public Functions
     // ---------------------------------------------------------------
@@ -54,7 +53,8 @@ library LibForcedInclusion {
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
-        uint64 requiredFeeInGwei = getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
+        uint64 requiredFeeInGwei =
+            getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
         uint256 requiredFee = requiredFeeInGwei * 1 gwei;
         require(msg.value >= requiredFee, InsufficientFee());
 
