@@ -65,12 +65,28 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
 	}
+	PreconfSlasherAddress = &cli.StringFlag{
+		Name:     "preconfirmation.slasher",
+		Usage:    "Preconfirmation slasher contract L1 `address`",
+		Required: false,
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONFIRMATION_SLASHER"},
+	}
 	DriverTaikoWrapperAddress = &cli.StringFlag{
 		Name:     "taikoWrapper",
 		Usage:    "TaikoWrapper contract `address`",
 		Required: false,
 		Category: driverCategory,
 		EnvVars:  []string{"TAIKO_WRAPPER"},
+	}
+	// preconfirmation transition timestamp (unix seconds). Before this timestamp, old APIs + block gossip are used.
+	// At or after this timestamp, new commitment-based API and logic are enabled and old APIs are disabled.
+	PreconfTransitionTimestamp = &cli.Uint64Flag{
+		Name:     "preconfirmation.transitionTs",
+		Usage:    "Unix timestamp when commitment-based preconfirmation logic activates",
+		Required: false,
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONFIRMATION_TRANSITION_TS"},
 	}
 )
 
@@ -88,5 +104,7 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfWhitelistAddress,
+	PreconfSlasherAddress,
 	DriverTaikoWrapperAddress,
+	PreconfTransitionTimestamp,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

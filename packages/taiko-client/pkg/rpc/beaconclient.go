@@ -142,6 +142,16 @@ func (c *BeaconClient) TimestampOfSlot(slot uint64) uint64 {
 	return c.genesisTime + slot*c.SecondsPerSlot
 }
 
+// EpochOfTimestamp converts a unix timestamp into the L1 epoch number
+// using the beacon chain genesis time and slot configuration.
+func (c *BeaconClient) EpochOfTimestamp(ts uint64) (uint64, error) {
+	slot, err := c.timeToSlot(ts)
+	if err != nil {
+		return 0, err
+	}
+	return slot / c.SlotsPerEpoch, nil
+}
+
 // getConfigSpec retrieve the current configs of the network used by the beacon node.
 func getConfigSpec(ctx context.Context, c *beacon.Client) (*structs.GetSpecResponse, error) {
 	body, err := c.Get(ctx, c.BaseURL().Path+getConfigSpecPath)

@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/modern-go/reflect2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -50,10 +51,27 @@ type BuildPreconfBlockRequestBody struct {
 	IsForcedInclusion *bool           `json:"isForcedInclusion"`
 }
 
+// BuildPreconfBlockV2RequestBody represents a request body when handling
+// preconfirmation commitments (post-transition).
+// It carries a SignedCommitment and the compressed txlist bytes used to reconstruct the block.
+type BuildPreconfBlockV2RequestBody struct {
+	// Required preconfirmation commitment signed by the committer.
+	Preconfirmation *p2p.SignedCommitment `json:"preconfirmation"`
+	// Compressed tx list bytes (zlib), used for deterministic reconstruction.
+	// Must match Preconfirmation.Preconf.RawTxListHash.
+	Transactions hexutil.Bytes `json:"transactions"`
+}
+
 // BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
 // blocks creation requests.
 type BuildPreconfBlockResponseBody struct {
 	// @param blockHeader types.Header of the preconfirmation block
+	BlockHeader *types.Header `json:"blockHeader"`
+}
+
+// BuildPreconfBlockV2ResponseBody represents a response body for V2 (commitment-based) API.
+type BuildPreconfBlockV2ResponseBody struct {
+	// @param blockHeader types.Header of the reconstructed and inserted block
 	BlockHeader *types.Header `json:"blockHeader"`
 }
 
@@ -71,6 +89,10 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
+	// Disable old API after transition timestamp is active
+	if s.preconfTransitionActive() {
+		return s.returnError(c, http.StatusGone, errors.New("preconfirmation V1 API disabled after transition"))
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -318,7 +340,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				IsForcedInclusion: &isForcedInclusion,
 				Signature:         sigBytes,
 			}
-
 			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
 			s.tryPutEnvelopeIntoCache(env, s.p2pNode.Host().ID())
 
@@ -355,6 +376,113 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	metrics.DriverL2PreconfBlocksFromRPCGauge.Inc()
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})
+}
+
+// BuildPreconfBlockV2 handles a preconfirmation commitment (post-transition) request.
+// It stores the txlist preimage for deterministic reconstruction, publishes the commitment
+// to the P2P network, reconstructs and inserts the block locally, and responds with the header.
+//
+//	@Summary 	    Insert a preconfirmation commitment (V2)
+//	@Description	Accepts a SignedCommitment and compressed txlist for deterministic reconstruction post-transition.
+//	@Param  		request body BuildPreconfBlockV2RequestBody true "preconfirmation commitment request body"
+//	@Accept	  	json
+//	@Produce	json
+//	@Success	200		{object} BuildPreconfBlockV2ResponseBody
+//	@Router		/preconfBlocksV2 [post]
+func (s *PreconfBlockAPIServer) BuildPreconfBlockV2(c echo.Context) error {
+	// Enable only after transition timestamp
+	if !s.preconfTransitionActive() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("preconfirmation V2 API not active yet"))
+	}
+	start := time.Now()
+	defer func() {
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("BuildPreconfBlockV2 completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
+	}()
+
+	ctx := context.Background()
+
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+	if progress.IsSyncing() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
+	}
+
+	// Parse request body
+	reqBody := new(BuildPreconfBlockV2RequestBody)
+	if err := c.Bind(reqBody); err != nil {
+		return s.returnError(c, http.StatusUnprocessableEntity, err)
+	}
+	if reqBody.Preconfirmation == nil {
+		return s.returnError(c, http.StatusBadRequest, errors.New("preconfirmation is required"))
+	}
+	if len(reqBody.Transactions) == 0 {
+		return s.returnError(c, http.StatusBadRequest, errors.New("transactions (compressed txlist) is required"))
+	}
+
+	pc := reqBody.Preconfirmation.Commitment.Preconf
+	log.Info(
+		"🏗️ New preconfirmation commitment (V2)",
+		"blockNumber", pc.BlockNumber,
+		"anchorBlockNumber", pc.AnchorBlockNumber,
+		"rawTxListHash", pc.RawTxListHash,
+		"parentRawTxListHash", pc.ParentRawTxListHash,
+		"eop", pc.EOP,
+	)
+
+	// Store txlist preimage and publish to P2P if configured
+	if s.p2pNode != nil {
+		if err := s.publishPreconfirmationFromSidecar(ctx, reqBody.Preconfirmation, &ExecutableData{Transactions: reqBody.Transactions}, nil); err != nil {
+			log.Warn("Failed to publish preconfirmation commitment", "err", err)
+			// Fall through to local processing after storing preimage
+			s.txlistMu.Lock()
+			s.txlist[pc.RawTxListHash] = reqBody.Transactions
+			s.txlistMu.Unlock()
+		}
+	} else {
+		// No P2P configured; still store preimage for reconstruction
+		s.txlistMu.Lock()
+		s.txlist[pc.RawTxListHash] = reqBody.Transactions
+		s.txlistMu.Unlock()
+	}
+
+	// Process the commitment locally to reconstruct and insert the block.
+	// Note: OnUnsafePreconfirmationCommitment handles concurrency (locks internally).
+	var zeroPeer peer.ID
+	if err := s.OnUnsafePreconfirmationCommitment(ctx, zeroPeer, reqBody.Preconfirmation); err != nil {
+		return s.returnError(c, http.StatusInternalServerError, fmt.Errorf("failed to process preconfirmation commitment: %w", err))
+	}
+
+	// Fetch inserted header by number
+	header, err := s.rpc.L2.HeaderByNumber(ctx, pc.BlockNumber)
+	if err != nil || header == nil {
+		return s.returnError(c, http.StatusInternalServerError, fmt.Errorf("failed to fetch inserted header: %w", err))
+	}
+
+	// Update unsafe payload tracking
+	s.updateHighestUnsafeL2Payload(header.Number.Uint64())
+
+	// If EOP marker, update cache
+	if pc.EOP && s.rpc.L1Beacon != nil {
+		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
+		s.sequencingEndedForEpochCache.Add(currentEpoch, header.Hash())
+		log.Info(
+			"End of sequencing block marker (V2)",
+			"blockID", header.Number.Uint64(),
+			"hash", header.Hash().Hex(),
+			"currentEpoch", currentEpoch,
+		)
+		// Advance lookahead immediately on EOP to avoid waiting for periodic refresh.
+		s.AdvanceLookaheadOnEOP()
+	}
+
+	metrics.DriverL2PreconfBlocksFromRPCGauge.Inc()
+
+	return c.JSON(http.StatusOK, BuildPreconfBlockV2ResponseBody{BlockHeader: header})
 }
 
 // HealthCheck is the endpoints for probes.
