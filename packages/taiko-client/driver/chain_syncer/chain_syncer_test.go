@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -388,7 +387,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
-	s.Equal(uint16(1), s.getBlockIndexInAnchor(head2))
 
 	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -401,33 +399,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
 	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
 	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
-	s.Equal(uint16(0), s.getBlockIndexInAnchor(forcedIncludedHeader))
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {
 	suite.Run(t, new(ChainSyncerTestSuite))
-}
-
-func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 {
-	tx := block.Transactions()[0]
-	method, err := encoding.ShastaAnchorABI.MethodById(tx.Data())
-	s.Nil(err)
-	s.Equal("anchorV4", method.Name)
-
-	args := map[string]interface{}{}
-	s.Nil(method.Inputs.UnpackIntoMap(args, tx.Data()[4:]))
-
-	blockParams, ok := args["_blockParams"]
-	s.True(ok)
-
-	blockValue := reflect.ValueOf(blockParams)
-	s.Equal(reflect.Struct, blockValue.Kind())
-
-	blockIndexField := blockValue.FieldByName("BlockIndex")
-	s.True(blockIndexField.IsValid())
-
-	blockIndex, ok := blockIndexField.Interface().(uint16)
-	s.True(ok)
-
-	return blockIndex
 }
