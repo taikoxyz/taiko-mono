@@ -196,9 +196,8 @@ contract SgxVerifierTest is Test {
         verifier.addInstances(instances);
 
         aggregatedHash = bytes32(uint256(0x1234));
-        bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            aggregatedHash, address(verifier), address(0), CHAIN_ID
-        );
+        bytes32 publicInput =
+            LibPublicInput.hashPublicInputs(aggregatedHash, address(verifier), address(0), CHAIN_ID);
 
         bytes32[] memory publicInputs = new bytes32[](2);
         publicInputs[0] = bytes32(uint256(uint160(instance)));

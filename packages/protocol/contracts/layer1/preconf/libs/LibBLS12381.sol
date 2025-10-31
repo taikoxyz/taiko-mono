@@ -426,14 +426,7 @@ library LibBLS12381 {
      * This functions also assumes that the passed values are 48-byte long BLS pub keys that have
      * 16 functional bytes in the first word, and 32 bytes in the second.
      */
-    function _greaterThan(
-        uint256[2] memory a,
-        uint256[2] memory b
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    function _greaterThan(uint256[2] memory a, uint256[2] memory b) internal pure returns (bool) {
         uint256 wordA;
         uint256 wordB;
         uint256 mask;

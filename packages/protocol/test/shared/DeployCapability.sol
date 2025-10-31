@@ -26,8 +26,9 @@ abstract contract DeployCapability is Script {
         proxy = address(new ERC1967Proxy(impl, data));
 
         if (registerTo != address(0)) {
-            DefaultResolver(registerTo)
-                .registerAddress(uint64(block.chainid), bytes32(bytes(name)), proxy);
+            DefaultResolver(registerTo).registerAddress(
+                uint64(block.chainid), bytes32(bytes(name)), proxy
+            );
         }
 
         console2.log(">", name, "@", registerTo);
@@ -79,13 +80,7 @@ abstract contract DeployCapability is Script {
         console2.log("\t addr : ", addr);
     }
 
-    function copyRegister(
-        address registerTo,
-        address readFrom,
-        string memory name
-    )
-        internal
-    {
+    function copyRegister(address registerTo, address readFrom, string memory name) internal {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 

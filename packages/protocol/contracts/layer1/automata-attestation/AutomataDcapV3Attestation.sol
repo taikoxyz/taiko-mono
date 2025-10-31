@@ -10,7 +10,6 @@ import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
 import { TCBInfoStruct } from "./lib/TCBInfoStruct.sol";
 import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibString } from "solady/src/utils/LibString.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -290,13 +289,11 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 issuer = certs[i + 1];
                 if (i == n - 2) {
                     // this cert is expected to be signed by the root
-                    certRevoked = serialNumIsRevoked[
-                        uint256(IPEMCertChainLib.CRL.ROOT)
-                    ][certs[i].serialNumber];
+                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
+                        .serialNumber];
                 } else if (certs[i].isPck) {
-                    certRevoked = serialNumIsRevoked[
-                        uint256(IPEMCertChainLib.CRL.PCK)
-                    ][certs[i].serialNumber];
+                    certRevoked =
+                        serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i].serialNumber];
                 }
                 if (certRevoked) {
                     break;
@@ -395,7 +392,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,,,
+            bool successful,
+            ,
+            ,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
@@ -427,8 +426,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             }
             if (
                 !verifiedEnclaveIdSuccessfully
-                    || qeTcbStatus
-                        == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
+                    || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
             ) {
                 return (false, retData);
             }

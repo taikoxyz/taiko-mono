@@ -174,7 +174,7 @@ contract DcapTestUtils {
                         enclaveId.tcbLevels[j].tcbStatus = EnclaveIdStruct.EnclaveIdStatus.OK;
                     } else if (decodedValue.eq("Revoked")) {
                         enclaveId.tcbLevels[j].tcbStatus =
-                        EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED;
+                            EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED;
                     }
                 }
             }
@@ -214,16 +214,16 @@ contract DcapTestUtils {
                         tcbInfo.tcbLevels[j].status = TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE;
                     } else if (decodedValue.eq("OutOfDateConfigurationNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                        TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
+                            TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
                     } else if (decodedValue.eq("ConfigurationNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                        TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_NEEDED;
+                            TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_NEEDED;
                     } else if (decodedValue.eq("ConfigurationAndSWHardeningNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                        TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED;
+                            TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED;
                     } else if (decodedValue.eq("SWHardeningNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                        TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED;
+                            TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED;
                     } else if (decodedValue.eq("Revoked")) {
                         tcbInfo.tcbLevels[j].status = TCBInfoStruct.TCBStatus.TCB_REVOKED;
                     }

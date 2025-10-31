@@ -53,14 +53,7 @@ library Asn1Decode {
     * @param der The DER-encoded ASN1 structure
     * @return A pointer to the outermost node
     */
-    function rootOfOctetStringAt(
-        bytes memory der,
-        uint256 ptr
-    )
-        internal
-        pure
-        returns (uint256)
-    {
+    function rootOfOctetStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] == 0x04, "Not type OCTET STRING");
         return _readNodeLength(der, ptr.ixf());
     }
@@ -110,14 +103,7 @@ library Asn1Decode {
         return der.keccak(ptr.ixf(), ptr.ixl() + 1 - ptr.ixf());
     }
 
-    function keccakOfAllBytesAt(
-        bytes memory der,
-        uint256 ptr
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
+    function keccakOfAllBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
         return der.keccak(ptr.ixs(), ptr.ixl() + 1 - ptr.ixs());
     }
 
