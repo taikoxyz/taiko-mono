@@ -83,6 +83,7 @@ contract AnchorTest is Test {
 
         assertEq(proposalState.designatedProver, proverCandidate);
         assertFalse(proposalState.isLowBondProposal);
+        assertEq(proposalState.proposalId, proposalParams.proposalId);
         assertEq(proposalState.bondInstructionsHash, proposalParams.bondInstructionsHash);
 
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
@@ -110,6 +111,172 @@ contract AnchorTest is Test {
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
         anchor.anchorV4(proposalParams, blockParams);
+    }
+
+    function test_anchorV4_AllowsSubsequentBlocksWithSameProposal() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+
+        Anchor.BlockParams memory secondBlockParams = Anchor.BlockParams({
+            anchorBlockNumber: blockParams.anchorBlockNumber,
+            anchorBlockHash: blockParams.anchorBlockHash,
+            anchorStateRoot: blockParams.anchorStateRoot
+        });
+
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, secondBlockParams);
+
+        Anchor.ProposalState memory proposalState = anchor.getProposalState();
+        assertEq(proposalState.proposalId, proposalParams.proposalId);
+    }
+
+    function test_anchorV4_RevertWhen_ProposalIdGoesBackward() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+
+        Anchor.ProposalParams memory backwardProposal = proposalParams;
+        backwardProposal.proposalId = 0;
+
+        vm.expectRevert(Anchor.ProposalIdMismatch.selector);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(backwardProposal, blockParams);
+    }
+
+    function test_anchorV4_AllowsTransitionToNewProposal() external {
+        (Anchor.ProposalParams memory proposalParams1, Anchor.BlockParams memory blockParams1) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams1, blockParams1);
+
+        Anchor.ProposalState memory stateAfterFirstProposal = anchor.getProposalState();
+        assertEq(stateAfterFirstProposal.proposalId, 1);
+        assertEq(stateAfterFirstProposal.designatedProver, proverCandidate);
+        bytes32 previousBondHash = stateAfterFirstProposal.bondInstructionsHash;
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams1, blockParams1);
+
+        vm.roll(SHASTA_FORK_HEIGHT + 2);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams1, blockParams1);
+
+        vm.roll(SHASTA_FORK_HEIGHT + 3);
+
+        uint48 proposalId2 = 2;
+        LibBonds.BondInstruction[] memory instructions2 = new LibBonds.BondInstruction[](2);
+
+        instructions2[0] = LibBonds.BondInstruction({
+            proposalId: proposalId2,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: proposer,
+            payee: address(0xCA1)
+        });
+
+        instructions2[1] = LibBonds.BondInstruction({
+            proposalId: proposalId2,
+            bondType: LibBonds.BondType.PROVABILITY,
+            payer: proposer,
+            payee: address(0xCA2)
+        });
+
+        bytes32 expectedHash2 =
+            LibBonds.aggregateBondInstruction(previousBondHash, instructions2[0]);
+        expectedHash2 = LibBonds.aggregateBondInstruction(expectedHash2, instructions2[1]);
+
+        uint256 provingFee2 = 2 ether;
+        bytes memory proverAuth2 = _buildProverAuth(proposalId2, provingFee2);
+
+        Anchor.ProposalParams memory proposalParams2 = Anchor.ProposalParams({
+            proposalId: proposalId2,
+            proposer: proposer,
+            proverAuth: proverAuth2,
+            bondInstructionsHash: expectedHash2,
+            bondInstructions: instructions2
+        });
+
+        Anchor.BlockParams memory blockParams2 = Anchor.BlockParams({
+            anchorBlockNumber: 1010,
+            anchorBlockHash: bytes32(uint256(0xABCD)),
+            anchorStateRoot: bytes32(uint256(0xEF01))
+        });
+
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams2, blockParams2);
+
+        Anchor.ProposalState memory stateAfterSecondProposal = anchor.getProposalState();
+        assertEq(stateAfterSecondProposal.proposalId, 2);
+        assertEq(stateAfterSecondProposal.designatedProver, proverCandidate);
+        assertEq(stateAfterSecondProposal.bondInstructionsHash, expectedHash2);
+        assertFalse(stateAfterSecondProposal.isLowBondProposal);
+
+        Anchor.BlockState memory blockState = anchor.getBlockState();
+        assertEq(blockState.anchorBlockNumber, 1010);
+    }
+
+    function test_anchorV4_HandlesMultipleBlocksInProposal() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        uint256 proposerBalanceAfterFirst = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceAfterFirst = bondManager.getBondBalance(proverCandidate);
+        Anchor.ProposalState memory stateAfterFirst = anchor.getProposalState();
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        Anchor.ProposalState memory stateAfterSecond = anchor.getProposalState();
+        assertEq(stateAfterSecond.proposalId, stateAfterFirst.proposalId);
+        assertEq(stateAfterSecond.designatedProver, stateAfterFirst.designatedProver);
+        assertEq(stateAfterSecond.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceAfterFirst,
+            "Proposer balance should not change on second block"
+        );
+        assertEq(
+            bondManager.getBondBalance(proverCandidate),
+            proverBalanceAfterFirst,
+            "Prover balance should not change on second block"
+        );
+
+        vm.roll(SHASTA_FORK_HEIGHT + 2);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        Anchor.ProposalState memory stateAfterThird = anchor.getProposalState();
+        assertEq(stateAfterThird.proposalId, stateAfterFirst.proposalId);
+        assertEq(stateAfterThird.designatedProver, stateAfterFirst.designatedProver);
+        assertEq(stateAfterThird.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceAfterFirst,
+            "Proposer balance should not change on third block"
+        );
+        assertEq(
+            bondManager.getBondBalance(proverCandidate),
+            proverBalanceAfterFirst,
+            "Prover balance should not change on third block"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -240,7 +407,6 @@ contract AnchorTest is Test {
         });
 
         blockParams = Anchor.BlockParams({
-            blockIndex: 0,
             anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
             anchorStateRoot: bytes32(uint256(0x5678))

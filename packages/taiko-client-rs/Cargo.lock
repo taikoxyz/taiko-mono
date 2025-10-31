@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "bindings"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "alloy",
  "serde",
@@ -3376,7 +3376,7 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "metrics 0.24.2",
- "rpc",
+ "protocol",
  "thiserror 2.0.16",
  "tokio",
  "tokio-retry",
@@ -3387,9 +3387,9 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "0.3.0-alpha"
+version = "0.4.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c71056781add57aae7d7761cf48bf99a14bd47adcecd2dfddc48dba0a78928c"
+checksum = "c6ae8ecb83aedc270b94a1636a59e7ca8af4c88dccfdaddfe4383b834b88974c"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
@@ -3402,7 +3402,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "tracing-subscriber 0.3.20",
 ]
 
 [[package]]
@@ -6262,8 +6261,11 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-hardforks 0.4.1",
+ "alloy-primitives",
+ "alloy-provider",
  "alloy-rlp",
  "anyhow",
+ "event-scanner",
  "flate2",
  "serde",
  "thiserror 2.0.16",
@@ -9549,6 +9551,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
+ "protocol",
  "reqwest",
  "serde",
  "serde_json",

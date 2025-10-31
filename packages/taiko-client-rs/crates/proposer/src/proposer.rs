@@ -55,8 +55,7 @@ impl Proposer {
             inbox_address: cfg.inbox_address,
         })
         .await?;
-        // TODO: change to fetch last X proposal when indexer supports it.
-        indexer.clone().spawn(BlockNumberOrTag::Earliest);
+        indexer.clone().spawn();
         indexer.wait_historical_indexing_finished().await;
 
         Self::new_with_indexer(cfg, indexer).await

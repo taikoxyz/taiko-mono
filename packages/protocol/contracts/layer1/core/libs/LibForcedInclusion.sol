@@ -41,47 +41,111 @@ library LibForcedInclusion {
     //  Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev See `IInbox.storeForcedInclusion`
+    /// @dev See `IForcedInclusionStore.saveForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint64 _forcedInclusionFeeInGwei,
+        uint64 _baseFeeInGwei,
+        uint64 _feeDoubleThreshold,
         LibBlobs.BlobReference memory _blobReference
     )
         public
+        returns (uint256 refund_)
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
-        require(msg.value == _forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
+        uint64 requiredFeeInGwei =
+            getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
+        uint256 requiredFee = requiredFeeInGwei * 1 gwei;
+        require(msg.value >= requiredFee, InsufficientFee());
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             IForcedInclusionStore.ForcedInclusion({
-                feeInGwei: _forcedInclusionFeeInGwei, blobSlice: blobSlice
+                feeInGwei: requiredFeeInGwei, blobSlice: blobSlice
             });
 
         $.queue[$.tail++] = inclusion;
 
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
+
+        // Calculate and return refund amount
+        unchecked {
+            refund_ = msg.value - requiredFee;
+        }
     }
 
-    /// @dev See `IInbox.isOldestForcedInclusionDue`
-    function isOldestForcedInclusionDue(
+    /// @dev See `IForcedInclusionStore.getCurrentForcedInclusionFee`
+    function getCurrentForcedInclusionFee(
         Storage storage $,
-        uint16 _forcedInclusionDelay
+        uint64 _baseFeeInGwei,
+        uint64 _feeDoubleThreshold
     )
         public
         view
-        returns (bool)
+        returns (uint64 feeInGwei_)
     {
-        (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
-        return isOldestForcedInclusionDue($, head, tail, lastProcessedAt, _forcedInclusionDelay);
+        require(_feeDoubleThreshold > 0, InvalidFeeDoubleThreshold());
+
+        (uint48 head, uint48 tail) = ($.head, $.tail);
+        uint256 numPending = uint256(tail - head);
+
+        // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
+        // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
+        // but avoids floating point arithmetic
+        uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
+        feeInGwei_ = uint64((multipliedFee / _feeDoubleThreshold).min(type(uint64).max));
+    }
+
+    /// @notice Returns forced inclusions stored starting from a given index.
+    /// @dev Returns an empty array if `_start` is outside the valid range [head, tail) or if
+    ///      `_maxCount` is zero. Otherwise returns actual stored entries from the queue.
+    /// @param _start The queue index to start reading from (must be in range [head, tail)).
+    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty array.
+    /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
+    ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
+    function getForcedInclusions(
+        Storage storage $,
+        uint48 _start,
+        uint48 _maxCount
+    )
+        internal
+        view
+        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+    {
+        unchecked {
+            (uint48 head, uint48 tail) = ($.head, $.tail);
+
+            if (_start < head || _start >= tail || _maxCount == 0) {
+                return new IForcedInclusionStore.ForcedInclusion[](0);
+            }
+
+            uint256 count = uint256(tail - _start).min(_maxCount);
+
+            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](count);
+
+            for (uint256 i; i < count; ++i) {
+                inclusions_[i] = $.queue[i + _start];
+            }
+        }
+    }
+
+    /// @dev Returns the queue pointers for the forced inclusion storage.
+    /// @param $ Storage instance tracking the forced inclusion queue.
+    /// @return head_ Index of the next forced inclusion to dequeue.
+    /// @return tail_ Index where the next forced inclusion will be enqueued.
+    /// @return lastProcessedAt_ Timestamp of the most recent forced inclusion processing.
+    function getForcedInclusionState(Storage storage $)
+        internal
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+    {
+        (head_, tail_, lastProcessedAt_) = ($.head, $.tail, $.lastProcessedAt);
     }
 
     // ---------------------------------------------------------------
     // Internal functions
     // ---------------------------------------------------------------
 
-    /// @dev Checks if the oldest remaining forced inclusion is due (internal variant with
-    /// parameters)
+    /// @dev Checks if the oldest remaining forced inclusion is due
     /// @param $ Storage reference
     /// @param _head Current queue head position
     /// @param _tail Current queue tail position
@@ -113,5 +177,6 @@ library LibForcedInclusion {
     // Errors
     // ---------------------------------------------------------------
 
-    error IncorrectFee();
+    error InsufficientFee();
+    error InvalidFeeDoubleThreshold();
 }
