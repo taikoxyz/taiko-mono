@@ -142,6 +142,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 

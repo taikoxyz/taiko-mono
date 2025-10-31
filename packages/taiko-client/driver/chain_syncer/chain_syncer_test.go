@@ -24,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -187,7 +186,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
@@ -311,7 +310,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
@@ -348,7 +347,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := EncodeDerivationSourceShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -431,26 +430,4 @@ func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 
 	s.True(ok)
 
 	return blockIndex
-}
-
-func EncodeDerivationSourceShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	proposalManifestBytes, err := utils.EncodeAndCompressDerivationSourceShasta(*sourceManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	// Prepend the version and length bytes to the manifest bytes, then split
-	// the resulting bytes into multiple blobs.
-	versionBytes := make([]byte, 32)
-	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
-
-	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
-	lenBig.FillBytes(lenBytes)
-
-	blobBytesPrefix := make([]byte, 0, 64)
-	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
-	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
-
-	return append(blobBytesPrefix, proposalManifestBytes...), nil
 }

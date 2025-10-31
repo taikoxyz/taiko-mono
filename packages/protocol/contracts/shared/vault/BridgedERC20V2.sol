@@ -89,11 +89,11 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     {
         if (block.timestamp > deadline) revert BTOKEN_DEADLINE_EXPIRED();
 
-        bytes32 structHash = keccak256(
-            abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline)
-        );
+        bytes memory encoded =
+            abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline);
 
-        bytes32 hash = _hashTypedDataV4(structHash);
+        /// forge-lint: disable-next-line(asm-keccak256)
+        bytes32 hash = _hashTypedDataV4(keccak256(encoded));
 
         address signer = ECDSAUpgradeable.recover(hash, v, r, s);
         if (signer != owner) revert BTOKEN_INVALID_SIG();
