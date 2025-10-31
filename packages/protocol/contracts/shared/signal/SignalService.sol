@@ -11,7 +11,7 @@ import "./SignalService_Layout.sol"; // DO NOT DELETE
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
-/// This contract will be initiallly deployed behind the fork router, which uses 151 slots [0..150].
+/// This contract will be initially deployed behind the fork router, which uses 151 slots [0..150].
 /// The storage layout of this contract is compatible and aligned with both the Pacaya version and the fork router.
 /// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
