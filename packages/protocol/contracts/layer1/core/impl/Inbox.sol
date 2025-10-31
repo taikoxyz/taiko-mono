@@ -119,6 +119,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Flag indicating whether a conflicting transition record has been detected
     bool public conflictingTransitionDetected;
 
+    uint256 internal _var;
+
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
