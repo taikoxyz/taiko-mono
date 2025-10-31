@@ -1006,7 +1006,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         returns (LibBlobs.BlobSlice memory)
     {
         uint48 timestampBefore = uint48(block.timestamp);
-        uint256 fee = _getForcedInclusionFeeWei();
+        // Pay 3x base fee to cover dynamic fee increases (excess will be refunded)
+        uint256 fee = _getForcedInclusionFeeWei() * 3;
 
         vm.deal(_payer, fee);
         vm.prank(_payer);
@@ -1079,6 +1080,69 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         for (uint256 i; i < expected.blobHashes.length; ++i) {
             assertEq(actual.blobSlice.blobHashes[i], expected.blobHashes[i]);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // getCurrentForcedInclusionFee Tests
+    // ---------------------------------------------------------------
+
+    function test_getCurrentForcedInclusionFee_EmptyQueue() public {
+        // When queue is empty, should return base fee
+        uint64 currentFee = inbox.getCurrentForcedInclusionFee();
+        uint256 baseFee = _getForcedInclusionFeeWei() / 1 gwei;
+        assertEq(currentFee, baseFee, "Empty queue should return base fee");
+    }
+
+    function test_getCurrentForcedInclusionFee_IncreasesWithQueue() public {
+        _setupBlobHashes();
+
+        // Get base fee
+        uint64 initialFee = inbox.getCurrentForcedInclusionFee();
+        uint256 baseFee = _getForcedInclusionFeeWei() / 1 gwei;
+        assertEq(initialFee, baseFee, "Initial fee should be base fee");
+
+        // Add one forced inclusion
+        LibBlobs.BlobReference memory ref = _createBlobRef(1, 1, 0);
+        _enqueueForcedInclusion(ref, Alice);
+
+        // Fee should now be higher
+        uint64 feeAfterOne = inbox.getCurrentForcedInclusionFee();
+        assertGt(feeAfterOne, initialFee, "Fee should increase after adding forced inclusion");
+
+        // Add another forced inclusion
+        vm.warp(block.timestamp + 1);
+        LibBlobs.BlobReference memory ref2 = _createBlobRef(2, 1, 0);
+        _enqueueForcedInclusion(ref2, Alice);
+
+        // Fee should be even higher
+        uint64 feeAfterTwo = inbox.getCurrentForcedInclusionFee();
+        assertGt(feeAfterTwo, feeAfterOne, "Fee should continue to increase");
+    }
+
+    function test_getCurrentForcedInclusionFee_MatchesCalculation() public {
+        _setupBlobHashes();
+
+        IInbox.Config memory config = inbox.getConfig();
+
+        // Formula: fee = baseFee × (1 + numPending / threshold)
+        // At 0 pending: fee = baseFee
+        uint64 fee0 = inbox.getCurrentForcedInclusionFee();
+        uint256 expected0 = config.forcedInclusionFeeInGwei;
+        assertEq(fee0, expected0, "Fee at 0 pending should match formula");
+
+        // Add forced inclusions and verify formula at each step
+        for (uint256 i = 1; i <= 5; i++) {
+            LibBlobs.BlobReference memory ref = _createBlobRef(uint8(i), 1, 0);
+            _enqueueForcedInclusion(ref, Alice);
+            vm.warp(block.timestamp + 1);
+
+            uint64 currentFee = inbox.getCurrentForcedInclusionFee();
+            // Expected: baseFee * (threshold + i) / threshold
+            uint256 expected = (config.forcedInclusionFeeInGwei * (config.forcedInclusionFeeDoubleThreshold + i))
+                / config.forcedInclusionFeeDoubleThreshold;
+
+            assertEq(currentFee, expected, string.concat("Fee at ", vm.toString(i), " pending should match formula"));
         }
     }
 }

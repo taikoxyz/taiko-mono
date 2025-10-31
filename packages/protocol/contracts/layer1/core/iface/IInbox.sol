@@ -38,8 +38,15 @@ interface IInbox {
         uint256 minForcedInclusionCount;
         /// @notice The delay for forced inclusions measured in seconds
         uint16 forcedInclusionDelay;
-        /// @notice The fee for forced inclusions in Gwei
+        /// @notice The base fee for forced inclusions in Gwei used in dynamic fee calculation
         uint64 forcedInclusionFeeInGwei;
+        /// @notice Queue size at which the fee doubles. Dynamic fee formula: fee = baseFee × (1 +
+        /// numPending / forcedInclusionFeeDoubleThreshold).
+        /// - At 0 pending: fee = 1× baseFee
+        /// - At threshold pending (e.g., 100): fee = 2× baseFee (doubled)
+        /// - At 2×threshold pending (e.g., 200): fee = 3× baseFee (tripled)
+        /// - At N×threshold pending: fee = (N+1) × baseFee
+        uint64 forcedInclusionFeeDoubleThreshold;
         /// @notice The minimum delay between checkpoints in seconds
         /// @dev Must be less than or equal to finalization grace period
         uint16 minCheckpointDelay;
