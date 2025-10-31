@@ -417,7 +417,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
+    function _processSingleTransitionAtIndex(
+        ProveInput memory _input,
+        uint256 _index
+    )
+        internal
+    {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -917,8 +922,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) =
-                _getTransitionRecordHashAndDeadline(
+                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
@@ -980,7 +984,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 for (uint256 i; i < finalizedCount; ++i) {
                     LibBonds.BondInstruction[] memory instructions =
-                        _input.transitionRecords[i].bondInstructions;
+                    _input.transitionRecords[i].bondInstructions;
                     uint256 instructionsLen = instructions.length;
 
                     for (uint256 j; j < instructionsLen; ++j) {

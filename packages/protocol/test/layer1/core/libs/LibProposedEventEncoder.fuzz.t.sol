@@ -152,9 +152,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: _offset,
-                timestamp: _timestamp
+                blobHashes: blobHashes, offset: _offset, timestamp: _timestamp
             })
         });
         payload.derivation.sources = sources;
@@ -359,9 +357,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: (_id % 2 == 0),
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: uint24(_id % MAX_UINT24),
-                timestamp: _timestamp
+                blobHashes: blobHashes, offset: uint24(_id % MAX_UINT24), timestamp: _timestamp
             })
         });
         original.derivation.sources = sources;
@@ -443,7 +439,9 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001 })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: 1024, timestamp: 1_000_001
+            })
         });
         payload.derivation.sources = sources;
 
