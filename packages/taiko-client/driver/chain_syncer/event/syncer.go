@@ -426,10 +426,6 @@ func (s *Syncer) processShastaProposal(
 			meta.GetProposal().Id,
 			s.indexer,
 			sourcePayload,
-			latestProposalState.BondInstructionsHash,
-			meta.GetRawBlockHeight().Uint64(),
-			derivationIdx,
-			s.rpc,
 		); err != nil {
 			return fmt.Errorf("failed to assemble bond instructions: %w", err)
 		}
