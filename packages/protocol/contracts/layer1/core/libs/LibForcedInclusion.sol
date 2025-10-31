@@ -41,26 +41,58 @@ library LibForcedInclusion {
     //  Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev See `IInbox.storeForcedInclusion`
+    /// @dev See `IForcedInclusionStore.saveForcedInclusion`
     function saveForcedInclusion(
         Storage storage $,
-        uint64 _forcedInclusionFeeInGwei,
+        uint64 _baseFeeInGwei,
+        uint64 _feeDoubleThreshold,
         LibBlobs.BlobReference memory _blobReference
     )
         public
+        returns (uint256 refund_)
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
-        require(msg.value == _forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
+        uint64 requiredFeeInGwei =
+            getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
+        uint256 requiredFee = requiredFeeInGwei * 1 gwei;
+        require(msg.value >= requiredFee, InsufficientFee());
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             IForcedInclusionStore.ForcedInclusion({
-                feeInGwei: _forcedInclusionFeeInGwei, blobSlice: blobSlice
+                feeInGwei: requiredFeeInGwei, blobSlice: blobSlice
             });
 
         $.queue[$.tail++] = inclusion;
 
         emit IForcedInclusionStore.ForcedInclusionSaved(inclusion);
+
+        // Calculate and return refund amount
+        unchecked {
+            refund_ = msg.value - requiredFee;
+        }
+    }
+
+    /// @dev See `IForcedInclusionStore.getCurrentForcedInclusionFee`
+    function getCurrentForcedInclusionFee(
+        Storage storage $,
+        uint64 _baseFeeInGwei,
+        uint64 _feeDoubleThreshold
+    )
+        public
+        view
+        returns (uint64 feeInGwei_)
+    {
+        require(_feeDoubleThreshold > 0, InvalidFeeDoubleThreshold());
+
+        (uint48 head, uint48 tail) = ($.head, $.tail);
+        uint256 numPending = uint256(tail - head);
+
+        // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
+        // This is mathematically equivalent to: fee = baseFee × (1 + numPending / threshold)
+        // but avoids floating point arithmetic
+        uint256 multipliedFee = _baseFeeInGwei * (_feeDoubleThreshold + numPending);
+        feeInGwei_ = uint64((multipliedFee / _feeDoubleThreshold).min(type(uint64).max));
     }
 
     /// @notice Returns forced inclusions stored starting from a given index.
@@ -145,5 +177,6 @@ library LibForcedInclusion {
     // Errors
     // ---------------------------------------------------------------
 
-    error IncorrectFee();
+    error InsufficientFee();
+    error InvalidFeeDoubleThreshold();
 }
