@@ -7,7 +7,7 @@ pub mod shasta;
 
 pub use error::ManifestFetcherError;
 use rpc::blob::BlobDataSource;
-pub use shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher};
+pub use shasta::ShastaSourceManifestFetcher;
 use tracing::error;
 
 /// Trait describing manifest fetch behaviour for different forks.
