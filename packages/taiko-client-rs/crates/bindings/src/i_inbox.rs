@@ -18,6 +18,7 @@ interface IInbox {
         uint256 minForcedInclusionCount;
         uint16 forcedInclusionDelay;
         uint64 forcedInclusionFeeInGwei;
+        uint64 forcedInclusionFeeDoubleThreshold;
         uint16 minCheckpointDelay;
         uint8 permissionlessInclusionMultiplier;
         uint16 compositeKeyVersion;
@@ -116,6 +117,11 @@ interface IInbox {
           },
           {
             "name": "forcedInclusionFeeInGwei",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "forcedInclusionFeeDoubleThreshold",
             "type": "uint64",
             "internalType": "uint64"
           },
@@ -296,7 +302,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address bondToken; address checkpointStore; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
+struct Config { address codec; address bondToken; address checkpointStore; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -330,6 +336,8 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
         #[allow(missing_docs)]
         pub forcedInclusionFeeInGwei: u64,
         #[allow(missing_docs)]
+        pub forcedInclusionFeeDoubleThreshold: u64,
+        #[allow(missing_docs)]
         pub minCheckpointDelay: u16,
         #[allow(missing_docs)]
         pub permissionlessInclusionMultiplier: u8,
@@ -360,6 +368,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<8>,
             alloy::sol_types::sol_data::Uint<16>,
@@ -379,6 +388,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             u8,
             alloy::sol_types::private::primitives::aliases::U256,
             u16,
+            u64,
             u64,
             u16,
             u8,
@@ -414,6 +424,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     value.minForcedInclusionCount,
                     value.forcedInclusionDelay,
                     value.forcedInclusionFeeInGwei,
+                    value.forcedInclusionFeeDoubleThreshold,
                     value.minCheckpointDelay,
                     value.permissionlessInclusionMultiplier,
                     value.compositeKeyVersion,
@@ -439,9 +450,10 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     minForcedInclusionCount: tuple.11,
                     forcedInclusionDelay: tuple.12,
                     forcedInclusionFeeInGwei: tuple.13,
-                    minCheckpointDelay: tuple.14,
-                    permissionlessInclusionMultiplier: tuple.15,
-                    compositeKeyVersion: tuple.16,
+                    forcedInclusionFeeDoubleThreshold: tuple.14,
+                    minCheckpointDelay: tuple.15,
+                    permissionlessInclusionMultiplier: tuple.16,
+                    compositeKeyVersion: tuple.17,
                 }
             }
         }
@@ -503,6 +515,11 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         64,
                     > as alloy_sol_types::SolType>::tokenize(
                         &self.forcedInclusionFeeInGwei,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.forcedInclusionFeeDoubleThreshold,
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         16,
@@ -589,7 +606,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address bondToken,address checkpointStore,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
+                    "Config(address codec,address bondToken,address checkpointStore,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
                 )
             }
             #[inline]
@@ -678,6 +695,12 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.forcedInclusionFeeDoubleThreshold,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.minCheckpointDelay,
@@ -763,6 +786,11 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.forcedInclusionFeeInGwei,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.forcedInclusionFeeDoubleThreshold,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         16,
@@ -860,6 +888,12 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.forcedInclusionFeeInGwei,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.forcedInclusionFeeDoubleThreshold,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
