@@ -80,19 +80,19 @@ library LibForcedInclusion {
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
-        (uint48 head, uint48 tail) = ($.head, $.tail);
+            (uint48 head, uint48 tail) = ($.head, $.tail);
 
-        if (_start < head || _start >= tail || _maxCount == 0) {
-            return new IForcedInclusionStore.ForcedInclusion[](0);
-        }
+            if (_start < head || _start >= tail || _maxCount == 0) {
+                return new IForcedInclusionStore.ForcedInclusion[](0);
+            }
 
-        uint256 count = uint256(tail - _start).min(_maxCount);
+            uint256 count = uint256(tail - _start).min(_maxCount);
 
-        inclusions_ = new IForcedInclusionStore.ForcedInclusion[](count);
+            inclusions_ = new IForcedInclusionStore.ForcedInclusion[](count);
 
-        for (uint256 i; i < count; ++i) {
-            inclusions_[i] = $.queue[i +_start];
-        }
+            for (uint256 i; i < count; ++i) {
+                inclusions_[i] = $.queue[i + _start];
+            }
         }
     }
 
