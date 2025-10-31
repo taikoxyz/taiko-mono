@@ -37,8 +37,10 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
+            overseer-rs
             protocol
             relayer
+            urcindexer-rs
             nfts
             ui-lib
             taiko-client
