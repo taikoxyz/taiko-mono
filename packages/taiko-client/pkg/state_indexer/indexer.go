@@ -31,12 +31,13 @@ var (
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
-	Proposal       *shastaBindings.IInboxProposal
-	CoreState      *shastaBindings.IInboxCoreState
-	Derivation     *shastaBindings.IInboxDerivation
-	RawBlockHash   common.Hash
-	RawBlockHeight *big.Int
-	Log            *types.Log
+	Proposal         *shastaBindings.IInboxProposal
+	CoreState        *shastaBindings.IInboxCoreState
+	Derivation       *shastaBindings.IInboxDerivation
+	BondInstructions []shastaBindings.LibBondsBondInstruction
+	RawBlockHash     common.Hash
+	RawBlockHeight   *big.Int
+	Log              *types.Log
 }
 
 // TransitionPayload represents the payload in a Shasta Proved event.
@@ -355,18 +356,20 @@ func (s *Indexer) onProposedEvent(
 		return nil
 	}
 	var (
-		proposal   = meta.Shasta().GetProposal()
-		coreState  = meta.Shasta().GetCoreState()
-		derivation = meta.Shasta().GetDerivation()
+		proposal         = meta.Shasta().GetProposal()
+		coreState        = meta.Shasta().GetCoreState()
+		derivation       = meta.Shasta().GetDerivation()
+		bondInstructions = meta.Shasta().GetBondInstructions()
 	)
 
 	payload := &ProposalPayload{
-		Proposal:       &proposal,
-		CoreState:      &coreState,
-		Derivation:     &derivation,
-		RawBlockHash:   meta.GetRawBlockHash(),
-		RawBlockHeight: meta.GetRawBlockHeight(),
-		Log:            meta.Shasta().GetLog(),
+		Proposal:         &proposal,
+		CoreState:        &coreState,
+		Derivation:       &derivation,
+		BondInstructions: bondInstructions,
+		RawBlockHash:     meta.GetRawBlockHash(),
+		RawBlockHeight:   meta.GetRawBlockHeight(),
+		Log:              meta.Shasta().GetLog(),
 	}
 
 	s.proposals.Set(proposal.Id.Uint64(), payload)
@@ -376,6 +379,7 @@ func (s *Indexer) onProposedEvent(
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
+		"bondInstructions", len(bondInstructions),
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),

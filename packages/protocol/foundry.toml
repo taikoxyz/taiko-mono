@@ -83,7 +83,8 @@ exclude_lints = [
     "unsafe-typecast",
     "unwrapped-modifier-logic",
     "mixed-case-function",
-    "unsafe-cheatcode"
+    "unsafe-cheatcode",
+    "max-line-length"
 ]
 
 [profile.layer1]

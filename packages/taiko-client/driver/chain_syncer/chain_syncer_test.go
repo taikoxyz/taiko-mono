@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -187,7 +185,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
@@ -311,7 +309,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
@@ -348,7 +346,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := EncodeDerivationSourceShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -389,7 +387,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
-	s.Equal(uint16(1), s.getBlockIndexInAnchor(head2))
 
 	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -402,55 +399,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
 	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
 	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
-	s.Equal(uint16(0), s.getBlockIndexInAnchor(forcedIncludedHeader))
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {
 	suite.Run(t, new(ChainSyncerTestSuite))
-}
-
-func (s *ChainSyncerTestSuite) getBlockIndexInAnchor(block *types.Block) uint16 {
-	tx := block.Transactions()[0]
-	method, err := encoding.ShastaAnchorABI.MethodById(tx.Data())
-	s.Nil(err)
-	s.Equal("anchorV4", method.Name)
-
-	args := map[string]interface{}{}
-	s.Nil(method.Inputs.UnpackIntoMap(args, tx.Data()[4:]))
-
-	blockParams, ok := args["_blockParams"]
-	s.True(ok)
-
-	blockValue := reflect.ValueOf(blockParams)
-	s.Equal(reflect.Struct, blockValue.Kind())
-
-	blockIndexField := blockValue.FieldByName("BlockIndex")
-	s.True(blockIndexField.IsValid())
-
-	blockIndex, ok := blockIndexField.Interface().(uint16)
-	s.True(ok)
-
-	return blockIndex
-}
-
-func EncodeDerivationSourceShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	proposalManifestBytes, err := utils.EncodeAndCompressDerivationSourceShasta(*sourceManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	// Prepend the version and length bytes to the manifest bytes, then split
-	// the resulting bytes into multiple blobs.
-	versionBytes := make([]byte, 32)
-	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
-
-	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
-	lenBig.FillBytes(lenBytes)
-
-	blobBytesPrefix := make([]byte, 0, 64)
-	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
-	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
-
-	return append(blobBytesPrefix, proposalManifestBytes...), nil
 }

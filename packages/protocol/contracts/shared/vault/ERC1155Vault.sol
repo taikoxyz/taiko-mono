@@ -8,6 +8,8 @@ import "./IBridgedERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
+import "./ERC1155Vault_Layout.sol"; // DO NOT DELETE
+
 /// @title ERC1155Vault
 /// @dev Labeled in address resolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.

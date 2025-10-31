@@ -188,10 +188,9 @@ func (s *Syncer) processShastaProposal(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	var (
-		meta                    = metadata.Shasta()
-		parent                  *types.Block
-		nextSourceStartBlockIdx uint16
-		err                     error
+		meta   = metadata.Shasta()
+		parent *types.Block
+		err    error
 	)
 
 	// We simply ignore the genesis Shasta block's `Proposed` event.
@@ -426,10 +425,6 @@ func (s *Syncer) processShastaProposal(
 			meta.GetProposal().Id,
 			s.indexer,
 			sourcePayload,
-			latestProposalState.BondInstructionsHash,
-			meta.GetRawBlockHeight().Uint64(),
-			derivationIdx,
-			s.rpc,
 		); err != nil {
 			return fmt.Errorf("failed to assemble bond instructions: %w", err)
 		}
@@ -439,7 +434,6 @@ func (s *Syncer) processShastaProposal(
 			ctx,
 			metadata,
 			sourcePayload,
-			nextSourceStartBlockIdx,
 			endIter,
 		); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
@@ -447,7 +441,6 @@ func (s *Syncer) processShastaProposal(
 		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
 			return fmt.Errorf("failed to fetch the new parent block: %w", err)
 		}
-		nextSourceStartBlockIdx += uint16(len(sourcePayload.BlockPayloads))
 	}
 
 	return nil

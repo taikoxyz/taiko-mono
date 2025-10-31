@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IProofVerifier.sol";
-import "./LibPublicInput.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@sp1-contracts/src/ISP1Verifier.sol";
-import "src/shared/libs/LibNames.sol";
+import { IProofVerifier } from "./IProofVerifier.sol";
+import { LibPublicInput } from "./LibPublicInput.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz

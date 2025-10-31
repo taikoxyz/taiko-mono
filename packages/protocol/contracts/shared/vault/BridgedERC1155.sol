@@ -7,6 +7,8 @@ import "./IBridgedERC1155.sol";
 import "./LibBridgedToken.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 
+import "./BridgedERC1155_Layout.sol"; // DO NOT DELETE
+
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz

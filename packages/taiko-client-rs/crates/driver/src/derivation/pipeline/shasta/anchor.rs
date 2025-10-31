@@ -42,7 +42,6 @@ pub struct AnchorV4Input {
     pub prover_auth: Vec<u8>,
     pub bond_instructions_hash: B256,
     pub bond_instructions: Vec<BondInstruction>,
-    pub block_index: u16,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
@@ -91,7 +90,6 @@ where
             prover_auth,
             bond_instructions_hash,
             bond_instructions,
-            block_index,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
@@ -128,9 +126,11 @@ where
         info!(
             l2_height,
             proposal_id,
-            block_index,
+            ?prover_auth,
+            ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
+            ?base_fee,
             "assembling shasta anchor anchorV4 transaction",
         );
 
@@ -143,7 +143,6 @@ where
         };
 
         let block_params = BlockParams {
-            blockIndex: block_index,
             anchorBlockNumber: U48::from(anchor_block_number),
             anchorBlockHash: anchor_block_hash,
             anchorStateRoot: anchor_state_root,

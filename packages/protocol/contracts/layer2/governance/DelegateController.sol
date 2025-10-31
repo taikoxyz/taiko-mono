@@ -7,6 +7,8 @@ import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibBytes.sol";
 import "src/shared/libs/LibNames.sol";
 
+import "./DelegateController_Layout.sol"; // DO NOT DELETE
+
 /// @title DelegateController
 /// @notice This contract will be the owner of all essential contracts deployed on the L2 chain.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must

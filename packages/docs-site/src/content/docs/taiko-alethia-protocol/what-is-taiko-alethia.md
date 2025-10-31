@@ -9,6 +9,8 @@ Ethereum is **expensive** and **congested**. However, Ethereum's core principles
 
 Taiko Alethia is an **Ethereum-equivalent, permissionless, based rollup** designed to scale Ethereum without compromising its fundamental properties. Unlike traditional rollups that rely on centralized sequencers, Taiko Alethia leverages Ethereum itself for sequencing, ensuring that block ordering is decentralized and censorship-resistant.
 
+Find Taiko Alethia's whitepaper [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/whitepaper).
+
 ### Why Taiko Alethia?
 
 - **Fully Ethereum-equivalent**: Runs an unmodified Ethereum execution layer, making it easy for developers to migrate smart contracts and tooling.

@@ -282,7 +282,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         bytes memory proof = _createValidProof();
 
         // Should revert with EmptyProposals
-        vm.expectRevert(EmptyProposals.selector);
+        vm.expectRevert(Inbox.EmptyProposals.selector);
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
     }
@@ -297,7 +297,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         bytes memory proof = _createValidProof();
 
         // Should revert with InconsistentParams
-        vm.expectRevert(InconsistentParams.selector);
+        vm.expectRevert(Inbox.InconsistentParams.selector);
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
     }

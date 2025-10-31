@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "src/layer1/mainnet/LibFasterReentryLock.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 
+import "./MainnetERC1155Vault_Layout.sol"; // DO NOT DELETE
+
 /// @title MainnetERC1155Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost. In theory, the contract can also be deployed on Taiko L2 but this is

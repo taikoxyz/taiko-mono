@@ -204,13 +204,13 @@ fn adjust_gas_limit(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::Address;
+    use alloy_primitives::{Address, Bytes};
     use protocol::shasta::manifest::BlockManifest;
 
     use super::*;
 
     fn manifest_with_blocks(blocks: Vec<BlockManifest>) -> DerivationSourceManifest {
-        DerivationSourceManifest { blocks }
+        DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks }
     }
 
     #[test]

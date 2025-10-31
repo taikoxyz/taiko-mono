@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
+import "./DefaultResolver_Layout.sol"; // DO NOT DELETE
+
 /// @title DefaultResolver
 /// @notice Storage-based address resolver.
 /// @custom:security-contact security@taiko.xyz

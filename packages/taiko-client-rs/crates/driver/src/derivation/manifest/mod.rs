@@ -2,7 +2,4 @@
 
 pub mod fetcher;
 
-pub use fetcher::{
-    ManifestFetcher, ManifestFetcherError, ShastaProposalManifestFetcher,
-    ShastaSourceManifestFetcher,
-};
+pub use fetcher::{ManifestFetcher, ManifestFetcherError, ShastaSourceManifestFetcher};

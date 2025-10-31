@@ -28,7 +28,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
+                forcedInclusionFeeDoubleThreshold: 100,
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1

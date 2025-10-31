@@ -114,7 +114,11 @@ func IsProvingWindowExpired(
 		now       = uint64(time.Now().Unix())
 		expiredAt = timestamp + uint64(provingWindow.Seconds())
 	)
-	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
+	remainingSeconds := int64(expiredAt) - int64(now)
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(remainingSeconds) * time.Second, nil
 }
 
 // IsProvingWindowExpiredShasta returns true as the first return parameter if the assigned prover
@@ -133,5 +137,9 @@ func IsProvingWindowExpiredShasta(
 		now       = uint64(time.Now().Unix())
 		expiredAt = metadata.Shasta().GetProposal().Timestamp.Uint64() + configs.ProvingWindow.Uint64()
 	)
-	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
+	remainingSeconds := int64(expiredAt) - int64(now)
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(remainingSeconds) * time.Second, nil
 }

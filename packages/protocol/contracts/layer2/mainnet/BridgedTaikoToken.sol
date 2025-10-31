@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "src/shared/governance/TaikoTokenBase.sol";
 import "src/shared/vault/IBridgedERC20.sol";
 
+import "./BridgedTaikoToken_Layout.sol"; // DO NOT DELETE
+
 /// @title BridgedTaikoToken
 /// @notice The TaikoToken on L2 to support checkpoints and voting. For testnets, we do not need to
 /// use this contract.

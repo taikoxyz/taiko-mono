@@ -8,7 +8,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use alloy::{eips::BlockNumberOrTag, rpc::types::Log, sol_types::SolEvent};
+use alloy::{rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
@@ -20,15 +20,13 @@ use bindings::{
             ProvedEventPayload as InboxProvedEventPayload, Transition, TransitionMetadata,
             TransitionRecord,
         },
+        LibBonds::BondInstruction,
     },
     i_inbox::IInbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
-use event_scanner::{
-    EventFilter,
-    types::{ScannerMessage, ScannerStatus},
-};
-use rpc::SubscriptionSource;
+use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
+use protocol::subscription_source::SubscriptionSource;
 use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -49,6 +47,8 @@ pub struct ProposedEventPayload {
     pub core_state: CoreState,
     /// Derivation data required to reproduce the proposal off-chain.
     pub derivation: Derivation,
+    /// Bond instructions finalized while processing this proposal.
+    pub bond_instructions: Vec<BondInstruction>,
     /// Raw log of the event.
     pub log: Log,
 }
@@ -142,29 +142,29 @@ impl ShastaEventIndexer {
     }
 
     /// Begin streaming and decoding inbox events from the configured L1 upstream.
-    #[instrument(skip(self), err, fields(?start_tag))]
-    async fn run_inner(self: Arc<Self>, start_tag: BlockNumberOrTag) -> Result<()> {
+    #[instrument(skip(self), err)]
+    async fn run_inner(self: Arc<Self>) -> Result<()> {
         let source = &self.config.l1_subscription_source;
         info!(
             connection_type = if source.is_ipc() { "IPC" } else { "WebSocket" },
             "subscribing to L1"
         );
 
-        let mut event_scanner = source.to_event_scanner().await?;
+        let mut event_scanner = source
+            .to_event_scanner_sync_from_latest_scanning(self.ring_buffer_size() as usize)
+            .await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()
-            .with_contract_address(self.config.inbox_address)
-            .with_event(Proposed::SIGNATURE)
-            .with_event(Proved::SIGNATURE);
+            .contract_address(self.config.inbox_address)
+            .event(Proposed::SIGNATURE)
+            .event(Proved::SIGNATURE);
 
-        let mut stream = event_scanner.create_event_stream(filter);
+        let mut stream = event_scanner.subscribe(filter);
 
         // Start the event scanner in a separate task.
         tokio::spawn(async move {
-            // TODO: change to fetch the last X events when the event scanner supports it in next
-            // release.
-            if let Err(err) = event_scanner.start_scanner(start_tag, None).await {
+            if let Err(err) = event_scanner.start().await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
@@ -182,7 +182,7 @@ impl ShastaEventIndexer {
                 }
                 ScannerMessage::Status(status) => {
                     info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::ChainTipReached) &&
+                    if matches!(status, ScannerStatus::SwitchingToLive) &&
                         !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
@@ -226,15 +226,15 @@ impl ShastaEventIndexer {
 
     /// Start the indexer event processing loop on a background task.
     #[instrument(skip(self))]
-    pub fn spawn(self: Arc<Self>, start_tag: BlockNumberOrTag) -> JoinHandle<Result<()>> {
-        spawn(async move { self.run_inner(start_tag).await })
+    pub fn spawn(self: Arc<Self>) -> JoinHandle<Result<()>> {
+        spawn(async move { self.run_inner().await })
     }
 
     /// Decode and cache a `Proposed` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
         // Decode the event payload using the contract codec.
-        let InboxProposedEventPayload { proposal, derivation, coreState } = self
+        let InboxProposedEventPayload { proposal, derivation, coreState, bondInstructions } = self
             .inbox_codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
@@ -247,6 +247,7 @@ impl ShastaEventIndexer {
                 proposal: proposal.clone(),
                 core_state: coreState.clone(),
                 derivation: derivation.clone(),
+                bond_instructions: bondInstructions,
                 log: log.clone(),
             },
         );
@@ -613,6 +614,7 @@ mod tests {
             proposal: proposal_with_id(1),
             derivation: empty_derivation(),
             coreState: empty_core_state(),
+            bondInstructions: Vec::new(),
         };
 
         let encoded =

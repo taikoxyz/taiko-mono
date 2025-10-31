@@ -26,9 +26,15 @@ apply_skip_worktree() {
 apply_skip_worktree "$PROTOCOL_DIR/gas-reports"
 apply_skip_worktree "$PROTOCOL_DIR/layout"
 
+# Apply to *_Layout.sol files using pattern matching
+if git ls-files "$PROTOCOL_DIR/contracts/**/*_Layout.sol" &>/dev/null; then
+    echo "  → Ignoring changes in *_Layout.sol files"
+    git ls-files "$PROTOCOL_DIR/contracts/**/*_Layout.sol" | xargs git update-index --skip-worktree 2>/dev/null || true
+fi
+
 echo "✅ Local git ignores configured successfully!"
 echo ""
-echo "📝 Note: Files in gas-reports/ and layout/ are now ignored locally"
+echo "📝 Note: Files in gas-reports/, layout/, and *_Layout.sol files are now ignored locally"
 echo "   but remain available for GitHub workflows and other developers."
 echo ""
 echo "🔄 To undo this setup, run: scripts/remove-local-ignores.sh"

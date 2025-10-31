@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
+
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
 
 contract LibPublicInputTest is Test {
@@ -13,8 +15,13 @@ contract LibPublicInputTest is Test {
 
         bytes32 actual =
             LibPublicInput.hashPublicInputs(aggregatedHash, verifier, newInstance, chainId);
-        bytes32 expected =
-            keccak256(abi.encode("VERIFY_PROOF", chainId, verifier, aggregatedHash, newInstance));
+        bytes32 expected = EfficientHashLib.hash(
+            bytes32("VERIFY_PROOF"),
+            bytes32(uint256(chainId)),
+            bytes32(uint256(uint160(verifier))),
+            aggregatedHash,
+            bytes32(uint256(uint160(newInstance)))
+        );
 
         assertEq(actual, expected);
     }

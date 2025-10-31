@@ -16,17 +16,13 @@ use bindings::{
 };
 use event_indexer::indexer::ShastaEventIndexer;
 use protocol::shasta::{
-    constants::shasta_fork_height_for_chain,
-    manifest::{DerivationSourceManifest, ProposalManifest},
+    constants::shasta_fork_height_for_chain, manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client, error::RpcClientError};
 
 use crate::{
     derivation::{
-        manifest::{
-            ManifestFetcher,
-            fetcher::shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher},
-        },
+        manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
         pipeline::shasta::anchor::AnchorTxConstructor,
     },
     sync::engine::{EngineBlockOutcome, PayloadApplier},
@@ -58,7 +54,6 @@ where
     anchor_constructor: AnchorTxConstructor<P>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
-    proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
     shasta_fork_height: u64,
 }
 
@@ -76,15 +71,7 @@ where
         indexer: Arc<ShastaEventIndexer>,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(
-                blob_source.clone(),
-                DerivationSourceManifest::decompress_and_decode,
-            ));
-        let proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
-            Arc::new(ShastaProposalManifestFetcher::new(
-                blob_source,
-                ProposalManifest::decompress_and_decode,
-            ));
+            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
         let chain_id = rpc
             .l2_provider
@@ -99,7 +86,6 @@ where
             indexer,
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
-            proposal_manifest_fetcher,
             shasta_fork_height,
         })
     }
@@ -236,18 +222,19 @@ where
             });
         }
 
-        // Fetch the proposal manifest last.
-        let final_manifest: ProposalManifest = self
-            .fetch_and_decode_manifest(self.proposal_manifest_fetcher.as_ref(), last_source)
+        // Fetch the normal proposal manifest last.
+        let final_manifest = self
+            .fetch_and_decode_manifest(
+                self.derivation_source_manifest_fetcher.as_ref(),
+                last_source,
+            )
             .await?;
 
         let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
-        for manifest in final_manifest.sources.into_iter() {
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: last_source.isForcedInclusion,
-            });
-        }
+        manifest_segments.push(SourceManifestSegment {
+            manifest: final_manifest,
+            is_forced_inclusion: last_source.isForcedInclusion,
+        });
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {

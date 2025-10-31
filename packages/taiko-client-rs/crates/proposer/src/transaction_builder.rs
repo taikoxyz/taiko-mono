@@ -17,7 +17,7 @@ use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputRe
 use protocol::shasta::{
     BlobCoder,
     constants::MIN_ANCHOR_OFFSET,
-    manifest::{BlockManifest, DerivationSourceManifest, ProposalManifest},
+    manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
 use tracing::info;
@@ -91,10 +91,8 @@ impl ShastaProposalTransactionBuilder {
             .collect::<Vec<BlockManifest>>();
 
         // Build the proposal manifest.
-        let manifest = ProposalManifest {
-            prover_auth_bytes: Bytes::new(),
-            sources: vec![DerivationSourceManifest { blocks: block_manifests }],
-        };
+        let manifest =
+            DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks: block_manifests };
 
         // Build the blob sidecar from the proposal manifest.
         let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
