@@ -1017,15 +1017,6 @@ function replaceImmutableValues(artifact: any, maps: Array<any>): any {
 function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
 
-    // If no offsets found, the immutable might be declared but not used in this artifact's bytecode
-    // This can happen with inherited immutables. Return artifact unchanged.
-    if (!offsets || !Array.isArray(offsets) || offsets.length === 0) {
-        console.log(
-            `No immutable reference offsets found for id ${id} in bytecode, skipping replacement`,
-        );
-        return artifact;
-    }
-
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
     if (value.startsWith("0x")) value = value.substring(2);
