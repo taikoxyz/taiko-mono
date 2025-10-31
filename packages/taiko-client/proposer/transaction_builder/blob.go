@@ -206,7 +206,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		parentProposals          []shastaBindings.IInboxProposal
 		transitionRecords        []shastaBindings.IInboxTransitionRecord
 		checkpoint               = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
-		derivationSourceManifest = &manifest.DerivationSourceManifest{}
+		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
 	)
 	for i, p := range proposals {
 		log.Info(
@@ -266,17 +266,14 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		})
 	}
 
-	// Encode the proposal manifest.
-	proposalManifestBytes, err := EncodeProposalManifestShasta(&manifest.ProposalManifest{
-		ProverAuthBytes: proverAuth,
-		Sources:         []*manifest.DerivationSourceManifest{derivationSourceManifest},
-	})
+	// Encode the derivation source manifest.
+	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode proposal manifest: %w", err)
+		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
 	}
 
-	// Split the proposal manifest bytes into multiple blobs.
-	if blobs, err = SplitToBlobs(proposalManifestBytes); err != nil {
+	// Split the derivation source manifest bytes into multiple blobs.
+	if blobs, err = SplitToBlobs(sourceManifestBytes); err != nil {
 		return nil, err
 	}
 
@@ -330,10 +327,10 @@ func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	return blobs, nil
 }
 
-// EncodeProposalManifestShasta encodes the given proposal manifest to a byte slice
+// EncodeSourceManifestShasta encodes the given derivation source manifest to a byte slice
 // that can be used as input to the Shasta Inbox.propose function.
-func EncodeProposalManifestShasta(proposalManifest *manifest.ProposalManifest) ([]byte, error) {
-	proposalManifestBytes, err := utils.EncodeAndCompressProposalManifestShasta(*proposalManifest)
+func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifestShasta(sourceManifest)
 	if err != nil {
 		return nil, err
 	}
@@ -344,12 +341,12 @@ func EncodeProposalManifestShasta(proposalManifest *manifest.ProposalManifest) (
 	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
 
 	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig := new(big.Int).SetUint64(uint64(len(sourceManifestBytes)))
 	lenBig.FillBytes(lenBytes)
 
 	blobBytesPrefix := make([]byte, 0, 64)
 	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
-	return append(blobBytesPrefix, proposalManifestBytes...), nil
+	return append(blobBytesPrefix, sourceManifestBytes...), nil
 }

@@ -303,10 +303,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, _forcedInclusionDelay
-        );
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+    {
+        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getForcedInclusionState()
+        external
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+    {
+        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
