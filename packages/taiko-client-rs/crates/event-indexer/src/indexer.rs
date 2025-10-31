@@ -20,9 +20,9 @@ use bindings::{
             ProvedEventPayload as InboxProvedEventPayload, Transition, TransitionMetadata,
             TransitionRecord,
         },
-        LibBonds::BondInstruction,
     },
     i_inbox::IInbox::{self, Proposed, Proved},
+    anchor::LibBonds::BondInstruction,
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
