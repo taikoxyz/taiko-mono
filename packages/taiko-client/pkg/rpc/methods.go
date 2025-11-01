@@ -465,11 +465,7 @@ func (c *Client) CalculateBaseFee(
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
-	var (
-		baseFee *big.Int
-		err     error
-	)
-
+	// If the Shasta fork is activated, we need to calculate the Shasta base fee.
 	if c.ShastaClients.ForkTime >= currentTimestamp {
 		// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
 		if l2Head.Number.Cmp(common.Big0) == 0 {
@@ -483,7 +479,7 @@ func (c *Client) CalculateBaseFee(
 		}
 		config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 		log.Info(
-			"Fetched params for Shasta base fee calculation",
+			"Params for Shasta base fee calculation",
 			"parentBlockNumber", l2Head.Number,
 			"parentGasLimit", l2Head.GasLimit,
 			"parentGasUsed", l2Head.GasUsed,
@@ -496,7 +492,9 @@ func (c *Client) CalculateBaseFee(
 		return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
 	}
 
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+	// Otherwise, calculate Pacaya base fee.
+	baseFee, err := c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig)
+	if err != nil {
 		return nil, err
 	}
 
