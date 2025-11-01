@@ -44,8 +44,9 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     /// @dev Slots used by the Pacaya signal service.
-    uint256 private _pacayaSlotTopBlockId;
-    uint256 private _pacayaSlotisAuthorized;
+    // slot1: topBlockId
+    // slot2: isAuthorized
+    uint256[2] private _slotsUsedByPacaya;
 
     /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
