@@ -9,15 +9,15 @@ import "../verifiers/compose/ComposeVerifier.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DevnetVerifier is ComposeVerifier {
     constructor(
-        address _opVerifier,
+        address _sgxGethVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
         ComposeVerifier(
-            address(0), // No Geth verifiers
+            _sgxGethVerifier,
             address(0),
-            _opVerifier,
+            address(0),
             _sgxRethVerifier,
             _risc0RethVerifier,
             _sp1RethVerifier
@@ -36,9 +36,9 @@ contract DevnetVerifier is ComposeVerifier {
 
         // Determine which verifier is SGX and which is the second verifier
         uint256 secondVerifierIdx;
-        if (_verifiers[0] == sgxRethVerifier) {
+        if (_verifiers[0] == sgxGethVerifier) {
             secondVerifierIdx = 1;
-        } else if (_verifiers[1] == sgxRethVerifier) {
+        } else if (_verifiers[1] == sgxGethVerifier) {
             secondVerifierIdx = 0;
         } else {
             // One of the verifiers MUST be SGX
@@ -46,7 +46,7 @@ contract DevnetVerifier is ComposeVerifier {
         }
 
         // The second verifier must be one of: OP, RISC0, or SP1
-        return _verifiers[secondVerifierIdx] == opVerifier
+        return _verifiers[secondVerifierIdx] == sgxRethVerifier
             || _verifiers[secondVerifierIdx] == risc0RethVerifier
             || _verifiers[secondVerifierIdx] == sp1RethVerifier;
     }
