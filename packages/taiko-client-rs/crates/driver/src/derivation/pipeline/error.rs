@@ -67,9 +67,6 @@ pub enum DerivationError {
     /// Failed to fetch the propose transaction from L1.
     #[error("failed to fetch propose transaction for proposal {proposal_id}: {reason}")]
     ProposeTransactionQuery { proposal_id: u64, reason: String },
-    /// Block index exceeded the supported range.
-    #[error("block index {index} exceeds u16 range")]
-    BlockIndexOverflow { index: usize },
     /// Failed to query the anchor block fields.
     #[error("failed to fetch anchor block {block_number}: {reason}")]
     AnchorBlockQuery { block_number: u64, reason: String },
