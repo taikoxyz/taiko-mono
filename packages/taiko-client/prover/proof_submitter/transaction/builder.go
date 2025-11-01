@@ -255,9 +255,9 @@ func GetShastaGenesisTransition(
 		ProposalHash:         common.Hash{},
 		ParentTransitionHash: common.Hash{},
 		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-			BlockNumber: blockNumber,
+			BlockNumber: common.Big0,
 			BlockHash:   header.Hash(),
-			StateRoot:   header.Root,
+			StateRoot:   common.Hash{},
 		},
 	}, nil
 }
