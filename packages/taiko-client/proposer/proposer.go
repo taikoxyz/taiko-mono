@@ -330,7 +330,11 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	if uint64(time.Now().Unix()) < p.rpc.ShastaClients.ForkTime {
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L1 head: %w", err)
+	}
+	if l1Head.Time < p.rpc.ShastaClients.ForkTime {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)

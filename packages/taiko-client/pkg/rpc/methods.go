@@ -466,7 +466,7 @@ func (c *Client) CalculateBaseFee(
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	// If the Shasta fork is activated, we need to calculate the Shasta base fee.
-	if c.ShastaClients.ForkTime >= currentTimestamp {
+	if currentTimestamp >= c.ShastaClients.ForkTime {
 		// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
 		if l2Head.Number.Cmp(common.Big0) == 0 {
 			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
