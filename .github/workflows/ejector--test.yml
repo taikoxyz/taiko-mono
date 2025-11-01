@@ -32,7 +32,7 @@ jobs:
 
       # Toolchain + components (rustfmt, clippy)
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@1.100
         with:
           components: rustfmt, clippy
 
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@1.100
         with:
           components: llvm-tools-preview
 
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@1.100
         with:
           components: llvm-tools-preview
 
@@ -109,7 +109,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lcov.info
           path: packages/ejector/lcov.info
