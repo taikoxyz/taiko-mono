@@ -470,49 +470,18 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
-	// Determine if Shasta is active based on the timestamp of the block being built.
-	// Use currentTimestamp (the candidate block's timestamp), not the parent header time.
-	shastaActiveByTime := c.ShastaClients != nil && c.ShastaClients.ForkTime > 0 && currentTimestamp >= c.ShastaClients.ForkTime
-	if shastaActiveByTime {
-		// If parent header is unavailable (e.g., genesis context), return initial base fee.
-		if l2Head == nil {
+	if c.ShastaClients.ForkTime >= currentTimestamp {
+		// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
+		if l2Head.Number.Cmp(common.Big0) == 0 {
 			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
 		}
 
-		// Handle initial ramp-up window differently depending on gating mode.
-		inInitialWindow := false
-		// Walk back up to ShastaInitialBaseFeeBlocks-1 parents to see if we are still
-		// within the first 3 blocks after activation time.
-		// If any ancestor (including current parent chain) is before fork time, then we are
-		// still inside the initial window and should keep returning the initial base fee.
-		current := l2Head
-		for i := uint64(0); i < misc.ShastaInitialBaseFeeBlocks; i++ {
-			// Load parent to compare time deltas in later calculation as well.
-			parent, err := c.L2.HeaderByHash(ctx, current.ParentHash)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch parent block: %w", err)
-			}
-			// If parent timestamp is before fork time, it means current block is within the first window.
-			if parent.Time < c.ShastaClients.ForkTime {
-				inInitialWindow = true
-				break
-			}
-			current = parent
-		}
-
-		// During the initial window, always return the initial base fee.
-		if inInitialWindow {
-			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
-		}
-
+		// Otherwise, calculate Shasta base fee according to EIP-4396.
 		grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
 		}
-
-		// For timestamp-gated activation, pass a dummy ShastaBlock since we are already past the
-		// initial window; CalcEIP4396BaseFee only uses ShastaBlock to gate the initial-blocks branch.
-		config := &params.ChainConfig{ShastaTime: 0}
+		config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 		log.Info(
 			"Fetched params for Shasta base fee calculation",
 			"parentBlockNumber", l2Head.Number,
@@ -524,15 +493,9 @@ func (c *Client) CalculateBaseFee(
 			"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 			"shastaForkTime", c.ShastaClients.ForkTime,
 		)
-		baseFee = misc.CalcEIP4396BaseFee(
-			config,
-			l2Head,
-			l2Head.Time-grandParentBlock.Time,
-		)
-
-		log.Info("Shasta base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number, "shastaByTime", shastaActiveByTime)
-		return baseFee, nil
+		return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
 	}
+
 	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 		return nil, err
 	}
