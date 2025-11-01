@@ -158,16 +158,6 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parentHash", parentHash,
 	)
 
-	// After the verified block timestamp has reached Shasta fork time, use the new gas limit.
-	gasLimit := consensus.AnchorV3GasLimit
-	if c.rpc.ShastaClients.ForkTime > 0 {
-		// Fetch current L2 header to check timestamp.
-		header, err := c.rpc.L2.HeaderByNumber(ctx, l2Height)
-		if err == nil && header.Time >= c.rpc.ShastaClients.ForkTime {
-			gasLimit = consensus.AnchorV4GasLimit
-		}
-	}
-
 	return &bind.TransactOpts{
 		From: consensus.GoldenTouchAccount,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -184,7 +174,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		Context:   ctx,
 		GasFeeCap: baseFee,
 		GasTipCap: common.Big0,
-		GasLimit:  gasLimit,
+		GasLimit:  consensus.AnchorV3V4GasLimit,
 		NoSend:    true,
 	}, nil
 }

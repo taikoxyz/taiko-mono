@@ -397,12 +397,12 @@ func (s *Syncer) processShastaProposal(
 
 		if sourcePayload.Default {
 			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV4 from the parent gas limit to get
+			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 			// the real gas limit from parent block metadata.
 			gasLimit := sourcePayload.ParentBlock.GasLimit()
 			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV4GasLimit
+				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
 			}
 
 			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{

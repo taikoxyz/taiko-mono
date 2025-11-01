@@ -519,7 +519,7 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: e.Info.Coinbase,
-			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3GasLimit,
+			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3V4GasLimit,
 			Timestamp:   e.Info.LastBlockTimestamp,
 			TxList:      txListBytes,
 			MixHash:     common.Hash(difficulty),

@@ -512,7 +512,7 @@ func (c *Client) CalculateBaseFee(
 
 		// For timestamp-gated activation, pass a dummy ShastaBlock since we are already past the
 		// initial window; CalcEIP4396BaseFee only uses ShastaBlock to gate the initial-blocks branch.
-		config := &params.ChainConfig{ShastaBlock: common.Big0}
+		config := &params.ChainConfig{ShastaTime: 0}
 		log.Info(
 			"Fetched params for Shasta base fee calculation",
 			"parentBlockNumber", l2Head.Number,

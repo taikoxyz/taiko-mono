@@ -1412,7 +1412,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 			ParentHash:    parent.Hash(),
 			FeeRecipient:  preconferAddress,
 			Number:        l2BlockID,
-			GasLimit:      uint64(s.d.protocolConfig.BlockMaxGasLimit() + uint32(consensus.AnchorV3GasLimit)),
+			GasLimit:      uint64(s.d.protocolConfig.BlockMaxGasLimit() + uint32(consensus.AnchorV3V4GasLimit)),
 			ExtraData:     hexutil.Bytes(extraData[:]),
 			Timestamp:     timestamp,
 			Transactions:  b,

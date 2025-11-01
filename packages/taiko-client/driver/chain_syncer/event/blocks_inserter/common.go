@@ -55,7 +55,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	meta.GasLimit += consensus.AnchorV3GasLimit
+	meta.GasLimit += consensus.AnchorV3V4GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -440,8 +440,8 @@ func isKnownCanonicalBlock(
 		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
 		return nil, err
 	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
-		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3V4GasLimit {
+		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3V4GasLimit)
 		return nil, err
 	}
 	if block.Time() != meta.Timestamp {
