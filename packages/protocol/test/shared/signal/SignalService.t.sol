@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
+import "src/shared/common/EssentialContract.sol";
 import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
 
@@ -26,9 +27,7 @@ contract TestSignalService is CommonTest {
     SignalService private signalService;
 
     function setUpOnEthereum() internal override {
-        signalService = deploySignalService(
-            address(new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE))
-        );
+        signalService = deploySignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, deployer);
     }
 
     function test_sendSignal_RecordsSlotAndEmitsEvent() public {

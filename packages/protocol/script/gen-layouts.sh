@@ -24,6 +24,7 @@ contracts_shared=(
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
+"contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
 )
 
 # Layer 1 contracts
@@ -36,7 +37,6 @@ contracts_layer1=(
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/MainnetSignalService.sol:MainnetSignalService"
 "contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"

@@ -7,11 +7,12 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 
 // solhint-disable max-line-length
-//   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20  
-//   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20  
-//   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32  
-//   _pacayaSlots                   | uint256[4]                                         | Slot: 3    | Offset: 0    | Bytes: 128 
-//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64  
-//   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64  
-//   blockHashes                    | mapping(uint256 => bytes32)                        | Slot: 11   | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[41]                                        | Slot: 12   | Offset: 0    | Bytes: 1312
+//   __essentialContractStorage     | uint256[251]                                       | Slot: 0    | Offset: 0    | Bytes: 8032
+//   _pacayaSlots                   | uint256[4]                                         | Slot: 251  | Offset: 0    | Bytes: 128 
+//   _owner                         | address                                            | Slot: 255  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 256  | Offset: 0    | Bytes: 20  
+//   _status                        | uint256                                            | Slot: 257  | Offset: 0    | Bytes: 32  
+//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 258  | Offset: 0    | Bytes: 64  
+//   _blockState                    | struct Anchor.BlockState                           | Slot: 260  | Offset: 0    | Bytes: 64  
+//   blockHashes                    | mapping(uint256 => bytes32)                        | Slot: 262  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[41]                                        | Slot: 263  | Offset: 0    | Bytes: 1312

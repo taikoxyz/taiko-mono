@@ -15,6 +15,7 @@ import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20V2.sol";
 import "src/shared/vault/BridgedERC721.sol";
@@ -150,14 +151,44 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deploySignalService(address signalServiceImpl) internal returns (SignalService) {
-        return SignalService(
+    function registerSignalService(SignalService signalService) internal returns (SignalService) {
+        register("signal_service", address(signalService));
+        return signalService;
+    }
+
+    function deploySignalService(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address owner
+    )
+        internal
+        returns (SignalService)
+    {
+        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService);
+        SignalService proxy = SignalService(
             deploy({
-                name: "signal_service",
-                impl: signalServiceImpl,
-                data: abi.encodeCall(SignalService.init, (address(0)))
+                name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
             })
         );
+        return registerSignalService(proxy);
+    }
+
+    function deploySignalServiceWithoutProof(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address owner
+    )
+        internal
+        returns (SignalService)
+    {
+        SignalService_WithoutProofVerification impl =
+            new SignalService_WithoutProofVerification(authorizedSyncer, remoteSignalService);
+        SignalService proxy = SignalService(
+            deploy({
+                name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
+            })
+        );
+        return registerSignalService(proxy);
     }
 
     function deployTaikoToken() internal returns (TaikoToken) {

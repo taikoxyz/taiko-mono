@@ -42,18 +42,14 @@ contract TestBridge1 is CommonTest {
     function setUpOnEthereum() internal override {
         eMessageReceiver = new MessageReceiver_SendingHalfEtherBalance();
 
-        eSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        eSignalService = _deployMockSignalService();
         eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
 
         vm.deal(Alice, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        tSignalService = _deployMockSignalService();
         tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         vm.deal(address(tBridge), 100 ether);
     }
@@ -399,5 +395,11 @@ contract TestBridge1 is CommonTest {
             gasLimit: gasLimit,
             data: ""
         });
+    }
+
+    function _deployMockSignalService() private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE")))), deployer
+        );
     }
 }
