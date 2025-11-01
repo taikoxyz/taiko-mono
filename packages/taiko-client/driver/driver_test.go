@@ -1378,13 +1378,19 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(),
-		parent,
-		s.d.protocolConfig.BaseFeeConfig(),
-		timestamp,
-	)
+	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
+
+	var baseFee *big.Int
+	if l1Head.Time >= s.RPCClient.ShastaClients.ForkTime {
+		baseFee, err = s.RPCClient.CalculateBaseFeeShasta(context.Background(), parent)
+		s.Nil(err)
+	} else {
+		baseFee, err = s.RPCClient.CalculateBaseFeePacaya(
+			context.Background(), parent, timestamp, s.d.protocolConfig.BaseFeeConfig(),
+		)
+		s.Nil(err)
+	}
 
 	anchortxConstructor, err := anchortxconstructor.New(s.d.rpc)
 	s.Nil(err)

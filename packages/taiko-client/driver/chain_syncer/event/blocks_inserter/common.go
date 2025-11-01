@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -496,7 +495,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFeePacaya(ctx, parent, timestamp, meta.GetBaseFeeConfig())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -595,7 +594,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	baseFee, err := rpc.CalculateBaseFeeShasta(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}

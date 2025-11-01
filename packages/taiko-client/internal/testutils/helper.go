@@ -471,8 +471,8 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	)
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(), parent, &e.Info.BaseFeeConfig, e.Info.LastBlockTimestamp,
+	baseFee, err := s.RPCClient.CalculateBaseFeePacaya(
+		context.Background(), parent, e.Info.LastBlockTimestamp, &e.Info.BaseFeeConfig,
 	)
 	s.Nil(err)
 
