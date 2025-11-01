@@ -6,6 +6,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
+import "./ForkRouter_Layout.sol"; // DO NOT DELETE
+
 /// @title ForkRouter
 /// @notice Routes calls between the legacy and new fork implementations using delegatecall.
 ///
