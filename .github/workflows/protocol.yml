@@ -120,7 +120,7 @@ jobs:
 
       - name: Commit generated protocol artifacts
         if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
-        uses: stefanzweifel/git-auto-commit-action@v6
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "Update protocol generated artifacts"
           branch: ${{ github.head_ref }}
