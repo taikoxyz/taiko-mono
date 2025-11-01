@@ -44,18 +44,19 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     /// @dev Slots used by the Pacaya signal service.
-    uint256[3] private _slotsUsedByPacaya;
-
-    /// @notice Storage for checkpoints persisted via the SignalService.
-    /// @dev Maps block number to checkpoint data
-    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
+    uint256 private _pacayaSlotTopBlockId;
+    uint256 private _pacayaSlotisAuthorized;
 
     /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
     /// Does NOT reuse the pacaya slot.
     mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
 
-    uint256[44] private __gap;
+    /// @notice Storage for checkpoints persisted via the SignalService.
+    /// @dev Maps block number to checkpoint data
+    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
+
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor and Initialization
