@@ -12,10 +12,9 @@ import "./ICheckpointStore.sol";
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService is ICheckpointStore {
-  
-/// @dev DEPRECATED
-/// @dev Caching is no longer supported
- enum CacheOption {
+    /// @dev DEPRECATED
+    /// @dev Caching is no longer supported
+    enum CacheOption {
         CACHE_NOTHING,
         CACHE_SIGNAL_ROOT,
         CACHE_STATE_ROOT,
