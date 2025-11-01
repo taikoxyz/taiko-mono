@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -120,11 +120,10 @@ contract Anchor is EssentialContract {
     // State variables
     // ---------------------------------------------------------------
 
-
     /// @notice Mapping from block number to block hash.
     mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
 
-       /// @dev Slots used by the Pacaya anchor contract itself.
+    /// @dev Slots used by the Pacaya anchor contract itself.
     /// slot1: publicInputHash
     /// slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
     /// slot3: l1ChainId
@@ -135,8 +134,6 @@ contract Anchor is EssentialContract {
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
-
-   
 
     /// @notice Storage gap for upgrade safety.
     uint256[41] private __gap;
