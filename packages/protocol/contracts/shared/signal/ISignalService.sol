@@ -14,7 +14,7 @@ import "./ICheckpointStore.sol";
 interface ISignalService is ICheckpointStore {
   
 /// @dev DEPRECATED
-/// @dev Caching is no longer supported
+/// @dev Caching options are no longer supported
  enum CacheOption {
         CACHE_NOTHING,
         CACHE_SIGNAL_ROOT,
@@ -62,7 +62,7 @@ interface ISignalService is ICheckpointStore {
     /// @return slot_ The location in storage where this signal is stored.
     function sendSignal(bytes32 _signal) external returns (bytes32 slot_);
 
-    /// @notice Verifies if a signal has been received on the target chain.
+    /// @notice Checks whether a signal has been received on the target chain and caches the result if successful.
     /// @param _chainId The identifier for the source chain from which the
     /// signal originated.
     /// @param _app The address that initiated the signal.
