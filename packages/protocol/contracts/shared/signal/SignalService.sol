@@ -242,10 +242,10 @@ contract SignalService is EssentialContract, ISignalService {
             return;
         }
 
-        Proof[] memory proofs = abi.decode(_proof, (Proof[]));
+        HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
         if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 
-        Proof memory proof = proofs[0];
+        HopProof memory proof = proofs[0];
 
         if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
             revert SS_EMPTY_PROOF();
