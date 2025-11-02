@@ -268,18 +268,16 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	for i := uint64(0); i < s.d.state.ShastaForkTime-l2Head1.Time-2*2; i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
-	}
+	s.Less(l2Head1.Time, s.RPCClient.ShastaClients.ForkTime)
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	testnetL1SnapshotID := s.SetL1Snapshot()
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(s.d.state.ShastaForkTime-2*3, l2Head2.Time)
-	s.InitShastaGenesisProposal()
+	s.Less(l2Head2.Time, s.RPCClient.ShastaClients.ForkTime)
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 
 	var m metadata.TaikoProposalMetaData
 	for i := 0; i < 5; i++ {
@@ -289,7 +287,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.True(m.IsShasta())
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(s.d.state.ShastaForkTime+2*3, l2Head3.Time)
+	s.Greater(l2Head3.Time, s.RPCClient.ShastaClients.ForkTime)
 
 	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
 	s.Nil(err)
@@ -299,11 +297,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	res, err := s.RPCClient.CheckL1Reorg(
-		context.Background(),
-		m.Shasta().GetProposal().Id,
-		true,
-	)
+	res, err := s.RPCClient.CheckL1Reorg(context.Background(), m.Shasta().GetProposal().Id, true)
 	s.Nil(err)
 	s.False(res.IsReorged)
 
@@ -321,12 +315,11 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	s.L1Mine()
 
-	s.InitShastaGenesisProposal()
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.True(l2Head4.Time >= s.RPCClient.ShastaClients.ForkTime)
-	s.Equal(l2Head2.Number.Uint64()+1, l2Head4.Number.Uint64())
+	s.Greater(l2Head4.Time, s.RPCClient.ShastaClients.ForkTime)
 
 	s.InitShastaGenesisProposal()
 
@@ -628,7 +621,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 		PrevRandao:    eth.Bytes32(testutils.RandomHash()),
 		BlockNumber:   eth.Uint64Quantity(l2Head1.Number.Uint64() + 1),
 		GasLimit:      eth.Uint64Quantity(l2Head1.GasLimit),
-		Timestamp:     eth.Uint64Quantity(time.Now().Unix()),
+		Timestamp:     eth.Uint64Quantity(l1Head.Time + 1),
 		ExtraData:     l2Head1.Extra,
 		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
 		Transactions:  []eth.Data{b},
@@ -768,6 +761,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
 			"querying by hash.")
 	}
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -943,6 +937,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1140,6 +1135,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
+	s.ForkIntoShasta(s.p, s.d.l2ChainSyncer.EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 

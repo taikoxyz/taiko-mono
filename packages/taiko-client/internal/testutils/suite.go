@@ -88,7 +88,7 @@ func (s *ClientTestSuite) SetupTest() {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
-	s.SetBlockTimestampInterval(1 * time.Second)
+	s.SetBlockTimestampInterval(12 * time.Second)
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
 
