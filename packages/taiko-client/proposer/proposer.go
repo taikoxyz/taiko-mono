@@ -29,6 +29,10 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
+// ShastaForkBufferSeconds is the buffer time in seconds before Shasta fork time,
+// to ensure no Pacaya blocks are proposed after Shasta fork time.
+const shastaForkBufferSeconds = uint64(60)
+
 // l2HeadUpdateInfo keeps track of the latest L2 head update information.
 type l2HeadUpdateInfo struct {
 	blockID   uint64
@@ -334,7 +338,8 @@ func (p *Proposer) ProposeTxLists(
 	if err != nil {
 		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	if l1Head.Time < p.rpc.ShastaClients.ForkTime {
+	forkTime := p.rpc.ShastaClients.ForkTime
+	if l1Head.Time+shastaForkBufferSeconds < forkTime {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
