@@ -5,7 +5,6 @@ use alloy_eips::eip4844::{
     builder::{PartialSidecar, SidecarCoder},
     utils::WholeFe,
 };
-use std::vec::Vec;
 
 /// The blob encoding version expected by the Kona decoder.
 const BLOB_ENCODING_VERSION: u8 = 0;
