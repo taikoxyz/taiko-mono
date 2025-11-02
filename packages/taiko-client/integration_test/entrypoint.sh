@@ -10,9 +10,9 @@ check_command "cast"
 check_command "forge"
 check_command "docker"
 
-# Ensure a Shasta fork activation time is set for taiko-geth and the client.
-# Default to current unix epoch - 1 hour so the fork activates immediately.
-if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ]; then
+# Ensure Shasta fork activation times are set for taiko-geth (L2) and Anvil (L1).
+if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] || [ -z "${ANVIL_INTERNAL_SHASTA_TIME:-}" ]; then
+  # Set L2 Shsata fork activation time to current timestamp - 1 hour, and make the L1 timestamp one hour earlier.
   NOW=$(date -u +%s)
   export TAIKO_INTERNAL_SHASTA_TIME=$((NOW - 3600))
   export ANVIL_INTERNAL_SHASTA_TIME=$((NOW - 7200))
