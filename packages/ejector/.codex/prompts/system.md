@@ -1367,7 +1367,7 @@ println!("{foo:#?}"); // [!code focus]
 
 ### Generate Rust Bindings
 
-The sol! macro comes with the flexibilty of generating rust bindings for your contracts in multiple ways.
+The sol! macro comes with the flexibility of generating rust bindings for your contracts in multiple ways.
 
 #### Solidity
 
@@ -3050,7 +3050,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-In the above example, we used the `DynSolValue` enum type to setup the input values for the `swap` function. We then parsed the funtion signature into the `Function` type which gives us access to the `abi_encode_input` method. This method accepts a vector of `DynSolValue` allowing us to dynamically encode the function calldata.
+In the above example, we used the `DynSolValue` enum type to setup the input values for the `swap` function. We then parsed the function signature into the `Function` type which gives us access to the `abi_encode_input` method. This method accepts a vector of `DynSolValue` allowing us to dynamically encode the function calldata.
 
 This approach offers flexibility for interacting with virtually any ABIs that can be defined in a runtime.
 
@@ -5164,7 +5164,7 @@ async fn main() -> eyre::Result<()> {
 ## Why Alloy?
 
 Alloy is the next-generation Rust toolkit for Ethereum development and a complete rewrite of [ethers-rs](https://www.gakonst.com/ethers-rs/getting-started/intro.html). Alloy offers a modular, high-performance, and developer-friendly experience for building on EVM-compatible chains.
-It addresses the various pain points of existing tooling in the Rust Ethereum ecosystem, such as perfomance bottlenecks, cumbersome APIs and having to deal with feature flag that bloat your application.
+It addresses the various pain points of existing tooling in the Rust Ethereum ecosystem, such as performance bottlenecks, cumbersome APIs and having to deal with feature flag that bloat your application.
 
 ---
 
