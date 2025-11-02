@@ -273,6 +273,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 
 	// Already forked into Shasta (timestamp-based).
 	if head.Time >= s.RPCClient.ShastaClients.ForkTime {
+		log.Debug("Already forked into Shasta")
 		s.InitShastaGenesisProposal()
 		return
 	}

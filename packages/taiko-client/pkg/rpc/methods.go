@@ -488,7 +488,7 @@ func (c *Client) GetPoolContent(
 			return nil, err
 		}
 	} else {
-		if baseFee, err = c.CalculateBaseFeePacaya(ctx, l2Head, uint64(time.Now().Unix()), baseFeeConfig); err != nil {
+		if baseFee, err = c.CalculateBaseFeePacaya(ctx, l2Head, uint64(l1Head.Time), baseFeeConfig); err != nil {
 			return nil, err
 		}
 	}
