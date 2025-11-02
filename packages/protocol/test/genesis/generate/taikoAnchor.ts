@@ -654,6 +654,13 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.SignalService.deployedBytecode.object,
             variables: {
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
             },
             slots: {
