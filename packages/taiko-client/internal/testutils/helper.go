@@ -306,7 +306,6 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		if proposalHash != (common.Hash{}) {
 			return
 		}
-
 		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 		s.Nil(err)
 
