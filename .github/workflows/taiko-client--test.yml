@@ -2,7 +2,7 @@ name: "CI"
 
 on:
   push:
-    branches: [main, time-based-shasta-tests]
+    branches: [main]
     paths:
       - "packages/taiko-client/**"
   pull_request:
