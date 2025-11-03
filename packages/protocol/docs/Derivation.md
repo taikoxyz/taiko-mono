@@ -527,7 +527,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
 
-   - Verifies the current block number is at or after the Shasta fork height
+   - Verifies the current block timestamp is at or after the Shasta fork activation timestamp
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
