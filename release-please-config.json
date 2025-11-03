@@ -118,6 +118,7 @@
       "package-name": "urcindexer-rs",
       "release-type": "simple",
       "component": "urcindexer-rs",
+      "release-as": "0.1.0",
       "extra-files": [
         {
           "type": "toml",
