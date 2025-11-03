@@ -70,9 +70,9 @@ impl ChainReorgTracker {
 
         if parent_missing {
             outcome.parent_not_found = true;
-            while let Some(removed) = self.history.pop_back() {
-                outcome.reorged.push(removed);
-            }
+            self.history.clear();
+            self.history.push_back(block);
+            return outcome;
         }
 
         self.history.push_back(block);
