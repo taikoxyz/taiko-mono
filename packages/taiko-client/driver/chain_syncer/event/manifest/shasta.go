@@ -434,18 +434,21 @@ func validateGasLimit(
 	parentGasLimit uint64,
 ) {
 	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV4GasLimit.
-	// Therefore, we need to subtract consensus.AnchorV4GasLimit from the parent gas limit to get
+	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 	// the real gas limit from parent block metadata.
 	if parentBlockNumber.Cmp(common.Big0) != 0 {
-		parentGasLimit = parentGasLimit - consensus.AnchorV4GasLimit
+		parentGasLimit = parentGasLimit - consensus.AnchorV3V4GasLimit
 	}
 	for i := range sourcePayload.BlockPayloads {
 		lowerGasBound := max(
 			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
 			manifest.MinBlockGasLimit,
 		)
-		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
+		upperGasBound := min(
+			parentGasLimit*(10000+manifest.MaxBlockGasLimitChangePermyriad)/10000,
+			manifest.MaxBlockGasLimit,
+		)
 
 		if sourcePayload.BlockPayloads[i].GasLimit == 0 {
 			// Inherit parent value.

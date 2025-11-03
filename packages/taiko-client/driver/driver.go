@@ -106,7 +106,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.shastaIndexer, err = shastaIndexer.New(
 		d.ctx,
 		d.rpc,
-		d.rpc.ShastaClients.ForkHeight,
+		d.rpc.ShastaClients.ForkTime,
 	); err != nil {
 		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
@@ -130,7 +130,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.rpc.L2.ChainID,
 		d.rpc.PacayaClients.ForkHeights.Ontake,
 		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.ShastaClients.ForkHeight.Uint64(),
+		d.rpc.ShastaClients.ForkTime,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
