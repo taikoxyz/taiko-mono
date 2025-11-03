@@ -443,6 +443,7 @@ impl Monitor {
                                                 parent_hash = ?tracked_block.parent_hash,
                                                 "Parent not found in local history; tracker was reset"
                                             );
+                                            continue;
                                         }
 
                                         if !outcome.reorged.is_empty() {
