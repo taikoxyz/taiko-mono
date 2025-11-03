@@ -347,7 +347,7 @@ contract TestGenerateGenesis is Test {
         address authorizedSyncer = getPredeployedContractAddress("TaikoAnchor");
         address remoteSignalService = contractOwner;
 
-        vm.expectRevert(SS_UNAUTHORIZED.selector);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         signalServiceProxy.saveCheckpoint(
             ICheckpointStore.Checkpoint({
                 blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(1))
