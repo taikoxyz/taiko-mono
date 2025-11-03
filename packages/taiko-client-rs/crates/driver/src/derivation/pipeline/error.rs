@@ -79,6 +79,11 @@ pub enum DerivationError {
     /// Execution engine returned an unexpected block number.
     #[error("engine returned block {actual} but derivation expected {expected}")]
     UnexpectedBlockNumber { expected: u64, actual: u64 },
+    /// Attempted to derive blocks before the Shasta fork is active.
+    #[error(
+        "shasta fork inactive: activation timestamp {activation_timestamp}, parent timestamp {parent_timestamp}"
+    )]
+    ShastaForkInactive { activation_timestamp: u64, parent_timestamp: u64 },
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),

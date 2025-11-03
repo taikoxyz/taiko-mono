@@ -16,9 +16,9 @@ use bindings::{
 };
 use event_indexer::indexer::ShastaEventIndexer;
 use protocol::shasta::{
-    constants::shasta_fork_height_for_chain, manifest::DerivationSourceManifest,
+    constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
 };
-use rpc::{blob::BlobDataSource, client::Client, error::RpcClientError};
+use rpc::{blob::BlobDataSource, client::Client};
 
 use crate::{
     derivation::{
@@ -54,7 +54,7 @@ where
     anchor_constructor: AnchorTxConstructor<P>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
-    shasta_fork_height: u64,
+    shasta_fork_timestamp: u64,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -73,20 +73,15 @@ where
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
             Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
-        let chain_id = rpc
-            .l2_provider
-            .get_chain_id()
-            .await
-            .map_err(|err| DerivationError::Rpc(RpcClientError::Provider(err.to_string())))?;
-        let shasta_fork_height = shasta_fork_height_for_chain(chain_id)
+        let chain_id = rpc.l2_provider.get_chain_id().await?;
+        let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
-
         Ok(Self {
             rpc,
             indexer,
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
-            shasta_fork_height,
+            shasta_fork_timestamp,
         })
     }
 
@@ -162,7 +157,7 @@ where
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
-    ) -> Result<(ParentState, u64), DerivationError> {
+    ) -> Result<ParentState, DerivationError> {
         let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
         let parent_header = parent_block.header.inner.clone();
 
@@ -186,9 +181,10 @@ where
             header: parent_header,
             bond_instructions_hash: anchor_state.bond_instructions_hash,
             anchor_block_number: anchor_state.anchor_block_number,
+            shasta_fork_timestamp: self.shasta_fork_timestamp,
         };
 
-        Ok((state, self.shasta_fork_height))
+        Ok(state)
     }
 }
 
@@ -269,14 +265,12 @@ where
                 },
             )?;
 
-        let (mut parent_state, shasta_fork_height) =
-            self.initialize_parent_state(&parent_block).await?;
+        let mut parent_state = self.initialize_parent_state(&parent_block).await?;
 
         self.build_payloads_from_sources(
             sources,
             &meta,
             proposal_origin_block_hash,
-            shasta_fork_height,
             &mut parent_state,
             applier,
         )

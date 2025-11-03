@@ -12,10 +12,7 @@ use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::aliases::U48;
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
-use bindings::{
-    anchor::LibBonds::BondInstruction,
-    codec_optimized::LibBonds::BondInstruction as CodecBondInstruction,
-};
+use bindings::anchor::LibBonds::BondInstruction;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
@@ -44,8 +41,6 @@ struct SegmentContext<'a> {
     meta: &'a BundleMeta,
     /// Hash of the proposal's L1 origin block.
     proposal_origin_block_hash: B256,
-    /// Fork height for Shasta activation.
-    shasta_fork_height: u64,
     /// Index of the segment within the proposal bundle.
     segment_index: usize,
     /// Total number of segments in the proposal bundle.
@@ -73,8 +68,6 @@ struct BlockContext<'a> {
     meta: &'a BundleMeta,
     /// Hash of the proposal's L1 origin block.
     origin_block_hash: B256,
-    /// Fork height governing Shasta base-fee transitions.
-    shasta_fork_height: u64,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
     /// Indicates whether the proposal is a low-bond proposal (falls back to default manifest).
@@ -161,7 +154,6 @@ where
         sources: Vec<SourceManifestSegment>,
         meta: &BundleMeta,
         proposal_origin_block_hash: B256,
-        shasta_fork_height: u64,
         state: &mut ParentState,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
@@ -176,13 +168,8 @@ where
         };
 
         for (segment_index, segment) in sources.into_iter().enumerate() {
-            let segment_ctx = SegmentContext {
-                meta,
-                proposal_origin_block_hash,
-                shasta_fork_height,
-                segment_index,
-                segments_total,
-            };
+            let segment_ctx =
+                SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total };
             let segment_outcomes = self
                 .process_manifest_segment(
                     segment,
@@ -216,13 +203,8 @@ where
         applier: &(dyn PayloadApplier + Send + Sync),
         forkchoice_state: &mut ForkchoiceState,
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
-        let SegmentContext {
-            meta,
-            proposal_origin_block_hash,
-            shasta_fork_height,
-            segment_index,
-            segments_total,
-        } = ctx;
+        let SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total } =
+            ctx;
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
@@ -258,7 +240,6 @@ where
             let block_ctx = BlockContext {
                 meta,
                 origin_block_hash: proposal_origin_block_hash,
-                shasta_fork_height,
                 position: BlockPosition {
                     segment_index,
                     segments_total,
@@ -286,16 +267,10 @@ where
         applier: &(dyn PayloadApplier + Send + Sync),
         forkchoice_state: &mut ForkchoiceState,
     ) -> Result<EngineBlockOutcome, DerivationError> {
-        let BlockContext {
-            meta,
-            origin_block_hash,
-            shasta_fork_height,
-            position,
-            is_low_bond_proposal,
-        } = ctx;
+        let BlockContext { meta, origin_block_hash, position, is_low_bond_proposal } = ctx;
 
         let block_number = state.next_block_number();
-        let block_base_fee = state.compute_block_base_fee(block_number, shasta_fork_height);
+        let block_base_fee = state.compute_block_base_fee()?;
         let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
@@ -505,18 +480,10 @@ where
             return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
         }
 
-        let instructions = target_payload
-            .bond_instructions
-            .into_iter()
-            .map(|instruction: CodecBondInstruction| BondInstruction {
-                proposalId: instruction.proposalId,
-                bondType: instruction.bondType,
-                payer: instruction.payer,
-                payee: instruction.payee,
-            })
-            .collect();
-
-        Ok(BondInstructionData { instructions, hash: target_hash })
+        Ok(BondInstructionData {
+            instructions: target_payload.bond_instructions,
+            hash: target_hash,
+        })
     }
 
     // Build the anchor transaction for the given block.

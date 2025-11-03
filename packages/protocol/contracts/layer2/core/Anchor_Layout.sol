@@ -7,11 +7,19 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 
 // solhint-disable max-line-length
-//   _owner                         | address                                            | Slot: 0    | Offset: 0    | Bytes: 20  
-//   _pendingOwner                  | address                                            | Slot: 1    | Offset: 0    | Bytes: 20  
-//   _status                        | uint256                                            | Slot: 2    | Offset: 0    | Bytes: 32  
-//   _pacayaSlots                   | uint256[4]                                         | Slot: 3    | Offset: 0    | Bytes: 128 
-//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 7    | Offset: 0    | Bytes: 64  
-//   _blockState                    | struct Anchor.BlockState                           | Slot: 9    | Offset: 0    | Bytes: 64  
-//   blockHashes                    | mapping(uint256 => bytes32)                        | Slot: 11   | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[41]                                        | Slot: 12   | Offset: 0    | Bytes: 1312
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
+//   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
+//   blockHashes                    | mapping(uint256 => bytes32)                        | Slot: 251  | Offset: 0    | Bytes: 32  
+//   _pacayaSlots                   | uint256[3]                                         | Slot: 252  | Offset: 0    | Bytes: 96  
+//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 255  | Offset: 0    | Bytes: 64  
+//   _blockState                    | struct Anchor.BlockState                           | Slot: 257  | Offset: 0    | Bytes: 64  
+//   __gap                          | uint256[41]                                        | Slot: 259  | Offset: 0    | Bytes: 1312
