@@ -1,6 +1,5 @@
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::primitives::B256;
 use alloy_consensus::Header;
@@ -21,6 +20,8 @@ pub(super) struct ParentState {
     pub(super) anchor_block_number: u64,
     /// Time delta between the parent and grandparent blocks.
     pub(super) parent_block_time: u64,
+    /// Timestamp when the Shasta fork is expected to activate.
+    pub(super) shasta_fork_timestamp: u64,
 }
 
 impl ParentState {
@@ -52,6 +53,7 @@ impl ParentState {
             header,
             bond_instructions_hash: next_bond_instructions_hash,
             anchor_block_number: manifest_block.anchor_block_number,
+            shasta_fork_timestamp: self.shasta_fork_timestamp,
         })
     }
 
@@ -60,14 +62,21 @@ impl ParentState {
         self.header.number.saturating_add(1)
     }
 
-    /// Compute the target base fee for the next payload, falling back to the fixed
-    /// Shasta base fee while the fork warm-up window is active.
-    pub(super) fn compute_block_base_fee(&self, block_number: u64, shasta_fork_height: u64) -> u64 {
-        if block_number < shasta_fork_height + SHASTA_INITIAL_BASE_FEE_BLOCKS {
+    /// Compute the target base fee for the next payload, ensuring the Shasta hardfork is active
+    /// before applying the EIP-4396 rule (with the warm-up block 0 fallback).
+    pub(super) fn compute_block_base_fee(&self) -> Result<u64, DerivationError> {
+        if self.header.timestamp < self.shasta_fork_timestamp {
+            return Err(DerivationError::ShastaForkInactive {
+                activation_timestamp: self.shasta_fork_timestamp,
+                parent_timestamp: self.header.timestamp,
+            });
+        }
+
+        Ok(if self.header.number == 0 {
             SHASTA_INITIAL_BASE_FEE
         } else {
             calculate_next_block_eip4396_base_fee(&self.header, self.parent_block_time)
-        }
+        })
     }
 
     /// Build the validation context used to sanity-check manifest contents.
