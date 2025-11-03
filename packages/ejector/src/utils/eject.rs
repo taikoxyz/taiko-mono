@@ -145,8 +145,8 @@ where
 
         let is_active = info.inactiveSince == 0 && info.activeSince != 0;
 
-        if let Some(set) = seen.as_deref_mut() {
-            if is_active {
+        if is_active {
+            if let Some(set) = seen.as_deref_mut() {
                 let inserted = set.insert((addr, info.sequencerAddress));
                 if inserted {
                     let sequencer_addr = info.sequencerAddress.to_string();
