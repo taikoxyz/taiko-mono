@@ -63,6 +63,8 @@ func NewProofSubmitterShasta(
 			senderOpts.PrivateTxmgr,
 			senderOpts.ProverSetAddress,
 			senderOpts.GasLimit,
+			senderOpts.PrivateKey,
+			senderOpts.EnableAccessList,
 		),
 		proverAddress:        senderOpts.Txmgr.From(),
 		proofPollingInterval: proofPollingInterval,

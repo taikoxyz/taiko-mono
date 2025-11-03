@@ -18,6 +18,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -215,6 +216,55 @@ func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 			})
 		})
 	})
+}
+
+// When l1.enableAccessList is enabled, Shasta proof submissions should be sent with a non-empty access list.
+func (s *ProverTestSuite) TestShastaProveAccessListApplied() {
+	// Ensure Shasta fork
+	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
+
+	// Re-initialize Shasta proof submitter with access list enabled
+	s.p.cfg.EnableAccessList = true
+	txBuilder := transaction.NewProveBatchesTxBuilder(
+		s.p.rpc,
+		s.ShastaStateIndexer,
+		s.p.cfg.PacayaInboxAddress,
+		s.p.cfg.ShastaInboxAddress,
+		s.p.cfg.ProverSetAddress,
+		s.p.cfg.EnableAccessList,
+	)
+	s.Nil(s.p.initShastaProofSubmitter(txBuilder))
+
+	// Propose a valid Shasta block so we can produce a proof
+	meta := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.True(meta.IsShasta())
+
+	// Subscribe to Proved events to capture tx hash
+	provedCh := make(chan *shastaBindings.ShastaInboxClientProved)
+	sub, err := s.RPCClient.ShastaClients.Inbox.WatchProved(nil, provedCh)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(provedCh)
+	}()
+
+	// Request and submit a proof
+	s.Nil(s.p.proofSubmitterShasta.RequestProof(context.Background(), meta))
+	batchProof := <-s.p.batchProofGenerationCh
+	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), batchProof))
+
+	// Wait for proved event and check tx access list
+	var txHash common.Hash
+	select {
+	case ev := <-provedCh:
+		txHash = ev.Raw.TxHash
+	case <-time.After(30 * time.Second):
+		s.Fail("timed out waiting for Shasta Proved event")
+	}
+
+	tx, _, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
+	s.Nil(err)
+	s.Greater(len(tx.AccessList()), 0)
 }
 
 func (s *ProverTestSuite) TestOnBatchesVerified() {
@@ -579,6 +629,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		s.p.privateTxmgr,
 		s.d.ProverSetAddress,
 		s.proposer.ProposeBatchTxGasLimit,
+		nil,
+		false,
 	)
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
@@ -586,6 +638,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.Address{},
+		false,
 	)
 	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()

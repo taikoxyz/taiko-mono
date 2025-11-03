@@ -55,9 +55,16 @@ echo "ANVIL_INTERNAL_SHASTA_TIME=$ANVIL_INTERNAL_SHASTA_TIME"
 
 RUN_TESTS=${RUN_TESTS:-false}
 PACKAGE=${PACKAGE:-...}
+TEST_NAME=${TEST_NAME:-""} # e.g. TestProverTestSuite/TestShastaProveAccessListApplied
 
 if [ "$RUN_TESTS" == "true" ]; then
-    go test -v -p=1 ./"$PACKAGE" -coverprofile=coverage.out -covermode=atomic -timeout=700s
+    if [ -n "$TEST_NAME" ]; then
+        echo "🧪 Running specific test: $TEST_NAME"
+        go test -v -p=1 ./"$PACKAGE" -run "^$TEST_NAME$" -coverprofile=coverage.out -covermode=atomic -timeout=700s
+    else
+        echo "🧪 Running full test suite: $PACKAGE"
+        go test -v -p=1 ./"$PACKAGE" -coverprofile=coverage.out -covermode=atomic -timeout=700s
+    fi
 else
     echo "💻 Local dev net started"
 fi

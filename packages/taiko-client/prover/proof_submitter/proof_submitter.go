@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"crypto/ecdsa"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -60,6 +62,8 @@ type SenderOptions struct {
 	PrivateTxmgr     txmgr.TxManager
 	ProverSetAddress common.Address
 	GasLimit         uint64
+	PrivateKey       *ecdsa.PrivateKey
+	EnableAccessList bool
 }
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
@@ -100,6 +104,8 @@ func NewProofSubmitterPacaya(
 			senderOpts.PrivateTxmgr,
 			senderOpts.ProverSetAddress,
 			senderOpts.GasLimit,
+			senderOpts.PrivateKey,
+			senderOpts.EnableAccessList,
 		),
 		proverAddress:             senderOpts.Txmgr.From(),
 		proverSetAddress:          senderOpts.ProverSetAddress,

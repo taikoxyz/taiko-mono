@@ -158,6 +158,7 @@ func InitFromConfig(
 		p.cfg.PacayaInboxAddress,
 		p.cfg.ShastaInboxAddress,
 		p.cfg.ProverSetAddress,
+		p.cfg.EnableAccessList,
 	)
 	if txMgr != nil {
 		p.txmgr = txMgr

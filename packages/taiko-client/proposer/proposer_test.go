@@ -163,6 +163,27 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.Equal(head2.Number.Uint64(), head.Number.Uint64()+1)
 }
 
+// When l1.enableAccessList is enabled, Shasta proposals should be sent with a non-empty access list.
+func (s *ProposerTestSuite) TestShastaProposeAccessListApplied() {
+	// Ensure we are in the Shasta fork context first
+	s.ForkIntoShasta(s.p, s.s)
+
+	// Enable access list sending path
+	s.p.EnableAccessList = true
+
+	// Propose an empty block as a quick op
+	metas := s.ProposeAndInsertEmptyBlocks(s.p, s.s)
+	s.NotEmpty(metas)
+
+	// The last entry should be the most recent proposal; fetch its tx
+	txHash := metas[len(metas)-1].GetTxHash()
+	tx, _, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
+	s.Nil(err)
+
+	// The sent transaction should carry a non-empty access list
+	s.Greater(len(tx.AccessList()), 0)
+}
+
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") != "l2_geth" {
 		s.T().Skip("This test is only applicable for L2 Geth node")

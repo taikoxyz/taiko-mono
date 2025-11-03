@@ -35,6 +35,7 @@ type Config struct {
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
 	FallbackTimeout         time.Duration
+	EnableAccessList        bool
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -104,6 +105,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
-		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
+		FallbackTimeout:  c.Duration(flags.FallbackTimeout.Name),
+		EnableAccessList: c.Bool(flags.EnableAccessList.Name),
 	}, nil
 }

@@ -50,6 +50,7 @@ type Config struct {
 	ForceBatchProvingInterval time.Duration
 	ProofPollingInterval      time.Duration
 	Dummy                     bool
+	EnableAccessList          bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -130,5 +131,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
+		EnableAccessList:          c.Bool(flags.EnableAccessList.Name),
 	}, nil
 }

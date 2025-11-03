@@ -607,6 +607,18 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	return err
 }
 
+// CreateAccessList calls eth_createAccessList for the given call message and returns
+// the suggested access list, gas used with that access list, and any VM error string.
+func (c *EthClient) CreateAccessList(ctx context.Context, msg ethereum.CallMsg) (*types.AccessList, uint64, string, error) {
+	start := time.Now()
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	al, gasUsed, vmErr, err := c.gethClient.CreateAccessList(ctxWithTimeout, msg)
+	recordRPCMetrics("eth_createAccessList", c.rpcURL, start, err)
+	return al, gasUsed, vmErr, err
+}
+
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call.
 type TransactionArgs struct {

@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -70,6 +72,10 @@ type Proposer struct {
 
 	txmgrSelector      *utils.TxMgrSelector
 	shastaStateIndexer *shastaIndexer.Indexer
+
+	// testBlobServer is used only in tests to feed blobs into
+	// the in-memory blob server when bypassing txmgr send path.
+	testBlobServer *testutils.MemoryBlobServer
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -510,7 +516,14 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		return err
 	}
 
-	if err := p.SendTx(ctx, txCandidate); err != nil {
+	if p.EnableAccessList {
+		if err := p.sendTxWithAccessList(ctx, txCandidate); err != nil {
+			log.Warn("Failed to send Shasta propose tx with access list, falling back", "error", err)
+			if err := p.SendTx(ctx, txCandidate); err != nil {
+				return err
+			}
+		}
+	} else if err := p.SendTx(ctx, txCandidate); err != nil {
 		return err
 	}
 
@@ -519,6 +532,102 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))
 
+	return nil
+}
+
+// sendTxWithAccessList constructs and publishes a blob transaction carrying the given candidate
+// data and a suggested access list. It signs with the L1 proposer key and sends via L1 RPC.
+func (p *Proposer) sendTxWithAccessList(ctx context.Context, candidate *txmgr.TxCandidate) error {
+	txMgr, _ := p.txmgrSelector.Select()
+
+	gasTipCap, baseFee, blobBaseFee, err := txMgr.SuggestGasPriceCaps(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get gas price caps: %w", err)
+	}
+	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
+
+	// Prepare blobs sidecar if any
+	var sidecar *types.BlobTxSidecar
+	var blobHashes []common.Hash
+	if len(candidate.Blobs) > 0 {
+		if sidecar, blobHashes, err = txmgr.MakeSidecar(candidate.Blobs); err != nil {
+			return fmt.Errorf("failed to make sidecar: %w", err)
+		}
+	}
+
+	// Create access list suggestion
+	msg := ethereum.CallMsg{
+		From:  p.proposerAddress,
+		To:    candidate.To,
+		Gas:   candidate.GasLimit,
+		Value: candidate.Value,
+		Data:  candidate.TxData,
+	}
+	if len(blobHashes) > 0 {
+		msg.BlobGasFeeCap = blobBaseFee
+		msg.BlobHashes = blobHashes
+	}
+	al, _, _, err := p.rpc.L1.CreateAccessList(ctx, msg)
+	if err != nil {
+		return fmt.Errorf("createAccessList failed: %w", err)
+	}
+
+	// Resolve nonce
+	nonce, err := p.rpc.L1.PendingNonceAt(ctx, p.proposerAddress)
+	if err != nil {
+		return fmt.Errorf("failed to get nonce: %w", err)
+	}
+
+	// Assemble blob transaction with access list
+	value := candidate.Value
+	if value == nil {
+		value = common.Big0
+	}
+	blobFeeCap := blobBaseFee
+	if blobFeeCap == nil {
+		blobFeeCap = new(big.Int)
+	}
+
+	txdata := &types.BlobTx{
+		Nonce:      nonce,
+		To:         *candidate.To,
+		Value:      new(uint256.Int),
+		Data:       candidate.TxData,
+		Gas:        candidate.GasLimit,
+		AccessList: nil,
+		BlobFeeCap: new(uint256.Int),
+		BlobHashes: blobHashes,
+		Sidecar:    sidecar,
+		GasTipCap:  new(uint256.Int),
+		GasFeeCap:  new(uint256.Int),
+	}
+	txdata.ChainID = new(uint256.Int)
+	txdata.ChainID.SetFromBig(p.rpc.L1.ChainID)
+	txdata.Value.SetFromBig(value)
+	txdata.GasTipCap.SetFromBig(gasTipCap)
+	txdata.GasFeeCap.SetFromBig(gasFeeCap)
+	txdata.BlobFeeCap.SetFromBig(blobFeeCap)
+	if al != nil {
+		txdata.AccessList = *al
+	}
+
+	// Sign and send
+	signer := types.NewCancunSigner(p.rpc.L1.ChainID)
+	signed, err := types.SignNewTx(p.L1ProposerPrivKey, signer, txdata)
+	if err != nil {
+		return fmt.Errorf("failed to sign blob tx: %w", err)
+	}
+	// If running under tests with a memory blob server registered, make sure
+	// the blobs are available for fetchers even though we bypass txmgr.Send.
+	if p.testBlobServer != nil && len(candidate.Blobs) > 0 {
+		if err := p.testBlobServer.AddBlob(blobHashes, candidate.Blobs); err != nil {
+			return fmt.Errorf("failed to add blobs to memory server: %w", err)
+		}
+	}
+	if err := p.rpc.L1.SendTransaction(ctx, signed); err != nil {
+		return fmt.Errorf("failed to send blob tx: %w", err)
+	}
+	log.Info("Sent Shasta propose tx with access list", "tx", signed.Hash(), "alAddrs", len(txdata.AccessList))
 	return nil
 }
 
@@ -575,6 +684,7 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.PrivateTxMgr(), blobServer),
 		nil,
 	)
+	p.testBlobServer = blobServer
 }
 
 // GetParentMetaHash returns the latest parent meta hash.

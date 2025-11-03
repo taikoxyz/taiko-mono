@@ -162,6 +162,14 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	// Access list enable flag
+	EnableAccessList = &cli.BoolFlag{
+		Name:     "l1.enableAccessList",
+		Usage:    "Enable including access lists for Shasta propose/prove transactions (and log gas deltas)",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_ENABLE_ACCESS_LIST"},
+		Value:    false,
+	}
 )
 
 // CommonFlags All common flags.
@@ -182,6 +190,7 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+	EnableAccessList,
 }
 
 // MergeFlags merges the given flag slices.

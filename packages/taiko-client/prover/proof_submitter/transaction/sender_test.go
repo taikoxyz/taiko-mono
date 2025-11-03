@@ -39,6 +39,7 @@ func (s *TransactionTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		rpc.ZeroAddress,
+		false,
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(
@@ -63,7 +64,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0)
+	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0, l1ProverPrivKey, false)
 }
 
 func (s *TransactionTestSuite) TestValidateProof() {

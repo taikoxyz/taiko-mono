@@ -37,6 +37,7 @@ type ProveBatchesTxBuilder struct {
 	pacayaInboxAddress common.Address
 	shastaInboxAddress common.Address
 	proverSetAddress   common.Address
+	enableAccessList   bool
 }
 
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
@@ -46,8 +47,9 @@ func NewProveBatchesTxBuilder(
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
 	proverSetAddress common.Address,
+	enableAccessList bool,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress, enableAccessList}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
