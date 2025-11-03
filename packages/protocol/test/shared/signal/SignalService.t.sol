@@ -99,7 +99,7 @@ contract TestSignalService is CommonTest {
     }
 
     function test_proveSignalReceived_RevertWhen_ProofLengthMismatch() public {
-        SignalService.Proof[] memory proofs = new SignalService.Proof[](2);
+        ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](2);
         proofs[0].accountProof = new bytes[](1);
         proofs[0].accountProof[0] = hex"11";
         proofs[0].storageProof = new bytes[](1);
@@ -112,7 +112,7 @@ contract TestSignalService is CommonTest {
     }
 
     function test_proveSignalReceived_RevertWhen_ProofArraysEmpty() public {
-        SignalService.Proof[] memory proofs = new SignalService.Proof[](1);
+        ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
         proofs[0].blockId = 1;
         proofs[0].rootHash = bytes32(uint256(1));
         proofs[0].storageProof = new bytes[](1);
@@ -125,7 +125,7 @@ contract TestSignalService is CommonTest {
     }
 
     function test_proveSignalReceived_RevertWhen_CheckpointMissing() public {
-        SignalService.Proof[] memory proofs = new SignalService.Proof[](1);
+        ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
         proofs[0].blockId = 99;
         proofs[0].rootHash = bytes32(uint256(99));
         proofs[0].accountProof = new bytes[](1);
@@ -142,7 +142,7 @@ contract TestSignalService is CommonTest {
     function test_proveSignalReceived_RevertWhen_StateRootMismatch() public {
         _saveCheckpoint(VALID_PROOF_BLOCK_ID, bytes32(uint256(123)));
 
-        SignalService.Proof[] memory proofs = new SignalService.Proof[](1);
+        ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
         proofs[0].blockId = VALID_PROOF_BLOCK_ID;
         proofs[0].rootHash = bytes32(uint256(456));
         proofs[0].accountProof = new bytes[](1);
