@@ -29,12 +29,20 @@ type RaikoRequestProofBodyV3Pacaya struct {
 	Type      ProofType       `json:"proof_type"`
 }
 
+type RaikoCheckpoint struct {
+	BlockNum  *big.Int `json:"block_num"`
+	BlockHash string   `json:"block_hash"`
+	StateRoot string   `json:"state_root"`
+}
+
 // RaikoProposals represents the JSON body of RaikoRequestProofBodyV3Shasta's `Proposals` field.
 type RaikoProposals struct {
-	ProposalId             *big.Int   `json:"proposal_id"`
-	L1InclusionBlockNumber *big.Int   `json:"l1_inclusion_block_number"`
-	L2BlockNumbers         []*big.Int `json:"l2_block_numbers"`
-	DesignatedProver       string     `json:"designated_prover"`
+	ProposalId             *big.Int         `json:"proposal_id"`
+	L1InclusionBlockNumber *big.Int         `json:"l1_inclusion_block_number"`
+	L2BlockNumbers         []*big.Int       `json:"l2_block_numbers"`
+	DesignatedProver       string           `json:"designated_prover"`
+	ParentTransitionHash   string           `json:"parent_transition_hash"`
+	Checkpoint             *RaikoCheckpoint `json:"checkpoint"`
 }
 
 // RaikoRequestProofBodyV3Shasta represents the JSON body for requesting the proof.
@@ -284,6 +292,12 @@ func (s *ComposeProofProducer) requestBatchProof(
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
 				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
+				ParentTransitionHash:   opts[i].ShastaOptions().ParentTransitionHash.Hex()[2:],
+				Checkpoint: &RaikoCheckpoint{
+					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
+					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
+					StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
+				},
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

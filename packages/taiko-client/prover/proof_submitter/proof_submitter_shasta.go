@@ -14,12 +14,15 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
+
+const rpcPollingInterval = 3 * time.Second
 
 // ProofSubmitterShasta is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
@@ -101,11 +104,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
-	lastOrigin, err := s.rpc.LastL1OriginInBatch(ctx, meta.Shasta().GetProposal().Id)
-	if err != nil {
-		return err
-	}
-	l2BlockLength := lastOrigin.BlockID.Uint64() - lastOriginInLastProposal.BlockID.Uint64()
+	l2BlockLength := header.Number.Uint64() - lastOriginInLastProposal.BlockID.Uint64()
 	l2BlockNums := make([]*big.Int, 0, l2BlockLength)
 	for i := uint64(0); i < l2BlockLength; i++ {
 		l2BlockNums = append(
@@ -114,19 +113,38 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 	// Request proof.
-	callOpts := &bind.CallOpts{BlockHash: lastOrigin.L2BlockHash, Context: ctx}
+	callOpts := &bind.CallOpts{BlockHash: header.Hash(), Context: ctx}
 	proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(callOpts)
 	if err != nil {
 		return err
 	}
+	proposalID := meta.Shasta().GetProposal().Id
+	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, s.indexer, proposalID)
+	if err != nil {
+		log.Info(
+			"Failed to build parent Shasta transition hash locally, start waiting for the event",
+			"proposalID", proposalID,
+			"error", err,
+		)
+		if parentTransitionHash, err = s.WaitParentShastaTransitionHash(ctx, proposalID); err != nil {
+			log.Error("Failed to get parent Shasta transition hash", "proposalID", proposalID, "error", err)
+			return err
+		}
+	}
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
-			ProposalID:       meta.Shasta().GetProposal().Id,
-			ProverAddress:    s.proverAddress,
-			EventL1Hash:      meta.GetRawBlockHash(),
-			Headers:          []*types.Header{header},
-			L2BlockNums:      l2BlockNums,
-			DesignatedProver: proposalState.DesignatedProver,
+			ProposalID:           proposalID,
+			ProverAddress:        s.proverAddress,
+			EventL1Hash:          meta.GetRawBlockHash(),
+			Headers:              []*types.Header{header},
+			L2BlockNums:          l2BlockNums,
+			DesignatedProver:     proposalState.DesignatedProver,
+			ParentTransitionHash: parentTransitionHash,
+			Checkpoint: &shastaBindings.ICheckpointStoreCheckpoint{
+				BlockNumber: header.Number,
+				BlockHash:   header.Hash(),
+				StateRoot:   header.Root,
+			},
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
@@ -387,4 +405,34 @@ func (s *ProofSubmitterShasta) AggregateProofsByType(ctx context.Context, proofT
 		return err
 	}
 	return nil
+}
+
+// WaitParentShastaTransitionHash keeps waiting for the parent transition of the given batchID.
+func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
+	ctx context.Context,
+	proposalID *big.Int,
+) (common.Hash, error) {
+	ticker := time.NewTicker(rpcPollingInterval)
+	defer ticker.Stop()
+
+	if proposalID.Cmp(common.Big1) == 0 {
+		return transaction.GetShastaGenesisTransitionHash(ctx, s.rpc)
+	}
+	log.Debug("Start fetching block header from L2 execution engine", "proposalID", proposalID)
+
+	for ; true; <-ticker.C {
+		if ctx.Err() != nil {
+			return common.Hash{}, ctx.Err()
+		}
+
+		transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64() - 1)
+		if transition == nil {
+			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
+			continue
+		}
+
+		return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
+	}
+
+	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, proposalID: %d", proposalID)
 }

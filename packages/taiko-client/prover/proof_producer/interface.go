@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // ProofType represents the type of the given proof.
@@ -110,6 +112,8 @@ type ProofRequestOptionsShasta struct {
 	RethProofAggregationGenerated bool
 	L2BlockNums                   []*big.Int
 	DesignatedProver              common.Address
+	ParentTransitionHash          common.Hash
+	Checkpoint                    *shastaBindings.ICheckpointStoreCheckpoint
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.
