@@ -30,7 +30,12 @@ pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 10;
 /// The minimum block gas limit.
 /// NOTE: Should be same with `MIN_BLOCK_GAS_LIMIT` in
 /// contracts/layer1/libs/LibConstants.sol.
-pub const MIN_BLOCK_GAS_LIMIT: u64 = 15_000_000;
+pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
+
+/// The maximum block gas limit.
+/// NOTE: Should be same with `MAX_BLOCK_GAS_LIMIT` in
+/// contracts/layer1/libs/LibManifest.sol.
+pub const MAX_BLOCK_GAS_LIMIT: u64 = 100_000_000;
 
 /// The delay in processing bond instructions relative to the current proposal.
 /// NOTE: Should be same with `BOND_PROCESSING_DELAY` in

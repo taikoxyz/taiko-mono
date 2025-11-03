@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -55,7 +54,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	meta.GasLimit += consensus.AnchorV3GasLimit
+	meta.GasLimit += consensus.AnchorV3V4GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -275,7 +274,6 @@ func isKnownCanonicalBatchShasta(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-	startBlockIdx uint16,
 	parent *types.Header,
 ) (*types.Header, error) {
 	if !metadata.IsShasta() {
@@ -302,7 +300,6 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				startBlockIdx,
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
@@ -442,8 +439,8 @@ func isKnownCanonicalBlock(
 		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
 		return nil, err
 	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
-		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3V4GasLimit {
+		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3V4GasLimit)
 		return nil, err
 	}
 	if block.Time() != meta.Timestamp {
@@ -498,7 +495,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFeePacaya(ctx, parent, timestamp, meta.GetBaseFeeConfig())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -577,7 +574,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
-	startBlockIdx uint16,
 	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
@@ -598,7 +594,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	baseFee, err := rpc.CalculateBaseFeeShasta(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -635,7 +631,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		sourcePayload.ProverAuthBytes,
 		blockInfo.BondInstructionsHash,
 		blockInfo.BondInstructions,
-		startBlockIdx+uint16(blockIndex),
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,

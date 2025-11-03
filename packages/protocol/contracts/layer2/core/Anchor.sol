@@ -52,18 +52,17 @@ contract Anchor is EssentialContract {
 
     /// @notice Block-level data specific to a single block within a proposal.
     struct BlockParams {
-        uint16 blockIndex; // Current block index within the proposal (0-based)
         uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
         bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
-    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
+        uint48 proposalId;
     }
 
     /// @notice Stored block-level state for the latest anchor.
@@ -205,7 +204,7 @@ contract Anchor is EssentialContract {
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
     /// @dev Core function that processes blocks sequentially within a proposal:
-    ///      1. Designates prover on first block (blockIndex == 0)
+    ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
     ///      2. Processes bond transfers with cumulative hash verification
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
@@ -218,10 +217,17 @@ contract Anchor is EssentialContract {
         onlyValidSender
         nonReentrant
     {
-        if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalParams);
+        uint48 lastProposalId = _proposalState.proposalId;
+
+        if (_proposalParams.proposalId < lastProposalId) {
+            // Proposal ID cannot go backward
+            revert ProposalIdMismatch();
         }
 
+        // We do not need to account for proposalId = 0, since that's genesis
+        if (_proposalParams.proposalId > lastProposalId) {
+            _validateProposal(_proposalParams);
+        }
         _validateBlock(_blockParams);
 
         uint256 parentNumber = block.number - 1;
@@ -376,6 +382,8 @@ contract Anchor is EssentialContract {
             _proposalParams.bondInstructions,
             _proposalParams.bondInstructionsHash
         );
+
+        _proposalState.proposalId = _proposalParams.proposalId;
     }
 
     /// @dev Validates and processes block-level data.

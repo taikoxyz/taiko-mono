@@ -305,7 +305,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
 1. **Define bounds**:
 
    - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
+   - `upperBound = min(parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MAX_BLOCK_GAS_LIMIT)`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -342,7 +342,7 @@ A parent proposal L1 transaction may revert, potentially causing the subsequent 
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal.
 
 The `ProverAuth` structure used in Shasta for prover authentication:
 
@@ -359,7 +359,7 @@ struct ProverAuth {
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal. For every subsequent block (`_blockIndex > 0`), the same `proverAuthBytes` payload is still in the `anchorV4` parameters, but it won't be processed again.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once when a block belonging to a strictly higher `proposalId` arrives; the same `proverAuthBytes` payload must still be supplied for subsequent blocks of that proposal, but it will be ignored.
 
 ##### 1. Authentication and Validation
 
@@ -459,26 +459,14 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count within that source.
 
-#### Block Index Monotonicity
+#### Proposal Identifier Monotonicity
 
-The `_blockIndex` parameter in the anchor transaction's `anchorV4` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly increase only when a new proposal begins.
 
-- First source's blocks: `_blockIndex = 0, 1, 2, ...`
-- Second source's blocks: `_blockIndex` continues from where the first source ended
-- Third source's blocks: `_blockIndex` continues sequentially, etc.
-
-**Why this is critical**: The check `if (_blockIndex == 0)` gates proposal-level operations that must execute exactly once per proposal:
+**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal:
 
 1. **Prover designation** - ONE designated prover per proposal
 2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
-
-If `_blockIndex` were to reset per source (e.g., each source starting from 0), these operations would execute multiple times, causing:
-
-- Financial incorrectness (bond instructions processed multiple times)
-- Multiple prover designations (violating the one-prover-per-proposal design)
-- Hash chain integrity violations
-
-Therefore, `_blockIndex` **must** be globally monotonic across all sources in a proposal. This is not a design choice—it's a correctness requirement.
 
 ## Metadata Application
 
@@ -524,7 +512,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 | proverAuth           | bytes             | Encoded ProverAuth for prover designation                |
 | bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions   |
 | bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block |
-| blockIndex           | uint16            | Current block index within the proposal (0-based)        |
 | anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)          |
 | anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                       |
 | anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                       |
@@ -543,7 +530,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
-2. **Proposal initialization** (blockIndex == 0 only)
+2. **Proposal initialization** (first block with a higher `proposalId`)
 
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency

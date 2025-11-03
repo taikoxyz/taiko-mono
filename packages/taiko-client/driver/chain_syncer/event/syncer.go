@@ -188,10 +188,9 @@ func (s *Syncer) processShastaProposal(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	var (
-		meta                    = metadata.Shasta()
-		parent                  *types.Block
-		nextSourceStartBlockIdx uint16
-		err                     error
+		meta   = metadata.Shasta()
+		parent *types.Block
+		err    error
 	)
 
 	// We simply ignore the genesis Shasta block's `Proposed` event.
@@ -262,8 +261,10 @@ func (s *Syncer) processShastaProposal(
 	if meta.GetProposal().Id.Cmp(common.Big1) == 0 {
 		// For the first Shasta proposal, its parent block is the last Pacaya block.
 		lastPacayaBlockID := common.Big0
-		if s.rpc.ShastaClients.ForkHeight.Cmp(common.Big0) > 0 {
-			lastPacayaBlockID = new(big.Int).Sub(s.rpc.ShastaClients.ForkHeight, common.Big1)
+		if s.rpc.ShastaClients.ForkTime > 0 {
+			if lastPacayaBlockID, err = s.rpc.LastPacayaBlockID(ctx); err != nil {
+				return fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
+			}
 		}
 		log.Info(
 			"First Shasta proposal, fetch last Pacaya block as parent",
@@ -394,12 +395,12 @@ func (s *Syncer) processShastaProposal(
 
 		if sourcePayload.Default {
 			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV4 from the parent gas limit to get
+			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 			// the real gas limit from parent block metadata.
 			gasLimit := sourcePayload.ParentBlock.GasLimit()
 			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV4GasLimit
+				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
 			}
 
 			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
@@ -435,7 +436,6 @@ func (s *Syncer) processShastaProposal(
 			ctx,
 			metadata,
 			sourcePayload,
-			nextSourceStartBlockIdx,
 			endIter,
 		); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
@@ -443,7 +443,6 @@ func (s *Syncer) processShastaProposal(
 		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
 			return fmt.Errorf("failed to fetch the new parent block: %w", err)
 		}
-		nextSourceStartBlockIdx += uint16(len(sourcePayload.BlockPayloads))
 	}
 
 	return nil

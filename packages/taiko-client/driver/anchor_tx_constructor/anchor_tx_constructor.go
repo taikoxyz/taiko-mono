@@ -88,7 +88,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	proverAuth []byte,
 	bondInstructionsHash common.Hash,
 	bondInstructions []shastaBindings.LibBondsBondInstruction,
-	blockIndex uint16,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
@@ -114,7 +113,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
 		"bondInstructionsHash", bondInstructionsHash,
 		"bondInstructions", len(bondInstructions),
-		"blockIndex", blockIndex,
 	)
 
 	return c.rpc.ShastaClients.Anchor.AnchorV4(
@@ -127,7 +125,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 			BondInstructions:     bondInstructions,
 		},
 		shastaBindings.AnchorBlockParams{
-			BlockIndex:        blockIndex,
 			AnchorBlockNumber: anchorBlockNumber,
 			AnchorBlockHash:   anchorBlockHash,
 			AnchorStateRoot:   anchorStateRoot,
@@ -161,12 +158,6 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parentHash", parentHash,
 	)
 
-	// After the verified block ID has exceeded the Pacaya fork height, we can change this value.
-	gasLimit := consensus.AnchorV3GasLimit
-	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Shasta {
-		gasLimit = consensus.AnchorV4GasLimit
-	}
-
 	return &bind.TransactOpts{
 		From: consensus.GoldenTouchAccount,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -183,7 +174,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		Context:   ctx,
 		GasFeeCap: baseFee,
 		GasTipCap: common.Big0,
-		GasLimit:  gasLimit,
+		GasLimit:  consensus.AnchorV3V4GasLimit,
 		NoSend:    true,
 	}, nil
 }
