@@ -57,7 +57,7 @@ contract AnchorForkRouter is ForkRouter {
     constructor(address _oldFork, address _newFork) ForkRouter(_oldFork, _newFork) { }
 
     function shouldRouteToOldFork(bytes4 _selector) public pure override returns (bool) {
-        if (
+        return
             _selector == IPacayaAnchorLegacy.anchorV3.selector
                 || _selector == IPacayaAnchorLegacy.getBasefeeV2.selector
                 || _selector == IPacayaAnchorLegacy.getBlockHash.selector
@@ -69,10 +69,6 @@ contract AnchorForkRouter is ForkRouter {
                 || _selector == IPacayaAnchorLegacy.parentGasTarget.selector
                 || _selector == IPacayaAnchorLegacy.signalService.selector
                 || _selector == IPacayaAnchorLegacy.pacayaForkHeight.selector
-        ) {
-            return true;
-        }
-
-        return false;
+      ;
     }
 }
