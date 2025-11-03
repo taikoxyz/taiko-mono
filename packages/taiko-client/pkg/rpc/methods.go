@@ -995,7 +995,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultWaitTimeout)
 	defer cancel()
 
 	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
