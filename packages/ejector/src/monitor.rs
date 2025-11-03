@@ -437,6 +437,8 @@ impl Monitor {
                                                 "Detected L2 reorg"
                                             );
 
+                                            metrics::note_reorg(reorg_depth);
+
                                             if reorg_depth < self.min_reorg_depth_for_eject {
                                                 info!(
                                                     block_number,
@@ -444,6 +446,7 @@ impl Monitor {
                                                     threshold = self.min_reorg_depth_for_eject,
                                                     "Reorg depth below eject threshold; skipping operator eject"
                                                 );
+                                                metrics::inc_reorg_skipped();
                                             } else {
                                                 for removed in removed_blocks {
                                                     if removed.proposer.is_zero() {
