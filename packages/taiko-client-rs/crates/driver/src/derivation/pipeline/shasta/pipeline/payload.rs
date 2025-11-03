@@ -12,10 +12,7 @@ use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::aliases::U48;
 use alloy_rpc_types::eth::Withdrawal;
 use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
-use bindings::{
-    anchor::LibBonds::BondInstruction,
-    codec_optimized::LibBonds::BondInstruction as CodecBondInstruction,
-};
+use bindings::anchor::LibBonds::BondInstruction;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
@@ -505,18 +502,10 @@ where
             return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
         }
 
-        let instructions = target_payload
-            .bond_instructions
-            .into_iter()
-            .map(|instruction: CodecBondInstruction| BondInstruction {
-                proposalId: instruction.proposalId,
-                bondType: instruction.bondType,
-                payer: instruction.payer,
-                payee: instruction.payee,
-            })
-            .collect();
-
-        Ok(BondInstructionData { instructions, hash: target_hash })
+        Ok(BondInstructionData {
+            instructions: target_payload.bond_instructions,
+            hash: target_hash,
+        })
     }
 
     // Build the anchor transaction for the given block.
