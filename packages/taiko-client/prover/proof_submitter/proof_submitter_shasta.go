@@ -121,7 +121,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	proposalID := meta.Shasta().GetProposal().Id
 	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, s.indexer, proposalID)
 	if err != nil {
-		log.Info(
+		log.Warn(
 			"Failed to build parent Shasta transition hash locally, start waiting for the event",
 			"proposalID", proposalID,
 			"error", err,
