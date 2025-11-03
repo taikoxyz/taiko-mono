@@ -153,9 +153,6 @@ where
                     metrics::ensure_eject_metric_labels(&sequencer_addr);
                 }
             }
-        }
-
-        if is_active {
             count += 1;
         }
 
