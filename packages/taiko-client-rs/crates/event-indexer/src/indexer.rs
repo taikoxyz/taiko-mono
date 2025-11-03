@@ -12,6 +12,7 @@ use alloy::{rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
+    anchor::LibBonds::BondInstruction,
     codec_optimized::{
         CodecOptimized::{self, CodecOptimizedInstance},
         ICheckpointStore::Checkpoint,
@@ -22,7 +23,6 @@ use bindings::{
         },
     },
     i_inbox::IInbox::{self, Proposed, Proved},
-    anchor::LibBonds::BondInstruction,
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
