@@ -27,6 +27,13 @@ pub struct DriverArgs {
         help = "Optional HTTP endpoint of a checkpointed L2 execution engine"
     )]
     pub l2_checkpoint_endpoint: Option<Url>,
+    #[clap(
+        long = "devnet.shastaTimestamp",
+        env = "DEVNET_SHASTA_TIMESTAMP",
+        default_value_t = 0u64,
+        help = "Override the Shasta devnet fork activation timestamp (0 keeps the baked-in value)"
+    )]
+    pub devnet_shasta_timestamp: u64,
 }
 
 impl DriverArgs {

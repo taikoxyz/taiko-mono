@@ -74,13 +74,15 @@ async fn syncs_shasta_proposal_into_l2() -> Result<()> {
         Duration::from_millis(50),
         RpcUrl::parse(blob_server.base_url().as_str())?,
         None,
+        0,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();
 
     let blob_source = BlobDataSource::new(blob_server.endpoint().clone());
     let pipeline =
-        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, indexer.clone()).await?;
+        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, indexer.clone(), 0)
+            .await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 

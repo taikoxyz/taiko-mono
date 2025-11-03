@@ -1,6 +1,5 @@
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::primitives::B256;
 use alloy_consensus::Header;
@@ -60,10 +59,12 @@ impl ParentState {
         self.header.number.saturating_add(1)
     }
 
-    /// Compute the target base fee for the next payload, falling back to the fixed
-    /// Shasta base fee while the fork warm-up window is active.
-    pub(super) fn compute_block_base_fee(&self, block_number: u64, shasta_fork_height: u64) -> u64 {
-        if block_number < shasta_fork_height + SHASTA_INITIAL_BASE_FEE_BLOCKS {
+    /// Compute the target base fee for the next payload.
+    ///
+    /// We assume the Shasta hardfork is already active, so we always apply the EIP-4396 rule (with
+    /// the warm-up block 0 fallback).
+    pub(super) fn compute_block_base_fee(&self) -> u64 {
+        if self.header.number == 0 {
             SHASTA_INITIAL_BASE_FEE
         } else {
             calculate_next_block_eip4396_base_fee(&self.header, self.parent_block_time)

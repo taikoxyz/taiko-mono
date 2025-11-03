@@ -2,9 +2,8 @@
 
 use std::sync::Arc;
 
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
@@ -13,7 +12,7 @@ use alloy_network::TransactionBuilder;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{
-    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_height_for_chain,
+    MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain,
 };
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
@@ -35,7 +34,7 @@ pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
     cfg: ProposerConfigs,
-    shasta_fork_height: u64,
+    shasta_fork_timestamp: u64,
 }
 
 impl Proposer {
@@ -78,9 +77,9 @@ impl Proposer {
         )
         .await?;
 
-        // Fetch the Shasta fork height for the connected chain.
+        // Fetch the Shasta fork activation timestamp for the connected chain.
         let chain_id = rpc_provider.l2_provider.get_chain_id().await?;
-        let shasta_fork_height = shasta_fork_height_for_chain(chain_id)
+        let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| ProposerError::Other(err.into()))?;
 
         let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
@@ -90,7 +89,7 @@ impl Proposer {
             l2_suggested_fee_recipient,
         );
 
-        Ok(Self { rpc_provider, cfg, transaction_builder, shasta_fork_height })
+        Ok(Self { rpc_provider, cfg, transaction_builder, shasta_fork_timestamp })
     }
 
     /// Start the proposer main loop.
@@ -208,11 +207,7 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
-        // fee.
-        if parent.number().saturating_add(1) <
-            self.shasta_fork_height.saturating_add(SHASTA_INITIAL_BASE_FEE_BLOCKS)
-        {
+        if parent.number() == 0 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 

@@ -16,6 +16,8 @@ pub struct DriverConfig {
     pub l1_beacon_endpoint: Url,
     /// Optional L2 checkpoint endpoint used for beacon sync.
     pub l2_checkpoint_url: Option<Url>,
+    /// Optional override for the Shasta devnet fork activation timestamp.
+    pub devnet_shasta_timestamp: u64,
 }
 
 impl DriverConfig {
@@ -28,7 +30,14 @@ impl DriverConfig {
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
+        devnet_shasta_timestamp: u64,
     ) -> Self {
-        Self { client, retry_interval, l1_beacon_endpoint, l2_checkpoint_url }
+        Self {
+            client,
+            retry_interval,
+            l1_beacon_endpoint,
+            l2_checkpoint_url,
+            devnet_shasta_timestamp,
+        }
     }
 }

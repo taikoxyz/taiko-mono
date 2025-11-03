@@ -45,7 +45,7 @@ pub const PROPOSAL_MAX_BLOB_BYTES: usize =
     (USABLE_BITS_PER_FIELD_ELEMENT - 1) * FIELD_ELEMENTS_PER_BLOB as usize;
 
 /// Shasta fork activation on Taiko Devnet.
-pub const SHASTA_FORK_DEVNET: ForkCondition = ForkCondition::Block(10);
+pub const SHASTA_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
 /// Shasta fork activation on Taiko Hoodi. This fork has not been scheduled yet.
 pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Never;
@@ -53,31 +53,28 @@ pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Never;
 /// Shasta fork activation on Taiko Mainnet. This fork has not been scheduled yet.
 pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Never;
 
+/// Taiko chain IDs where the Shasta fork is configured.
+pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
+pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
+pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
+
 /// Returns the configured Shasta fork condition for a given Taiko L2 chain ID.
 pub const fn shasta_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondition> {
     match chain_id {
-        167_001 => Some(SHASTA_FORK_DEVNET),
-        167_013 => Some(SHASTA_FORK_HOODI),
-        167_000 => Some(SHASTA_FORK_MAINNET),
+        TAIKO_DEVNET_CHAIN_ID => Some(SHASTA_FORK_DEVNET),
+        TAIKO_HOODI_CHAIN_ID => Some(SHASTA_FORK_HOODI),
+        TAIKO_MAINNET_CHAIN_ID => Some(SHASTA_FORK_MAINNET),
         _ => None,
     }
 }
 
-/// Returns the scheduled block height for Shasta activation on the given chain, if any.
-pub const fn shasta_fork_block_for_chain(chain_id: u64) -> Option<u64> {
-    match shasta_fork_condition_for_chain(chain_id) {
-        Some(ForkCondition::Block(height)) => Some(height),
-        _ => None,
-    }
-}
-
-/// Returns the Shasta fork activation height for a Taiko chain.
-pub fn shasta_fork_height_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
+/// Returns the Shasta fork activation timestamp for a Taiko chain.
+pub fn shasta_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
     let condition = shasta_fork_condition_for_chain(chain_id)
         .ok_or(ShastaForkConfigError::UnsupportedChainId(chain_id))?;
 
     match condition {
-        ForkCondition::Block(height) => Ok(height),
+        ForkCondition::Timestamp(timestamp) => Ok(timestamp),
         _ => Err(ShastaForkConfigError::UnsupportedActivation),
     }
 }
