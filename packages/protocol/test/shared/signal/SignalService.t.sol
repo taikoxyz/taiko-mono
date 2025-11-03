@@ -55,7 +55,7 @@ contract TestSignalService is CommonTest {
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
         });
 
-        vm.expectRevert(SS_UNAUTHORIZED.selector);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         signalService.saveCheckpoint(checkpoint);
 
         vm.prank(AUTHORIZED_SYNCER);
@@ -72,29 +72,29 @@ contract TestSignalService is CommonTest {
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(0)
         });
         vm.prank(AUTHORIZED_SYNCER);
-        vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
         signalService.saveCheckpoint(badStateRoot);
 
         ICheckpointStore.Checkpoint memory badBlockHash = ICheckpointStore.Checkpoint({
             blockNumber: 2, blockHash: bytes32(0), stateRoot: bytes32(uint256(2))
         });
         vm.prank(AUTHORIZED_SYNCER);
-        vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
         signalService.saveCheckpoint(badBlockHash);
     }
 
     function test_getCheckpoint_RevertWhen_Missing() public {
-        vm.expectRevert(SS_CHECKPOINT_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(42);
     }
 
     function test_verifySignalReceived_RevertWhen_SignalNotCached() public {
-        vm.expectRevert(SS_SIGNAL_NOT_RECEIVED.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
     }
 
     function test_proveSignalReceived_RevertWhen_ProofBytesEmpty() public {
-        vm.expectRevert(SS_SIGNAL_NOT_RECEIVED.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
     }
 
@@ -105,7 +105,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](1);
         proofs[0].storageProof[0] = hex"22";
 
-        vm.expectRevert(SS_INVALID_PROOF_LENGTH.selector);
+        vm.expectRevert(SignalService.SS_INVALID_PROOF_LENGTH.selector);
         signalService.proveSignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
@@ -118,7 +118,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](1);
         proofs[0].storageProof[0] = hex"01";
 
-        vm.expectRevert(SS_EMPTY_PROOF.selector);
+        vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
         signalService.proveSignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
@@ -133,7 +133,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](1);
         proofs[0].storageProof[0] = hex"bb";
 
-        vm.expectRevert(SS_CHECKPOINT_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.proveSignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
@@ -150,7 +150,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](1);
         proofs[0].storageProof[0] = hex"bb";
 
-        vm.expectRevert(SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
         signalService.proveSignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );

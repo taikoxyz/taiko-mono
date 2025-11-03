@@ -176,17 +176,17 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
-    /// @return checkpoint The checkpoint
+    /// @return checkpoint_ The checkpoint
     function _getCheckpoint(uint48 _blockNumber)
         private
         view
-        returns (Checkpoint memory checkpoint)
+        returns (Checkpoint memory checkpoint_)
     {
         CheckpointRecord storage record = _checkpoints[_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
-        checkpoint = Checkpoint({
+        checkpoint_ = Checkpoint({
             blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
         });
     }
@@ -265,14 +265,18 @@ contract SignalService is EssentialContract, ISignalService {
             proof.storageProof
         );
     }
-}
+
 
 // ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
+
 error SS_EMPTY_PROOF();
 error SS_INVALID_PROOF_LENGTH();
 error SS_INVALID_CHECKPOINT();
 error SS_CHECKPOINT_NOT_FOUND();
 error SS_UNAUTHORIZED();
 error SS_SIGNAL_NOT_RECEIVED();
+
+
+}
