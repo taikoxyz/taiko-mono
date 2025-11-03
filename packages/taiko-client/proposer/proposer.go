@@ -29,6 +29,10 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
+// ShastaForkBufferSeconds is the buffer time in seconds before Shasta fork time,
+// to ensure no Pacaya blocks are proposed after Shasta fork time.
+const shastaForkBufferSeconds = uint64(60)
+
 // l2HeadUpdateInfo keeps track of the latest L2 head update information.
 type l2HeadUpdateInfo struct {
 	blockID   uint64
@@ -330,42 +334,12 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	var l2HeadNumber *big.Int
-	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
-	if err == nil {
-		l2HeadNumber = headL1Origin.BlockID
-	} else {
-		log.Warn("Failed to get L2 head L1 origin", "error", err)
-	}
-
-	// Always read the latest L2 head for timestamp-based gating.
-	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, l2HeadNumber)
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get L2 head: %w", err)
+		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-
-	// Timestamp-based activation via chain config. Consider the next block timestamp,
-	// since we're about to propose a new block.
-	const blockTimeSeconds = uint64(2)
-	nextTimestamp := l2Head.Time + blockTimeSeconds
-	shastaActive := p.chainConfig.IsShasta(nextTimestamp)
-
-	if !shastaActive {
-		// Ensure we are not proposing too many tx lists before Shasta fork (time-based trimming).
-		if p.chainConfig.ShastaForkTime != nil && *p.chainConfig.ShastaForkTime > l2Head.Time {
-			remaining := (*p.chainConfig.ShastaForkTime - l2Head.Time) / blockTimeSeconds
-			if remaining < uint64(len(txLists)) {
-				log.Warn(
-					"Too many tx lists, trimming to fit before Shasta fork",
-					"txLists", len(txLists),
-					"max", remaining,
-				)
-				txLists = txLists[:remaining]
-				if len(txLists) == 0 {
-					return nil
-				}
-			}
-		}
+	forkTime := p.rpc.ShastaClients.ForkTime
+	if l1Head.Time+shastaForkBufferSeconds < forkTime {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)

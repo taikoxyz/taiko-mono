@@ -29,7 +29,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -458,90 +457,6 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, batchID: %d", batchID)
 }
 
-// CalculateBaseFee calculates the base fee from the L2 protocol.
-func (c *Client) CalculateBaseFee(
-	ctx context.Context,
-	l2Head *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-	currentTimestamp uint64,
-) (*big.Int, error) {
-	var (
-		baseFee *big.Int
-		err     error
-	)
-
-	// Determine if Shasta is active based on the timestamp of the block being built.
-	// Use currentTimestamp (the candidate block's timestamp), not the parent header time.
-	shastaActiveByTime := c.ShastaClients != nil && c.ShastaClients.ForkTime > 0 && currentTimestamp >= c.ShastaClients.ForkTime
-	if shastaActiveByTime {
-		// If parent header is unavailable (e.g., genesis context), return initial base fee.
-		if l2Head == nil {
-			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
-		}
-
-		// Handle initial ramp-up window differently depending on gating mode.
-		inInitialWindow := false
-		// Walk back up to ShastaInitialBaseFeeBlocks-1 parents to see if we are still
-		// within the first 3 blocks after activation time.
-		// If any ancestor (including current parent chain) is before fork time, then we are
-		// still inside the initial window and should keep returning the initial base fee.
-		current := l2Head
-		for i := uint64(0); i < misc.ShastaInitialBaseFeeBlocks; i++ {
-			// Load parent to compare time deltas in later calculation as well.
-			parent, err := c.L2.HeaderByHash(ctx, current.ParentHash)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch parent block: %w", err)
-			}
-			// If parent timestamp is before fork time, it means current block is within the first window.
-			if parent.Time < c.ShastaClients.ForkTime {
-				inInitialWindow = true
-				break
-			}
-			current = parent
-		}
-
-		// During the initial window, always return the initial base fee.
-		if inInitialWindow {
-			return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
-		}
-
-		grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
-		}
-
-		// For timestamp-gated activation, pass a dummy ShastaBlock since we are already past the
-		// initial window; CalcEIP4396BaseFee only uses ShastaBlock to gate the initial-blocks branch.
-		config := &params.ChainConfig{ShastaBlock: common.Big0}
-		log.Info(
-			"Fetched params for Shasta base fee calculation",
-			"parentBlockNumber", l2Head.Number,
-			"parentGasLimit", l2Head.GasLimit,
-			"parentGasUsed", l2Head.GasUsed,
-			"parentBaseFee", l2Head.BaseFee,
-			"parentTime", l2Head.Time-grandParentBlock.Time,
-			"elasticityMultiplier", config.ElasticityMultiplier(),
-			"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
-			"shastaForkTime", c.ShastaClients.ForkTime,
-		)
-		baseFee = misc.CalcEIP4396BaseFee(
-			config,
-			l2Head,
-			l2Head.Time-grandParentBlock.Time,
-		)
-
-		log.Info("Shasta base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number, "shastaByTime", shastaActiveByTime)
-		return baseFee, nil
-	}
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
-		return nil, err
-	}
-
-	log.Info("Pacaya base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
-
-	return baseFee, nil
-}
-
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
 // upper limit.
 func (c *Client) GetPoolContent(
@@ -558,14 +473,24 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
+	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
-	if err != nil {
-		return nil, err
+	var baseFee *big.Int
+	if l1Head.Time >= c.ShastaClients.ForkTime {
+		if baseFee, err = c.CalculateBaseFeeShasta(ctx, l2Head); err != nil {
+			return nil, err
+		}
+	} else {
+		if baseFee, err = c.CalculateBaseFeePacaya(ctx, l2Head, l1Head.Time, baseFeeConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	var localsArg []string
@@ -1112,8 +1037,35 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
-// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
-func (c *Client) calculateBaseFeePacaya(
+// CalculateBaseFeeShasta calculates the base fee after Shasta fork from the L2 protocol.
+func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
+	// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
+	if l2Head.Number.Cmp(common.Big0) == 0 {
+		return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
+	}
+
+	// Otherwise, calculate Shasta base fee according to EIP-4396.
+	grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+	}
+	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
+	log.Info(
+		"Params for Shasta base fee calculation",
+		"parentBlockNumber", l2Head.Number,
+		"parentGasLimit", l2Head.GasLimit,
+		"parentGasUsed", l2Head.GasUsed,
+		"parentBaseFee", l2Head.BaseFee,
+		"parentTime", l2Head.Time-grandParentBlock.Time,
+		"elasticityMultiplier", config.ElasticityMultiplier(),
+		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
+		"shastaForkTime", c.ShastaClients.ForkTime,
+	)
+	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
+}
+
+// CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
+func (c *Client) CalculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,

@@ -272,27 +272,18 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	s.Nil(err)
 
 	// Already forked into Shasta (timestamp-based).
-	if s.RPCClient.ShastaClients.ForkTime > 0 && head.Time >= s.RPCClient.ShastaClients.ForkTime {
+	if head.Time >= s.RPCClient.ShastaClients.ForkTime {
+		log.Debug("Already forked into Shasta")
 		s.InitShastaGenesisProposal()
 		return
 	}
 
-	// Propose empty blocks until L2 time reaches Shasta fork time.
-	for i := 0; i < 2048; i++ { // safety bound for tests
-		s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-		s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-		s.InitShastaGenesisProposal()
-		head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-		s.Nil(err)
-		if s.RPCClient.ShastaClients.ForkTime > 0 && head.Time >= s.RPCClient.ShastaClients.ForkTime {
-			break
-		}
-	}
-
+	s.SetNextBlockTimestamp(s.RPCClient.ShastaClients.ForkTime)
 	for i := 0; i <= manifest.AnchorMinOffset; i++ {
 		s.L1Mine()
 	}
 
+	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
@@ -306,25 +297,19 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
 		inbox = common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	)
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	if s.RPCClient.ShastaClients.ForkTime > 0 && head.Time >= s.RPCClient.ShastaClients.ForkTime {
+
+	if l1Head.Time >= s.RPCClient.ShastaClients.ForkTime {
 		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
 		s.Nil(err)
 		if proposalHash != (common.Hash{}) {
 			return
 		}
-		// Find the last block before the fork time
-		for i := 0; i < 4096; i++ { // safety bound for tests
-			parent, err := s.RPCClient.L2.HeaderByHash(context.Background(), head.ParentHash)
-			s.Nil(err)
-			if parent.Time < s.RPCClient.ShastaClients.ForkTime {
-				head = parent
-				break
-			}
-			head = parent
-		}
-		data, err := encoding.ShastaInboxABI.Pack("activate", head.Hash())
+		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
+
+		data, err := encoding.ShastaInboxABI.Pack("activate", l2Head.Hash())
 		s.Nil(err)
 		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
 		s.Nil(err)
@@ -486,8 +471,8 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	)
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(), parent, &e.Info.BaseFeeConfig, e.Info.LastBlockTimestamp,
+	baseFee, err := s.RPCClient.CalculateBaseFeePacaya(
+		context.Background(), parent, e.Info.LastBlockTimestamp, &e.Info.BaseFeeConfig,
 	)
 	s.Nil(err)
 
@@ -519,7 +504,7 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: e.Info.Coinbase,
-			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3GasLimit,
+			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3V4GasLimit,
 			Timestamp:   e.Info.LastBlockTimestamp,
 			TxList:      txListBytes,
 			MixHash:     common.Hash(difficulty),
