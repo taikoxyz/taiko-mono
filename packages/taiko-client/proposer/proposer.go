@@ -632,9 +632,9 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		}
 
 		// it needs to be either us, or the proverSet we propose through
-		if len(operators) == 0 &&
-			fallbackPreconferAddress != p.proposerAddress &&
-			fallbackPreconferAddress != p.ProverSetAddress {
+		if len(operators) != 0 ||
+			(fallbackPreconferAddress != p.proposerAddress &&
+				fallbackPreconferAddress != p.ProverSetAddress) {
 			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
 				"time", time.Now(),
 				"activeOperatorNums", len(operators),

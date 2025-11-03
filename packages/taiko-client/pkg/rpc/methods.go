@@ -1227,7 +1227,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
@@ -1245,7 +1245,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 		}
-		if opInfo.InactiveSince != 0 {
+		if opInfo.InactiveSince == 0 {
 			operators = append(operators, opInfo.SequencerAddress)
 		}
 	}
