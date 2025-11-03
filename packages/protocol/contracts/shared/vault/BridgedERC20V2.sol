@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20PermitU
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
+import "./BridgedERC20V2_Layout.sol"; // DO NOT DELETE
+
 /// @title BridgedERC20V2
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain. This implementation adds ERC20Permit support to BridgedERC20.
@@ -87,11 +89,11 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     {
         if (block.timestamp > deadline) revert BTOKEN_DEADLINE_EXPIRED();
 
-        bytes32 structHash = keccak256(
-            abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline)
-        );
+        bytes memory encoded =
+            abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline);
 
-        bytes32 hash = _hashTypedDataV4(structHash);
+        /// forge-lint: disable-next-line(asm-keccak256)
+        bytes32 hash = _hashTypedDataV4(keccak256(encoded));
 
         address signer = ECDSAUpgradeable.recover(hash, v, r, s);
         if (signer != owner) revert BTOKEN_INVALID_SIG();

@@ -7,8 +7,6 @@ use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::eth::Withdrawal;
 use sha2::{Digest, Sha256};
 
-use bindings::taiko_anchor::LibBonds::BondInstruction;
-
 sol! {
     struct ShastaDifficultyInput {
         bytes32 parentDifficulty;
@@ -71,21 +69,4 @@ pub(super) fn compute_build_payload_args_id(
 pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
     let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
     Bytes::from(data)
-}
-
-/// Calculate the rolling bond instruction hash for a new instruction.
-pub(super) fn calculate_bond_instruction_hash(
-    previous_hash: B256,
-    instruction: &BondInstruction,
-) -> B256 {
-    if instruction.proposalId.to::<u64>() == 0 || instruction.bondType == 0 {
-        return previous_hash;
-    }
-
-    let encoded = instruction.abi_encode();
-    let mut data = Vec::with_capacity(previous_hash.as_slice().len() + encoded.len());
-    data.extend_from_slice(previous_hash.as_slice());
-    data.extend_from_slice(&encoded);
-
-    B256::from_slice(keccak256(&data).as_slice())
 }

@@ -542,6 +542,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-hardforks"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd78f8e1c274581c663d7949c863b10c8b015e48f2774a4b8e8efc82d43ea95c"
+dependencies = [
+ "alloy-chains",
+ "alloy-eip2124",
+ "alloy-primitives",
+ "auto_impl",
+ "dyn-clone",
+]
+
+[[package]]
 name = "alloy-json-abi"
 version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1824,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "bindings"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "alloy",
  "serde",
@@ -2994,7 +3007,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -3077,6 +3090,7 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
+ "alloy-hardforks 0.4.1",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
@@ -3279,7 +3293,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -3362,7 +3376,7 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "metrics 0.24.2",
- "rpc",
+ "protocol",
  "thiserror 2.0.16",
  "tokio",
  "tokio-retry",
@@ -3373,9 +3387,9 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "0.3.0-alpha"
+version = "0.4.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c71056781add57aae7d7761cf48bf99a14bd47adcecd2dfddc48dba0a78928c"
+checksum = "c6ae8ecb83aedc270b94a1636a59e7ca8af4c88dccfdaddfe4383b834b88974c"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
@@ -3388,7 +3402,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "tracing-subscriber 0.3.20",
 ]
 
 [[package]]
@@ -4148,7 +4161,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
@@ -6191,6 +6204,7 @@ dependencies = [
  "alethia-reth-consensus",
  "alloy",
  "alloy-eips",
+ "alloy-hardforks 0.4.1",
  "alloy-network",
  "anyhow",
  "bindings",
@@ -6246,8 +6260,12 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
+ "alloy-hardforks 0.4.1",
+ "alloy-primitives",
+ "alloy-provider",
  "alloy-rlp",
  "anyhow",
+ "event-scanner",
  "flate2",
  "serde",
  "thiserror 2.0.16",
@@ -6346,7 +6364,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.0",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9533,6 +9551,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
+ "protocol",
  "reqwest",
  "serde",
  "serde_json",
@@ -9658,7 +9677,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -10553,7 +10572,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.1.2",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -11661,7 +11680,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]

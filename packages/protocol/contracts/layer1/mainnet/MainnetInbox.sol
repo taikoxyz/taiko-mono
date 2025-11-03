@@ -6,6 +6,8 @@ import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
+import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
+
 /// @title ShastaMainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation and efficient hashing.
@@ -47,8 +49,9 @@ contract MainnetInbox is InboxOptimized2 {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                forcedInclusionDelay: 384, // 1 epoch
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
+                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1

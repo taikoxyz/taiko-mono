@@ -5,39 +5,6 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-    /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
-    /// small as one second, 384 blocks will cover an Ethereum epoch.
-    uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
-
-    /// @notice The maximum anchor block number offset from the proposal origin block number.
-    uint256 internal constant ANCHOR_MAX_OFFSET = 128;
-
-    /// @notice The minimum anchor block number offset from the proposal origin block number.
-    uint256 internal constant ANCHOR_MIN_OFFSET = 2;
-
-    /// @notice The maximum number timestamp offset from the proposal origin timestamp.
-    uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
-
-    /// @notice The maximum block gas limit change per block, in millionths (1/1,000,000).
-    /// @dev For example, 10 = 10 / 1,000,000 = 0.001%.
-    uint256 internal constant BLOCK_GAS_LIMIT_MAX_CHANGE = 10;
-
-    /// @notice The minimum block gas limit.
-    /// @dev This ensures block gas limit never drops below a critical threshold.
-    uint256 internal constant MIN_BLOCK_GAS_LIMIT = 10_000_000;
-
-    /// @notice The maximum block gas limit.
-    /// @dev This ensures that the increased block gas limit never rises above the critical threshold.
-    uint256 internal constant MAX_BLOCK_GAS_LIMIT = 100_000_000;
-
-    /// @notice The delay in processing bond instructions relative to the current proposal. A value
-    /// of 1 signifies that the bond instructions of the immediate parent proposal will be
-    /// processed.
-    uint256 internal constant BOND_PROCESSING_DELAY = 6;
-
-    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
@@ -92,10 +59,6 @@ library LibManifest {
     /// This design prevents
     /// censorship of forced inclusions: a malicious proposer cannot invalidate their entire
     /// proposal (including valid forced inclusions) by including bad data in one source.
-    ///
-    /// IMPORTANT: The _blockIndex parameter in updateState() must be globally monotonic across
-    /// all DerivationSourceManifests within a proposal (not reset per source). This ensures
-    /// proposal-level operations (prover designation, bond processing) execute exactly once.
     struct DerivationSourceManifest {
         /// @notice The blocks for this derivation source.
         BlockManifest[] blocks;

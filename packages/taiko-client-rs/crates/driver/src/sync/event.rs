@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
 use alloy_provider::Provider;
 use bindings::i_inbox::IInbox::Proposed;
-use event_scanner::{EventFilter, types::ScannerMessage};
+use event_scanner::{EventFilter, ScannerMessage};
 use tokio::spawn;
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -64,7 +64,7 @@ where
         };
 
         let anchor_state = self.rpc.shasta_anchor_state_by_hash(latest_block.hash()).await?;
-        let anchor_block_number = anchor_state.anchorBlockNumber.to::<u64>();
+        let anchor_block_number = anchor_state.anchor_block_number;
 
         if anchor_block_number != 0 {
             return Ok(anchor_block_number);
@@ -111,8 +111,7 @@ where
 
         // Kick off the background indexer before waiting for its historical pass to finish.
         let indexer = self.indexer.clone();
-        // TODO: change to fetch last X proposal when indexer supports it.
-        indexer.spawn(start_tag);
+        indexer.spawn();
 
         let blob_source = BlobDataSource::new(self.cfg.l1_beacon_endpoint.clone());
         let derivation_pipeline =
@@ -131,22 +130,34 @@ where
             .cfg
             .client
             .l1_provider_source
-            .to_event_scanner()
+            .to_event_scanner_from_tag(start_tag)
             .await
             .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
         let filter = EventFilter::new()
-            .with_contract_address(self.cfg.client.inbox_address)
-            .with_event(Proposed::SIGNATURE);
+            .contract_address(self.cfg.client.inbox_address)
+            .event(Proposed::SIGNATURE);
 
-        let mut stream = scanner.create_event_stream(filter);
+        let mut stream = scanner.subscribe(filter);
 
         spawn(async move {
-            if let Err(err) = scanner.start_scanner(start_tag, None).await {
+            if let Err(err) = scanner.start().await {
                 error!(?err, "event scanner terminated unexpectedly");
             }
         });
 
-        while let Some(ScannerMessage::Data(logs)) = stream.next().await {
+        while let Some(message) = stream.next().await {
+            let logs = match message {
+                ScannerMessage::Data(logs) => logs,
+                ScannerMessage::Error(err) => {
+                    error!(?err, "error receiving proposal logs from event scanner");
+                    continue;
+                }
+                ScannerMessage::Status(status) => {
+                    info!(?status, "event scanner status update");
+                    continue;
+                }
+            };
+
             for log in logs {
                 let retry_strategy =
                     ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));

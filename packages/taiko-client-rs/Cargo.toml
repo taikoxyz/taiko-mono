@@ -48,6 +48,7 @@ alloy-consensus = { version = "1.0.36", default-features = false, features = [
 ] }
 alloy-contract = { version = "1.0.36", default-features = false }
 alloy-eips = { version = "1.0.36", default-features = false }
+alloy-hardforks = { version = "0.4", default-features = false }
 alloy-json-rpc = { version = "1.0.36", default-features = false }
 alloy-network = { version = "1.0.36", default-features = false }
 alloy-node-bindings = { version = "1.0.36" }
@@ -65,7 +66,7 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.3.0-alpha"
+event-scanner = "=0.4.0-alpha"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }

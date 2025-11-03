@@ -45,6 +45,7 @@ jobs:
             taiko-client-rs
             supplementary-contracts
             balance-monitor
+            whitepaper
           requireScope: true
           subjectPattern: ^(?![A-Z])(?!.*\btypo\b).+$ # Require lowercase PR title and prohibit word "typo"
           subjectPatternError: |

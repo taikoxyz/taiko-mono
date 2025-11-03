@@ -18,7 +18,7 @@ use alloy_provider::{
 };
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::{Context, Result, anyhow, ensure};
-use bindings::taiko_anchor::TaikoAnchor::{anchorCall, updateStateCall};
+use bindings::anchor::Anchor::anchorV4Call;
 use event_indexer::indexer::{ProposedEventPayload, ShastaEventIndexer, ShastaEventIndexerConfig};
 use once_cell::sync::Lazy;
 use proposer::{config::ProposerConfigs, proposer::Proposer};
@@ -202,7 +202,7 @@ impl fmt::Debug for ShastaEnv {
     }
 }
 
-/// Ensures the latest L2 block contains a TaikoAnchor anchor call.
+/// Ensures the latest L2 block contains an Anchor `anchorV4` call.
 pub async fn verify_anchor_block<P>(client: &Client<P>, anchor_address: Address) -> Result<()>
 where
     P: alloy_provider::Provider + Clone + Send + Sync + 'static,
@@ -221,11 +221,11 @@ where
         .and_then(|txs| txs.first())
         .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
 
-    let selectors = [anchorCall::SELECTOR, updateStateCall::SELECTOR];
+    let selectors = [anchorV4Call::SELECTOR];
     anyhow::ensure!(first_tx.input().len() >= 4, "anchor transaction input too short");
     anyhow::ensure!(
         selectors.iter().any(|sel| &first_tx.input()[..sel.len()] == sel.as_slice()),
-        "first transaction is not calling a TaikoAnchor anchor/updateState entrypoint"
+        "first transaction is not calling an Anchor anchorV4 entrypoint"
     );
     anyhow::ensure!(
         first_tx.to() == Some(anchor_address),
@@ -300,7 +300,7 @@ impl ShastaEnv {
         let indexer_config =
             ShastaEventIndexerConfig { l1_subscription_source: l1_source.clone(), inbox_address };
         let event_indexer = ShastaEventIndexer::new(indexer_config).await?;
-        event_indexer.clone().spawn(BlockNumberOrTag::Earliest);
+        event_indexer.clone().spawn();
         event_indexer.wait_historical_indexing_finished().await;
 
         let proposer_config = ProposerConfigs {

@@ -23,16 +23,21 @@ import (
 var (
 	// maxBlocksPerFilter defines the maximum number of blocks to filter in a single RPC query.
 	maxBlocksPerFilter uint64 = 1000
-	reorgSafetyDepth          = new(big.Int).SetUint64(64)
+	// reorgSafetyDepth defines how many blocks back to rewind when a reorg is detected.
+	reorgSafetyDepth = new(big.Int).SetUint64(64)
+	// bufferSizeMultiplier determines how many times the buffer size to keep for historical data.
+	bufferSizeMultiplier uint64 = 2
 )
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
-	Proposal       *shastaBindings.IInboxProposal
-	CoreState      *shastaBindings.IInboxCoreState
-	Derivation     *shastaBindings.IInboxDerivation
-	RawBlockHash   common.Hash
-	RawBlockHeight *big.Int
+	Proposal         *shastaBindings.IInboxProposal
+	CoreState        *shastaBindings.IInboxCoreState
+	Derivation       *shastaBindings.IInboxDerivation
+	BondInstructions []shastaBindings.LibBondsBondInstruction
+	RawBlockHash     common.Hash
+	RawBlockHeight   *big.Int
+	Log              *types.Log
 }
 
 // TransitionPayload represents the payload in a Shasta Proved event.
@@ -51,7 +56,7 @@ type Indexer struct {
 	rpc                     *rpc.Client
 	proposals               cmap.ConcurrentMap[uint64, *ProposalPayload]
 	transitionRecords       cmap.ConcurrentMap[uint64, *TransitionPayload]
-	shastaForkHeight        *big.Int
+	shastaForkTime          uint64
 	bufferSize              uint64
 	finalizationGracePeriod uint64
 
@@ -64,7 +69,7 @@ type Indexer struct {
 func New(
 	ctx context.Context,
 	rpc *rpc.Client,
-	shastaForkHeight *big.Int,
+	shastaForkTime uint64,
 ) (*Indexer, error) {
 	config, err := rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -75,7 +80,7 @@ func New(
 		rpc:                     rpc,
 		bufferSize:              config.RingBufferSize.Uint64(),
 		finalizationGracePeriod: config.FinalizationGracePeriod.Uint64(),
-		shastaForkHeight:        shastaForkHeight,
+		shastaForkTime:          shastaForkTime,
 		proposals: cmap.NewWithCustomShardingFunction[
 			uint64, *ProposalPayload,
 		](func(key uint64) uint32 { return uint32(key) }),
@@ -180,7 +185,7 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			break
 		}
 		if p, ok := s.proposals.Get(0); ok && p.Proposal.Id.Cmp(common.Big0) == 0 {
-			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkHeight", s.shastaForkHeight)
+			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkTime", s.shastaForkTime)
 			break
 		}
 
@@ -351,17 +356,20 @@ func (s *Indexer) onProposedEvent(
 		return nil
 	}
 	var (
-		proposal   = meta.Shasta().GetProposal()
-		coreState  = meta.Shasta().GetCoreState()
-		derivation = meta.Shasta().GetDerivation()
+		proposal         = meta.Shasta().GetProposal()
+		coreState        = meta.Shasta().GetCoreState()
+		derivation       = meta.Shasta().GetDerivation()
+		bondInstructions = meta.Shasta().GetBondInstructions()
 	)
 
 	payload := &ProposalPayload{
-		Proposal:       &proposal,
-		CoreState:      &coreState,
-		Derivation:     &derivation,
-		RawBlockHash:   meta.GetRawBlockHash(),
-		RawBlockHeight: meta.GetRawBlockHeight(),
+		Proposal:         &proposal,
+		CoreState:        &coreState,
+		Derivation:       &derivation,
+		BondInstructions: bondInstructions,
+		RawBlockHash:     meta.GetRawBlockHash(),
+		RawBlockHeight:   meta.GetRawBlockHeight(),
+		Log:              meta.Shasta().GetLog(),
 	}
 
 	s.proposals.Set(proposal.Id.Uint64(), payload)
@@ -371,6 +379,7 @@ func (s *Indexer) onProposedEvent(
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
+		"bondInstructions", len(bondInstructions),
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),
@@ -500,9 +509,10 @@ func (s *Indexer) TransitionRecords() cmap.ConcurrentMap[uint64, *TransitionPayl
 // cleanupFinalizedTransitionRecords cleans up transition records that are older than the last finalized proposal ID
 // minus the buffer size.
 func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint64) {
-	// We keep two times the buffer size of transition records to avoid future reorg handling.
+	// We keep bufferSizeMultiplier times the buffer size of transition records to avoid future reorg handling.
+	threshold := s.bufferSize * bufferSizeMultiplier
 	for _, key := range s.transitionRecords.Keys() {
-		if key+(s.bufferSize*2) < lastFinalizedProposalId {
+		if key+threshold < lastFinalizedProposalId {
 			log.Trace("Cleaning up finalized Shasta transition record", "proposalId", key)
 			s.transitionRecords.Remove(key)
 		}
@@ -511,9 +521,10 @@ func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint
 
 // cleanupLegacyProposals cleans up proposals that are older than the last proposal ID minus the buffer size.
 func (s *Indexer) cleanupLegacyProposals(lastProposalId uint64) {
-	// We keep two times the buffer size of transition records to avoid future reorg handling.
+	// We keep bufferSizeMultiplier times the buffer size of proposals to avoid future reorg handling.
+	threshold := s.bufferSize * bufferSizeMultiplier
 	for _, key := range s.proposals.Keys() {
-		if key+(s.bufferSize*2) < lastProposalId {
+		if key+threshold < lastProposalId {
 			log.Trace("Cleaning up legacy Shasta proposal", "proposalId", key)
 			s.proposals.Remove(key)
 		}
