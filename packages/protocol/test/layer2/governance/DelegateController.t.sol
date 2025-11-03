@@ -18,9 +18,7 @@ contract TestDelegateController is Layer2Test {
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        tSignalService = _deployMockSignalService();
         tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         tDelegateController =
             deployDelegateController(ethereumChainId, address(tBridge), daoController);
@@ -141,6 +139,14 @@ contract TestDelegateController is Layer2Test {
                     EssentialContract_EmptyStub.init, (address(tDelegateController))
                 )
             })
+        );
+    }
+
+    function _deployMockSignalService() private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_LAYER2")))),
+            deployer
         );
     }
 }

@@ -21,4 +21,4 @@ pragma solidity ^0.8.24;
 //   _slotsUsedByPacaya             | uint256[2]                                         | Slot: 251  | Offset: 0    | Bytes: 64  
 //   _receivedSignals               | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _checkpoints                   | mapping(uint48 => struct SignalService.CheckpointRecord) | Slot: 254  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[44]                                        | Slot: 255  | Offset: 0    | Bytes: 1408
+//   __gap                          | uint256[46]                                        | Slot: 255  | Offset: 0    | Bytes: 1472
