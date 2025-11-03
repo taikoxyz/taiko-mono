@@ -1217,6 +1217,42 @@ func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
 	return new(big.Int).SetUint64(stateVars.Stats2.NumBatches - 1), nil
 }
 
+// GetAllActiveOperators fetch all active preconfirmation operators added to the whitelist contract.
+func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
+	}
+
+	var operators []common.Address
+	for i := uint8(0); i < count; i++ {
+		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
+		}
+		opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
+		}
+		if opInfo.InactiveSince != 0 {
+			operators = append(operators, opInfo.SequencerAddress)
+		}
+	}
+
+	return operators, nil
+}
+
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
