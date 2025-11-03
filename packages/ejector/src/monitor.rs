@@ -1,11 +1,11 @@
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use alloy::{
-    primitives::Address,
+    primitives::{Address, B256},
     providers::{Provider, ProviderBuilder, WsConnect},
     transports::http::reqwest::Url,
 };
@@ -22,10 +22,93 @@ use crate::{
     bindings::TaikoWrapper,
     metrics,
     utils::{
-        eject::{eject_operator, initialize_eject_metrics},
+        eject::{eject_operator, eject_operator_by_address, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
+
+const MAX_REORG_HISTORY: usize = 768;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct TrackedBlock {
+    number: u64,
+    hash: B256,
+    parent_hash: B256,
+    proposer: Address,
+}
+
+#[derive(Default)]
+struct ApplyOutcome {
+    reorged: Vec<TrackedBlock>,
+    parent_not_found: bool,
+    duplicate: bool,
+}
+
+impl ApplyOutcome {
+    fn duplicate() -> Self {
+        Self { duplicate: true, ..Self::default() }
+    }
+}
+
+struct ChainReorgTracker {
+    history: VecDeque<TrackedBlock>,
+    max_depth: usize,
+}
+
+impl ChainReorgTracker {
+    fn new(max_depth: usize) -> Self {
+        Self { history: VecDeque::with_capacity(max_depth.max(1)), max_depth: max_depth.max(1) }
+    }
+
+    fn apply(&mut self, block: TrackedBlock) -> ApplyOutcome {
+        if self.history.iter().any(|stored| stored.hash == block.hash) {
+            return ApplyOutcome::duplicate();
+        }
+
+        let mut outcome = ApplyOutcome::default();
+
+        while let Some(last) = self.history.back() {
+            if last.number >= block.number {
+                let removed = self.history.pop_back().expect("history.pop_back failed");
+                if removed.hash == block.hash {
+                    // identical block already tracked; restore state and treat as duplicate
+                    self.history.push_back(removed);
+                    return ApplyOutcome::duplicate();
+                }
+                outcome.reorged.push(removed);
+                continue;
+            }
+
+            if last.hash != block.parent_hash {
+                let removed = self.history.pop_back().expect("history.pop_back failed");
+                outcome.reorged.push(removed);
+                continue;
+            }
+
+            break;
+        }
+
+        let parent_missing = match self.history.back() {
+            Some(last) => last.hash != block.parent_hash,
+            None => !outcome.reorged.is_empty(),
+        };
+
+        if parent_missing {
+            outcome.parent_not_found = true;
+            while let Some(removed) = self.history.pop_back() {
+                outcome.reorged.push(removed);
+            }
+        }
+
+        self.history.push_back(block);
+
+        while self.history.len() > self.max_depth {
+            self.history.pop_front();
+        }
+
+        outcome
+    }
+}
 
 pub struct Monitor {
     beacon_client: BeaconClient,
@@ -40,6 +123,7 @@ pub struct Monitor {
     handover_slots: u64,
     preconf_router_address: Address,
     min_operators: u64,
+    min_reorg_depth_for_eject: usize,
 }
 
 impl Monitor {
@@ -57,6 +141,7 @@ impl Monitor {
         handover_slots: u64,
         preconf_router_address: Address,
         min_operators: u64,
+        min_reorg_depth_for_eject: usize,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
         let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
@@ -75,6 +160,7 @@ impl Monitor {
             handover_slots,
             preconf_router_address,
             min_operators,
+            min_reorg_depth_for_eject,
         }
     }
 
@@ -136,6 +222,8 @@ impl Monitor {
         ));
 
         // watchdog task
+        let watchdog_l1_http_url = l1_http_url.clone();
+        let watchdog_signer = signer.clone();
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
             loop {
@@ -189,7 +277,7 @@ impl Monitor {
                     prev_resp = curr_resp;
                 }
 
-                match are_preconfs_enabled(&l1_http_url, taiko_wrapper_address).await {
+                match are_preconfs_enabled(&watchdog_l1_http_url, taiko_wrapper_address).await {
                     Ok(false) => {
                         // zero out the last seen
                         *last_seen_for_watch.lock().await = Instant::now();
@@ -253,8 +341,8 @@ impl Monitor {
                     }
 
                     if let Err(e) = eject_operator(
-                        l1_http_url.clone(),
-                        signer.clone(),
+                        watchdog_l1_http_url.clone(),
+                        watchdog_signer.clone(),
                         whitelist_address,
                         curr_resp.lookahead,
                         min_operators,
@@ -270,6 +358,7 @@ impl Monitor {
         });
 
         // reconnect loop backoff params
+        let mut reorg_tracker = ChainReorgTracker::new(MAX_REORG_HISTORY);
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
 
@@ -293,11 +382,27 @@ impl Monitor {
                             loop {
                                 match stream.next().await {
                                     Some(header) => {
-                                        // number/hash are often Option<_> → use {:?}
                                         info!(
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
                                         );
+
+                                        let block_number = header.number;
+                                        let block_hash = header.hash;
+
+                                        let tracked_block = TrackedBlock {
+                                            number: block_number,
+                                            hash: block_hash,
+                                            parent_hash: header.parent_hash,
+                                            proposer: header.beneficiary,
+                                        };
+
+                                        let outcome = reorg_tracker.apply(tracked_block.clone());
+
+                                        if outcome.duplicate {
+                                            debug!(block_number, block_hash = ?tracked_block.hash, "Duplicate block notification received; skipping");
+                                            continue;
+                                        }
 
                                         metrics::inc_l2_blocks();
                                         let now = Instant::now();
@@ -311,7 +416,71 @@ impl Monitor {
                                             *guard = now;
                                         }
                                         metrics::set_last_block_age_seconds(0);
-                                        backoff = Duration::from_secs(1); // reset after good event
+                                        backoff = Duration::from_secs(1);
+
+                                        if outcome.parent_not_found {
+                                            warn!(
+                                                block_number,
+                                                parent_hash = ?tracked_block.parent_hash,
+                                                "Parent not found in local history; tracker was reset"
+                                            );
+                                        }
+
+                                        if !outcome.reorged.is_empty() {
+                                            let reorg_depth = outcome.reorged.len();
+                                            let removed_blocks = outcome.reorged;
+
+                                            warn!(
+                                                block_number,
+                                                new_head = ?tracked_block.hash,
+                                                depth = reorg_depth,
+                                                "Detected L2 reorg"
+                                            );
+
+                                            if reorg_depth < self.min_reorg_depth_for_eject {
+                                                info!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    threshold = self.min_reorg_depth_for_eject,
+                                                    "Reorg depth below eject threshold; skipping operator eject"
+                                                );
+                                            } else {
+                                                for removed in removed_blocks {
+                                                    if removed.proposer.is_zero() {
+                                                        warn!(
+                                                            block_number = removed.number,
+                                                            block_hash = ?removed.hash,
+                                                            "Reorged block has zero proposer; skipping eject"
+                                                        );
+                                                        continue;
+                                                    }
+
+                                                    info!(
+                                                        block_number = removed.number,
+                                                        block_hash = ?removed.hash,
+                                                        proposer = ?removed.proposer,
+                                                        "Ejecting operator due to reorged block"
+                                                    );
+
+                                                    if let Err(err) = eject_operator_by_address(
+                                                        l1_http_url.clone(),
+                                                        signer.clone(),
+                                                        whitelist_address,
+                                                        removed.proposer,
+                                                        min_operators,
+                                                    )
+                                                    .await
+                                                    {
+                                                        error!(
+                                                            block_number = removed.number,
+                                                            block_hash = ?removed.hash,
+                                                            proposer = ?removed.proposer,
+                                                            "Failed to eject operator for reorged block: {err:?}"
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     None => {
                                         warn!("Block stream ended unexpectedly, reconnecting...");
@@ -444,4 +613,118 @@ pub async fn are_preconfs_enabled(
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
 
     Ok(!preconf_router.is_zero())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hash(id: u64) -> B256 {
+        let mut bytes = [0u8; 32];
+        bytes[24..].copy_from_slice(&id.to_be_bytes());
+        B256::from(bytes)
+    }
+
+    fn addr(id: u64) -> Address {
+        let mut bytes = [0u8; 20];
+        bytes[12..].copy_from_slice(&id.to_be_bytes());
+        Address::from(bytes)
+    }
+
+    fn block(number: u64, parent_id: u64, hash_id: u64, proposer_id: u64) -> TrackedBlock {
+        TrackedBlock {
+            number,
+            parent_hash: hash(parent_id),
+            hash: hash(hash_id),
+            proposer: addr(proposer_id),
+        }
+    }
+
+    #[test]
+    fn tracker_accepts_linear_progression() {
+        let mut tracker = ChainReorgTracker::new(8);
+
+        let genesis = block(1, 0, 1, 10);
+        let outcome = tracker.apply(genesis.clone());
+        assert!(outcome.reorged.is_empty());
+        assert!(!outcome.parent_not_found);
+        assert!(!outcome.duplicate);
+
+        let second = block(2, 1, 2, 11);
+        let outcome = tracker.apply(second.clone());
+        assert!(outcome.reorged.is_empty());
+        assert!(!outcome.parent_not_found);
+        assert!(!outcome.duplicate);
+
+        let third = block(3, 2, 3, 12);
+        let outcome = tracker.apply(third);
+        assert!(outcome.reorged.is_empty());
+        assert!(!outcome.parent_not_found);
+        assert!(!outcome.duplicate);
+    }
+
+    #[test]
+    fn tracker_detects_single_block_reorg() {
+        let mut tracker = ChainReorgTracker::new(8);
+
+        let genesis = block(1, 0, 1, 10);
+        tracker.apply(genesis.clone());
+        let block2 = block(2, 1, 2, 11);
+        tracker.apply(block2.clone());
+        let block3_old = block(3, 2, 30, 12);
+        tracker.apply(block3_old.clone());
+
+        let block3_new = block(3, 2, 31, 99);
+        let outcome = tracker.apply(block3_new);
+
+        assert_eq!(outcome.reorged.len(), 1);
+        assert_eq!(outcome.reorged[0].hash, block3_old.hash);
+        assert_eq!(outcome.reorged[0].proposer, block3_old.proposer);
+        assert!(!outcome.parent_not_found);
+        assert!(!outcome.duplicate);
+    }
+
+    #[test]
+    fn tracker_detects_multi_block_reorg() {
+        let mut tracker = ChainReorgTracker::new(8);
+
+        let genesis = block(1, 0, 1, 10);
+        tracker.apply(genesis.clone());
+        let block2_old = block(2, 1, 20, 11);
+        tracker.apply(block2_old.clone());
+        let block3_old = block(3, 20, 30, 12);
+        tracker.apply(block3_old.clone());
+
+        let block2_new = block(2, 1, 21, 55);
+        let outcome = tracker.apply(block2_new.clone());
+
+        assert_eq!(outcome.reorged.len(), 2);
+        assert_eq!(outcome.reorged[0].hash, block3_old.hash);
+        assert_eq!(outcome.reorged[1].hash, block2_old.hash);
+        assert!(!outcome.parent_not_found);
+
+        let block3_new = block(3, 21, 31, 56);
+        let outcome = tracker.apply(block3_new);
+        assert!(outcome.reorged.is_empty());
+        assert!(!outcome.parent_not_found);
+    }
+
+    #[test]
+    fn tracker_marks_parent_not_found_when_history_missing() {
+        let mut tracker = ChainReorgTracker::new(2);
+
+        let genesis = block(1, 0, 1, 10);
+        tracker.apply(genesis.clone());
+        let block2 = block(2, 1, 2, 11);
+        tracker.apply(block2.clone());
+        let block3 = block(3, 2, 3, 12);
+        tracker.apply(block3.clone());
+
+        // Parent hash does not exist in truncated history.
+        let block4 = block(4, 999, 4, 13);
+        let outcome = tracker.apply(block4);
+
+        assert_eq!(outcome.reorged.len(), 2);
+        assert!(outcome.parent_not_found);
+    }
 }
