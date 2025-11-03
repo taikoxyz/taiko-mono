@@ -14,7 +14,7 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
     uint256 private constant PROVABILITY_BOND = 7 ether;
-    uint64 private constant SHASTA_FORK_HEIGHT = 100;
+    uint64 private constant BLOCK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
 
     Anchor internal anchor;
@@ -91,7 +91,7 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
@@ -125,7 +125,7 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
         anchor.anchorV4(proposalParams, blockParams);
     }
@@ -134,11 +134,11 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.roll(BLOCK_HEIGHT + 1);
 
         Anchor.BlockParams memory secondBlockParams = Anchor.BlockParams({
             anchorBlockNumber: blockParams.anchorBlockNumber,
@@ -157,11 +157,11 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.roll(BLOCK_HEIGHT + 1);
 
         Anchor.ProposalParams memory backwardProposal = proposalParams;
         backwardProposal.proposalId = 0;
@@ -175,7 +175,7 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams1, Anchor.BlockParams memory blockParams1) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams1, blockParams1);
 
@@ -184,15 +184,15 @@ contract AnchorTest is Test {
         assertEq(stateAfterFirstProposal.designatedProver, proverCandidate);
         bytes32 previousBondHash = stateAfterFirstProposal.bondInstructionsHash;
 
-        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.roll(BLOCK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams1, blockParams1);
 
-        vm.roll(SHASTA_FORK_HEIGHT + 2);
+        vm.roll(BLOCK_HEIGHT + 2);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams1, blockParams1);
 
-        vm.roll(SHASTA_FORK_HEIGHT + 3);
+        vm.roll(BLOCK_HEIGHT + 3);
 
         uint48 proposalId2 = 2;
         LibBonds.BondInstruction[] memory instructions2 = new LibBonds.BondInstruction[](2);
@@ -249,7 +249,7 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.roll(BLOCK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
@@ -257,7 +257,7 @@ contract AnchorTest is Test {
         uint256 proverBalanceAfterFirst = bondManager.getBondBalance(proverCandidate);
         Anchor.ProposalState memory stateAfterFirst = anchor.getProposalState();
 
-        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.roll(BLOCK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
@@ -276,7 +276,7 @@ contract AnchorTest is Test {
             "Prover balance should not change on second block"
         );
 
-        vm.roll(SHASTA_FORK_HEIGHT + 2);
+        vm.roll(BLOCK_HEIGHT + 2);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
