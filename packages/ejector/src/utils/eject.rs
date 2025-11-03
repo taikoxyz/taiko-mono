@@ -143,15 +143,19 @@ where
         let addr = preconf_whitelist.operatorMapping(U256::from(i)).call().await?;
         let info = preconf_whitelist.operators(addr).call().await?;
 
+        let is_active = info.inactiveSince == 0 && info.activeSince != 0;
+
         if let Some(set) = seen.as_deref_mut() {
-            let inserted = set.insert((addr, info.sequencerAddress));
-            if inserted {
-                let sequencer_addr = info.sequencerAddress.to_string();
-                metrics::ensure_eject_metric_labels(&sequencer_addr);
+            if is_active {
+                let inserted = set.insert((addr, info.sequencerAddress));
+                if inserted {
+                    let sequencer_addr = info.sequencerAddress.to_string();
+                    metrics::ensure_eject_metric_labels(&sequencer_addr);
+                }
             }
         }
 
-        if info.inactiveSince == 0 && info.activeSince != 0 {
+        if is_active {
             count += 1;
         }
 

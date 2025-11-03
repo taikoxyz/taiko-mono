@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use alloy::{
-    primitives::{Address, B256},
+    primitives::Address,
     providers::{Provider, ProviderBuilder, WsConnect},
     transports::http::reqwest::Url,
 };
@@ -21,93 +21,108 @@ use crate::{
     beacon::BeaconClient,
     bindings::TaikoWrapper,
     metrics,
+    monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY, TrackedBlock},
     utils::{
         eject::{eject_operator, eject_operator_by_address, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
 
-const MAX_REORG_HISTORY: usize = 768;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct TrackedBlock {
-    number: u64,
-    hash: B256,
-    parent_hash: B256,
-    proposer: Address,
-}
-
 #[derive(Default)]
-struct ApplyOutcome {
-    reorged: Vec<TrackedBlock>,
-    parent_not_found: bool,
-    duplicate: bool,
+struct OperatorCache {
+    proposers: HashSet<Address>,
+    sequencer_to_proposer: HashMap<Address, Address>,
 }
 
-impl ApplyOutcome {
-    fn duplicate() -> Self {
-        Self { duplicate: true, ..Self::default() }
+impl OperatorCache {
+    fn upsert(&mut self, proposer: Address, sequencer: Address) {
+        self.proposers.insert(proposer);
+        if !sequencer.is_zero() {
+            self.sequencer_to_proposer.insert(sequencer, proposer);
+        }
+    }
+
+    fn remove_proposer(&mut self, proposer: Address) {
+        self.proposers.remove(&proposer);
+        self.sequencer_to_proposer.retain(|_, existing| *existing != proposer);
+    }
+
+    fn proposer_for(&self, addr: Address) -> Option<Address> {
+        if self.proposers.contains(&addr) {
+            Some(addr)
+        } else {
+            self.sequencer_to_proposer.get(&addr).copied()
+        }
+    }
+
+    fn clear(&mut self) {
+        self.proposers.clear();
+        self.sequencer_to_proposer.clear();
     }
 }
 
-struct ChainReorgTracker {
-    history: VecDeque<TrackedBlock>,
-    max_depth: usize,
-}
-
-impl ChainReorgTracker {
-    fn new(max_depth: usize) -> Self {
-        Self { history: VecDeque::with_capacity(max_depth.max(1)), max_depth: max_depth.max(1) }
+async fn resolve_operator_for_coinbase<P>(
+    coinbase: Address,
+    whitelist: crate::bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+    cache: Arc<RwLock<OperatorCache>>,
+) -> eyre::Result<Option<Address>>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    if coinbase.is_zero() {
+        return Ok(None);
     }
 
-    fn apply(&mut self, block: TrackedBlock) -> ApplyOutcome {
-        if self.history.iter().any(|stored| stored.hash == block.hash) {
-            return ApplyOutcome::duplicate();
-        }
-
-        let mut outcome = ApplyOutcome::default();
-
-        while let Some(last) = self.history.back() {
-            if last.number >= block.number {
-                let removed = self.history.pop_back().expect("history.pop_back failed");
-                if removed.hash == block.hash {
-                    // identical block already tracked; restore state and treat as duplicate
-                    self.history.push_back(removed);
-                    return ApplyOutcome::duplicate();
-                }
-                outcome.reorged.push(removed);
-                continue;
-            }
-
-            if last.hash != block.parent_hash {
-                let removed = self.history.pop_back().expect("history.pop_back failed");
-                outcome.reorged.push(removed);
-                continue;
-            }
-
-            break;
-        }
-
-        let parent_missing = match self.history.back() {
-            Some(last) => last.hash != block.parent_hash,
-            None => !outcome.reorged.is_empty(),
-        };
-
-        if parent_missing {
-            outcome.parent_not_found = true;
-            while let Some(removed) = self.history.pop_back() {
-                outcome.reorged.push(removed);
-            }
-        }
-
-        self.history.push_back(block);
-
-        while self.history.len() > self.max_depth {
-            self.history.pop_front();
-        }
-
-        outcome
+    let info = whitelist.operators(coinbase).call().await?;
+    let is_active = info.activeSince != 0 && info.inactiveSince == 0;
+    if is_active {
+        return Ok(Some(coinbase));
     }
+
+    let cached = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = cached {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    let refreshed = initialize_eject_metrics(&whitelist).await?;
+    {
+        let mut guard = cache.write().await;
+        guard.clear();
+        for (proposer, sequencer) in refreshed {
+            guard.upsert(proposer, sequencer);
+        }
+    }
+
+    let refreshed_match = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = refreshed_match {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    Ok(None)
 }
 
 pub struct Monitor {
@@ -204,10 +219,14 @@ impl Monitor {
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
-        let known_operators = Arc::new(RwLock::new(HashSet::new()));
+        let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
         match initialize_eject_metrics(&preconf_whitelist).await {
             Ok(initialized) => {
-                *known_operators.write().await = initialized;
+                let mut cache = operator_cache.write().await;
+                cache.clear();
+                for (proposer, sequencer) in initialized {
+                    cache.upsert(proposer, sequencer);
+                }
             }
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
@@ -218,7 +237,7 @@ impl Monitor {
         let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
             l1_ws_url.clone(),
             whitelist_address,
-            known_operators.clone(),
+            operator_cache.clone(),
         ));
 
         // watchdog task
@@ -394,7 +413,7 @@ impl Monitor {
                                             number: block_number,
                                             hash: block_hash,
                                             parent_hash: header.parent_hash,
-                                            proposer: header.beneficiary,
+                                            coinbase: header.beneficiary,
                                         };
 
                                         let outcome = reorg_tracker.apply(tracked_block.clone());
@@ -449,37 +468,81 @@ impl Monitor {
                                                 metrics::inc_reorg_skipped();
                                             } else {
                                                 for removed in removed_blocks {
-                                                    if removed.proposer.is_zero() {
+                                                    let coinbase = removed.coinbase;
+                                                    if coinbase.is_zero() {
                                                         warn!(
                                                             block_number = removed.number,
                                                             block_hash = ?removed.hash,
-                                                            "Reorged block has zero proposer; skipping eject"
+                                                            "Reorged block has zero coinbase; skipping operator lookup"
                                                         );
                                                         continue;
                                                     }
 
-                                                    info!(
-                                                        block_number = removed.number,
-                                                        block_hash = ?removed.hash,
-                                                        proposer = ?removed.proposer,
-                                                        "Ejecting operator due to reorged block"
-                                                    );
+                                                    let whitelist_for_lookup =
+                                                        preconf_whitelist.clone();
+                                                    let cache_for_lookup = operator_cache.clone();
 
-                                                    if let Err(err) = eject_operator_by_address(
-                                                        l1_http_url.clone(),
-                                                        signer.clone(),
-                                                        whitelist_address,
-                                                        removed.proposer,
-                                                        min_operators,
+                                                    match resolve_operator_for_coinbase(
+                                                        coinbase,
+                                                        whitelist_for_lookup.clone(),
+                                                        cache_for_lookup.clone(),
                                                     )
                                                     .await
                                                     {
-                                                        error!(
-                                                            block_number = removed.number,
-                                                            block_hash = ?removed.hash,
-                                                            proposer = ?removed.proposer,
-                                                            "Failed to eject operator for reorged block: {err:?}"
-                                                        );
+                                                        Ok(Some(operator_to_eject)) => {
+                                                            info!(
+                                                                block_number = removed.number,
+                                                                block_hash = ?removed.hash,
+                                                                coinbase = ?coinbase,
+                                                                operator = ?operator_to_eject,
+                                                                "Ejecting operator due to reorged block"
+                                                            );
+
+                                                            let result = eject_operator_by_address(
+                                                                l1_http_url.clone(),
+                                                                signer.clone(),
+                                                                whitelist_address,
+                                                                operator_to_eject,
+                                                                min_operators,
+                                                            )
+                                                            .await;
+
+                                                            match result {
+                                                                Ok(()) => {
+                                                                    let mut cache = operator_cache
+                                                                        .write()
+                                                                        .await;
+                                                                    cache.remove_proposer(
+                                                                        operator_to_eject,
+                                                                    );
+                                                                }
+                                                                Err(err) => {
+                                                                    error!(
+                                                                        block_number = removed.number,
+                                                                        block_hash = ?removed.hash,
+                                                                        coinbase = ?coinbase,
+                                                                        operator = ?operator_to_eject,
+                                                                        "Failed to eject operator for reorged block: {err:?}"
+                                                                    );
+                                                                }
+                                                            }
+                                                        }
+                                                        Ok(None) => {
+                                                            warn!(
+                                                                block_number = removed.number,
+                                                                block_hash = ?removed.hash,
+                                                                coinbase = ?coinbase,
+                                                                "Unable to map coinbase to active operator; skipping eject"
+                                                            );
+                                                        }
+                                                        Err(err) => {
+                                                            error!(
+                                                                block_number = removed.number,
+                                                                block_hash = ?removed.hash,
+                                                                coinbase = ?coinbase,
+                                                                "Failed to resolve operator for reorged block: {err:?}"
+                                                            );
+                                                        }
                                                     }
                                                 }
                                             }
@@ -518,7 +581,7 @@ impl Monitor {
     async fn operator_added_listener(
         l1_ws_url: Url,
         whitelist_address: Address,
-        known_operators: Arc<RwLock<HashSet<(Address, Address)>>>,
+        operator_cache: Arc<RwLock<OperatorCache>>,
     ) {
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
@@ -560,21 +623,12 @@ impl Monitor {
                                             "OperatorAdded event received"
                                         );
 
-                                        let key = (event.proposer, event.sequencer);
-                                        let is_new = {
-                                            let mut guard = known_operators.write().await;
-                                            guard.insert(key)
-                                        };
-
-                                        if is_new {
-                                            metrics::ensure_eject_metric_labels(&sequencer_hex);
-                                        } else {
-                                            debug!(
-                                                %proposer_hex,
-                                                %sequencer_hex,
-                                                "Operator already initialized; skipping metric setup"
-                                            );
+                                        {
+                                            let mut cache = operator_cache.write().await;
+                                            cache.upsert(event.proposer, event.sequencer);
                                         }
+
+                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
                                     }
                                     Err(e) => {
                                         warn!("OperatorAdded stream error: {e:?}");
@@ -616,118 +670,4 @@ pub async fn are_preconfs_enabled(
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
 
     Ok(!preconf_router.is_zero())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn hash(id: u64) -> B256 {
-        let mut bytes = [0u8; 32];
-        bytes[24..].copy_from_slice(&id.to_be_bytes());
-        B256::from(bytes)
-    }
-
-    fn addr(id: u64) -> Address {
-        let mut bytes = [0u8; 20];
-        bytes[12..].copy_from_slice(&id.to_be_bytes());
-        Address::from(bytes)
-    }
-
-    fn block(number: u64, parent_id: u64, hash_id: u64, proposer_id: u64) -> TrackedBlock {
-        TrackedBlock {
-            number,
-            parent_hash: hash(parent_id),
-            hash: hash(hash_id),
-            proposer: addr(proposer_id),
-        }
-    }
-
-    #[test]
-    fn tracker_accepts_linear_progression() {
-        let mut tracker = ChainReorgTracker::new(8);
-
-        let genesis = block(1, 0, 1, 10);
-        let outcome = tracker.apply(genesis.clone());
-        assert!(outcome.reorged.is_empty());
-        assert!(!outcome.parent_not_found);
-        assert!(!outcome.duplicate);
-
-        let second = block(2, 1, 2, 11);
-        let outcome = tracker.apply(second.clone());
-        assert!(outcome.reorged.is_empty());
-        assert!(!outcome.parent_not_found);
-        assert!(!outcome.duplicate);
-
-        let third = block(3, 2, 3, 12);
-        let outcome = tracker.apply(third);
-        assert!(outcome.reorged.is_empty());
-        assert!(!outcome.parent_not_found);
-        assert!(!outcome.duplicate);
-    }
-
-    #[test]
-    fn tracker_detects_single_block_reorg() {
-        let mut tracker = ChainReorgTracker::new(8);
-
-        let genesis = block(1, 0, 1, 10);
-        tracker.apply(genesis.clone());
-        let block2 = block(2, 1, 2, 11);
-        tracker.apply(block2.clone());
-        let block3_old = block(3, 2, 30, 12);
-        tracker.apply(block3_old.clone());
-
-        let block3_new = block(3, 2, 31, 99);
-        let outcome = tracker.apply(block3_new);
-
-        assert_eq!(outcome.reorged.len(), 1);
-        assert_eq!(outcome.reorged[0].hash, block3_old.hash);
-        assert_eq!(outcome.reorged[0].proposer, block3_old.proposer);
-        assert!(!outcome.parent_not_found);
-        assert!(!outcome.duplicate);
-    }
-
-    #[test]
-    fn tracker_detects_multi_block_reorg() {
-        let mut tracker = ChainReorgTracker::new(8);
-
-        let genesis = block(1, 0, 1, 10);
-        tracker.apply(genesis.clone());
-        let block2_old = block(2, 1, 20, 11);
-        tracker.apply(block2_old.clone());
-        let block3_old = block(3, 20, 30, 12);
-        tracker.apply(block3_old.clone());
-
-        let block2_new = block(2, 1, 21, 55);
-        let outcome = tracker.apply(block2_new.clone());
-
-        assert_eq!(outcome.reorged.len(), 2);
-        assert_eq!(outcome.reorged[0].hash, block3_old.hash);
-        assert_eq!(outcome.reorged[1].hash, block2_old.hash);
-        assert!(!outcome.parent_not_found);
-
-        let block3_new = block(3, 21, 31, 56);
-        let outcome = tracker.apply(block3_new);
-        assert!(outcome.reorged.is_empty());
-        assert!(!outcome.parent_not_found);
-    }
-
-    #[test]
-    fn tracker_marks_parent_not_found_when_history_missing() {
-        let mut tracker = ChainReorgTracker::new(2);
-
-        let genesis = block(1, 0, 1, 10);
-        tracker.apply(genesis.clone());
-        let block2 = block(2, 1, 2, 11);
-        tracker.apply(block2.clone());
-        let block3 = block(3, 2, 3, 12);
-        tracker.apply(block3.clone());
-
-        // Parent hash does not exist in truncated history.
-        let block4 = block(4, 999, 4, 13);
-        let outcome = tracker.apply(block4);
-
-        assert_eq!(outcome.reorged.len(), 2);
-        assert!(outcome.parent_not_found);
-    }
 }
