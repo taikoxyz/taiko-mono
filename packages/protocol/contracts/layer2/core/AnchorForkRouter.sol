@@ -57,18 +57,16 @@ contract AnchorForkRouter is ForkRouter {
     constructor(address _oldFork, address _newFork) ForkRouter(_oldFork, _newFork) { }
 
     function shouldRouteToOldFork(bytes4 _selector) public pure override returns (bool) {
-        return
-            _selector == IPacayaAnchorLegacy.anchorV3.selector
-                || _selector == IPacayaAnchorLegacy.getBasefeeV2.selector
-                || _selector == IPacayaAnchorLegacy.getBlockHash.selector
-                || _selector == IPacayaAnchorLegacy.skipFeeCheck.selector
-                || _selector == IPacayaAnchorLegacy.publicInputHash.selector
-                || _selector == IPacayaAnchorLegacy.parentGasExcess.selector
-                || _selector == IPacayaAnchorLegacy.lastSyncedBlock.selector
-                || _selector == IPacayaAnchorLegacy.parentTimestamp.selector
-                || _selector == IPacayaAnchorLegacy.parentGasTarget.selector
-                || _selector == IPacayaAnchorLegacy.signalService.selector
-                || _selector == IPacayaAnchorLegacy.pacayaForkHeight.selector
-      ;
+        return _selector == IPacayaAnchorLegacy.anchorV3.selector
+            || _selector == IPacayaAnchorLegacy.getBasefeeV2.selector
+            || _selector == IPacayaAnchorLegacy.getBlockHash.selector
+            || _selector == IPacayaAnchorLegacy.skipFeeCheck.selector
+            || _selector == IPacayaAnchorLegacy.publicInputHash.selector
+            || _selector == IPacayaAnchorLegacy.parentGasExcess.selector
+            || _selector == IPacayaAnchorLegacy.lastSyncedBlock.selector
+            || _selector == IPacayaAnchorLegacy.parentTimestamp.selector
+            || _selector == IPacayaAnchorLegacy.parentGasTarget.selector
+            || _selector == IPacayaAnchorLegacy.signalService.selector
+            || _selector == IPacayaAnchorLegacy.pacayaForkHeight.selector;
     }
 }
