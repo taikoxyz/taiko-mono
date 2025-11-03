@@ -298,8 +298,8 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		InboxCodec:      inboxCodec,
 		Anchor:          shastaAnchor,
 		ComposeVerifier: composeVerifier,
-		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
-
+		ForkTime:        c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+	}
 	// If an environment override is provided, prefer it to keep tests/tools
 	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
 	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
