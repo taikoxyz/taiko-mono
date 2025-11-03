@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -25,10 +22,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
-)
-
-const (
-	defaultTimeout = 1 * time.Minute
 )
 
 // ShastaBlockPayload represents a Shasta block payload with additional metadata.
@@ -126,27 +119,12 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	}
 
 	// Try to RLP decode the manifest bytes.
-	if derivationIdx == len(meta.GetDerivation().Sources)-1 {
-		var proposalManifest = new(manifest.ProposalManifest)
-		if err = rlp.DecodeBytes(encoded, proposalManifest); err != nil {
-			log.Warn("Failed to decode proposal manifest bytes, use default payload instead", "error", err)
-			return defaultPayload, err
-		}
-		if len(proposalManifest.Sources) > 0 {
-			derivationSourceManifest = proposalManifest.Sources[0]
-			proverAuth = proposalManifest.ProverAuthBytes
-		} else {
-			log.Warn(
-				"Empty derivation source in proposal manifest, use default payload instead",
-				"proposalID", meta.GetProposal().Id,
-			)
-			return defaultPayload, err
-		}
-	} else {
-		if err = rlp.DecodeBytes(encoded, derivationSourceManifest); err != nil {
-			log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
-			return defaultPayload, err
-		}
+	if err = rlp.DecodeBytes(encoded, derivationSourceManifest); err != nil {
+		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
+		return defaultPayload, nil
+	}
+	// For forced-inclusion sources, reset certain fields to zero.
+	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
 		for _, block := range derivationSourceManifest.Blocks {
 			// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
 			block.AnchorBlockNumber = 0
@@ -154,6 +132,9 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 			block.Coinbase = common.Address{}
 			block.GasLimit = 0
 		}
+	} else {
+		// Only use the prover auth from the last source (non-forced-inclusion source).
+		proverAuth = derivationSourceManifest.ProverAuthBytes
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
@@ -166,7 +147,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		return defaultPayload, nil
 	}
 
-	// Convert ProtocolProposalManifest to ShastaDerivationSourcePayload.
+	// Convert protocol derivation manifest to ShastaDerivationSourcePayload.
 	payload := &ShastaDerivationSourcePayload{
 		ProverAuthBytes: proverAuth,
 		BlockPayloads:   make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
@@ -439,9 +420,7 @@ func validateCoinbase(
 		if isForcedInclusion {
 			// Forced inclusions always use proposal.proposer
 			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
-		}
-
-		if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
+		} else if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
 			// Use proposal.proposer as fallback if manifest coinbase is zero
 			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
 		}
@@ -455,11 +434,11 @@ func validateGasLimit(
 	parentGasLimit uint64,
 ) {
 	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV4GasLimit.
-	// Therefore, we need to subtract consensus.AnchorV4GasLimit from the parent gas limit to get
+	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 	// the real gas limit from parent block metadata.
 	if parentBlockNumber.Cmp(common.Big0) != 0 {
-		parentGasLimit = parentGasLimit - consensus.AnchorV4GasLimit
+		parentGasLimit = parentGasLimit - consensus.AnchorV3V4GasLimit
 	}
 	for i := range sourcePayload.BlockPayloads {
 		lowerGasBound := max(
@@ -503,97 +482,20 @@ func AssembleBondInstructions(
 	proposalID *big.Int,
 	indexer *shastaIndexer.Indexer,
 	sourcePayload *ShastaDerivationSourcePayload,
-	parentBondInstructionsHash common.Hash,
-	originBlockNumber uint64,
-	derivationIdx int,
-	rpc *rpc.Client,
 ) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
+	// If the current proposal ID is less than or equal to the bond processing delay,
+	// there are no bond instructions to process.
+	if proposalID.Uint64() <= manifest.BondProcessingDelay {
+		return nil
+	}
 
-	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
-	// its anchor transaction.
+	targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
+	if err != nil {
+		return fmt.Errorf("failed to get target proposal: %w", err)
+	}
 	for i := range sourcePayload.BlockPayloads {
-		aggregatedHash := parentBondInstructionsHash
-		if derivationIdx == 0 && i == 0 && proposalID.Uint64() > manifest.BondProcessingDelay {
-			targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
-			if err != nil {
-				return fmt.Errorf("failed to get target proposal: %w", err)
-			}
-			// Only checking bond instructions when there are new instructions.
-			if parentBondInstructionsHash == targetProposal.CoreState.BondInstructionsHash {
-				continue
-			}
-			start := targetProposal.RawBlockHeight.Uint64()
-			proposedIter, err := rpc.ShastaClients.Inbox.FilterProposed(
-				&bind.FilterOpts{Start: start, End: &start, Context: timeoutCtx},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to fetch Proposed events: %w", err)
-			}
-			// Aggregate bond instructions from the fetched events.
-			for proposedIter.Next() {
-				payload, err := rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Data)
-				if err != nil {
-					return fmt.Errorf("failed to decode Proposed event payload: %w", err)
-				}
-				// Skip unrelated proposals, should not happen, but just in case.
-				if payload.Proposal.Id.Cmp(targetProposal.Proposal.Id) != 0 {
-					log.Warn(
-						"Skipping unrelated Proposed event",
-						"eventHeight", start,
-						"targetProposalID", targetProposal.Proposal.Id,
-						"proposalID", payload.Proposal.Id,
-					)
-					continue
-				}
-				log.Info(
-					"Processing Proposed event for bond instructions",
-					"eventHeight", start,
-					"parentBondInstructionsHash", parentBondInstructionsHash.Hex(),
-					"currentBondInstructionsHash", common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
-				)
-				input, err := rpc.DecodeProposeInput(&bind.CallOpts{Context: timeoutCtx}, proposedIter.Event.Raw.Data)
-				if err != nil {
-					return fmt.Errorf("failed to decode Propose input: %w", err)
-				}
-
-			loop:
-				for _, record := range input.TransitionRecords {
-					for _, instruction := range record.BondInstructions {
-						if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, instruction); err != nil {
-							return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
-						}
-						log.Info(
-							"New L2 bond instruction",
-							"eventHeight", start,
-							"proposalID", instruction.ProposalId,
-							"type", instruction.BondType,
-							"payee", instruction.Payee,
-							"payer", instruction.Payer,
-						)
-						sourcePayload.BlockPayloads[i].BondInstructions = append(
-							sourcePayload.BlockPayloads[i].BondInstructions,
-							instruction,
-						)
-						if aggregatedHash == payload.CoreState.BondInstructionsHash {
-							break loop
-						}
-					}
-				}
-
-				if aggregatedHash != payload.CoreState.BondInstructionsHash {
-					return fmt.Errorf(
-						"bond instructions hash mismatch: calculated %s, expected %s",
-						aggregatedHash.Hex(),
-						common.Bytes2Hex(payload.CoreState.BondInstructionsHash[:]),
-					)
-				}
-			}
-		}
-
-		sourcePayload.BlockPayloads[i].BondInstructionsHash = aggregatedHash
-		parentBondInstructionsHash = aggregatedHash
+		sourcePayload.BlockPayloads[i].BondInstructionsHash = targetProposal.CoreState.BondInstructionsHash
+		sourcePayload.BlockPayloads[i].BondInstructions = targetProposal.BondInstructions
 	}
 
 	return nil

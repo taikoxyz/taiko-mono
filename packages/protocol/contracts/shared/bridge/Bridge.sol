@@ -10,6 +10,8 @@ import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
+import "./Bridge_Layout.sol"; // DO NOT DELETE
+
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
@@ -440,6 +442,7 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode("TAIKO_MESSAGE", _message));
     }
 

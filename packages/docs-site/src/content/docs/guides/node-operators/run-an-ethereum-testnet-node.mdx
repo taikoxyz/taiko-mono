@@ -16,7 +16,6 @@ This guide will help you get a Hoodi archive node up and running.
 ## Steps
 
 
-
 <Steps>
 
 1. Clone eth-docker
@@ -25,10 +24,6 @@ This guide will help you get a Hoodi archive node up and running.
     git clone https://github.com/ethstaker/eth-docker
     cd eth-docker
     ```
-    <Aside>
-    As the Holesky testnet is in the process of sunsetting, `eth-docker`'s latest version does not have support for setting up a Holesky node.
-    If you still wish to run a Holesky node, you may do so by checking out an older release with the following command: `git checkout v2.15.0.0`
-    </Aside>
 
 2. Do the eth-docker quickstart config
 
@@ -51,6 +46,21 @@ This guide will help you get a Hoodi archive node up and running.
     Keep in mind this is **not encrypted**, so you should not expose it to the internet. eth-docker offers a few other options that you can read about [here](https://ethdocker.com/Usage/Advanced/SharedPorts/#sharing-rpc-and-rest-ports).
 
 4. Start Docker containers
+    <Aside type="tip">
+    As of October 28, 2025, at slot 1,622,016, the Fusaka upgrade has rolled out to Ethereum Hoodi. With this upgrade comes [EIP-7594](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7594.md),
+    which introduces data sampling instead of full downloads; this means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
+    you L2 node may experience blob unavailability or chain divergence.
+
+    Please configure your beacon client with the respective flags (detailed below) before the Fusaka hard fork date to avoid interruptions!
+
+    - Lighthouse: **`--semi-supernode` or `--supernode`**
+    - Teku: **`--p2p-subscribe-all-custody-subnets-enabled`**
+    - Grandine: **`--subscribe-all-data-column-subnets`**
+    - Lodestar: **`--supernode`**
+    - Nimbus: **`--debug-peerdas-supernode`**
+
+    This can be done by searching for the respective `{beacon_client_name}.yml` file in `eth-docker` and adding the above listed flags under the `entrypoint` field before starting the docker containers.
+    </Aside>
 
     ```bash
     ./ethd up

@@ -80,10 +80,15 @@ func (s *ClientTestSuite) SetupTest() {
 	s.ShastaStateIndexer, err = shastaIndexer.New(
 		context.Background(),
 		rpcCli,
-		rpcCli.ShastaClients.ForkHeight,
+		rpcCli.ShastaClients.ForkTime,
 	)
 	s.Nil(err)
 	s.Nil(s.ShastaStateIndexer.Start())
+
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
+	s.SetBlockTimestampInterval(12 * time.Second)
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
 
@@ -335,6 +340,15 @@ func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)
+}
+
+func (s *ClientTestSuite) SetBlockTimestampInterval(interval time.Duration) {
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setBlockTimestampInterval",
+		interval.Seconds(),
+	))
 }
 
 func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {

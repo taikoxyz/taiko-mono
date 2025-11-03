@@ -59,10 +59,6 @@ library LibManifest {
     /// This design prevents
     /// censorship of forced inclusions: a malicious proposer cannot invalidate their entire
     /// proposal (including valid forced inclusions) by including bad data in one source.
-    ///
-    /// IMPORTANT: The _blockIndex parameter in updateState() must be globally monotonic across
-    /// all DerivationSourceManifests within a proposal (not reset per source). This ensures
-    /// proposal-level operations (prover designation, bond processing) execute exactly once.
     struct DerivationSourceManifest {
         /// @notice The blocks for this derivation source.
         BlockManifest[] blocks;
