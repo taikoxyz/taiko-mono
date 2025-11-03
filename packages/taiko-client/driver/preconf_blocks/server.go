@@ -1262,8 +1262,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			parentID = new(big.Int).SetUint64(uint64(cachedParent.Payload.BlockNumber))
 
 			var sig [65]byte
-			if msg.Signature != nil {
-				sig = *msg.Signature
+			if cachedParent.Signature != nil {
+				sig = *cachedParent.Signature
 			}
 
 			// Update L1 Origin for the parent block via cached data.
@@ -1271,7 +1271,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				BuildPayloadArgsID: payloadID,
 				BlockID:            parentID,
 				L2BlockHash:        msg.ExecutionPayload.ParentHash,
-				IsForcedInclusion:  msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+				IsForcedInclusion:  cachedParent.IsForcedInclusion,
 				Signature:          sig,
 			}); err != nil {
 				return false, fmt.Errorf("failed to update L1 origin: %w", err)
@@ -1494,7 +1494,7 @@ func (s *PreconfBlockAPIServer) splitEnvelopesByFork(
 	shasta = []*preconf.Envelope{}
 
 	for _, envelope := range envelopes {
-		if uint64(envelope.Payload.BlockNumber) < s.rpc.ShastaClients.ForkHeight.Uint64() {
+		if uint64(envelope.Payload.Timestamp) < s.rpc.ShastaClients.ForkTime {
 			pacaya = append(pacaya, envelope)
 			continue
 		}

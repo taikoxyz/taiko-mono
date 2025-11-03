@@ -7,6 +7,8 @@ import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
+import "./SignalService_Layout.sol"; // DO NOT DELETE
+
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
@@ -140,6 +142,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
