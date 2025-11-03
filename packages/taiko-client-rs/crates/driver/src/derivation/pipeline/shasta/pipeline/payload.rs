@@ -273,7 +273,7 @@ where
         let BlockContext { meta, origin_block_hash, position, is_low_bond_proposal } = ctx;
 
         let block_number = state.next_block_number();
-        let block_base_fee = state.compute_block_base_fee();
+        let block_base_fee = state.compute_block_base_fee()?;
         let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
