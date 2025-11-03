@@ -30,7 +30,7 @@ type RaikoRequestProofBodyV3Pacaya struct {
 }
 
 type RaikoCheckpoint struct {
-	BlockNum  *big.Int `json:"block_num"`
+	BlockNum  *big.Int `json:"block_number"`
 	BlockHash string   `json:"block_hash"`
 	StateRoot string   `json:"state_root"`
 }
