@@ -636,7 +636,7 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 			(fallbackPreconferAddress != p.proposerAddress &&
 				fallbackPreconferAddress != p.ProverSetAddress) {
 			log.Info(
-			  "Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
+				"Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
 				"time", time.Now(),
 				"activeOperatorNums", len(operators),
 			)

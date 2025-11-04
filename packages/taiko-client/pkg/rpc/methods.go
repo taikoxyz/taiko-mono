@@ -1236,8 +1236,8 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	}
 
 	var operators []common.Address
-	for i := 0; i < int64(count); i++ {
-		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(i)))
+	for i := 0; i < int(count); i++ {
+		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
 		}
