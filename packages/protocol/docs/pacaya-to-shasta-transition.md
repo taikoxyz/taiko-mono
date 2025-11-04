@@ -39,20 +39,27 @@ The following paragraphs describe in more detail how each part of the protocol h
 ## Steps
 
 1. **Deploy Shasta contracts**
-   Deploy Shasta inbox, anchor, signal service and other shasta contracts. Set `_genesisBlockHash = 0` on the inbox at deployment time. This sets the inbox to an empty state. **No proposals should happen to the inbox at this point**.
+   Deploy Shasta inbox(with Taiko Labs multisig as the owner), anchor, signal service and other shasta contracts. Set `_genesisBlockHash = 0` on the inbox at deployment time. This sets the inbox to an empty state. **No proposals should happen to the inbox at this point**.
    The `FORK_TIMESTAMP` should already be set to the shasta fork timestamp.  
    **After this point proposers can deposit their bonds to the `BondManager` contract on L2**.
 
-2. **Deploy the Pacaya contracts**
-   Since we'll upgrade the contracts to use the fork router, we need to deploy the pacaya contracts(Inbox, Anchor and SignalService) to a new address so the router can forward requests to them.
+2. **Deploy Pacaya Inbox with fork guard**
+   Deploy a new implementation of the Pacaya inbox with an additional safe guard that prevents any proposals from happening after `FORK_TIMESTAMP`. This is a safety measure to ensure the old inbox state cannot be modified after the fork has occured.
 
 3. **Deploy the fork routers**
    Now that both Pacaya and Shasta contracts are ready we can deploy the `AnchorForkRouter` and `SignalServiceForkRouter`. They will still route all calls to the Pacaya contracts.
 
-4. **Submit upgrade to the DAO**
-   Submit an upgrade proposal to the DAO to upgrade the SignalService(on both L1 and L2) and Anchor(L2) to use the routers.
+   - `oldFork` must be set to the implementation address for both the SignalService and the Anchor. This is because the proxy will be upgraded to use the fork router code.
+   - `newFork` should be set to the newly deployed shasta proxy contracts.
 
-5. **Reduce the whitelist**?
+4. **Submit upgrade to the DAO**
+   Submit an upgrade proposal to the DAO to:
+
+   - upgrade the Pacaya Inbox to the new implementation(with the added guard)
+   - upgrade the SignalService(on both L1 and L2) to point to the new `SignalServiceForkRouter`
+   - upgrade the Anchor(L2) to point to the new `AnchorForkRouter`
+
+5. **Reduce the whitelist**
    A few minutes before the `FORK_TIMESTAMP` we remove every proposer from the whitelist, except Taiko Labs. This ensures the first proposer after the fork is known and is the same entity that will activate the inbox.
 
 6. At least `SAFETY_WINDOW` seconds `FORK_TIMESTAMP` the proposer stops submitting proposals to the Pacaya Inbox. This ensures we have a reliable state for the transition. After this moment proposers should start preconfing with the new shasta block structure.
@@ -62,3 +69,5 @@ The following paragraphs describe in more detail how each part of the protocol h
 8. The next preconfer submits their proposal to the new shasta inbox. At this point the fork has officially happened and all calls should be redirected to the new contracts.
 
 9. After Shasta is stable for a few days a new proposal to upgrade the Anchor and the SignalService(both on L1 and L2) is submitted. This proposal removes the fork router to simplify the deployment and save gas.
+
+10. Transfer the ownership of the new shasta inbox to the DAO. The rest of the contracts are already owned by the DAO.
