@@ -351,7 +351,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 		)
 	}
 
-	if alreadyGenerated {
+	if !alreadyGenerated {
 		proofType = output.ProofType
 		log.Info(
 			"Batch proof generated",
