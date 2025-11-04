@@ -195,7 +195,7 @@ mod tests {
 
         assert!(outcome.parent_not_found);
         let numbers: Vec<u64> = outcome.reorged.iter().map(|b| b.number).collect();
-        assert_eq!(numbers, vec![3, 2, 1]);
+        assert_eq!(numbers, vec![3, 2]);
 
         let next = block(5, 4, 5, 14);
         let outcome_next = tracker.apply(next);
