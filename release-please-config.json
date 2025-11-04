@@ -75,12 +75,24 @@
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
+    "packages/ejector": {
+      "package-name": "ejector",
+      "release-as": "0.1.0",
+      "release-type": "simple",
+      "component": "ejector",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/fork-diff": {},
     "packages/overseer-rs": {
       "package-name": "overseer-rs",
       "release-type": "simple",
       "component": "overseer-rs",
-      "release-as": "0.1.0",
       "extra-files": [
         {
           "type": "toml",
@@ -114,11 +126,10 @@
         }
       ]
     },
-     "packages/urcindexer-rs": {
+    "packages/urcindexer-rs": {
       "package-name": "urcindexer-rs",
       "release-type": "simple",
       "component": "urcindexer-rs",
-      "release-as": "0.1.0",
       "extra-files": [
         {
           "type": "toml",
