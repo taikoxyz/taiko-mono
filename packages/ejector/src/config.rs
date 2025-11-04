@@ -57,6 +57,10 @@ pub struct Config {
     // Address of preconfRouter
     #[arg(long, env = "PRECONF_ROUTER_ADDRESS")]
     pub preconf_router_address: String,
+
+    // minimum reorg depth (number of blocks replaced) required before we eject operators
+    #[arg(long, env = "MIN_REORG_DEPTH_FOR_EJECT", default_value_t = 4usize)]
+    pub min_reorg_depth_for_eject: usize,
 }
 
 // tests
@@ -95,6 +99,8 @@ mod tests {
             "8081",
             "--min-operators",
             "1",
+            "--min-reorg-depth-for-eject",
+            "5",
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
@@ -111,5 +117,6 @@ mod tests {
         assert_eq!(config.handover_slots, 4);
         assert_eq!(config.server_port, 8081);
         assert_eq!(config.min_operators, 1);
+        assert_eq!(config.min_reorg_depth_for_eject, 5);
     }
 }

@@ -31,7 +31,7 @@ clap = { version = "4", features = ["derive", "env"] }
 
 # observability
 metrics = "0.24"
-metrics-exporter-prometheus = "0.15"
+metrics-exporter-prometheus = { version = "0.15", default-features = false, features = ["http-listener"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
