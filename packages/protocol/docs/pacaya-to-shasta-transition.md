@@ -7,7 +7,7 @@ This document captures the current strategy for migrating the rollup from the Pa
 - We rely on a timestamp for the fork activation, contrary to previous approaches of using block height.
 
 - The inbox is deployed to a new address, with a different abi. **Client software and prover need to be aware of this new address**.
-- The new Anchor contract is deployed behind a fork router, and it is the responsability of the client to decide which functions to call(the router decides based on the function sector). **The client should call `anchorV3` before FORK_TIMESTAMP and `anchorV4` after**.
+- The new Anchor contract is deployed behind a fork router, and it is the responsibility of the client to decide which functions to call(the router decides based on the function selector). **The client should call `anchorV3` before FORK_TIMESTAMP and `anchorV4` after**.
 - The SignalService(both on L1 and L2) are deployed behind a fork router. The abi is the same(to maintain backwards compatibility with bridges). The router decides which SignalService to call based on the timestamp.
 
 ## Terminology
