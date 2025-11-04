@@ -150,7 +150,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 					return nil, err
 				}
 			}
-			state, err := a.rpc.GetShastaAnchorState(&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()})
+			_, proposalState, err := a.rpc.GetShastaAnchorState(
+				&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()},
+			)
 			if err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
@@ -165,7 +167,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				},
 			}
 			metadatas[i] = shastaBindings.IInboxTransitionMetadata{
-				DesignatedProver: state.DesignatedProver,
+				DesignatedProver: proposalState.DesignatedProver,
 				ActualProver:     txOpts.From,
 			}
 
@@ -176,7 +178,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				"parentTransitionHash", common.Bytes2Hex(transitions[i].ParentTransitionHash[:]),
 				"start", proofResponse.Opts.ShastaOptions().Headers[0].Number,
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
-				"designatedProver", state.DesignatedProver,
+				"designatedProver", proposalState.DesignatedProver,
 				"actualProver", txOpts.From,
 			)
 		}
@@ -237,10 +239,18 @@ func GetShastaGenesisTransition(
 	ctx context.Context,
 	rpc *rpc.Client,
 ) (*shastaBindings.IInboxTransition, error) {
-	header, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(rpc.ShastaClients.ForkHeight, common.Big1))
+	// Use Pacaya Inbox to derive the last Pacaya block ID, which becomes the
+	// checkpoint of the Shasta genesis transition.
+	blockNumber, err := rpc.LastPacayaBlockID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch genesis block header: %w", err)
+		return nil, fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
 	}
+
+	header, err := rpc.L2.HeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch L2 header at last Pacaya block: %w", err)
+	}
+
 	return &shastaBindings.IInboxTransition{
 		ProposalHash:         common.Hash{},
 		ParentTransitionHash: common.Hash{},

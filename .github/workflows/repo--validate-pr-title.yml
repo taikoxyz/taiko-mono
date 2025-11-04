@@ -27,6 +27,7 @@ jobs:
           scopes: |
             repo
             main
+            blobindexer-rs
             deps
             deps-dev
             docs-site
@@ -36,13 +37,17 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
+            overseer-rs
             protocol
             relayer
+            urcindexer-rs
             nfts
             ui-lib
             taiko-client
+            taiko-client-rs
             supplementary-contracts
             balance-monitor
+            whitepaper
           requireScope: true
           subjectPattern: ^(?![A-Z])(?!.*\btypo\b).+$ # Require lowercase PR title and prohibit word "typo"
           subjectPatternError: |

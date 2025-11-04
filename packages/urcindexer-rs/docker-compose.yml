@@ -1,0 +1,41 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: urcindexer-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: urcindexer
+      MYSQL_USER: urcindexer
+      MYSQL_PASSWORD: password
+    ports:
+      - "3307:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-ppassword"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  urcindexer:
+    build: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://urcindexer:password@mysql:3306/urcindexer
+      L1_RPC_URL: http://host.docker.internal:8545
+      REGISTRY_ADDRESS: 0x0000000000000000000000000000000000000000
+      L1_START_BLOCK: 1
+      MAX_L1_FORK_DEPTH: 2
+      INDEX_BLOCK_BATCH_SIZE: 25
+      RUST_LOG: info
+    restart: unless-stopped
+    profiles:
+      - app
+volumes:
+  mysql-data:

@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-
-import "src/shared/tokenvault/ERC20Vault.sol";
 import "script/BaseScript.sol";
+import "src/shared/bridge/Bridge.sol";
+import "src/shared/vault/ERC20Vault.sol";
 
 interface USDCProxy {
     function configureMinter(address minter, uint256 minterAllowedAmount) external;

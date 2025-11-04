@@ -3,7 +3,6 @@ package chainsyncer
 import (
 	"context"
 	"math/big"
-
 	"os"
 	"testing"
 	"time"
@@ -186,7 +185,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
@@ -272,7 +271,15 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	encodedAuth, err := encoding.EncodeProverAuth(auth)
 	s.Nil(err)
 
-	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(nil, proposalId, proposer, encodedAuth)
+	proposalState, err := s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
+	s.Nil(err)
+	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(
+		nil,
+		proposalId,
+		proposer,
+		encodedAuth,
+		proposalState.DesignatedProver,
+	)
 	s.Nil(err)
 	s.True(info.IsLowBondProposal)
 
@@ -302,7 +309,7 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Equal(common.Hash{}, l1StateRoot2)
+	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
@@ -327,9 +334,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	)
 	s.Nil(err)
 
-	manifest := &manifest.ProtocolProposalManifest{
-		ProverAuthBytes: []byte{},
-		Blocks: []*manifest.ProtocolBlockManifest{
+	manifest := &manifest.DerivationSourceManifest{
+		Blocks: []*manifest.BlockManifest{
 			{
 				Timestamp:         0,
 				Coinbase:          s.TestAddr,
@@ -340,10 +346,10 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	proposalManifestBytes, err := builder.EncodeProposalManifestShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
 	s.Nil(err)
 
-	b, err := builder.SplitToBlobs(proposalManifestBytes)
+	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
 
 	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))

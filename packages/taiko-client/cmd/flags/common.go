@@ -84,7 +84,7 @@ var (
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
-		Usage:    "TaikoAnchor contract `address`",
+		Usage:    "Taiko anchor contract `address`",
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
