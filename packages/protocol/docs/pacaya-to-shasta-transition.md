@@ -27,11 +27,13 @@ The following paragraphs describe in more detail how each part of the protocol h
 
 - **Anchor**: The Shasta [anchor contract](../contracts/layer2/core/Anchor.sol) will be deployed as an upgradable contract to a new address, but the entrypoint is kept using the [AnchorForkRouter](../contracts/layer2/core/AnchorForkRouter.sol). This fork router will be deployed to the existing Anchor address and route to the old and new implementation based on the function signature. Calls to the `anchorV3` will be routed to the Pacaya anchor and calls to `anchorV4` will be routed to the new shasta anchor.
   Preconfers need to deposit their bonds into this contract before their first turn to propose after `FORK_TIMESTAMP` to avoid their proposal being treated as a low bond proposal.
+  **IMPORTANT: The `FORK_TIMESTAMP` refers to the L1 timestamp. Event if the Anchor is an L2 contract, proposers will start calling `anchorV4` after the timestamp is hit on L1**
   **The contract does not handle fork logic based on the timestamp, and it is up to the preconfer to decide which function to call based on the timestamp.**
   _Deposits and withdrawals will be available via the existing address_
 
 - **Signal Service**: The [SignalService](../contracts/shared/signal/SignalService.sol) is deployed as an upgradable contract to a new address, but a fork router will be used. The new SignalService is abi compatible for sending and receiving signals with the Pacaya implementation to ensure backwards compatibility for bridges.  
   But between the time the new version is deployed and the fork activated we need to keep verification working with the old checkpoint mechanism. Because of that [SignalForkRouter](../contracts/shared/signal/SignalServiceForkRouter.sol) will be deployed to the existing SignalService address and redirect calls based on timestamp. Before `FORK_TIMESTAMP` it will send calls to the Pacaya implementation, and afterwards to the shasta implementation.
+  _Note that on L2, `FORK_TIMESTAMP` will happen a few moments after L1. Because of this the fork on L2 for the SignalService will in practice happen after its L1 counterpart, but this should not be an issue(some signals might fail to be verified on L2, but not more than that)_
   _Note that signals sent before the fork will still be available and can be verified, but a new merkle proof needs to be generated(this is because the checkpoints are different so the old proof won't pass validation)_
 
 ## Steps
