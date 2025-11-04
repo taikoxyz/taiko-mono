@@ -467,84 +467,103 @@ impl Monitor {
                                                     "Reorg depth below eject threshold; skipping operator eject"
                                                 );
                                                 metrics::inc_reorg_skipped();
-                                            } else {
-                                                for removed in removed_blocks {
-                                                    let coinbase = removed.coinbase;
-                                                    if coinbase.is_zero() {
-                                                        warn!(
-                                                            block_number = removed.number,
-                                                            block_hash = ?removed.hash,
-                                                            "Reorged block has zero coinbase; skipping operator lookup"
-                                                        );
-                                                        continue;
-                                                    }
+                                                continue;
+                                            }
 
-                                                    let whitelist_for_lookup =
-                                                        preconf_whitelist.clone();
-                                                    let cache_for_lookup = operator_cache.clone();
+                                            let Some(culprit) = removed_blocks
+                                                .iter()
+                                                .min_by_key(|b| b.number)
+                                                .cloned()
+                                            else {
+                                                warn!(
+                                                    block_number,
+                                                    "Reorg blocks unexpectedly empty after depth check; skipping eject"
+                                                );
+                                                continue;
+                                            };
 
-                                                    match resolve_operator_for_coinbase(
-                                                        coinbase,
-                                                        whitelist_for_lookup.clone(),
-                                                        cache_for_lookup.clone(),
+                                            for skipped in removed_blocks
+                                                .iter()
+                                                .filter(|b| b.number != culprit.number)
+                                            {
+                                                debug!(
+                                                    block_number = skipped.number,
+                                                    block_hash = ?skipped.hash,
+                                                    "Additional reorged block observed; attributing fault to earliest removed block"
+                                                );
+                                            }
+
+                                            let coinbase = culprit.coinbase;
+                                            if coinbase.is_zero() {
+                                                warn!(
+                                                    block_number = culprit.number,
+                                                    block_hash = ?culprit.hash,
+                                                    "Culprit block has zero coinbase; skipping operator lookup"
+                                                );
+                                                continue;
+                                            }
+
+                                            let whitelist_for_lookup = preconf_whitelist.clone();
+                                            let cache_for_lookup = operator_cache.clone();
+
+                                            match resolve_operator_for_coinbase(
+                                                coinbase,
+                                                whitelist_for_lookup.clone(),
+                                                cache_for_lookup.clone(),
+                                            )
+                                            .await
+                                            {
+                                                Ok(Some(operator_to_eject)) => {
+                                                    info!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        operator = ?operator_to_eject,
+                                                        "Ejecting operator responsible for reorg"
+                                                    );
+
+                                                    let result = eject_operator_by_address(
+                                                        l1_http_url.clone(),
+                                                        signer.clone(),
+                                                        whitelist_address,
+                                                        operator_to_eject,
+                                                        min_operators,
                                                     )
-                                                    .await
-                                                    {
-                                                        Ok(Some(operator_to_eject)) => {
-                                                            info!(
-                                                                block_number = removed.number,
-                                                                block_hash = ?removed.hash,
-                                                                coinbase = ?coinbase,
-                                                                operator = ?operator_to_eject,
-                                                                "Ejecting operator due to reorged block"
-                                                            );
+                                                    .await;
 
-                                                            let result = eject_operator_by_address(
-                                                                l1_http_url.clone(),
-                                                                signer.clone(),
-                                                                whitelist_address,
-                                                                operator_to_eject,
-                                                                min_operators,
-                                                            )
-                                                            .await;
-
-                                                            match result {
-                                                                Ok(()) => {
-                                                                    let mut cache = operator_cache
-                                                                        .write()
-                                                                        .await;
-                                                                    cache.remove_proposer(
-                                                                        operator_to_eject,
-                                                                    );
-                                                                }
-                                                                Err(err) => {
-                                                                    error!(
-                                                                        block_number = removed.number,
-                                                                        block_hash = ?removed.hash,
-                                                                        coinbase = ?coinbase,
-                                                                        operator = ?operator_to_eject,
-                                                                        "Failed to eject operator for reorged block: {err:?}"
-                                                                    );
-                                                                }
-                                                            }
-                                                        }
-                                                        Ok(None) => {
-                                                            warn!(
-                                                                block_number = removed.number,
-                                                                block_hash = ?removed.hash,
-                                                                coinbase = ?coinbase,
-                                                                "Unable to map coinbase to active operator; skipping eject"
-                                                            );
+                                                    match result {
+                                                        Ok(()) => {
+                                                            let mut cache =
+                                                                operator_cache.write().await;
+                                                            cache
+                                                                .remove_proposer(operator_to_eject);
                                                         }
                                                         Err(err) => {
                                                             error!(
-                                                                block_number = removed.number,
-                                                                block_hash = ?removed.hash,
+                                                                block_number = culprit.number,
+                                                                block_hash = ?culprit.hash,
                                                                 coinbase = ?coinbase,
-                                                                "Failed to resolve operator for reorged block: {err:?}"
+                                                                operator = ?operator_to_eject,
+                                                                "Failed to eject operator for reorged block: {err:?}"
                                                             );
                                                         }
                                                     }
+                                                }
+                                                Ok(None) => {
+                                                    warn!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        "Unable to map coinbase to active operator; skipping eject"
+                                                    );
+                                                }
+                                                Err(err) => {
+                                                    error!(
+                                                            block_number = culprit.number,
+                                                            block_hash = ?culprit.hash,
+                                                            coinbase = ?coinbase,
+                                                        "Failed to resolve operator for reorged block: {err:?}"
+                                                    );
                                                 }
                                             }
                                         }

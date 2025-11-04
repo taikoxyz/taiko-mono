@@ -193,7 +193,12 @@ mod tests {
         let block4 = block(4, 999, 4, 13);
         let outcome = tracker.apply(block4);
 
-        assert_eq!(outcome.reorged.len(), 2);
+        assert!(outcome.reorged.is_empty());
         assert!(outcome.parent_not_found);
+
+        let next = block(5, 4, 5, 14);
+        let outcome_next = tracker.apply(next);
+        assert!(outcome_next.reorged.is_empty());
+        assert!(!outcome_next.parent_not_found);
     }
 }
