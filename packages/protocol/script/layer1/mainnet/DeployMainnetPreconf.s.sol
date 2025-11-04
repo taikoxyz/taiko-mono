@@ -43,7 +43,11 @@ contract DeployMainnetPreconf is DeployCapability {
 
         address router = deployProxy({
             name: "preconf_router",
-            impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
+            impl: address(
+                new PreconfRouter(
+                    taikoWrapper, whitelist, fallbackPreconfProposer, type(uint64).max
+                )
+            ),
             data: abi.encodeCall(PreconfRouter.init, (contractOwner))
         });
         address wrapper = address(new TaikoWrapper(taikoInbox, store, router));

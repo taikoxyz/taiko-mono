@@ -640,7 +640,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         router = deployProxy({
             name: "preconf_router",
             impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
+                new PreconfRouter(
+                    taikoWrapper,
+                    whitelist,
+                    vm.envOr("FALLBACK_PRECONF", address(0)),
+                    type(uint64).max
+                )
             ),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: rollupResolver

@@ -39,8 +39,11 @@ contract DeployHeklaPreconf is DeployCapability {
         //
         //        address router = deployProxy({
         //            name: "preconf_router",
-        //            impl: address(new PreconfRouter(taikoWrapper, whitelist,
-        // fallbackPreconfProposer)),
+        //            impl: address(
+        //                new PreconfRouter(
+        //                    taikoWrapper, whitelist, fallbackPreconfProposer, type(uint64).max
+        //                )
+        //            ),
         //            data: abi.encodeCall(PreconfRouter.init, (address(0))),
         //            registerTo: rollupResolver
         //        });
