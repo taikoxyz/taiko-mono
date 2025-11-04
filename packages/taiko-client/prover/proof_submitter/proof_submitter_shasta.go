@@ -276,14 +276,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 
-	s.batchResultCh <- &proofProducer.BatchProofs{
-		ProofResponses: []*proofProducer.ProofResponse{proofResponse},
-		BatchProof:     proofResponse.Proof,
-		BatchIDs:       []*big.Int{meta.Shasta().GetProposal().Id},
-		ProofType:      proofResponse.ProofType,
-		Verifier:       common.Address{},
-	}
-
 	return nil
 }
 
