@@ -84,7 +84,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 						"Failed to check Shasta proof status and submit proof",
 						"batchID", meta.Shasta().GetProposal().Id,
 						"derivationSources", len(meta.Shasta().GetDerivation().Sources),
-						"maxRetrys", h.backOffMaxRetrys,
+						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)
 					return err
@@ -93,7 +93,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 				return nil
 			},
 			backoff.WithContext(
-				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetrys),
+				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetries),
 				ctx,
 			),
 		); err != nil {

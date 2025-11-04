@@ -68,16 +68,23 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
 	}
-	TaikoInboxAddress = &cli.StringFlag{
-		Name:     "taikoInbox",
-		Usage:    "TaikoInbox contract `address`",
+	PacayaInboxAddress = &cli.StringFlag{
+		Name:     "pacayaInbox",
+		Usage:    "Inbox contract `address` for Pacaya protocol",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_INBOX"},
+		EnvVars:  []string{"PACAYA_INBOX"},
+	}
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInbox",
+		Usage:    "Inbox contract `address` for Shasta protocol",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"SHASTA_INBOX"},
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
-		Usage:    "TaikoAnchor contract `address`",
+		Usage:    "Taiko anchor contract `address`",
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
@@ -161,7 +168,8 @@ var (
 var CommonFlags = []cli.Flag{
 	// Required
 	L1WSEndpoint,
-	TaikoInboxAddress,
+	PacayaInboxAddress,
+	ShastaInboxAddress,
 	TaikoAnchorAddress,
 	// Optional
 	ProverSetAddress,

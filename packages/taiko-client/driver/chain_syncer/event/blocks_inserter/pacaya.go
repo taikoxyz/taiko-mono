@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -266,7 +266,7 @@ func (i *Pacaya) InsertBlocks(
 func (i *Pacaya) InsertBlocksWithManifest(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
-	_ *manifest.ProposalManifest,
+	_ *shastaManifest.ShastaDerivationSourcePayload,
 	_ eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	return errors.New("not supported in Pacaya")

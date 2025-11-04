@@ -2,11 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "../iface/IPreconfWhitelist.sol";
-import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
-import "src/shared/libs/LibNames.sol";
+import "../libs/LibPreconfUtils.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/layer1/shasta/iface/IProposerChecker.sol";
+import "src/shared/libs/LibNames.sol";
+
+import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz

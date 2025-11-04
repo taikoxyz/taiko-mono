@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sync"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -120,7 +120,7 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 	b.destChainId = destChainID
 
 	b.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	b.backOffMaxRetries = cfg.BackOffMaxRetrys
+	b.backOffMaxRetries = cfg.BackOffMaxRetries
 	b.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	b.bridgeMessageValue = cfg.BridgeMessageValue

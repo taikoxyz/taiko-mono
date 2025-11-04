@@ -29,6 +29,10 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
+// ShastaForkBufferSeconds is the buffer time in seconds before Shasta fork time,
+// to ensure no Pacaya blocks are proposed after Shasta fork time.
+const shastaForkBufferSeconds = uint64(60)
+
 // l2HeadUpdateInfo keeps track of the latest L2 head update information.
 type l2HeadUpdateInfo struct {
 	blockID   uint64
@@ -127,7 +131,7 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
+	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkTime); err != nil {
 		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
 
@@ -136,14 +140,15 @@ func (p *Proposer) InitFromConfig(
 		p.rpc.L2.ChainID,
 		p.rpc.PacayaClients.ForkHeights.Ontake,
 		p.rpc.PacayaClients.ForkHeights.Pacaya,
-		p.rpc.PacayaClients.ForkHeights.Shasta,
+		p.rpc.ShastaClients.ForkTime,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
 		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoInboxAddress,
+		cfg.PacayaInboxAddress,
+		cfg.ShastaInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBatchTxGasLimit,
@@ -238,7 +243,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		manifest.MaxBlockGasLimit,
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
@@ -329,33 +334,17 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	var l2HeadNumber *big.Int
-	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
-		log.Warn("Failed to get L2 head L1 origin", "error", err)
-		l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 head: %w", err)
-		}
-		l2HeadNumber = l2Head.Number
-	} else {
-		l2HeadNumber = headL1Origin.BlockID
+		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	if new(big.Int).Add(l2HeadNumber, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+	forkTime := p.rpc.ShastaClients.ForkTime
+	if l1Head.Time+shastaForkBufferSeconds < forkTime {
 		// Fetch the latest parent meta hash, which will be used
 		// by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
-		}
-		// Ensure we are not proposing too many tx lists before Shasta fork.
-		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1) {
-			log.Warn(
-				"Too many tx lists, trimming to fit before Shasta fork",
-				"txLists", len(txLists),
-				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1,
-			)
-			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1]
 		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
@@ -402,7 +391,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		ctx,
 		p.rpc,
 		proposerAddress,
-		p.TaikoInboxAddress,
+		p.PacayaInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
 			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
@@ -499,11 +488,11 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	log.Info(
 		"Last proposal",
 		"id", lastProposal.Proposal.Id,
-		"nextBlockID", lastProposal.CoreState.NextProposalBlockId,
+		"nextProposalId", lastProposal.CoreState.NextProposalId,
 		"l1Head", l1Head.Number,
 	)
 
-	if lastProposal.CoreState.NextProposalBlockId.Cmp(l1Head.Number) >= 0 {
+	if lastProposal.CoreState.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
 		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}

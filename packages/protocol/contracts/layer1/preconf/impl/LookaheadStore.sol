@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/iface/ILookaheadStore.sol";
-import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
-import "src/layer1/preconf/impl/Blacklist.sol";
-import "src/layer1/shasta/iface/IProposerChecker.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@eth-fabric/urc/ISlasher.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
+import "src/layer1/preconf/iface/ILookaheadStore.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
+
+import "./LookaheadStore_Layout.sol"; // DO NOT DELETE
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
@@ -123,6 +125,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     }
 
     /// @dev Processes next epoch's lookahead: validates existing or stores new lookahead.
+    /// Optimization: same-epoch proposers can skip this entirely when lookahead already exists.
     function _handleNextEpochLookahead(
         uint256 _nextEpochTimestamp,
         ProposerContext memory _context,
@@ -132,10 +135,18 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     {
         bytes26 nextLookaheadHash = getLookaheadHash(_nextEpochTimestamp);
 
-        if (nextLookaheadHash == 0) {
-            _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
-        } else {
+        // Check if next epoch lookahead already exists
+        if (nextLookaheadHash != 0) {
+            if (_data.slotIndex != type(uint256).max) {
+                // Same-epoch proposers don't need nextLookahead - skip validation
+                return;
+            }
+
+            // Cross-epoch or fallback proposers must provide correct nextLookahead
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, nextLookaheadHash);
+        } else {
+            // Lookahead not posted yet - must post it now
+            _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
         }
     }
 
@@ -181,26 +192,15 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             context_ = _handleSameEpochProposer(_data, _epochTimestamp);
         }
 
-        // Determine if we need to use the opted in preconfer or the fallback preconfer
+        // Use fallback preconfer if no opted-in slot, otherwise use lookahead committer
+        // All operators are validated when lookahead is posted, so no need to re-validate
         if (context_.isFallback) {
-            // Use fallback preconfer (whitelist)
             context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
         } else {
-            IRegistry.OperatorData memory operatorData =
-                urc.getOperatorData(context_.lookaheadSlot.registrationRoot);
-            bool isOptedIn =
-                urc.isOptedIntoSlasher(context_.lookaheadSlot.registrationRoot, preconfSlasher);
-
-            if (
-                operatorData.unregisteredAt != type(uint48).max || operatorData.slashedAt != 0
-                    || !isOptedIn || isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)
-            ) {
-                // If the operator is slashed, unregistered, not opted in, or blacklisted
-                // we use the fallback preconfer (whitelist)
+            if (isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)) {
                 context_.isFallback = true;
                 context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
             } else {
-                // Use the opted in preconfer
                 context_.proposer = context_.lookaheadSlot.committer;
             }
         }
@@ -232,7 +232,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ProposerContext memory context_)
     {
         context_.submissionWindowStart =
-            _data.currLookahead[_data.currLookahead.length - 1].timestamp;
+        _data.currLookahead[_data.currLookahead.length - 1].timestamp;
 
         if (_data.nextLookahead.length == 0) {
             // This is the case when the next lookahead is empty
@@ -449,7 +449,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
                 );
                 require(
                     (lookaheadSlot.timestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_SLOT == 0,
+                            % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -508,7 +508,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
-        uint256 prevEpochTimestamp = _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 prevEpochTimestamp =
+            _nextEpochTimestamp - 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Use the general operator validation first
         (operatorData_, slasherCommitment_) =
@@ -639,9 +640,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0,
-            payload: abi.encode(_lookahead),
-            slasher: lookaheadSlasher
+            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
         });
     }
 }
