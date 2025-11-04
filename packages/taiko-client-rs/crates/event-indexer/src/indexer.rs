@@ -12,6 +12,7 @@ use alloy::{rpc::types::Log, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use alloy_provider::{IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect};
 use bindings::{
+    anchor::LibBonds::BondInstruction,
     codec_optimized::{
         CodecOptimized::{self, CodecOptimizedInstance},
         ICheckpointStore::Checkpoint,
@@ -20,7 +21,7 @@ use bindings::{
             ProvedEventPayload as InboxProvedEventPayload, Transition, TransitionMetadata,
             TransitionRecord,
         },
-        LibBonds::BondInstruction,
+        LibBonds::BondInstruction as CodecBondInstruction,
     },
     i_inbox::IInbox::{self, Proposed, Proved},
 };
@@ -234,11 +235,23 @@ impl ShastaEventIndexer {
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
         // Decode the event payload using the contract codec.
-        let InboxProposedEventPayload { proposal, derivation, coreState, bondInstructions } = self
+        let InboxProposedEventPayload {
+            proposal,
+            derivation,
+            coreState,
+            bondInstructions: codec_bond_instructions,
+        } = self
             .inbox_codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
             .await?;
+
+        // Convert codec-originated bond instructions into the anchor representation used
+        // downstream.
+        let bond_instructions = codec_bond_instructions
+            .into_iter()
+            .map(IntoAnchorBondInstruction::into_anchor)
+            .collect();
 
         // Cache the payload keyed by proposal id.
         self.proposed_payloads.insert(
@@ -247,7 +260,7 @@ impl ShastaEventIndexer {
                 proposal: proposal.clone(),
                 core_state: coreState.clone(),
                 derivation: derivation.clone(),
-                bond_instructions: bondInstructions,
+                bond_instructions,
                 log: log.clone(),
             },
         );
@@ -501,6 +514,24 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
             transition_records: transitions.iter().map(|t| t.transition_record.clone()).collect(),
             checkpoint,
         })
+    }
+}
+
+/// Bridges ABI-decoded codec bond instructions to the anchor binding type expected elsewhere.
+trait IntoAnchorBondInstruction {
+    // Convert the codec bond instruction into the anchor representation.
+    fn into_anchor(self) -> BondInstruction;
+}
+
+impl IntoAnchorBondInstruction for CodecBondInstruction {
+    // Convert the codec bond instruction into the anchor representation.
+    fn into_anchor(self) -> BondInstruction {
+        BondInstruction {
+            proposalId: self.proposalId,
+            bondType: self.bondType,
+            payer: self.payer,
+            payee: self.payee,
+        }
     }
 }
 

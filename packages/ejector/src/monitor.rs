@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -21,11 +21,109 @@ use crate::{
     beacon::BeaconClient,
     bindings::TaikoWrapper,
     metrics,
+    monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY, TrackedBlock},
     utils::{
-        eject::{eject_operator, initialize_eject_metrics},
+        eject::{eject_operator, eject_operator_by_address, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
+
+#[derive(Default)]
+struct OperatorCache {
+    proposers: HashSet<Address>,
+    sequencer_to_proposer: HashMap<Address, Address>,
+}
+
+impl OperatorCache {
+    fn upsert(&mut self, proposer: Address, sequencer: Address) {
+        self.proposers.insert(proposer);
+        if !sequencer.is_zero() {
+            self.sequencer_to_proposer.insert(sequencer, proposer);
+        }
+    }
+
+    fn remove_proposer(&mut self, proposer: Address) {
+        self.proposers.remove(&proposer);
+        self.sequencer_to_proposer.retain(|_, existing| *existing != proposer);
+    }
+
+    fn proposer_for(&self, addr: Address) -> Option<Address> {
+        if self.proposers.contains(&addr) {
+            Some(addr)
+        } else {
+            self.sequencer_to_proposer.get(&addr).copied()
+        }
+    }
+
+    fn clear(&mut self) {
+        self.proposers.clear();
+        self.sequencer_to_proposer.clear();
+    }
+}
+
+async fn resolve_operator_for_coinbase<P>(
+    coinbase: Address,
+    whitelist: crate::bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+    cache: Arc<RwLock<OperatorCache>>,
+) -> eyre::Result<Option<Address>>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    if coinbase.is_zero() {
+        return Ok(None);
+    }
+
+    let info = whitelist.operators(coinbase).call().await?;
+    let is_active = info.activeSince != 0 && info.inactiveSince == 0;
+    if is_active {
+        return Ok(Some(coinbase));
+    }
+
+    let cached = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = cached {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    let refreshed = initialize_eject_metrics(&whitelist).await?;
+    {
+        let mut guard = cache.write().await;
+        guard.clear();
+        for (proposer, sequencer) in refreshed {
+            guard.upsert(proposer, sequencer);
+        }
+    }
+
+    let refreshed_match = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = refreshed_match {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    Ok(None)
+}
 
 pub struct Monitor {
     beacon_client: BeaconClient,
@@ -40,6 +138,7 @@ pub struct Monitor {
     handover_slots: u64,
     preconf_router_address: Address,
     min_operators: u64,
+    min_reorg_depth_for_eject: usize,
 }
 
 impl Monitor {
@@ -57,6 +156,7 @@ impl Monitor {
         handover_slots: u64,
         preconf_router_address: Address,
         min_operators: u64,
+        min_reorg_depth_for_eject: usize,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
         let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
@@ -75,6 +175,7 @@ impl Monitor {
             handover_slots,
             preconf_router_address,
             min_operators,
+            min_reorg_depth_for_eject,
         }
     }
 
@@ -118,10 +219,14 @@ impl Monitor {
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
-        let known_operators = Arc::new(RwLock::new(HashSet::new()));
+        let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
         match initialize_eject_metrics(&preconf_whitelist).await {
             Ok(initialized) => {
-                *known_operators.write().await = initialized;
+                let mut cache = operator_cache.write().await;
+                cache.clear();
+                for (proposer, sequencer) in initialized {
+                    cache.upsert(proposer, sequencer);
+                }
             }
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
@@ -132,10 +237,12 @@ impl Monitor {
         let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
             l1_ws_url.clone(),
             whitelist_address,
-            known_operators.clone(),
+            operator_cache.clone(),
         ));
 
         // watchdog task
+        let watchdog_l1_http_url = l1_http_url.clone();
+        let watchdog_signer = signer.clone();
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
             loop {
@@ -189,7 +296,7 @@ impl Monitor {
                     prev_resp = curr_resp;
                 }
 
-                match are_preconfs_enabled(&l1_http_url, taiko_wrapper_address).await {
+                match are_preconfs_enabled(&watchdog_l1_http_url, taiko_wrapper_address).await {
                     Ok(false) => {
                         // zero out the last seen
                         *last_seen_for_watch.lock().await = Instant::now();
@@ -253,8 +360,8 @@ impl Monitor {
                     }
 
                     if let Err(e) = eject_operator(
-                        l1_http_url.clone(),
-                        signer.clone(),
+                        watchdog_l1_http_url.clone(),
+                        watchdog_signer.clone(),
                         whitelist_address,
                         curr_resp.lookahead,
                         min_operators,
@@ -270,6 +377,7 @@ impl Monitor {
         });
 
         // reconnect loop backoff params
+        let mut reorg_tracker = ChainReorgTracker::new(MAX_REORG_HISTORY);
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
 
@@ -293,11 +401,27 @@ impl Monitor {
                             loop {
                                 match stream.next().await {
                                     Some(header) => {
-                                        // number/hash are often Option<_> → use {:?}
                                         info!(
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
                                         );
+
+                                        let block_number = header.number;
+                                        let block_hash = header.hash;
+
+                                        let tracked_block = TrackedBlock {
+                                            number: block_number,
+                                            hash: block_hash,
+                                            parent_hash: header.parent_hash,
+                                            coinbase: header.beneficiary,
+                                        };
+
+                                        let outcome = reorg_tracker.apply(tracked_block.clone());
+
+                                        if outcome.duplicate {
+                                            debug!(block_number, block_hash = ?tracked_block.hash, "Duplicate block notification received; skipping");
+                                            continue;
+                                        }
 
                                         metrics::inc_l2_blocks();
                                         let now = Instant::now();
@@ -311,7 +435,138 @@ impl Monitor {
                                             *guard = now;
                                         }
                                         metrics::set_last_block_age_seconds(0);
-                                        backoff = Duration::from_secs(1); // reset after good event
+                                        backoff = Duration::from_secs(1);
+
+                                        if outcome.parent_not_found {
+                                            warn!(
+                                                block_number,
+                                                parent_hash = ?tracked_block.parent_hash,
+                                                "Parent not found in local history; tracker was reset"
+                                            );
+                                            continue;
+                                        }
+
+                                        if !outcome.reorged.is_empty() {
+                                            let reorg_depth = outcome.reorged.len();
+                                            let removed_blocks = outcome.reorged;
+
+                                            warn!(
+                                                block_number,
+                                                new_head = ?tracked_block.hash,
+                                                depth = reorg_depth,
+                                                "Detected L2 reorg"
+                                            );
+
+                                            metrics::note_reorg(reorg_depth);
+
+                                            if reorg_depth < self.min_reorg_depth_for_eject {
+                                                info!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    threshold = self.min_reorg_depth_for_eject,
+                                                    "Reorg depth below eject threshold; skipping operator eject"
+                                                );
+                                                metrics::inc_reorg_skipped();
+                                                continue;
+                                            }
+
+                                            let Some(culprit) = removed_blocks
+                                                .iter()
+                                                .min_by_key(|b| b.number)
+                                                .cloned()
+                                            else {
+                                                warn!(
+                                                    block_number,
+                                                    "Reorg blocks unexpectedly empty after depth check; skipping eject"
+                                                );
+                                                continue;
+                                            };
+
+                                            for skipped in removed_blocks
+                                                .iter()
+                                                .filter(|b| b.number != culprit.number)
+                                            {
+                                                debug!(
+                                                    block_number = skipped.number,
+                                                    block_hash = ?skipped.hash,
+                                                    "Additional reorged block observed; attributing fault to earliest removed block"
+                                                );
+                                            }
+
+                                            let coinbase = culprit.coinbase;
+                                            if coinbase.is_zero() {
+                                                warn!(
+                                                    block_number = culprit.number,
+                                                    block_hash = ?culprit.hash,
+                                                    "Culprit block has zero coinbase; skipping operator lookup"
+                                                );
+                                                continue;
+                                            }
+
+                                            let whitelist_for_lookup = preconf_whitelist.clone();
+                                            let cache_for_lookup = operator_cache.clone();
+
+                                            match resolve_operator_for_coinbase(
+                                                coinbase,
+                                                whitelist_for_lookup.clone(),
+                                                cache_for_lookup.clone(),
+                                            )
+                                            .await
+                                            {
+                                                Ok(Some(operator_to_eject)) => {
+                                                    info!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        operator = ?operator_to_eject,
+                                                        "Ejecting operator responsible for reorg"
+                                                    );
+
+                                                    let result = eject_operator_by_address(
+                                                        l1_http_url.clone(),
+                                                        signer.clone(),
+                                                        whitelist_address,
+                                                        operator_to_eject,
+                                                        min_operators,
+                                                    )
+                                                    .await;
+
+                                                    match result {
+                                                        Ok(()) => {
+                                                            let mut cache =
+                                                                operator_cache.write().await;
+                                                            cache
+                                                                .remove_proposer(operator_to_eject);
+                                                        }
+                                                        Err(err) => {
+                                                            error!(
+                                                                block_number = culprit.number,
+                                                                block_hash = ?culprit.hash,
+                                                                coinbase = ?coinbase,
+                                                                operator = ?operator_to_eject,
+                                                                "Failed to eject operator for reorged block: {err:?}"
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                Ok(None) => {
+                                                    warn!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        "Unable to map coinbase to active operator; skipping eject"
+                                                    );
+                                                }
+                                                Err(err) => {
+                                                    error!(
+                                                            block_number = culprit.number,
+                                                            block_hash = ?culprit.hash,
+                                                            coinbase = ?coinbase,
+                                                        "Failed to resolve operator for reorged block: {err:?}"
+                                                    );
+                                                }
+                                            }
+                                        }
                                     }
                                     None => {
                                         warn!("Block stream ended unexpectedly, reconnecting...");
@@ -346,7 +601,7 @@ impl Monitor {
     async fn operator_added_listener(
         l1_ws_url: Url,
         whitelist_address: Address,
-        known_operators: Arc<RwLock<HashSet<(Address, Address)>>>,
+        operator_cache: Arc<RwLock<OperatorCache>>,
     ) {
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
@@ -388,21 +643,12 @@ impl Monitor {
                                             "OperatorAdded event received"
                                         );
 
-                                        let key = (event.proposer, event.sequencer);
-                                        let is_new = {
-                                            let mut guard = known_operators.write().await;
-                                            guard.insert(key)
-                                        };
-
-                                        if is_new {
-                                            metrics::ensure_eject_metric_labels(&sequencer_hex);
-                                        } else {
-                                            debug!(
-                                                %proposer_hex,
-                                                %sequencer_hex,
-                                                "Operator already initialized; skipping metric setup"
-                                            );
+                                        {
+                                            let mut cache = operator_cache.write().await;
+                                            cache.upsert(event.proposer, event.sequencer);
                                         }
+
+                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
                                     }
                                     Err(e) => {
                                         warn!("OperatorAdded stream error: {e:?}");

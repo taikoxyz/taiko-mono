@@ -1087,7 +1087,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     // getCurrentForcedInclusionFee Tests
     // ---------------------------------------------------------------
 
-    function test_getCurrentForcedInclusionFee_EmptyQueue() public {
+    function test_getCurrentForcedInclusionFee_EmptyQueue() public view {
         // When queue is empty, should return base fee
         uint64 currentFee = inbox.getCurrentForcedInclusionFee();
         uint256 baseFee = _getForcedInclusionFeeWei() / 1 gwei;

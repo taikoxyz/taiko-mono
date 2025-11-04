@@ -88,6 +88,7 @@ async fn main() -> Result<()> {
         handover_slots,
         preconf_router_address,
         config.min_operators,
+        config.min_reorg_depth_for_eject,
     );
 
     let monitor_handle = tokio::spawn(async move {

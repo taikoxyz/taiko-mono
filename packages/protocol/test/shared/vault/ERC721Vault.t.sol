@@ -17,9 +17,7 @@ contract TestERC721Vault is CommonTest {
     PrankDestBridge private tBridge;
 
     function setUpOnEthereum() internal override {
-        SignalService ss = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        SignalService ss = _deployMockSignalService("ETH");
         eBridge = deployBridge(address(new Bridge(address(resolver), address(ss))));
         eVault = deployERC721Vault();
 
@@ -30,7 +28,7 @@ contract TestERC721Vault is CommonTest {
     }
 
     function setUpOnTaiko() internal override {
-        deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        _deployMockSignalService("TAIKO");
         tVault = deployERC721Vault();
         tBridge = new PrankDestBridge(tVault);
 
@@ -712,5 +710,13 @@ contract TestERC721Vault is CommonTest {
         ERC721(deployedContract).approve(address(tVault), 1);
         vm.prank(Alice);
         tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+    }
+
+    function _deployMockSignalService(bytes32 label) private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256(abi.encodePacked(label, "_REMOTE_SIGNAL"))))),
+            deployer
+        );
     }
 }
