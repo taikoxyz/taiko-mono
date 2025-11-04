@@ -193,8 +193,9 @@ mod tests {
         let block4 = block(4, 999, 4, 13);
         let outcome = tracker.apply(block4);
 
-        assert!(outcome.reorged.is_empty());
         assert!(outcome.parent_not_found);
+        let numbers: Vec<u64> = outcome.reorged.iter().map(|b| b.number).collect();
+        assert_eq!(numbers, vec![3, 2, 1]);
 
         let next = block(5, 4, 5, 14);
         let outcome_next = tracker.apply(next);
