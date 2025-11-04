@@ -1015,8 +1015,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Syncs checkpoint to storage if conditions are met (voluntary or forced sync).
-    /// @notice Validates checkpoint hash and updates checkpoint storage and timestamp.
+    /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
+    ///      Validates the checkpoint hash, persists it, and refreshes the timestamp in core state.
     /// @param _checkpoint The checkpoint data to sync.
     /// @param _expectedCheckpointHash The expected hash to validate against.
     /// @param _coreState Core state to update with new checkpoint timestamp.
