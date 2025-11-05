@@ -18,7 +18,7 @@ interface IForcedInclusionStore {
     event ForcedInclusionSaved(ForcedInclusion forcedInclusion);
 
     /// @notice Saves a forced inclusion request
-    /// The priority fee must be paid to the contract
+    /// A priority fee must be paid to the contract
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
