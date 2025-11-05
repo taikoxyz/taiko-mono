@@ -202,7 +202,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
     ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
-    ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya block may change after this function is called.
+    ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
+    ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
