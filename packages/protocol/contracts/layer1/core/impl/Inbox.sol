@@ -426,7 +426,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
 
         conflictingTransitionDetected = false;
 
