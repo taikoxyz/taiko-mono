@@ -150,8 +150,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    /// @dev Only used during intialization to safeguard against reorgs
+    /// @dev L1 block hash when the last Pacaya batch was proposed
+    ///      Only used during activation to safeguard against reorgs
     bytes32 private _pacayaBlockHash;
+    /// @dev L1 block number when the last Pacaya batch was proposed
+    ///      Only used during activation to safeguard against reorgs
+    uint256 private _pacayaBlockNumber;
 
     uint256[50] private __gap;
 
@@ -206,21 +210,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
-    /// @param _genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
-    /// @param pacayaBlockNumber The number of the latest pacaya block when the `_genesisBlockHash` was calculated. 
+    /// @param genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
+    /// @param pacayaBlockNumber The number of the latest pacaya block when the `genesisBlockHash` was calculated. 
     /// This is used for revert protection.
-    function activate(bytes32 _genesisBlockHash, uint256 pacayaBlockNumber) external {
+    function activate(bytes32 genesisBlockHash, uint256 pacayaBlockNumber) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
-        require(_genesisBlockHash != 0, "Genesis block hash cannot be 0");
+        require(genesisBlockHash != 0, InvalidActivateParams());
+        require (pacayaBlockNumber != 0, InvalidActivateParams());
 
-        // This returns the blockhash for the last 256 blocks, which should be more than enough to detect a fork.
+        // This returns the blockhash for the last 256 blocks, which should be more than enough to detect a reorg.
         bytes32 pacayaBlockHash = blockhash(pacayaBlockNumber);
-        require(pacayaBlockHash != 0 && pacayaBlockHash != _pacayaBlockHash, NoForkDetected());
         
-        _activateInbox(_genesisBlockHash);
-
-        // Store the pacaya block hash to detect a potential reorg
+        // Detect if there was a reorg
+        require(pacayaBlockHash != 0 && pacayaBlockHash != _pacayaBlockHash, NoForkDetected());
+        require(_pacayaBlockNumber == 0 || _pacayaBlockNumber == pacayaBlockNumber, NoForkDetected());
         _pacayaBlockHash = pacayaBlockHash;
+        _pacayaBlockNumber = pacayaBlockNumber;
+        
+        _activateInbox(genesisBlockHash);        
     }
 
     /// @inheritdoc IInbox
@@ -1155,6 +1162,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
-    error InvalidLastPacayaBlockHash();
     error NoForkDetected();
+    error InvalidActivateParams();
 }
