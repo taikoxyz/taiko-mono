@@ -53,14 +53,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event InboxActivated(bytes32 lastPacayaBlockHash);
-
-    event InitializerReset();
-
-    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
