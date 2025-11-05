@@ -188,10 +188,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
     ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
-    /// @param _genesisBlockHash The hash of the genesis block
-    function activate(bytes32 _genesisBlockHash) external {
+    /// @param _lastBlockHash The hash of the last finalized block
+    function activate(bytes32 _lastBlockHash) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
-        _activateInbox(_genesisBlockHash);
+        _activateInbox(_lastBlockHash);
 
         // Set the shastaInitializer to zero to prevent further calls to `activate`
         _shastaInitializer = address(0);
@@ -399,10 +399,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
     /// Sets up the initial proposal and core state with genesis block
-    /// @param _genesisBlockHash The hash of the genesis block
-    function _activateInbox(bytes32 _genesisBlockHash) internal {
+    /// @param _lastBlockHash The hash of the last finalized block
+    function _activateInbox(bytes32 _lastBlockHash) internal {
+        require(_lastBlockHash != 0, ZERO_BLOCK_HASH());
         Transition memory transition;
-        transition.checkpoint.blockHash = _genesisBlockHash;
+        transition.checkpoint.blockHash = _lastBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -1125,4 +1126,5 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
+    error ZERO_BLOCK_HASH();
 }
