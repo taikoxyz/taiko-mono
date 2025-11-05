@@ -35,6 +35,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores transition record hash and finalization deadline.
     struct TransitionRecordHashAndDeadline {
@@ -49,8 +54,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    event InboxActivated(bytes32 lastPacayaBlockHash);
+
+    event InitializerReset();
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
+
     /// @notice The codec used for encoding and hashing.
     address private immutable _codec;
 
@@ -188,13 +202,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
     ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
-    /// @param _lastBlockHash The hash of the last finalized block
-    function activate(bytes32 _lastBlockHash) external {
+    ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya block may change after this function is called.
+    /// @param _lastPacayaBlockHash The hash of the last Pacaya block
+    function activate(bytes32 _lastPacayaBlockHash) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
-        _activateInbox(_lastBlockHash);
+        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+        _activateInbox(_lastPacayaBlockHash);
+        emit InboxActivated(_lastPacayaBlockHash);
+    }
 
-        // Set the shastaInitializer to zero to prevent further calls to `activate`
+    /// @notice Resets the initializer to allow a new inbox to be activated.
+    /// @dev Only the owner can call this function.
+    function resetInitializer() external {
+        require(msg.sender == owner() || msg.sender == _shastaInitializer, ACCESS_DENIED());
         _shastaInitializer = address(0);
+        emit InitializerReset();
     }
 
     /// @inheritdoc IInbox
@@ -403,16 +425,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastBlockHash The hash of the last finalized block
     function _activateInbox(bytes32 _lastBlockHash) internal {
-        require(_lastBlockHash != 0, ZERO_BLOCK_HASH());
+        require(_lastBlockHash != 0, InvalidLastPacayaBlockHash());
 
-        // Reset state variables that may have been modified by propose/prove/saveForcedInclusion
         conflictingTransitionDetected = false;
-
-        // Reset forced inclusion storage
-        LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
-        $.head = 0;
-        $.tail = 0;
-        $.lastProcessedAt = 0;
 
         Transition memory transition;
         transition.checkpoint.blockHash = _lastBlockHash;
@@ -1138,5 +1153,5 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
-    error ZERO_BLOCK_HASH();
+    error InvalidLastPacayaBlockHash();
 }
