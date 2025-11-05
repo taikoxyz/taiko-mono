@@ -43,8 +43,8 @@ The following paragraphs describe in more detail how each part of the protocol h
    The `FORK_TIMESTAMP` should already be set to the shasta fork timestamp.  
    **After this point proposers can deposit their bonds to the `BondManager` contract on L2**.
 
-2. **Deploy Pacaya Inbox with fork guard**
-   Deploy a new implementation of the Pacaya inbox with an additional safe guard that prevents any proposals from happening after `FORK_TIMESTAMP`. This is a safety measure to ensure the old inbox state cannot be modified after the fork has occured.
+2. **Deploy Pacaya Fork Router with fork guard**
+   Deploy a new implementation of the Pacaya Fork Router contract(which serves as the entry point for batch proposals) with an additional safe guard that prevents any proposals from happening after `FORK_TIMESTAMP`. This is a safety measure to ensure the old inbox state cannot be modified after the fork has occured. Changes for this have been implemented on this [PR](https://github.com/taikoxyz/taiko-mono/pull/20641).
 
 3. **Deploy the fork routers**
    Now that both Pacaya and Shasta contracts are ready we can deploy the `AnchorForkRouter` and `SignalServiceForkRouter`. They will still route all calls to the Pacaya contracts.
@@ -55,7 +55,7 @@ The following paragraphs describe in more detail how each part of the protocol h
 4. **Submit upgrade to the DAO**
    Submit an upgrade proposal to the DAO to:
 
-   - upgrade the Pacaya Inbox to the new implementation(with the added guard)
+   - upgrade the Pacaya Fork Router to the new implementation(with the added guard)
    - upgrade the SignalService(on both L1 and L2) to point to the new `SignalServiceForkRouter`
    - upgrade the Anchor(L2) to point to the new `AnchorForkRouter`
 
