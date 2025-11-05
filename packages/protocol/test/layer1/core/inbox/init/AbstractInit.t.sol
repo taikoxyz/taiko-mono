@@ -216,7 +216,11 @@ abstract contract AbstractInitTest is InboxTestHelper {
         return codec.decodeProposedEvent(data);
     }
 
-    function _activateOnce(Inbox inbox, bytes32 genesisHash, bytes32 pacayaHash)
+    function _activateOnce(
+        Inbox inbox,
+        bytes32 genesisHash,
+        bytes32 pacayaHash
+    )
         internal
         returns (uint256 pacayaBlockNumber)
     {

@@ -211,23 +211,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
-    /// @param pacayaBlockNumber The number of the latest pacaya block when the `genesisBlockHash` was calculated. 
+    /// @param pacayaBlockNumber The number of the latest pacaya block when the `genesisBlockHash` was calculated.
     /// This is used for revert protection.
     function activate(bytes32 genesisBlockHash, uint256 pacayaBlockNumber) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
         require(genesisBlockHash != 0, InvalidActivateParams());
-        require (pacayaBlockNumber != 0, InvalidActivateParams());
+        require(pacayaBlockNumber != 0, InvalidActivateParams());
 
         // This returns the blockhash for the last 256 blocks, which should be more than enough to detect a reorg.
         bytes32 pacayaBlockHash = blockhash(pacayaBlockNumber);
-        
+
         // Detect if there was a reorg
         require(pacayaBlockHash != 0 && pacayaBlockHash != _pacayaBlockHash, NoForkDetected());
-        require(_pacayaBlockNumber == 0 || _pacayaBlockNumber == pacayaBlockNumber, NoForkDetected());
+        require(
+            _pacayaBlockNumber == 0 || _pacayaBlockNumber == pacayaBlockNumber, NoForkDetected()
+        );
         _pacayaBlockHash = pacayaBlockHash;
         _pacayaBlockNumber = pacayaBlockNumber;
-        
-        _activateInbox(genesisBlockHash);        
+
+        _activateInbox(genesisBlockHash);
     }
 
     /// @inheritdoc IInbox

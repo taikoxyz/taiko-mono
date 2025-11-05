@@ -23,4 +23,6 @@ pragma solidity ^0.8.24;
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
+//   _pacayaBlockHash               | bytes32                                            | Slot: 256  | Offset: 0    | Bytes: 32  
+//   _pacayaBlockNumber             | uint256                                            | Slot: 257  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[50]                                        | Slot: 258  | Offset: 0    | Bytes: 1600

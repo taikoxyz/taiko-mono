@@ -23,6 +23,8 @@ pragma solidity ^0.8.24;
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
+//   _pacayaBlockHash               | bytes32                                            | Slot: 256  | Offset: 0    | Bytes: 32  
+//   _pacayaBlockNumber             | uint256                                            | Slot: 257  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[50]                                        | Slot: 258  | Offset: 0    | Bytes: 1600
+//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 308  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[49]                                        | Slot: 309  | Offset: 0    | Bytes: 1568
