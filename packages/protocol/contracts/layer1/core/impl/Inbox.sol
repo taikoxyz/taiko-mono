@@ -423,14 +423,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Sets up the initial proposal and core state with genesis block.
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
-    /// @param _lastBlockHash The hash of the last finalized block
-    function _activateInbox(bytes32 _lastBlockHash) internal {
-        require(_lastBlockHash != 0, InvalidLastPacayaBlockHash());
+    /// @param _lastPacayaBlockHash The hash of the last Pacaya block
+    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
+        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
 
         conflictingTransitionDetected = false;
 
         Transition memory transition;
-        transition.checkpoint.blockHash = _lastBlockHash;
+        transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
