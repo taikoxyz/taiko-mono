@@ -10,7 +10,7 @@ This proposal implements security enhancements and protocol upgrades for the Tai
 
 The Taiko protocol relies on multiple proof systems (ZK and SGX) to ensure the validity of L2 state transitions. As the protocol evolves and security research advances, it is essential to:
 
-1. Update trusted proof images to incorporate latest optimizations and security patches
+1. Update trusted proof images to incorporate the latest optimizations and security patches
 2. Upgrade verifier contracts to improve gas efficiency and add necessary functionality
 3. Maintain strict control over SGX attestation to prevent unauthorized proof generation
 
@@ -48,10 +48,11 @@ New trusted images to be added:
 Key changes:
 
 - Modified `proposeBatch` function return data structure
-- Updated Groth16 verifier dependency (the `_riscoGroth16Verifier` parameter value in the constructor) from `0x34Eda8BfFb539AeC33078819847B36D221c6641c` to `0x7CCA385bdC790c25924333F5ADb7F4967F5d1599` 
+- Updated Groth16 verifier dependency (the `_riscoGroth16Verifier` parameter value in the constructor) from `0x34Eda8BfFb539AeC33078819847B36D221c6641c` to `0x7CCA385bdC790c25924333F5ADb7F4967F5d1599`
 
-- [View implementation diff](https://codediff.taiko.xyz/?addr=0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE&newimpl=0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36&chainid=1&filter=changed)
-- [View _riscoGroth16Verifier diff](https://codediff.taiko.xyz/?addr=0x34Eda8BfFb539AeC33078819847B36D221c6641c&newimpl=0x7CCA385bdC790c25924333F5ADb7F4967F5d1599&chainid=1&filter=changed))
+[View implementation diff](https://codediff.taiko.xyz/?addr=0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE&newimpl=0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36&chainid=1&filter=changed)
+
+[View _riscoGroth16Verifier diff](https://codediff.taiko.xyz/?addr=0x34Eda8BfFb539AeC33078819847B36D221c6641c&newimpl=0x7CCA385bdC790c25924333F5ADb7F4967F5d1599&chainid=1&filter=changed)
 
 
 #### 2.2 PreconfRouter Upgrade
@@ -120,7 +121,7 @@ To verify MR_ENCLAVE values:
 
 1. Check out the official release (v1.12.0)
 2. Run `./script/publish-image.sh [0|1]` (0 for non-EDMM, 1 for EDMM)
-3. Compare the output with proposed values
+3. Compare the output with the proposed values
 
 Example verification output:
 
