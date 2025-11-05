@@ -34,8 +34,9 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         );
 
         // Activate the inbox with Alice as the activator
+        uint256 pacayaBlockNumber = _preparePacayaBlock(randBytes32());
         vm.prank(Alice);
-        inbox.activate(bytes32(uint256(1)));
+        inbox.activate(bytes32(uint256(1)), pacayaBlockNumber);
 
         return inbox;
     }

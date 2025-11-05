@@ -427,6 +427,16 @@ abstract contract InboxTestHelper is CommonTest {
         vm.warp(_timestamp);
     }
 
+    /// @notice Prepare the previous block as the pacaya reference block.
+    /// @dev Rolls one block so that block.number - 1 is valid, then assigns its hash.
+    /// @param newHash The hash to assign to the pacaya block.
+    /// @return pacayaBlockNumber The block number whose hash was set.
+    function _preparePacayaBlock(bytes32 newHash) internal returns (uint256 pacayaBlockNumber) {
+        vm.roll(block.number + 1);
+        pacayaBlockNumber = block.number - 1;
+        vm.setBlockhash(pacayaBlockNumber, newHash);
+    }
+
     /// @notice Create a proposal input for testing consecutive proposals
     /// @param _parentProposal The parent proposal to build upon
     /// @param _proposalId The ID for the new proposal

@@ -67,9 +67,11 @@ abstract contract AbstractInitTest is InboxTestHelper {
         vm.prank(owner);
         inbox.init(owner, initializer);
 
+        uint256 pacayaBlockNumber = _preparePacayaBlock(randBytes32());
+
         vm.recordLogs();
         vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         IInbox.ProposedEventPayload memory payload = _decodeProposedEvent(logs);
@@ -93,54 +95,59 @@ abstract contract AbstractInitTest is InboxTestHelper {
         vm.prank(owner);
         inbox.init(owner, initializer);
 
+        uint256 pacayaBlockNumber = _preparePacayaBlock(randBytes32());
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         vm.prank(David);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
     }
 
-    function test_activate_SucceedsWhenCalledTwice() public {
+    function test_activate_RevertWhen_NoForkDetected() public {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
         inbox.init(owner, initializer);
 
-        vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        bytes32 pacayaHash = randBytes32();
+        uint256 pacayaBlockNumber = _preparePacayaBlock(pacayaHash);
 
-        // Should succeed when called again by same initializer (for L1 reorgs)
         vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
 
-        // Verify state is still correct
-        bytes32 storedHash = inbox.getProposalHash(0);
-        assertTrue(storedHash != bytes32(0), "genesis proposal should exist");
+        pacayaBlockNumber = _preparePacayaBlock(pacayaHash);
+        vm.expectRevert(Inbox.NoForkDetected.selector);
+        vm.prank(initializer);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
     }
 
-    function test_activate_RevertWhen_CalledAfterInitializerReset() public {
+    function test_activate_SucceedsWhen_ForkDetected() public {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
         inbox.init(owner, initializer);
 
+        uint256 pacayaBlockNumber = _preparePacayaBlock(randBytes32());
         vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
 
-        // Reset initializer
-        vm.prank(initializer);
-        inbox.resetInitializer();
+        bytes32 previousGenesisHash = inbox.getProposalHash(0);
+        bytes32 newGenesisHash = randBytes32();
+        pacayaBlockNumber = _preparePacayaBlock(randBytes32());
 
-        // Should revert when called after reset
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(newGenesisHash, pacayaBlockNumber);
+
+        bytes32 updatedGenesisHash = inbox.getProposalHash(0);
+        assertTrue(updatedGenesisHash != bytes32(0), "genesis proposal should exist");
+        assertTrue(updatedGenesisHash != previousGenesisHash, "genesis proposal should update");
     }
 
     function test_activate_RevertWhen_NotInitialized() public {
         Inbox inbox = _deployInboxProxy();
 
+        uint256 pacayaBlockNumber = _preparePacayaBlock(randBytes32());
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
+        inbox.activate(GENESIS_BLOCK_HASH, pacayaBlockNumber);
     }
 
     function _deployInboxProxy() internal returns (Inbox inbox) {

@@ -47,6 +47,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     struct DeploymentConfig {
         address contractOwner;
         bytes32 l2GenesisHash;
+        uint256 pacayaBlockNumber;
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
@@ -97,6 +98,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     function _loadConfig() private view returns (DeploymentConfig memory config) {
         config.contractOwner = vm.envAddress("CONTRACT_OWNER");
         config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
+        uint256 defaultPacayaBlockNumber = block.number > 0 ? block.number - 1 : 0;
+        config.pacayaBlockNumber = vm.envOr("PACAYA_BLOCK_NUMBER", defaultPacayaBlockNumber);
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
@@ -212,7 +215,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         if (vm.envBool("ACTIVATE_INBOX")) {
-            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
+            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash, config.pacayaBlockNumber);
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
