@@ -68,6 +68,8 @@ The following paragraphs describe in more detail how each part of the protocol h
 
 8. The next preconfer submits their proposal to the new shasta inbox. At this point the fork has officially happened and all calls should be redirected to the new contracts.
 
-9. After Shasta is stable for a few days a new proposal to upgrade the Anchor and the SignalService(both on L1 and L2) is submitted. This proposal removes the fork router to simplify the deployment and save gas.
+9. After a few succesful proposal(s) from Taiko Labs proposer the rest of the preconfers that have their sidecars ready for shasta are added back to the whitelist.
 
-10. Transfer the ownership of the new shasta inbox to the DAO. The rest of the contracts are already owned by the DAO.
+10. After Shasta is stable for a few days a new proposal to upgrade the Anchor and the SignalService(both on L1 and L2) is submitted. This proposal removes the fork router to simplify the deployment and save gas.
+
+11. Transfer the ownership of the new shasta inbox to the DAO. The rest of the contracts are already owned by the DAO.
