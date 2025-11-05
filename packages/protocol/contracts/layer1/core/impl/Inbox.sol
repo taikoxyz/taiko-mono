@@ -184,6 +184,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Activates the inbox so that it can start accepting proposals.
     ///         This function can only be called once.
     /// @dev Only the `shastaInitializer` can call this function.
+    /// @dev The `propose` function implicitly checks that activation has occurred by verifying
+    ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
+    ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
+    ///      exist and `propose` will revert with `ProposalHashMismatch()`.
     /// @param _genesisBlockHash The hash of the genesis block
     function activate(bytes32 _genesisBlockHash) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
