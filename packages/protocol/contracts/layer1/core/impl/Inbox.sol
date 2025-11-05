@@ -35,7 +35,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -426,7 +425,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-
         conflictingTransitionDetected = false;
 
         Transition memory transition;
