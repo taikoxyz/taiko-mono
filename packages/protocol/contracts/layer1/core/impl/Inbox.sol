@@ -398,10 +398,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
-    /// Sets up the initial proposal and core state with genesis block
+    /// Sets up the initial proposal and core state with genesis block.
+    /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
+    /// Resets state variables to allow fresh start.
     /// @param _lastBlockHash The hash of the last finalized block
     function _activateInbox(bytes32 _lastBlockHash) internal {
         require(_lastBlockHash != 0, ZERO_BLOCK_HASH());
+
+        // Reset state variables that may have been modified by propose/prove/saveForcedInclusion
+        conflictingTransitionDetected = false;
+
+        // Reset forced inclusion storage
+        LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
+        $.head = 0;
+        $.tail = 0;
+        $.lastProcessedAt = 0;
+
         Transition memory transition;
         transition.checkpoint.blockHash = _lastBlockHash;
 
