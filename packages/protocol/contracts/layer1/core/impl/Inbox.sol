@@ -37,7 +37,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     
     // ---------------------------------------------------------------
-    // Immutable Variables
+    // Structs
     // ---------------------------------------------------------------
 
     /// @notice Struct for storing transition effective timestamp and hash.

@@ -98,7 +98,7 @@ abstract contract AbstractInitTest is InboxTestHelper {
         inbox.activate(GENESIS_BLOCK_HASH);
     }
 
-    function test_activate_RevertWhen_CalledTwice() public {
+    function test_activate_SucceedsWhenCalledTwice() public {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
@@ -107,6 +107,29 @@ abstract contract AbstractInitTest is InboxTestHelper {
         vm.prank(initializer);
         inbox.activate(GENESIS_BLOCK_HASH);
 
+        // Should succeed when called again by same initializer (for L1 reorgs)
+        vm.prank(initializer);
+        inbox.activate(GENESIS_BLOCK_HASH);
+
+        // Verify state is still correct
+        bytes32 storedHash = inbox.getProposalHash(0);
+        assertTrue(storedHash != bytes32(0), "genesis proposal should exist");
+    }
+
+    function test_activate_RevertWhen_CalledAfterInitializerReset() public {
+        Inbox inbox = _deployInboxProxy();
+
+        vm.prank(owner);
+        inbox.init(owner, initializer);
+
+        vm.prank(initializer);
+        inbox.activate(GENESIS_BLOCK_HASH);
+
+        // Reset initializer
+        vm.prank(initializer);
+        inbox.resetInitializer();
+
+        // Should revert when called after reset
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         vm.prank(initializer);
         inbox.activate(GENESIS_BLOCK_HASH);
