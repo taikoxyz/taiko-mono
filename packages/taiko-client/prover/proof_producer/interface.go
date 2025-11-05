@@ -59,7 +59,7 @@ func (o *ProofRequestOptionsPacaya) PacayaOptions() *ProofRequestOptionsPacaya {
 	return o
 }
 
-// PacayaOptions implements the ProofRequestOptions interface.
+// ShastaOptions implements the ProofRequestOptions interface.
 func (o *ProofRequestOptionsPacaya) ShastaOptions() *ProofRequestOptionsShasta {
 	return nil
 }
@@ -97,7 +97,7 @@ func (o *ProofRequestOptionsShasta) PacayaOptions() *ProofRequestOptionsPacaya {
 	return nil
 }
 
-// PacayaOptions implements the ProofRequestOptions interface.
+// ShastaOptions implements the ProofRequestOptions interface.
 func (o *ProofRequestOptionsShasta) ShastaOptions() *ProofRequestOptionsShasta {
 	return o
 }
