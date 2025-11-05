@@ -150,7 +150,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[37] private __gap;
+    /// @dev Only used during intialization to safeguard against reorgs
+    bytes32 private _pacayaBlockHash;
+
+    uint256[50] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -203,20 +206,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
-    /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external {
+    /// @param _genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
+    /// @param pacayaBlockNumber The number of the latest pacaya block when the `_genesisBlockHash` was calculated. 
+    /// This is used for revert protection.
+    function activate(bytes32 _genesisBlockHash, uint256 pacayaBlockNumber) external {
         require(msg.sender == _shastaInitializer, ACCESS_DENIED());
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
-        _activateInbox(_lastPacayaBlockHash);
-        emit InboxActivated(_lastPacayaBlockHash);
-    }
+        require(_genesisBlockHash != 0, "Genesis block hash cannot be 0");
 
-    /// @notice Resets the initializer to allow a new inbox to be activated.
-    /// @dev Only the owner can call this function.
-    function resetInitializer() external {
-        require(msg.sender == owner() || msg.sender == _shastaInitializer, ACCESS_DENIED());
-        _shastaInitializer = address(0);
-        emit InitializerReset();
+        // This returns the blockhash for the last 256 blocks, which should be more than enough to detect a fork.
+        bytes32 pacayaBlockHash = blockhash(pacayaBlockNumber);
+        require(pacayaBlockHash != 0 && pacayaBlockHash != _pacayaBlockHash, NoForkDetected());
+        
+        _activateInbox(_genesisBlockHash);
+
+        // Store the pacaya block hash to detect a potential reorg
+        _pacayaBlockHash = pacayaBlockHash;
     }
 
     /// @inheritdoc IInbox
@@ -423,12 +427,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Sets up the initial proposal and core state with genesis block.
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
-    /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
+    /// @param _genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
+    function _activateInbox(bytes32 _genesisBlockHash) internal {
         conflictingTransitionDetected = false;
 
         Transition memory transition;
-        transition.checkpoint.blockHash = _lastPacayaBlockHash;
+        transition.checkpoint.blockHash = _genesisBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -1152,4 +1156,5 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
     error InvalidLastPacayaBlockHash();
+    error NoForkDetected();
 }
