@@ -20,10 +20,9 @@ pragma solidity ^0.8.24;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
 //   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1   
-//   _var                           | uint256                                            | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 254  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 257  | Offset: 0    | Bytes: 1184
-//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 294  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[49]                                        | Slot: 295  | Offset: 0    | Bytes: 1568
+//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
+//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
+//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
+//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
