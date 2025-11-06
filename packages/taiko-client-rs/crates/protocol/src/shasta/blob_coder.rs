@@ -1,7 +1,7 @@
 //! Blob sidecar coder compatible with Kona's blob encoding scheme.
 
 use alloy_eips::eip4844::{
-    BYTES_PER_BLOB, Blob, VERSIONED_HASH_VERSION_KZG,
+    BYTES_PER_BLOB, Blob,
     builder::{PartialSidecar, SidecarCoder},
     utils::WholeFe,
 };
@@ -9,6 +9,10 @@ use std::vec::Vec;
 
 /// The blob encoding version expected by the Kona decoder.
 const BLOB_ENCODING_VERSION: u8 = 0;
+/// Byte index of the encoding version in the first field element.
+/// The first field element structure: [header: 1 byte, version: 1 byte, length: 3 bytes, payload:
+/// 27 bytes]
+const BLOB_VERSION_BYTE_INDEX: usize = 1;
 /// Maximum payload size that fits in a single blob with Kona encoding.
 const BLOB_MAX_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
 /// Total encoding rounds per blob.
@@ -237,7 +241,13 @@ fn reassemble_encoded_bytes(
 fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
     let data: &[u8] = blob.as_ref();
 
-    if data[VERSIONED_HASH_VERSION_KZG as usize] != BLOB_ENCODING_VERSION {
+    // Ensure we have at least the first field element (32 bytes) before accessing version and
+    // length
+    if data.len() < 32 {
+        return None;
+    }
+
+    if data[BLOB_VERSION_BYTE_INDEX] != BLOB_ENCODING_VERSION {
         return None;
     }
 
