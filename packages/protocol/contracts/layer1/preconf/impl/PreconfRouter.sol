@@ -12,8 +12,10 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     IProposeBatch public immutable proposeBatchEntrypoint;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
+    uint64 public immutable shastaForkTimestamp;
 
     error InvalidLastBlockId(uint96 _actual, uint96 _expected);
+    error ShastaForkAlreadyActivated();
 
     uint256[50] private __gap;
 
@@ -29,7 +31,8 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     constructor(
         address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist,
-        address _fallbackPreconfer
+        address _fallbackPreconfer,
+        uint64 _shastaForkTimestamp
     )
         nonZeroAddr(_proposeBatchEntrypoint)
         nonZeroAddr(_preconfWhitelist)
@@ -38,6 +41,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
         fallbackPreconfer = _fallbackPreconfer;
+        shastaForkTimestamp = _shastaForkTimestamp;
     }
 
     function init(address _owner) external initializer {
@@ -84,6 +88,11 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     {
+        uint64 currentTimestamp = uint64(block.timestamp);
+        if (currentTimestamp >= shastaForkTimestamp) {
+            revert ShastaForkAlreadyActivated();
+        }
+
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
         (meta_, lastBlockId_) = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
 

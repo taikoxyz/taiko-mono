@@ -43,7 +43,8 @@ contract DeployWLAndWrapper is DeployCapability {
             abi.encodeCall(PreconfWhitelist.addOperator, (chainBoundSequencer, chainBoundSequencer))
         );
 
-        address routerImpl = address(new PreconfRouter(taikoWrapper, whitelist, fallbackProposer));
+        address routerImpl =
+            address(new PreconfRouter(taikoWrapper, whitelist, fallbackProposer, type(uint64).max));
         console2.log("Upgrading router calldata: ");
 
         console2.logBytes(abi.encodeCall(UUPSUpgradeable.upgradeTo, (routerImpl)));

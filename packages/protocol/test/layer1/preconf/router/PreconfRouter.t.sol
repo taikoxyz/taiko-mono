@@ -53,7 +53,8 @@ contract PreconfRouterForkTest is ForkTestBase {
         address owner = Ownable2StepUpgradeable(MAINNET_ROUTER).owner();
 
         // Deploy optimized implementations
-        PreconfRouter routerImpl = new PreconfRouter(MAINNET_WRAPPER, MAINNET_WHITELIST, address(0));
+        PreconfRouter routerImpl =
+            new PreconfRouter(MAINNET_WRAPPER, MAINNET_WHITELIST, address(0), type(uint64).max);
         TaikoWrapper wrapperImpl =
             new TaikoWrapper(MAINNET_INBOX, MAINNET_FORCED_INCLUSION, MAINNET_ROUTER);
         address forkImpl =
