@@ -318,7 +318,8 @@ where
             "processing manifest block"
         );
         let block_base_fee = state.compute_block_base_fee()?;
-        let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
+        let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
+        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
 
         let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
 
