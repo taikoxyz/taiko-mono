@@ -19,7 +19,7 @@ abstract contract BaseNFTVault is BaseVault {
         string name;
     }
 
-    /// @devStruct representing the details of a bridged token transfer operation.
+    /// @dev representing the details of a bridged token transfer operation.
     /// 5 slots
     struct BridgeTransferOp {
         // Destination chain ID.
