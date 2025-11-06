@@ -169,7 +169,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 0))
+            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 2))
         });
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
