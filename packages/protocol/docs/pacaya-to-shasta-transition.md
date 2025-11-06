@@ -14,7 +14,7 @@ This document captures the current strategy for migrating the rollup from the Pa
 
 - **FORK_TIMESTAMP** – The L1 timestamp that determines when the fork should occur.
 - **SAFETY_WINDOW** - The amount of seconds before `FORK_TIMESTAMP` proposers stop preconfing L2 blocks.
-- **SHASTA_INITIALIZER** – The privileged address allowed to call `Inbox.activate` after the fork timestamp. It finalizes the genesis state hash for the new inbox.
+- **SHASTA_INITIALIZER** – The privileged address allowed to call `Inbox.activate` after the fork timestamp. It initializes the genesis state hash for the new inbox.
 
 ## Fork Implementation
 
@@ -26,15 +26,15 @@ The following paragraphs describe in more detail how each part of the protocol h
   _Forced inclusions submitted before the fork and not processed before it will be lost, and need to be submitted again to the new inbox_
 
 - **Anchor**: The Shasta [anchor contract](../contracts/layer2/core/Anchor.sol) will be deployed as an upgradable contract to a new address, but the entrypoint is kept using the [AnchorForkRouter](../contracts/layer2/core/AnchorForkRouter.sol). This fork router will be deployed to the existing Anchor address and route to the old and new implementation based on the function signature. Calls to the `anchorV3` will be routed to the Pacaya anchor and calls to `anchorV4` will be routed to the new shasta anchor.
-  Preconfers need to deposit their bonds into this contract before their first turn to propose after `FORK_TIMESTAMP` to avoid their proposal being treated as a low bond proposal.
+  Preconfers need to deposit their bonds into the `BondManager` contract on L2 before their first turn to propose after `FORK_TIMESTAMP` to avoid their proposal being treated as a low bond proposal. This contract will be deployed with anticipation, so proposers can do this long before their turn to propose.
   **IMPORTANT: The `FORK_TIMESTAMP` refers to the L1 timestamp. Event if the Anchor is an L2 contract, proposers will start calling `anchorV4` after the timestamp is hit on L1**
   **The contract does not handle fork logic based on the timestamp, and it is up to the preconfer to decide which function to call based on the timestamp.**
-  _Deposits and withdrawals will be available via the existing address_
+  _Withdrawals will be available via the existing address_
 
 - **Signal Service**: The [SignalService](../contracts/shared/signal/SignalService.sol) is deployed as an upgradable contract to a new address, but a fork router will be used. The new SignalService is abi compatible for sending and receiving signals with the Pacaya implementation to ensure backwards compatibility for bridges.  
   But between the time the new version is deployed and the fork activated we need to keep verification working with the old checkpoint mechanism. Because of that [SignalForkRouter](../contracts/shared/signal/SignalServiceForkRouter.sol) will be deployed to the existing SignalService address and redirect calls based on timestamp. Before `FORK_TIMESTAMP` it will send calls to the Pacaya implementation, and afterwards to the shasta implementation.
-  _Note that on L2, `FORK_TIMESTAMP` will happen a few moments after L1. Because of this the fork on L2 for the SignalService will in practice happen after its L1 counterpart, but this should not be an issue(some signals might fail to be verified on L2, but not more than that)_
-  _Note that signals sent before the fork will still be available and can be verified, but a new merkle proof needs to be generated(this is because the checkpoints are different so the old proof won't pass validation)_
+  _Note that on L2, `FORK_TIMESTAMP` might happen a few moments before or after L1. Because of this the fork on L2 for the SignalService will in practice happen at a different moment to its L1 counterpart, but this should not be an issue(some signals might fail to be verified on L2, but not more than that)_
+  _Note that signals sent before the fork will still be available and can be verified, but a new merkle proof needs to be generated(this is because the checkpoints are different, so the old proof won't pass validation)_
 
 ## Steps
 
@@ -60,11 +60,13 @@ The following paragraphs describe in more detail how each part of the protocol h
    - upgrade the Anchor(L2) to point to the new `AnchorForkRouter`
 
 5. **Reduce the whitelist**
-   A few minutes before the `FORK_TIMESTAMP` we remove every proposer from the whitelist, except Taiko Labs. This ensures the first proposer after the fork is known and is the same entity that will activate the inbox.
+   A few minutes before the `FORK_TIMESTAMP` we remove every preconfer from the whitelist, except Taiko Labs. This ensures the first proposer after the fork is known and is controlled bythe same entity that will activate the inbox.
 
 6. At least `SAFETY_WINDOW` seconds `FORK_TIMESTAMP` the proposer stops submitting proposals to the Pacaya Inbox. This ensures we have a reliable state for the transition. After this moment proposers should start preconfing with the new shasta block structure.
 
-7. The `SHASTA_INITIALIZER` calls the activate function on the shasta inbox with the \_genesisBlockHash as of the latest Pacaya batch. _NOTE: This can be computed off-chain, and while it has not been proven yet, the SHASTA_INITIALIZER can ensure it will eventually be proven._
+7. The `SHASTA_INITIALIZER` calls the activate function on the shasta inbox with the `_genesisBlockHash` set to the latest pacaya block hash.  
+   _NOTE: This can be computed off-chain, and while it has not been proven yet, the `SHASTA_INITIALIZER` can ensure it will eventually be proven._  
+   _NOTE: The `activate` function will be called manually, so that the genesis block hash can be verified before submitting. This will be verified by different members from the team before sending the tx._
 
 8. The next preconfer submits their proposal to the new shasta inbox. At this point the fork has officially happened and all calls should be redirected to the new contracts.
 
