@@ -44,7 +44,7 @@ The following paragraphs describe in more detail how each part of the protocol h
    **After this point proposers can deposit their bonds to the `BondManager` contract on L2**.
 
 2. **Deploy Pacaya Fork Router with fork guard**
-   Deploy a new implementation of the Pacaya Fork Router contract(which serves as the entry point for batch proposals) with an additional safe guard that prevents any proposals from happening after `FORK_TIMESTAMP`. This is a safety measure to ensure the old inbox state cannot be modified after the fork has occured. Changes for this have been implemented on this [PR](https://github.com/taikoxyz/taiko-mono/pull/20641).
+   Deploy a new implementation of the Pacaya Fork Router contract(which serves as the entry point for batch proposals) with an additional safe guard that prevents any proposals from happening after `FORK_TIMESTAMP`. This is a safety measure to ensure the old inbox state cannot be modified after the fork has occurred. Changes for this have been implemented on this [PR](https://github.com/taikoxyz/taiko-mono/pull/20641).
 
 3. **Deploy the fork routers**
    Now that both Pacaya and Shasta contracts are ready we can deploy the `AnchorForkRouter` and `SignalServiceForkRouter`. They will still route all calls to the Pacaya contracts.
@@ -70,7 +70,7 @@ The following paragraphs describe in more detail how each part of the protocol h
 
 8. The next preconfer submits their proposal to the new shasta inbox. At this point the fork has officially happened and all calls should be redirected to the new contracts.
 
-9. After a few succesful proposal(s) from Taiko Labs proposer the rest of the preconfers that have their sidecars ready for shasta are added back to the whitelist.
+9. After a few successful proposal(s) from Taiko Labs proposer the rest of the preconfers that have their sidecars ready for shasta are added back to the whitelist.
 
 10. After Shasta is stable for a few days a new proposal to upgrade the Anchor and the SignalService(both on L1 and L2) is submitted. This proposal removes the fork router to simplify the deployment and save gas.
 
