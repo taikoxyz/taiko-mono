@@ -66,15 +66,12 @@ impl DerivationSourceManifest {
         };
 
         let mut decoded_slice = decoded.as_slice();
-        let mut manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
+        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
             .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(DerivationSourceManifest::default());
         }
-
-        // Apply forced-inclusion default values to block metadata.
-        manifest.apply_forced_inclusion_defaults();
 
         Ok(manifest)
     }

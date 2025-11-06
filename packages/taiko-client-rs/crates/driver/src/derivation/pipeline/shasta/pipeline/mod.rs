@@ -172,6 +172,73 @@ where
         Ok(manifest)
     }
 
+    /// Build a proposal bundle from a decoded event payload.
+    async fn build_manifest_from_payload(
+        &self,
+        payload: &ProposedEventPayload,
+    ) -> Result<ShastaProposalBundle, DerivationError> {
+        let sources = &payload.derivation.sources;
+        let proposal_id = payload.proposal.id.to::<u64>();
+        info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
+
+        // If sources is empty, we return an error, which should never happen for the current
+        // Shasta protocol inbox implementation.
+        let Some((last_source, forced_inclusion_sources)) = sources.split_last() else {
+            let err = DerivationError::EmptyDerivationSources(proposal_id);
+            warn!(proposal_id, "proposal contained no derivation sources");
+            return Err(err);
+        };
+
+        // Fetch the forced inclusion sources first.
+        let mut manifest_segments = Vec::with_capacity(sources.len());
+        for source in forced_inclusion_sources {
+            let mut manifest = self
+                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
+                .await?;
+            if source.isForcedInclusion {
+                manifest.apply_forced_inclusion_defaults();
+            }
+            manifest_segments.push(SourceManifestSegment {
+                manifest,
+                is_forced_inclusion: source.isForcedInclusion,
+            });
+        }
+
+        // Fetch the normal proposal manifest last.
+        let mut final_manifest = self
+            .fetch_and_decode_manifest(
+                self.derivation_source_manifest_fetcher.as_ref(),
+                last_source,
+            )
+            .await?;
+        if last_source.isForcedInclusion {
+            final_manifest.apply_forced_inclusion_defaults();
+        }
+
+        let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
+        manifest_segments.push(SourceManifestSegment {
+            manifest: final_manifest,
+            is_forced_inclusion: last_source.isForcedInclusion,
+        });
+
+        // Assemble the full Shasta protocol proposal bundle.
+        let bundle = ShastaProposalBundle {
+            meta: BundleMeta {
+                proposal_id,
+                proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
+                origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
+                proposer: payload.proposal.proposer,
+                basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
+                bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
+                prover_auth_bytes,
+            },
+            sources: manifest_segments,
+        };
+
+        info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
+        Ok(bundle)
+    }
+
     /// Initialize the rolling parent state used while constructing payload attributes.
     #[instrument(skip(self, parent_block), level = "debug")]
     async fn initialize_parent_state(
@@ -225,60 +292,7 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
-        let sources = &payload.derivation.sources;
-        let proposal_id = payload.proposal.id.to::<u64>();
-        info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
-
-        // If sources is empty, we return an error, which should never happen for the current
-        // Shasta protocol inbox implementation.
-        let Some((last_source, forced_inclusion_sources)) = sources.split_last() else {
-            let err = DerivationError::EmptyDerivationSources(proposal_id);
-            warn!(proposal_id, "proposal contained no derivation sources");
-            return Err(err);
-        };
-
-        // Fetch the forced inclusion sources first.
-        let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in forced_inclusion_sources {
-            let manifest = self
-                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
-                .await?;
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: source.isForcedInclusion,
-            });
-        }
-
-        // Fetch the normal proposal manifest last.
-        let final_manifest = self
-            .fetch_and_decode_manifest(
-                self.derivation_source_manifest_fetcher.as_ref(),
-                last_source,
-            )
-            .await?;
-
-        let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
-        manifest_segments.push(SourceManifestSegment {
-            manifest: final_manifest,
-            is_forced_inclusion: last_source.isForcedInclusion,
-        });
-
-        // Assemble the full Shasta protocol proposal bundle.
-        let bundle = ShastaProposalBundle {
-            meta: BundleMeta {
-                proposal_id,
-                proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
-                origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
-                proposer: payload.proposal.proposer,
-                basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
-                bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
-                prover_auth_bytes,
-            },
-            sources: manifest_segments,
-        };
-
-        info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
-        Ok(bundle)
+        self.build_manifest_from_payload(&payload).await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -320,6 +334,42 @@ where
             block_count = outcomes.len(),
             "proposal derivation produced execution blocks"
         );
+        Ok(outcomes)
+    }
+
+    #[instrument(skip(self, log, applier), name = "shasta_process_proposal")]
+    async fn process_proposal(
+        &self,
+        log: &Log,
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
+        let payload = self.decode_log_to_event_payload(log).await?;
+        let proposal_id = payload.proposal.id.to::<u64>();
+
+        if proposal_id == 0 {
+            info!(proposal_id, "skipping proposal with zero id");
+            return Ok(Vec::new());
+        }
+
+        let manifest = self.build_manifest_from_payload(&payload).await?;
+        let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
+
+        if let Some(last) = outcomes.last() {
+            let last_block_number = last.block_number;
+            let last_block_hash = last.block_hash;
+            info!(
+                proposal_id,
+                last_l2_block_number = last_block_number,
+                last_l2_block_hash = ?last_block_hash,
+                "recorded final l2 block derived from proposal",
+            );
+        } else {
+            info!(
+                proposal_id,
+                "proposal derivation produced no execution blocks; nothing to record",
+            );
+        }
+
         Ok(outcomes)
     }
 }
