@@ -202,7 +202,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
-    /// @param genesisBlockHash The hash of the genesis block(as of the latest pacaya block)
+    /// @param genesisBlockHash The hash of the genesis block (as of the latest pacaya block)
     /// @param pacayaBlockNumber The number of the latest pacaya block when the `genesisBlockHash` was calculated.
     /// This is used for revert protection.
     function activate(bytes32 genesisBlockHash, uint256 pacayaBlockNumber) external {
