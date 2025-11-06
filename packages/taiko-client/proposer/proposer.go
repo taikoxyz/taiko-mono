@@ -623,11 +623,22 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
 
-		// It needs to be either us, or the proverSet we propose through
-		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
+		// check the active operators
+		operators, err := p.rpc.GetAllActiveOperators(&bind.CallOpts{
+			Context: ctx,
+		})
+		if err != nil {
+			return false, fmt.Errorf("failed to get all active preconfer address: %w", err)
+		}
+
+		// it needs to be either us, or the proverSet we propose through
+		if len(operators) != 0 ||
+			(fallbackPreconferAddress != p.proposerAddress &&
+				fallbackPreconferAddress != p.ProverSetAddress) {
 			log.Info(
 				"Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
 				"time", time.Now(),
+				"activeOperatorNums", len(operators),
 			)
 			return false, nil
 		}

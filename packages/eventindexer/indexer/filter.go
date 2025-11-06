@@ -150,7 +150,7 @@ func (i *Indexer) filter(
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
 		end := min(j+i.blockBatchSize-1, endBlockID)
 
-		if !i.isPostPacayaForkHeightReached && i.taikol1 != nil && i.pacayaForkHeight > i.latestIndexedBlockNumber && i.pacayaForkHeight < end {
+		if !i.isPostPacayaForkHeightReached && i.taikol1 != nil && i.pacayaForkHeight > i.latestIndexedBlockNumber && i.pacayaForkHeight <= end {
 			slog.Info("pacaya fork height reached", "height", i.pacayaForkHeight)
 
 			i.isPostPacayaForkHeightReached = true
@@ -164,7 +164,7 @@ func (i *Indexer) filter(
 				"endBlockID", end,
 				"isPostPacayaForkHeightReached", i.isPostPacayaForkHeightReached,
 			)
-		} else if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < end {
+		} else if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight <= end {
 			slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
 
 			i.isPostOntakeForkHeightReached = true

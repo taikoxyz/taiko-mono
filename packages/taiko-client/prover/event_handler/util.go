@@ -130,7 +130,7 @@ func IsProvingWindowExpiredShasta(
 ) (bool, time.Time, time.Duration, error) {
 	configs, err := rpc.GetProtocolConfigsShasta(nil)
 	if err != nil {
-		return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
+		return false, time.Time{}, 0, fmt.Errorf("failed to get Shasta protocol configs: %w", err)
 	}
 
 	var (
