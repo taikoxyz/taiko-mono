@@ -20,10 +20,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         address sequencerAddress; // Sequencer address for this operator (for off-chain use).
     }
 
-    event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
-    event OperatorChangeDelaySet(uint8 delay);
-    event EjecterUpdated(address indexed ejecter, bool isEjecter);
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+    /// @dev The number of epochs before an operator can be ejected from the whitelist.
+    uint8 constant public OPERATOR_CHANGE_DELAY = 2;
+    /// @dev The number of epochs to use as delay when selecting an operator.
+    ///      This needs to be 2 epochs or more to ensure the randomness seed source is stable across epochs.
+    uint8 constant public RANDOMNESS_DELAY = 2;
 
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
     ///     The proposer address is their main identifier and is used on-chain to identify the
@@ -35,10 +43,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     mapping(uint256 index => address proposer) public operatorMapping;
 
     uint8 public operatorCount;
-    /// @dev The number of epochs to delay for operator changes.
-    uint8 public operatorChangeDelay;
-    /// @dev The number of epochs to delay for randomness seed source.
-    uint8 public randomnessDelay;
+    /// @dev Deprecated variable. Kept here for storage compatibility.
+    uint8 private deprecated1;
+    /// @dev Deprecated variable. Kept here for storage compatibility.
+    uint8 private deprecated2;
     /// @dev all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
     /// @dev The addresses that can eject operators from the whitelist.
@@ -52,33 +60,24 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     function init(
-        address _owner,
-        uint8 _operatorChangeDelay,
-        uint8 _randomnessDelay
+        address _owner
     )
         external
         initializer
     {
         __Essential_init(_owner);
-        operatorChangeDelay = _operatorChangeDelay;
-        randomnessDelay = _randomnessDelay;
         havingPerfectOperators = true;
-    }
-
-    function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
-        operatorChangeDelay = _operatorChangeDelay;
-        emit OperatorChangeDelaySet(_operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
     function addOperator(address _proposer, address _sequencer) external onlyOwnerOrEjecter {
-        _addOperator(_proposer, _sequencer, operatorChangeDelay);
+        _addOperator(_proposer, _sequencer, OPERATOR_CHANGE_DELAY);
     }
 
     /// @inheritdoc IPreconfWhitelist
     function removeOperator(uint256 _operatorIndex) external onlyOwnerOrEjecter {
         require(_operatorIndex < operatorCount, InvalidOperatorIndex());
-        _removeOperator(operatorMapping[_operatorIndex], operatorChangeDelay);
+        _removeOperator(operatorMapping[_operatorIndex], OPERATOR_CHANGE_DELAY);
     }
 
     /// @notice Removes an operator by address.
@@ -92,7 +91,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         external
         onlyOwnerOrEjecter
     {
-        _removeOperator(_proposer, _effectiveImmediately ? 0 : operatorChangeDelay);
+        _removeOperator(_proposer, _effectiveImmediately ? 0 : OPERATOR_CHANGE_DELAY);
     }
 
     /// @notice Allows the caller to remove themselves as an operator immediately.
@@ -200,14 +199,16 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         view
         returns (bool)
     {
-        if (_proposer == address(0)) return false;
-        OperatorInfo memory info = operators[_proposer];
-        if (_epochTimestamp < info.activeSince) {
-            return false;
-        } else if (info.inactiveSince != 0 && _epochTimestamp >= info.inactiveSince) {
-            return false;
-        } else {
-            return true;
+        unchecked {
+            if (_proposer == address(0)) return false;
+            OperatorInfo memory info = operators[_proposer];
+            if (_epochTimestamp < info.activeSince) {
+                return false;
+            } else if (info.inactiveSince != 0 && _epochTimestamp >= info.inactiveSince) {
+                return false;
+            } else {
+                return true;
+            }
         }
     }
 
@@ -287,30 +288,32 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
-        // Get epoch-stable randomness with a delayed applied. This avoids querying future beacon roots.
-        uint256 delaySeconds = uint256(randomnessDelay) * LibPreconfConstants.SECONDS_IN_EPOCH;
-        uint256 ts = uint256(_epochTimestamp);
-        uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
-        uint256 rand = _getRandomNumber(randomnessTs);
+        unchecked {
+            // Get epoch-stable randomness with a delayed applied. This avoids querying future beacon roots.
+            uint256 delaySeconds = uint256(RANDOMNESS_DELAY) * LibPreconfConstants.SECONDS_IN_EPOCH;
+            uint256 ts = uint256(_epochTimestamp);
+            uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
+            uint256 rand = _getRandomNumber(randomnessTs);
 
-        uint256 _operatorCount = operatorCount;
+            uint256 _operatorCount = operatorCount;
 
-        // If no operators, return address(0)
-        if (_operatorCount == 0) return address(0);
+            // If no operators, return address(0)
+            if (_operatorCount == 0) return address(0);
 
-        if (havingPerfectOperators) {
-            return operatorMapping[rand % _operatorCount];
-        } else {
-            address[] memory candidates = new address[](_operatorCount);
-            uint256 count;
-            for (uint256 i; i < _operatorCount; ++i) {
-                address operator = operatorMapping[i];
-                if (isOperatorActive(operator, _epochTimestamp)) {
-                    candidates[count++] = operator;
+            if (havingPerfectOperators) {
+                return operatorMapping[rand % _operatorCount];
+            } else {
+                address[] memory candidates = new address[](_operatorCount);
+                uint256 count;
+                for (uint256 i; i < _operatorCount; ++i) {
+                    address operator = operatorMapping[i];
+                    if (isOperatorActive(operator, _epochTimestamp)) {
+                        candidates[count++] = operator;
+                    }
                 }
+                if (count == 0) return address(0);
+                return candidates[rand % count];
             }
-            if (count == 0) return address(0);
-            return candidates[rand % count];
         }
     }
 

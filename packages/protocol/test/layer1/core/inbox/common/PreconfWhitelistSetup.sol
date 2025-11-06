@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title PreconfWhitelistSetup
@@ -20,14 +21,7 @@ contract PreconfWhitelistSetup is CommonTest {
         address proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(
-                    PreconfWhitelist.init,
-                    (
-                        _owner, // owner
-                        0, // operatorChangeDelay (immediate for tests)
-                        2 // randomnessDelay (match production configuration)
-                    )
-                )
+                abi.encodeCall(PreconfWhitelist.init, (_owner))
             )
         );
 
@@ -45,6 +39,14 @@ contract PreconfWhitelistSetup is CommonTest {
 
         vm.prank(_owner);
         whitelist.addOperator(Emma, Emma);
+
+        // Ensure operators are active before returning
+        uint256 epochsToAdvance =
+            uint256(whitelist.OPERATOR_CHANGE_DELAY()) + whitelist.RANDOMNESS_DELAY();
+        for (uint256 i; i < epochsToAdvance; ++i) {
+            vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        }
+        whitelist.consolidate();
 
         return IProposerChecker(proxy);
     }
