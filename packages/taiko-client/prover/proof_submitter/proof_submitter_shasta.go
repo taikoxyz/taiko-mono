@@ -415,16 +415,14 @@ func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
 
 	for {
 		select {
-			case <-ctx.Done():
-				return common.Hash{}, ctx.Err()
-			case <-ticker.C:
-				transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
-				if transition != nil {
-					return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
-				}
-				log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
+		case <-ctx.Done():
+			return common.Hash{}, ctx.Err()
+		case <-ticker.C:
+			transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
+			if transition != nil {
+				return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
+			}
+			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
 		}
 	}
-
-	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, proposalID: %d", proposalID)
 }
