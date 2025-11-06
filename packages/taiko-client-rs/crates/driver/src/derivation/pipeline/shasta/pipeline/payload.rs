@@ -22,7 +22,7 @@ use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
-use tracing::warn;
+use tracing::{debug, info, instrument, warn};
 
 use super::{
     super::validation::{ValidationError, validate_source_manifest},
@@ -149,6 +149,10 @@ where
     P: Provider + Clone + 'static,
 {
     /// Process all manifest segments in order, materialising blocks via the execution engine.
+    #[instrument(
+        skip(self, sources, state, applier),
+        fields(proposal_id = meta.proposal_id, segment_count = sources.len())
+    )]
     pub(super) async fn build_payloads_from_sources(
         &self,
         sources: Vec<SourceManifestSegment>,
@@ -160,6 +164,11 @@ where
         // Each source can expand into multiple payloads; accumulate their engine outcomes in order.
         let segments_total = sources.len();
         let mut outcomes = Vec::new();
+        info!(
+            proposal_id = meta.proposal_id,
+            segment_count = segments_total,
+            "processing manifest segments"
+        );
         let parent_hash = state.header.hash_slow();
         let mut forkchoice_state = ForkchoiceState {
             head_block_hash: parent_hash,
@@ -185,16 +194,31 @@ where
 
         // Ensure the derived bond instruction hash matches what the proposal advertised.
         if state.bond_instructions_hash != meta.bond_instructions_hash {
+            warn!(
+                proposal_id = meta.proposal_id,
+                expected = ?meta.bond_instructions_hash,
+                actual = ?state.bond_instructions_hash,
+                "bond instruction hash mismatch after segment processing"
+            );
             return Err(DerivationError::BondInstructionsMismatch {
                 expected: meta.bond_instructions_hash,
                 actual: state.bond_instructions_hash,
             });
         }
 
+        info!(
+            proposal_id = meta.proposal_id,
+            block_count = outcomes.len(),
+            "completed payload derivation for proposal"
+        );
         Ok(outcomes)
     }
 
     /// Process a single manifest segment, producing one or more payload attributes.
+    #[instrument(
+        skip(self, segment, state, ctx, applier, forkchoice_state),
+        fields(proposal_id = ctx.meta.proposal_id, segment_index = ctx.segment_index, segments_total = ctx.segments_total, forced = segment.is_forced_inclusion)
+    )]
     async fn process_manifest_segment(
         &self,
         segment: SourceManifestSegment,
@@ -205,6 +229,13 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total } =
             ctx;
+        info!(
+            proposal_id = meta.proposal_id,
+            segment_index,
+            segments_total,
+            forced_inclusion = segment.is_forced_inclusion,
+            "processing proposal segment"
+        );
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
@@ -255,10 +286,20 @@ where
             outcomes.push(outcome);
         }
 
+        debug!(
+            proposal_id = meta.proposal_id,
+            segment_index,
+            derived_blocks = outcomes.len(),
+            "completed segment processing"
+        );
         Ok(outcomes)
     }
 
     /// Convert a manifest block into payload attributes while updating the rolling parent state.
+    #[instrument(
+        skip(self, block, state, ctx, applier, forkchoice_state),
+        fields(proposal_id = ctx.meta.proposal_id, block_idx = ctx.position.block_index, segment_index = ctx.position.segment_index)
+    )]
     async fn process_block_manifest(
         &self,
         block: &BlockManifest,
@@ -270,6 +311,12 @@ where
         let BlockContext { meta, origin_block_hash, position, is_low_bond_proposal } = ctx;
 
         let block_number = state.next_block_number();
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            forced_inclusion = position.is_forced_inclusion(),
+            "processing manifest block"
+        );
         let block_base_fee = state.compute_block_base_fee()?;
         let difficulty = calculate_shasta_difficulty(state.header.mix_hash, block_number);
 
@@ -309,6 +356,13 @@ where
 
         let applied = applier.apply_payload(&payload, forkchoice_state).await?;
         *state = state.advance(block, &applied.payload, bond_data.hash)?;
+
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number = applied.outcome.block_number,
+            block_hash = ?applied.outcome.block_hash,
+            "payload applied to execution engine"
+        );
 
         self.sync_l1_origin(meta, &payload, &applied.outcome, position.is_final()).await?;
 
@@ -392,6 +446,10 @@ where
     }
 
     /// Synchronise the execution engine's L1 origin tables with the derived block metadata.
+    #[instrument(
+        skip(self, meta, payload, outcome),
+        fields(proposal_id = meta.proposal_id, block_number = outcome.block_number, final_block = is_final_block)
+    )]
     async fn sync_l1_origin(
         &self,
         meta: &BundleMeta,
@@ -417,12 +475,24 @@ where
         if is_final_block {
             self.rpc.set_head_l1_origin(block_id).await?;
             self.rpc.set_batch_to_last_block(U256::from(meta.proposal_id), block_id).await?;
+            info!(
+                proposal_id = meta.proposal_id,
+                block_number = outcome.block_number,
+                "updated head l1 origin for final proposal block"
+            );
+        } else {
+            debug!(
+                proposal_id = meta.proposal_id,
+                block_number = outcome.block_number,
+                "updated l1 origin entry"
+            );
         }
 
         Ok(())
     }
 
     /// Query the anchor contract to determine if the proposal is designated as low-bond.
+    #[instrument(skip(self, state, meta))]
     async fn detect_low_bond_proposal(
         &self,
         state: &ParentState,
@@ -450,10 +520,13 @@ where
             .call()
             .await?;
 
-        Ok(designated_prover_info.isLowBondProposal_)
+        let is_low_bond = designated_prover_info.isLowBondProposal_;
+        debug!(proposal_id = meta.proposal_id, is_low_bond, "queried designated prover info");
+        Ok(is_low_bond)
     }
 
     /// Assemble bond instructions that must be embedded into the next anchor transaction.
+    #[instrument(skip(self, state, meta, _position))]
     async fn assemble_bond_instructions(
         &self,
         state: &ParentState,
@@ -461,6 +534,10 @@ where
         _position: &BlockPosition,
     ) -> Result<BondInstructionData, DerivationError> {
         if meta.proposal_id <= BOND_PROCESSING_DELAY {
+            debug!(
+                proposal_id = meta.proposal_id,
+                "bond processing delay active; skipping instruction fetch"
+            );
             return Ok(BondInstructionData {
                 instructions: Vec::new(),
                 hash: state.bond_instructions_hash,
@@ -477,16 +554,27 @@ where
             B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
 
         if state.bond_instructions_hash == target_hash {
+            debug!(
+                proposal_id = meta.proposal_id,
+                target_id, "bond instructions already up to date"
+            );
             return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
         }
 
-        Ok(BondInstructionData {
+        let data = BondInstructionData {
             instructions: target_payload.bond_instructions,
             hash: target_hash,
-        })
+        };
+        debug!(
+            proposal_id = meta.proposal_id,
+            instruction_count = data.instructions.len(),
+            "assembled bond instructions"
+        );
+        Ok(data)
     }
 
     // Build the anchor transaction for the given block.
+    #[instrument(skip(self, parent_state, meta, inputs))]
     async fn build_anchor_transaction(
         &self,
         parent_state: &ParentState,
@@ -503,6 +591,12 @@ where
 
         let (anchor_block_hash, anchor_state_root) =
             self.resolve_anchor_block_fields(block.anchor_block_number).await?;
+        debug!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            anchor_block = block.anchor_block_number,
+            "building anchor transaction"
+        );
 
         let tx = self
             .anchor_constructor
@@ -527,10 +621,12 @@ where
     }
 
     // Fetch the anchor block fields.
+    #[instrument(skip(self), fields(anchor_block_number))]
     async fn resolve_anchor_block_fields(
         &self,
         anchor_block_number: u64,
     ) -> Result<(B256, B256), DerivationError> {
+        tracing::Span::current().record("anchor_block_number", anchor_block_number as i64);
         let block = self
             .rpc
             .l1_provider
@@ -542,6 +638,11 @@ where
             })?
             .ok_or(DerivationError::AnchorBlockMissing { block_number: anchor_block_number })?;
 
+        debug!(
+            anchor_block_number,
+            hash = ?block.header.hash,
+            "resolved anchor block fields"
+        );
         Ok((block.header.hash, block.header.inner.state_root))
     }
 }

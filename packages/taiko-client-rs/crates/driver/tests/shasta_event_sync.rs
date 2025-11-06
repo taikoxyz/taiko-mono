@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_provider::Provider;
@@ -74,11 +74,18 @@ async fn syncs_shasta_proposal_into_l2() -> Result<()> {
         Duration::from_millis(50),
         RpcUrl::parse(blob_server.base_url().as_str())?,
         None,
+        Some(RpcUrl::parse(blob_server.base_url().as_str())?),
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();
 
-    let blob_source = BlobDataSource::new(blob_server.endpoint().clone());
+    let blob_source = Arc::new(
+        BlobDataSource::new(
+            Some(blob_server.endpoint().clone()),
+            Some(blob_server.endpoint().clone()),
+        )
+        .await?,
+    );
     let pipeline =
         ShastaDerivationPipeline::new(driver_client.clone(), blob_source, indexer.clone()).await?;
 

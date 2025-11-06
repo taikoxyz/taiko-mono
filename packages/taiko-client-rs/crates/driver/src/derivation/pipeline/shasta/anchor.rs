@@ -17,7 +17,7 @@ use bindings::anchor::{
 };
 use rpc::client::Client;
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::signer::{FixedKSigner, FixedKSignerError};
 
@@ -79,6 +79,7 @@ where
     }
 
     /// Assemble an `anchorV4` transaction for the given parent header and parameters.
+    #[instrument(skip(self), fields(proposal_id = params.proposal_id, anchor_block_number = params.anchor_block_number))]
     pub async fn assemble_anchor_v4_tx(
         &self,
         parent_hash: B256,

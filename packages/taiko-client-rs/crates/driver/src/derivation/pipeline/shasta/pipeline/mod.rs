@@ -19,6 +19,7 @@ use protocol::shasta::{
     constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
+use tracing::{debug, info, instrument, warn};
 
 use crate::{
     derivation::{
@@ -65,9 +66,10 @@ where
     ///
     /// Manifests are fetched via the supplied blob source while the driver client is
     /// reused to query both L1 contracts and L2 execution state.
+    #[instrument(skip(rpc, blob_source, indexer), name = "shasta_derivation_new")]
     pub async fn new(
         rpc: Client<P>,
-        blob_source: BlobDataSource,
+        blob_source: Arc<BlobDataSource>,
         indexer: Arc<ShastaEventIndexer>,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
@@ -76,6 +78,7 @@ where
         let chain_id = rpc.l2_provider.get_chain_id().await?;
         let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
+        info!(chain_id, shasta_fork_timestamp, "initialised shasta derivation pipeline");
         Ok(Self {
             rpc,
             indexer,
@@ -89,22 +92,30 @@ where
     ///
     /// Preference is given to the execution engine's cached origin pointer for the proposal.
     /// If unavailable, fall back to the latest canonical block.
+    #[instrument(skip(self), fields(proposal_id), level = "debug")]
     async fn load_parent_block(
         &self,
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
+        tracing::Span::current().record("proposal_id", proposal_id);
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO &&
                 let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
+                info!(
+                    proposal_id,
+                    l2_hash = ?origin.l2_block_hash,
+                    "using cached origin pointer for parent block"
+                );
                 return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));
             }
         }
 
         // Use the latest canonical block (common after beacon sync or at
         // startup when only genesis is present).
+        info!(proposal_id, "falling back to latest canonical block for parent context");
         self.rpc
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
@@ -120,17 +131,25 @@ where
     }
 
     /// Decode a proposal log into the event payload.
+    #[instrument(skip(self, log), level = "debug")]
     async fn decode_log_to_event_payload(
         &self,
         log: &Log,
     ) -> Result<ProposedEventPayload, DerivationError> {
-        Ok(self
+        let payload = self
             .rpc
             .shasta
             .codec
             .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
             .call()
-            .await?)
+            .await?;
+        debug!(
+            proposal_id = payload.proposal.id.to::<u64>(),
+            timestamp = payload.proposal.timestamp.to::<u64>(),
+            source_count = payload.derivation.sources.len(),
+            "decoded proposed event payload"
+        );
+        Ok(payload)
     }
 
     /// Fetch and decode a single manifest from the blob store.
@@ -145,15 +164,16 @@ where
     where
         M: Send,
     {
-        Ok(fetcher
-            .fetch_and_decode_manifest(
-                &self.derivation_source_to_blob_hashes(source),
-                source.blobSlice.offset.to::<u64>() as usize,
-            )
-            .await?)
+        let hashes = self.derivation_source_to_blob_hashes(source);
+        let offset = source.blobSlice.offset.to::<u64>() as usize;
+        let timestamp = source.blobSlice.timestamp.to::<u64>();
+        debug!(hash_count = hashes.len(), offset, timestamp, "fetching manifest sidecars");
+        let manifest = fetcher.fetch_and_decode_manifest(timestamp, &hashes, offset).await?;
+        Ok(manifest)
     }
 
     /// Initialize the rolling parent state used while constructing payload attributes.
+    #[instrument(skip(self, parent_block), level = "debug")]
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
@@ -183,6 +203,12 @@ where
             anchor_block_number: anchor_state.anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
         };
+        debug!(
+            parent_number = state.header.number,
+            parent_hash = ?state.header.hash_slow(),
+            anchor_block = state.anchor_block_number,
+            "initialised parent state for proposal derivation"
+        );
 
         Ok(state)
     }
@@ -196,14 +222,19 @@ where
     type Manifest = ShastaProposalBundle;
 
     // Convert a proposal log into a manifest for processing.
+    #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
         let sources = &payload.derivation.sources;
+        let proposal_id = payload.proposal.id.to::<u64>();
+        info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
 
         // If sources is empty, we return an error, which should never happen for the current
         // Shasta protocol inbox implementation.
         let Some((last_source, forced_inclusion_sources)) = sources.split_last() else {
-            return Err(DerivationError::EmptyDerivationSources(payload.proposal.id.to()));
+            let err = DerivationError::EmptyDerivationSources(proposal_id);
+            warn!(proposal_id, "proposal contained no derivation sources");
+            return Err(err);
         };
 
         // Fetch the forced inclusion sources first.
@@ -235,7 +266,7 @@ where
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
-                proposal_id: payload.proposal.id.to::<u64>(),
+                proposal_id,
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 proposer: payload.proposal.proposer,
@@ -246,16 +277,24 @@ where
             sources: manifest_segments,
         };
 
+        info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)
     }
 
     // Convert a manifest into execution engine blocks for block production.
+    #[instrument(skip(self, manifest, applier), name = "shasta_manifest_to_blocks")]
     async fn manifest_to_engine_blocks(
         &self,
         manifest: Self::Manifest,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
+        info!(
+            proposal_id = meta.proposal_id,
+            origin_block = meta.origin_block_number,
+            segment_count = sources.len(),
+            "deriving execution blocks from bundle"
+        );
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
         let proposal_origin_block_hash =
@@ -267,13 +306,20 @@ where
 
         let mut parent_state = self.initialize_parent_state(&parent_block).await?;
 
-        self.build_payloads_from_sources(
-            sources,
-            &meta,
-            proposal_origin_block_hash,
-            &mut parent_state,
-            applier,
-        )
-        .await
+        let outcomes = self
+            .build_payloads_from_sources(
+                sources,
+                &meta,
+                proposal_origin_block_hash,
+                &mut parent_state,
+                applier,
+            )
+            .await?;
+        info!(
+            proposal_id = meta.proposal_id,
+            block_count = outcomes.len(),
+            "proposal derivation produced execution blocks"
+        );
+        Ok(outcomes)
     }
 }
