@@ -208,7 +208,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
             ),
-            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
+            data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 
         if (vm.envBool("ACTIVATE_INBOX")) {

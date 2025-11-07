@@ -30,7 +30,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
             address(new TestInbox(codec, bondToken, signalService, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
-            deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice, Alice)) })
+            deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice)) })
         );
 
         // Activate the inbox with Alice as the activator

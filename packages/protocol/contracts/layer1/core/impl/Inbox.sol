@@ -22,6 +22,7 @@ import "./Inbox_Layout.sol"; // DO NOT DELETE
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proof verification, and forced inclusion in
 /// Taiko's based rollup architecture.
+/// @dev The Pacaya inbox contract is not being upgraded to the Shasta implementation; instead, Shasta uses a separate inbox address.
 /// @dev This contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
@@ -34,6 +35,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibMath for uint48;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
+
+       // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+    uint private constant ACTIVATION_WINDOW = 2 hours;
 
     // ---------------------------------------------------------------
     // Structs
@@ -57,8 +63,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     event InboxActivated(bytes32 lastPacayaBlockHash);
-
-    event InitializerReset();
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -126,8 +130,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev The address responsible for calling `activate` on the inbox.
-    address internal _shastaInitializer;
+
+    /// @notice The timestamp when the first activation occurred.
+    uint48 public activationTimestamp;
 
     /// @notice Flag indicating whether a conflicting transition record has been detected
     bool public conflictingTransitionDetected;
@@ -186,17 +191,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the owner of the inbox. The inbox then needs to be activated by the
-    /// `shastaInitializer` later in order to start accepting proposals.
+    /// @notice Initializes the owner of the inbox.
     /// @param _owner The owner of this contract
-    function init(address _owner, address shastaInitializer) external initializer {
+    function init(address _owner) external initializer {
         __Essential_init(_owner);
-        _shastaInitializer = shastaInitializer;
     }
 
     /// @notice Activates the inbox so that it can start accepting proposals.
-    ///         This function can only be called once.
-    /// @dev Only the `shastaInitializer` can call this function.
     /// @dev The `propose` function implicitly checks that activation has occurred by verifying
     ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
     ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
@@ -204,20 +205,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external {
-        require(msg.sender == _shastaInitializer, ACCESS_DENIED());
+    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+        if (activationTimestamp == 0) {
+            activationTimestamp = uint48(block.timestamp);
+        } else {
+            require(block.timestamp <= ACTIVATION_WINDOW + activationTimestamp , ActivationPeriodExpired());
+        }
         _activateInbox(_lastPacayaBlockHash);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
-    /// @notice Resets the initializer to allow a new inbox to be activated.
-    /// @dev Only the owner can call this function.
-    function resetInitializer() external {
-        require(msg.sender == owner() || msg.sender == _shastaInitializer, ACCESS_DENIED());
-        _shastaInitializer = address(0);
-        emit InitializerReset();
-    }
+  
 
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
@@ -1131,6 +1130,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Errors
     // ---------------------------------------------------------------
 
+    error ActivationPeriodExpired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
