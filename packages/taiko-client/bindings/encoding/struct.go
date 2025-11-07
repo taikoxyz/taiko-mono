@@ -50,6 +50,7 @@ type SubProofShasta struct {
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
+	LastBlockID         uint64
 }
 
 // ProverAuth represents the prover authorization data structure in ShastaAnchor.
