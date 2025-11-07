@@ -37,10 +37,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-       // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    uint private constant ACTIVATION_WINDOW = 2 hours;
+    uint256 private constant ACTIVATION_WINDOW = 2 hours;
 
     // ---------------------------------------------------------------
     // Structs
@@ -131,7 +131,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // State Variables
     // ---------------------------------------------------------------
 
-
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
@@ -211,13 +210,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (activationTimestamp == 0) {
             activationTimestamp = uint48(block.timestamp);
         } else {
-            require(block.timestamp <= ACTIVATION_WINDOW + activationTimestamp , ActivationPeriodExpired());
+            require(
+                block.timestamp <= ACTIVATION_WINDOW + activationTimestamp,
+                ActivationPeriodExpired()
+            );
         }
         _activateInbox(_lastPacayaBlockHash);
         emit InboxActivated(_lastPacayaBlockHash);
     }
-
-  
 
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
