@@ -77,9 +77,12 @@ func (i *Pacaya) InsertBlocks(
 	var (
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata, LastBlockID: metadata.Pacaya().GetLastBlockID()}
-		meta               = metadata.Pacaya()
-		txListBytes        []byte
+		latestSeenProposal = &encoding.LastSeenProposal{
+			TaikoProposalMetaData: metadata,
+			LastBlockID:           metadata.Pacaya().GetLastBlockID(),
+		}
+		meta        = metadata.Pacaya()
+		txListBytes []byte
 	)
 
 	log.Debug(
