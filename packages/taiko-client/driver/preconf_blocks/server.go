@@ -1167,8 +1167,8 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 						CoreState:  *recordedProposal.CoreState,
 					}, *recordedProposal.Log),
 					PreconfChainReorged: true,
-					// we dont set LastBlockID here because we don't know it at this time, s.lastUnsafeL2PayloadBlockID will be used instead
-					// will be reset to 0 after a reorg.
+					// we dont set LastBlockID here because we don't know it at this time,
+					// s.lastUnsafeL2PayloadBlockID will be reset to 0 after a reorg.
 				})
 			}
 			return
