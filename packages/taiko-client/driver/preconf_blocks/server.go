@@ -1221,8 +1221,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
-		// CODEX TODO: we need to get the last block ID from the shasta proposal, just like we do from
-		// the pacaya proposal.
 		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
