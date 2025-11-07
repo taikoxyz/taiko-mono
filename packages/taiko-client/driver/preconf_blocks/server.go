@@ -1095,6 +1095,7 @@ func (s *PreconfBlockAPIServer) monitorPacayaProposalOnChain(ctx context.Context
 			s.recordLatestSeenProposalPacaya(&encoding.LastSeenProposal{
 				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
 				PreconfChainReorged:   true,
+				LastBlockID:           iterPacaya.Event.Info.LastBlockId,
 			})
 		}
 	}
@@ -1183,15 +1184,15 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalPacaya(proposal *encodin
 	log.Info(
 		"Received latest pacaya proposal seen in event",
 		"batchID", proposal.Pacaya().GetBatchID(),
-		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+		"lastBlockID", proposal.LastBlockID,
 	)
 
 	s.latestSeenProposal = proposal
-	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.Pacaya().GetLastBlockID()))
+	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 			"batchID", proposal.Pacaya().GetBatchID(),
