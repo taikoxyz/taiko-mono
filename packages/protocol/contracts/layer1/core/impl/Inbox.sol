@@ -131,7 +131,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
 
-    /// @notice The timestamp when the first activiation occurred.
+    /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
     /// @notice Flag indicating whether a conflicting transition record has been detected
