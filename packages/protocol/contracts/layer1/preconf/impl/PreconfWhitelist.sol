@@ -54,7 +54,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @dev No need to reinitialize the contract, this value starts at 0(i.e. no pending activations)
     uint32 public latestActivationEpoch;
 
-
     /// @dev The addresses that can eject operators from the whitelist.
     mapping(address ejecter => bool isEjecter) public ejecters;
 
@@ -260,7 +259,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
                 // Fast path: This means all operators are active, so we can just select one without checking
                 return operatorMapping[randomNumber % _operatorCount];
             }
-            
+
             // Slow path: We need to check which operators are active
             address[] memory candidates = new address[](_operatorCount);
             uint256 count;
