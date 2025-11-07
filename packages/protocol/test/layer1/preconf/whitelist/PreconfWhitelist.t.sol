@@ -89,6 +89,78 @@ contract TestPreconfWhitelist is CommonTest {
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
     }
 
+    function test_getOperatorForEpoch_pendingOperatorNotSelectedUntilActive() external {
+        _setBeaconBlockRoot(bytes32(uint256(5)));
+
+        _addOperator(Bob);
+        _addOperator(Carol);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+
+        address[] memory activeSet = new address[](2);
+        activeSet[0] = Bob;
+        activeSet[1] = Carol;
+
+        address selectedBefore = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(selectedBefore, activeSet, "selected operator must be active");
+
+        _addOperator(David);
+
+        address selectedWithPending = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(selectedWithPending, activeSet, "pending operator must not be selected");
+        assertNotEq(selectedWithPending, David, "pending operator must remain inactive");
+
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+        address selectedAfterActivation = whitelist.getOperatorForCurrentEpoch();
+        assertEq(selectedAfterActivation, David, "new operator should join rotation once active");
+    }
+
+    function test_getOperatorForEpoch_handlesStaggeredActivations() external {
+        _setBeaconBlockRoot(bytes32(uint256(11)));
+
+        _addOperator(Bob);
+        _addOperator(Carol);
+        uint256 changeDelay = whitelist.OPERATOR_CHANGE_DELAY();
+        _advanceEpochs(changeDelay);
+
+        _addOperator(David);
+        uint256 spacing = 1;
+        assertGt(changeDelay, spacing, "spacing must be less than change delay");
+        _advanceEpochs(spacing);
+        _addOperator(Emma);
+
+        address[] memory initialSet = new address[](2);
+        initialSet[0] = Bob;
+        initialSet[1] = Carol;
+        _expectAddressInSet(
+            whitelist.getOperatorForCurrentEpoch(), initialSet, "only active operators selectable"
+        );
+
+        _advanceEpochs(changeDelay - spacing);
+        address[] memory afterDaveSet = new address[](3);
+        afterDaveSet[0] = Bob;
+        afterDaveSet[1] = Carol;
+        afterDaveSet[2] = David;
+
+        address selectedAfterDave = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(
+            selectedAfterDave, afterDaveSet, "newly active operator must be considered"
+        );
+        assertNotEq(selectedAfterDave, Emma, "later activation must still be pending");
+
+        _advanceEpochs(spacing);
+        address[] memory afterEmmaSet = new address[](4);
+        afterEmmaSet[0] = Bob;
+        afterEmmaSet[1] = Carol;
+        afterEmmaSet[2] = David;
+        afterEmmaSet[3] = Emma;
+
+        _expectAddressInSet(
+            whitelist.getOperatorForCurrentEpoch(),
+            afterEmmaSet,
+            "all operators selectable once fully active"
+        );
+    }
+
     function test_removeOperatorByIndex_keepsMappingPacked() external {
         _addOperator(Alice);
         _addOperator(Bob);
@@ -212,6 +284,24 @@ contract TestPreconfWhitelist is CommonTest {
 
     function _sequencer(address proposer) internal pure returns (address) {
         return address(uint160(proposer) + 1000);
+    }
+
+    function _expectAddressInSet(
+        address actual,
+        address[] memory expected,
+        string memory reason
+    )
+        internal
+        pure
+    {
+        bool found;
+        for (uint256 i; i < expected.length; ++i) {
+            if (actual == expected[i]) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, reason);
     }
 }
 
