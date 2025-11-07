@@ -46,8 +46,6 @@ contract PreconfWhitelistSetup is CommonTest {
         for (uint256 i; i < epochsToAdvance; ++i) {
             vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
         }
-        whitelist.consolidate();
-
         return IProposerChecker(proxy);
     }
 
