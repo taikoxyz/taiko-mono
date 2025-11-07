@@ -326,7 +326,7 @@ func (i *Pacaya) insertPreconfBlockFromEnvelope(
 func (i *Pacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
+			"Sending latest seen pacaya proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
 			"preconfChainReorged", proposal.PreconfChainReorged,
