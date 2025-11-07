@@ -5,9 +5,9 @@
   "forced_inclusion_single_Inbox": "108711",
   "forced_inclusion_single_InboxOptimized1": "108700",
   "forced_inclusion_single_InboxOptimized2": "101880",
-  "propose_reuse_ring_buffer_Inbox": "64217",
-  "propose_reuse_ring_buffer_InboxOptimized1": "64572",
-  "propose_reuse_ring_buffer_InboxOptimized2": "49386",
+  "propose_reuse_ring_buffer_Inbox": "64239",
+  "propose_reuse_ring_buffer_InboxOptimized1": "64594",
+  "propose_reuse_ring_buffer_InboxOptimized2": "49408",
   "propose_single_empty_ring_buffer_Inbox": "73397",
   "propose_single_empty_ring_buffer_InboxOptimized1": "73391",
   "propose_single_empty_ring_buffer_InboxOptimized2": "67544"
