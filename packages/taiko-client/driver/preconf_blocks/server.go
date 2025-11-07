@@ -1219,7 +1219,9 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 
 	s.latestSeenProposal = proposal
 
-	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
+	if proposal.LastBlockID != 0 {
+		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
+	}
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
