@@ -12,6 +12,7 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -225,7 +226,10 @@ abstract contract InboxTestHelper is CommonTest {
         });
 
         return IInbox.ProposedEventPayload({
-            proposal: expectedProposal, derivation: expectedDerivation, coreState: expectedCoreState
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState,
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
     }
 
@@ -349,7 +353,11 @@ abstract contract InboxTestHelper is CommonTest {
             address(proposerChecker)
         );
 
-        _upgradeDependencies();
+        assertEq(SignalService(signalService).owner(), owner, "signal service owner mismatch");
+        vm.startPrank(owner);
+        SignalService(signalService)
+            .upgradeTo(address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE)));
+        vm.stopPrank();
 
         _initializeContractName(inboxDeployer.getTestContractName());
 
@@ -372,10 +380,8 @@ abstract contract InboxTestHelper is CommonTest {
         // Deploy PreconfWhitelist as the proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
 
-        // Deploy signal service behind a proxy so it can be upgraded once inbox is available
         SignalService signalServiceImpl =
             new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
-
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
@@ -385,18 +391,6 @@ abstract contract InboxTestHelper is CommonTest {
         );
 
         checkpointManager = ICheckpointStore(address(signalService));
-    }
-
-    /// @notice Upgrade dependencies that need the deployed inbox reference
-    function _upgradeDependencies() internal virtual {
-        require(address(signalService) != address(0), "Signal service not deployed");
-        require(address(inbox) != address(0), "Inbox not deployed");
-
-        SignalService upgradedSignalServiceImpl =
-            new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE);
-
-        vm.prank(owner);
-        signalService.upgradeTo(address(upgradedSignalServiceImpl));
     }
 
     /// @notice Helper function to select and whitelist a proposer

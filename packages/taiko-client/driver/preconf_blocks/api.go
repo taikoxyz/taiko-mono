@@ -198,7 +198,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	var difficulty []byte
-	if reqBody.ExecutableData.Number >= s.rpc.ShastaClients.ForkHeight.Uint64() {
+	if reqBody.ExecutableData.Timestamp >= s.rpc.ShastaClients.ForkTime {
 		if difficulty, err = encoding.CalculateShastaDifficulty(parent.Difficulty(), parent.Number()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
 		}

@@ -15,14 +15,16 @@ const (
 	ProposalMaxBlocks = 384
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp, refer to LibManifest.TIMESTAMP_MAX_OFFSET.
 	TimestampMaxOffset = 12 * 32
-	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number, refer to LibManifest.ANCHOR_MIN_OFFSET.
+	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number, refer to LibManifest.MIN_ANCHOR_OFFSET.
 	AnchorMinOffset = 2
-	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number, refer to LibManifest.ANCHOR_MAX_OFFSET.
+	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number, refer to LibManifest.MAX_ANCHOR_OFFSET.
 	AnchorMaxOffset = 128
 	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block, in millionths (1/1,000,000), refer to LibManifest.MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD.
 	MaxBlockGasLimitChangePermyriad = 10 // 0.1%
 	// MinBlockGasLimit The minimum block gas limit, refer to LibManifest.MIN_BLOCK_GAS_LIMIT.
-	MinBlockGasLimit = 15_000_000
+	MinBlockGasLimit = 10_000_000
+	// MaxBlockGasLimit The maximum block gas limit, refer to LibManifest.MAX_BLOCK_GAS_LIMIT.
+	MaxBlockGasLimit = 100_000_000
 	// The delay in processing bond instructions relative to the current proposal. A value
 	// of 1 signifies that the bond instructions of the immediate parent proposal will be
 	// processed.
@@ -48,12 +50,6 @@ type BlockManifest struct {
 // DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
 // Should be same with LibManifest.DerivationSourceManifest.
 type DerivationSourceManifest struct {
-	Blocks []*BlockManifest `json:"blocks"`
-}
-
-// ProposalManifest represents a proposal manifest containing proposal-level metadata and sources.
-// Should be same with LibManifest.ProposalManifest.
-type ProposalManifest struct {
-	ProverAuthBytes []byte                      `json:"proverAuthBytes"`
-	Sources         []*DerivationSourceManifest `json:"sources"`
+	ProverAuthBytes []byte           `json:"proverAuthBytes"`
+	Blocks          []*BlockManifest `json:"blocks"`
 }

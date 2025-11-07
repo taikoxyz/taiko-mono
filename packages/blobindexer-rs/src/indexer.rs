@@ -6,6 +6,8 @@ use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+use metrics::counter;
+
 use crate::{
     beacon::BeaconClient,
     config::Config,
@@ -125,6 +127,11 @@ fn i64_to_u64(value: i64, context: &'static str) -> Result<u64> {
         .map_err(|_| BlobIndexerError::InvalidData(format!("{context} {value} is negative")))
 }
 
+fn usize_to_u64(value: usize, context: &'static str) -> Result<u64> {
+    u64::try_from(value)
+        .map_err(|_| BlobIndexerError::InvalidData(format!("{context} {value} exceeds u64 range")))
+}
+
 fn has_watched_blobs(summary: &BeaconBlockSummary, watch_addresses: &HashSet<Address>) -> bool {
     watch_addresses.is_empty()
         || summary
@@ -132,6 +139,32 @@ fn has_watched_blobs(summary: &BeaconBlockSummary, watch_addresses: &HashSet<Add
             .iter()
             .flatten()
             .any(|address| watch_addresses.contains(address))
+}
+
+fn record_block_metric(source: &'static str) {
+    counter!("blobindexer_blocks_stored_total", "source" => source).increment(1);
+}
+
+fn record_blob_metrics(source: &'static str, watch_enabled: bool, count: u64) {
+    if count == 0 {
+        return;
+    }
+
+    let watch_mode = if watch_enabled {
+        "filtered"
+    } else {
+        "disabled"
+    };
+    counter!(
+        "blobindexer_blobs_stored_total",
+        "source" => source,
+        "watch_mode" => watch_mode
+    )
+    .increment(count);
+
+    if watch_enabled {
+        counter!("blobindexer_watched_blobs_stored_total", "source" => source).increment(count);
+    }
 }
 
 impl Indexer {
@@ -259,7 +292,7 @@ impl Indexer {
         let slot_i64 = u64_to_i64(slot, "processed slot")?;
         if let Some(summary) = self.beacon.get_block_summary(slot).await? {
             info!(slot, block_root = ?summary.block_root, "storing new block summary");
-            self.store_block(&summary).await?;
+            self.store_block(&summary, "process").await?;
         } else {
             debug!(slot, "no block returned, updating processed cursor");
             let mut tx = self.storage.begin().await?;
@@ -295,13 +328,13 @@ impl Indexer {
                 return Ok(());
             }
 
-            self.store_block(&summary).await?;
+            self.store_block(&summary, "refresh").await?;
         }
 
         Ok(())
     }
 
-    async fn store_block(&self, summary: &BeaconBlockSummary) -> Result<()> {
+    async fn store_block(&self, summary: &BeaconBlockSummary, source: &'static str) -> Result<()> {
         let mut tx = self.storage.begin().await?;
         let block_record = summary_to_block_record(summary)?;
         let slot_i64 = block_record.slot;
@@ -310,6 +343,8 @@ impl Indexer {
         self.storage
             .insert_or_update_block(&mut tx, &block_record)
             .await?;
+
+        let watch_enabled = !self.watch_addresses.is_empty();
 
         let sidecars = if has_watched_blobs(summary, &self.watch_addresses) {
             debug!(
@@ -327,6 +362,7 @@ impl Indexer {
             Vec::new()
         };
         let blob_records = build_blob_records(summary, &sidecars, &self.watch_addresses)?;
+        let blob_count = usize_to_u64(blob_records.len(), "blob record count")?;
 
         debug!(
             slot = summary.slot,
@@ -360,6 +396,9 @@ impl Indexer {
         );
         tx.commit().await?;
 
+        record_block_metric(source);
+        record_blob_metrics(source, watch_enabled, blob_count);
+
         Ok(())
     }
 
@@ -374,6 +413,7 @@ impl Indexer {
         let mut cursor = head_block.parent_root;
         let mut fork_slot: Option<i64> = None;
         let mut depth = 0u64;
+        let watch_enabled = !self.watch_addresses.is_empty();
 
         while depth < self.config.reorg_lookback {
             if let Some(parent) = self.storage.get_block_by_root(&mut **tx, &cursor).await? {
@@ -404,9 +444,12 @@ impl Indexer {
                     Vec::new()
                 };
                 let blob_records = build_blob_records(&fetched, &sidecars, &self.watch_addresses)?;
+                let blob_count = usize_to_u64(blob_records.len(), "backfill blob record count")?;
                 self.storage
                     .replace_blobs(tx, record.slot, &blob_records)
                     .await?;
+                record_block_metric("backfill");
+                record_blob_metrics("backfill", watch_enabled, blob_count);
                 cursor = record.parent_root;
                 branch.push(record);
                 depth += 1;

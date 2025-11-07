@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -11,7 +12,7 @@ use alloy::{
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
@@ -20,16 +21,115 @@ use crate::{
     beacon::BeaconClient,
     bindings::TaikoWrapper,
     metrics,
+    monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY, TrackedBlock},
     utils::{
-        eject::eject_operator,
+        eject::{eject_operator, eject_operator_by_address, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
+
+#[derive(Default)]
+struct OperatorCache {
+    proposers: HashSet<Address>,
+    sequencer_to_proposer: HashMap<Address, Address>,
+}
+
+impl OperatorCache {
+    fn upsert(&mut self, proposer: Address, sequencer: Address) {
+        self.proposers.insert(proposer);
+        if !sequencer.is_zero() {
+            self.sequencer_to_proposer.insert(sequencer, proposer);
+        }
+    }
+
+    fn remove_proposer(&mut self, proposer: Address) {
+        self.proposers.remove(&proposer);
+        self.sequencer_to_proposer.retain(|_, existing| *existing != proposer);
+    }
+
+    fn proposer_for(&self, addr: Address) -> Option<Address> {
+        if self.proposers.contains(&addr) {
+            Some(addr)
+        } else {
+            self.sequencer_to_proposer.get(&addr).copied()
+        }
+    }
+
+    fn clear(&mut self) {
+        self.proposers.clear();
+        self.sequencer_to_proposer.clear();
+    }
+}
+
+async fn resolve_operator_for_coinbase<P>(
+    coinbase: Address,
+    whitelist: crate::bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+    cache: Arc<RwLock<OperatorCache>>,
+) -> eyre::Result<Option<Address>>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    if coinbase.is_zero() {
+        return Ok(None);
+    }
+
+    let info = whitelist.operators(coinbase).call().await?;
+    let is_active = info.activeSince != 0 && info.inactiveSince == 0;
+    if is_active {
+        return Ok(Some(coinbase));
+    }
+
+    let cached = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = cached {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    let refreshed = initialize_eject_metrics(&whitelist).await?;
+    {
+        let mut guard = cache.write().await;
+        guard.clear();
+        for (proposer, sequencer) in refreshed {
+            guard.upsert(proposer, sequencer);
+        }
+    }
+
+    let refreshed_match = {
+        let guard = cache.read().await;
+        guard.proposer_for(coinbase)
+    };
+
+    if let Some(proposer) = refreshed_match {
+        let info = whitelist.operators(proposer).call().await?;
+        if info.activeSince != 0 && info.inactiveSince == 0 {
+            return Ok(Some(proposer));
+        }
+
+        {
+            let mut guard = cache.write().await;
+            guard.remove_proposer(proposer);
+        }
+    }
+
+    Ok(None)
+}
 
 pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
     l2_ws_url: Url,
+    l1_ws_url: Url,
     l1_http_url: Url,
     target_block_time: Duration,
     eject_after: Duration,
@@ -38,6 +138,7 @@ pub struct Monitor {
     handover_slots: u64,
     preconf_router_address: Address,
     min_operators: u64,
+    min_reorg_depth_for_eject: usize,
 }
 
 impl Monitor {
@@ -46,6 +147,7 @@ impl Monitor {
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
         l2_ws_url: Url,
+        l1_ws_url: Url,
         l1_http_url: Url,
         target_block_time_secs: u64,
         eject_after_n_slots_missed: u64,
@@ -54,6 +156,7 @@ impl Monitor {
         handover_slots: u64,
         preconf_router_address: Address,
         min_operators: u64,
+        min_reorg_depth_for_eject: usize,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
         let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
@@ -63,6 +166,7 @@ impl Monitor {
             beacon_client,
             l1_signer,
             l2_ws_url,
+            l1_ws_url,
             l1_http_url,
             target_block_time,
             eject_after,
@@ -71,6 +175,7 @@ impl Monitor {
             handover_slots,
             preconf_router_address,
             min_operators,
+            min_reorg_depth_for_eject,
         }
     }
 
@@ -81,11 +186,16 @@ impl Monitor {
         info!("Running block watcher at {}", self.l2_ws_url);
 
         let last_seen = Arc::new(Mutex::new(Instant::now()));
+        let last_block_seen = Arc::new(Mutex::new(Instant::now()));
+        metrics::set_last_seen_drift_seconds(0);
+        metrics::set_last_block_age_seconds(0);
         let tick = self.target_block_time;
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
+        let last_block_for_watch = last_block_seen.clone();
 
         let l1_http_url = self.l1_http_url.clone();
+        let l1_ws_url = self.l1_ws_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
         let signer = self.l1_signer.clone();
@@ -107,10 +217,32 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let preconf_whitelist =
+            crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
+        let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
+        match initialize_eject_metrics(&preconf_whitelist).await {
+            Ok(initialized) => {
+                let mut cache = operator_cache.write().await;
+                cache.clear();
+                for (proposer, sequencer) in initialized {
+                    cache.upsert(proposer, sequencer);
+                }
+            }
+            Err(e) => {
+                warn!("Failed to initialize eject metrics: {e:?}");
+            }
+        }
         let preconf_router =
-            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider);
+            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
+        let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
+            l1_ws_url.clone(),
+            whitelist_address,
+            operator_cache.clone(),
+        ));
 
         // watchdog task
+        let watchdog_l1_http_url = l1_http_url.clone();
+        let watchdog_signer = signer.clone();
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
             loop {
@@ -155,6 +287,7 @@ impl Monitor {
 
                 if curr_resp != prev_resp {
                     *last_seen_for_watch.lock().await = Instant::now();
+                    metrics::set_last_seen_drift_seconds(0);
                     tracing::info!(
                         "Preconf responsibility changed to {:?} (epoch {}). Reset timer.",
                         curr_resp.lookahead,
@@ -163,10 +296,11 @@ impl Monitor {
                     prev_resp = curr_resp;
                 }
 
-                match are_preconfs_enabled(&l1_http_url, taiko_wrapper_address).await {
+                match are_preconfs_enabled(&watchdog_l1_http_url, taiko_wrapper_address).await {
                     Ok(false) => {
                         // zero out the last seen
                         *last_seen_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
                         debug!("Preconfs are disabled, skipping block watch and resetting timer");
                         continue;
                     }
@@ -180,12 +314,54 @@ impl Monitor {
                 }
 
                 let elapsed = last_seen_for_watch.lock().await.elapsed();
+                metrics::set_last_seen_drift_seconds(elapsed.as_secs());
+                let block_age = last_block_for_watch.lock().await.elapsed();
+                metrics::set_last_block_age_seconds(block_age.as_secs());
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
 
+                    // Query L1 sync state and decide whether to skip this tick.
+                    let mut skip_due_to_l1 = false;
+                    match http_provider.syncing().await {
+                        Ok(syncing) => match serde_json::to_value(&syncing) {
+                            Ok(serde_json::Value::Bool(false)) => {
+                                // Fully synced; proceed to eject
+                            }
+                            Ok(serde_json::Value::Object(_)) => {
+                                warn!("L1 node is syncing; skipping eject this tick");
+                                skip_due_to_l1 = true;
+                            }
+                            Ok(unexpected) => {
+                                warn!(
+                                    "Unexpected L1 sync status format: {unexpected:?}; skipping eject this tick"
+                                );
+                                skip_due_to_l1 = true;
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to process L1 sync status: {e:?}; skipping eject this tick"
+                                );
+                                skip_due_to_l1 = true;
+                            }
+                        },
+                        Err(e) => {
+                            warn!(
+                                "Failed to query L1 sync status: {e:?}; skipping eject this tick"
+                            );
+                            skip_due_to_l1 = true;
+                        }
+                    }
+
+                    if skip_due_to_l1 {
+                        // Reset timer so we don't immediately eject when node catches up
+                        *last_seen_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
+                        continue;
+                    }
+
                     if let Err(e) = eject_operator(
-                        l1_http_url.clone(),
-                        signer.clone(),
+                        watchdog_l1_http_url.clone(),
+                        watchdog_signer.clone(),
                         whitelist_address,
                         curr_resp.lookahead,
                         min_operators,
@@ -195,11 +371,13 @@ impl Monitor {
                         error!("Error during eject action: {:?}", e);
                     }
                     *last_seen_for_watch.lock().await = Instant::now();
+                    metrics::set_last_seen_drift_seconds(0);
                 }
             }
         });
 
         // reconnect loop backoff params
+        let mut reorg_tracker = ChainReorgTracker::new(MAX_REORG_HISTORY);
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(30);
 
@@ -223,15 +401,172 @@ impl Monitor {
                             loop {
                                 match stream.next().await {
                                     Some(header) => {
-                                        // number/hash are often Option<_> → use {:?}
                                         info!(
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
                                         );
 
+                                        let block_number = header.number;
+                                        let block_hash = header.hash;
+
+                                        let tracked_block = TrackedBlock {
+                                            number: block_number,
+                                            hash: block_hash,
+                                            parent_hash: header.parent_hash,
+                                            coinbase: header.beneficiary,
+                                        };
+
+                                        let outcome = reorg_tracker.apply(tracked_block.clone());
+
+                                        if outcome.duplicate {
+                                            debug!(block_number, block_hash = ?tracked_block.hash, "Duplicate block notification received; skipping");
+                                            continue;
+                                        }
+
                                         metrics::inc_l2_blocks();
-                                        *last_seen.lock().await = Instant::now();
-                                        backoff = Duration::from_secs(1); // reset after good event
+                                        let now = Instant::now();
+                                        {
+                                            let mut guard = last_seen.lock().await;
+                                            *guard = now;
+                                        }
+                                        metrics::set_last_seen_drift_seconds(0);
+                                        {
+                                            let mut guard = last_block_seen.lock().await;
+                                            *guard = now;
+                                        }
+                                        metrics::set_last_block_age_seconds(0);
+                                        backoff = Duration::from_secs(1);
+
+                                        if outcome.parent_not_found {
+                                            warn!(
+                                                block_number,
+                                                parent_hash = ?tracked_block.parent_hash,
+                                                "Parent not found in local history; tracker was reset"
+                                            );
+                                            continue;
+                                        }
+
+                                        if !outcome.reorged.is_empty() {
+                                            let reorg_depth = outcome.reorged.len();
+                                            let removed_blocks = outcome.reorged;
+
+                                            warn!(
+                                                block_number,
+                                                new_head = ?tracked_block.hash,
+                                                depth = reorg_depth,
+                                                "Detected L2 reorg"
+                                            );
+
+                                            metrics::note_reorg(reorg_depth);
+
+                                            if reorg_depth < self.min_reorg_depth_for_eject {
+                                                info!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    threshold = self.min_reorg_depth_for_eject,
+                                                    "Reorg depth below eject threshold; skipping operator eject"
+                                                );
+                                                metrics::inc_reorg_skipped();
+                                                continue;
+                                            }
+
+                                            let Some(culprit) = removed_blocks
+                                                .iter()
+                                                .min_by_key(|b| b.number)
+                                                .cloned()
+                                            else {
+                                                warn!(
+                                                    block_number,
+                                                    "Reorg blocks unexpectedly empty after depth check; skipping eject"
+                                                );
+                                                continue;
+                                            };
+
+                                            for skipped in removed_blocks
+                                                .iter()
+                                                .filter(|b| b.number != culprit.number)
+                                            {
+                                                debug!(
+                                                    block_number = skipped.number,
+                                                    block_hash = ?skipped.hash,
+                                                    "Additional reorged block observed; attributing fault to earliest removed block"
+                                                );
+                                            }
+
+                                            let coinbase = culprit.coinbase;
+                                            if coinbase.is_zero() {
+                                                warn!(
+                                                    block_number = culprit.number,
+                                                    block_hash = ?culprit.hash,
+                                                    "Culprit block has zero coinbase; skipping operator lookup"
+                                                );
+                                                continue;
+                                            }
+
+                                            let whitelist_for_lookup = preconf_whitelist.clone();
+                                            let cache_for_lookup = operator_cache.clone();
+
+                                            match resolve_operator_for_coinbase(
+                                                coinbase,
+                                                whitelist_for_lookup.clone(),
+                                                cache_for_lookup.clone(),
+                                            )
+                                            .await
+                                            {
+                                                Ok(Some(operator_to_eject)) => {
+                                                    info!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        operator = ?operator_to_eject,
+                                                        "Ejecting operator responsible for reorg"
+                                                    );
+
+                                                    let result = eject_operator_by_address(
+                                                        l1_http_url.clone(),
+                                                        signer.clone(),
+                                                        whitelist_address,
+                                                        operator_to_eject,
+                                                        min_operators,
+                                                    )
+                                                    .await;
+
+                                                    match result {
+                                                        Ok(()) => {
+                                                            let mut cache =
+                                                                operator_cache.write().await;
+                                                            cache
+                                                                .remove_proposer(operator_to_eject);
+                                                        }
+                                                        Err(err) => {
+                                                            error!(
+                                                                block_number = culprit.number,
+                                                                block_hash = ?culprit.hash,
+                                                                coinbase = ?coinbase,
+                                                                operator = ?operator_to_eject,
+                                                                "Failed to eject operator for reorged block: {err:?}"
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                Ok(None) => {
+                                                    warn!(
+                                                        block_number = culprit.number,
+                                                        block_hash = ?culprit.hash,
+                                                        coinbase = ?coinbase,
+                                                        "Unable to map coinbase to active operator; skipping eject"
+                                                    );
+                                                }
+                                                Err(err) => {
+                                                    error!(
+                                                            block_number = culprit.number,
+                                                            block_hash = ?culprit.hash,
+                                                            coinbase = ?coinbase,
+                                                        "Failed to resolve operator for reorged block: {err:?}"
+                                                    );
+                                                }
+                                            }
+                                        }
                                     }
                                     None => {
                                         warn!("Block stream ended unexpectedly, reconnecting...");
@@ -261,6 +596,86 @@ impl Monitor {
     fn responsibility_now(&self) -> Responsibility {
         let slot = self.beacon_client.current_slot();
         responsibility_for_slot(slot, self.beacon_client.slots_per_epoch, self.handover_slots)
+    }
+
+    async fn operator_added_listener(
+        l1_ws_url: Url,
+        whitelist_address: Address,
+        operator_cache: Arc<RwLock<OperatorCache>>,
+    ) {
+        let mut backoff = Duration::from_secs(1);
+        let max_backoff = Duration::from_secs(30);
+
+        loop {
+            info!("Connecting to OperatorAdded event stream at {}", l1_ws_url);
+            match ProviderBuilder::new().connect_ws(WsConnect::new(l1_ws_url.clone())).await {
+                Ok(ws_provider) => {
+                    info!("Connected to OperatorAdded event stream at {}", l1_ws_url);
+                    let contract = crate::bindings::IPreconfWhitelist::new(
+                        whitelist_address,
+                        ws_provider.clone(),
+                    );
+
+                    match contract.OperatorAdded_filter().subscribe().await {
+                        Ok(subscription) => {
+                            backoff = Duration::from_secs(1);
+                            let mut stream = subscription.into_stream();
+
+                            while let Some(item) = stream.next().await {
+                                match item {
+                                    Ok((event, log)) => {
+                                        if log.removed {
+                                            debug!(
+                                                block = ?log.block_number,
+                                                log_index = ?log.log_index,
+                                                "OperatorAdded log removed; skipping"
+                                            );
+                                            continue;
+                                        }
+
+                                        let proposer_hex = format!("{:#x}", event.proposer);
+                                        let sequencer_hex = format!("{:#x}", event.sequencer);
+
+                                        info!(
+                                            %proposer_hex,
+                                            %sequencer_hex,
+                                            active_since = ?event.activeSince,
+                                            "OperatorAdded event received"
+                                        );
+
+                                        {
+                                            let mut cache = operator_cache.write().await;
+                                            cache.upsert(event.proposer, event.sequencer);
+                                        }
+
+                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                    }
+                                    Err(e) => {
+                                        warn!("OperatorAdded stream error: {e:?}");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to subscribe to OperatorAdded events: {e:?}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to connect to OperatorAdded event stream: {e:?}. Retrying after {:?}",
+                        backoff
+                    );
+                }
+            }
+
+            warn!("OperatorAdded subscription disconnected. Reconnecting after {:?}", backoff);
+            sleep(backoff).await;
+            if backoff < max_backoff {
+                backoff = std::cmp::min(max_backoff, backoff * 2);
+            }
+        }
     }
 }
 

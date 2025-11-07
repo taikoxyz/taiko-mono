@@ -5,6 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProposedEventEncoderTest
 /// @notice Tests for LibProposedEventEncoder
@@ -49,9 +50,26 @@ contract LibProposedEventEncoderTest is Test {
             bondInstructionsHash: bytes32(uint256(666))
         });
 
+        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
+        bondInstructions[0] = LibBonds.BondInstruction({
+            proposalId: 1,
+            bondType: LibBonds.BondType.PROVABILITY,
+            payer: address(0x1111111111111111111111111111111111111111),
+            payee: address(0x2222222222222222222222222222222222222222)
+        });
+        bondInstructions[1] = LibBonds.BondInstruction({
+            proposalId: 2,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: address(0x3333333333333333333333333333333333333333),
+            payee: address(0x4444444444444444444444444444444444444444)
+        });
+
         // Create proposed event payload
         IInbox.ProposedEventPayload memory original = IInbox.ProposedEventPayload({
-            proposal: proposal, derivation: derivation, coreState: coreState
+            proposal: proposal,
+            derivation: derivation,
+            coreState: coreState,
+            bondInstructions: bondInstructions
         });
 
         // Test encoding
@@ -123,6 +141,35 @@ contract LibProposedEventEncoderTest is Test {
             original.coreState.bondInstructionsHash,
             "Bond instructions hash mismatch"
         );
+
+        assertEq(
+            decoded.bondInstructions.length,
+            original.bondInstructions.length,
+            "Bond instruction length mismatch"
+        );
+
+        for (uint256 i; i < original.bondInstructions.length; ++i) {
+            assertEq(
+                decoded.bondInstructions[i].proposalId,
+                original.bondInstructions[i].proposalId,
+                "Bond instruction proposal id mismatch"
+            );
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(original.bondInstructions[i].bondType),
+                "Bond instruction type mismatch"
+            );
+            assertEq(
+                decoded.bondInstructions[i].payer,
+                original.bondInstructions[i].payer,
+                "Bond instruction payer mismatch"
+            );
+            assertEq(
+                decoded.bondInstructions[i].payee,
+                original.bondInstructions[i].payee,
+                "Bond instruction payee mismatch"
+            );
+        }
     }
 
     function test_encode_decode_empty_sources() public pure {
@@ -149,7 +196,8 @@ contract LibProposedEventEncoderTest is Test {
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(0)
-            })
+            }),
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
@@ -204,7 +252,8 @@ contract LibProposedEventEncoderTest is Test {
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(uint256(1515)),
                 bondInstructionsHash: bytes32(uint256(1616))
-            })
+            }),
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
@@ -258,7 +307,8 @@ contract LibProposedEventEncoderTest is Test {
                 lastCheckpointTimestamp: 0,
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
-            })
+            }),
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         bytes memory encoded1 = LibProposedEventEncoder.encode(payload);
@@ -291,7 +341,8 @@ contract LibProposedEventEncoderTest is Test {
                 lastCheckpointTimestamp: 1_700_000_000, // Non-zero timestamp
                 lastFinalizedTransitionHash: bytes32(uint256(6666)),
                 bondInstructionsHash: bytes32(uint256(7777))
-            })
+            }),
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
@@ -354,7 +405,8 @@ contract LibProposedEventEncoderTest is Test {
                 lastCheckpointTimestamp: type(uint48).max, // Maximum value
                 lastFinalizedTransitionHash: bytes32(uint256(3333)),
                 bondInstructionsHash: bytes32(uint256(4444))
-            })
+            }),
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);

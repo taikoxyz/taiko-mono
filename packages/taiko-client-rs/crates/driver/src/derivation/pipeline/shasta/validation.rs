@@ -2,8 +2,8 @@ use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        ANCHOR_MAX_OFFSET, ANCHOR_MIN_OFFSET, BLOCK_GAS_LIMIT_MAX_CHANGE, MIN_BLOCK_GAS_LIMIT,
-        TIMESTAMP_MAX_OFFSET,
+        BLOCK_GAS_LIMIT_MAX_CHANGE, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET,
+        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
 };
@@ -118,13 +118,13 @@ fn adjust_anchor_numbers(
             block.anchor_block_number = parent_anchor;
         }
 
-        let future_reference_limit = origin_block_number.saturating_sub(ANCHOR_MIN_OFFSET);
+        let future_reference_limit = origin_block_number.saturating_sub(MIN_ANCHOR_OFFSET);
         if block.anchor_block_number >= future_reference_limit {
             block.anchor_block_number = parent_anchor;
         }
 
-        if origin_block_number > ANCHOR_MAX_OFFSET {
-            let min_allowed = origin_block_number - ANCHOR_MAX_OFFSET;
+        if origin_block_number > MAX_ANCHOR_OFFSET {
+            let min_allowed = origin_block_number - MAX_ANCHOR_OFFSET;
             if block.anchor_block_number < min_allowed {
                 block.anchor_block_number = parent_anchor;
             }
@@ -188,7 +188,7 @@ fn adjust_gas_limit(
         let upper_factor =
             u128::from(GAS_LIMIT_BASIS_POINTS.saturating_add(BLOCK_GAS_LIMIT_MAX_CHANGE));
         let upper_bound = parent.saturating_mul(upper_factor) / basis_points;
-        let upper_bound = upper_bound.min(u64::MAX as u128) as u64;
+        let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
 
         if block.gas_limit < lower_bound {
             block.gas_limit = lower_bound;
@@ -204,13 +204,13 @@ fn adjust_gas_limit(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::Address;
+    use alloy_primitives::{Address, Bytes};
     use protocol::shasta::manifest::BlockManifest;
 
     use super::*;
 
     fn manifest_with_blocks(blocks: Vec<BlockManifest>) -> DerivationSourceManifest {
-        DerivationSourceManifest { blocks }
+        DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks }
     }
 
     #[test]

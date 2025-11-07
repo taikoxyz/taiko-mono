@@ -15,15 +15,14 @@ use bindings::{
     i_inbox::IInbox::Proposed,
 };
 use event_indexer::indexer::ShastaEventIndexer;
-use protocol::shasta::manifest::{DerivationSourceManifest, ProposalManifest};
+use protocol::shasta::{
+    constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
+};
 use rpc::{blob::BlobDataSource, client::Client};
 
 use crate::{
     derivation::{
-        manifest::{
-            ManifestFetcher,
-            fetcher::shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher},
-        },
+        manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
         pipeline::shasta::anchor::AnchorTxConstructor,
     },
     sync::engine::{EngineBlockOutcome, PayloadApplier},
@@ -55,7 +54,7 @@ where
     anchor_constructor: AnchorTxConstructor<P>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
-    proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>>,
+    shasta_fork_timestamp: u64,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -72,23 +71,17 @@ where
         indexer: Arc<ShastaEventIndexer>,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(
-                blob_source.clone(),
-                DerivationSourceManifest::decompress_and_decode,
-            ));
-        let proposal_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = ProposalManifest>> =
-            Arc::new(ShastaProposalManifestFetcher::new(
-                blob_source,
-                ProposalManifest::decompress_and_decode,
-            ));
+            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
         let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
-
+        let chain_id = rpc.l2_provider.get_chain_id().await?;
+        let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
+            .map_err(|err| DerivationError::Other(err.into()))?;
         Ok(Self {
             rpc,
             indexer,
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
-            proposal_manifest_fetcher,
+            shasta_fork_timestamp,
         })
     }
 
@@ -164,7 +157,7 @@ where
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
-    ) -> Result<(ParentState, u64), DerivationError> {
+    ) -> Result<ParentState, DerivationError> {
         let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
         let parent_header = parent_block.header.inner.clone();
 
@@ -186,11 +179,12 @@ where
         let state = ParentState {
             parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
             header: parent_header,
-            bond_instructions_hash: B256::from_slice(anchor_state.bondInstructionsHash.as_slice()),
-            anchor_block_number: anchor_state.anchorBlockNumber.to::<u64>(),
+            bond_instructions_hash: anchor_state.bond_instructions_hash,
+            anchor_block_number: anchor_state.anchor_block_number,
+            shasta_fork_timestamp: self.shasta_fork_timestamp,
         };
 
-        Ok((state, self.rpc.shasta.anchor.shastaForkHeight().call().await?))
+        Ok(state)
     }
 }
 
@@ -224,18 +218,19 @@ where
             });
         }
 
-        // Fetch the proposal manifest last.
-        let final_manifest: ProposalManifest = self
-            .fetch_and_decode_manifest(self.proposal_manifest_fetcher.as_ref(), last_source)
+        // Fetch the normal proposal manifest last.
+        let final_manifest = self
+            .fetch_and_decode_manifest(
+                self.derivation_source_manifest_fetcher.as_ref(),
+                last_source,
+            )
             .await?;
 
         let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
-        for manifest in final_manifest.sources.into_iter() {
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: last_source.isForcedInclusion,
-            });
-        }
+        manifest_segments.push(SourceManifestSegment {
+            manifest: final_manifest,
+            is_forced_inclusion: last_source.isForcedInclusion,
+        });
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
@@ -247,10 +242,6 @@ where
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
                 bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
                 prover_auth_bytes,
-                end_of_submission_window_timestamp: payload
-                    .proposal
-                    .endOfSubmissionWindowTimestamp
-                    .to::<u64>(),
             },
             sources: manifest_segments,
         };
@@ -274,14 +265,12 @@ where
                 },
             )?;
 
-        let (mut parent_state, shasta_fork_height) =
-            self.initialize_parent_state(&parent_block).await?;
+        let mut parent_state = self.initialize_parent_state(&parent_block).await?;
 
         self.build_payloads_from_sources(
             sources,
             &meta,
             proposal_origin_block_hash,
-            shasta_fork_height,
             &mut parent_state,
             applier,
         )

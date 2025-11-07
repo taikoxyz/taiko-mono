@@ -22,9 +22,7 @@ contract TestERC20Vault is CommonTest {
     BridgedERC20 private tStETH;
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        eSignalService = _deployMockSignalService("ETH");
         eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
         eVault = deployERC20Vault();
 
@@ -41,9 +39,7 @@ contract TestERC20Vault is CommonTest {
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        tSignalService = _deployMockSignalService("TAIKO");
         tVault = deployERC20Vault();
         tBridge = new PrankDestBridge(eVault);
         taikoInbox = new PrankTaikoInbox();
@@ -609,6 +605,14 @@ contract TestERC20Vault is CommonTest {
         // Ensure that only the approved amount was deducted
         assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
         vm.stopPrank();
+    }
+
+    function _deployMockSignalService(bytes32 label) private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256(abi.encodePacked(label, "_REMOTE_SIGNAL"))))),
+            deployer
+        );
     }
 }
 

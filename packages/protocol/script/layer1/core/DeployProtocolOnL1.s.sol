@@ -41,6 +41,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address risc0;
         address sp1;
         address op;
+        address sgxGeth;
     }
 
     struct DeploymentConfig {
@@ -77,11 +78,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy main proof verifier (DevnetVerifier)
         address proofVerifier = _deployProofVerifier(verifiers, config.useDummyVerifiers);
 
-        // Deploy rollup contracts
+        // Deploy rollup contracts (handles SignalService deployment/registration)
         address shastaInbox = _deployRollupContracts(sharedResolver, config, proofVerifier);
 
-        // Finalize SignalService with actual inbox address
-        _upgradeSignalService(sharedResolver, shastaInbox, config);
+        // Deploy bridge and vaults now that SignalService is finalized
+        _deployBridge(sharedResolver, config);
+        _deployVaults(sharedResolver, config.contractOwner);
 
         // Deploy test tokens on non-mainnet chains
         if (block.chainid != 1) {
@@ -117,12 +119,17 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("OpVerifier deployed:", verifiers.op);
 
         // Deploy automata attestation for SGX
-        address automataProxy = _deployAutomataAttestation(config.contractOwner);
+        (address automataProxy, address sgxGethAutomataProxy) =
+            _deployAutomataAttestation(config.contractOwner);
 
         // Deploy SGX verifier
         verifiers.sgx =
             address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
         console2.log("SgxVerifier deployed:", verifiers.sgx);
+
+        verifiers.sgxGeth =
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+        console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
         (verifiers.risc0, verifiers.sp1) =
@@ -142,12 +149,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         // DevnetVerifier is stateless with immutable verifier addresses (no proxy needed)
         proofVerifier = address(
-            new DevnetVerifier(
-                verifiers.op,
-                verifiers.sgx, // OpVerifier for dummy mode, SgxVerifier for real mode
-                verifiers.risc0,
-                verifiers.sp1
-            )
+            new DevnetVerifier(verifiers.sgxGeth, verifiers.sgx, verifiers.risc0, verifiers.sp1)
         );
 
         console2.log(
@@ -175,8 +177,29 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Get dependencies
         address bondToken =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
-        address signalService =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
+
+        address signalService;
+        bool signalServiceExists = true;
+        try IResolver(sharedResolver)
+            .resolve(uint64(block.chainid), "signal_service", false) returns (
+            address existing
+        ) {
+            signalService = existing;
+        } catch {
+            signalServiceExists = false;
+        }
+
+        if (!signalServiceExists) {
+            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
+            signalService = deployProxy({
+                name: "signal_service",
+                impl: address(signalServiceImpl),
+                data: abi.encodeCall(SignalService.init, (msg.sender))
+            });
+            register(sharedResolver, "signal_service", signalService);
+            console2.log("SignalService deployed:", signalService);
+        }
+
         address codec = address(new CodecOptimized());
 
         // Deploy inbox
@@ -192,25 +215,17 @@ contract DeployProtocolOnL1 is DeployCapability {
             Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
-    }
 
-    function _upgradeSignalService(
-        address sharedResolver,
-        address shastaInbox,
-        DeploymentConfig memory config
-    )
-        private
-    {
-        address signalService = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
+        if (!signalServiceExists) {
+            SignalService upgradedSignalServiceImpl =
+                new SignalService(shastaInbox, config.remoteSigSvc);
+            SignalService(signalService).upgradeTo(address(upgradedSignalServiceImpl));
+            console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
-        // Upgrade with actual inbox address
-        address newImpl = address(new SignalService(shastaInbox, config.remoteSigSvc));
-        SignalService(signalService).upgradeTo(newImpl);
-
-        // Transfer ownership if needed
-        if (SignalService(signalService).owner() == msg.sender) {
-            SignalService(signalService).transferOwnership(config.contractOwner);
+            if (config.contractOwner != msg.sender) {
+                Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
+                console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
+            }
         }
     }
 
@@ -248,15 +263,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy or register Taiko token
         _deployOrRegisterTaikoToken(sharedResolver, config);
-
-        // Deploy SignalService (with dummy inbox, will be upgraded later)
-        _deploySignalServiceIfNeeded(sharedResolver, config.contractOwner, config.remoteSigSvc);
-
-        // Deploy bridge
-        _deployBridge(sharedResolver, config);
-
-        // Deploy vaults
-        _deployVaults(sharedResolver, config.contractOwner);
     }
 
     function _deployOrRegisterTaikoToken(
@@ -282,31 +288,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Register as bond token as well
         register(sharedResolver, "bond_token", taikoToken);
-    }
-
-    function _deploySignalServiceIfNeeded(
-        address sharedResolver,
-        address owner,
-        address remoteSignalService
-    )
-        private
-    {
-        // Check if SignalService already exists
-        try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false) returns (
-            address
-        ) {
-            // Already exists, skip deployment
-            return;
-        } catch {
-            // Deploy with dummy inbox address (will be upgraded later with actual inbox)
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService(address(1), remoteSignalService)),
-                data: abi.encodeCall(SignalService.init, owner),
-                registerTo: sharedResolver
-            });
-        }
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
@@ -360,7 +341,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function _deployAutomataAttestation(address owner) private returns (address automataProxy) {
+    function _deployAutomataAttestation(address owner)
+        private
+        returns (address automataProxy, address automataProxySgxGeth)
+    {
         // Deploy library dependencies
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
@@ -371,6 +355,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy automata attestation proxy
         automataProxy = deployProxy({
             name: "automata_dcap_attestation",
+            impl: address(new AutomataDcapV3Attestation()),
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init,
+                (owner, address(sigVerifyLib), address(pemCertChainLib))
+            )
+        });
+        // Deploy sgx-geth automata attestation proxy
+        automataProxySgxGeth = deployProxy({
+            name: "sgx_geth_automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init,

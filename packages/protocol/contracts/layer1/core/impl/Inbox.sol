@@ -17,14 +17,16 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
+import "./Inbox_Layout.sol"; // DO NOT DELETE
+
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
+/// @notice Core contract for managing L2 proposals, proof verification, and forced inclusion in
 /// Taiko's based rollup architecture.
 /// @dev This contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
 ///      - Ring buffer storage for efficient state management
-///      - Bond instruction processing for economic security
+///      - Bond instruction calculation(but actual funds are managed on L2)
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
@@ -86,8 +88,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
 
-    /// @notice The fee for forced inclusions in Gwei.
+    /// @notice The base fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
+
+    /// @notice Queue size at which the fee doubles. See IInbox.Config for formula details.
+    uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
 
     /// @notice The minimum delay between checkpoints in seconds.
     uint16 internal immutable _minCheckpointDelay;
@@ -158,6 +163,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
         _compositeKeyVersion = _config.compositeKeyVersion;
@@ -190,14 +196,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
-    ///      1. Validates proposer authorization via ProposerChecker
+    ///      1. Validates proposer authorization via `IProposerChecker`
     ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer
     ///         space.
     ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
     ///      4. Updates core state and emits `Proposed` event
-    /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
-    ///      available(i.e forced inclusions are prioritized).
+    /// NOTE: This function can only be called once per block to prevent spams that can fill the ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Decode and validate input data
@@ -209,7 +214,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-            CoreState memory coreState = _finalize(input);
+            (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
+                _finalize(input);
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
@@ -255,7 +261,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, coreState);
+            _emitProposedEvent(proposal, derivation, coreState, bondInstructions);
         }
     }
 
@@ -290,20 +296,48 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @inheritdoc IForcedInclusionStore
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _blobReference
+        uint256 refund = LibForcedInclusion.saveForcedInclusion(
+            _forcedInclusionStorage,
+            _forcedInclusionFeeInGwei,
+            _forcedInclusionFeeDoubleThreshold,
+            _blobReference
         );
+
+        // Refund excess payment to the sender
+        if (refund > 0) {
+            msg.sender.sendEtherAndVerify(refund);
+        }
     }
 
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
+    /// @inheritdoc IForcedInclusionStore
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
+        return LibForcedInclusion.getCurrentForcedInclusionFee(
+            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+        );
+    }
 
     /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, _forcedInclusionDelay
-        );
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+    {
+        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getForcedInclusionState()
+        external
+        view
+        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+    {
+        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -348,6 +382,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
+            forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             compositeKeyVersion: _compositeKeyVersion
@@ -359,7 +394,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
-    /// @notice Sets up the initial proposal and core state with genesis block
+    /// Sets up the initial proposal and core state with genesis block
     /// @param _genesisBlockHash The hash of the genesis block
     function _activateInbox(bytes32 _genesisBlockHash) internal {
         Transition memory transition;
@@ -383,11 +418,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _setProposalHash(0, _hashProposal(proposal));
 
-        _emitProposedEvent(proposal, derivation, coreState);
+        _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
 
     /// @dev Builds and persists transition records for batch proof submissions
-    /// @notice Validates transitions, calculates bond instructions, and stores records
+    /// Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
@@ -397,7 +432,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Processes a single transition at the specified index
-    /// @notice Reusable function for validating, building, and storing individual transitions
+    /// Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
     function _processSingleTransitionAtIndex(
@@ -421,13 +456,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Stores a proposal hash in the ring buffer
-    /// @notice Overwrites any existing hash at the calculated buffer slot
+    /// Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Stores transition record hash and emits Proved event
-    /// @notice Virtual function to allow optimization in derived contracts
+    /// @dev Stores transition record hash and emits `Proved` event
+    /// Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
@@ -459,7 +494,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Persists transition record metadata in storage.
-    /// @notice Returns false when an identical record already exists, avoiding redundant event
+    /// Returns false when an identical record already exists, avoiding redundant event
     /// emissions.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
@@ -512,7 +547,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
-    /// @notice Ensures the transition references the correct proposal hash
+    /// Ensures the transition references the correct proposal hash
     /// @param _proposal The proposal being proven
     /// @param _transition The transition to validate against the proposal
     function _validateTransition(
@@ -527,7 +562,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Validates proposal hash against stored value
-    /// @notice Reverts with ProposalHashMismatch if hashes don't match
+    /// Reverts with ProposalHashMismatch if hashes don't match
     /// @param _proposal The proposal to validate
     /// @return proposalHash_ The computed hash of the proposal
     function _checkProposalHash(Proposal memory _proposal)
@@ -581,7 +616,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Computes composite key for transition record storage
-    /// @notice Creates unique identifier for proposal-parent transition pairs
+    /// Creates unique identifier for proposal-parent transition pairs
     /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return _ Keccak256 hash of encoded parameters
@@ -866,12 +901,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _emitProposedEvent(
         Proposal memory _proposal,
         Derivation memory _derivation,
-        CoreState memory _coreState
+        CoreState memory _coreState,
+        LibBonds.BondInstruction[] memory _bondInstructions
     )
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, derivation: _derivation, coreState: _coreState
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState,
+            bondInstructions: _bondInstructions
         });
         emit Proposed(_encodeProposedEventData(payload));
     }
@@ -881,8 +920,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
     /// Set minCheckpointDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
-    /// @return _ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
+    /// @return coreState_ Updated core state with new finalization counters.
+    /// @return bondInstructions_ Array of bond instructions from finalized proposals.
+    function _finalize(ProposeInput memory _input)
+        private
+        returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
+    {
         unchecked {
             CoreState memory coreState = _input.coreState;
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
@@ -890,6 +933,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitionRecords.length;
             uint256 currentTimestamp = block.timestamp;
+            uint256 totalBondInstructionCount;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
@@ -929,6 +973,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     );
                 }
 
+                totalBondInstructionCount += bondInstructionLen;
+
                 require(transitionRecord.span > 0, InvalidSpan());
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
@@ -950,12 +996,27 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             }
 
-            return coreState;
+            if (totalBondInstructionCount > 0) {
+                bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
+                uint256 bondInstructionIndex;
+
+                for (uint256 i; i < finalizedCount; ++i) {
+                    LibBonds.BondInstruction[] memory instructions =
+                    _input.transitionRecords[i].bondInstructions;
+                    uint256 instructionsLen = instructions.length;
+
+                    for (uint256 j; j < instructionsLen; ++j) {
+                        bondInstructions_[bondInstructionIndex++] = instructions[j];
+                    }
+                }
+            }
+
+            return (coreState, bondInstructions_);
         }
     }
 
-    /// @dev Syncs checkpoint to storage if conditions are met (voluntary or forced sync).
-    /// @notice Validates checkpoint hash and updates checkpoint storage and timestamp.
+    /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
+    ///      Validates the checkpoint hash, persists it, and refreshes the timestamp in core state.
     /// @param _checkpoint The checkpoint data to sync.
     /// @param _expectedCheckpointHash The expected hash to validate against.
     /// @param _coreState Core state to update with new checkpoint timestamp.
@@ -984,7 +1045,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Calculates remaining capacity for new proposals
-    /// @notice Subtracts unfinalized proposals from total capacity
+    /// Subtracts unfinalized proposals from total capacity
     /// @param _coreState Current state with proposal counters
     /// @return _ Number of additional proposals that can be submitted
     function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
@@ -996,7 +1057,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Validates propose function inputs
-    /// @notice Checks deadline, proposal array, and state consistency
+    /// Checks deadline, proposal array, and state consistency
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
@@ -1009,7 +1070,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
-    /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
+    /// Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
     function _verifyChainHead(Proposal[] memory _parentProposals) private view {
         unchecked {
@@ -1035,36 +1096,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CannotProposeInCurrentBlock();
+    error CheckpointMismatch();
+    error CheckpointNotProvided();
+    error DeadlineExceeded();
+    error EmptyProposals();
+    error InconsistentParams();
+    error IncorrectProposalCount();
+    error InvalidLastProposalProof();
+    error InvalidSpan();
+    error InvalidState();
+    error NextProposalHashMismatch();
+    error NoBondToWithdraw();
+    error NotEnoughCapacity();
+    error ProposalHashMismatch();
+    error ProposalHashMismatchWithTransition();
+    error RingBufferSizeZero();
+    error SpanOutOfBounds();
+    error TransitionRecordHashMismatchWithStorage();
+    error TransitionRecordNotProvided();
+    error UnprocessedForcedInclusionIsDue();
 }
-
-// ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
-
-error CannotProposeInCurrentBlock();
-error CheckpointMismatch();
-error CheckpointNotProvided();
-error DeadlineExceeded();
-error EmptyProposals();
-error ForkNotActive();
-error InconsistentParams();
-error IncorrectProposalCount();
-error InsufficientBond();
-error InvalidLastProposalProof();
-error InvalidSpan();
-error InvalidState();
-error LastProposalHashMismatch();
-error LastProposalProofNotEmpty();
-error NextProposalHashMismatch();
-error NoBondToWithdraw();
-error NotEnoughCapacity();
-error ProposalHashMismatch();
-error ProposalHashMismatchWithStorage();
-error ProposalHashMismatchWithTransition();
-error ProposalIdMismatch();
-error ProposerBondInsufficient();
-error RingBufferSizeZero();
-error SpanOutOfBounds();
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
-error UnprocessedForcedInclusionIsDue();

@@ -2,14 +2,18 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
 
+import "./SignalService_Layout.sol"; // DO NOT DELETE
+
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
+/// This contract will be initially deployed behind the fork router, which uses 151 slots [0..150].
+/// The storage layout of this contract is compatible and aligned with both the Pacaya version and the fork router.
+/// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
@@ -34,31 +38,29 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
+
     // ---------------------------------------------------------------
-    // Pre shasta storage variables
+    // Storage variables
     // ---------------------------------------------------------------
 
-    /// @dev Deprecated slots used by the old SignalService
-    // - `topBlockId`
-    // - `authorized`
+    /// @dev Slots used by the Pacaya signal service.
+    // slot1: topBlockId
+    // slot2: isAuthorized
     uint256[2] private _slotsUsedByPacaya;
 
     /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
+    /// Does NOT reuse the pacaya slot.
     mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
-
-    // ---------------------------------------------------------------
-    // Post shasta storage variables
-    // ---------------------------------------------------------------
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps block number to checkpoint data
     mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
 
-    uint256[44] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
-    // Constructor
+    // Constructor and Initialization
     // ---------------------------------------------------------------
 
     constructor(address authorizedSyncer, address remoteSignalService) {
@@ -69,9 +71,10 @@ contract SignalService is EssentialContract, ISignalService {
         _remoteSignalService = remoteSignalService;
     }
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @notice Initializes the SignalService contract for upgradeable deployments.
+    /// @param _owner Address that will own the contract.
     function init(address _owner) external initializer {
+        require(_owner != address(0), ZERO_ADDRESS());
         __Essential_init(_owner);
     }
 
@@ -140,6 +143,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
@@ -172,17 +176,17 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
-    /// @return checkpoint The checkpoint
+    /// @return checkpoint_ The checkpoint
     function _getCheckpoint(uint48 _blockNumber)
         private
         view
-        returns (Checkpoint memory checkpoint)
+        returns (Checkpoint memory checkpoint_)
     {
         CheckpointRecord storage record = _checkpoints[_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
-        checkpoint = Checkpoint({
+        checkpoint_ = Checkpoint({
             blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
         });
     }
@@ -193,11 +197,12 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _value
     )
         private
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        nonZeroBytes32(_value)
         returns (bytes32 slot_)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+        require(_value != bytes32(0), ZERO_VALUE());
+
         slot_ = getSignalSlot(uint64(block.chainid), _app, _signal);
         assembly {
             sstore(slot_, _value)
@@ -205,16 +210,10 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(
-        address _app,
-        bytes32 _signal
-    )
-        private
-        view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        returns (bytes32)
-    {
+    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32) {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
         return _loadSignalValue(slot);
     }
@@ -233,19 +232,20 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
             require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
             return;
         }
 
-        Proof[] memory proofs = abi.decode(_proof, (Proof[]));
+        HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
         if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 
-        Proof memory proof = proofs[0];
+        HopProof memory proof = proofs[0];
 
         if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
             revert SS_EMPTY_PROOF();
@@ -265,14 +265,15 @@ contract SignalService is EssentialContract, ISignalService {
             proof.storageProof
         );
     }
-}
 
-// ---------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------
-error SS_EMPTY_PROOF();
-error SS_INVALID_PROOF_LENGTH();
-error SS_INVALID_CHECKPOINT();
-error SS_CHECKPOINT_NOT_FOUND();
-error SS_UNAUTHORIZED();
-error SS_SIGNAL_NOT_RECEIVED();
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error SS_EMPTY_PROOF();
+    error SS_INVALID_PROOF_LENGTH();
+    error SS_INVALID_CHECKPOINT();
+    error SS_CHECKPOINT_NOT_FOUND();
+    error SS_UNAUTHORIZED();
+    error SS_SIGNAL_NOT_RECEIVED();
+}

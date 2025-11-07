@@ -2,9 +2,8 @@
 
 use std::sync::Arc;
 
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
@@ -52,8 +51,7 @@ impl Proposer {
             inbox_address: cfg.inbox_address,
         })
         .await?;
-        // TODO: change to fetch last X proposal when indexer supports it.
-        indexer.clone().spawn(BlockNumberOrTag::Earliest);
+        indexer.clone().spawn();
         indexer.wait_historical_indexing_finished().await;
 
         Self::new_with_indexer(cfg, indexer).await
@@ -76,17 +74,13 @@ impl Proposer {
         )
         .await?;
 
-        let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
+        let transaction_builder = ShastaProposalTransactionBuilder::new(
+            rpc_provider.clone(),
+            indexer,
+            cfg.l2_suggested_fee_recipient,
+        );
 
-        Ok(Self {
-            rpc_provider: rpc_provider.clone(),
-            cfg,
-            transaction_builder: ShastaProposalTransactionBuilder::new(
-                rpc_provider,
-                indexer,
-                l2_suggested_fee_recipient,
-            ),
-        })
+        Ok(Self { rpc_provider, cfg, transaction_builder })
     }
 
     /// Start the proposer main loop.
@@ -204,12 +198,7 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
-        // fee.
-        if parent.number() + 1 <
-            self.rpc_provider.shasta.anchor.shastaForkHeight().call().await? +
-                SHASTA_INITIAL_BASE_FEE_BLOCKS
-        {
+        if parent.number() == 0 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 

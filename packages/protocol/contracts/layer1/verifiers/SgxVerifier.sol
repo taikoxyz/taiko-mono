@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IProofVerifier.sol";
-import "./LibPublicInput.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/layer1/automata-attestation/interfaces/IAttestation.sol";
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "src/shared/libs/LibNames.sol";
+import { IProofVerifier } from "./IProofVerifier.sol";
+import { LibPublicInput } from "./LibPublicInput.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
+import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 
 /// @title SgxVerifier
 /// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
@@ -134,24 +134,17 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     {
         require(_proof.length == 89, SGX_INVALID_PROOF());
 
+        uint32 id = uint32(bytes4(_proof[:4]));
         address instance = address(bytes20(_proof[4:24]));
+        require(_isInstanceValid(id, instance), SGX_INVALID_INSTANCE());
 
-        // Collect public inputs
-        bytes32[] memory publicInputs = new bytes32[](2);
-        // First public input is the current instance public key
-        publicInputs[0] = bytes32(uint256(uint160(instance)));
-
-        publicInputs[1] = LibPublicInput.hashPublicInputs(
-            _aggregatedProvingHash, address(this), address(0), taikoChainId
+        bytes32 signatureHash = LibPublicInput.hashPublicInputs(
+            _aggregatedProvingHash, address(this), instance, taikoChainId
         );
 
-        bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
         // Verify the signature was created by the registered instance
         bytes memory signature = _proof[24:];
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
-
-        uint32 id = uint32(bytes4(_proof[:4]));
-        require(_isInstanceValid(id, instance), SGX_INVALID_INSTANCE());
     }
 
     function _addInstances(

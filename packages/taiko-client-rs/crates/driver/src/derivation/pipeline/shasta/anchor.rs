@@ -11,7 +11,10 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::taiko_anchor::LibBonds::BondInstruction;
+use bindings::anchor::{
+    Anchor::{BlockParams, ProposalParams},
+    LibBonds::BondInstruction,
+};
 use rpc::client::Client;
 use thiserror::Error;
 use tracing::info;
@@ -31,19 +34,17 @@ pub enum AnchorTxConstructorError {
     FeeOverflow,
 }
 
-/// Parameters required to assemble an `updateState` transaction.
+/// Parameters required to assemble an `anchorV4` transaction.
 #[derive(Debug)]
-pub struct UpdateStateInput {
+pub struct AnchorV4Input {
     pub proposal_id: u64,
     pub proposer: Address,
     pub prover_auth: Vec<u8>,
     pub bond_instructions_hash: B256,
     pub bond_instructions: Vec<BondInstruction>,
-    pub block_index: u16,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
-    pub end_of_submission_window_timestamp: u64,
     pub l2_height: u64,
     pub base_fee: U256,
 }
@@ -77,23 +78,21 @@ where
         Ok(Self { rpc, chain_id, signer, golden_touch_address })
     }
 
-    /// Assemble an `updateState` transaction for the given parent header and parameters.
-    pub async fn assemble_update_state_tx(
+    /// Assemble an `anchorV4` transaction for the given parent header and parameters.
+    pub async fn assemble_anchor_v4_tx(
         &self,
         parent_hash: B256,
-        params: UpdateStateInput,
+        params: AnchorV4Input,
     ) -> Result<TxEnvelope, AnchorTxConstructorError> {
-        let UpdateStateInput {
+        let AnchorV4Input {
             proposal_id,
             proposer,
             prover_auth,
             bond_instructions_hash,
             bond_instructions,
-            block_index,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
-            end_of_submission_window_timestamp,
             l2_height,
             base_fee,
         } = params;
@@ -110,6 +109,8 @@ where
             )
             .await
             .or_else(|err| {
+                // If the nonce cannot be found, which means the account has never been used before,
+                // return zero nonce.
                 if err.to_string().contains("not found") {
                     Ok(U256::ZERO)
                 } else {
@@ -125,24 +126,29 @@ where
         info!(
             l2_height,
             proposal_id,
-            block_index,
+            ?prover_auth,
+            ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
-            "assembling shasta anchor updateState transaction",
+            ?base_fee,
+            "assembling shasta anchor anchorV4 transaction",
         );
 
-        let call_builder = self.rpc.shasta.anchor.updateState(
-            U48::from(proposal_id),
+        let proposal_params = ProposalParams {
+            proposalId: U48::from(proposal_id),
             proposer,
-            prover_auth.into(),
-            bond_instructions_hash,
-            bond_instructions,
-            block_index,
-            U48::from(anchor_block_number),
-            anchor_block_hash,
-            anchor_state_root,
-            U48::from(end_of_submission_window_timestamp),
-        );
+            proverAuth: prover_auth.into(),
+            bondInstructionsHash: bond_instructions_hash,
+            bondInstructions: bond_instructions,
+        };
+
+        let block_params = BlockParams {
+            anchorBlockNumber: U48::from(anchor_block_number),
+            anchorBlockHash: anchor_block_hash,
+            anchorStateRoot: anchor_state_root,
+        };
+
+        let call_builder = self.rpc.shasta.anchor.anchorV4(proposal_params, block_params);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)

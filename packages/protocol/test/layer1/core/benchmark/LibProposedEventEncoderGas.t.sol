@@ -6,6 +6,7 @@ import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProposedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode
@@ -206,6 +207,20 @@ contract LibProposedEventEncoderGas is Test {
             lastCheckpointTimestamp: 0,
             lastFinalizedTransitionHash: keccak256("lastTransition"),
             bondInstructionsHash: keccak256("bondInstructions")
+        });
+
+        payload_.bondInstructions = new LibBonds.BondInstruction[](2);
+        payload_.bondInstructions[0] = LibBonds.BondInstruction({
+            proposalId: 1,
+            bondType: LibBonds.BondType.PROVABILITY,
+            payer: address(0x5555),
+            payee: address(0x6666)
+        });
+        payload_.bondInstructions[1] = LibBonds.BondInstruction({
+            proposalId: 2,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: address(0x7777),
+            payee: address(0x8888)
         });
     }
 }

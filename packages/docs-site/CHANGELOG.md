@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.32.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.1...docs-site-v1.32.2) (2025-11-06)
+
+
+### Chores
+
+* **docs-site:** add other l2 contracts for hoodi ([#20650](https://github.com/taikoxyz/taiko-mono/issues/20650)) ([1f245ae](https://github.com/taikoxyz/taiko-mono/commit/1f245ae7921201f2472ce2d36c3baa9a0e93e6c6))
+
+## [1.32.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.0...docs-site-v1.32.1) (2025-10-30)
+
+
+### Chores
+
+* **whitepaper:** add v2.0.0 ([#20599](https://github.com/taikoxyz/taiko-mono/issues/20599)) ([ec933b4](https://github.com/taikoxyz/taiko-mono/commit/ec933b4732965cc48fc32c7620921c0f59608089))
+
+## [1.32.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.2...docs-site-v1.32.0) (2025-10-29)
+
+
+### Features
+
+* **docs-site:** update docs for hoodi and fusaka upgrade ([#20574](https://github.com/taikoxyz/taiko-mono/issues/20574)) ([09b96fe](https://github.com/taikoxyz/taiko-mono/commit/09b96fed73e6876b4b1a271951b8ce4772a0c156))
+
+
+### Documentation
+
+* **docs-site:** add troubleshooting entry for genesis header hash mismatch ([#20516](https://github.com/taikoxyz/taiko-mono/issues/20516)) ([c716f0c](https://github.com/taikoxyz/taiko-mono/commit/c716f0c3342b1db67b6fc52306e63f953ebd1f80))
+
 ## [1.31.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.1...docs-site-v1.31.2) (2025-10-07)
 
 
