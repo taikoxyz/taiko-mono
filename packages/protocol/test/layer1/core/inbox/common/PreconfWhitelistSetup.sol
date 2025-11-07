@@ -18,12 +18,8 @@ contract PreconfWhitelistSetup is CommonTest {
         // Deploy PreconfWhitelist
         address impl = address(new PreconfWhitelist());
 
-        address proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(PreconfWhitelist.init, (_owner))
-            )
-        );
+        address proxy =
+            address(new ERC1967Proxy(impl, abi.encodeCall(PreconfWhitelist.init, (_owner))));
 
         PreconfWhitelist whitelist = PreconfWhitelist(proxy);
 

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {LibPreconfConstants} from "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import {IPreconfWhitelist} from "src/layer1/preconf/iface/IPreconfWhitelist.sol";
-import {IProposerChecker} from "src/layer1/core/iface/IProposerChecker.sol";
-import {PreconfWhitelist} from "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import {CommonTest} from "test/shared/CommonTest.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { IPreconfWhitelist } from "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;

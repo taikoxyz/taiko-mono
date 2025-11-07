@@ -23,10 +23,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     // Constants
     // ---------------------------------------------------------------
     /// @dev The number of epochs before a newly added operator becomes active.
-    uint8 constant public OPERATOR_CHANGE_DELAY = 2;
+    uint8 public constant OPERATOR_CHANGE_DELAY = 2;
     /// @dev The number of epochs to use as delay when selecting an operator.
     ///      This needs to be 2 epochs or more to ensure the randomness seed source is stable across epochs.
-    uint8 constant public RANDOMNESS_DELAY = 2;
+    uint8 public constant RANDOMNESS_DELAY = 2;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -58,12 +58,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
-    function init(
-        address _owner
-    )
-        external
-        initializer
-    {
+    function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
 
@@ -154,7 +149,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @param _excluded The proposer address of the operator to exclude.
     /// @param _epochTimestamp The timestamp of the epoch to check.
     /// @return True if there is another active operator, false otherwise.
-    function _hasAnotherActiveOperator(address _excluded, uint32 _epochTimestamp)
+    function _hasAnotherActiveOperator(
+        address _excluded,
+        uint32 _epochTimestamp
+    )
         internal
         view
         returns (bool)
@@ -168,7 +166,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         return false;
     }
 
-    /// @dev Adds an operator to the whitelist. 
+    /// @dev Adds an operator to the whitelist.
     /// NOTE: The operator only becomes active after `OPERATOR_CHANGE_DELAY` epochs.
     /// @param _proposer The proposer address of the operator to add.
     /// @param _sequencer The sequencer address of the operator to add.
@@ -197,7 +195,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @dev Removes an operator immediately and backfills its slot with the last proposer so
-    ///      operatorMapping stays packed from 0..operatorCount-1. 
+    ///      operatorMapping stays packed from 0..operatorCount-1.
     /// IMPORTANT: Reverts if no other operator is active.
     /// @param _proposer The proposer address of the operator to remove.
     function _removeOperator(address _proposer) internal {
@@ -208,7 +206,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
         uint32 currentEpochTs = epochStartTimestamp(0);
         if (isOperatorActive(_proposer, currentEpochTs)) {
-            require(_hasAnotherActiveOperator(_proposer, currentEpochTs), NoActiveOperatorRemaining());
+            require(
+                _hasAnotherActiveOperator(_proposer, currentEpochTs), NoActiveOperatorRemaining()
+            );
         }
 
         address sequencer = info.sequencerAddress;
@@ -237,14 +237,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
             uint256 _operatorCount = operatorCount;
 
-
             uint256 target = _getRandomNumber(randomnessTs) % _operatorCount;
-            
+
             for (uint256 i; i < _operatorCount; ++i) {
                 address operator = operatorMapping[target];
                 if (isOperatorActive(operator, _epochTimestamp)) {
-                   // In most cases, we just return the operator at the target index.
-                   // This allows us to do a single SLOAD.
+                    // In most cases, we just return the operator at the target index.
+                    // This allows us to do a single SLOAD.
                     return operator;
                 }
                 // If the operator is not active, we need to find the next active operator.

@@ -21,8 +21,8 @@ pragma solidity ^0.8.24;
 //   operators                      | mapping(address => struct PreconfWhitelist.OperatorInfo) | Slot: 251  | Offset: 0    | Bytes: 32  
 //   operatorMapping                | mapping(uint256 => address)                        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   operatorCount                  | uint8                                              | Slot: 253  | Offset: 0    | Bytes: 1   
-//   operatorChangeDelay            | uint8                                              | Slot: 253  | Offset: 1    | Bytes: 1   
-//   randomnessDelay                | uint8                                              | Slot: 253  | Offset: 2    | Bytes: 1   
-//   havingPerfectOperators         | bool                                               | Slot: 253  | Offset: 3    | Bytes: 1   
+//   deprecated1                    | uint8                                              | Slot: 253  | Offset: 1    | Bytes: 1   
+//   deprecated2                    | uint8                                              | Slot: 253  | Offset: 2    | Bytes: 1   
+//   deprecated3                    | bool                                               | Slot: 253  | Offset: 3    | Bytes: 1   
 //   ejecters                       | mapping(address => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[45]                                        | Slot: 255  | Offset: 0    | Bytes: 1440
