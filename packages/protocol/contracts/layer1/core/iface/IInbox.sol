@@ -50,6 +50,8 @@ interface IInbox {
         uint8 permissionlessInclusionMultiplier;
         /// @notice Version identifier for composite key generation
         uint16 compositeKeyVersion;
+        /// @notice The Shasta fork timestamp
+        uint48 shastaForkTimestamp;
     }
 
     /// @notice Represents a source of derivation data within a Derivation

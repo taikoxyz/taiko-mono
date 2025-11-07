@@ -54,7 +54,8 @@ contract MainnetInbox is InboxOptimized2 {
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                compositeKeyVersion: 1,
+                shastaForkTimestamp: 0
             }))
     { }
 

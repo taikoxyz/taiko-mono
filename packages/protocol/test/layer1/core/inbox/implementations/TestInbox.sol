@@ -32,7 +32,8 @@ contract TestInbox is Inbox {
                 forcedInclusionFeeDoubleThreshold: 50,
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                compositeKeyVersion: 1,
+                shastaForkTimestamp: 0
             }))
     { }
 }

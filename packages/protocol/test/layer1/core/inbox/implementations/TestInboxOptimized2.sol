@@ -32,7 +32,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
                 forcedInclusionFeeDoubleThreshold: 100,
                 minCheckpointDelay: 0,
                 permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                compositeKeyVersion: 1,
+                shastaForkTimestamp: 0
             }))
     { }
 }

@@ -123,6 +123,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// potential proof verifier bugs
     uint16 internal immutable _compositeKeyVersion;
 
+    /// @notice Pacaya fork start timestamp
+    uint48 internal immutable _shastaForkTimestamp;
+
     /// @notice Checkpoint store responsible for checkpoints
     ICheckpointStore internal immutable _checkpointStore;
 
@@ -185,6 +188,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
         _compositeKeyVersion = _config.compositeKeyVersion;
+        _shastaForkTimestamp = _config.shastaForkTimestamp;
     }
 
     // ---------------------------------------------------------------
@@ -208,6 +212,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (activationTimestamp == 0) {
+        require(block.timestamp >= _shastaForkTimestamp, ActivationBeforeShastaFork());
             activationTimestamp = uint48(block.timestamp);
         } else {
             require(block.timestamp <= ACTIVATION_WINDOW + activationTimestamp , ActivationPeriodExpired());
@@ -410,7 +415,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            compositeKeyVersion: _compositeKeyVersion
+            compositeKeyVersion: _compositeKeyVersion,
+            shastaForkTimestamp: _shastaForkTimestamp
         });
     }
 
@@ -1130,6 +1136,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Errors
     // ---------------------------------------------------------------
 
+    error ActivationBeforeShastaFork();
     error ActivationPeriodExpired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
