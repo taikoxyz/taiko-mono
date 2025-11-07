@@ -10,7 +10,7 @@ This proposal implements security enhancements and protocol upgrades for the Tai
 
 The Taiko protocol relies on multiple proof systems (ZK and SGX) to ensure the validity of L2 state transitions. As the protocol evolves and security research advances, it is essential to:
 
-1. Update trusted proof images to incorporate latest optimizations and security patches
+1. Update trusted proof images to incorporate the latest optimizations and security patches
 2. Upgrade verifier contracts to improve gas efficiency and add necessary functionality
 3. Maintain strict control over SGX attestation to prevent unauthorized proof generation
 
@@ -48,9 +48,12 @@ New trusted images to be added:
 Key changes:
 
 - Modified `proposeBatch` function return data structure
-- Updated Groth16 verifier dependency from `0x34Eda8BfFb539AeC33078819847B36D221c6641c` to `0x7CCA385bdC790c25924333F5ADb7F4967F5d1599`
+- Updated Groth16 verifier dependency (the `_riscoGroth16Verifier` parameter value in the constructor) from `0x34Eda8BfFb539AeC33078819847B36D221c6641c` to `0x7CCA385bdC790c25924333F5ADb7F4967F5d1599`
 
 [View implementation diff](https://codediff.taiko.xyz/?addr=0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE&newimpl=0xDF6327caafC5FeB8910777Ac811e0B1d27dCdf36&chainid=1&filter=changed)
+
+[View _riscoGroth16Verifier diff](https://codediff.taiko.xyz/?addr=0x34Eda8BfFb539AeC33078819847B36D221c6641c&newimpl=0x7CCA385bdC790c25924333F5ADb7F4967F5d1599&chainid=1&filter=changed)
+
 
 #### 2.2 PreconfRouter Upgrade
 
@@ -118,7 +121,7 @@ To verify MR_ENCLAVE values:
 
 1. Check out the official release (v1.12.0)
 2. Run `./script/publish-image.sh [0|1]` (0 for non-EDMM, 1 for EDMM)
-3. Compare the output with proposed values
+3. Compare the output with the proposed values
 
 Example verification output:
 
@@ -154,3 +157,31 @@ Example verification output:
 - **EDMM**: Enclave Dynamic Memory Management - A feature in newer SGX processors allowing dynamic memory allocation
 - **BN256**: A pairing-friendly elliptic curve used in ZK-SNARK constructions
 - **Groth16**: An efficient ZK-SNARK proof system
+
+## Q&A
+
+### Q1: Where is the source code for the upgraded implementations coming from?
+
+**A:** The currently deployed mainnet version is based on the `taiko-alethia-protocol-v2.3.1` branch, not the main branch.
+
+The source files for the upgraded implementations can be found at:
+
+- [ITaikoInbox.sol](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/contracts/layer1/based/ITaikoInbox.sol)
+- [PreconfRouter.sol](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/contracts/layer1/preconf/impl/PreconfRouter.sol)
+- [IPreconfRouter.sol](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.1/packages/protocol/contracts/layer1/preconf/iface/IPreconfRouter.sol)
+
+This branch is also referenced in the repository [README](https://github.com/taikoxyz/taiko-mono/blob/main/README.md).
+
+### Q2: What is the CONTROL_ROOT value in the new Risc0 Groth16 Verifier, and why doesn't it relate to the trusted images?
+
+**A:** The `CONTROL_ROOT` value (`0xa54dc85ac99f851c92d7c96d7318af41dbe7c0194edfcc37eb4d422a998c1f56`) is part of Risc0's proof versioning mechanism and is separate from the image IDs we publish.
+
+**Key distinction:**
+
+- **Image IDs**: Correspond to our specific code logic. When our logic changes, the image ID changes.
+- **CONTROL_ROOT**: Tied to the Risc0 SDK version used. It remains constant as long as we don't upgrade the Risc0 SDK itself.
+
+This separation allows us to update our proof logic (new image IDs) without requiring verifier contract upgrades, as long as the underlying SDK version remains compatible.
+
+**Further reading:** [Risc0 Version Management Design](https://github.com/risc0/risc0-ethereum/blob/release-3.0/contracts/version-management-design.md)
+
