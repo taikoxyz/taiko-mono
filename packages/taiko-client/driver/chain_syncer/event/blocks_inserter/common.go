@@ -801,7 +801,7 @@ func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
 	isLowBondProposal bool,
 ) ([]byte, error) {
-	// Create a 2-byte array for extraData
+	// Create a 32-byte array for extraData
 	extraData := make([]byte, 32)
 
 	// First byte: basefeeSharingPctg
