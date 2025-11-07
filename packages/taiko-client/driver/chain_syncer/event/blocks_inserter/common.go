@@ -802,16 +802,16 @@ func encodeShastaExtraData(
 	isLowBondProposal bool,
 ) ([]byte, error) {
 	// Create a 2-byte array for extraData
-	extraData := make([]byte, 2)
+	extraData := make([]byte, 32)
 
 	// First byte: basefeeSharingPctg
-	extraData[0] = basefeeSharingPctg
+	extraData[30] = basefeeSharingPctg
 
 	// Second byte: isLowBondProposal in the lowest bit
 	if isLowBondProposal {
-		extraData[1] = 0x01
+		extraData[31] = 0x01
 	} else {
-		extraData[1] = 0x00
+		extraData[31] = 0x00
 	}
 
 	return extraData, nil
