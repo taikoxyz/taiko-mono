@@ -18,12 +18,6 @@ interface IPreconfWhitelist {
         address indexed proposer, address indexed sequencer, uint256 inactiveSince
     );
 
-    /// @notice Emitted when the operator count is consolidated.
-    /// @param previousCount The previous operator count.
-    /// @param newCount The new operator count.
-    /// @param havingPerfectOperators Whether the whitelist has perfect operators.
-    event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
-
     /// @notice Emitted when an ejecter is updated.
     /// @param ejecter The address of the ejecter.
     /// @param isEjecter Whether the address is an ejecter.
