@@ -41,13 +41,20 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     mapping(address proposer => OperatorInfo info) public operators;
     mapping(uint256 index => address proposer) public operatorMapping;
 
+    /// @notice The total number of operators in the whitelist.
+    /// This includes both active and inactive operators.
     uint8 public operatorCount;
-    /// @dev Deprecated variable. Kept here for storage compatibility.
-    uint8 private deprecated1;
-    /// @dev Deprecated variable. Kept here for storage compatibility.
-    uint8 private deprecated2;
-    /// @dev Deprecated variable. Kept here for storage compatibility.
-    bool private deprecated3;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    uint8 private deprecatedOperatorChangeDelay;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    uint8 private deprecatedRandomnessDelay;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    bool private deprecatedHavingPerfectOperators;
+    /// @notice The epoch when the latest operator was or will be activated.
+    /// @dev No need to reinitialize the contract, this value starts at 0(i.e. no pending activations)
+    uint32 public latestActivationEpoch;
+
+
     /// @dev The addresses that can eject operators from the whitelist.
     mapping(address ejecter => bool isEjecter) public ejecters;
 
@@ -191,6 +198,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         info.activeSince = activeSince;
         info.sequencerAddress = _sequencer;
 
+        latestActivationEpoch = activeSince;
+
         emit OperatorAdded(_proposer, _sequencer, activeSince);
     }
 
@@ -229,29 +238,40 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         emit OperatorRemoved(_proposer, sequencer, block.timestamp);
     }
 
+    /// @dev Returns the operator for the given epoch
+    /// This function is not affected by operators that are added mid-epoch, since it filters active ones.
+    /// NOTE: We optimize for the common case where all operators are active. In that case we don't scan the entire operator set
+    /// or even check if the operator is active.
+    /// @param _epochTimestamp The timestamp of the epoch to get the operator for.
+    /// @return The operator for the given epoch.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
         unchecked {
             // Get epoch-stable randomness with a delayed applied. This avoids querying future beacon roots.
             uint256 delaySeconds = RANDOMNESS_DELAY * LibPreconfConstants.SECONDS_IN_EPOCH;
             uint256 ts = uint256(_epochTimestamp);
             uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
+
+            // One SLOAD
             uint256 _operatorCount = operatorCount;
+            uint32 _latestActivationEpoch = latestActivationEpoch;
 
-            uint256 target = _getRandomNumber(randomnessTs) % _operatorCount;
-
-            for (uint256 i; i < _operatorCount; ++i) {
-                address operator = operatorMapping[target];
-                if (isOperatorActive(operator, _epochTimestamp)) {
-                    // In most cases, we just return the operator at the target index.
-                    // This allows us to do a single SLOAD.
-                    return operator;
-                }
-                // If the operator is not active, we need to find the next active operator.
-                target = target == 0 ? _operatorCount - 1 : target - 1;
+            uint256 randomNumber = _getRandomNumber(randomnessTs);
+            if (_epochTimestamp >= _latestActivationEpoch) {
+                // Fast path: This means all operators are active, so we can just select one without checking
+                return operatorMapping[randomNumber % _operatorCount];
             }
-
-            // If no active operators, return address(0). This should never happen.
-            return address(0);
+            
+            // Slow path: We need to check which operators are active
+            address[] memory candidates = new address[](_operatorCount);
+            uint256 count;
+            for (uint256 i; i < _operatorCount; ++i) {
+                address operator = operatorMapping[i];
+                if (isOperatorActive(operator, _epochTimestamp)) {
+                    candidates[count++] = operator;
+                }
+            }
+            if (count == 0) return address(0);
+            return candidates[randomNumber % count];
         }
     }
 
