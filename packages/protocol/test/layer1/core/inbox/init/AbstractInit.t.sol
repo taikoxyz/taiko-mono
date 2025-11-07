@@ -35,7 +35,7 @@ abstract contract AbstractInitTest is InboxTestHelper {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
 
         assertEq(inbox.owner(), owner, "owner mismatch");
     }
@@ -45,7 +45,7 @@ abstract contract AbstractInitTest is InboxTestHelper {
         address caller = Carol;
 
         vm.prank(caller);
-        inbox.init(address(0), initializer);
+        inbox.init(address(0));
 
         assertEq(inbox.owner(), caller, "owner should default to caller");
     }
@@ -54,21 +54,21 @@ abstract contract AbstractInitTest is InboxTestHelper {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
 
         vm.expectRevert("Initializable: contract is already initialized");
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
     }
 
     function test_activate_succeeds() public {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
 
         vm.recordLogs();
-        vm.prank(initializer);
+        vm.prank(owner);
         inbox.activate(GENESIS_BLOCK_HASH);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -91,9 +91,9 @@ abstract contract AbstractInitTest is InboxTestHelper {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
 
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(David);
         inbox.activate(GENESIS_BLOCK_HASH);
     }
@@ -102,13 +102,13 @@ abstract contract AbstractInitTest is InboxTestHelper {
         Inbox inbox = _deployInboxProxy();
 
         vm.prank(owner);
-        inbox.init(owner, initializer);
+        inbox.init(owner);
 
-        vm.prank(initializer);
+        vm.prank(owner);
         inbox.activate(GENESIS_BLOCK_HASH);
 
-        // Should succeed when called again by same initializer (for L1 reorgs)
-        vm.prank(initializer);
+        // Should succeed when called again by same owner (for L1 reorgs)
+        vm.prank(owner);
         inbox.activate(GENESIS_BLOCK_HASH);
 
         // Verify state is still correct
@@ -116,30 +116,11 @@ abstract contract AbstractInitTest is InboxTestHelper {
         assertTrue(storedHash != bytes32(0), "genesis proposal should exist");
     }
 
-    function test_activate_RevertWhen_CalledAfterInitializerReset() public {
-        Inbox inbox = _deployInboxProxy();
-
-        vm.prank(owner);
-        inbox.init(owner, initializer);
-
-        vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
-
-        // Reset initializer
-        vm.prank(initializer);
-        inbox.resetInitializer();
-
-        // Should revert when called after reset
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        vm.prank(initializer);
-        inbox.activate(GENESIS_BLOCK_HASH);
-    }
-
     function test_activate_RevertWhen_NotInitialized() public {
         Inbox inbox = _deployInboxProxy();
 
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        vm.prank(initializer);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(owner);
         inbox.activate(GENESIS_BLOCK_HASH);
     }
 
