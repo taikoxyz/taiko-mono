@@ -240,8 +240,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev Returns the operator for the given epoch
     /// This function is not affected by operators that are added mid-epoch, since it filters active ones.
-    /// NOTE: We optimize for the common case where all operators are active. In that case we don't scan the entire operator set
-    /// or even check if the operator is active.
+    /// NOTE: We optimize for the common case where all operators are active.
+    /// In that case we don't scan the entire operator set or check if the operator is active.
     /// @param _epochTimestamp The timestamp of the epoch to get the operator for.
     /// @return The operator for the given epoch.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
