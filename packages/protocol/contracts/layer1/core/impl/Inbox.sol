@@ -22,7 +22,8 @@ import "./Inbox_Layout.sol"; // DO NOT DELETE
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proof verification, and forced inclusion in
 /// Taiko's based rollup architecture.
-/// @dev The Pacaya inbox contract is not being upgraded to the Shasta implementation; instead, Shasta uses a separate inbox address.
+/// @dev The Pacaya inbox contract is not being upgraded to the Shasta implementation;
+///      instead, Shasta uses a separate inbox address.
 /// @dev This contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
 ///      - Proof verification with transition record management
