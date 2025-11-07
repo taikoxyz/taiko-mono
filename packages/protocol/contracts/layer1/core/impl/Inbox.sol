@@ -1138,6 +1138,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error EmptyProposals();
     error InconsistentParams();
     error IncorrectProposalCount();
+    error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
     error InvalidSpan();
     error InvalidState();
@@ -1151,5 +1152,4 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
-    error InvalidLastPacayaBlockHash();
 }
