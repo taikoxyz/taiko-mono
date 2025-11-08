@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
 use alloy::{
     eips::BlockNumberOrTag,
@@ -11,12 +14,16 @@ use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use async_trait::async_trait;
 use bindings::{
-    codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
+    anchor::LibBonds::BondInstruction,
+    codec_optimized::{
+        IInbox::{DerivationSource, ProposedEventPayload},
+        LibBonds::BondInstruction as CodecBondInstruction,
+    },
     i_inbox::IInbox::Proposed,
 };
-use event_indexer::indexer::ShastaEventIndexer;
 use protocol::shasta::{
-    constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
+    constants::{BOND_PROCESSING_DELAY, shasta_fork_timestamp_for_chain},
+    manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
@@ -30,6 +37,12 @@ use crate::{
 };
 
 use super::super::{DerivationError, DerivationPipeline};
+
+/// Number of proposal records retained in the bond-instruction cache.
+///
+/// Two beacon epochs (64 slots) cover canonical reorg depth, and we extend this by the bond delay
+/// so the delayed-instruction window remains intact even after rewinding.
+const BOND_CACHE_CAPACITY: usize = 64 + (BOND_PROCESSING_DELAY as usize);
 
 mod bundle;
 mod payload;
@@ -51,11 +64,20 @@ where
     P: Provider + Clone + 'static,
 {
     rpc: Client<P>,
-    indexer: Arc<ShastaEventIndexer>,
     anchor_constructor: AnchorTxConstructor<P>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     shasta_fork_timestamp: u64,
+    /// Cached bond instruction entries, bounded to protect against reorgs.
+    bond_instruction_cache: Mutex<VecDeque<BondInstructionCacheEntry>>,
+}
+
+/// Cache entry for bond instructions associated with a proposal.
+#[derive(Debug)]
+struct BondInstructionCacheEntry {
+    proposal_id: u64,
+    hash: B256,
+    instructions: Vec<BondInstruction>,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -66,11 +88,10 @@ where
     ///
     /// Manifests are fetched via the supplied blob source while the driver client is
     /// reused to query both L1 contracts and L2 execution state.
-    #[instrument(skip(rpc, blob_source, indexer), name = "shasta_derivation_new")]
+    #[instrument(skip(rpc, blob_source), name = "shasta_derivation_new")]
     pub async fn new(
         rpc: Client<P>,
         blob_source: Arc<BlobDataSource>,
-        indexer: Arc<ShastaEventIndexer>,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
             Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
@@ -81,11 +102,52 @@ where
         info!(chain_id, shasta_fork_timestamp, "initialised shasta derivation pipeline");
         Ok(Self {
             rpc,
-            indexer,
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             shasta_fork_timestamp,
+            bond_instruction_cache: Mutex::new(VecDeque::with_capacity(BOND_CACHE_CAPACITY)),
         })
+    }
+
+    /// Cache the bond instructions bundled within a decoded proposal payload.
+    fn cache_bond_instructions_from_payload(&self, payload: &ProposedEventPayload) {
+        let instructions =
+            payload.bondInstructions.iter().map(convert_codec_bond_instruction).collect();
+        let proposal_id = payload.proposal.id.to::<u64>();
+        let hash = B256::from(payload.coreState.bondInstructionsHash);
+        self.store_bond_instructions(proposal_id, hash, instructions);
+    }
+
+    /// Store or refresh the cached entry for `proposal_id`, trimming the queue when it exceeds the
+    /// ring-buffer-derived capacity.
+    fn store_bond_instructions(
+        &self,
+        proposal_id: u64,
+        hash: B256,
+        instructions: Vec<BondInstruction>,
+    ) {
+        let mut cache =
+            self.bond_instruction_cache.lock().expect("bond instruction cache poisoned");
+        if let Some(pos) = cache.iter().position(|entry| entry.proposal_id == proposal_id) {
+            cache.remove(pos);
+        }
+        cache.push_back(BondInstructionCacheEntry { proposal_id, hash, instructions });
+        if cache.len() > BOND_CACHE_CAPACITY {
+            cache.pop_front();
+        }
+    }
+
+    /// Fetch cached bond instructions for a delayed proposal, if available.
+    pub(super) fn bond_instructions_for(
+        &self,
+        proposal_id: u64,
+    ) -> Option<(B256, Vec<BondInstruction>)> {
+        let cache = self.bond_instruction_cache.lock().expect("bond instruction cache poisoned");
+        cache
+            .iter()
+            .rev()
+            .find(|entry| entry.proposal_id == proposal_id)
+            .map(|entry| (entry.hash, entry.instructions.clone()))
     }
 
     /// Load the parent L2 block used as context when constructing payload attributes.
@@ -233,6 +295,8 @@ where
             sources: manifest_segments,
         };
 
+        self.cache_bond_instructions_from_payload(payload);
+
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)
     }
@@ -370,5 +434,15 @@ where
         }
 
         Ok(outcomes)
+    }
+}
+
+/// Convert the codec-generated bond instruction into the anchor binding representation.
+fn convert_codec_bond_instruction(instr: &CodecBondInstruction) -> BondInstruction {
+    BondInstruction {
+        proposalId: instr.proposalId,
+        bondType: instr.bondType,
+        payer: instr.payer,
+        payee: instr.payee,
     }
 }

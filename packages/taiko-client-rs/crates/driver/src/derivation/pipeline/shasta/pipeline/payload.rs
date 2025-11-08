@@ -561,13 +561,9 @@ where
         }
 
         let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
-        let target_payload = self
-            .indexer
-            .get_proposal_by_id(U256::from(target_id))
+        let (target_hash, target_instructions) = self
+            .bond_instructions_for(target_id)
             .ok_or(DerivationError::IncompleteMetadata(target_id))?;
-
-        let target_hash =
-            B256::from_slice(target_payload.core_state.bondInstructionsHash.as_slice());
 
         if state.bond_instructions_hash == target_hash {
             debug!(
@@ -577,10 +573,7 @@ where
             return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
         }
 
-        let data = BondInstructionData {
-            instructions: target_payload.bond_instructions,
-            hash: target_hash,
-        };
+        let data = BondInstructionData { instructions: target_instructions, hash: target_hash };
         debug!(
             proposal_id = meta.proposal_id,
             instruction_count = data.instructions.len(),

@@ -17,7 +17,6 @@ use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
 };
-use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use rpc::{blob::BlobDataSource, client::Client};
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -29,8 +28,6 @@ where
     rpc: Client<P>,
     /// Static driver configuration.
     cfg: DriverConfig,
-    /// Shared Shasta event indexer used to stream inbox proposals.
-    indexer: Arc<ShastaEventIndexer>,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
 }
@@ -42,11 +39,6 @@ where
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
     pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
-        let indexer_config = ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.client.l1_provider_source.clone(),
-            inbox_address: cfg.client.inbox_address,
-        };
-        let indexer = ShastaEventIndexer::new(indexer_config).await?;
         let blob_source = Arc::new(
             BlobDataSource::new(
                 Some(cfg.l1_beacon_endpoint.clone()),
@@ -55,7 +47,7 @@ where
             .await
             .map_err(|err| SyncError::Other(err.into()))?,
         );
-        Ok(Self { rpc, cfg: cfg.clone(), indexer, blob_source })
+        Ok(Self { rpc, cfg: cfg.clone(), blob_source })
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -143,29 +135,13 @@ where
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
         debug!(start_tag = ?start_tag, "event syncer run invoked");
 
-        // Kick off the background indexer before waiting for its historical pass to finish.
-        let indexer = self.indexer.clone();
-        indexer.spawn();
-        debug!("spawned shasta event indexer");
-
-        let derivation_pipeline = ShastaDerivationPipeline::new(
-            self.rpc.clone(),
-            self.blob_source.clone(),
-            self.indexer.clone(),
-        )
-        .await?;
+        let derivation_pipeline =
+            ShastaDerivationPipeline::new(self.rpc.clone(), self.blob_source.clone()).await?;
         let derivation: Arc<
             dyn DerivationPipeline<
                 Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
             >,
         > = Arc::new(derivation_pipeline);
-
-        // Wait for historical indexing to complete before starting the derivation loop.
-        debug!("waiting for historical event indexing to finish");
-        self.indexer.wait_historical_indexing_finished().await;
-
-        info!("historical event indexing completed; starting proposal processing");
-        debug!("historical indexing finished; proceeding to live stream");
 
         let mut scanner = self
             .cfg

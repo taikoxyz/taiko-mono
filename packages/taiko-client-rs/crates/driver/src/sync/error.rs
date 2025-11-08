@@ -1,7 +1,6 @@
 //! Synchronization error types.
 
 use anyhow::Error as AnyhowError;
-use event_indexer::error::IndexerError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
@@ -33,10 +32,6 @@ pub enum SyncError {
     /// Beacon sync: checkpoint head behind local head.
     #[error("checkpoint head {checkpoint} is behind local head {local}")]
     CheckpointBehind { checkpoint: u64, local: u64 },
-
-    /// Event sync: indexer initialization failed.
-    #[error("failed to initialize event indexer")]
-    IndexerInit(#[from] IndexerError),
 
     /// Event sync: execution engine returned no latest block.
     #[error("execution engine returned no latest block")]

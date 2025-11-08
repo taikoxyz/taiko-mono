@@ -86,8 +86,7 @@ async fn syncs_shasta_proposal_into_l2() -> Result<()> {
         )
         .await?,
     );
-    let pipeline =
-        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, indexer.clone()).await?;
+    let pipeline = ShastaDerivationPipeline::new(driver_client.clone(), blob_source).await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
