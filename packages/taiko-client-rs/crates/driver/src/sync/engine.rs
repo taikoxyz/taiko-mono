@@ -57,14 +57,11 @@ pub trait PayloadApplier {
         payloads: &[TaikoPayloadAttributes],
     ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>;
 
-    /// Submit a single payload to the execution engine while managing forkchoice state.
-    ///
-    /// The provided forkchoice state is used for the announcement phase and updated to the new
-    /// head on success so that subsequent calls can continue the chain.
+    /// Submit a single payload to the execution engine while internally managing forkchoice state.
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
-        forkchoice_state: &mut ForkchoiceState,
+        parent_hash: B256,
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
@@ -96,19 +93,16 @@ where
         );
 
         let mut outcomes = Vec::with_capacity(payloads.len());
-        let mut forkchoice_state = ForkchoiceState {
-            head_block_hash: parent_block.hash(),
-            safe_block_hash: parent_block.hash(),
-            finalized_block_hash: parent_block.header.parent_hash,
-        };
+        let mut parent_hash = parent_block.hash();
         debug!(
-            head = ?forkchoice_state.head_block_hash,
+            head = ?parent_hash,
             payload_count = payloads.len(),
             "submitting batched payloads"
         );
 
         for payload in payloads {
-            let applied = apply_payload_internal(self, payload, &mut forkchoice_state).await?;
+            let applied = apply_payload_internal(self, payload, parent_hash).await?;
+            parent_hash = applied.outcome.block_hash();
             outcomes.push(applied.outcome);
         }
 
@@ -116,14 +110,14 @@ where
         Ok(outcomes)
     }
 
-    #[instrument(skip(self, payload, forkchoice_state), fields(payload_id = tracing::field::Empty))]
+    #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
-        forkchoice_state: &mut ForkchoiceState,
+        parent_hash: B256,
     ) -> Result<AppliedPayload, EngineSubmissionError> {
         let span = tracing::Span::current();
-        let applied = apply_payload_internal(self, payload, forkchoice_state).await?;
+        let applied = apply_payload_internal(self, payload, parent_hash).await?;
         span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
         Ok(applied)
     }
@@ -139,18 +133,23 @@ pub struct AppliedPayload {
     pub payload: ExecutionPayloadInputV2,
 }
 
-#[instrument(skip(rpc, payload, forkchoice_state), fields(payload_id = tracing::field::Empty))]
+#[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<P>(
     rpc: &Client<P>,
     payload: &TaikoPayloadAttributes,
-    forkchoice_state: &mut ForkchoiceState,
+    parent_hash: B256,
 ) -> Result<AppliedPayload, EngineSubmissionError>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     // Advertise the next payload attributes so the execution engine can build the block body.
+    let forkchoice_state = ForkchoiceState {
+        head_block_hash: parent_hash,
+        safe_block_hash: parent_hash,
+        finalized_block_hash: B256::ZERO,
+    };
     let fc_response =
-        rpc.engine_forkchoice_updated_v2(*forkchoice_state, Some(payload.clone())).await?;
+        rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
     tracing::Span::current().record("payload_id", format_args!("{}", payload_id));
@@ -196,10 +195,6 @@ where
         finalized_block_hash: B256::ZERO,
     };
     rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
-
-    forkchoice_state.head_block_hash = block_hash;
-    forkchoice_state.safe_block_hash = B256::ZERO;
-    forkchoice_state.finalized_block_hash = B256::ZERO;
 
     let block = rpc
         .l2_provider

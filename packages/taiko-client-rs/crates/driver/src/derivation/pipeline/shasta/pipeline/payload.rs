@@ -11,7 +11,7 @@ use alloy_consensus::TxEnvelope;
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::aliases::U48;
 use alloy_rpc_types::eth::Withdrawal;
-use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes as EthPayloadAttributes};
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use bindings::anchor::LibBonds::BondInstruction;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
@@ -169,25 +169,11 @@ where
             segment_count = segments_total,
             "processing manifest segments"
         );
-        let parent_hash = state.header.hash_slow();
-        let mut forkchoice_state = ForkchoiceState {
-            head_block_hash: parent_hash,
-            safe_block_hash: B256::ZERO,
-            finalized_block_hash: B256::ZERO,
-        };
-
         for (segment_index, segment) in sources.into_iter().enumerate() {
             let segment_ctx =
                 SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total };
-            let segment_outcomes = self
-                .process_manifest_segment(
-                    segment,
-                    state,
-                    segment_ctx,
-                    applier,
-                    &mut forkchoice_state,
-                )
-                .await?;
+            let segment_outcomes =
+                self.process_manifest_segment(segment, state, segment_ctx, applier).await?;
 
             outcomes.extend(segment_outcomes);
         }
@@ -216,7 +202,7 @@ where
 
     /// Process a single manifest segment, producing one or more payload attributes.
     #[instrument(
-        skip(self, segment, state, ctx, applier, forkchoice_state),
+        skip(self, segment, state, ctx, applier),
         fields(proposal_id = ctx.meta.proposal_id, segment_index = ctx.segment_index, segments_total = ctx.segments_total, forced = segment.is_forced_inclusion)
     )]
     async fn process_manifest_segment(
@@ -225,7 +211,6 @@ where
         state: &mut ParentState,
         ctx: SegmentContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
-        forkchoice_state: &mut ForkchoiceState,
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total } =
             ctx;
@@ -294,9 +279,7 @@ where
                 },
                 is_low_bond_proposal,
             };
-            let outcome = self
-                .process_block_manifest(block, state, block_ctx, applier, forkchoice_state)
-                .await?;
+            let outcome = self.process_block_manifest(block, state, block_ctx, applier).await?;
             outcomes.push(outcome);
         }
 
@@ -311,7 +294,7 @@ where
 
     /// Convert a manifest block into payload attributes while updating the rolling parent state.
     #[instrument(
-        skip(self, block, state, ctx, applier, forkchoice_state),
+        skip(self, block, state, ctx, applier),
         fields(proposal_id = ctx.meta.proposal_id, block_idx = ctx.position.block_index, segment_index = ctx.position.segment_index)
     )]
     async fn process_block_manifest(
@@ -320,7 +303,6 @@ where
         state: &mut ParentState,
         ctx: BlockContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
-        forkchoice_state: &mut ForkchoiceState,
     ) -> Result<EngineBlockOutcome, DerivationError> {
         let BlockContext { meta, origin_block_hash, position, is_low_bond_proposal } = ctx;
 
@@ -382,7 +364,7 @@ where
             },
         );
 
-        let applied = applier.apply_payload(&payload, forkchoice_state).await?;
+        let applied = applier.apply_payload(&payload, parent_hash).await?;
         *state = state.advance(block, &applied, bond_data.hash)?;
 
         info!(
