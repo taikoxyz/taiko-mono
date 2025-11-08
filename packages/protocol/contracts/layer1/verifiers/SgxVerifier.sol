@@ -5,7 +5,6 @@ import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 
