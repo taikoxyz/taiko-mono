@@ -113,12 +113,16 @@ where
     }
 
     /// Cache the bond instructions bundled within a decoded proposal payload.
-    fn cache_bond_instructions_from_payload(&self, payload: &ProposedEventPayload) {
+    fn cache_bond_instructions_from_payload(
+        &self,
+        payload: &ProposedEventPayload,
+    ) -> Result<(), DerivationError> {
         let instructions =
             payload.bondInstructions.iter().map(convert_codec_bond_instruction).collect();
         let proposal_id = payload.proposal.id.to::<u64>();
         let hash = B256::from(payload.coreState.bondInstructionsHash);
-        self.store_bond_instructions(proposal_id, hash, instructions);
+        self.store_bond_instructions(proposal_id, hash, instructions)?;
+        Ok(())
     }
 
     /// Store or refresh the cached entry for `proposal_id`, trimming the queue when it exceeds the
@@ -128,9 +132,13 @@ where
         proposal_id: u64,
         hash: B256,
         instructions: Vec<BondInstruction>,
-    ) {
-        let mut cache =
-            self.bond_instruction_cache.lock().expect("bond instruction cache poisoned");
+    ) -> Result<(), DerivationError> {
+        let mut cache = self.bond_instruction_cache.lock().map_err(|err| {
+            DerivationError::BondInstructionCachePoisoned {
+                operation: "store",
+                message: err.to_string(),
+            }
+        })?;
         if let Some(pos) = cache.iter().position(|entry| entry.proposal_id == proposal_id) {
             cache.remove(pos);
         }
@@ -138,19 +146,26 @@ where
         if cache.len() > BOND_CACHE_CAPACITY {
             cache.pop_front();
         }
+        Ok(())
     }
 
     /// Fetch cached bond instructions for a delayed proposal, if available.
     pub(super) fn bond_instructions_for(
         &self,
         proposal_id: u64,
-    ) -> Option<(B256, Vec<BondInstruction>)> {
-        let cache = self.bond_instruction_cache.lock().expect("bond instruction cache poisoned");
-        cache
+    ) -> Result<Option<(B256, Vec<BondInstruction>)>, DerivationError> {
+        let cache = self.bond_instruction_cache.lock().map_err(|err| {
+            DerivationError::BondInstructionCachePoisoned {
+                operation: "fetch",
+                message: err.to_string(),
+            }
+        })?;
+        let result = cache
             .iter()
             .rev()
             .find(|entry| entry.proposal_id == proposal_id)
-            .map(|entry| (entry.hash, entry.instructions.clone()))
+            .map(|entry| (entry.hash, entry.instructions.clone()));
+        Ok(result)
     }
 
     /// Load the parent L2 block used as context when constructing payload attributes.
@@ -301,7 +316,7 @@ where
             sources: manifest_segments,
         };
 
-        self.cache_bond_instructions_from_payload(payload);
+        self.cache_bond_instructions_from_payload(payload)?;
 
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)

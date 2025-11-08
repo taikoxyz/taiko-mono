@@ -43,6 +43,9 @@ pub enum DerivationError {
     /// The proposal contains no derivation sources, which is invalid.
     #[error("proposal contains no derivation sources")]
     EmptyDerivationSources(u64),
+    /// Bond instruction cache mutex was poisoned.
+    #[error("bond instruction cache poisoned during {operation}: {message}")]
+    BondInstructionCachePoisoned { operation: &'static str, message: String },
     /// Failure while materialising payloads via the execution engine.
     #[error(transparent)]
     Engine(#[from] EngineSubmissionError),

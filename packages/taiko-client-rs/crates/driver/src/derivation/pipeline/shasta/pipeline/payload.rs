@@ -551,7 +551,7 @@ where
 
         let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
         let (target_hash, target_instructions) = self
-            .bond_instructions_for(target_id)
+            .bond_instructions_for(target_id)?
             .ok_or(DerivationError::IncompleteMetadata(target_id))?;
 
         if state.bond_instructions_hash == target_hash {
