@@ -84,4 +84,7 @@ pub enum EngineSubmissionError {
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,
+    /// Execution engine failed to return the inserted block via RPC.
+    #[error("inserted block {0} not found via rpc provider")]
+    MissingInsertedBlock(u64),
 }

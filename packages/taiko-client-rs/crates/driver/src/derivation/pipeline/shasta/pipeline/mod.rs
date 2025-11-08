@@ -98,6 +98,7 @@ where
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
+        // TODO: Why here doesn't work?
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO &&
@@ -205,15 +206,12 @@ where
         }
 
         // Fetch the normal proposal manifest last.
-        let mut final_manifest = self
+        let final_manifest = self
             .fetch_and_decode_manifest(
                 self.derivation_source_manifest_fetcher.as_ref(),
                 last_source,
             )
             .await?;
-        if last_source.isForcedInclusion {
-            final_manifest.apply_forced_inclusion_defaults();
-        }
 
         let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
         manifest_segments.push(SourceManifestSegment {
@@ -311,6 +309,7 @@ where
         );
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
+        // TODO: get from protocol
         let proposal_origin_block_hash =
             self.rpc.l1_block_hash_by_number(meta.origin_block_number).await?.ok_or(
                 DerivationError::ProposalOriginBlockHashMissing {
@@ -355,8 +354,8 @@ where
         let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
 
         if let Some(last) = outcomes.last() {
-            let last_block_number = last.block_number;
-            let last_block_hash = last.block_hash;
+            let last_block_number = last.block_number();
+            let last_block_hash = last.block_hash();
             info!(
                 proposal_id,
                 last_l2_block_number = last_block_number,

@@ -99,14 +99,18 @@ where
         } = params;
 
         // Fetch golden touch nonce at the parent header via EIP-1898 hash reference.
-        let block_id =
-            BlockId::Hash(RpcBlockHash { block_hash: parent_hash, require_canonical: Some(false) });
         let nonce: U256 = self
             .rpc
             .l2_provider
             .raw_request(
                 Cow::Borrowed("eth_getTransactionCount"),
-                (self.golden_touch_address, block_id),
+                (
+                    self.golden_touch_address,
+                    BlockId::Hash(RpcBlockHash {
+                        block_hash: parent_hash,
+                        require_canonical: Some(true),
+                    }),
+                ),
             )
             .await
             .or_else(|err| {
@@ -131,7 +135,9 @@ where
             ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
+            ?nonce,
             ?base_fee,
+            ?gas_fee_cap,
             "assembling shasta anchor anchorV4 transaction",
         );
 
@@ -174,15 +180,15 @@ where
             input: calldata,
         };
 
-        let sighash = tx.signature_hash();
+        let sig_hash = tx.signature_hash();
         let mut hash_bytes = [0u8; 32];
-        hash_bytes.copy_from_slice(sighash.as_slice());
+        hash_bytes.copy_from_slice(sig_hash.as_slice());
         let signature = self.signer.sign_with_predefined_k(&hash_bytes)?;
 
         Ok(TxEnvelope::new_unchecked(
             EthereumTypedTransaction::Eip1559(tx),
             signature.signature,
-            sighash,
+            sig_hash,
         ))
     }
 }

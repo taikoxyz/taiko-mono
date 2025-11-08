@@ -25,12 +25,22 @@ use crate::sync::error::EngineSubmissionError;
 /// Description of a block inserted via the execution engine.
 #[derive(Debug, Clone)]
 pub struct EngineBlockOutcome {
-    /// Block number of the inserted L2 block.
-    pub block_number: u64,
-    /// Hash of the inserted L2 block.
-    pub block_hash: B256,
+    /// The L2 block materialised by the execution engine.
+    pub block: RpcBlock<TxEnvelope>,
     /// Payload identifier returned by the engine API.
     pub payload_id: PayloadId,
+}
+
+impl EngineBlockOutcome {
+    /// Return the number of the inserted block.
+    pub fn block_number(&self) -> u64 {
+        self.block.header.number
+    }
+
+    /// Return the hash of the inserted block.
+    pub fn block_hash(&self) -> B256 {
+        self.block.header.hash
+    }
 }
 
 /// Trait that converts derivation payload attributes into concrete execution engine blocks.
@@ -191,17 +201,22 @@ where
     forkchoice_state.safe_block_hash = B256::ZERO;
     forkchoice_state.finalized_block_hash = B256::ZERO;
 
+    let block = rpc
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))?;
+
     info!(
         block_number,
-        block_hash = ?block_hash,
+        block_hash = ?block.hash(),
         payload_id = %payload_id,
         "inserted l2 block via payload applier",
     );
 
-    Ok(AppliedPayload {
-        outcome: EngineBlockOutcome { block_number, block_hash, payload_id },
-        payload: payload_input,
-    })
+    Ok(AppliedPayload { outcome: EngineBlockOutcome { block, payload_id }, payload: payload_input })
 }
 
 fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {

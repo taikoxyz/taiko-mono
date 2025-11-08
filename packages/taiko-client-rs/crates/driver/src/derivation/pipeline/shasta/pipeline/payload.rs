@@ -241,9 +241,13 @@ where
         let mut decoded_manifest = segment.manifest;
         let mut is_low_bond_proposal = false;
 
-        if !segment.is_forced_inclusion && !manifest_is_default(&decoded_manifest) {
+        if !manifest_is_default(&decoded_manifest) {
             is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
             if is_low_bond_proposal {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    "low-bond proposal detected; using default manifest for segment processing"
+                );
                 decoded_manifest = DerivationSourceManifest::default();
             }
         }
@@ -251,8 +255,18 @@ where
         let validation_ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
 
         match validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
-            Ok(()) => {}
+            Ok(()) => {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    segment_index, "manifest segment validation succeeded"
+                );
+            }
             Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    segment_index,
+                    "manifest segment is empty or default; proceeding with default payload"
+                );
                 decoded_manifest = DerivationSourceManifest::default();
                 if let Err(err) = validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
                     warn!(
@@ -315,6 +329,7 @@ where
             proposal_id = meta.proposal_id,
             block_number,
             forced_inclusion = position.is_forced_inclusion(),
+            transactions = block.transactions.len(),
             "processing manifest block"
         );
         let block_base_fee = state.compute_block_base_fee()?;
@@ -340,6 +355,18 @@ where
 
         let parent_hash = state.header.hash_slow();
 
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            block_base_fee,
+            difficulty = ?difficulty,
+            bond_instruction_count = bond_data.instructions.len(),
+            bond_instructions_hash = ?bond_data.hash,
+            transaction_count_with_anchor = transactions.len(),
+            parent_hash = ?parent_hash,
+            "calculated block parameters"
+        );
+
         let payload = self.create_payload_attributes(
             &transactions,
             PayloadContext {
@@ -356,12 +383,12 @@ where
         );
 
         let applied = applier.apply_payload(&payload, forkchoice_state).await?;
-        *state = state.advance(block, &applied.payload, bond_data.hash)?;
+        *state = state.advance(block, &applied, bond_data.hash)?;
 
         info!(
             proposal_id = meta.proposal_id,
-            block_number = applied.outcome.block_number,
-            block_hash = ?applied.outcome.block_hash,
+            block_number = applied.outcome.block_number(),
+            block_hash = ?applied.outcome.block_hash(),
             "payload applied to execution engine"
         );
 
@@ -438,6 +465,12 @@ where
             parent_beacon_block_root: None,
         };
 
+        debug!(
+            l1_origin = ?l1_origin,
+            payload_attributes = ?payload_attributes,
+            "constructed payload attributes"
+        );
+
         TaikoPayloadAttributes {
             payload_attributes,
             base_fee_per_gas: U256::from(block_base_fee),
@@ -449,7 +482,7 @@ where
     /// Synchronise the execution engine's L1 origin tables with the derived block metadata.
     #[instrument(
         skip(self, meta, payload, outcome),
-        fields(proposal_id = meta.proposal_id, block_number = outcome.block_number, final_block = is_final_block)
+        fields(proposal_id = meta.proposal_id, block_number = outcome.block_number(), final_block = is_final_block)
     )]
     async fn sync_l1_origin(
         &self,
@@ -458,10 +491,10 @@ where
         outcome: &EngineBlockOutcome,
         is_final_block: bool,
     ) -> Result<(), DerivationError> {
-        let block_id = U256::from(outcome.block_number);
+        let block_id = U256::from(outcome.block_number());
         let mut origin = payload.l1_origin.clone();
         origin.block_id = block_id;
-        origin.l2_block_hash = outcome.block_hash;
+        origin.l2_block_hash = outcome.block_hash();
 
         if let Some(existing) = self.rpc.l1_origin_by_id(block_id).await? {
             origin.signature = existing.signature;
@@ -478,13 +511,13 @@ where
             self.rpc.set_batch_to_last_block(U256::from(meta.proposal_id), block_id).await?;
             info!(
                 proposal_id = meta.proposal_id,
-                block_number = outcome.block_number,
+                block_number = outcome.block_number(),
                 "updated head l1 origin for final proposal block"
             );
         } else {
             debug!(
                 proposal_id = meta.proposal_id,
-                block_number = outcome.block_number,
+                block_number = outcome.block_number(),
                 "updated l1 origin entry"
             );
         }
@@ -592,11 +625,13 @@ where
 
         let (anchor_block_hash, anchor_state_root) =
             self.resolve_anchor_block_fields(block.anchor_block_number).await?;
-        debug!(
+        info!(
             proposal_id = meta.proposal_id,
             block_number,
             anchor_block = block.anchor_block_number,
-            "building anchor transaction"
+            anchor_block_hash = ?anchor_block_hash,
+            parent_hash = ?parent_state.header.hash_slow(),
+            "building anchorV4 transaction"
         );
 
         let tx = self

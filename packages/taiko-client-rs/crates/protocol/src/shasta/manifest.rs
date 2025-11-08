@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
-    error::{ProtocolError, Result},
+    error::Result,
 };
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
@@ -66,8 +66,10 @@ impl DerivationSourceManifest {
         };
 
         let mut decoded_slice = decoded.as_slice();
-        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
-            .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
+        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+            Ok(manifest) => manifest,
+            Err(_) => return Ok(DerivationSourceManifest::default()),
+        };
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(DerivationSourceManifest::default());

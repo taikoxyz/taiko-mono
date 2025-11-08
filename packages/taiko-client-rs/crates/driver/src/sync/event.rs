@@ -229,13 +229,13 @@ where
 
                 info!(
                     block_count = outcomes.len(),
-                    last_block = outcomes.last().map(|outcome| outcome.block_number),
-                    last_hash = ?outcomes.last().map(|outcome| outcome.block_hash),
+                    last_block = outcomes.last().map(|outcome| outcome.block_number()),
+                    last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
                     "successfully processed proposal into L2 blocks",
                 );
                 debug!(
                     block_count = outcomes.len(),
-                    last_block = outcomes.last().map(|outcome| outcome.block_number),
+                    last_block = outcomes.last().map(|outcome| outcome.block_number()),
                     "proposal derivation outcomes recorded"
                 );
             }
