@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.2...docs-site-v1.32.3) (2025-11-07)
+
+
+### Chores
+
+* **docs-site:** add GoldRush LinkCard to developer tools section ([#20664](https://github.com/taikoxyz/taiko-mono/issues/20664)) ([3a1e775](https://github.com/taikoxyz/taiko-mono/commit/3a1e775b29225363c1bccd4d3671fd2c3b79792a))
+
 ## [1.32.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.1...docs-site-v1.32.2) (2025-11-06)
 
 
