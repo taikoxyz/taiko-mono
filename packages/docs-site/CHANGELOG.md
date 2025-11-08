@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.32.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.2...docs-site-v1.32.3) (2025-11-07)
+
+
+### Chores
+
+* **docs-site:** add GoldRush LinkCard to developer tools section ([#20664](https://github.com/taikoxyz/taiko-mono/issues/20664)) ([3a1e775](https://github.com/taikoxyz/taiko-mono/commit/3a1e775b29225363c1bccd4d3671fd2c3b79792a))
+
+## [1.32.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.1...docs-site-v1.32.2) (2025-11-06)
+
+
+### Chores
+
+* **docs-site:** add other l2 contracts for hoodi ([#20650](https://github.com/taikoxyz/taiko-mono/issues/20650)) ([1f245ae](https://github.com/taikoxyz/taiko-mono/commit/1f245ae7921201f2472ce2d36c3baa9a0e93e6c6))
+
 ## [1.32.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.0...docs-site-v1.32.1) (2025-10-30)
 
 

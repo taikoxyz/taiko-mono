@@ -18,8 +18,8 @@ pragma solidity ^0.8.24;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _shastaInitializer             | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
-//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 20   | Bytes: 1   
+//   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
+//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 6    | Bytes: 1   
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
