@@ -204,9 +204,8 @@ impl Proposer {
         }
 
         // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
-        let parent_block_time = parent.header.timestamp
-            - self
-                .rpc_provider
+        let parent_block_time = parent.header.timestamp -
+            self.rpc_provider
                 .l2_provider
                 .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
                 .await?

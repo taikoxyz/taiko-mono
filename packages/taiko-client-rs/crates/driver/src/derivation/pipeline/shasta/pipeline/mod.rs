@@ -163,15 +163,18 @@ where
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
-        if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
+        if let Some(origin) =
+            self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id - 1)).await?
+        {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO
-                && let Some(block) =
+            if origin.l2_block_hash != B256::ZERO &&
+                let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 info!(
                     proposal_id,
-                    l2_hash = ?origin.l2_block_hash,
+                    parent_block_number = block.number(),
+                    parent_hash = ?origin.l2_block_hash,
                     "using cached origin pointer for parent block"
                 );
                 return Ok(block.map_transactions(|tx: RpcTransaction| tx.into()));

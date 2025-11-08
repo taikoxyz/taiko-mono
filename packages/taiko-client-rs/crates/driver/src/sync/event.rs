@@ -109,6 +109,12 @@ where
             latest_block
         };
 
+        info!(
+            target_hash = ?target_block.hash(),
+            target_block_number = target_block.number(),
+            "determined target block for anchor extraction",
+        );
+
         if target_block.header.number == 0 {
             return Ok((0, latest_proposal_id));
         }
@@ -131,6 +137,10 @@ fn decode_anchor_block_number(
     block: &RpcBlock<TxEnvelope>,
     anchor_address: Address,
 ) -> Result<u64, SyncError> {
+    // TODO(David): maybe we can hardcode the deployment height of the inbox contract here.
+    if block.header.number == 0 {
+        return Ok(0);
+    }
     Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
 }
 
@@ -140,6 +150,9 @@ fn decode_anchor_proposal_id(
     block: &RpcBlock<TxEnvelope>,
     anchor_address: Address,
 ) -> Result<u64, SyncError> {
+    if block.header.number == 0 {
+        return Ok(0);
+    }
     Ok(decode_anchor_call(block, anchor_address)?._proposalParams.proposalId.to::<u64>())
 }
 
@@ -164,8 +177,8 @@ fn decode_anchor_call(
         return Err(missing("first transaction is not the anchor contract"));
     }
 
-    Ok(anchorV4Call::abi_decode(first_tx.input())
-        .map_err(|_| missing("failed to decode anchorV4 calldata"))?)
+    anchorV4Call::abi_decode(first_tx.input())
+        .map_err(|_| missing("failed to decode anchorV4 calldata"))
 }
 
 #[async_trait::async_trait]
