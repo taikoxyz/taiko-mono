@@ -202,13 +202,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     {
         if (_proposer == address(0)) return false;
         OperatorInfo memory info = operators[_proposer];
-        if (_epochTimestamp < info.activeSince) {
-            return false;
-        } else if (info.inactiveSince != 0 && _epochTimestamp >= info.inactiveSince) {
-            return false;
-        } else {
-            return true;
-        }
+        return _epochTimestamp >= info.activeSince && info.inactiveSince == 0;
     }
 
     function epochStartTimestamp(uint256 _offset) public view returns (uint32) {
