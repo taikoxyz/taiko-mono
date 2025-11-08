@@ -39,8 +39,6 @@ use super::{
 struct SegmentContext<'a> {
     /// Proposal metadata shared across all segments.
     meta: &'a BundleMeta,
-    /// Hash of the proposal's L1 origin block.
-    proposal_origin_block_hash: B256,
     /// Index of the segment within the proposal bundle.
     segment_index: usize,
     /// Total number of segments in the proposal bundle.
@@ -66,8 +64,6 @@ struct BlockPosition {
 struct BlockContext<'a> {
     /// Immutable metadata describing the entire proposal bundle.
     meta: &'a BundleMeta,
-    /// Hash of the proposal's L1 origin block.
-    origin_block_hash: B256,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
     /// Indicates whether the proposal is a low-bond proposal (falls back to default manifest).
@@ -80,8 +76,6 @@ struct PayloadContext<'a> {
     block: &'a BlockManifest,
     /// Proposal-level metadata reused for payload construction.
     meta: &'a BundleMeta,
-    /// Hash of the proposal's L1 origin block.
-    origin_block_hash: B256,
     /// Base fee target for the upcoming block.
     block_base_fee: u64,
     /// Difficulty used when sealing the block.
@@ -157,7 +151,6 @@ where
         &self,
         sources: Vec<SourceManifestSegment>,
         meta: &BundleMeta,
-        proposal_origin_block_hash: B256,
         state: &mut ParentState,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
@@ -170,8 +163,7 @@ where
             "processing manifest segments"
         );
         for (segment_index, segment) in sources.into_iter().enumerate() {
-            let segment_ctx =
-                SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total };
+            let segment_ctx = SegmentContext { meta, segment_index, segments_total };
             let segment_outcomes =
                 self.process_manifest_segment(segment, state, segment_ctx, applier).await?;
 
@@ -212,8 +204,7 @@ where
         ctx: SegmentContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
-        let SegmentContext { meta, proposal_origin_block_hash, segment_index, segments_total } =
-            ctx;
+        let SegmentContext { meta, segment_index, segments_total } = ctx;
         info!(
             proposal_id = meta.proposal_id,
             segment_index,
@@ -269,7 +260,6 @@ where
         for (block_index, block) in decoded_manifest.blocks.iter().enumerate() {
             let block_ctx = BlockContext {
                 meta,
-                origin_block_hash: proposal_origin_block_hash,
                 position: BlockPosition {
                     segment_index,
                     segments_total,
@@ -304,7 +294,7 @@ where
         ctx: BlockContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<EngineBlockOutcome, DerivationError> {
-        let BlockContext { meta, origin_block_hash, position, is_low_bond_proposal } = ctx;
+        let BlockContext { meta, position, is_low_bond_proposal } = ctx;
 
         let block_number = state.next_block_number();
         info!(
@@ -354,7 +344,6 @@ where
             PayloadContext {
                 block,
                 meta,
-                origin_block_hash,
                 block_base_fee,
                 difficulty,
                 block_number,
@@ -389,7 +378,6 @@ where
         let PayloadContext {
             block,
             meta,
-            origin_block_hash,
             block_base_fee,
             difficulty,
             block_number,
@@ -397,6 +385,7 @@ where
             position,
             is_low_bond_proposal,
         } = ctx;
+        let origin_block_hash = meta.origin_block_hash;
 
         let tx_list = encode_transactions(transactions);
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, is_low_bond_proposal);

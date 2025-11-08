@@ -287,6 +287,7 @@ where
                 proposal_id,
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
+                origin_block_hash: B256::from(payload.derivation.originBlockHash),
                 proposer: payload.proposal.proposer,
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
                 bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
@@ -373,25 +374,10 @@ where
         );
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
-        // TODO: get from protocol
-        let proposal_origin_block_hash =
-            self.rpc.l1_block_hash_by_number(meta.origin_block_number).await?.ok_or(
-                DerivationError::ProposalOriginBlockHashMissing {
-                    block_number: meta.origin_block_number,
-                },
-            )?;
-
         let mut parent_state = self.initialize_parent_state(&parent_block).await?;
 
-        let outcomes = self
-            .build_payloads_from_sources(
-                sources,
-                &meta,
-                proposal_origin_block_hash,
-                &mut parent_state,
-                applier,
-            )
-            .await?;
+        let outcomes =
+            self.build_payloads_from_sources(sources, &meta, &mut parent_state, applier).await?;
         info!(
             proposal_id = meta.proposal_id,
             block_count = outcomes.len(),
