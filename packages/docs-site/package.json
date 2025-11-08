@@ -13,13 +13,13 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.8.0",
-    "@astrojs/starlight": "^0.25.0",
-    "astro": "^5.14.3",
+    "@astrojs/starlight": "^0.36.0",
+    "astro": "^5.15.4",
     "astro-og-canvas": "^0.5.0",
     "canvaskit-wasm": "^0.39.1",
     "sharp": "^0.33.3",
-    "starlight-links-validator": "^0.8.0",
-    "starlight-openapi": "^0.6.3",
+    "starlight-links-validator": "^0.18.0",
+    "starlight-openapi": "^0.20.0",
     "typescript": "^5.4.5"
   }
 }
