@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use driver::{
@@ -87,7 +88,8 @@ async fn syncs_shasta_proposal_into_l2() -> Result<()> {
         )
         .await?,
     );
-    let pipeline = ShastaDerivationPipeline::new(driver_client.clone(), blob_source).await?;
+    let pipeline =
+        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 

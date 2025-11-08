@@ -36,9 +36,14 @@ pub enum SyncError {
     /// Event sync: execution engine returned no latest block.
     #[error("execution engine returned no latest block")]
     MissingLatestExecutionBlock,
+
     /// Event sync: execution engine missing a specific block.
     #[error("execution engine returned no block {number}")]
     MissingExecutionBlock { number: u64 },
+
+    /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
+    #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
+    MissingAnchorTransaction { block_number: u64, reason: &'static str },
 
     /// Event sync: indexer task terminated unexpectedly.
     #[error("event indexer task terminated unexpectedly")]

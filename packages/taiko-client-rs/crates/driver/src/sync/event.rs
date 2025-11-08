@@ -2,9 +2,16 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
+use alloy::{
+    eips::BlockNumberOrTag,
+    primitives::{Address, U256},
+    sol_types::SolEvent,
+};
+use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
-use bindings::i_inbox::IInbox::Proposed;
+use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+use alloy_sol_types::SolCall;
+use bindings::{anchor::Anchor::anchorV4Call, i_inbox::IInbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::spawn;
@@ -57,70 +64,118 @@ where
     /// looking up the corresponding anchor state, and falling back to the cached head L1 origin
     /// if the anchor has not been set yet (e.g. genesis).
     #[instrument(skip(self), level = "debug")]
-    async fn event_stream_start_block(&self) -> Result<u64, SyncError> {
-        let latest_block = self
+    async fn event_stream_start_block(&self) -> Result<(u64, U256), SyncError> {
+        let latest_block: RpcBlock<TxEnvelope> = self
             .rpc
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
+            .full()
             .await
             .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingLatestExecutionBlock)?;
+            .ok_or(SyncError::MissingLatestExecutionBlock)?
+            .map_transactions(|tx: RpcTransaction| tx.into());
 
-        let target_block = if latest_block.number() > BOND_PROCESSING_DELAY {
-            let target_number = latest_block.number() - BOND_PROCESSING_DELAY;
-            self.rpc
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Number(target_number))
+        let anchor_address = *self.rpc.shasta.anchor.address();
+        let latest_proposal_id_value = decode_anchor_proposal_id(&latest_block, anchor_address)?;
+        let latest_proposal_id = U256::from(latest_proposal_id_value);
+        info!(
+            latest_proposal_id = latest_proposal_id_value,
+            latest_hash = ?latest_block.hash(),
+            latest_number = latest_block.number(),
+            "derived latest proposal id from latest anchorV4 transaction",
+        );
+
+        // Determine the target block to extract the anchor block number from.
+        let target_block: RpcBlock<TxEnvelope> = if latest_proposal_id_value > BOND_PROCESSING_DELAY
+        {
+            let delayed_proposal_id = latest_proposal_id_value - BOND_PROCESSING_DELAY;
+            let target_block_number = self
+                .rpc
+                .last_block_id_by_batch_id(U256::from(delayed_proposal_id))
                 .await
                 .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
-                .ok_or(SyncError::MissingExecutionBlock { number: target_number })?
+                .ok_or(SyncError::MissingExecutionBlock {
+                    number: latest_block.number().saturating_sub(BOND_PROCESSING_DELAY),
+                })?;
+            self.rpc
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
+                .full()
+                .await
+                .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+                .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
+                .map_transactions(|tx: RpcTransaction| tx.into())
         } else {
             latest_block
         };
 
-        let anchor_state = self.rpc.shasta_anchor_state_by_hash(target_block.hash()).await?;
-        let anchor_block_number = anchor_state.anchor_block_number;
+        if target_block.header.number == 0 {
+            return Ok((0, latest_proposal_id));
+        }
+
+        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?;
         info!(
             anchor_block_number,
             latest_hash = ?target_block.hash(),
             latest_number = target_block.number(),
-            "queried anchor state for target execution block",
+            latest_proposal_id = latest_proposal_id_value,
+            "derived anchor block number from latest anchorV4 transaction",
         );
-
-        if anchor_block_number != 0 {
-            return Ok(anchor_block_number);
-        }
-
-        // If the anchor block number is zero, which indicates that the EE only has genesis state,
-        // fall back to the head L1 origin height if available.
-        let fallback = self
-            .rpc
-            .head_l1_origin()
-            .await?
-            .and_then(|origin| origin.l1_block_height.map(|height| height.to::<u64>()));
-
-        if let Some(height) = fallback.filter(|height| *height != 0) {
-            warn!(
-                anchor_block_number,
-                fallback_height = height,
-                "anchor block number unset; falling back to head L1 origin height"
-            );
-            info!(
-                anchor_block_number,
-                fallback_height = height,
-                "using cached head L1 origin height as stream start"
-            );
-            return Ok(height);
-        }
-
-        // If both the anchor block number and head L1 origin height are unset (e.g. genesis),
-        // return block zero.
-        warn!(
-            "anchor block number and head L1 origin height unset; starting event stream from block zero"
-        );
-        debug!("defaulting event stream start to block zero");
-        Ok(0)
+        Ok((anchor_block_number, latest_proposal_id))
     }
+}
+
+/// Parse the first transaction in `block` and recover the anchor block number from the
+/// `anchorV4` calldata emitted by the goldentouch transaction.
+fn decode_anchor_block_number(
+    block: &RpcBlock<TxEnvelope>,
+    anchor_address: Address,
+) -> Result<u64, SyncError> {
+    Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
+}
+
+/// Parse the first transaction in `block` and recover the proposal id from the `anchorV4`
+/// calldata emitted by the goldentouch transaction.
+fn decode_anchor_proposal_id(
+    block: &RpcBlock<TxEnvelope>,
+    anchor_address: Address,
+) -> Result<u64, SyncError> {
+    Ok(decode_anchor_call(block, anchor_address)?._proposalParams.proposalId.to::<u64>())
+}
+
+/// Parse the first transaction in `block` and recover the `anchorV4` call data.
+fn decode_anchor_call(
+    block: &RpcBlock<TxEnvelope>,
+    anchor_address: Address,
+) -> Result<anchorV4Call, SyncError> {
+    let block_number = block.header.number;
+    let missing =
+        |reason: &'static str| SyncError::MissingAnchorTransaction { block_number, reason };
+
+    let txs = block
+        .transactions
+        .as_transactions()
+        .ok_or_else(|| missing("block body returned only transaction hashes"))?;
+    let first_tx = txs.first().ok_or_else(|| missing("block contains no transactions"))?;
+    // Anchor transactions are injected as the first transaction for every non-genesis block.
+    let destination =
+        first_tx.to().ok_or_else(|| missing("unable to determine anchor transaction recipient"))?;
+    if destination != anchor_address {
+        return Err(missing("first transaction is not the anchor contract"));
+    }
+
+    let input = first_tx.input();
+    if input.len() < anchorV4Call::SELECTOR.len() {
+        return Err(missing("anchor transaction calldata shorter than selector"));
+    }
+
+    if input[..anchorV4Call::SELECTOR.len()] != anchorV4Call::SELECTOR {
+        return Err(missing("first transaction does not call anchorV4"));
+    }
+
+    let call = anchorV4Call::abi_decode(&input[anchorV4Call::SELECTOR.len()..])
+        .map_err(|_| missing("failed to decode anchorV4 calldata"))?;
+    Ok(call)
 }
 
 #[async_trait::async_trait]
@@ -131,13 +186,17 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let start_tag = BlockNumberOrTag::Number(self.event_stream_start_block().await?);
+        let (anchor_block_number, latest_proposal_id) = self.event_stream_start_block().await?;
+        let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
-        debug!(start_tag = ?start_tag, "event syncer run invoked");
 
-        let derivation_pipeline =
-            ShastaDerivationPipeline::new(self.rpc.clone(), self.blob_source.clone()).await?;
+        let derivation_pipeline = ShastaDerivationPipeline::new(
+            self.rpc.clone(),
+            self.blob_source.clone(),
+            latest_proposal_id,
+        )
+        .await?;
         let derivation: Arc<
             dyn DerivationPipeline<
                 Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
@@ -165,11 +224,9 @@ where
         });
 
         info!("event scanner started; listening for inbox proposals");
-        debug!("event scanner task started");
 
         while let Some(message) = stream.next().await {
-            info!(?message, "received inbox proposal message from event scanner");
-            debug!(?message, "processing scanner message");
+            debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
                 ScannerMessage::Data(logs) => logs,
                 ScannerMessage::Error(err) => {
@@ -218,11 +275,6 @@ where
                     last_block = outcomes.last().map(|outcome| outcome.block_number()),
                     last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
                     "successfully processed proposal into L2 blocks",
-                );
-                debug!(
-                    block_count = outcomes.len(),
-                    last_block = outcomes.last().map(|outcome| outcome.block_number()),
-                    "proposal derivation outcomes recorded"
                 );
             }
         }

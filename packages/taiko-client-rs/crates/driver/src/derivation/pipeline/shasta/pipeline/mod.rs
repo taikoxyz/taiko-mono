@@ -68,6 +68,7 @@ where
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     shasta_fork_timestamp: u64,
+    initial_proposal_id: U256,
     /// Cached bond instruction entries, bounded to protect against reorgs.
     bond_instruction_cache: Mutex<VecDeque<BondInstructionCacheEntry>>,
 }
@@ -92,6 +93,7 @@ where
     pub async fn new(
         rpc: Client<P>,
         blob_source: Arc<BlobDataSource>,
+        initial_proposal_id: U256,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
             Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
@@ -105,6 +107,7 @@ where
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             shasta_fork_timestamp,
+            initial_proposal_id,
             bond_instruction_cache: Mutex::new(VecDeque::with_capacity(BOND_CACHE_CAPACITY)),
         })
     }
@@ -160,7 +163,6 @@ where
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
-        // TODO: Why here doesn't work?
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO &&
@@ -366,6 +368,14 @@ where
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
+        if meta.proposal_id < self.initial_proposal_id.to() {
+            info!(
+                proposal_id = meta.proposal_id,
+                initial_proposal_id = ?self.initial_proposal_id,
+                "skipping proposal below initial proposal id"
+            );
+            return Ok(Vec::new());
+        }
         info!(
             proposal_id = meta.proposal_id,
             origin_block = meta.origin_block_number,

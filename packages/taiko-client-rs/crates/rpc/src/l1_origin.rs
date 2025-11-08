@@ -22,6 +22,8 @@ pub enum TaikoOriginMethod {
     HeadL1Origin,
     /// `taiko_lastL1OriginByBatchID`
     LastL1OriginByBatchId,
+    /// `taiko_lastBlockIDByBatchID`
+    LastBlockIdByBatchId,
 }
 
 impl TaikoOriginMethod {
@@ -31,6 +33,7 @@ impl TaikoOriginMethod {
             Self::L1OriginById => "taiko_l1OriginByID",
             Self::HeadL1Origin => "taiko_headL1Origin",
             Self::LastL1OriginByBatchId => "taiko_lastL1OriginByBatchID",
+            Self::LastBlockIdByBatchId => "taiko_lastBlockIDByBatchID",
         }
     }
 }
@@ -62,6 +65,17 @@ impl<P: Provider + Clone> Client<P> {
             .await
             .or_else(handle_not_found)
     }
+
+    /// Fetch the last block id that corresponds to the provided batch id.
+    pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
+        self.l2_provider
+            .raw_request(
+                Cow::Borrowed(TaikoOriginMethod::LastBlockIdByBatchId.as_str()),
+                (proposal_id,),
+            )
+            .await
+            .or_else(handle_not_found)
+    }
 }
 
 /// Checks whether the underlying RPC error message represents a "not found" response.
@@ -70,7 +84,7 @@ fn is_not_found_message(message: &str) -> bool {
 }
 
 /// Converts an RPC error into an optional L1 origin, mapping "not found" to `Ok(None)`.
-fn handle_not_found<E>(err: E) -> Result<Option<L1Origin>>
+fn handle_not_found<T, E>(err: E) -> Result<Option<T>>
 where
     E: Into<RpcClientError> + std::fmt::Display,
 {
