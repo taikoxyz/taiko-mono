@@ -6182,6 +6182,7 @@ dependencies = [
  "flate2",
  "serde",
  "thiserror 2.0.16",
+ "tracing",
 ]
 
 [[package]]

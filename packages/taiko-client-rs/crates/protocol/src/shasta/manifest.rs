@@ -15,6 +15,7 @@ use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
     error::Result,
 };
+use tracing::info;
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
@@ -68,7 +69,10 @@ impl DerivationSourceManifest {
         let mut decoded_slice = decoded.as_slice();
         let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
             Ok(manifest) => manifest,
-            Err(_) => return Ok(DerivationSourceManifest::default()),
+            Err(err) => {
+                info!(?err, "failed to decode derivation manifest rlp; returning default manifest");
+                return Ok(DerivationSourceManifest::default());
+            }
         };
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
@@ -206,7 +210,8 @@ mod tests {
         payload.extend_from_slice(&len_bytes);
         payload.extend_from_slice(&compressed);
 
-        assert!(DerivationSourceManifest::decompress_and_decode(&payload, 0).is_err());
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
     }
 
     #[test]

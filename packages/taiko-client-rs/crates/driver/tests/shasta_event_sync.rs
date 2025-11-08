@@ -83,6 +83,7 @@ async fn syncs_shasta_proposal_into_l2() -> Result<()> {
         BlobDataSource::new(
             Some(blob_server.endpoint().clone()),
             Some(blob_server.endpoint().clone()),
+            true,
         )
         .await?,
     );

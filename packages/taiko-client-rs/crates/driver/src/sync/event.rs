@@ -43,6 +43,7 @@ where
             BlobDataSource::new(
                 Some(cfg.l1_beacon_endpoint.clone()),
                 cfg.blob_server_endpoint.clone(),
+                false,
             )
             .await
             .map_err(|err| SyncError::Other(err.into()))?,

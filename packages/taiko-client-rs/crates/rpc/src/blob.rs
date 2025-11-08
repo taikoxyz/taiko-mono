@@ -56,8 +56,9 @@ impl BlobDataSource {
     pub async fn new(
         beacon_endpoint: Option<Url>,
         blob_server_endpoint: Option<Url>,
+        disable_beacon: bool,
     ) -> Result<Self, BlobDataError> {
-        let beacon = if let Some(endpoint) = beacon_endpoint {
+        let beacon = if let (Some(endpoint), false) = (beacon_endpoint, disable_beacon) {
             Some(Arc::new(BeaconClient::new(endpoint).await?))
         } else {
             None
