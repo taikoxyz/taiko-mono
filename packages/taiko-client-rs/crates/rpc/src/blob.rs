@@ -67,9 +67,9 @@ impl BlobDataSource {
     }
 
     /// Access the HTTP client used for blob fetches.
-    fn http_client(&self) -> &HttpClient {
-        self.client.get_or_init(|| {
-            HttpClient::builder().build().expect("failed to build blob data source client")
+    fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
+        self.client.get_or_try_init(|| {
+            HttpClient::builder().build().map_err(|err| BlobDataError::Other(err.into()))
         })
     }
 
@@ -119,7 +119,7 @@ impl BlobDataSource {
         endpoint: &Url,
         blob_hashes: &[B256],
     ) -> Result<Vec<BlobTransactionSidecar>, BlobDataError> {
-        let client = self.http_client().clone();
+        let client = self.http_client()?.clone();
         let mut blobs = Vec::with_capacity(blob_hashes.len());
 
         for hash in blob_hashes {
