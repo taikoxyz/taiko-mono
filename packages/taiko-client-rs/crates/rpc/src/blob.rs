@@ -152,8 +152,8 @@ impl BlobDataSource {
             };
 
             let versioned_hash = versioned_hash_from_commitment(&commitment);
-            if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>() &&
-                reported_hash != versioned_hash
+            if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>()
+                && reported_hash != versioned_hash
             {
                 warn!(
                     ?hash,

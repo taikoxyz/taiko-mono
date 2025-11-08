@@ -164,18 +164,8 @@ fn decode_anchor_call(
         return Err(missing("first transaction is not the anchor contract"));
     }
 
-    let input = first_tx.input();
-    if input.len() < anchorV4Call::SELECTOR.len() {
-        return Err(missing("anchor transaction calldata shorter than selector"));
-    }
-
-    if input[..anchorV4Call::SELECTOR.len()] != anchorV4Call::SELECTOR {
-        return Err(missing("first transaction does not call anchorV4"));
-    }
-
-    let call = anchorV4Call::abi_decode(&input[anchorV4Call::SELECTOR.len()..])
-        .map_err(|_| missing("failed to decode anchorV4 calldata"))?;
-    Ok(call)
+    Ok(anchorV4Call::abi_decode(first_tx.input())
+        .map_err(|_| missing("failed to decode anchorV4 calldata"))?)
 }
 
 #[async_trait::async_trait]

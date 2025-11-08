@@ -165,8 +165,8 @@ where
         tracing::Span::current().record("proposal_id", proposal_id);
         if let Some(origin) = self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id)).await? {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO &&
-                let Some(block) =
+            if origin.l2_block_hash != B256::ZERO
+                && let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 info!(
