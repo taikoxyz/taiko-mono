@@ -41,6 +41,9 @@ pub enum SyncError {
     /// Event sync: execution engine returned no latest block.
     #[error("execution engine returned no latest block")]
     MissingLatestExecutionBlock,
+    /// Event sync: execution engine missing a specific block.
+    #[error("execution engine returned no block {number}")]
+    MissingExecutionBlock { number: u64 },
 
     /// Event sync: indexer task terminated unexpectedly.
     #[error("event indexer task terminated unexpectedly")]

@@ -6,6 +6,7 @@ use alloy::{eips::BlockNumberOrTag, sol_types::SolEvent};
 use alloy_provider::Provider;
 use bindings::i_inbox::IInbox::Proposed;
 use event_scanner::{EventFilter, ScannerMessage};
+use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::spawn;
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -69,18 +70,28 @@ where
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?;
+            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .ok_or(SyncError::MissingLatestExecutionBlock)?;
 
-        let Some(latest_block) = latest_block else {
-            return Err(SyncError::MissingLatestExecutionBlock);
+        let target_block = if latest_block.number() > BOND_PROCESSING_DELAY {
+            let target_number = latest_block.number() - BOND_PROCESSING_DELAY;
+            self.rpc
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Number(target_number))
+                .await
+                .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+                .ok_or(SyncError::MissingExecutionBlock { number: target_number })?
+        } else {
+            latest_block
         };
 
-        let anchor_state = self.rpc.shasta_anchor_state_by_hash(latest_block.hash()).await?;
+        let anchor_state = self.rpc.shasta_anchor_state_by_hash(target_block.hash()).await?;
         let anchor_block_number = anchor_state.anchor_block_number;
-        debug!(
-            ?anchor_block_number,
-            latest_hash = ?latest_block.hash(),
-            "queried anchor state for latest execution block"
+        info!(
+            anchor_block_number,
+            latest_hash = ?target_block.hash(),
+            latest_number = target_block.number(),
+            "queried anchor state for target execution block",
         );
 
         if anchor_block_number != 0 {
@@ -95,15 +106,13 @@ where
             .await?
             .and_then(|origin| origin.l1_block_height.map(|height| height.to::<u64>()));
 
-        if let Some(height) = fallback &&
-            height != 0
-        {
+        if let Some(height) = fallback.filter(|height| *height != 0) {
             warn!(
                 anchor_block_number,
                 fallback_height = height,
                 "anchor block number unset; falling back to head L1 origin height"
             );
-            debug!(
+            info!(
                 anchor_block_number,
                 fallback_height = height,
                 "using cached head L1 origin height as stream start"
