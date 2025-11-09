@@ -125,8 +125,6 @@ where
         }
 
         // Step back a fixed reorg cushion so we resume consumption on a deeply-confirmed block.
-        // This mirrors the Go driver’s behaviour and protects against L1 reorgs right after
-        // startup.
         let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
 
         info!(
