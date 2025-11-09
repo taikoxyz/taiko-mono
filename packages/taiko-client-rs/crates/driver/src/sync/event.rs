@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
     sol_types::SolEvent,
 };
@@ -27,9 +27,8 @@ use crate::{
 
 use rpc::{blob::BlobDataSource, client::Client};
 
-/// Two Ethereum epochs (2 * 32 slots) as a buffer to avoid landing on a block that can still
-/// be reorged when resuming event scanning.
-const RESUME_REORG_CUSHION_SLOTS: u64 = 64;
+/// Two Ethereum epochs as a buffer to avoid resuming on a block that can still be reorged.
+const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -125,7 +124,8 @@ where
         }
 
         // Step back a fixed reorg cushion so we resume consumption on a deeply-confirmed block.
-        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?
+            .saturating_sub(RESUME_REORG_CUSHION_SLOTS);
 
         info!(
             anchor_block_number,

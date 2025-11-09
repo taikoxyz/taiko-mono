@@ -4,7 +4,7 @@ use std::{
 };
 
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
@@ -40,9 +40,9 @@ use super::super::{DerivationError, DerivationPipeline};
 
 /// Number of proposal records retained in the bond-instruction cache.
 ///
-/// Two beacon epochs (64 slots) cover canonical reorg depth, and we extend this by the bond delay
-/// so the delayed-instruction window remains intact even after rewinding.
-const BOND_CACHE_CAPACITY: usize = 64 + (BOND_PROCESSING_DELAY as usize);
+/// Two beacon epochs (2 × 32 slots) cover canonical reorg depth, and we extend this by the bond
+/// delay so the delayed-instruction window remains intact even after rewinding.
+const BOND_CACHE_CAPACITY: usize = ((2 * EPOCH_SLOTS) as usize) + (BOND_PROCESSING_DELAY as usize);
 
 mod bundle;
 mod payload;
