@@ -86,14 +86,15 @@ where
         // Apply the larger of: bond delay (needed for cached bond instructions) or a two-epoch
         // reorg cushion (protects against L1 reorgs). Using the maximum preserves both safety
         // properties without moving the cursor further back than necessary.
-        let resume_offset = BOND_PROCESSING_DELAY.max(RESUME_REORG_CUSHION_SLOTS);
-        let delayed_proposal_id = latest_proposal_id.saturating_sub(resume_offset);
+        let delayed_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+        let target_proposal_id = delayed_proposal_id.saturating_sub(BOND_PROCESSING_DELAY);
         info!(
             latest_proposal_id = latest_proposal_id,
             delayed_proposal_id = delayed_proposal_id,
+            target_proposal_id = target_proposal_id,
             latest_hash = ?latest_block.hash(),
             latest_number = latest_block.number(),
-            "derived latest / delayed proposal id from latest anchorV4 transaction",
+            "derived proposal id from latest anchorV4 transaction",
         );
         if delayed_proposal_id == 0 {
             return Ok((0, U256::ZERO));
@@ -101,12 +102,10 @@ where
 
         let target_block_number = self
             .rpc
-            .last_block_id_by_batch_id(U256::from(delayed_proposal_id))
+            .last_block_id_by_batch_id(U256::from(target_proposal_id))
             .await
             .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlock {
-                number: latest_block.number().saturating_sub(resume_offset),
-            })?;
+            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
         let target_block = self
             .rpc
             .l2_provider
@@ -124,7 +123,6 @@ where
         );
 
         let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?;
-
         info!(
             anchor_block_number,
             latest_hash = ?target_block.hash(),
