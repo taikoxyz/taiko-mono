@@ -77,7 +77,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-block"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
@@ -105,7 +105,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-chainspec"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -127,7 +127,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-consensus"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
@@ -149,7 +149,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-db"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-primitives",
@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-evm"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alloy-evm",
  "alloy-primitives",
@@ -184,7 +184,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-primitives"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alethia-reth-chainspec",
  "alloy-primitives",
@@ -208,7 +208,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-rpc"
 version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#8660384688e11ae85aa9defd3fb499464eb7bcc3"
+source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#82b5f9a08fbe8917d269e3fe351e0d2f9e5012ee"
 dependencies = [
  "alethia-reth-block",
  "alethia-reth-chainspec",
@@ -1686,6 +1686,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "592277618714fbcecda9a02ba7a8781f319d26532a88553bbacc77ba5d2b3a8d"
 dependencies = [
  "fastrand",
+ "gloo-timers 0.3.0",
  "tokio",
 ]
 
@@ -3332,14 +3333,15 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "0.4.0-alpha"
+version = "0.5.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6ae8ecb83aedc270b94a1636a59e7ca8af4c88dccfdaddfe4383b834b88974c"
+checksum = "29ca7ce49ed710ac56fcaa73995f4a5b18deacfc827b90af313c8e889f94b258"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
  "anyhow",
  "async-trait",
+ "backon",
  "chrono",
  "serde",
  "serde_json",
@@ -3582,7 +3584,7 @@ version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f288b0a4f20f9a56b5d1da57e2227c661b7b16168e2f72365f57b63326e29b24"
 dependencies = [
- "gloo-timers",
+ "gloo-timers 0.2.6",
  "send_wrapper 0.4.0",
 ]
 
@@ -3710,6 +3712,18 @@ name = "gloo-timers"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b995a66bb87bebce9a0f4a95aed01daca4872c050bfcb21653361c03bc35e5c"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -6182,6 +6196,7 @@ dependencies = [
  "flate2",
  "serde",
  "thiserror 2.0.16",
+ "tracing",
 ]
 
 [[package]]
@@ -9468,6 +9483,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror 2.0.16",
  "tokio",
  "tower 0.4.13",

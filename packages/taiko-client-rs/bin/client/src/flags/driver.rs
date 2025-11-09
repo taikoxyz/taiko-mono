@@ -27,6 +27,12 @@ pub struct DriverArgs {
         help = "Optional HTTP endpoint of a checkpointed L2 execution engine"
     )]
     pub l2_checkpoint_endpoint: Option<Url>,
+    #[clap(
+        long = "blob.server",
+        env = "BLOB_SERVER",
+        help = "Optional HTTP endpoint of a blob server to fallback when beacon sidecars are unavailable"
+    )]
+    pub blob_server_endpoint: Option<Url>,
 }
 
 impl DriverArgs {

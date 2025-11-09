@@ -20,3 +20,5 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=build /app/target/release/taiko-client ./
+
+ENTRYPOINT ["./taiko-client"]
