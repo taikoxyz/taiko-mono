@@ -207,15 +207,22 @@ where
             }
         }
 
-        // Use the latest canonical block (common after beacon sync or at
-        // startup when only genesis is present).
-        info!(proposal_id, "falling back to latest canonical block for parent context");
+        // Derive the parent block via the batch-to-block mapping so we always anchor to the last
+        // execution block produced for the preceding proposal.
+        info!(proposal_id, parent_proposal_id, "loading parent block via batch-to-block mapping");
+
+        let block_number = self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(parent_proposal_id))
+            .await?
+            .ok_or(DerivationError::MissingBatchLastBlock { proposal_id: parent_proposal_id })?
+            .to::<u64>();
         self.rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-            .ok_or(DerivationError::LatestL2BlockMissing)
+            .ok_or(DerivationError::BlockUnavailable(block_number))
     }
 
     /// Extract blob hashes from a derivation source, preserving the order expected by
