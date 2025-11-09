@@ -24,7 +24,12 @@ use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
 };
+
 use rpc::{blob::BlobDataSource, client::Client};
+
+/// Two Ethereum epochs (2 * 32 slots) as a buffer to avoid landing on a block that can still
+/// be reorged when resuming event scanning.
+const RESUME_REORG_CUSHION_SLOTS: u64 = 64;
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -119,7 +124,11 @@ where
             return Ok((0, latest_proposal_id));
         }
 
-        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?;
+        // Step back a fixed reorg cushion so we resume consumption on a deeply-confirmed block.
+        // This mirrors the Go driver’s behaviour and protects against L1 reorgs right after
+        // startup.
+        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+
         info!(
             anchor_block_number,
             latest_hash = ?target_block.hash(),
