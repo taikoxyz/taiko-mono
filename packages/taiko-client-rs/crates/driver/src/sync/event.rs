@@ -194,7 +194,7 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let (anchor_block_number, latest_proposal_id) = self.event_stream_start_block().await?;
+        let (anchor_block_number, initial_proposal_id) = self.event_stream_start_block().await?;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
@@ -202,7 +202,7 @@ where
         let derivation_pipeline = ShastaDerivationPipeline::new(
             self.rpc.clone(),
             self.blob_source.clone(),
-            latest_proposal_id,
+            initial_proposal_id,
         )
         .await?;
         let derivation: Arc<
