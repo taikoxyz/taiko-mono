@@ -83,7 +83,7 @@ where
         let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
 
         // Determine the target block to extract the anchor block number from.
-        // Apply at least one of: bond delay (needed for cached bond instructions) or a two-epoch
+        // Apply the larger of: bond delay (needed for cached bond instructions) or a two-epoch
         // reorg cushion (protects against L1 reorgs). Using the maximum preserves both safety
         // properties without moving the cursor further back than necessary.
         let resume_offset = BOND_PROCESSING_DELAY.max(RESUME_REORG_CUSHION_SLOTS);
