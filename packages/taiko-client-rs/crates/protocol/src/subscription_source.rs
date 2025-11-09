@@ -99,19 +99,11 @@ impl SubscriptionSource {
         &self,
         start_tag: BlockNumberOrTag,
     ) -> Result<EventScanner<SyncFromBlock, Ethereum>, SubscriptionSourceError> {
-        let client = match self {
-            SubscriptionSource::Ipc(path) => EventScannerBuilder::sync()
-                .from_block(start_tag)
-                .connect_ipc::<Ethereum>(path.to_string_lossy().into_owned())
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-            SubscriptionSource::Ws(url) => EventScannerBuilder::sync()
-                .from_block(start_tag)
-                .connect_ws::<Ethereum>(url.clone())
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-        };
-        Ok(client)
+        EventScannerBuilder::sync()
+            .from_block(start_tag)
+            .connect(self.to_provider().await?)
+            .await
+            .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))
     }
 
     /// Convert the source into an `EventScanner` configured to synchronize from the latest X events
@@ -120,20 +112,11 @@ impl SubscriptionSource {
         &self,
         count: usize,
     ) -> Result<EventScanner<SyncFromLatestEvents, Ethereum>, SubscriptionSourceError> {
-        let client = match self {
-            SubscriptionSource::Ipc(path) => EventScannerBuilder::sync()
-                .from_latest(count)
-                .connect_ipc::<Ethereum>(path.to_string_lossy().into_owned())
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-            SubscriptionSource::Ws(url) => EventScannerBuilder::sync()
-                .from_latest(count)
-                .connect_ws::<Ethereum>(url.clone())
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-        };
-
-        Ok(client)
+        EventScannerBuilder::sync()
+            .from_latest(count)
+            .connect(self.to_provider().await?)
+            .await
+            .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))
     }
 }
 

@@ -198,6 +198,7 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
+        // If the parent is genesis, return the initial base fee.
         if parent.number() == 0 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
