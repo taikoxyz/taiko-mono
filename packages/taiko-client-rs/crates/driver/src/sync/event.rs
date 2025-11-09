@@ -83,9 +83,8 @@ where
         let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
 
         // Determine the target block to extract the anchor block number from.
-        // Apply the larger of: bond delay (needed for cached bond instructions) or a two-epoch
-        // reorg cushion (protects against L1 reorgs). Using the maximum preserves both safety
-        // properties without moving the cursor further back than necessary.
+        // First back off two epochs worth of proposals to survive L1 reorgs, then apply the bond
+        // processing delay so cached bond instructions are always available.
         let delayed_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
         let target_proposal_id = delayed_proposal_id.saturating_sub(BOND_PROCESSING_DELAY);
         info!(
