@@ -178,8 +178,19 @@ where
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
+        let parent_proposal_id = proposal_id.saturating_sub(1);
+        if parent_proposal_id == 0 {
+            info!(proposal_id, "using genesis block as parent for first proposal");
+            return self
+                .rpc
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Number(0))
+                .await?
+                .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+                .ok_or(DerivationError::BlockUnavailable(0));
+        }
         if let Some(origin) =
-            self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id - 1)).await?
+            self.rpc.last_l1_origin_by_batch_id(U256::from(parent_proposal_id)).await?
         {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO &&
