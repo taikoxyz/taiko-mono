@@ -276,7 +276,7 @@ Timestamp validation is performed collectively across all blocks and may result 
 
 Anchor block validation ensures proper L1 state synchronization and may trigger manifest replacement:
 
-**Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
+**Invalidation conditions** (sets `anchorBlockNumber`, `anchorBlockHash`, `anchorStateRoot` to `0`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET`
