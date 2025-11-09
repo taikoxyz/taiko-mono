@@ -147,7 +147,7 @@ contract SgxVerifierTest is Test {
             badIdProof[i + 4] = proof[i + 4];
         }
 
-        vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, bytes32(uint256(1)), badIdProof);
     }
 
@@ -196,15 +196,10 @@ contract SgxVerifierTest is Test {
         verifier.addInstances(instances);
 
         aggregatedHash = bytes32(uint256(0x1234));
-        bytes32 publicInput = LibPublicInput.hashPublicInputs(
-            aggregatedHash, address(verifier), address(0), CHAIN_ID
+        bytes32 signatureHash = LibPublicInput.hashPublicInputs(
+            aggregatedHash, address(verifier), instance, CHAIN_ID
         );
 
-        bytes32[] memory publicInputs = new bytes32[](2);
-        publicInputs[0] = bytes32(uint256(uint160(instance)));
-        publicInputs[1] = publicInput;
-
-        bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(instanceKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 

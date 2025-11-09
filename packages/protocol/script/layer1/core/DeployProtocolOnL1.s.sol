@@ -169,7 +169,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 0))
+            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 2))
         });
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
@@ -208,7 +208,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
             ),
-            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
+            data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 
         if (vm.envBool("ACTIVATE_INBOX")) {
