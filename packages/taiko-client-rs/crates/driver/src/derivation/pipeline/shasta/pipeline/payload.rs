@@ -677,6 +677,7 @@ where
         Ok(())
     }
 
+    /// Verify that a derived block matches the canonical execution block at the same height.
     async fn verify_canonical_block(
         &self,
         meta: &BundleMeta,
