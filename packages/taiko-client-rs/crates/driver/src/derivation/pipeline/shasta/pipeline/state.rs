@@ -3,11 +3,10 @@ use alethia_reth_consensus::eip4396::{
 };
 use alloy::primitives::B256;
 use alloy_consensus::Header;
-use alloy_rpc_types_engine::ExecutionPayloadInputV2;
 use protocol::shasta::manifest::BlockManifest;
 
 use super::{super::validation::ValidationContext, bundle::BundleMeta};
-use crate::derivation::DerivationError;
+use crate::{derivation::DerivationError, sync::engine::AppliedPayload};
 
 /// Rolling view of the parent block used when deriving successive payloads.
 #[derive(Debug, Clone)]
@@ -30,21 +29,15 @@ impl ParentState {
     pub(super) fn advance(
         &self,
         manifest_block: &BlockManifest,
-        payload: &ExecutionPayloadInputV2,
+        payload: &AppliedPayload,
         next_bond_instructions_hash: B256,
     ) -> Result<Self, DerivationError> {
-        let execution_payload = payload.execution_payload.clone();
-        let header = execution_payload
-            .clone()
-            .into_block_raw()
-            .map_err(|err| DerivationError::HeaderConversion { reason: err.to_string() })?
-            .into_header();
+        let header = payload.outcome.block.header.clone().into_consensus();
 
-        let expected_number = self.header.number.saturating_add(1);
-        if execution_payload.block_number != expected_number {
+        if header.number != self.next_block_number() {
             return Err(DerivationError::UnexpectedBlockNumber {
-                expected: expected_number,
-                actual: execution_payload.block_number,
+                expected: self.next_block_number(),
+                actual: header.number,
             });
         }
 

@@ -14,10 +14,11 @@ sol! {
     }
 }
 
-/// Calculate the Shasta difficulty for a new block based on the parent randao and block number.
-pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64) -> B256 {
+/// Calculate the Shasta difficulty for a new block based on the parent difficulty (randao digest)
+/// and block number.
+pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
-        parentDifficulty: parent_randao,
+        parentDifficulty: parent_difficulty,
         blockNumber: U256::from(block_number),
     };
     B256::from(keccak256(params.abi_encode()))

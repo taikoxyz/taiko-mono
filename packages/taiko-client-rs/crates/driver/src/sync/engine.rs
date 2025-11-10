@@ -18,19 +18,29 @@ use alloy_rpc_types_engine::{
 };
 use async_trait::async_trait;
 use rpc::client::Client;
-use tracing::{info, warn};
+use tracing::{debug, info, instrument, warn};
 
 use crate::sync::error::EngineSubmissionError;
 
 /// Description of a block inserted via the execution engine.
 #[derive(Debug, Clone)]
 pub struct EngineBlockOutcome {
-    /// Block number of the inserted L2 block.
-    pub block_number: u64,
-    /// Hash of the inserted L2 block.
-    pub block_hash: B256,
+    /// The L2 block materialised by the execution engine.
+    pub block: RpcBlock<TxEnvelope>,
     /// Payload identifier returned by the engine API.
     pub payload_id: PayloadId,
+}
+
+impl EngineBlockOutcome {
+    /// Return the number of the inserted block.
+    pub fn block_number(&self) -> u64 {
+        self.block.header.number
+    }
+
+    /// Return the hash of the inserted block.
+    pub fn block_hash(&self) -> B256 {
+        self.block.header.hash
+    }
 }
 
 /// Trait that converts derivation payload attributes into concrete execution engine blocks.
@@ -47,14 +57,11 @@ pub trait PayloadApplier {
         payloads: &[TaikoPayloadAttributes],
     ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>;
 
-    /// Submit a single payload to the execution engine while managing forkchoice state.
-    ///
-    /// The provided forkchoice state is used for the announcement phase and updated to the new
-    /// head on success so that subsequent calls can continue the chain.
+    /// Submit a single payload to the execution engine while internally managing forkchoice state.
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
-        forkchoice_state: &mut ForkchoiceState,
+        parent_hash: B256,
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
@@ -63,6 +70,7 @@ impl<P> PayloadApplier for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    #[instrument(skip(self, payloads))]
     async fn attributes_to_blocks(
         &self,
         payloads: &[TaikoPayloadAttributes],
@@ -78,28 +86,40 @@ where
             .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
             .ok_or(EngineSubmissionError::MissingParent)?;
+        debug!(
+            parent_number = parent_block.header.number,
+            parent_hash = ?parent_block.hash(),
+            "fetched latest parent block for payload submission"
+        );
 
         let mut outcomes = Vec::with_capacity(payloads.len());
-        let mut forkchoice_state = ForkchoiceState {
-            head_block_hash: parent_block.hash(),
-            safe_block_hash: parent_block.hash(),
-            finalized_block_hash: parent_block.header.parent_hash,
-        };
+        let mut parent_hash = parent_block.hash();
+        debug!(
+            head = ?parent_hash,
+            payload_count = payloads.len(),
+            "submitting batched payloads"
+        );
 
         for payload in payloads {
-            let applied = apply_payload_internal(self, payload, &mut forkchoice_state).await?;
+            let applied = apply_payload_internal(self, payload, parent_hash).await?;
+            parent_hash = applied.outcome.block_hash();
             outcomes.push(applied.outcome);
         }
 
+        info!(inserted_blocks = outcomes.len(), "successfully applied payload batch");
         Ok(outcomes)
     }
 
+    #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
-        forkchoice_state: &mut ForkchoiceState,
+        parent_hash: B256,
     ) -> Result<AppliedPayload, EngineSubmissionError> {
-        apply_payload_internal(self, payload, forkchoice_state).await
+        let span = tracing::Span::current();
+        let applied = apply_payload_internal(self, payload, parent_hash).await?;
+        span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
+        Ok(applied)
     }
 }
 
@@ -113,19 +133,26 @@ pub struct AppliedPayload {
     pub payload: ExecutionPayloadInputV2,
 }
 
+#[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<P>(
     rpc: &Client<P>,
     payload: &TaikoPayloadAttributes,
-    forkchoice_state: &mut ForkchoiceState,
+    parent_hash: B256,
 ) -> Result<AppliedPayload, EngineSubmissionError>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     // Advertise the next payload attributes so the execution engine can build the block body.
+    let forkchoice_state = ForkchoiceState {
+        head_block_hash: parent_hash,
+        safe_block_hash: parent_hash,
+        finalized_block_hash: B256::ZERO,
+    };
     let fc_response =
-        rpc.engine_forkchoice_updated_v2(*forkchoice_state, Some(payload.clone())).await?;
+        rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
+    tracing::Span::current().record("payload_id", format_args!("{}", payload_id));
 
     let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
     if expected_payload_id != payload_id {
@@ -153,6 +180,12 @@ where
             return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
         }
     }
+    debug!(
+        block_number,
+        block_hash = ?block_hash,
+        payload_id = %payload_id,
+        "engine accepted execution payload"
+    );
 
     // Update forkchoice to promote the freshly inserted block as the new head and safe block.
     let promoted_state = ForkchoiceState {
@@ -163,21 +196,22 @@ where
     };
     rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
 
-    forkchoice_state.head_block_hash = block_hash;
-    forkchoice_state.safe_block_hash = B256::ZERO;
-    forkchoice_state.finalized_block_hash = B256::ZERO;
+    let block = rpc
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))?;
 
     info!(
         block_number,
-        block_hash = ?block_hash,
+        block_hash = ?block.hash(),
         payload_id = %payload_id,
         "inserted l2 block via payload applier",
     );
 
-    Ok(AppliedPayload {
-        outcome: EngineBlockOutcome { block_number, block_hash, payload_id },
-        payload: payload_input,
-    })
+    Ok(AppliedPayload { outcome: EngineBlockOutcome { block, payload_id }, payload: payload_input })
 }
 
 fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {

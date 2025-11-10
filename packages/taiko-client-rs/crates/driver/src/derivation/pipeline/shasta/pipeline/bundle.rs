@@ -22,6 +22,7 @@ pub(super) struct BundleMeta {
     pub(super) proposal_id: u64,
     pub(super) proposal_timestamp: u64,
     pub(super) origin_block_number: u64,
+    pub(super) origin_block_hash: B256,
     pub(super) proposer: Address,
     pub(super) basefee_sharing_pctg: u8,
     pub(super) bond_instructions_hash: B256,

@@ -1,6 +1,6 @@
 //! Command implementations.
 
-use std::net::SocketAddr;
+use std::{io::IsTerminal, net::SocketAddr};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -24,7 +24,16 @@ pub trait Subcommand {
         let log_level = self.common_args().log_level();
         let env_filter = EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| EnvFilter::new(log_level.as_str().to_lowercase()));
-        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
+        let ansi = match std::env::var("RUST_LOG_STYLE") {
+            Ok(value) => match value.to_lowercase().as_str() {
+                "always" => true,
+                "never" => false,
+                _ => std::io::stdout().is_terminal(),
+            },
+            Err(_) => std::io::stdout().is_terminal(),
+        };
+
+        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).with_ansi(ansi).try_init();
         Ok(())
     }
 
