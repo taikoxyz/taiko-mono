@@ -277,8 +277,8 @@ func (r *reader) readUintN(n int) (uint64, error) {
 		return 0, err
 	}
 	var value uint64
-	for _, byt := range b {
-		value = (value << 8) | uint64(byt)
+	for _, by := range b {
+		value = (value << 8) | uint64(by)
 	}
 	return value, nil
 }
