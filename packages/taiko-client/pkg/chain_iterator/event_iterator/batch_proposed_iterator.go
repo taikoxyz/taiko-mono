@@ -178,6 +178,9 @@ func assembleBatchProposedIteratorCallback(
 				log.Error("Failed to decode proposed event data", "error", err)
 				return err
 			}
+			if payload == nil {
+				return errors.New("decoded proposed event payload is nil")
+			}
 
 			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
 			proposalID := proposedEventPayload.Shasta().GetProposal().Id.Uint64()
