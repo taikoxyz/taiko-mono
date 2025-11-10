@@ -229,7 +229,12 @@ func newReader(data []byte) *reader {
 // read returns the next n bytes and advances the cursor.
 func (r *reader) read(n int) ([]byte, error) {
 	if remaining := len(r.data) - r.off; remaining < n {
-		return nil, fmt.Errorf("shasta event decoder: insufficient data, need %d bytes at offset %d (have %d)", n, r.off, remaining)
+		return nil, fmt.Errorf(
+			"shasta event decoder: insufficient data, need %d bytes at offset %d (have %d)",
+			n,
+			r.off,
+			remaining,
+		)
 	}
 	start := r.off
 	r.off += n
