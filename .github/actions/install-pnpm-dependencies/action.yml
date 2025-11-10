@@ -18,7 +18,7 @@ runs:
     - name: Install Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: 25
+        node-version: 20
         cache: pnpm
 
     - name: Install dependencies
