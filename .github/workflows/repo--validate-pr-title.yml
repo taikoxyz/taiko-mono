@@ -7,7 +7,7 @@ on:
       - edited
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
