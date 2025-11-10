@@ -32,15 +32,21 @@ The Taiko protocol's token holdings are distributed across multiple addresses, i
 
 ### Implementation Details
 
-The proposal executes a single action:
+The proposal uses a helper contract (TaikoTokenTransferHelper) to ensure the transfer amount is determined at execution time rather than proposal creation time. This prevents issues if the Controller's balance changes between proposal approval and execution.
 
-1. **ERC20 Transfer**: Calls the `transfer` function on the TAIKO token contract with:
-   - Recipient: treasury.taiko.eth (`0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da`)
-   - Amount: The complete balance of TAIKO tokens held by the Controller contract
+The proposal executes two actions:
 
-The transfer amount is determined dynamically using `balanceOf(CONTROLLER)` at execution time, ensuring all tokens are transferred regardless of any changes in balance between proposal creation and execution.
+1. **ERC20 Approval**: Approves TaikoTokenTransferHelper to spend the Controller's TAIKO tokens (unlimited approval using type(uint256).max)
+2. **Helper Transfer**: Calls TaikoTokenTransferHelper.transferAllFrom() which:
+   - Reads the Controller's current TAIKO balance using balanceOf()
+   - Transfers the entire balance to treasury.taiko.eth
+   - All within the same transaction as proposal execution
+
+This architecture ensures all tokens are transferred regardless of any balance changes between proposal creation and execution, addressing the risk of partial transfers or failures due to insufficient balance.
 
 **Current Balance (as of proposal creation)**: ~94,020,735.74 TAIKO
+
+**Helper Contract**: TaikoTokenTransferHelper must be deployed to Ethereum mainnet before this proposal can be executed. See deployment script: `script/layer1/governance/DeployTaikoTokenTransferHelper.s.sol`
 
 ## Security Considerations
 
@@ -84,6 +90,20 @@ All addresses can be verified in:
 - **Enhanced Planning**: Better visibility into available resources for ecosystem development
 - **Simplified Token Management**: Consolidating operational funds into the Treasury streamlines financial operations
 
+## Deployment and Execution
+
+### Step 1: Deploy TaikoTokenTransferHelper
+
+Before executing this proposal, deploy the helper contract:
+
+```bash
+forge script script/layer1/governance/DeployTaikoTokenTransferHelper.s.sol:DeployTaikoTokenTransferHelper --rpc-url <ETHEREUM_RPC> --broadcast --verify
+```
+
+Update the `TRANSFER_HELPER` address in `Proposal0005.s.sol` with the deployed contract address.
+
+### Step 2: Verify and Execute Proposal
+
 ## Verification Procedures
 
 ### Pre-Execution Verification
@@ -92,18 +112,20 @@ To verify the proposal before execution:
 
 1. Check the current TAIKO token balance of the Controller address:
 
-   ```
+   ```bash
    cast call 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 "balanceOf(address)" 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a --rpc-url <ETHEREUM_RPC>
    ```
 
-2. Verify the proposal action data:
+2. Verify the TaikoTokenTransferHelper is deployed and TRANSFER_HELPER address is updated in Proposal0005.s.sol
 
-   ```
+3. Verify the proposal action data:
+
+   ```bash
    P=0005 pnpm proposal
    ```
 
-3. Dryrun the proposal on L1:
-   ```
+4. Dryrun the proposal on L1:
+   ```bash
    P=0005 pnpm proposal:dryrun:l1
    ```
 
