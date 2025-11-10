@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
@@ -56,11 +56,12 @@ func (i *Shasta) InsertBlocks(
 	return errors.New("not supported in Shasta block inserter")
 }
 
-// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given proposal manifest.
+// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
+// source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest *manifest.ProposalManifest,
+	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
@@ -81,17 +82,15 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
 		"proposer", meta.GetProposal().Proposer,
-		"invalidManifest", proposalManifest.Default,
+		"invalidManifest", sourcePayload.Default,
 	)
 
 	var (
-		parent          = proposalManifest.ParentBlock.Header()
+		parent          = sourcePayload.ParentBlock.Header()
 		lastPayloadData *engine.ExecutableData
 	)
 
-	go i.sendLatestSeenProposal(latestSeenProposal)
-
-	for j := range proposalManifest.Blocks {
+	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
 			"Parent block",
 			"blockID", parent.Number,
@@ -118,7 +117,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				i.rpc,
 				i.anchorConstructor,
 				metadata,
-				proposalManifest,
+				sourcePayload,
 				parent,
 			)
 			if err != nil {
@@ -139,8 +138,14 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"parentHash", parent.Hash(),
 				)
 
+				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata,
+					PreconfChainReorged:   false,
+					LastBlockID:           lastBlockHeader.Number.Uint64(),
+				})
+
 				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, proposalManifest); err != nil {
+				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetProposal().Id, err)
 				}
 
@@ -154,10 +159,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 			i.rpc,
 			i.anchorConstructor,
 			metadata,
-			proposalManifest,
+			sourcePayload,
 			parent,
 			j,
-			proposalManifest.IsLowBondProposal,
+			sourcePayload.IsLowBondProposal,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
@@ -198,6 +203,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"parentHash", lastPayloadData.ParentHash,
 			"indexInProposal", j,
 		)
+
+		latestSeenProposal.LastBlockID = lastPayloadData.Number
 
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
@@ -254,7 +261,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
+			"Sending latest seen shasta proposal from blocksInserter",
 			"proposalID", proposal.TaikoProposalMetaData.Shasta().GetProposal().Id,
 			"preconfChainReorged", proposal.PreconfChainReorged,
 		)

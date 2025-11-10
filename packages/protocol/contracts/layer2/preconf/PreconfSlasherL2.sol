@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
+import { Anchor } from "src/layer2/core/Anchor.sol";
 import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
-import { ShastaAnchor } from "src/layer2/based/ShastaAnchor.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
+import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 
 /// @title PreconfSlasherL2
 /// @notice PreconfSlasherL2 is a smart contract that validates preconfirmations on Layer 2
@@ -15,19 +15,13 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
 contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
-    address public immutable unifiedSlasher;
-    address public immutable taikoAnchor;
+    address public immutable preconfSlasherL1;
+    address public immutable anchor;
     address public immutable bridge;
 
-    constructor(
-        address _unifiedSlasher,
-        address _taikoAnchor,
-        address _bridge
-    )
-        EssentialContract()
-    {
-        unifiedSlasher = _unifiedSlasher;
-        taikoAnchor = _taikoAnchor;
+    constructor(address _preconfSlasherL1, address _anchor, address _bridge) EssentialContract() {
+        preconfSlasherL1 = _preconfSlasherL1;
+        anchor = _anchor;
         bridge = _bridge;
     }
 
@@ -46,17 +40,17 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         IPreconfSlasher.Preconfirmation memory preconfirmation =
             abi.decode(_signedCommitment.commitment.payload, (IPreconfSlasher.Preconfirmation));
 
-        ShastaAnchor.PreconfMeta memory preconfMeta =
-            ShastaAnchor(taikoAnchor).getPreconfMeta(preconfirmation.blockNumber);
+        Anchor.PreconfMetadata memory preconfMetadata =
+            Anchor(anchor).getPreconfMetadata(preconfirmation.blockNumber);
 
         if (_fault == IPreconfSlasher.Fault.MissedSubmission) {
-            _validateMissedSubmissionFault(preconfirmation, preconfMeta);
+            _validateMissedSubmissionFault(preconfirmation, preconfMetadata);
         } else if (_fault == IPreconfSlasher.Fault.MissingEOP) {
-            _validateMissingEOPFault(preconfirmation, preconfMeta);
+            _validateMissingEOPFault(preconfirmation, preconfMetadata);
         } else if (_fault == IPreconfSlasher.Fault.RawTxListHashOrAnchorBlockMismatch) {
-            _validateRawTxListHashOrAnchorBlockMismatchFault(preconfirmation, preconfMeta);
+            _validateRawTxListHashOrAnchorBlockMismatchFault(preconfirmation, preconfMetadata);
         } else if (_fault == IPreconfSlasher.Fault.InvalidEOP) {
-            _validateInvalidEOPFault(preconfirmation, preconfMeta);
+            _validateInvalidEOPFault(preconfirmation, preconfMetadata);
         }
 
         _invokePreconfSlasherL1(_fault, _registrationRoot, _signedCommitment);
@@ -68,7 +62,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// @dev Validates that a preconfirmation was never submitted to the inbox.
     function _validateMissedSubmissionFault(
         IPreconfSlasher.Preconfirmation memory _preconfirmation,
-        ShastaAnchor.PreconfMeta memory _preconfMeta
+        Anchor.PreconfMetadata memory _preconfMeta
     )
         internal
         pure
@@ -90,7 +84,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// the eop flag set to true
     function _validateMissingEOPFault(
         IPreconfSlasher.Preconfirmation memory _preconfirmation,
-        ShastaAnchor.PreconfMeta memory _preconfMeta
+        Anchor.PreconfMetadata memory _preconfMeta
     )
         internal
         view
@@ -107,8 +101,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
         // Confirm that the block with missing EOP is the last block in it's
         // submission window
-        ShastaAnchor.PreconfMeta memory nextPreconfMeta =
-            ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber + 1);
+        Anchor.PreconfMetadata memory nextPreconfMeta =
+            Anchor(anchor).getPreconfMetadata(_preconfirmation.blockNumber + 1);
         require(
             nextPreconfMeta.submissionWindowEnd > _preconfirmation.submissionWindowEnd,
             NotAMissingEOP()
@@ -119,7 +113,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// does not match the submitted values
     function _validateRawTxListHashOrAnchorBlockMismatchFault(
         IPreconfSlasher.Preconfirmation memory _preconfirmation,
-        ShastaAnchor.PreconfMeta memory _preconfMeta
+        Anchor.PreconfMetadata memory _preconfMeta
     )
         internal
         pure
@@ -155,7 +149,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     /// @dev Validates that a non-terminal preconfirmation has it's eop flag set to true
     function _validateInvalidEOPFault(
         IPreconfSlasher.Preconfirmation memory _preconfirmation,
-        ShastaAnchor.PreconfMeta memory _preconfMeta
+        Anchor.PreconfMetadata memory _preconfMeta
     )
         internal
         view
@@ -175,8 +169,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         // Otherwise, validate that another block was submitted in the same window after issuing
         // an EOP
         if (_preconfirmation.rawTxListHash != bytes32(0)) {
-            ShastaAnchor.PreconfMeta memory nextPreconfMeta =
-                ShastaAnchor(taikoAnchor).getPreconfMeta(_preconfirmation.blockNumber + 1);
+            Anchor.PreconfMetadata memory nextPreconfMeta =
+                Anchor(anchor).getPreconfMetadata(_preconfirmation.blockNumber + 1);
             require(
                 nextPreconfMeta.submissionWindowEnd == _preconfirmation.submissionWindowEnd,
                 NotAnInvalidEOP()

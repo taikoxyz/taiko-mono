@@ -105,6 +105,7 @@ func requestHTTPProofResponse[T any](
 		return nil, err
 	}
 
+	log.Debug("Requesting proof", "url", url, "body", string(jsonValue))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err

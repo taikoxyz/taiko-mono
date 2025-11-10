@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -77,9 +77,12 @@ func (i *Pacaya) InsertBlocks(
 	var (
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		meta               = metadata.Pacaya()
-		txListBytes        []byte
+		latestSeenProposal = &encoding.LastSeenProposal{
+			TaikoProposalMetaData: metadata,
+			LastBlockID:           metadata.Pacaya().GetLastBlockID(),
+		}
+		meta        = metadata.Pacaya()
+		txListBytes []byte
 	)
 
 	log.Debug(
@@ -252,6 +255,8 @@ func (i *Pacaya) InsertBlocks(
 			"indexInBatch", j,
 		)
 
+		latestSeenProposal.LastBlockID = lastPayloadData.Number
+
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
@@ -266,7 +271,7 @@ func (i *Pacaya) InsertBlocks(
 func (i *Pacaya) InsertBlocksWithManifest(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
-	_ *manifest.ProposalManifest,
+	_ *shastaManifest.ShastaDerivationSourcePayload,
 	_ eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	return errors.New("not supported in Pacaya")
@@ -326,7 +331,7 @@ func (i *Pacaya) insertPreconfBlockFromEnvelope(
 func (i *Pacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
+			"Sending latest seen pacaya proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
 			"preconfChainReorged", proposal.PreconfChainReorged,
