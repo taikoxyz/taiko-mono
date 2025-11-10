@@ -1,16 +1,25 @@
 {
   "headers": [
     {
-      "source": "/widget(.*)",
+      "source": "/widget/:path*",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors *;"
+          "value": "frame-ancestors *"
         }
       ]
     },
     {
-      "source": "/((?!widget).*)",
+      "source": "/widget",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors *"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
