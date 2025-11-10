@@ -69,6 +69,11 @@ func (m *TaikoDataBlockMetadataPacaya) GetBatchID() *big.Int {
 	return new(big.Int).SetUint64(m.BatchId)
 }
 
+// GetProposalID returns batch ID.
+func (m *TaikoDataBlockMetadataPacaya) GetProposalID() *big.Int {
+	return new(big.Int).SetUint64(m.BatchId)
+}
+
 // GetGasLimit returns gas limit of each L2 block.
 func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
 	return m.GasLimit
@@ -103,7 +108,7 @@ func (m *TaikoDataBlockMetadataPacaya) GetProposedAt() uint64 {
 	return m.ProposedAt
 }
 
-// ProposedIn returns the proposing L1 block number of this batch.
+// GetProposedIn returns the proposing L1 block number of this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
 	return m.ProposedIn
 }
