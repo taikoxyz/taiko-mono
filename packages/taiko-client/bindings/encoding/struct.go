@@ -33,10 +33,16 @@ type BatchParams struct {
 	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
 }
 
-// SubProof should be same with ComposeVerifier.SubProof.
-type SubProof struct {
+// SubProofPacaya should be same with Pacaya ComposeVerifier.SubProof.
+type SubProofPacaya struct {
 	Verifier common.Address
 	Proof    []byte
+}
+
+// SubProofShasta should be same with Shasta ComposeVerifier.SubProof.
+type SubProofShasta struct {
+	VerifierId uint8
+	Proof      []byte
 }
 
 // LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,

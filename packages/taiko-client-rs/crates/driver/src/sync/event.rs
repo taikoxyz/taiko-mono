@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
     sol_types::SolEvent,
 };
@@ -24,7 +24,11 @@ use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
 };
+
 use rpc::{blob::BlobDataSource, client::Client};
+
+/// Two Ethereum epochs as a buffer to avoid resuming on a block that can still be reorged.
+const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -76,38 +80,40 @@ where
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         let anchor_address = *self.rpc.shasta.anchor.address();
-        let latest_proposal_id_value = decode_anchor_proposal_id(&latest_block, anchor_address)?;
-        let latest_proposal_id = U256::from(latest_proposal_id_value);
-        info!(
-            latest_proposal_id = latest_proposal_id_value,
-            latest_hash = ?latest_block.hash(),
-            latest_number = latest_block.number(),
-            "derived latest proposal id from latest anchorV4 transaction",
-        );
+        let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
 
         // Determine the target block to extract the anchor block number from.
-        let target_block: RpcBlock<TxEnvelope> = if latest_proposal_id_value > BOND_PROCESSING_DELAY
-        {
-            let delayed_proposal_id = latest_proposal_id_value - BOND_PROCESSING_DELAY;
-            let target_block_number = self
-                .rpc
-                .last_block_id_by_batch_id(U256::from(delayed_proposal_id))
-                .await
-                .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
-                .ok_or(SyncError::MissingExecutionBlock {
-                    number: latest_block.number().saturating_sub(BOND_PROCESSING_DELAY),
-                })?;
-            self.rpc
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
-                .full()
-                .await
-                .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
-                .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
-                .map_transactions(|tx: RpcTransaction| tx.into())
-        } else {
-            latest_block
-        };
+        // First back off two epochs worth of proposals to survive L1 reorgs, then apply the bond
+        // processing delay so cached bond instructions are always available.
+        let delayed_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+        let target_proposal_id = delayed_proposal_id.saturating_sub(BOND_PROCESSING_DELAY);
+        info!(
+            latest_proposal_id = latest_proposal_id,
+            delayed_proposal_id = delayed_proposal_id,
+            target_proposal_id = target_proposal_id,
+            latest_hash = ?latest_block.hash(),
+            latest_number = latest_block.number(),
+            "derived proposal id from latest anchorV4 transaction",
+        );
+        if delayed_proposal_id == 0 {
+            return Ok((0, U256::ZERO));
+        }
+
+        let target_block_number = self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(target_proposal_id))
+            .await
+            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
+        let target_block = self
+            .rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
+            .full()
+            .await
+            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
+            .map_transactions(|tx: RpcTransaction| tx.into());
 
         info!(
             target_hash = ?target_block.hash(),
@@ -115,19 +121,15 @@ where
             "determined target block for anchor extraction",
         );
 
-        if target_block.header.number == 0 {
-            return Ok((0, latest_proposal_id));
-        }
-
         let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?;
         info!(
             anchor_block_number,
             latest_hash = ?target_block.hash(),
             latest_number = target_block.number(),
-            latest_proposal_id = latest_proposal_id_value,
-            "derived anchor block number from latest anchorV4 transaction",
+            delayed_proposal_id = delayed_proposal_id,
+            "derived anchor block number from anchorV4 transaction",
         );
-        Ok((anchor_block_number, latest_proposal_id))
+        Ok((anchor_block_number, U256::from(delayed_proposal_id)))
     }
 }
 
@@ -189,7 +191,7 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let (anchor_block_number, latest_proposal_id) = self.event_stream_start_block().await?;
+        let (anchor_block_number, initial_proposal_id) = self.event_stream_start_block().await?;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
@@ -197,7 +199,7 @@ where
         let derivation_pipeline = ShastaDerivationPipeline::new(
             self.rpc.clone(),
             self.blob_source.clone(),
-            latest_proposal_id,
+            initial_proposal_id,
         )
         .await?;
         let derivation: Arc<
