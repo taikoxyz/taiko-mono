@@ -4,7 +4,7 @@ use std::{
 };
 
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
@@ -40,9 +40,9 @@ use super::super::{DerivationError, DerivationPipeline};
 
 /// Number of proposal records retained in the bond-instruction cache.
 ///
-/// Two beacon epochs (64 slots) cover canonical reorg depth, and we extend this by the bond delay
-/// so the delayed-instruction window remains intact even after rewinding.
-const BOND_CACHE_CAPACITY: usize = 64 + (BOND_PROCESSING_DELAY as usize);
+/// Two beacon epochs (2 × 32 slots) cover canonical reorg depth, and we extend this by the bond
+/// delay so the delayed-instruction window remains intact even after rewinding.
+const BOND_CACHE_CAPACITY: usize = ((2 * EPOCH_SLOTS) as usize) + (BOND_PROCESSING_DELAY as usize);
 
 mod bundle;
 mod payload;
@@ -178,8 +178,19 @@ where
         proposal_id: u64,
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
+        let parent_proposal_id = proposal_id.saturating_sub(1);
+        if parent_proposal_id == 0 {
+            info!(proposal_id, "using genesis block as parent for first proposal");
+            return self
+                .rpc
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Number(0))
+                .await?
+                .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+                .ok_or(DerivationError::BlockUnavailable(0));
+        }
         if let Some(origin) =
-            self.rpc.last_l1_origin_by_batch_id(U256::from(proposal_id - 1)).await?
+            self.rpc.last_l1_origin_by_batch_id(U256::from(parent_proposal_id)).await?
         {
             // Prefer the concrete block referenced by the cached origin hash.
             if origin.l2_block_hash != B256::ZERO &&
@@ -196,15 +207,22 @@ where
             }
         }
 
-        // Use the latest canonical block (common after beacon sync or at
-        // startup when only genesis is present).
-        info!(proposal_id, "falling back to latest canonical block for parent context");
+        // Derive the parent block via the batch-to-block mapping so we always anchor to the last
+        // execution block produced for the preceding proposal.
+        info!(proposal_id, parent_proposal_id, "loading parent block via batch-to-block mapping");
+
+        let block_number = self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(parent_proposal_id))
+            .await?
+            .ok_or(DerivationError::MissingBatchLastBlock { proposal_id: parent_proposal_id })?
+            .to::<u64>();
         self.rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-            .ok_or(DerivationError::LatestL2BlockMissing)
+            .ok_or(DerivationError::BlockUnavailable(block_number))
     }
 
     /// Extract blob hashes from a derivation source, preserving the order expected by
