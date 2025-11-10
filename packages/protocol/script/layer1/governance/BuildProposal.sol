@@ -13,7 +13,7 @@ import { Controller } from "src/shared/governance/Controller.sol";
 abstract contract BuildProposal is Script {
     address public constant TAIKO_DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a; // controller.taiko.eth
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
-    address public constant TAIKO_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
+    address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
 
     error TargetIsZeroAddress();
     error TargetIsDAOController();

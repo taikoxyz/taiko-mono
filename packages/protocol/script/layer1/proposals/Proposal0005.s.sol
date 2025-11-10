@@ -14,6 +14,6 @@ contract Proposal0005 is BuildProposal {
         uint256 amount = 94_020_735 ether;
 
         // Transfer all TAIKO tokens from Controller to treasury.taiko.eth
-        actions[0] = buildERC20TransferAction(TAIKO_TOKEN, TAIKO_TREASURY, amount);
+        actions[0] = buildERC20TransferAction(TAIKO_TOKEN, TAIKO_FOUNDATION_TREASURY, amount);
     }
 }
