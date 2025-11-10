@@ -98,6 +98,7 @@ func (p *Proposer) InitFromConfig(
 	p.ctx = ctx
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
+	rand.Seed(time.Now().UnixNano())
 
 	// RPC clients
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
