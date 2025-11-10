@@ -20,9 +20,15 @@
   let bridgingStatus: BridgingStatus;
   let needsManualReviewConfirmation: boolean;
 
-  // Get padding from URL query parameter (defaults to 0)
-  $: padding = $page.url.searchParams.get('padding') || '0';
+  // Get padding from URL query parameter (defaults to 0, max 100)
+  $: {
+    const paddingParam = $page.url.searchParams.get('padding');
+    const paddingNum = parseInt(paddingParam || '0', 10);
+    padding = isNaN(paddingNum) ? 0 : Math.min(Math.max(paddingNum, 0), 100);
+  }
   $: paddingStyle = `${padding}px`;
+
+  let padding: number = 0;
 
   $: {
     const stepKey = BridgeSteps[activeStep].toLowerCase();

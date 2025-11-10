@@ -23,7 +23,7 @@
 
   let sideBarOpen = false;
 
-  $: isWidgetRoute = $page.url.pathname === '/widget';
+  $: isWidgetRoute = $page.url.pathname.startsWith('/widget');
 
   const syncPointer = ({ x, y }: { x: number; y: number }) => {
     document.documentElement.style.setProperty('--x', x.toFixed(2));

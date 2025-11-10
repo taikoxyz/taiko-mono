@@ -10,8 +10,49 @@
   import { startWatching, stopWatching } from '$libs/wagmi';
   import { bridgePausedModal } from '$stores/modal';
 
-  // Get theme from URL query parameter (defaults to current theme)
-  $: theme = $page.url.searchParams.get('theme') || null;
+  // Allowed DaisyUI themes
+  const ALLOWED_THEMES = [
+    'light',
+    'dark',
+    'cupcake',
+    'bumblebee',
+    'emerald',
+    'corporate',
+    'synthwave',
+    'retro',
+    'cyberpunk',
+    'valentine',
+    'halloween',
+    'garden',
+    'forest',
+    'aqua',
+    'lofi',
+    'pastel',
+    'fantasy',
+    'wireframe',
+    'black',
+    'luxury',
+    'dracula',
+    'cmyk',
+    'autumn',
+    'business',
+    'acid',
+    'lemonade',
+    'night',
+    'coffee',
+    'winter',
+    'dim',
+    'nord',
+    'sunset',
+  ];
+
+  // Get theme from URL query parameter (defaults to null), validate against allowed themes
+  $: {
+    const themeParam = $page.url.searchParams.get('theme');
+    theme = themeParam && ALLOWED_THEMES.includes(themeParam) ? themeParam : null;
+  }
+
+  let theme: string | null = null;
 
   onMount(async () => {
     // Disable the bridge paused modal for widget
