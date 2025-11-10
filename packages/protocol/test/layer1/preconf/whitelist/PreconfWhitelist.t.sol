@@ -53,16 +53,16 @@ contract TestPreconfWhitelist is CommonTest {
     function test_addOperator_RevertWhen_Duplicate() external {
         _addOperator(Bob);
         vm.prank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyExists.selector);
         whitelist.addOperator(Bob, _sequencer(Bob));
     }
 
     function test_addOperator_RevertWhen_InvalidAddresses() external {
         vm.startPrank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.addOperator(address(0), Bob);
 
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.addOperator(Bob, address(0));
         vm.stopPrank();
     }
@@ -189,7 +189,7 @@ contract TestPreconfWhitelist is CommonTest {
         _addOperator(Carol);
 
         vm.prank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.NoActiveOperatorRemaining.selector);
+        vm.expectRevert(PreconfWhitelist.NoActiveOperatorRemaining.selector);
         whitelist.removeOperator(0);
     }
 
@@ -215,7 +215,7 @@ contract TestPreconfWhitelist is CommonTest {
     function test_removeOperator_RevertWhen_LastOperator() external {
         _addOperator(Bob);
         vm.prank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.CannotRemoveLastOperator.selector);
+        vm.expectRevert(PreconfWhitelist.CannotRemoveLastOperator.selector);
         whitelist.removeOperator(0);
     }
 
@@ -254,7 +254,7 @@ contract TestPreconfWhitelist is CommonTest {
         vm.prank(whitelistOwner);
         whitelist.setEjecter(ejecter, true);
 
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorIndex.selector);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorIndex.selector);
         vm.prank(ejecter);
         whitelist.removeOperator(0);
     }

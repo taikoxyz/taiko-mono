@@ -12,6 +12,7 @@ import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChecker {
+
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
         uint32 deprecatedInactiveSince; // Deprecated. Kept for storage compatibility.
@@ -45,11 +46,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// This includes both active and inactive operators.
     uint8 public operatorCount;
     /// @dev Deprecated variable. Kept for storage compatibility.
-    uint8 private deprecatedOperatorChangeDelay;
+    uint8 private _deprecatedOperatorChangeDelay;
     /// @dev Deprecated variable. Kept for storage compatibility.
-    uint8 private deprecatedRandomnessDelay;
+    uint8 private _deprecatedRandomnessDelay;
     /// @dev Deprecated variable. Kept for storage compatibility.
-    bool private deprecatedHavingPerfectOperators;
+    bool private _deprecatedHavingPerfectOperators;
     /// @notice The epoch when the latest operator was or will be activated.
     /// @dev No need to reinitialize the contract, this value starts at 0(i.e. no pending activations)
     uint32 public latestActivationEpoch;
@@ -69,7 +70,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IPreconfWhitelist
-    /// @dev NOTE: The operator only becomes active after `OPERATOR_CHANGE_DELAY` epochs.
+    /// @dev The operator only becomes active after `OPERATOR_CHANGE_DELAY` epochs.
     function addOperator(address _proposer, address _sequencer) external onlyOwnerOrEjecter {
         _addOperator(_proposer, _sequencer);
     }
@@ -280,4 +281,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
         return uint256(beaconRoot);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+    
+    error CannotRemoveLastOperator();
+    error InvalidOperatorIndex();
+    error InvalidOperatorCount();
+    error InvalidOperatorAddress();
+    error OperatorAlreadyExists();
+    error OperatorAlreadyRemoved();
+    error OperatorNotAvailableYet();
+    error NoActiveOperatorRemaining();
+    error NotOwnerOrEjecter();
 }

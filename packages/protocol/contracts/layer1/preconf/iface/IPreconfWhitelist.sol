@@ -23,16 +23,6 @@ interface IPreconfWhitelist {
     /// @param isEjecter Whether the address is an ejecter.
     event EjecterUpdated(address indexed ejecter, bool isEjecter);
 
-    error CannotRemoveLastOperator();
-    error InvalidOperatorIndex();
-    error InvalidOperatorCount();
-    error InvalidOperatorAddress();
-    error OperatorAlreadyExists();
-    error OperatorAlreadyRemoved();
-    error OperatorNotAvailableYet();
-    error NoActiveOperatorRemaining();
-    error NotOwnerOrEjecter();
-
     /// @notice Adds a new operator to the whitelist.
     /// @param _proposer The proposer address of the operator to be added.
     /// @param _sequencer The sequencer address of the operator to be added.
