@@ -114,5 +114,4 @@ contract Proposal0004 is BuildProposal {
             )
         });
     }
-
 }
