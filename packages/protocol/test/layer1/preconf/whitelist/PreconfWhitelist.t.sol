@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "../../Layer1Test.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "test/shared/CommonTest.sol";
 
-contract TestPreconfWhitelist is Layer1Test {
+contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;
     PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
@@ -34,8 +34,8 @@ contract TestPreconfWhitelist is Layer1Test {
         // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
         // avoid underflow
         vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
+            LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH
+                * whitelist.randomnessDelay()
         );
     }
 
@@ -622,6 +622,82 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.checkProposer(Alice, bytes(""));
     }
 
+    function test_getOperatorSelectionRemainsStableAcrossEpochBoundary() external {
+        _setBeaconBlockRoot(bytes32(uint256(1)));
+
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.stopPrank();
+
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 2);
+
+        // Operators become active after the configured delay (2 epochs).
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        address operatorForNextEpoch = whitelist.getOperatorForNextEpoch();
+        assertEq(operatorForNextEpoch, Bob);
+
+        _advanceOneEpoch();
+
+        address operatorForCurrentEpoch = whitelist.getOperatorForCurrentEpoch();
+        assertEq(operatorForCurrentEpoch, Bob);
+
+        assertEq(operatorForNextEpoch, operatorForCurrentEpoch);
+    }
+
+    function test_setOperatorChangeDelay_UpdatesValue() external {
+        vm.expectEmit(false, false, false, true);
+        emit PreconfWhitelist.OperatorChangeDelaySet(5);
+
+        vm.prank(whitelistOwner);
+        whitelist.setOperatorChangeDelay(5);
+
+        assertEq(whitelist.operatorChangeDelay(), 5);
+    }
+
+    function test_getOperatorCandidatesForNextEpoch_ReturnsOrderedOperators() external {
+        _setBeaconBlockRoot(bytes32(uint256(11)));
+
+        vm.startPrank(whitelistOwner);
+        whitelistNoDelay.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
+        whitelistNoDelay.addOperator(Carol, _getSequencerAddress(Carol));
+        vm.stopPrank();
+
+        address[] memory candidates = whitelistNoDelay.getOperatorCandidatesForNextEpoch();
+        assertEq(candidates.length, 3);
+        assertEq(candidates[0], Alice);
+        assertEq(candidates[1], Bob);
+        assertEq(candidates[2], Carol);
+    }
+
+    function test_isOperatorActive_ReturnsExpectedLifecycleStates() external {
+        _setBeaconBlockRoot(bytes32(uint256(13)));
+
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        uint32 currentEpoch = whitelist.epochStartTimestamp(0);
+        assertFalse(whitelist.isOperatorActive(Alice, currentEpoch));
+
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        uint32 activeEpoch = whitelist.epochStartTimestamp(0);
+        assertTrue(whitelist.isOperatorActive(Alice, activeEpoch));
+
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(Alice, false);
+
+        uint32 futureEpoch = whitelist.epochStartTimestamp(2);
+        assertFalse(whitelist.isOperatorActive(Alice, futureEpoch));
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
@@ -651,6 +727,9 @@ contract BeaconBlockRootImpl {
         uint256 _timestamp;
         assembly {
             _timestamp := calldataload(0)
+        }
+        if (_timestamp > block.timestamp) {
+            return abi.encode(bytes32(0));
         }
         return abi.encode(root);
     }

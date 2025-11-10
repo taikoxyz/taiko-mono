@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/iface/IBlacklist.sol";
-import "src/layer1/preconf/libs/LibEIP4788.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/lib/MerkleTree.sol";
+import "src/layer1/preconf/iface/IBlacklist.sol";
+import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
+import "src/layer1/preconf/libs/LibEIP4788.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/shared/common/EssentialContract.sol";
+
+import "./LookaheadSlasher_Layout.sol"; // DO NOT DELETE
 
 /// @title LookaheadSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -187,7 +189,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                    .pubkey
+                .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -195,7 +197,9 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         // Verify that this preconf lookahead validator does not match the beacon lookahead
         // validator
         require(
-            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
+            !_isG1Equal(
+                evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey
+            ),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
@@ -225,7 +229,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-            evidenceMissingOperator.operatorRegistrationProof;
+        evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -239,9 +243,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         // Verify that this operator was valid at the reference timestamp.
         // This reverts if the operator is not valid at the reference timestamp.
-        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
-            referenceTimestamp, registrationProof.registrationRoot
-        );
+        ILookaheadStore(lookaheadStore)
+            .isLookaheadOperatorValid(referenceTimestamp, registrationProof.registrationRoot);
     }
 
     // Internal helpers
