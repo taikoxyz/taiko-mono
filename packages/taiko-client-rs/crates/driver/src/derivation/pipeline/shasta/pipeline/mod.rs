@@ -404,6 +404,17 @@ where
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
         let mut parent_state = self.initialize_parent_state(&parent_block).await?;
 
+        // If every block already sits in the canonical chain we skip payload submission and only
+        // refresh L1 origins.
+        if let Some(known_blocks) =
+            self.detect_known_canonical_proposal(&meta, &sources, &parent_state).await?
+        {
+            let outcomes =
+                known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
+            self.sync_known_canonical_proposal(&meta, &known_blocks).await?;
+            return Ok(outcomes);
+        }
+
         let outcomes =
             self.build_payloads_from_sources(sources, &meta, &mut parent_state, applier).await?;
         info!(
