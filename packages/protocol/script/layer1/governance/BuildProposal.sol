@@ -11,6 +11,11 @@ import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
 abstract contract BuildProposal is Script {
+    address public constant TAIKO_DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a; // controller.taiko.eth
+    address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
+    address public constant TAIKO_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
+
+
     error TargetIsZeroAddress();
     error TargetIsDAOController();
     error DelegateControllerNotSelfOwned();
@@ -36,11 +41,11 @@ abstract contract BuildProposal is Script {
         }
     }
 
-    function buildL1Actions() internal view virtual returns (Controller.Action[] memory);
+    function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
 
     function buildL2Actions()
         internal
-        view
+        pure
         virtual
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
@@ -49,7 +54,7 @@ abstract contract BuildProposal is Script {
         actions = new Controller.Action[](0);
     }
 
-    function logProposalAction(string memory proposalId) internal virtual {
+    function logProposalAction(string memory proposalId) internal {
         Controller.Action[] memory allActions = _buildAllActions();
 
         string memory fileName =
@@ -74,11 +79,11 @@ abstract contract BuildProposal is Script {
         console2.log("Proposal action details written to", fileName);
     }
 
-    function dryrunL1Actions() internal virtual broadcast {
+    function dryrunL1Actions() internal  broadcast {
         Controller(payable(L1.DAO_CONTROLLER)).dryrun(abi.encode(_buildAllActions()));
     }
 
-    function dryrunL2Actions() internal virtual broadcast {
+    function dryrunL2Actions() internal  broadcast {
         require(
             Ownable(L2.DELEGATE_CONTROLLER).owner() == L2.DELEGATE_CONTROLLER,
             DelegateControllerNotSelfOwned()
@@ -116,7 +121,27 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function _buildAllActions() private view returns (Controller.Action[] memory allActions_) {
+
+
+    function buildERC20TransferAction(
+        address _token,
+        address _to,
+        uint256 _amount
+    )
+        internal
+        pure
+        returns (Controller.Action memory)
+    {
+      return Controller.Action({
+            target: _token,
+            value: 0,
+            data: abi.encodeCall(IERC20.transfer, (_to, _amount))
+        });
+
+
+    }
+
+    function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
         Controller.Action[] memory l1Actions = buildL1Actions();
         uint256 len = l1Actions.length;
 
