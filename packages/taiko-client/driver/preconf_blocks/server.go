@@ -540,8 +540,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	endOfSequencing := false
-	for epoch := range s.sequencingEndedForEpochCache.Keys() {
-		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
+	for _, epoch := range s.sequencingEndedForEpochCache.Keys() {
+		if hash, ok := s.sequencingEndedForEpochCache.Get(epoch); ok && hash == block.Hash() {
 			endOfSequencing = true
 			break
 		}
