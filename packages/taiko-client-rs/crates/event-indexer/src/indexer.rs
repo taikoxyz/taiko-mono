@@ -151,9 +151,11 @@ impl ShastaEventIndexer {
             "subscribing to L1"
         );
 
-        let mut event_scanner = source
-            .to_event_scanner_sync_from_latest_scanning(self.ring_buffer_size() as usize)
-            .await?;
+        const HISTORICAL_EVENT_MULTIPLIER: usize = 2;
+        let replay_count =
+            self.ring_buffer_size().saturating_mul(HISTORICAL_EVENT_MULTIPLIER as u64);
+        let mut event_scanner =
+            source.to_event_scanner_sync_from_latest_scanning(replay_count as usize).await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()

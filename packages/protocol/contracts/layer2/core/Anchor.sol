@@ -500,7 +500,7 @@ contract Anchor is EssentialContract {
         uint48 _proposalId,
         address _proposer
     )
-        public
+        private
         pure
         returns (bool)
     {

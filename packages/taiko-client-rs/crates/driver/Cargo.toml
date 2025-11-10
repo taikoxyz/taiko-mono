@@ -35,12 +35,12 @@ tracing = { workspace = true }
 url = { workspace = true }
 
 bindings = { path = "../bindings" }
-event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
 anyhow = { workspace = true }
+event-indexer = { path = "../event-indexer" }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }

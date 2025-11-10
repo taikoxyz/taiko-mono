@@ -90,8 +90,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 		lastPayloadData *engine.ExecutableData
 	)
 
-	go i.sendLatestSeenProposal(latestSeenProposal)
-
 	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
 			"Parent block",
@@ -139,6 +137,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"parentNumber", parent.Number,
 					"parentHash", parent.Hash(),
 				)
+
+				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata,
+					PreconfChainReorged:   false,
+					LastBlockID:           lastBlockHeader.Number.Uint64(),
+				})
 
 				// Update the L1 origin for each block in the batch.
 				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
@@ -200,6 +204,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"indexInProposal", j,
 		)
 
+		latestSeenProposal.LastBlockID = lastPayloadData.Number
+
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
@@ -255,7 +261,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
+			"Sending latest seen shasta proposal from blocksInserter",
 			"proposalID", proposal.TaikoProposalMetaData.Shasta().GetProposal().Id,
 			"preconfChainReorged", proposal.PreconfChainReorged,
 		)

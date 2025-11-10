@@ -20,6 +20,7 @@ event-scanner = { workspace = true }
 anyhow = { workspace = true }
 flate2 = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 # serialization
 serde = { version = "1", features = ["derive"] }

@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
-    error::{ProtocolError, Result},
+    error::Result,
 };
+use tracing::info;
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
@@ -66,19 +67,16 @@ impl DerivationSourceManifest {
         };
 
         let mut decoded_slice = decoded.as_slice();
-        let mut manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
-            .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
+        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                info!(?err, "failed to decode derivation manifest rlp; returning default manifest");
+                return Ok(DerivationSourceManifest::default());
+            }
+        };
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(DerivationSourceManifest::default());
-        }
-
-        // For all forced-inclusion blocks, we override the gas limit and anchor block number to 0.
-        for block in manifest.blocks.iter_mut() {
-            block.gas_limit = 0;
-            block.anchor_block_number = 0;
-            block.timestamp = 0;
-            block.coinbase = Address::ZERO;
         }
 
         Ok(manifest)
@@ -145,6 +143,19 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>
     Ok(Some(decoded))
 }
 
+impl DerivationSourceManifest {
+    /// Reset block metadata to defaults for forced-inclusion segments, matching Go driver
+    /// behaviour.
+    pub fn apply_forced_inclusion_defaults(&mut self) {
+        for block in &mut self.blocks {
+            block.gas_limit = 0;
+            block.anchor_block_number = 0;
+            block.timestamp = 0;
+            block.coinbase = Address::ZERO;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,7 +210,8 @@ mod tests {
         payload.extend_from_slice(&len_bytes);
         payload.extend_from_slice(&compressed);
 
-        assert!(DerivationSourceManifest::decompress_and_decode(&payload, 0).is_err());
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
     }
 
     #[test]

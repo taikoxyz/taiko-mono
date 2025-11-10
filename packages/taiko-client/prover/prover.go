@@ -63,9 +63,10 @@ type Prover struct {
 	proofSubmitterPacaya proofSubmitter.Submitter
 	proofSubmitterShasta proofSubmitter.Submitter
 
-	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
-	proveNotify              chan struct{}
-	batchesAggregationNotify chan proofProducer.ProofType
+	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
+	proveNotify                    chan struct{}
+	batchesAggregationNotifyPacaya chan proofProducer.ProofType
+	batchesAggregationNotifyShasta chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -143,7 +144,8 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, 1)
 
 	if err := p.shastaIndexer.Start(); err != nil {
 		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
@@ -192,7 +194,7 @@ func InitFromConfig(
 	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
 		return err
 	}
-	if err := p.initShastaProofSubmitter(txBuilder); err != nil {
+	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
 		return err
 	}
 
@@ -276,8 +278,10 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotify:
-			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
+		case proofType := <-p.batchesAggregationNotifyPacaya:
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+		case proofType := <-p.batchesAggregationNotifyShasta:
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
@@ -317,9 +321,15 @@ func (p *Prover) proveOp() error {
 	return iter.Iter()
 }
 
-// aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
-func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
-	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) error {
+	var err error
+	if isShasta {
+		err = p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
+	} else {
+		err = p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType)
+	}
+	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
 	}
