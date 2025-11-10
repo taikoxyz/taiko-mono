@@ -20,9 +20,7 @@ contract TestERC1155Vault is CommonTest {
     function setUpOnEthereum() internal override {
         eERC1155Token = new FreeMintERC1155Token("http://example.host.com/");
 
-        eSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        eSignalService = _deployMockSignalService("ETH");
         eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
         eVault = deployERC1155Vault();
 
@@ -36,9 +34,7 @@ contract TestERC1155Vault is CommonTest {
     function setUpOnTaiko() internal override {
         tVault = deployERC1155Vault();
         tBridge = new PrankDestBridge(tVault);
-        tSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        tSignalService = _deployMockSignalService("TAIKO");
 
         register("bridge", address(tBridge));
         register("bridged_erc1155", address(new BridgedERC1155(address(tVault))));
@@ -745,5 +741,13 @@ contract TestERC1155Vault is CommonTest {
         ERC1155(deployedContract).setApprovalForAll(address(tVault), true);
         vm.prank(Alice);
         tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+    }
+
+    function _deployMockSignalService(bytes32 label) private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this),
+            address(uint160(uint256(keccak256(abi.encodePacked(label, "_REMOTE_SIGNAL"))))),
+            deployer
+        );
     }
 }

@@ -5,6 +5,8 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { Inbox } from "./Inbox.sol";
 
+import "./InboxOptimized1_Layout.sol"; // DO NOT DELETE
+
 /// @title InboxOptimized1
 /// @notice Gas-optimized Inbox implementation with ring buffer storage and transition aggregation
 /// @dev Key optimizations implemented:
@@ -58,11 +60,11 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @notice Optimized transition record building with automatic aggregation
-    /// @dev Optimization strategy:
-    ///      - Single transitions: Use optimized storage lookup
-    ///      - Multiple transitions: Apply aggregation to group consecutive proposals
-    ///      - Aggregation: Merges bond instructions and increases span value
+    /// @dev Optimized transition record building with automatic aggregation.
+    ///      Strategy:
+    ///      - Single transitions: use the parent implementation's optimized lookup
+    ///      - Multiple transitions: aggregate consecutive proposals into a single record
+    ///      - Aggregation merges bond instructions and increases the span value
     /// @param _input ProveInput containing arrays of proposals and transitions to process
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
@@ -75,11 +77,11 @@ contract InboxOptimized1 is Inbox {
     }
 
     /// @inheritdoc Inbox
-    /// @dev Stores transition record hash with optimized slot reuse
-    /// @notice Storage strategy:
-    ///         1. New proposal ID: Overwrites reusable slot
-    ///         2. Same ID, same parent: Check for duplicate/conflict and handle accordingly
-    ///         3. Same ID, different parent: Uses composite key mapping
+    /// @dev Stores transition record hash with optimized slot reuse.
+    ///      Storage strategy:
+    ///      1. New proposal ID: overwrite the reusable slot.
+    ///      2. Same ID and parent: detect duplicates or conflicts and update accordingly.
+    ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _recordHash The keccak hash representing the transition record
@@ -130,12 +132,12 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @dev Optimized retrieval using ring buffer with collision detection
-    /// @notice Lookup strategy (gas-optimized order):
-    ///         1. Ring buffer slot lookup (cheapest - single SLOAD)
-    ///         2. Proposal ID verification (cached in memory)
-    ///         3. Partial parent hash comparison (single comparison)
-    ///         4. Fallback to composite key mapping (most expensive)
+    /// @dev Optimized retrieval using ring buffer with collision detection.
+    ///      Lookup strategy (gas-optimized order):
+    ///      1. Ring buffer slot lookup (single SLOAD).
+    ///      2. Proposal ID verification (cached in memory).
+    ///      3. Partial parent hash comparison (single comparison).
+    ///      4. Fallback to composite key mapping (most expensive).
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return recordHash_ The hash of the transition record

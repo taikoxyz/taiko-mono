@@ -8,6 +8,8 @@ import "src/layer1/core/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibNames.sol";
 
+import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
+
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChecker {
@@ -285,8 +287,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
-        // Get epoch-stable randomness
-        uint256 rand = _getRandomNumber(_epochTimestamp);
+        // Get epoch-stable randomness with an optional delay applied
+        uint256 delaySeconds = uint256(randomnessDelay) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 ts = uint256(_epochTimestamp);
+        uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
+        uint256 rand = _getRandomNumber(randomnessTs);
 
         uint256 _operatorCount = operatorCount;
 

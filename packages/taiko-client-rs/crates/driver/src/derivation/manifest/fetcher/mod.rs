@@ -7,8 +7,8 @@ pub mod shasta;
 
 pub use error::ManifestFetcherError;
 use rpc::blob::BlobDataSource;
-pub use shasta::{ShastaProposalManifestFetcher, ShastaSourceManifestFetcher};
-use tracing::error;
+pub use shasta::ShastaSourceManifestFetcher;
+use tracing::{debug, error};
 
 /// Trait describing manifest fetch behaviour for different forks.
 #[async_trait]
@@ -22,13 +22,15 @@ pub trait ManifestFetcher: Send + Sync {
     /// Fetch blobs from the provided source for the given blob hashes.
     async fn fetch_blobs(
         &self,
+        timestamp: u64,
         blob_hashes: &[B256],
     ) -> Result<Vec<BlobTransactionSidecar>, ManifestFetcherError> {
         if blob_hashes.is_empty() {
             return Err(ManifestFetcherError::EmptyBlobHashes);
         }
 
-        let sidecars = self.blob_source().get_blobs(blob_hashes).await?;
+        debug!(hash_count = blob_hashes.len(), timestamp, "fetching blob sidecars");
+        let sidecars = self.blob_source().get_blobs(timestamp, blob_hashes).await?;
         if sidecars.len() != blob_hashes.len() {
             error!(
                 expected = blob_hashes.len(),
@@ -54,10 +56,11 @@ pub trait ManifestFetcher: Send + Sync {
     /// Fetch and decode the manifest for the given blob hashes.
     async fn fetch_and_decode_manifest(
         &self,
+        timestamp: u64,
         blob_hashes: &[B256],
         offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        let sidecars = self.fetch_blobs(blob_hashes).await?;
+        let sidecars = self.fetch_blobs(timestamp, blob_hashes).await?;
         self.decode_manifest(&sidecars, offset).await
     }
 }

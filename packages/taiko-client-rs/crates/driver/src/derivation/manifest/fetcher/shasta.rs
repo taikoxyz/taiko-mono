@@ -2,21 +2,17 @@ use std::sync::Arc;
 
 use alloy_consensus::BlobTransactionSidecar;
 use async_trait::async_trait;
-use protocol::shasta::{
-    BlobCoder,
-    error::Result as ProtocolResult,
-    manifest::{DerivationSourceManifest, ProposalManifest},
-};
+use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
 use rpc::blob::BlobDataSource;
+use tracing::{debug, instrument};
 
 use super::{ManifestFetcher, ManifestFetcherError};
 
-// Helper to decode a manifest from sidecars using the provided decoder function.
-fn decode_manifest_from_sidecars<M>(
+// Helper to decode a manifest from sidecars using the derivation manifest decoder.
+fn decode_manifest_from_sidecars(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
-    decoder: fn(&[u8], usize) -> ProtocolResult<M>,
-) -> Result<M, ManifestFetcherError> {
+) -> Result<DerivationSourceManifest, ManifestFetcherError> {
     if sidecars.is_empty() {
         return Err(ManifestFetcherError::EmptyBlobSidecars);
     }
@@ -32,37 +28,25 @@ fn decode_manifest_from_sidecars<M>(
         }
     }
 
-    decoder(&concatenated, offset).map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
+    DerivationSourceManifest::decompress_and_decode(&concatenated, offset)
+        .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
 }
 
 #[derive(Clone)]
-pub struct ShastaManifestFetcher<M>
-where
-    M: Send + 'static,
-{
+pub struct ShastaSourceManifestFetcher {
     blob_source: Arc<BlobDataSource>,
-    decoder: fn(&[u8], usize) -> ProtocolResult<M>,
 }
 
-impl<M> ShastaManifestFetcher<M>
-where
-    M: Send + Default + 'static,
-{
-    /// Create a new Shasta manifest fetcher with the given blob source and decoder function.
-    pub fn new(
-        blob_source: BlobDataSource,
-        decoder: fn(&[u8], usize) -> ProtocolResult<M>,
-    ) -> Self {
-        Self { blob_source: Arc::new(blob_source), decoder }
+impl ShastaSourceManifestFetcher {
+    /// Create a new Shasta manifest fetcher with the given blob source.
+    pub fn new(blob_source: Arc<BlobDataSource>) -> Self {
+        Self { blob_source }
     }
 }
 
 #[async_trait]
-impl<M> ManifestFetcher for ShastaManifestFetcher<M>
-where
-    M: Send + Default + 'static,
-{
-    type Manifest = M;
+impl ManifestFetcher for ShastaSourceManifestFetcher {
+    type Manifest = DerivationSourceManifest;
 
     /// Access the underlying blob data source.
     fn blob_source(&self) -> &BlobDataSource {
@@ -70,14 +54,14 @@ where
     }
 
     /// Decode a manifest from the provided sidecars and offset.
+    #[instrument(skip(self, sidecars), fields(sidecar_count = sidecars.len(), offset))]
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
         offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        decode_manifest_from_sidecars(sidecars, offset, self.decoder)
+        let manifest = decode_manifest_from_sidecars(sidecars, offset)?;
+        debug!(offset, "decoded shasta manifest from blob sidecars");
+        Ok(manifest)
     }
 }
-
-pub type ShastaProposalManifestFetcher = ShastaManifestFetcher<ProposalManifest>;
-pub type ShastaSourceManifestFetcher = ShastaManifestFetcher<DerivationSourceManifest>;

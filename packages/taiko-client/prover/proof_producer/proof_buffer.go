@@ -40,16 +40,16 @@ func (pb *ProofBuffer) Write(item *ProofResponse) (int, error) {
 		return len(pb.buffer), ErrNilBatchID
 	}
 
-	if len(pb.buffer)+1 > int(pb.MaxLength) {
-		return len(pb.buffer), ErrBufferOverflow
-	}
-
 	// Check for duplicate BatchID (idempotency check)
 	// If duplicate found, return success without adding the item
 	for _, existingItem := range pb.buffer {
 		if existingItem.BatchID.Cmp(item.BatchID) == 0 {
 			return len(pb.buffer), nil
 		}
+	}
+
+	if len(pb.buffer)+1 > int(pb.MaxLength) {
+		return len(pb.buffer), ErrBufferOverflow
 	}
 
 	if len(pb.buffer) == 0 {

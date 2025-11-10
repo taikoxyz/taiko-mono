@@ -25,7 +25,7 @@ contract PreconfWhitelistSetup is CommonTest {
                     (
                         _owner, // owner
                         0, // operatorChangeDelay (immediate for tests)
-                        0 // randomnessDelay (immediate for tests)
+                        2 // randomnessDelay (match production configuration)
                     )
                 )
             )

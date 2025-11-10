@@ -7,8 +7,6 @@ use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::eth::Withdrawal;
 use sha2::{Digest, Sha256};
 
-use bindings::anchor::LibBonds::BondInstruction;
-
 sol! {
     struct ShastaDifficultyInput {
         bytes32 parentDifficulty;
@@ -16,10 +14,11 @@ sol! {
     }
 }
 
-/// Calculate the Shasta difficulty for a new block based on the parent randao and block number.
-pub(super) fn calculate_shasta_difficulty(parent_randao: B256, block_number: u64) -> B256 {
+/// Calculate the Shasta difficulty for a new block based on the parent difficulty (randao digest)
+/// and block number.
+pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
-        parentDifficulty: parent_randao,
+        parentDifficulty: parent_difficulty,
         blockNumber: U256::from(block_number),
     };
     B256::from(keccak256(params.abi_encode()))
@@ -71,21 +70,4 @@ pub(super) fn compute_build_payload_args_id(
 pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
     let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
     Bytes::from(data)
-}
-
-/// Calculate the rolling bond instruction hash for a new instruction.
-pub(super) fn calculate_bond_instruction_hash(
-    previous_hash: B256,
-    instruction: &BondInstruction,
-) -> B256 {
-    if instruction.proposalId.to::<u64>() == 0 || instruction.bondType == 0 {
-        return previous_hash;
-    }
-
-    let encoded = instruction.abi_encode();
-    let mut data = Vec::with_capacity(previous_hash.as_slice().len() + encoded.len());
-    data.extend_from_slice(previous_hash.as_slice());
-    data.extend_from_slice(&encoded);
-
-    B256::from_slice(keccak256(&data).as_slice())
 }

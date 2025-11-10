@@ -17,7 +17,7 @@ use bindings::anchor::{
 };
 use rpc::client::Client;
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::signer::{FixedKSigner, FixedKSignerError};
 
@@ -42,7 +42,6 @@ pub struct AnchorV4Input {
     pub prover_auth: Vec<u8>,
     pub bond_instructions_hash: B256,
     pub bond_instructions: Vec<BondInstruction>,
-    pub block_index: u16,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
@@ -80,6 +79,7 @@ where
     }
 
     /// Assemble an `anchorV4` transaction for the given parent header and parameters.
+    #[instrument(skip(self), fields(proposal_id = params.proposal_id, anchor_block_number = params.anchor_block_number))]
     pub async fn assemble_anchor_v4_tx(
         &self,
         parent_hash: B256,
@@ -91,7 +91,6 @@ where
             prover_auth,
             bond_instructions_hash,
             bond_instructions,
-            block_index,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
@@ -100,14 +99,18 @@ where
         } = params;
 
         // Fetch golden touch nonce at the parent header via EIP-1898 hash reference.
-        let block_id =
-            BlockId::Hash(RpcBlockHash { block_hash: parent_hash, require_canonical: Some(false) });
         let nonce: U256 = self
             .rpc
             .l2_provider
             .raw_request(
                 Cow::Borrowed("eth_getTransactionCount"),
-                (self.golden_touch_address, block_id),
+                (
+                    self.golden_touch_address,
+                    BlockId::Hash(RpcBlockHash {
+                        block_hash: parent_hash,
+                        require_canonical: Some(true),
+                    }),
+                ),
             )
             .await
             .or_else(|err| {
@@ -128,9 +131,13 @@ where
         info!(
             l2_height,
             proposal_id,
-            block_index,
+            ?prover_auth,
+            ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
+            ?nonce,
+            ?base_fee,
+            ?gas_fee_cap,
             "assembling shasta anchor anchorV4 transaction",
         );
 
@@ -143,7 +150,6 @@ where
         };
 
         let block_params = BlockParams {
-            blockIndex: block_index,
             anchorBlockNumber: U48::from(anchor_block_number),
             anchorBlockHash: anchor_block_hash,
             anchorStateRoot: anchor_state_root,
@@ -174,15 +180,15 @@ where
             input: calldata,
         };
 
-        let sighash = tx.signature_hash();
+        let sig_hash = tx.signature_hash();
         let mut hash_bytes = [0u8; 32];
-        hash_bytes.copy_from_slice(sighash.as_slice());
+        hash_bytes.copy_from_slice(sig_hash.as_slice());
         let signature = self.signer.sign_with_predefined_k(&hash_bytes)?;
 
         Ok(TxEnvelope::new_unchecked(
             EthereumTypedTransaction::Eip1559(tx),
             signature.signature,
-            sighash,
+            sig_hash,
         ))
     }
 }

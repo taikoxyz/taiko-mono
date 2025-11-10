@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+
+import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
@@ -24,7 +24,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is Ownable2Step, ReentrancyGuard {
+contract Anchor is EssentialContract {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -52,18 +52,17 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
 
     /// @notice Block-level data specific to a single block within a proposal.
     struct BlockParams {
-        uint16 blockIndex; // Current block index within the proposal (0-based)
         uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
         bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
-    /// @dev 2 slots
     struct ProposalState {
         bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
+        uint48 proposalId;
     }
 
     /// @notice Stored block-level state for the latest anchor.
@@ -117,27 +116,23 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
-    // Pacaya slots for storage compatibility
-    // ---------------------------------------------------------------
-
-    /// @dev slot0:  _blockhashes
-    ///      slot1: publicInputHash
-    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    ///      slot3: l1ChainId
-    uint256[4] private _pacayaSlots;
-
-    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
+
+    /// @notice Mapping from block number to block hash.
+    mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
+
+    /// @dev Slots used by the Pacaya anchor contract itself.
+    /// slot1: publicInputHash
+    /// slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
+    /// slot3: l1ChainId
+    uint256[3] private _pacayaSlots;
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
-
-    /// @notice Mapping from block number to block hash.
-    mapping(uint256 => bytes32) public blockHashes;
 
     /// @notice Storage gap for upgrade safety.
     uint256[41] private __gap;
@@ -209,7 +204,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
     /// anchoring.
     /// @dev Core function that processes blocks sequentially within a proposal:
-    ///      1. Designates prover on first block (blockIndex == 0)
+    ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
     ///      2. Processes bond transfers with cumulative hash verification
     ///      3. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
@@ -222,10 +217,17 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         onlyValidSender
         nonReentrant
     {
-        if (_blockParams.blockIndex == 0) {
-            _validateProposal(_proposalParams);
+        uint48 lastProposalId = _proposalState.proposalId;
+
+        if (_proposalParams.proposalId < lastProposalId) {
+            // Proposal ID cannot go backward
+            revert ProposalIdMismatch();
         }
 
+        // We do not need to account for proposalId = 0, since that's genesis
+        if (_proposalParams.proposalId > lastProposalId) {
+            _validateProposal(_proposalParams);
+        }
         _validateBlock(_blockParams);
 
         uint256 parentNumber = block.number - 1;
@@ -380,6 +382,8 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
             _proposalParams.bondInstructions,
             _proposalParams.bondInstructionsHash
         );
+
+        _proposalState.proposalId = _proposalParams.proposalId;
     }
 
     /// @dev Validates and processes block-level data.
@@ -496,7 +500,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         uint48 _proposalId,
         address _proposer
     )
-        public
+        private
         pure
         returns (bool)
     {

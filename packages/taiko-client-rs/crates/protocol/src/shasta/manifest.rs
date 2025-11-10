@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
-    error::{ProtocolError, Result},
+    error::Result,
 };
+use tracing::info;
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
@@ -37,6 +38,9 @@ pub struct BlockManifest {
 #[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
 pub struct DerivationSourceManifest {
+    /// Raw prover authentication payload.
+    #[serde(default)]
+    pub prover_auth_bytes: Bytes,
     /// Blocks included in this source.
     pub blocks: Vec<BlockManifest>,
 }
@@ -44,7 +48,7 @@ pub struct DerivationSourceManifest {
 impl Default for DerivationSourceManifest {
     /// Create the default derivation source manifest.
     fn default() -> Self {
-        Self { blocks: vec![BlockManifest::default()] }
+        Self { prover_auth_bytes: Bytes::new(), blocks: vec![BlockManifest::default()] }
     }
 }
 
@@ -63,64 +67,16 @@ impl DerivationSourceManifest {
         };
 
         let mut decoded_slice = decoded.as_slice();
-        let mut manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
-            .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
+        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                info!(?err, "failed to decode derivation manifest rlp; returning default manifest");
+                return Ok(DerivationSourceManifest::default());
+            }
+        };
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Ok(DerivationSourceManifest::default());
-        }
-
-        // For all forced-inclusion blocks, we override the gas limit and anchor block number to 0.
-        for block in manifest.blocks.iter_mut() {
-            block.gas_limit = 0;
-            block.anchor_block_number = 0;
-            block.timestamp = 0;
-            block.coinbase = Address::ZERO;
-        }
-
-        Ok(manifest)
-    }
-}
-
-/// Manifest for a proposal, matching `LibManifest.ProtocolProposalManifest`.
-#[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
-#[serde(rename_all = "camelCase")]
-pub struct ProposalManifest {
-    /// Raw prover authentication payload.
-    #[serde(default)]
-    pub prover_auth_bytes: Bytes,
-    /// Derivation sources included in this proposal.
-    #[serde(default)]
-    pub sources: Vec<DerivationSourceManifest>,
-}
-
-impl Default for ProposalManifest {
-    /// Create the default proposal manifest.
-    fn default() -> Self {
-        Self { prover_auth_bytes: Bytes::new(), sources: vec![DerivationSourceManifest::default()] }
-    }
-}
-
-impl ProposalManifest {
-    /// Encode and compress the protocol proposal manifest following the Shasta protocol payload
-    /// format. Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
-    pub fn encode_and_compress(&self) -> Result<Vec<u8>> {
-        encode_manifest_payload(self)
-    }
-
-    /// Decompress and decode a protocol proposal manifest from the Shasta protocol payload bytes.
-    /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
-    pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
-        let Some(decoded) = decode_manifest_payload(bytes, offset)? else {
-            return Ok(ProposalManifest::default());
-        };
-
-        let mut decoded_slice = decoded.as_slice();
-        let manifest = <ProposalManifest as Decodable>::decode(&mut decoded_slice)
-            .map_err(|err| ProtocolError::Rlp(err.to_string()))?;
-
-        if manifest.sources.len() > PROPOSAL_MAX_BLOCKS {
-            return Ok(ProposalManifest::default());
         }
 
         Ok(manifest)
@@ -187,6 +143,19 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>
     Ok(Some(decoded))
 }
 
+impl DerivationSourceManifest {
+    /// Reset block metadata to defaults for forced-inclusion segments, matching Go driver
+    /// behaviour.
+    pub fn apply_forced_inclusion_defaults(&mut self) {
+        for block in &mut self.blocks {
+            block.gas_limit = 0;
+            block.anchor_block_number = 0;
+            block.timestamp = 0;
+            block.coinbase = Address::ZERO;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,27 +193,6 @@ mod tests {
     }
 
     #[test]
-    fn test_proposal_manifest_decode_invalid_rlp() {
-        use flate2::{Compression, write::ZlibEncoder};
-
-        let invalid_body = [0xFF, 0x00, 0x01];
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&invalid_body).unwrap();
-        let compressed = encoder.finish().unwrap();
-
-        let mut payload = Vec::with_capacity(64 + compressed.len());
-        let mut version_bytes = [0u8; 32];
-        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
-        payload.extend_from_slice(&version_bytes);
-
-        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
-        payload.extend_from_slice(&len_bytes);
-        payload.extend_from_slice(&compressed);
-
-        assert!(ProposalManifest::decompress_and_decode(&payload, 0).is_err());
-    }
-
-    #[test]
     fn test_derivation_manifest_decode_invalid_rlp() {
         use flate2::{Compression, write::ZlibEncoder};
 
@@ -262,24 +210,8 @@ mod tests {
         payload.extend_from_slice(&len_bytes);
         payload.extend_from_slice(&compressed);
 
-        assert!(DerivationSourceManifest::decompress_and_decode(&payload, 0).is_err());
-    }
-
-    #[test]
-    fn test_proposal_manifest_encode_decode() {
-        let manifest = ProposalManifest::default();
-        let encoded = manifest.encode_and_compress().unwrap();
-
-        assert!(encoded.len() >= 64);
-        assert_eq!(encoded[31], SHASTA_PAYLOAD_VERSION,);
-
-        for i in 0..31 {
-            assert_eq!(encoded[i], 0);
-        }
-
-        let decoded = ProposalManifest::decompress_and_decode(&encoded, 0).unwrap();
-        assert_eq!(decoded.prover_auth_bytes, manifest.prover_auth_bytes);
-        assert_eq!(decoded.sources.len(), manifest.sources.len());
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
     }
 
     #[test]

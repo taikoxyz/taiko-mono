@@ -34,10 +34,7 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 			Transactions:      types.Transactions{},
 		}},
 	}
-	b, err := builder.EncodeProposalManifestShasta(&manifest.ProposalManifest{
-		ProverAuthBytes: []byte{},
-		Sources:         []*manifest.DerivationSourceManifest{m},
-	})
+	b, err := builder.EncodeSourceManifestShasta(m)
 	s.Nil(err)
 	s.NotEmpty(b)
 
@@ -68,13 +65,13 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 func (s *ShastaManifestFetcherTestSuite) TestExtractVersionAndSize() {
 	version := uint32(1)
 	size := uint64(1024) // Use a reasonable test size since ProposalMaxBytes was removed
-	proposalManifestBytes := testutils.RandomBytes(int(size))
+	sourceManifestBytes := testutils.RandomBytes(int(size))
 
 	versionBytes := make([]byte, 32)
 	versionBytes[31] = byte(version)
 
 	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig := new(big.Int).SetUint64(uint64(len(sourceManifestBytes)))
 	lenBig.FillBytes(lenBytes)
 
 	blobBytesPrefix := make([]byte, 0, 64)
@@ -84,7 +81,7 @@ func (s *ShastaManifestFetcherTestSuite) TestExtractVersionAndSize() {
 	decodedVersion, decodedSize, err := ExtractVersionAndSize(blobBytesPrefix, 0)
 	s.Nil(err)
 	s.Equal(version, decodedVersion)
-	s.Equal(uint64(len(proposalManifestBytes)), decodedSize)
+	s.Equal(uint64(len(sourceManifestBytes)), decodedSize)
 }
 
 func TestShastaManifestFetcherTestSuite(t *testing.T) {

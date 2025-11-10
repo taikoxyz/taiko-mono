@@ -29,7 +29,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -458,56 +457,6 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, batchID: %d", batchID)
 }
 
-// CalculateBaseFee calculates the base fee from the L2 protocol.
-func (c *Client) CalculateBaseFee(
-	ctx context.Context,
-	l2Head *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-	currentTimestamp uint64,
-) (*big.Int, error) {
-	var (
-		baseFee *big.Int
-		err     error
-	)
-
-	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(c.ShastaClients.ForkHeight) >= 0 {
-		baseFee := new(big.Int).SetUint64(params.ShastaInitialBaseFee)
-		if l2Head.Number.Uint64()+1 >= c.ShastaClients.ForkHeight.Uint64()+misc.ShastaInitialBaseFeeBlocks {
-			grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
-			}
-			config := &params.ChainConfig{ShastaBlock: c.ShastaClients.ForkHeight}
-			log.Info(
-				"Fetched params for Shasta base fee calculation",
-				"parentBlockNumber", l2Head.Number,
-				"parentGasLimit", l2Head.GasLimit,
-				"parentGasUsed", l2Head.GasUsed,
-				"parentBaseFee", l2Head.BaseFee,
-				"parentTime", l2Head.Time-grandParentBlock.Time,
-				"elasticityMultiplier", config.ElasticityMultiplier(),
-				"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
-				"shastaForkHeight", config.ShastaBlock,
-			)
-			baseFee = misc.CalcEIP4396BaseFee(
-				config,
-				l2Head,
-				l2Head.Time-grandParentBlock.Time,
-			)
-		}
-		log.Info("Shasta base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
-
-		return baseFee, nil
-	}
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
-		return nil, err
-	}
-
-	log.Info("Pacaya base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
-
-	return baseFee, nil
-}
-
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
 // upper limit.
 func (c *Client) GetPoolContent(
@@ -524,14 +473,24 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
+	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
-	if err != nil {
-		return nil, err
+	var baseFee *big.Int
+	if l1Head.Time >= c.ShastaClients.ForkTime {
+		if baseFee, err = c.CalculateBaseFeeShasta(ctx, l2Head); err != nil {
+			return nil, err
+		}
+	} else {
+		if baseFee, err = c.CalculateBaseFeePacaya(ctx, l2Head, l1Head.Time, baseFeeConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	var localsArg []string
@@ -755,7 +714,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 
 	if batchID.Cmp(common.Big0) == 0 {
 		// batchID is zero already, and the given batch is a Pacaya batch, no need to check reorg.
-		if !isShastaBatch || c.ShastaClients.ForkHeight.Cmp(common.Big0) == 0 {
+		if !isShastaBatch || c.ShastaClients.ForkTime == 0 {
 			return result, nil
 		}
 		if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {
@@ -1078,8 +1037,35 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
-// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
-func (c *Client) calculateBaseFeePacaya(
+// CalculateBaseFeeShasta calculates the base fee after Shasta fork from the L2 protocol.
+func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
+	// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
+	if l2Head.Number.Cmp(common.Big0) == 0 {
+		return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
+	}
+
+	// Otherwise, calculate Shasta base fee according to EIP-4396.
+	grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+	}
+	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
+	log.Info(
+		"Params for Shasta base fee calculation",
+		"parentBlockNumber", l2Head.Number,
+		"parentGasLimit", l2Head.GasLimit,
+		"parentGasUsed", l2Head.GasUsed,
+		"parentBaseFee", l2Head.BaseFee,
+		"parentTime", l2Head.Time-grandParentBlock.Time,
+		"elasticityMultiplier", config.ElasticityMultiplier(),
+		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
+		"shastaForkTime", c.ShastaClients.ForkTime,
+	)
+	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
+}
+
+// CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
+func (c *Client) CalculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
@@ -1229,6 +1215,42 @@ func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
 	}
 
 	return new(big.Int).SetUint64(stateVars.Stats2.NumBatches - 1), nil
+}
+
+// GetAllActiveOperators fetch all active preconfirmation operators added to the whitelist contract.
+func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
+	}
+
+	var operators []common.Address
+	for i := 0; i < int(count); i++ {
+		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
+		}
+		opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
+		}
+		if opInfo.InactiveSince == 0 {
+			operators = append(operators, opInfo.SequencerAddress)
+		}
+	}
+
+	return operators, nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.

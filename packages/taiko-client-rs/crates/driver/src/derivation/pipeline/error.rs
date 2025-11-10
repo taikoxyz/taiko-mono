@@ -43,15 +43,15 @@ pub enum DerivationError {
     /// The proposal contains no derivation sources, which is invalid.
     #[error("proposal contains no derivation sources")]
     EmptyDerivationSources(u64),
+    /// Bond instruction cache mutex was poisoned.
+    #[error("bond instruction cache poisoned during {operation}: {message}")]
+    BondInstructionCachePoisoned { operation: &'static str, message: String },
     /// Failure while materialising payloads via the execution engine.
     #[error(transparent)]
     Engine(#[from] EngineSubmissionError),
     /// Unable to fetch the latest L2 parent block.
     #[error("latest L2 block not found")]
     LatestL2BlockMissing,
-    /// Missing origin block hash for the proposal.
-    #[error("origin block hash {block_number} not found")]
-    ProposalOriginBlockHashMissing { block_number: u64 },
     /// Bond instruction hash mismatched after processing a proposal.
     #[error("bond instructions hash mismatch: expected {expected:?}, actual {actual:?}")]
     BondInstructionsMismatch { expected: B256, actual: B256 },
@@ -67,9 +67,6 @@ pub enum DerivationError {
     /// Failed to fetch the propose transaction from L1.
     #[error("failed to fetch propose transaction for proposal {proposal_id}: {reason}")]
     ProposeTransactionQuery { proposal_id: u64, reason: String },
-    /// Block index exceeded the supported range.
-    #[error("block index {index} exceeds u16 range")]
-    BlockIndexOverflow { index: usize },
     /// Failed to query the anchor block fields.
     #[error("failed to fetch anchor block {block_number}: {reason}")]
     AnchorBlockQuery { block_number: u64, reason: String },
@@ -82,6 +79,11 @@ pub enum DerivationError {
     /// Execution engine returned an unexpected block number.
     #[error("engine returned block {actual} but derivation expected {expected}")]
     UnexpectedBlockNumber { expected: u64, actual: u64 },
+    /// Attempted to derive blocks before the Shasta fork is active.
+    #[error(
+        "shasta fork inactive: activation timestamp {activation_timestamp}, parent timestamp {parent_timestamp}"
+    )]
+    ShastaForkInactive { activation_timestamp: u64, parent_timestamp: u64 },
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),

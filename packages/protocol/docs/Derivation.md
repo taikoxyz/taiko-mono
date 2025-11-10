@@ -305,7 +305,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
 1. **Define bounds**:
 
    - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
+   - `upperBound = min(parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MAX_BLOCK_GAS_LIMIT)`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -342,7 +342,7 @@ A parent proposal L1 transaction may revert, potentially causing the subsequent 
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal.
 
 The `ProverAuth` structure used in Shasta for prover authentication:
 
@@ -359,7 +359,7 @@ struct ProverAuth {
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `anchorV4` function designates the prover for the entire proposal. For every subsequent block (`_blockIndex > 0`), the same `proverAuthBytes` payload is still in the `anchorV4` parameters, but it won't be processed again.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once when a block belonging to a strictly higher `proposalId` arrives; the same `proverAuthBytes` payload must still be supplied for subsequent blocks of that proposal, but it will be ignored.
 
 ##### 1. Authentication and Validation
 
@@ -459,26 +459,14 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count within that source.
 
-#### Block Index Monotonicity
+#### Proposal Identifier Monotonicity
 
-The `_blockIndex` parameter in the anchor transaction's `anchorV4` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly increase only when a new proposal begins.
 
-- First source's blocks: `_blockIndex = 0, 1, 2, ...`
-- Second source's blocks: `_blockIndex` continues from where the first source ended
-- Third source's blocks: `_blockIndex` continues sequentially, etc.
-
-**Why this is critical**: The check `if (_blockIndex == 0)` gates proposal-level operations that must execute exactly once per proposal:
+**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal:
 
 1. **Prover designation** - ONE designated prover per proposal
 2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
-
-If `_blockIndex` were to reset per source (e.g., each source starting from 0), these operations would execute multiple times, causing:
-
-- Financial incorrectness (bond instructions processed multiple times)
-- Multiple prover designations (violating the one-prover-per-proposal design)
-- Hash chain integrity violations
-
-Therefore, `_blockIndex` **must** be globally monotonic across all sources in a proposal. This is not a design choice—it's a correctness requirement.
 
 ## Metadata Application
 
@@ -524,7 +512,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 | proverAuth           | bytes             | Encoded ProverAuth for prover designation                |
 | bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions   |
 | bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block |
-| blockIndex           | uint16            | Current block index within the proposal (0-based)        |
 | anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)          |
 | anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                       |
 | anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                       |
@@ -543,7 +530,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
-2. **Proposal initialization** (blockIndex == 0 only)
+2. **Proposal initialization** (first block with a higher `proposalId`)
 
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
@@ -561,7 +548,6 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
-
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
@@ -572,16 +558,16 @@ The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first 
 
 The following constants govern the block derivation process:
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| **PROPOSAL_MAX_BLOCKS** | `384` | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch. |
-| **MAX_ANCHOR_OFFSET** | `128` | The maximum anchor block number offset from the proposal origin block number. |
-| **MIN_ANCHOR_OFFSET** | `2` | The minimum anchor block number offset from the proposal origin block number. |
-| **TIMESTAMP_MAX_OFFSET** | `384` (12 * 32) | The maximum number timestamp offset from the proposal origin timestamp. |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10` | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%. |
-| **MIN_BLOCK_GAS_LIMIT** | `15,000,000` | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold. |
-| **BOND_PROCESSING_DELAY** | `6` | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
-| **INITIAL_BASE_FEE** | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis. |
-| **MIN_BASE_FEE** | `0.005 gwei` (5,000,000 wei) | The minimum base fee (inclusive) after Shasta fork. |
-| **MAX_BASE_FEE** | `1 gwei` (1,000,000,000 wei) | The maximum base fee (inclusive) after Shasta fork. |
-| **BLOCK_TIME_TARGET** | `2 seconds` | The block time target. |
+| Constant                       | Value                         | Description                                                                                                                                                                       |
+| ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                   |
+| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                                     |
+| **MIN_ANCHOR_OFFSET**          | `2`                           | The minimum anchor block number offset from the proposal origin block number.                                                                                                     |
+| **TIMESTAMP_MAX_OFFSET**       | `384` (12 \* 32)              | The maximum number timestamp offset from the proposal origin timestamp.                                                                                                           |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                             |
+| **MIN_BLOCK_GAS_LIMIT**        | `15,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                                 |
+| **BOND_PROCESSING_DELAY**      | `6`                           | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
+| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                                      |
+| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                            |
