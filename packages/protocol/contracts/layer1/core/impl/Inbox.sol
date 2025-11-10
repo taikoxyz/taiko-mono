@@ -53,6 +53,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 finalizationDeadline;
     }
 
+    //
+
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
         IInbox.DerivationSource[] sources;
