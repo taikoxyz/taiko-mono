@@ -129,7 +129,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Checkpoint store responsible for checkpoints
     ICheckpointStore internal immutable _checkpointStore;
 
-    uint public abc;
+    uint256 public abc;
 
     // ---------------------------------------------------------------
     // State Variables
