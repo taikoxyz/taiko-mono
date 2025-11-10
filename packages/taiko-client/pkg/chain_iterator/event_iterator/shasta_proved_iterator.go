@@ -112,6 +112,7 @@ func assembleShastaProvedIteratorCallback(
 		for iter.Next() {
 			event := iter.Event
 
+			// Decode the Proved event data
 			provedEventPayload, err := rpcClient.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
 			if err != nil {
 				log.Error("Failed to decode Shasta Proved event data", "error", err)
