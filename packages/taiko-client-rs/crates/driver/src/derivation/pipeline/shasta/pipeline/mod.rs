@@ -429,7 +429,7 @@ where
         {
             let outcomes =
                 known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
-            self.sync_known_canonical_proposal(&meta, &known_blocks).await?;
+            self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
             return Ok(outcomes);
         }
 

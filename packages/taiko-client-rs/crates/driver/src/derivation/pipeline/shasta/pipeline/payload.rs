@@ -665,8 +665,8 @@ where
         Ok(Some(known_blocks))
     }
 
-    /// Update L1 origin metadata for blocks that were already present in the canonical chain.
-    pub(super) async fn sync_known_canonical_proposal(
+    /// Update the L1 origin metadata for a proposal that already lives on the canonical chain.
+    pub(super) async fn update_canonical_proposal_origins(
         &self,
         meta: &BundleMeta,
         blocks: &[KnownCanonicalBlock],
