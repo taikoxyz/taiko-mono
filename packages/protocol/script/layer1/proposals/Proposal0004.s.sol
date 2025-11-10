@@ -18,7 +18,7 @@ contract Proposal0004 is BuildProposal {
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
 
-    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
+    function buildL1Actions() internal view override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](11);
 
         // SP1 Verifier Actions (4 calls)
@@ -115,14 +115,4 @@ contract Proposal0004 is BuildProposal {
         });
     }
 
-    function buildL2Actions()
-        internal
-        pure
-        override
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
-    {
-        l2ExecutionId = 0;
-        l2GasLimit = 0;
-        actions = new Controller.Action[](0);
-    }
 }
