@@ -31,7 +31,9 @@ clap = { version = "4", features = ["derive", "env"] }
 
 # observability
 metrics = "0.24"
-metrics-exporter-prometheus = "0.15"
+metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
+  "http-listener",
+] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -66,7 +68,7 @@ alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
 alloy-sol-types = { version = "1.0.36", default-features = false }
 alloy-transport = { version = "1.0.36", default-features = false }
 alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.4.0-alpha"
+event-scanner = "=0.5.0-alpha"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }

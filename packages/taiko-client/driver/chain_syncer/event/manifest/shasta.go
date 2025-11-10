@@ -445,7 +445,10 @@ func validateGasLimit(
 			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
 			manifest.MinBlockGasLimit,
 		)
-		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
+		upperGasBound := min(
+			parentGasLimit*(10000+manifest.MaxBlockGasLimitChangePermyriad)/10000,
+			manifest.MaxBlockGasLimit,
+		)
 
 		if sourcePayload.BlockPayloads[i].GasLimit == 0 {
 			// Inherit parent value.

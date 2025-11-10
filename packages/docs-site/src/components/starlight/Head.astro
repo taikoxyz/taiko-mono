@@ -1,13 +1,21 @@
 ---
-import type { Props } from "@astrojs/starlight/props";
 import Default from "@astrojs/starlight/components/Head.astro";
+import type { StarlightRouteData } from "@astrojs/starlight/route-data";
 
-// Get the URL of the generated image for the current page using its
-// ID and replace the file extension with `.png`.
-const ogImageUrl = new URL(
-  `/og/${Astro.props.id.replace(/\.\w+$/, ".png")}`,
-  Astro.site
-);
+// Prefer the route middleware data if present, then head props, with a safe fallback.
+const route = Astro.locals?.starlightRoute as StarlightRouteData | undefined;
+const idFromRoute = route?.id ?? route?.entry?.id;
+const idFromProps =
+  (Astro.props as any)?.id;
+
+const pageId = idFromRoute ?? idFromProps ?? "index.mdx";
+const fileName = pageId.includes(".")
+  ? pageId.replace(/\.[^./]+$/, ".png")
+  : `${pageId}.png`;
+
+// In dev Astro.site can be undefined; fall back to the current URL.
+const base = Astro.site ?? Astro.url;
+const ogImageUrl = new URL(`/og/${fileName}`, base);
 ---
 
 <!-- Render the default <Head/> component. -->

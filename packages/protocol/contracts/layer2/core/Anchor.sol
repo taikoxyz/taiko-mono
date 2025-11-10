@@ -2,13 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -26,7 +24,7 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is Ownable2Step, ReentrancyGuard {
+contract Anchor is EssentialContract {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -118,27 +116,23 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
     uint64 public immutable l1ChainId;
 
     // ---------------------------------------------------------------
-    // Pacaya slots for storage compatibility
-    // ---------------------------------------------------------------
-
-    /// @dev slot0:  _blockhashes
-    ///      slot1: publicInputHash
-    ///      slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    ///      slot3: l1ChainId
-    uint256[4] private _pacayaSlots;
-
-    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
+
+    /// @notice Mapping from block number to block hash.
+    mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
+
+    /// @dev Slots used by the Pacaya anchor contract itself.
+    /// slot1: publicInputHash
+    /// slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
+    /// slot3: l1ChainId
+    uint256[3] private _pacayaSlots;
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
     ProposalState internal _proposalState;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
-
-    /// @notice Mapping from block number to block hash.
-    mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
 
     /// @notice Storage gap for upgrade safety.
     uint256[41] private __gap;
@@ -506,7 +500,7 @@ contract Anchor is Ownable2Step, ReentrancyGuard {
         uint48 _proposalId,
         address _proposer
     )
-        public
+        private
         pure
         returns (bool)
     {

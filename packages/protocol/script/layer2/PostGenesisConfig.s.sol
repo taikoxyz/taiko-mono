@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-
 import "script/BaseScript.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/vault/ERC20Vault.sol";
@@ -20,7 +19,6 @@ contract PostGenesisConfig is BaseScript {
     address public bridgedUSDC = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;
 
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
-    address public bridge = 0x1670000000000000000000000000000000000001;
     address public sam = 0x1670000000000000000000000000000000000006;
 
     function run() external view {

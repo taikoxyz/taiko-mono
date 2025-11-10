@@ -9,13 +9,13 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{ProviderBuilder, RootProvider};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
-    PayloadStatusEnum,
+    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
+use anyhow::anyhow;
 use metrics::gauge;
 use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
 use tokio::time::{MissedTickBehavior, interval};
-use tracing::{info, warn};
+use tracing::{debug, info, instrument, warn};
 
 use super::{SyncError, SyncStage};
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
@@ -39,6 +39,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Construct a new beacon syncer from the provided configuration and RPC client.
+    #[instrument(skip(config, rpc))]
     pub fn new(config: &DriverConfig, rpc: Client<P>) -> Self {
         let checkpoint = config
             .l2_checkpoint_url
@@ -49,8 +50,10 @@ where
     }
 
     /// Query the checkpoint node for its head L1 origin block number.
+    #[instrument(skip(self), level = "debug")]
     async fn checkpoint_head(&self) -> Result<Option<u64>, RpcClientError> {
         let Some(provider) = &self.checkpoint else {
+            debug!("checkpoint provider not configured");
             return Ok(None);
         };
 
@@ -59,17 +62,21 @@ where
             .await
             .map_err(RpcClientError::from)?;
 
-        Ok(response.map(|origin| origin.block_id.to::<u64>()))
+        let head = response.map(|origin| origin.block_id.to::<u64>());
+        debug!(?head, "queried checkpoint head");
+        Ok(head)
     }
 
     /// Submit a block from the checkpoint node to the local execution engine, to start
     /// a beacon sync.
+    #[instrument(skip(self, block), level = "debug")]
     async fn submit_remote_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
         let parent_hash = block.header.parent_hash;
         let withdrawals_root = block.header.withdrawals_root;
+        debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
 
         let consensus_block: Block<TxEnvelope> = block.into();
         let payload_field =
@@ -88,11 +95,13 @@ where
         };
 
         let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
-
         match payload_status.status {
             PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
             PayloadStatusEnum::Syncing => {
-                return Err(DriverError::EngineSyncing(block_number));
+                info!(
+                    block_number,
+                    "execution engine reported SYNCING for submitted payload; continuing beacon sync"
+                );
             }
             PayloadStatusEnum::Invalid { validation_error } => {
                 return Err(DriverError::EngineInvalidPayload(validation_error));
@@ -105,9 +114,16 @@ where
             finalized_block_hash: parent_hash,
         };
 
-        let _: ForkchoiceUpdated =
-            self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
+        let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
+        if forkchoice.payload_status.status != PayloadStatusEnum::Syncing {
+            return Err(DriverError::Other(anyhow!(
+                "unexpected forkchoice status {:?} for block {}",
+                forkchoice.payload_status.status,
+                block_number
+            )));
+        }
 
+        info!(block_number, ?block_hash, "checkpoint block submitted");
         Ok(())
     }
 }
@@ -119,9 +135,11 @@ where
 {
     /// Run the beacon sync stage, periodically checking the checkpoint node and submitting
     /// missing blocks to the local execution engine.
+    #[instrument(skip(self), name = "beacon_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
         // If no checkpoint endpoint is configured, skip this stage.
         if self.checkpoint.is_none() {
+            debug!("skipping beacon sync stage; checkpoint endpoint not configured");
             info!("no checkpoint endpoint configured; skip beacon sync stage");
             return Ok(());
         }
@@ -134,6 +152,7 @@ where
         };
 
         info!(?checkpoint_head, "initial checkpoint head");
+        debug!(?checkpoint_head, "fetched initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
             DEFAULT_BEACON_SYNC_POLL_INTERVAL
@@ -147,6 +166,7 @@ where
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         info!(interval_secs = poll_interval.as_secs(), "beacon sync stage started");
+        debug!(interval_secs = poll_interval.as_secs(), "beacon sync ticker initialised");
 
         loop {
             ticker.tick().await;
@@ -174,11 +194,13 @@ where
                     checkpoint_head,
                     local_head, "checkpoint head ahead of local engine; attempting to sync"
                 );
+                debug!(checkpoint_head, local_head, "attempting remote block submission");
                 let checkpoint_provider =
                     self.checkpoint.as_ref().ok_or(SyncError::CheckpointNoOrigin)?;
 
                 let block = checkpoint_provider
                     .get_block_by_number(BlockNumberOrTag::Number(checkpoint_head))
+                    .full()
                     .await
                     .map_err(RpcClientError::from)
                     .map_err(|err| SyncError::RemoteBlockSubmit {
@@ -202,6 +224,7 @@ where
                     checkpoint_head,
                     local_head, "local engine at or ahead of checkpoint head; no action needed"
                 );
+                debug!(checkpoint_head, local_head, "beacon sync up to date");
                 break Ok(());
             }
         }
