@@ -76,7 +76,11 @@ func NewProofSubmitterPacaya(
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
+	anchorValidator, err := validator.New(
+		taikoAnchorAddress,
+		senderOpts.RPCClient.L2.ChainID,
+		senderOpts.RPCClient,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +193,8 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 							return fmt.Errorf("zk proof is WIP, status: %w", err)
 						}
 					} else {
-						log.Debug("ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
+						log.Debug(
+							"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
 							"batchID", opts.BatchID,
 						)
 						useZK = false

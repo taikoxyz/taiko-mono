@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/console2.sol";
+import "../shared/helpers/RegularERC20.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "src/shared/common/DefaultResolver.sol";
+import "forge-std/src/console2.sol";
+import "src/layer2/core/Anchor.sol";
+import "src/layer2/core/AnchorForkRouter.sol";
+import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/tokenvault/ERC1155Vault.sol";
-import "src/shared/tokenvault/ERC20Vault.sol";
-import "src/shared/tokenvault/ERC721Vault.sol";
-import "src/shared/tokenvault/BridgedERC20.sol";
-import "src/shared/tokenvault/BridgedERC721.sol";
-import "src/shared/tokenvault/BridgedERC1155.sol";
+import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/layer2/based/TaikoAnchor.sol";
-import "src/layer2/based/BondManager.sol";
-import "src/shared/based/impl/CheckpointManager.sol";
-import "../shared/helpers/RegularERC20.sol";
+import "src/shared/vault/BridgedERC1155.sol";
+import "src/shared/vault/BridgedERC20.sol";
+import "src/shared/vault/BridgedERC721.sol";
+import "src/shared/vault/ERC1155Vault.sol";
+import "src/shared/vault/ERC20Vault.sol";
+import "src/shared/vault/ERC721Vault.sol";
 
 contract TestGenerateGenesis is Test {
     using stdJson for string;
@@ -27,14 +28,11 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
-    uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
-    uint48 private livenessBondGwei = uint48(configJSON.readUint(".livenessBondGwei"));
-    uint48 private provabilityBondGwei = uint48(configJSON.readUint(".provabilityBondGwei"));
+    uint256 private livenessBond = configJSON.readUint(".livenessBond");
+    uint256 private provabilityBond = configJSON.readUint(".provabilityBond");
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
-    uint48 private maxCheckpointStackSize = uint48(configJSON.readUint(".maxCheckpointStackSize"));
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -58,7 +56,7 @@ contract TestGenerateGenesis is Test {
         checkProxyImplementation("SignalService");
         checkProxyImplementation("SharedResolver");
 
-        // // check proxies
+        // check proxies
         checkDeployedCode("ERC20Vault");
         checkDeployedCode("ERC721Vault");
         checkDeployedCode("ERC1155Vault");
@@ -146,67 +144,25 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testCheckpointManager() public {
-        address checkpointManagerAddress = getPredeployedContractAddress("CheckpointManager");
-
-        EssentialContract checkpointManagerProxy = EssentialContract(checkpointManagerAddress);
-
-        assertEq(contractOwner, checkpointManagerProxy.owner());
-        assertEq(
-            getPredeployedContractAddress("TaikoAnchor"),
-            address(CheckpointManager(checkpointManagerAddress).authorized())
-        );
-        assertEq(maxCheckpointStackSize, CheckpointManager(checkpointManagerAddress).maxStackSize());
-
-        vm.startPrank(checkpointManagerProxy.owner());
-
-        checkpointManagerProxy.upgradeTo(
-            address(
-                new CheckpointManager(
-                    getPredeployedContractAddress("TaikoAnchor"), maxCheckpointStackSize
-                )
-            )
-        );
-
-        vm.stopPrank();
-    }
-
     function testTaikoAnchor() public {
-        TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
+        Anchor taikoAnchorProxy = Anchor(getPredeployedContractAddress("TaikoAnchor"));
 
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
-        assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
-        assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
         assertEq(
             getPredeployedContractAddress("SignalService"),
-            address(taikoAnchorProxy.signalService())
-        );
-        assertEq(
-            getPredeployedContractAddress("CheckpointManager"),
-            address(taikoAnchorProxy.checkpointManager())
+            address(taikoAnchorProxy.checkpointStore())
         );
         assertEq(
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
         );
-        assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
-        assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
+        assertEq(livenessBond, taikoAnchorProxy.livenessBond());
+        assertEq(provabilityBond, taikoAnchorProxy.provabilityBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
-        taikoAnchorProxy.upgradeTo(
-            address(
-                new TaikoAnchor(
-                    10_000_000, // livenessBondGwei
-                    10_000_000, // provabilityBondGwei
-                    getPredeployedContractAddress("SignalService"),
-                    uint64(pacayaForkHeight),
-                    uint64(shastaForkHeight),
-                    address(0), // checkpointManager - to be set later
-                    address(0) // bondManager - to be set later
-                )
-            )
-        );
+        UUPSUpgradeable(address(taikoAnchorProxy))
+            .upgradeTo(address(new AnchorForkRouter(address(1), address(2))));
 
         vm.stopPrank();
     }
@@ -388,11 +344,26 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(contractOwner);
 
-        signalServiceProxy.upgradeTo(
-            address(new SignalService(getPredeployedContractAddress("SharedResolver")))
+        address authorizedSyncer = getPredeployedContractAddress("TaikoAnchor");
+        address remoteSignalService = contractOwner;
+
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        signalServiceProxy.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(1))
+            })
+        );
+        vm.stopPrank();
+
+        vm.prank(authorizedSyncer);
+        signalServiceProxy.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(1))
+            })
         );
 
-        vm.stopPrank();
+        vm.prank(remoteSignalService);
+        signalServiceProxy.sendSignal(keccak256("genesis_signal"));
     }
 
     function testERC20() public view {

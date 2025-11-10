@@ -1,0 +1,697 @@
+use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_primitives::payload::attributes::{
+    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+};
+use alloy::{
+    eips::BlockNumberOrTag,
+    primitives::{Address, B256, U256},
+    providers::Provider,
+};
+use alloy_consensus::TxEnvelope;
+use alloy_eips::{BlockId, eip1898::RpcBlockHash};
+use alloy_primitives::aliases::U48;
+use alloy_rpc_types::eth::Withdrawal;
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+use bindings::anchor::LibBonds::BondInstruction;
+use protocol::shasta::{
+    constants::BOND_PROCESSING_DELAY,
+    manifest::{BlockManifest, DerivationSourceManifest},
+};
+
+use crate::{
+    derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
+    sync::engine::{EngineBlockOutcome, PayloadApplier},
+};
+use tracing::{debug, info, instrument, warn};
+
+use super::{
+    super::validation::{ValidationError, validate_source_manifest},
+    ShastaDerivationPipeline,
+    bundle::{BundleMeta, SourceManifestSegment},
+    state::ParentState,
+    util::{
+        calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
+        encode_transactions,
+    },
+};
+
+/// Context describing a manifest segment during payload derivation.
+struct SegmentContext<'a> {
+    /// Proposal metadata shared across all segments.
+    meta: &'a BundleMeta,
+    /// Index of the segment within the proposal bundle.
+    segment_index: usize,
+    /// Total number of segments in the proposal bundle.
+    segments_total: usize,
+}
+
+/// Position metadata passed down to block-level processing.
+#[derive(Clone, Copy)]
+struct BlockPosition {
+    /// Index of the segment containing the block.
+    segment_index: usize,
+    /// Total number of segments in the bundle.
+    segments_total: usize,
+    /// Index of the block within its segment.
+    block_index: usize,
+    /// Total number of blocks in the segment.
+    blocks_len: usize,
+    /// Whether the block originates from a forced inclusion segment.
+    forced_inclusion: bool,
+}
+
+/// Shared inputs required when converting a manifest block into payload attributes.
+struct BlockContext<'a> {
+    /// Immutable metadata describing the entire proposal bundle.
+    meta: &'a BundleMeta,
+    /// Positional data describing where the block sits within the proposal.
+    position: BlockPosition,
+    /// Indicates whether the proposal is a low-bond proposal (falls back to default manifest).
+    is_low_bond_proposal: bool,
+}
+
+/// Aggregate of per-block data forwarded to `create_payload_attributes`.
+struct PayloadContext<'a> {
+    /// Manifest-provided block metadata.
+    block: &'a BlockManifest,
+    /// Proposal-level metadata reused for payload construction.
+    meta: &'a BundleMeta,
+    /// Base fee target for the upcoming block.
+    block_base_fee: u64,
+    /// Difficulty used when sealing the block.
+    difficulty: B256,
+    /// Height of the block being built.
+    block_number: u64,
+    /// Hash of the parent block used for payload ID derivation.
+    parent_hash: B256,
+    /// Positional data describing where the block sits within the proposal.
+    position: BlockPosition,
+    /// Indicates whether the low-bond flag should be encoded.
+    is_low_bond_proposal: bool,
+}
+
+/// Aggregated bond instruction data for a derived block.
+struct BondInstructionData {
+    /// Instructions that must be embedded into the anchor transaction.
+    instructions: Vec<BondInstruction>,
+    /// Rolling hash after applying the block's bond instructions.
+    hash: B256,
+}
+
+/// Aggregated parameters required to assemble the anchor transaction.
+struct AnchorTxInputs<'a> {
+    /// Manifest-provided block metadata.
+    block: &'a BlockManifest,
+    /// Height of the block being built.
+    block_number: u64,
+    /// Base fee target for the upcoming block.
+    block_base_fee: u64,
+    /// Bond instructions collected for the block.
+    bond_instructions: &'a [BondInstruction],
+    /// Rolling bond instruction hash after applying the block's instructions.
+    bond_instructions_hash: B256,
+}
+
+/// Return true when the manifest represents the protocol-defined default payload.
+fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
+    if manifest.blocks.len() != 1 {
+        return false;
+    }
+
+    let block = &manifest.blocks[0];
+    block.timestamp == 0 &&
+        block.coinbase == Address::ZERO &&
+        block.anchor_block_number == 0 &&
+        block.gas_limit == 0 &&
+        block.transactions.is_empty()
+}
+
+impl BlockPosition {
+    // Check if this is the final block of the final segment.
+    fn is_final(&self) -> bool {
+        self.segment_index + 1 == self.segments_total && self.block_index + 1 == self.blocks_len
+    }
+
+    // Check if this block is part of a forced inclusion segment.
+    fn is_forced_inclusion(&self) -> bool {
+        self.forced_inclusion
+    }
+}
+
+impl<P> ShastaDerivationPipeline<P>
+where
+    P: Provider + Clone + 'static,
+{
+    /// Process all manifest segments in order, materialising blocks via the execution engine.
+    #[instrument(
+        skip(self, sources, state, applier),
+        fields(proposal_id = meta.proposal_id, segment_count = sources.len())
+    )]
+    pub(super) async fn build_payloads_from_sources(
+        &self,
+        sources: Vec<SourceManifestSegment>,
+        meta: &BundleMeta,
+        state: &mut ParentState,
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
+        // Each source can expand into multiple payloads; accumulate their engine outcomes in order.
+        let segments_total = sources.len();
+        let mut outcomes = Vec::new();
+        info!(
+            proposal_id = meta.proposal_id,
+            segment_count = segments_total,
+            "processing manifest segments"
+        );
+        for (segment_index, segment) in sources.into_iter().enumerate() {
+            let segment_ctx = SegmentContext { meta, segment_index, segments_total };
+            let segment_outcomes =
+                self.process_manifest_segment(segment, state, segment_ctx, applier).await?;
+
+            outcomes.extend(segment_outcomes);
+        }
+
+        // Ensure the derived bond instruction hash matches what the proposal advertised.
+        if state.bond_instructions_hash != meta.bond_instructions_hash {
+            warn!(
+                proposal_id = meta.proposal_id,
+                expected = ?meta.bond_instructions_hash,
+                actual = ?state.bond_instructions_hash,
+                "bond instruction hash mismatch after segment processing"
+            );
+            return Err(DerivationError::BondInstructionsMismatch {
+                expected: meta.bond_instructions_hash,
+                actual: state.bond_instructions_hash,
+            });
+        }
+
+        info!(
+            proposal_id = meta.proposal_id,
+            block_count = outcomes.len(),
+            "completed payload derivation for proposal"
+        );
+        Ok(outcomes)
+    }
+
+    /// Process a single manifest segment, producing one or more payload attributes.
+    #[instrument(
+        skip(self, segment, state, ctx, applier),
+        fields(proposal_id = ctx.meta.proposal_id, segment_index = ctx.segment_index, segments_total = ctx.segments_total, forced = segment.is_forced_inclusion)
+    )]
+    async fn process_manifest_segment(
+        &self,
+        segment: SourceManifestSegment,
+        state: &mut ParentState,
+        ctx: SegmentContext<'_>,
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
+        let SegmentContext { meta, segment_index, segments_total } = ctx;
+        info!(
+            proposal_id = meta.proposal_id,
+            segment_index,
+            segments_total,
+            forced_inclusion = segment.is_forced_inclusion,
+            "processing proposal segment"
+        );
+
+        // Sanitize the manifest before deriving payload attributes.
+        let mut decoded_manifest = segment.manifest;
+        let mut is_low_bond_proposal = false;
+
+        if !manifest_is_default(&decoded_manifest) {
+            is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
+            if is_low_bond_proposal {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    "low-bond proposal detected; using default manifest for segment processing"
+                );
+                decoded_manifest = DerivationSourceManifest::default();
+            }
+        }
+
+        let validation_ctx = state.build_validation_context(meta, segment.is_forced_inclusion);
+
+        match validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
+            Ok(()) => {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    segment_index, "manifest segment validation succeeded"
+                );
+            }
+            Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
+                info!(
+                    proposal_id = meta.proposal_id,
+                    segment_index,
+                    "manifest segment is empty or default; proceeding with default payload"
+                );
+                decoded_manifest = DerivationSourceManifest::default();
+                if let Err(err) = validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
+                    warn!(
+                        ?err,
+                        proposal_id = meta.proposal_id,
+                        "default manifest validation failed; continuing with default payload"
+                    );
+                }
+            }
+        }
+
+        let blocks_len = decoded_manifest.blocks.len();
+        let mut outcomes = Vec::with_capacity(blocks_len);
+
+        for (block_index, block) in decoded_manifest.blocks.iter().enumerate() {
+            let block_ctx = BlockContext {
+                meta,
+                position: BlockPosition {
+                    segment_index,
+                    segments_total,
+                    block_index,
+                    blocks_len,
+                    forced_inclusion: segment.is_forced_inclusion,
+                },
+                is_low_bond_proposal,
+            };
+            let outcome = self.process_block_manifest(block, state, block_ctx, applier).await?;
+            outcomes.push(outcome);
+        }
+
+        debug!(
+            proposal_id = meta.proposal_id,
+            segment_index,
+            derived_blocks = outcomes.len(),
+            "completed segment processing"
+        );
+        Ok(outcomes)
+    }
+
+    /// Convert a manifest block into payload attributes while updating the rolling parent state.
+    #[instrument(
+        skip(self, block, state, ctx, applier),
+        fields(proposal_id = ctx.meta.proposal_id, block_idx = ctx.position.block_index, segment_index = ctx.position.segment_index)
+    )]
+    async fn process_block_manifest(
+        &self,
+        block: &BlockManifest,
+        state: &mut ParentState,
+        ctx: BlockContext<'_>,
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<EngineBlockOutcome, DerivationError> {
+        let BlockContext { meta, position, is_low_bond_proposal } = ctx;
+
+        let block_number = state.next_block_number();
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            forced_inclusion = position.is_forced_inclusion(),
+            transactions = block.transactions.len(),
+            "processing manifest block"
+        );
+        let block_base_fee = state.compute_block_base_fee()?;
+        let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
+        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
+
+        let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
+
+        let anchor_inputs = AnchorTxInputs {
+            block,
+            block_number,
+            block_base_fee,
+            bond_instructions: &bond_data.instructions,
+            bond_instructions_hash: bond_data.hash,
+        };
+
+        let anchor_tx = self.build_anchor_transaction(&*state, meta, anchor_inputs).await?;
+
+        // Push the anchor transaction first, then the rest of the block's transactions.
+        let mut transactions = Vec::with_capacity(block.transactions.len() + 1);
+        transactions.push(anchor_tx);
+        transactions.extend(block.transactions.clone());
+
+        let parent_hash = state.header.hash_slow();
+
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            block_base_fee,
+            difficulty = ?difficulty,
+            bond_instruction_count = bond_data.instructions.len(),
+            bond_instructions_hash = ?bond_data.hash,
+            transaction_count_with_anchor = transactions.len(),
+            parent_hash = ?parent_hash,
+            "calculated block parameters"
+        );
+
+        let payload = self.create_payload_attributes(
+            &transactions,
+            PayloadContext {
+                block,
+                meta,
+                block_base_fee,
+                difficulty,
+                block_number,
+                parent_hash,
+                position,
+                is_low_bond_proposal,
+            },
+        );
+
+        let applied = applier.apply_payload(&payload, parent_hash).await?;
+        *state = state.advance(block, &applied, bond_data.hash)?;
+
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number = applied.outcome.block_number(),
+            block_hash = ?applied.outcome.block_hash(),
+            "payload applied to execution engine"
+        );
+
+        self.sync_l1_origin(meta, &payload, &applied.outcome, position.is_final()).await?;
+
+        Ok(applied.outcome)
+    }
+
+    /// Construct the `TaikoPayloadAttributes` structure that gets sent to the execution
+    /// engine.
+    fn create_payload_attributes(
+        &self,
+        transactions: &[TxEnvelope],
+        ctx: PayloadContext<'_>,
+    ) -> TaikoPayloadAttributes {
+        let PayloadContext {
+            block,
+            meta,
+            block_base_fee,
+            difficulty,
+            block_number,
+            parent_hash,
+            position,
+            is_low_bond_proposal,
+        } = ctx;
+        let origin_block_hash = meta.origin_block_hash;
+
+        let tx_list = encode_transactions(transactions);
+        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, is_low_bond_proposal);
+
+        let mut signature = [0u8; 65];
+        let prover_slice = meta.prover_auth_bytes.as_ref();
+        let copy_len = prover_slice.len().min(signature.len());
+        signature[..copy_len].copy_from_slice(&prover_slice[..copy_len]);
+
+        let withdrawals: Vec<Withdrawal> = Vec::new();
+        let build_payload_args_id = compute_build_payload_args_id(
+            parent_hash,
+            block.timestamp,
+            difficulty,
+            block.coinbase,
+            &withdrawals,
+            &tx_list,
+        );
+
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: Some(U256::from(meta.origin_block_number)),
+            l1_block_hash: Some(origin_block_hash),
+            build_payload_args_id,
+            is_forced_inclusion: position.is_forced_inclusion(),
+            signature,
+        };
+
+        // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
+        // add it back here.
+        let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_GAS_LIMIT);
+
+        let block_metadata = TaikoBlockMetadata {
+            beneficiary: block.coinbase,
+            gas_limit,
+            timestamp: U256::from(block.timestamp),
+            mix_hash: difficulty,
+            tx_list,
+            extra_data,
+        };
+
+        let payload_attributes = EthPayloadAttributes {
+            timestamp: block.timestamp,
+            prev_randao: difficulty,
+            suggested_fee_recipient: block.coinbase,
+            withdrawals: Some(withdrawals),
+            parent_beacon_block_root: None,
+        };
+
+        debug!(
+            l1_origin = ?l1_origin,
+            payload_attributes = ?payload_attributes,
+            "constructed payload attributes"
+        );
+
+        TaikoPayloadAttributes {
+            payload_attributes,
+            base_fee_per_gas: U256::from(block_base_fee),
+            block_metadata,
+            l1_origin,
+        }
+    }
+
+    /// Synchronise the execution engine's L1 origin tables with the derived block metadata.
+    #[instrument(
+        skip(self, meta, payload, outcome),
+        fields(proposal_id = meta.proposal_id, block_number = outcome.block_number(), final_block = is_final_block)
+    )]
+    async fn sync_l1_origin(
+        &self,
+        meta: &BundleMeta,
+        payload: &TaikoPayloadAttributes,
+        outcome: &EngineBlockOutcome,
+        is_final_block: bool,
+    ) -> Result<(), DerivationError> {
+        let block_id = U256::from(outcome.block_number());
+        let mut origin = payload.l1_origin.clone();
+        origin.block_id = block_id;
+        origin.l2_block_hash = outcome.block_hash();
+
+        if let Some(existing) = self.rpc.l1_origin_by_id(block_id).await? {
+            origin.signature = existing.signature;
+            if existing.build_payload_args_id != [0u8; 8] {
+                origin.build_payload_args_id = existing.build_payload_args_id;
+            }
+            origin.is_forced_inclusion |= existing.is_forced_inclusion;
+        }
+
+        self.rpc.update_l1_origin(&origin).await?;
+
+        if is_final_block {
+            self.rpc.set_head_l1_origin(block_id).await?;
+            self.rpc.set_batch_to_last_block(U256::from(meta.proposal_id), block_id).await?;
+            info!(
+                proposal_id = meta.proposal_id,
+                block_number = outcome.block_number(),
+                "updated head l1 origin for final proposal block"
+            );
+        } else {
+            debug!(
+                proposal_id = meta.proposal_id,
+                block_number = outcome.block_number(),
+                "updated l1 origin entry"
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Query the anchor contract to determine if the proposal is designated as low-bond.
+    #[instrument(skip(self, state, meta))]
+    async fn detect_low_bond_proposal(
+        &self,
+        state: &ParentState,
+        meta: &BundleMeta,
+    ) -> Result<bool, DerivationError> {
+        let block_id = BlockId::Hash(RpcBlockHash {
+            block_hash: state.header.hash_slow(),
+            require_canonical: Some(false),
+        });
+
+        let proposal_state =
+            self.rpc.shasta.anchor.getProposalState().block(block_id).call().await?;
+
+        let designated_prover_info = self
+            .rpc
+            .shasta
+            .anchor
+            .getDesignatedProver(
+                U48::from(meta.proposal_id),
+                meta.proposer,
+                meta.prover_auth_bytes.clone(),
+                proposal_state.designatedProver,
+            )
+            .block(block_id)
+            .call()
+            .await?;
+
+        let is_low_bond = designated_prover_info.isLowBondProposal_;
+        debug!(proposal_id = meta.proposal_id, is_low_bond, "queried designated prover info");
+        Ok(is_low_bond)
+    }
+
+    /// Assemble bond instructions that must be embedded into the next anchor transaction.
+    #[instrument(skip(self, state, meta, _position))]
+    async fn assemble_bond_instructions(
+        &self,
+        state: &ParentState,
+        meta: &BundleMeta,
+        _position: &BlockPosition,
+    ) -> Result<BondInstructionData, DerivationError> {
+        if meta.proposal_id <= BOND_PROCESSING_DELAY {
+            debug!(
+                proposal_id = meta.proposal_id,
+                "bond processing delay active; skipping instruction fetch"
+            );
+            return Ok(BondInstructionData {
+                instructions: Vec::new(),
+                hash: state.bond_instructions_hash,
+            });
+        }
+
+        let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
+        let (target_hash, target_instructions) = self
+            .bond_instructions_for(target_id)?
+            .ok_or(DerivationError::IncompleteMetadata(target_id))?;
+
+        if state.bond_instructions_hash == target_hash {
+            debug!(
+                proposal_id = meta.proposal_id,
+                target_id, "bond instructions already up to date"
+            );
+            return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
+        }
+
+        let data = BondInstructionData { instructions: target_instructions, hash: target_hash };
+        debug!(
+            proposal_id = meta.proposal_id,
+            instruction_count = data.instructions.len(),
+            "assembled bond instructions"
+        );
+        Ok(data)
+    }
+
+    // Build the anchor transaction for the given block.
+    #[instrument(skip(self, parent_state, meta, inputs))]
+    async fn build_anchor_transaction(
+        &self,
+        parent_state: &ParentState,
+        meta: &BundleMeta,
+        inputs: AnchorTxInputs<'_>,
+    ) -> Result<TxEnvelope, DerivationError> {
+        let AnchorTxInputs {
+            block,
+            block_number,
+            block_base_fee,
+            bond_instructions,
+            bond_instructions_hash,
+        } = inputs;
+
+        let (anchor_block_hash, anchor_state_root) =
+            self.resolve_anchor_block_fields(block.anchor_block_number).await?;
+        info!(
+            proposal_id = meta.proposal_id,
+            block_number,
+            anchor_block = block.anchor_block_number,
+            anchor_block_hash = ?anchor_block_hash,
+            parent_hash = ?parent_state.header.hash_slow(),
+            "building anchorV4 transaction"
+        );
+
+        let tx = self
+            .anchor_constructor
+            .assemble_anchor_v4_tx(
+                parent_state.header.hash_slow(),
+                AnchorV4Input {
+                    proposal_id: meta.proposal_id,
+                    proposer: meta.proposer,
+                    prover_auth: meta.prover_auth_bytes.clone().to_vec(),
+                    bond_instructions_hash,
+                    bond_instructions: bond_instructions.to_vec(),
+                    anchor_block_number: block.anchor_block_number,
+                    anchor_block_hash,
+                    anchor_state_root,
+                    l2_height: block_number,
+                    base_fee: U256::from(block_base_fee),
+                },
+            )
+            .await?;
+
+        Ok(tx)
+    }
+
+    // Fetch the anchor block fields.
+    #[instrument(skip(self), fields(anchor_block_number))]
+    async fn resolve_anchor_block_fields(
+        &self,
+        anchor_block_number: u64,
+    ) -> Result<(B256, B256), DerivationError> {
+        tracing::Span::current().record("anchor_block_number", anchor_block_number as i64);
+        let block = self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(anchor_block_number))
+            .await
+            .map_err(|err| DerivationError::AnchorBlockQuery {
+                block_number: anchor_block_number,
+                reason: err.to_string(),
+            })?
+            .ok_or(DerivationError::AnchorBlockMissing { block_number: anchor_block_number })?;
+
+        debug!(
+            anchor_block_number,
+            hash = ?block.header.hash,
+            "resolved anchor block fields"
+        );
+        Ok((block.header.hash, block.header.inner.state_root))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
+    use alloy_eips::eip2930::AccessList;
+    use alloy_primitives::{Bytes, TxKind};
+    use anyhow::Result;
+
+    use crate::signer::FixedKSigner;
+
+    #[test]
+    fn anchor_signature_recovers_to_golden_touch() -> Result<()> {
+        let signer = FixedKSigner::golden_touch()?;
+        let anchor_address = Address::repeat_byte(0x11);
+
+        let tx = TxEip1559 {
+            chain_id: 167,
+            nonce: 0,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 0,
+            gas_limit: ANCHOR_V3_GAS_LIMIT,
+            to: TxKind::Call(anchor_address),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input: Bytes::from(vec![0u8; 4]),
+        };
+
+        let sighash = tx.signature_hash();
+        let mut hash_bytes = [0u8; 32];
+        hash_bytes.copy_from_slice(sighash.as_slice());
+        let signature = signer.sign_with_predefined_k(&hash_bytes)?;
+
+        let envelope = TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            signature.signature,
+            sighash,
+        );
+
+        let TxEnvelope::Eip1559(signed) = &envelope else {
+            panic!("expected eip1559 envelope");
+        };
+
+        let recovered = signed.recover_signer()?;
+        assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
+        Ok(())
+    }
+}

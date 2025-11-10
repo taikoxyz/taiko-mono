@@ -80,6 +80,115 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	return nil
 }
 
+// initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
+	var (
+		// ZKVM proof producers.
+		zkvmProducer producer.ProofProducer
+
+		// All activated proof types in protocol.
+		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
+
+		err error
+	)
+	// Proof verifiers addresses.
+	sgxGethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXGETH(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+	sgxRethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXRETH(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+	risc0RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.RISC0RETH(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+	sp1RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SP1RETH(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+
+	sgxGethProducer := &producer.SgxGethProofProducer{
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		VerifierID:          sgxGethVerifierID,
+		ApiKey:              p.cfg.RaikoApiKey,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		Dummy:               p.cfg.Dummy,
+	}
+	// Initialize the sgx proof producer.
+	proofTypes = append(proofTypes, producer.ProofTypeSgx)
+	sgxRethProducer := &producer.ComposeProofProducer{
+		SgxGethProducer: sgxGethProducer,
+		VerifierIDs: map[producer.ProofType]uint8{
+			producer.ProofTypeSgx: sgxRethVerifierID,
+		},
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		ProofType:           producer.ProofTypeSgx,
+		ApiKey:              p.cfg.RaikoApiKey,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		Dummy:               p.cfg.Dummy,
+	}
+
+	// Initialize the zk verifiers and zkvm proof producers.
+	var zkVerifierIDs = make(map[producer.ProofType]uint8, proofSubmitter.MaxNumSupportedZkTypes)
+	proofTypes = append(proofTypes, producer.ProofTypeZKR0)
+	zkVerifierIDs[producer.ProofTypeZKR0] = risc0RethVerifierID
+	proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
+	zkVerifierIDs[producer.ProofTypeZKSP1] = sp1RethVerifierID
+
+	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
+		zkvmProducer = &producer.ComposeProofProducer{
+			VerifierIDs:         zkVerifierIDs,
+			SgxGethProducer:     sgxGethProducer,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			ApiKey:              p.cfg.RaikoApiKey,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			ProofType:           producer.ProofTypeZKAny,
+			Dummy:               p.cfg.Dummy,
+		}
+	}
+
+	// Init proof buffers.
+	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
+	for _, proofType := range proofTypes {
+		switch proofType {
+		case producer.ProofTypeOp, producer.ProofTypeSgx:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
+		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
+		default:
+			return fmt.Errorf("unexpected proof type: %s", proofType)
+		}
+	}
+
+	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+		sgxRethProducer,
+		zkvmProducer,
+		p.batchProofGenerationCh,
+		p.batchesAggregationNotifyShasta,
+		p.proofSubmissionCh,
+		p.shastaIndexer,
+		&proofSubmitter.SenderOptions{
+			RPCClient:        p.rpc,
+			Txmgr:            p.txmgr,
+			PrivateTxmgr:     p.privateTxmgr,
+			ProverSetAddress: p.cfg.ProverSetAddress,
+			GasLimit:         p.cfg.ProveBatchesGasLimit,
+		},
+		txBuilder,
+		p.cfg.ProofPollingInterval,
+		proofBuffers,
+		p.cfg.ForceBatchProvingInterval,
+	); err != nil {
+		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
+	}
+
+	return nil
+}
+
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
@@ -169,7 +278,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		baseLevelProofProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
-		p.batchesAggregationNotify,
+		p.batchesAggregationNotifyPacaya,
 		p.proofSubmissionCh,
 		p.cfg.TaikoAnchorAddress,
 		&proofSubmitter.SenderOptions{
@@ -245,10 +354,16 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
 		return err
 	}
 
+	// Try to initialize L1Current cursor for Shasta protocol first.
+	if err := p.initL1CurrentShasta(startingBatchID); err == nil {
+		return nil
+	}
+
+	// If failed, then try to initialize L1Current cursor for Pacaya protocol.
 	if startingBatchID == nil {
 		var (
 			lastVerifiedBatchID *big.Int
@@ -302,6 +417,51 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	return nil
 }
 
+// initL1CurrentShasta initializes prover's L1Current cursor for Shasta protocol.
+func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
+		return err
+	}
+
+	lastProposal := p.shastaIndexer.GetLastProposal()
+	if lastProposal == nil || lastProposal.Proposal.Id.Cmp(common.Big0) == 0 {
+		return fmt.Errorf("empty core state")
+	}
+	if startingBatchID == nil {
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	if startingBatchID.Cmp(lastProposal.Proposal.Id) > 0 {
+		log.Warn(
+			"Provided startingBatchID is greater than the last proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastProposalID", lastProposal.Proposal.Id,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+	if startingBatchID.Cmp(lastProposal.CoreState.LastFinalizedProposalId) < 0 {
+		log.Warn(
+			"Provided startingBatchID is less than the last finalized proposal ID, using last finalized proposal ID instead",
+			"providedStartingBatchID", startingBatchID,
+			"lastFinalizedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+		)
+		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+	}
+
+	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
+
+	startingProposal, err := p.shastaIndexer.GetProposalByID(startingBatchID.Uint64())
+	if err != nil {
+		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
+	}
+	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, startingProposal.RawBlockHash)
+	if err != nil {
+		return err
+	}
+	p.sharedState.SetL1Current(l1Current)
+	return nil
+}
+
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
 	p.eventHandlers = &eventHandlers{}
@@ -311,17 +471,19 @@ func (p *Prover) initEventHandlers() error {
 		ProverAddress:          p.ProverAddress(),
 		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
+		Indexer:                p.shastaIndexer,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,
 		BackOffRetryInterval:   p.cfg.BackOffRetryInterval,
-		BackOffMaxRetrys:       p.cfg.BackOffMaxRetries,
+		BackOffMaxRetries:      p.cfg.BackOffMaxRetries,
 		ProveUnassignedBlocks:  p.cfg.ProveUnassignedBlocks,
 	}
 	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
 	// ------- BatchesProved -------
 	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(
 		p.rpc,
+		p.shastaIndexer,
 		p.proofSubmissionCh,
 	)
 	// ------- AssignmentExpired -------

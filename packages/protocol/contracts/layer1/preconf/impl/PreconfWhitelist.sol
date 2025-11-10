@@ -2,11 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "../iface/IPreconfWhitelist.sol";
-import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
-import "src/shared/libs/LibNames.sol";
+import "../libs/LibPreconfUtils.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/layer1/shasta/iface/IProposerChecker.sol";
+import "src/shared/libs/LibNames.sol";
+
+import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
@@ -21,9 +23,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
     event EjecterUpdated(address indexed ejecter, bool isEjecter);
-
-    /// @notice The fallback preconfer address.
-    address public immutable fallbackPreconfer;
 
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
@@ -50,10 +49,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     modifier onlyOwnerOrEjecter() {
         require(msg.sender == owner() || ejecters[msg.sender], NotOwnerOrEjecter());
         _;
-    }
-
-    constructor(address _fallbackPreconfer) {
-        fallbackPreconfer = _fallbackPreconfer;
     }
 
     function init(
@@ -155,15 +150,17 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IProposerChecker
-    function checkProposer(address _proposer)
+    function checkProposer(
+        address _proposer,
+        bytes calldata
+    )
         external
         view
+        override(IProposerChecker)
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
         address operator = getOperatorForCurrentEpoch();
-        if (operator == address(0)) {
-            operator = fallbackPreconfer;
-        }
+        require(operator != address(0), InvalidProposer());
         require(operator == _proposer, InvalidProposer());
         // Slashing is not enabled for whitelisted preconfers, so we return 0
         endOfSubmissionWindowTimestamp_ = 0;
@@ -263,6 +260,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     function _removeOperator(address _proposer, uint8 _operatorChangeDelay) internal {
+        require(operatorCount > 1, CannotRemoveLastOperator());
         require(_proposer != address(0), InvalidOperatorAddress());
         OperatorInfo memory info = operators[_proposer];
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
@@ -289,22 +287,15 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
-        if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
-            return address(0);
-        }
-
-        // Use the beacon block root from `randomnessDelay` epochs ago as the random number.
-        // If the beacon block root is not available (e.g., if the epoch is before genesis),
-        // return address(0) directly.
-        uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRootAtOrAfter(
-                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH * randomnessDelay
-            )
-        );
-
-        if (rand == 0) return address(0);
+        // Get epoch-stable randomness with an optional delay applied
+        uint256 delaySeconds = uint256(randomnessDelay) * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 ts = uint256(_epochTimestamp);
+        uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
+        uint256 rand = _getRandomNumber(randomnessTs);
 
         uint256 _operatorCount = operatorCount;
+
+        // If no operators, return address(0)
         if (_operatorCount == 0) return address(0);
 
         if (havingPerfectOperators) {
@@ -339,5 +330,12 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         assembly {
             mstore(operators_, count)
         }
+    }
+
+    function _getRandomNumber(uint32 _epochTimestamp) internal view returns (uint256) {
+        // Get the beacon root at the epoch start - this stays constant throughout the epoch
+        bytes32 beaconRoot = LibPreconfUtils.getBeaconBlockRootAt(_epochTimestamp);
+
+        return uint256(beaconRoot);
     }
 }

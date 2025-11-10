@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/LibMerkleUtils.sol";
 import "../BaseTest.sol";
 import "../fixtures/BeaconProofs.sol";
+import "src/layer1/preconf/libs/LibBeaconMerkleUtils.sol";
 
 /// @dev The beacon chain data used here is from slot 9000000 on Ethereum mainnet.
 contract BeaconProofsVerification is BaseTest {
     function test_beaconProofsVerification_validatorInclusionInValidatorList() public pure {
         bytes32[8] memory validatorChunks = BeaconProofs.validatorChunks();
 
-        bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(validatorChunks);
+        bytes32 validatorHashTreeRoot = LibBeaconMerkleUtils.merkleize(validatorChunks);
 
         bytes32[] memory validatorProof = BeaconProofs.validatorProof();
 
@@ -18,7 +18,7 @@ contract BeaconProofsVerification is BaseTest {
         uint256 validatorIndex = BeaconProofs.validatorIndex();
 
         assertTrue(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 validatorProof, validatorsRoot, validatorHashTreeRoot, validatorIndex
             )
         );
@@ -32,7 +32,7 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconStateRoot = BeaconProofs.beaconStateRoot();
 
         assertTrue(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 beaconStateProofForValidatorList, beaconStateRoot, validatorListRoot, 11
             )
         );
@@ -46,7 +46,7 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconBlockRoot = BeaconProofs.beaconBlockRoot();
 
         assertTrue(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 beaconBlockProofForBeaconState, beaconBlockRoot, beaconStateRoot, 3
             )
         );
@@ -59,10 +59,10 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconBlockRoot = BeaconProofs.beaconBlockRoot();
 
         assertTrue(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 beaconBlockProofForProposer,
                 beaconBlockRoot,
-                LibMerkleUtils.toLittleEndian(validatorIndex),
+                LibBeaconMerkleUtils.toLittleEndian(validatorIndex),
                 1
             )
         );

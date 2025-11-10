@@ -21,8 +21,9 @@
       "Bash(pnpm snapshot:*)",
       "Bash(pnpm layout:*)",
       "Bash(forge test:*)",
+      "Bash(forge build:*)",
       "Bash(go test:*)",
-      "Bash(./proof_submitter.test:*)"
+      "Bash(go build:*)"
     ],
     "deny": ["Bash(git push --force:*)"]
   }

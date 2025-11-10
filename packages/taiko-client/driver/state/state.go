@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -31,6 +32,7 @@ type State struct {
 	GenesisL1Height  *big.Int
 	OnTakeForkHeight *big.Int
 	PacayaForkHeight *big.Int
+	ShastaForkTime   uint64
 
 	// RPC clients
 	rpc *rpc.Client
@@ -63,10 +65,12 @@ func (s *State) init(ctx context.Context) error {
 	}
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
+	s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
+	log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -105,6 +109,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2HeadCh                = make(chan *types.Header, 10)
 		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
 		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
+		proposedShastaCh        = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
+		provedShastaCh          = make(chan *shastaBindings.ShastaInboxClientProved, 10)
 
 		// Subscriptions.
 		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
@@ -114,6 +120,11 @@ func (s *State) eventLoop(ctx context.Context) {
 			batchesVerifiedPacayaCh,
 		)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
+		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
+		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
+
+		// Last finalized Shasta proposal ID
+		lastFinalizedShastaProposalId *big.Int
 	)
 
 	defer func() {
@@ -121,6 +132,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2HeadSub.Unsubscribe()
 		l2BatchesVerifiedPacayaSub.Unsubscribe()
 		l2BatchesProvedPacayaSub.Unsubscribe()
+		l2ProposedShastaSub.Unsubscribe()
+		l2ProvedShastaSub.Unsubscribe()
 	}()
 
 	for {
@@ -128,13 +141,40 @@ func (s *State) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-batchesProvedPacayaCh:
-			log.Info("✅ Batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
+			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
+		case e := <-provedShastaCh:
+			payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
+			if err != nil {
+				log.Error("Failed to decode proved payload", "err", err)
+				continue
+			}
+			log.Info(
+				"✅ Shasta batches proven",
+				"batchIDs", payload.ProposalId,
+				"checkpointNumber", payload.Transition.Checkpoint.BlockNumber,
+				"checkpointHash", common.Hash(payload.Transition.Checkpoint.BlockHash),
+			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
-				"📈 Batches verified",
+				"📈 Pacaya batches verified",
 				"lastVerifiedBatchId", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
+		case e := <-proposedShastaCh:
+			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
+			if err != nil {
+				log.Error("Failed to decode proposed payload", "err", err)
+				continue
+			}
+			if lastFinalizedShastaProposalId != nil &&
+				payload.CoreState.LastFinalizedProposalId.Cmp(lastFinalizedShastaProposalId) > 0 {
+				log.Info(
+					"📈 Shasta batches verified",
+					"lastVerifiedBatchId", payload.CoreState.LastFinalizedProposalId,
+					"lastFinalizedTransitionHash", common.Hash(payload.CoreState.LastFinalizedTransitionHash[:]),
+				)
+			}
+			lastFinalizedShastaProposalId = payload.CoreState.LastFinalizedProposalId
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)

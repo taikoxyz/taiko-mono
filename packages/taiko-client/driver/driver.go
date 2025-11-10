@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 const (
@@ -41,6 +42,7 @@ type Driver struct {
 	*Config
 	rpc                *rpc.Client
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
+	shastaIndexer      *shastaIndexer.Indexer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 	state              *state.State
 	chainConfig        *config.ChainConfig
@@ -59,8 +61,9 @@ type Driver struct {
 	// Last epoch when the handover config was reloaded
 	lastConfigReloadEpoch uint64
 
-	ctx context.Context
-	wg  sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.
@@ -76,7 +79,7 @@ func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 // InitFromConfig initializes the driver instance based on the given configurations.
 func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
-	d.ctx = ctx
+	d.ctx, d.cancel = context.WithCancel(ctx)
 	d.Config = cfg
 
 	// Initialize handover config caching
@@ -100,10 +103,19 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
+	if d.shastaIndexer, err = shastaIndexer.New(
+		d.ctx,
+		d.rpc,
+		d.rpc.ShastaClients.ForkTime,
+	); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
+	}
+
 	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 1024)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
+		d.shastaIndexer,
 		d.state,
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
@@ -118,6 +130,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.rpc.L2.ChainID,
 		d.rpc.PacayaClients.ForkHeights.Ontake,
 		d.rpc.PacayaClients.ForkHeights.Pacaya,
+		d.rpc.ShastaClients.ForkTime,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
@@ -134,7 +147,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
 			d.rpc,
+			d.shastaIndexer,
 			latestSeenProposalCh,
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
@@ -181,6 +196,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 // Start starts the driver instance.
 func (d *Driver) Start() error {
+	if err := d.shastaIndexer.Start(); err != nil {
+		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
+	}
+
 	go d.eventLoop()
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
@@ -218,7 +237,13 @@ func (d *Driver) Start() error {
 
 // Close closes the driver instance.
 func (d *Driver) Close(_ context.Context) {
-	d.l1HeadSub.Unsubscribe()
+	if d.cancel != nil {
+		d.cancel()
+	}
+
+	if d.l1HeadSub != nil {
+		d.l1HeadSub.Unsubscribe()
+	}
 	d.state.Close()
 	// Close the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
@@ -235,8 +260,8 @@ func (d *Driver) eventLoop() {
 	defer d.wg.Done()
 
 	syncNotify := make(chan struct{}, 1)
-	// reqSync requests performing a synchronising operation, won't block
-	// if we are already synchronising.
+	// reqSync requests performing a synchronizing operation, won't block
+	// if we are already synchronizing.
 	reqSync := func() {
 		select {
 		case syncNotify <- struct{}{}:
@@ -244,7 +269,7 @@ func (d *Driver) eventLoop() {
 		}
 	}
 
-	// doSyncWithBackoff performs a synchronising operation with a backoff strategy.
+	// doSyncWithBackoff performs a synchronizing operation with a backoff strategy.
 	doSyncWithBackoff := func() {
 		if err := backoff.Retry(
 			d.doSync,
@@ -311,13 +336,22 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			d.reportProtocolStatusPacaya(maxNumProposals)
+			d.reportStatus(maxNumProposals)
 		}
 	}
 }
 
-// reportProtocolStatusPacaya reports some status for Pacaya protocol.
-func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
+// reportStatus reports some status for Pacaya or Shasta protocol.
+func (d *Driver) reportStatus(maxNumProposals uint64) {
+	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
+	if err != nil {
+		log.Debug("Failed to get Shasta proposal hash", "error", err)
+	}
+	// If chain has forked into Shasta fork, report Shasta status instead.
+	if proposal != (common.Hash{}) {
+		d.reportProtocolStatusShasta()
+		return
+	}
 	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Error("Failed to get protocol state variables", "error", err)
@@ -325,10 +359,26 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 	}
 
 	log.Info(
-		"📖 Protocol status",
-		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+		"📖 Pacaya protocol status",
+		"lastVerifiedBatchID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+	)
+}
+
+// reportProtocolStatusShasta reports some status for Shasta protocol.
+func (d *Driver) reportProtocolStatusShasta() {
+	lastProposal := d.shastaIndexer.GetLastProposal()
+	if lastProposal == nil || lastProposal.CoreState == nil || lastProposal.Proposal == nil {
+		log.Debug("Last proposal not found, skip reporting Shasta protocol status")
+		return
+	}
+
+	log.Info(
+		"📖 Shasta protocol status",
+		"lastVerifiedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+		"nextProposalID", lastProposal.CoreState.NextProposalId,
+		"endOfSubmissionWindowTimestamp", lastProposal.Proposal.EndOfSubmissionWindowTimestamp,
 	)
 }
 
@@ -400,7 +450,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("Lookahead requesting end of sequencing for epoch",
+				log.Info(
+					"Lookahead requesting end of sequencing for epoch",
 					"epoch", epoch,
 					"slot", slot,
 				)
@@ -434,20 +485,28 @@ func (d *Driver) cacheLookaheadLoop() {
 		// Only read and update handover config at epoch transitions to avoid race conditions
 		// where different nodes might read different configs during mid-epoch upgrades
 		if currentEpoch > d.lastConfigReloadEpoch {
-			log.Info("Epoch transition detected, reloading handover config",
-				"epoch", currentEpoch, "lastConfigReloadEpoch",
-				d.lastConfigReloadEpoch,
+			log.Info(
+				"Epoch transition detected, reloading handover config",
+				"epoch", currentEpoch,
+				"lastConfigReloadEpoch", d.lastConfigReloadEpoch,
 			)
 
 			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
 			if err != nil {
-				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
-					"error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+				log.Warn(
+					"Failed to fetch preconf router config, keeping current handoverSkipSlots",
+					"error", err,
+					"currentHandoverSkipSlots", d.handoverSkipSlots,
+				)
 			} else {
 				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
 				if newHandoverSkipSlots != d.handoverSkipSlots {
-					log.Info("Updated handover config for new epoch", "epoch", currentEpoch,
-						"oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					log.Info(
+						"Updated handover config for new epoch",
+						"epoch", currentEpoch,
+						"oldHandoverSkipSlots", d.handoverSkipSlots,
+						"newHandoverSkipSlots", newHandoverSkipSlots,
+					)
 					d.handoverSkipSlots = newHandoverSkipSlots
 				}
 			}
@@ -628,11 +687,13 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 }
 
+// peerLoop runs a loop to log out peers information intervally.
 func (d *Driver) peerLoop(ctx context.Context) {
 	d.wg.Add(1)
 	defer d.wg.Done()
 
 	t := time.NewTicker(peerLoopReportInterval)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -644,6 +705,7 @@ func (d *Driver) peerLoop(ctx context.Context) {
 	}
 }
 
+// peerTick logs out peers information.
 func (d *Driver) peerTick() {
 	if d.p2pNode == nil ||
 		d.p2pNode.Dv5Local() == nil ||
@@ -666,7 +728,8 @@ func (d *Driver) peerTick() {
 		}
 	}
 
-	log.Info("Peer tick",
+	log.Info(
+		"Peer tick",
 		"peersLen", len(peers),
 		"peers", peers,
 		"addrInfo", addrInfo,
@@ -675,6 +738,12 @@ func (d *Driver) peerTick() {
 		"advertisedTCP", advertisedTCP,
 		"advertisedIP", advertisedIP,
 	)
+}
+
+// ShastaIndexer returns the driver's Shasta state indexer, this method
+// should only be used for testing.
+func (d *Driver) ShastaIndexer() *shastaIndexer.Indexer {
+	return d.shastaIndexer
 }
 
 // Name returns the application name.

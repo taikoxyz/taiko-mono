@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -35,36 +35,36 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-
-          # Direct prompt for automated review (no @claude mention needed)
-          direct_prompt: |
+          track_progress: true
+          prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices
             - Potential bugs or issues
             - Performance considerations
             - Security concerns
             - Test coverage
-
-            Be constructive and helpful in your feedback. Don't be overly polite or verbose, it is ok to be direct.
-          # Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
-          use_sticky_comment: true
-
+            Be constructive and helpful in your feedback. Don't be overly polite or verbose, be direct.
+            Use `gh pr comment:*` for top-level comments.
+            Only your GitHub comments that you post will be seen, so don't submit your review as a normal message, just as comments.
           # Add specific tools for running tests or linting
-          allowed_tools: |
-            Bash(pnpm install)
-            Bash(pnpm test:*)
-            Bash(pnpm fmt:sol)
-            Bash(pnpm snapshot:*)
-            Bash(pnpm compile:*)
-            Bash(pnpm layout:*)
-            Bash(cat *)
-            Bash(find *)
-            Bash(grep *)
-            Bash(ls *)
-            WebFetch(domain:docs.anthropic.com)
+          claude_args: |
+            --allowedTools "
+              Bash(pnpm install),
+              Bash(pnpm test:*),
+              Bash(pnpm fmt:sol),
+              Bash(pnpm snapshot:*),
+              Bash(pnpm compile:*),
+              Bash(pnpm layout:*),
+              Bash(cat *),
+              Bash(find *),
+              Bash(grep *),
+              Bash(ls *),
+              Bash(gh pr comment:*),
+              Bash(gh pr diff:*),
+              Bash(gh pr view:*),
+              WebFetch(domain:docs.anthropic.com)
+            "
+          use_sticky_comment: true

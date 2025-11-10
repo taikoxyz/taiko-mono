@@ -1,6 +1,8 @@
 package encoding
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -31,10 +33,16 @@ type BatchParams struct {
 	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
 }
 
-// SubProof should be same with ComposeVerifier.SubProof.
-type SubProof struct {
+// SubProofPacaya should be same with Pacaya ComposeVerifier.SubProof.
+type SubProofPacaya struct {
 	Verifier common.Address
 	Proof    []byte
+}
+
+// SubProofShasta should be same with Shasta ComposeVerifier.SubProof.
+type SubProofShasta struct {
+	VerifierId uint8
+	Proof      []byte
 }
 
 // LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
@@ -42,4 +50,13 @@ type SubProof struct {
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
+	LastBlockID         uint64
+}
+
+// ProverAuth represents the prover authorization data structure in ShastaAnchor.
+type ProverAuth struct {
+	ProposalId     *big.Int
+	Proposer       common.Address
+	ProvingFeeGwei *big.Int
+	Signature      []byte
 }

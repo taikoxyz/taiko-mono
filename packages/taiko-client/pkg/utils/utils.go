@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"compress/zlib"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/joho/godotenv"
 	"github.com/modern-go/reflect2"
-	"golang.org/x/exp/constraints"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
 
 // LoadEnv loads all the test environment variables.
@@ -32,30 +32,9 @@ func LoadEnv() {
 	if len(path) == 0 {
 		log.Debug("Not a taiko-client repo")
 	}
-	if godotenv.Load(fmt.Sprintf("%s/taiko-client/integration_test/.env", path[0])) != nil {
-		log.Debug("Failed to load test env", "current path", currentPath, "error", err)
+	if loadErr := godotenv.Load(fmt.Sprintf("%s/taiko-client/integration_test/.env", path[0])); loadErr != nil {
+		log.Debug("Failed to load test env", "current path", currentPath, "error", loadErr)
 	}
-}
-
-// RandUint64 returns a random uint64 number.
-func RandUint64(max *big.Int) uint64 {
-	if max == nil {
-		max = new(big.Int)
-		max.SetUint64(math.MaxUint64)
-	}
-	num, _ := rand.Int(rand.Reader, max)
-
-	return num.Uint64()
-}
-
-// RandUint32 returns a random uint32 number.
-func RandUint32(max *big.Int) uint32 {
-	if max == nil {
-		max = new(big.Int)
-		max.SetUint64(math.MaxUint32)
-	}
-	num, _ := rand.Int(rand.Reader, max)
-	return uint32(num.Uint64())
 }
 
 // IsNil checks if the interface is empty.
@@ -63,28 +42,32 @@ func IsNil(i interface{}) bool {
 	return reflect2.IsNil(i)
 }
 
-// Min return the minimum value of two integers.
-func Min[T constraints.Integer](a, b T) T {
-	if a < b {
-		return a
+// EncodeAndCompress RLP-encodes the provided data and returns the zlib-compressed bytes.
+// The descriptor clarifies the type of data in error messages.
+func EncodeAndCompress[T any](data T, descriptor string) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode %s: %w", descriptor, err)
 	}
-	return b
+
+	compressed, err := Compress(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress RLP encoded %s: %w", descriptor, err)
+	}
+
+	return compressed, nil
 }
 
 // EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
 // followed by zlib compression.
 func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(txs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode transactions: %w", err)
-	}
+	return EncodeAndCompress(txs, "transactions")
+}
 
-	compressed, err := Compress(b)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded transactions: %w", err)
-	}
-
-	return compressed, nil
+// EncodeAndCompressSourceManifestShasta encodes and compresses the given Shasta derivation source manifest using RLP
+// encoding followed by zlib compression.
+func EncodeAndCompressSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	return EncodeAndCompress(sourceManifest, "Shasta derivation source manifest")
 }
 
 // Compress compresses the given txList bytes using zlib.
