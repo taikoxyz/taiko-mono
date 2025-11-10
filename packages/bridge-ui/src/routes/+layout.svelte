@@ -5,6 +5,7 @@
   import { onDestroy, onMount } from 'svelte';
 
   import { browser } from '$app/environment';
+  import { page } from '$app/stores';
   import { AccountConnectionToast } from '$components/AccountConnectionToast';
   import { BridgePausedModal } from '$components/BridgePausedModal';
   import { Header } from '$components/Header';
@@ -21,6 +22,8 @@
   import { startWatching, stopWatching } from '$libs/wagmi';
 
   let sideBarOpen = false;
+
+  $: isWidgetRoute = $page.url.pathname.startsWith('/widget');
 
   const syncPointer = ({ x, y }: { x: number; y: number }) => {
     document.documentElement.style.setProperty('--x', x.toFixed(2));
@@ -63,22 +66,26 @@
 </script>
 
 <!-- App components -->
-<Header bind:sideBarOpen />
-<SideNavigation bind:sideBarOpen>
-  <main>
-    <slot />
-  </main>
-</SideNavigation>
+{#if !isWidgetRoute}
+  <Header bind:sideBarOpen />
+  <SideNavigation bind:sideBarOpen>
+    <main>
+      <slot />
+    </main>
+  </SideNavigation>
+{:else}
+  <slot />
+{/if}
 
 <!--
-  The following UI is global and should be rendered 
+  The following UI is global and should be rendered
   at the root of the app.
 -->
 
-<NotificationToast />
-
-<AccountConnectionToast />
+{#if !isWidgetRoute}
+  <NotificationToast />
+  <AccountConnectionToast />
+  <BridgePausedModal />
+{/if}
 
 <SwitchChainModal />
-
-<BridgePausedModal />

@@ -31,8 +31,8 @@
   import { BridgeSteps } from './types';
 
   let recipientStepComponent: RecipientStep;
-  let processingFeeComponent: ProcessingFee;
-  let importMethod: ImportMethod;
+  let processingFeeComponent: ProcessingFee | undefined;
+  let importMethod: ImportMethod | null = null;
   let bridgingStatus: BridgingStatus;
 
   let hasEnoughEth: boolean = false;
@@ -41,8 +41,8 @@
   let nftStepTitle: string;
   let nftStepDescription: string;
 
-  let addressInputComponent: AddressInput;
-  let nftIdInputComponent: IdInput;
+  let addressInputComponent: AddressInput | undefined;
+  let nftIdInputComponent: IdInput | undefined;
 
   function onNetworkChange(newNetwork: Chain, oldNetwork: Chain) {
     updateForm();
@@ -105,7 +105,7 @@
     $destOwnerAddress = $account?.address || null;
     bridgingStatus = BridgingStatus.PENDING;
     $selectedToken = ETHToken;
-    importMethod === null;
+    importMethod = null;
     $importDone = false;
     $selectedNFTs = [];
     activeStep = BridgeSteps.IMPORT;
