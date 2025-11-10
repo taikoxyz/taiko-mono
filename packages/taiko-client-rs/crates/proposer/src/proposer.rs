@@ -109,8 +109,7 @@ impl Proposer {
         gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
         info!(txs_lists = pool_content.len(), tx_count, "fetched transaction pool content");
 
-        let mut transaction_request =
-            self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
+        let mut transaction_request = self.transaction_builder.build(pool_content).await?;
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
