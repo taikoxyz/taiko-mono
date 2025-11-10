@@ -15,7 +15,6 @@ abstract contract BuildProposal is Script {
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
     address public constant TAIKO_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
 
-
     error TargetIsZeroAddress();
     error TargetIsDAOController();
     error DelegateControllerNotSelfOwned();
@@ -79,11 +78,11 @@ abstract contract BuildProposal is Script {
         console2.log("Proposal action details written to", fileName);
     }
 
-    function dryrunL1Actions() internal  broadcast {
+    function dryrunL1Actions() internal broadcast {
         Controller(payable(L1.DAO_CONTROLLER)).dryrun(abi.encode(_buildAllActions()));
     }
 
-    function dryrunL2Actions() internal  broadcast {
+    function dryrunL2Actions() internal broadcast {
         require(
             Ownable(L2.DELEGATE_CONTROLLER).owner() == L2.DELEGATE_CONTROLLER,
             DelegateControllerNotSelfOwned()
@@ -121,8 +120,6 @@ abstract contract BuildProposal is Script {
         });
     }
 
-
-
     function buildERC20TransferAction(
         address _token,
         address _to,
@@ -132,13 +129,9 @@ abstract contract BuildProposal is Script {
         pure
         returns (Controller.Action memory)
     {
-      return Controller.Action({
-            target: _token,
-            value: 0,
-            data: abi.encodeCall(IERC20.transfer, (_to, _amount))
+        return Controller.Action({
+            target: _token, value: 0, data: abi.encodeCall(IERC20.transfer, (_to, _amount))
         });
-
-
     }
 
     function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {

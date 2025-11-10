@@ -7,7 +7,6 @@ import "../governance/BuildProposal.sol";
 // To dryrun the proposal on L1: `P=0005 pnpm proposal:dryrun:l1`
 // To dryrun the proposal on L2: `P=0005 pnpm proposal:dryrun:l2`
 contract Proposal0005 is BuildProposal {
-
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
 
