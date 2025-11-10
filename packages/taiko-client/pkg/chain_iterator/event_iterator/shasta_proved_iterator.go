@@ -12,6 +12,7 @@ import (
 
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -92,6 +93,8 @@ func assembleShastaProvedIteratorCallback(
 	callback OnShastaProvedEvent,
 	eventIter *ShastaProvedIterator,
 ) chainIterator.OnBlocksFunc {
+	useLocalDecoder := rpcClient.UseLocalShastaDecoder()
+
 	return func(
 		ctx context.Context,
 		start, end *types.Header,
@@ -112,8 +115,15 @@ func assembleShastaProvedIteratorCallback(
 		for iter.Next() {
 			event := iter.Event
 
-			// Decode the Proved event data
-			provedEventPayload, err := rpcClient.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
+			var (
+				provedEventPayload *shastaBindings.IInboxProvedEventPayload
+				err                error
+			)
+			if useLocalDecoder {
+				provedEventPayload, err = eventDecoder.DecodeProvedEvent(event.Data)
+			} else {
+				provedEventPayload, err = rpcClient.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
+			}
 			if err != nil {
 				log.Error("Failed to decode Shasta Proved event data", "error", err)
 				return err

@@ -11,7 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -95,6 +97,8 @@ func assembleBatchProposedIteratorCallback(
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
+	useLocalDecoder := rpcClient.UseLocalShastaDecoder()
+
 	return func(
 		ctx context.Context,
 		start, end *types.Header,
@@ -173,7 +177,24 @@ func assembleBatchProposedIteratorCallback(
 		for iterShasta.Next() {
 			event := iterShasta.Event
 
-			proposedEventPayload, err := rpcClient.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
+			var (
+				proposedEventPayload metadata.TaikoProposalMetaData
+				err                  error
+			)
+			if useLocalDecoder {
+				payload, decodeErr := eventDecoder.DecodeProposedEvent(event.Data)
+				if decodeErr != nil {
+					err = decodeErr
+				} else {
+					proposedEventPayload = metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
+				}
+			} else {
+				var payload *shastaBindings.IInboxProposedEventPayload
+				payload, err = rpcClient.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
+				if err == nil {
+					proposedEventPayload = metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
+				}
+			}
 			if err != nil {
 				log.Error("Failed to decode proposed event data", "error", err)
 				return err
@@ -182,7 +203,7 @@ func assembleBatchProposedIteratorCallback(
 				return errors.New("decoded proposed event payload is nil")
 			}
 
-			proposalID := proposedEventPayload.Proposal.Id.Uint64()
+			proposalID := proposedEventPayload.Shasta().GetProposal().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if lastShastaBatchID != 0 && proposalID != lastShastaBatchID+1 {
@@ -199,11 +220,7 @@ func assembleBatchProposedIteratorCallback(
 				)
 			}
 
-			if err := callback(
-				ctx,
-				metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, event.Raw),
-				eventIter.end,
-			); err != nil {
+			if err := callback(ctx, proposedEventPayload, eventIter.end); err != nil {
 				log.Warn("Error while processing Proposed events, keep retrying", "error", err)
 				return err
 			}

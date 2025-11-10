@@ -50,6 +50,7 @@ type Config struct {
 	ForceBatchProvingInterval time.Duration
 	ProofPollingInterval      time.Duration
 	Dummy                     bool
+	UseLocalShastaDecoder     bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -95,6 +96,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
+	useLocalDecoder := c.Bool(flags.ShastaUseLocalDecoder.Name)
 
 	return &Config{
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
@@ -130,5 +132,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
+		UseLocalShastaDecoder:     useLocalDecoder,
 	}, nil
 }
