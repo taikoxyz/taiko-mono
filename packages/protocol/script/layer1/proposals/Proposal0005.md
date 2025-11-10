@@ -46,7 +46,7 @@ This architecture ensures all tokens are transferred regardless of any balance c
 
 **Current Balance (as of proposal creation)**: ~94,020,735.74 TAIKO
 
-**Helper Contract**: TaikoTokenTransferHelper must be deployed to Ethereum mainnet before this proposal can be executed. See deployment script: `script/layer1/governance/DeployTaikoTokenTransferHelper.s.sol`
+**Helper Contract**: TaikoTokenTransferHelper must be deployed to Ethereum mainnet before this proposal can be executed.
 
 ## Security Considerations
 
@@ -97,7 +97,7 @@ All addresses can be verified in:
 Before executing this proposal, deploy the helper contract:
 
 ```bash
-forge script script/layer1/governance/DeployTaikoTokenTransferHelper.s.sol:DeployTaikoTokenTransferHelper --rpc-url <ETHEREUM_RPC> --broadcast --verify
+forge create src/shared/governance/TaikoTokenTransferHelper.sol:TaikoTokenTransferHelper --rpc-url <ETHEREUM_RPC> --broadcast --verify
 ```
 
 Update the `TRANSFER_HELPER` address in `Proposal0005.s.sol` with the deployed contract address.
