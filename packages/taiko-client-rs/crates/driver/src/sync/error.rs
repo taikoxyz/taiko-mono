@@ -1,7 +1,6 @@
 //! Synchronization error types.
 
 use anyhow::Error as AnyhowError;
-use event_indexer::error::IndexerError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
@@ -34,13 +33,21 @@ pub enum SyncError {
     #[error("checkpoint head {checkpoint} is behind local head {local}")]
     CheckpointBehind { checkpoint: u64, local: u64 },
 
-    /// Event sync: indexer initialization failed.
-    #[error("failed to initialize event indexer")]
-    IndexerInit(#[from] IndexerError),
-
     /// Event sync: execution engine returned no latest block.
     #[error("execution engine returned no latest block")]
     MissingLatestExecutionBlock,
+
+    /// Event sync: execution engine missing a specific block.
+    #[error("execution engine returned no block {number}")]
+    MissingExecutionBlock { number: u64 },
+
+    /// Event sync: execution engine missing batch-to-block mapping.
+    #[error("no execution block found for batch {proposal_id}")]
+    MissingExecutionBlockForBatch { proposal_id: u64 },
+
+    /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
+    #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
+    MissingAnchorTransaction { block_number: u64, reason: &'static str },
 
     /// Event sync: indexer task terminated unexpectedly.
     #[error("event indexer task terminated unexpectedly")]
@@ -84,4 +91,7 @@ pub enum EngineSubmissionError {
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,
+    /// Execution engine failed to return the inserted block via RPC.
+    #[error("inserted block {0} not found via rpc provider")]
+    MissingInsertedBlock(u64),
 }
