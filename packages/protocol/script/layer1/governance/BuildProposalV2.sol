@@ -91,9 +91,8 @@ abstract contract BuildProposalV2 is BuildProposal {
             DelegateControllerIncorrectL2Bridge()
         );
 
-        (success, result) = L2.DELEGATE_CONTROLLER.staticcall(
-            abi.encodeWithSignature("daoController()")
-        );
+        (success, result) =
+            L2.DELEGATE_CONTROLLER.staticcall(abi.encodeWithSignature("daoController()"));
         require(
             success && abi.decode(result, (address)) == L1.DAO_CONTROLLER,
             DelegateControllerIncorrectDaoController()
@@ -121,9 +120,7 @@ abstract contract BuildProposalV2 is BuildProposal {
         for (uint256 i; i < l1Actions.length; ++i) {
             allActions_[i] = l1Actions[i];
             require(l1Actions[i].target != address(0), TargetIsZeroAddress());
-            require(
-                l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController()
-            );
+            require(l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController());
         }
 
         if (l2Actions.length > 0) {
@@ -143,9 +140,7 @@ abstract contract BuildProposalV2 is BuildProposal {
             );
 
             allActions_[l1Actions.length] = Controller.Action({
-                target: L1.BRIDGE,
-                value: 0,
-                data: abi.encodeCall(IBridge.sendMessage, (message))
+                target: L1.BRIDGE, value: 0, data: abi.encodeCall(IBridge.sendMessage, (message))
             });
         }
     }

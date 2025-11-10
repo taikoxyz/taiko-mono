@@ -13,7 +13,12 @@ contract Proposal0005 is BuildProposalV2 {
     address public constant TAIKO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a; // controller.taiko.eth
     address public constant TAIKO_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
 
-    function buildL1ActionsView() internal view override returns (Controller.Action[] memory actions) {
+    function buildL1ActionsView()
+        internal
+        view
+        override
+        returns (Controller.Action[] memory actions)
+    {
         actions = new Controller.Action[](1);
 
         // Get the current balance of TAIKO tokens held by the Controller
@@ -23,10 +28,7 @@ contract Proposal0005 is BuildProposalV2 {
         actions[0] = Controller.Action({
             target: TAIKO_TOKEN,
             value: 0,
-            data: abi.encodeCall(
-                IERC20.transfer,
-                (TAIKO_TREASURY, controllerBalance)
-            )
+            data: abi.encodeCall(IERC20.transfer, (TAIKO_TREASURY, controllerBalance))
         });
     }
 
