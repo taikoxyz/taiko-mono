@@ -33,6 +33,11 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return nil
 	}
 
+	// If the current batch is handled, just skip it.
+	if meta.Shasta().GetProposal().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
+		return nil
+	}
+
 	// Wait for the corresponding L2 block being mined in node.
 	header, err := h.rpc.WaitShastaHeader(ctx, meta.Shasta().GetProposal().Id)
 	if err != nil {
@@ -47,11 +52,6 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		}
 
 		return err
-	}
-
-	// If the current batch is handled, just skip it.
-	if meta.Shasta().GetProposal().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
-		return nil
 	}
 
 	log.Info(

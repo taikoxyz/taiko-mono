@@ -155,7 +155,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
 		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
 	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
+	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
