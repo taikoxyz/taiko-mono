@@ -60,7 +60,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"l1Hash", meta.GetRawBlockHash(),
 		"batchID", meta.Shasta().GetProposal().Id,
 		"lastBlockID", header.Number,
-		"assignedProver", meta.GetProposer(),
+		"proposer", meta.GetProposer(),
 		"proposalTimestamp", meta.Shasta().GetProposal().Timestamp,
 		"derivationSources", len(meta.Shasta().GetDerivation().Sources),
 	)

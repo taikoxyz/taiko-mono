@@ -37,9 +37,10 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox      *shastaBindings.ShastaInboxClient
-	InboxCodec *shastaBindings.CodecOptimizedClient
-	Anchor     *shastaBindings.ShastaAnchor
+	Inbox           *shastaBindings.ShastaInboxClient
+	InboxCodec      *shastaBindings.CodecOptimizedClient
+	Anchor          *shastaBindings.ShastaAnchor
+	ComposeVerifier *shastaBindings.ComposeVerifier
 	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
 	ForkTime uint64
 }
@@ -288,14 +289,17 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}
-
-	c.ShastaClients = &ShastaClients{
-		Inbox:      shastaInbox,
-		InboxCodec: inboxCodec,
-		Anchor:     shastaAnchor,
-		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+	composeVerifier, err := shastaBindings.NewComposeVerifier(config.ProofVerifier, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
-
+	c.ShastaClients = &ShastaClients{
+		Inbox:           shastaInbox,
+		InboxCodec:      inboxCodec,
+		Anchor:          shastaAnchor,
+		ComposeVerifier: composeVerifier,
+		ForkTime:        c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+	}
 	// If an environment override is provided, prefer it to keep tests/tools
 	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
 	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
