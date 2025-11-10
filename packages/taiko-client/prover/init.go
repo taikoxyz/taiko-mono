@@ -171,6 +171,7 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		p.batchesAggregationNotifyShasta,
 		p.proofSubmissionCh,
 		p.shastaIndexer,
+		p.cfg.TaikoAnchorAddress,
 		&proofSubmitter.SenderOptions{
 			RPCClient:        p.rpc,
 			Txmgr:            p.txmgr,

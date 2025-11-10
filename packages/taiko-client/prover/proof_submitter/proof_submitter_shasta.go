@@ -18,6 +18,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
+	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
@@ -36,9 +37,10 @@ type ProofSubmitterShasta struct {
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	// Utilities
-	txBuilder *transaction.ProveBatchesTxBuilder
-	sender    *transaction.Sender
-	indexer   *shastaIndexer.Indexer
+	anchorValidator *validator.AnchorTxValidator
+	txBuilder       *transaction.ProveBatchesTxBuilder
+	sender          *transaction.Sender
+	indexer         *shastaIndexer.Indexer
 	// Addresses
 	proverAddress common.Address
 	// Batch proof related
@@ -56,12 +58,22 @@ func NewProofSubmitterShasta(
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	indexer *shastaIndexer.Indexer,
+	taikoAnchorAddress common.Address,
 	senderOpts *SenderOptions,
 	builder *transaction.ProveBatchesTxBuilder,
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterShasta, error) {
+	anchorValidator, err := validator.New(
+		taikoAnchorAddress,
+		senderOpts.RPCClient.L2.ChainID,
+		senderOpts.RPCClient,
+	)
+
+	if err != nil {
+		return nil, err
+	}
 	return &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
@@ -70,6 +82,7 @@ func NewProofSubmitterShasta(
 		batchAggregationNotify: batchAggregationNotify,
 		proofSubmissionCh:      proofSubmissionCh,
 		indexer:                indexer,
+		anchorValidator:        anchorValidator,
 		txBuilder:              builder,
 		sender: transaction.NewSender(
 			senderOpts.RPCClient,
@@ -289,15 +302,26 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
-	// TODO: check if there is valid proof on chain
-	var (
-		latestProvenBlockID = common.Big0
-		uint64ProposalIDs   []uint64
-	)
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
 		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
 	}
+
+	// Check if there is any invalid batch proofs in the aggregation, if so, we ignore them.
+	invalidProposalIDs, err := s.validateBatchProofs(ctx, batchProof)
+	if err != nil {
+		return fmt.Errorf("failed to validate batch proofs: %w", err)
+	}
+	if len(invalidProposalIDs) > 0 {
+		// If there are invalid proposals in the aggregation, we ignore these proposals.
+		log.Warn("Invalid proposals in an aggregation, ignore these proposals", "proposalIDs", invalidProposalIDs)
+		proofBuffer.ClearItems(invalidProposalIDs...)
+		return ErrInvalidProof
+	}
+	var (
+		latestProvenBlockID = common.Big0
+		uint64ProposalIDs   []uint64
+	)
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
 		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
@@ -425,4 +449,126 @@ func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
 			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
 		}
 	}
+}
+
+// validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
+// returns the invalid proposal IDs.
+func (s *ProofSubmitterShasta) validateBatchProofs(
+	ctx context.Context,
+	batchProof *proofProducer.BatchProofs,
+) ([]uint64, error) {
+	var invalidProposalIDs []uint64
+
+	if len(batchProof.ProofResponses) == 0 {
+		return nil, proofProducer.ErrInvalidLength
+	}
+
+	// Fetch the latest verified proposal ID.
+	coreState := s.indexer.GetLastCoreState()
+	latestVerifiedID := coreState.LastFinalizedProposalId
+
+	// Check if any batch in this aggregation is already submitted and valid,
+	// if so, we skip this batch.
+	for _, proof := range batchProof.ProofResponses {
+		// Check if this proof is still needed to be submitted.
+		ok, err := s.ValidateProof(ctx, proof, latestVerifiedID)
+		if err != nil {
+			return nil, err
+		}
+		proposalID := proof.BatchID
+		if !ok {
+			log.Error("A valid proof for this batch has already been submitted", "proposalID", proposalID)
+			invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+			continue
+		}
+
+		// Validate each block in each proposal.
+		for _, blockHeader := range proof.Opts.ShastaOptions().Headers {
+			// Get the corresponding L2 block.
+			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
+			if err != nil {
+				log.Error(
+					"Failed to get L2 block with given hash",
+					"proposalID", proposalID,
+					"blockID", blockHeader.Number,
+					"hash", blockHeader.Hash(),
+					"error", err,
+				)
+				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+				break
+			}
+
+			if block.Transactions().Len() == 0 {
+				log.Error(
+					"Invalid block without anchor transaction",
+					"proposalID", proposalID,
+					"blockID", block.Number(),
+				)
+				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+				break
+			}
+
+			// Validate TaikoAnchor.anchoV4 transaction inside the L2 block.
+			anchorTx := block.Transactions()[0]
+			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
+				log.Error("Invalid anchor transaction", "error", err)
+				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+				break
+			}
+		}
+
+		// Check if the proof has already been submitted.
+		transitionPayload := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
+		if transitionPayload != nil {
+			if transitionPayload.Transition.ParentTransitionHash == proof.Opts.ShastaOptions().ParentTransitionHash &&
+				transitionPayload.Transition.Checkpoint.BlockNumber.Cmp(proof.Opts.ShastaOptions().Checkpoint.BlockNumber) == 0 &&
+				transitionPayload.Transition.Checkpoint.BlockHash == proof.Opts.ShastaOptions().Checkpoint.BlockHash &&
+				transitionPayload.Transition.Checkpoint.StateRoot == proof.Opts.ShastaOptions().Checkpoint.StateRoot {
+				log.Warn("A valid proof is already submitted", "proposalID", proposalID)
+				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+			}
+		}
+	}
+	return invalidProposalIDs, nil
+}
+
+// ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
+// latest verified head is not ahead of this block proof.
+func (s *ProofSubmitterShasta) ValidateProof(
+	ctx context.Context,
+	proofResponse *proofProducer.ProofResponse,
+	latestVerifiedID *big.Int,
+) (bool, error) {
+	// 1. Check if the corresponding L1 block is still in the canonical chain.
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofResponse.Meta.GetRawBlockHeight())
+	if err != nil {
+		log.Warn(
+			"Failed to fetch L1 block",
+			"proposalID", proofResponse.BatchID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
+			"error", err,
+		)
+		return false, err
+	}
+	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
+		log.Warn(
+			"Reorg detected, skip the current proof submission",
+			"proposalID", proofResponse.BatchID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
+			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
+			"l1HashNew", l1Header.Hash(),
+		)
+		return false, nil
+	}
+
+	if latestVerifiedID.Cmp(proofResponse.BatchID) >= 0 {
+		log.Info(
+			"Proposal is already finalized, skip current proof submission",
+			"proposalID", proofResponse.BatchID,
+			"latestVerifiedID", latestVerifiedID,
+		)
+		return false, nil
+	}
+
+	return true, nil
 }
