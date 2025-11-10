@@ -43,7 +43,7 @@ abstract contract BuildProposal is Script {
         virtual
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory);
 
-    function logProposalAction(string memory proposalId) internal {
+    function logProposalAction(string memory proposalId) internal virtual {
         Controller.Action[] memory allActions = _buildAllActions();
 
         string memory fileName =
@@ -68,11 +68,11 @@ abstract contract BuildProposal is Script {
         console2.log("Proposal action details written to", fileName);
     }
 
-    function dryrunL1Actions() internal broadcast {
+    function dryrunL1Actions() internal virtual broadcast {
         Controller(payable(L1.DAO_CONTROLLER)).dryrun(abi.encode(_buildAllActions()));
     }
 
-    function dryrunL2Actions() internal broadcast {
+    function dryrunL2Actions() internal virtual broadcast {
         require(
             Ownable(L2.DELEGATE_CONTROLLER).owner() == L2.DELEGATE_CONTROLLER,
             DelegateControllerNotSelfOwned()
