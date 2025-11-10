@@ -94,9 +94,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		addr := common.HexToAddress(localProposerAddress)
 		localProposerAddresses = append(localProposerAddresses, addr)
 	}
-
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
-	useLocalDecoder := c.Bool(flags.ShastaUseLocalDecoder.Name)
 
 	return &Config{
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
@@ -132,6 +130,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
-		UseLocalShastaDecoder:     useLocalDecoder,
+		UseLocalShastaDecoder:     c.Bool(flags.ShastaUseLocalDecoder.Name),
 	}, nil
 }
