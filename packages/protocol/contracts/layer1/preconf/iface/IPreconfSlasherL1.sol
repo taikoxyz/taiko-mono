@@ -5,8 +5,6 @@ import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 
 /// @title IPreconfSlasherL1
-/// @dev This contract inherits from ISlasher which contains the definition for the `slash` function
-/// that is called by the URC.
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasherL1 is IMessageInvocable {
     struct SlashAmount {
@@ -16,7 +14,7 @@ interface IPreconfSlasherL1 is IMessageInvocable {
 
     error CallerIsNotPreconfSlasherL2();
     error ChallengerIsNotSelf();
-    error CallerIsNotURC();
+    error InvalidCommitmentType();
     error MissedSlot();
 
     /// @notice Called by the URC to slash for preconfirmation faults.

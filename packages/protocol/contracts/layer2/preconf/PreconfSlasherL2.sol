@@ -15,12 +15,12 @@ import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
 contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
-    address public immutable preconfSlasherL1;
+    address public immutable unifiedSlasher;
     address public immutable anchor;
     address public immutable bridge;
 
-    constructor(address _preconfSlasherL1, address _anchor, address _bridge) EssentialContract() {
-        preconfSlasherL1 = _preconfSlasherL1;
+    constructor(address _unifiedSlasher, address _anchor, address _bridge) EssentialContract() {
+        unifiedSlasher = _unifiedSlasher;
         anchor = _anchor;
         bridge = _bridge;
     }

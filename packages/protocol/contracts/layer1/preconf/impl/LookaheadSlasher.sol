@@ -34,7 +34,10 @@ contract LookaheadSlasher is ILookaheadSlasher {
         view
         returns (uint256)
     {
-        require(msg.sender == urc, CallerIsNotURC());
+        require(
+            _commitment.commitmentType == LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
+            InvalidCommitmentType()
+        );
 
         // Todo: move to calldata
         ILookaheadStore.LookaheadSlot[] memory lookaheadSlots =
@@ -182,7 +185,7 @@ contract LookaheadSlasher is ILookaheadSlasher {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                .pubkey
+                    .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -190,9 +193,7 @@ contract LookaheadSlasher is ILookaheadSlasher {
         // Verify that this preconf lookahead validator does not match the beacon lookahead
         // validator
         require(
-            !_isG1Equal(
-                evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey
-            ),
+            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
@@ -222,7 +223,7 @@ contract LookaheadSlasher is ILookaheadSlasher {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-        evidenceMissingOperator.operatorRegistrationProof;
+            evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -236,8 +237,9 @@ contract LookaheadSlasher is ILookaheadSlasher {
 
         // Verify that this operator was valid at the reference timestamp.
         // This reverts if the operator is not valid at the reference timestamp.
-        ILookaheadStore(lookaheadStore)
-            .isLookaheadOperatorValid(referenceTimestamp, registrationProof.registrationRoot);
+        ILookaheadStore(lookaheadStore).isLookaheadOperatorValid(
+            referenceTimestamp, registrationProof.registrationRoot
+        );
     }
 
     // Internal helpers

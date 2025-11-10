@@ -53,7 +53,7 @@ interface ILookaheadSlasher {
         IRegistry.RegistrationProof operatorRegistrationProof;
     }
 
-    error CallerIsNotURC();
+    error InvalidCommitmentType();
     error InvalidLookaheadSlotsIndex();
     error InvalidRegistrationProofValidator();
     error LookaheadHashMismatch();

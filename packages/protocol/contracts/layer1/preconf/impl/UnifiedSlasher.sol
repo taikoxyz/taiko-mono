@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
-import { ILookaheadSlasher } from "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import { IMessageInvocable } from "src/shared/bridge/IBridge.sol";
-import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
+import { ILookaheadSlasher } from "src/layer1/preconf/iface/ILookaheadSlasher.sol";
+import { IPreconfSlasherL1 } from "src/layer1/preconf/iface/IPreconfSlasherL1.sol";
+
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title UnifiedSlasher
-/// @dev A common entry point for `PreconfSlasherL1` and `LookaheadSlasher.
+/// @dev A common entry point for `PreconfSlasherL1` and `LookaheadSlasher`.
 /// @dev The operators are only required to opt-in to the unified slasher in order
 /// to preconf and post lookaheads.
 /// @custom:security-contact security@taiko.xyz
 contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
+    address public immutable urc;
     address public immutable preconfSlasherL1;
     address public immutable lookaheadSlasher;
 
+    error CallerIsNotURC();
     error UnsupportedCommitmentType();
 
     constructor(address _preconfSlasherL1, address _lookaheadSlasher) EssentialContract() {
@@ -40,6 +43,8 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
         override
         returns (uint256 slashAmount_)
     {
+        require(msg.sender == urc, CallerIsNotURC());
+
         // Route to the correct slasher contract based on the commitment type
         if (_commitment.commitmentType == LibPreconfConstants.PRECONF_COMMITMENT_TYPE) {
             // Preconfirmation slashing
