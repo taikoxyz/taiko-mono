@@ -43,6 +43,8 @@ type ShastaClients struct {
 	ComposeVerifier *shastaBindings.ComposeVerifier
 	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
 	ForkTime uint64
+	// UseLocalDecoder decides whether Shasta events should be decoded locally instead of via codec contract.
+	UseLocalDecoder bool
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -79,6 +81,7 @@ type ClientConfig struct {
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
+	UseLocalShastaDecoder       bool
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -299,6 +302,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		Anchor:          shastaAnchor,
 		ComposeVerifier: composeVerifier,
 		ForkTime:        c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+		UseLocalDecoder: cfg.UseLocalShastaDecoder,
 	}
 	// If an environment override is provided, prefer it to keep tests/tools
 	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
@@ -309,6 +313,11 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	}
 
 	return nil
+}
+
+// UseLocalShastaDecoder returns whether the client should decode Shasta events locally.
+func (c *Client) UseLocalShastaDecoder() bool {
+	return c.ShastaClients != nil && c.ShastaClients.UseLocalDecoder
 }
 
 // initForkHeightConfigs initializes the fork heights in protocol.

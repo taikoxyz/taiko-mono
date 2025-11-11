@@ -162,6 +162,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	ShastaUseLocalDecoder = &cli.BoolFlag{
+		Name:     "shasta.useLocalDecoder",
+		Usage:    "Decode Shasta events locally in Go (disable to call the codec contract)",
+		Value:    true,
+		Category: commonCategory,
+		EnvVars:  []string{"SHASTA_USE_LOCAL_DECODER"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -182,6 +189,7 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+	ShastaUseLocalDecoder,
 }
 
 // MergeFlags merges the given flag slices.

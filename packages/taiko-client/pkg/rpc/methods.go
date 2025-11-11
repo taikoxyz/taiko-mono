@@ -28,6 +28,7 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
@@ -1553,6 +1554,10 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProvedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProvedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1573,6 +1578,10 @@ func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProposedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProposedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
