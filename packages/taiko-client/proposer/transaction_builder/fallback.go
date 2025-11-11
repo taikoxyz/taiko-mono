@@ -195,6 +195,10 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	// Shasta requires blob transactions for proposal data availability.
+	if b.blobTransactionBuilder == nil {
+		return nil, fmt.Errorf("blob transactions must be enabled for Shasta; set --l1.blobAllowed=true")
+	}
 	return b.blobTransactionBuilder.BuildShasta(
 		ctx,
 		txBatch,
