@@ -5,6 +5,9 @@ on:
     # Only run the first time the PR is opened or when it is marked as ready for review
     # This is to avoid claude from automatically reviewing the PR every time there's a new commit
     types: [opened, ready_for_review]
+    branches-ignore:
+      - release-please--branches--**
+      - dependabot/**
 
 jobs:
   claude-review:
