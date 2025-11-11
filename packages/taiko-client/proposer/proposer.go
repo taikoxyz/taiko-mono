@@ -418,7 +418,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
