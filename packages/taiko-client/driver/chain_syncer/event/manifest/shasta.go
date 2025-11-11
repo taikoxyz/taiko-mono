@@ -105,7 +105,19 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	log.Info("Extracted manifest version and size from Shasta blobs", "version", version, "size", size)
 
-	encoded, err := utils.Decompress(b[offset+64 : offset+64+int(size)])
+	// Ensure the blob slice [offset+64, offset+64+size) is within bounds before slicing.
+	start := offset + 64
+	if start > len(b) || uint64(len(b)-start) < size {
+		log.Warn(
+			"Invalid manifest bounds in blob bytes, use default payload instead",
+			"version", version,
+			"offset", offset,
+			"size", size,
+			"blobLen", len(b),
+		)
+		return defaultPayload, nil
+	}
+	encoded, err := utils.Decompress(b[start : start+int(size)])
 	// Decompress the manifest bytes.
 	if err != nil {
 		log.Warn(
@@ -165,10 +177,15 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
 ) ([]byte, error) {
+	blobHashes := meta.GetBlobHashes(derivationIdx)
 	// Fetch the L1 block sidecars.
-	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), meta.GetBlobHashes(derivationIdx))
+	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
+	}
+
+	if len(sidecars) != len(blobHashes) {
+		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
 
 	log.Info(
@@ -179,7 +196,7 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 	)
 
 	var b []byte
-	for _, blobHash := range meta.GetBlobHashes(derivationIdx) {
+	for _, blobHash := range blobHashes {
 		// Compare the blob hash with the sidecar's kzg commitment.
 		for j, sidecar := range sidecars {
 			log.Debug(

@@ -28,6 +28,7 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
@@ -1045,9 +1046,9 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	}
 
 	// Otherwise, calculate Shasta base fee according to EIP-4396.
-	grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+	parentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
 	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 	log.Info(
@@ -1056,12 +1057,12 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"parentGasLimit", l2Head.GasLimit,
 		"parentGasUsed", l2Head.GasUsed,
 		"parentBaseFee", l2Head.BaseFee,
-		"parentTime", l2Head.Time-grandParentBlock.Time,
+		"parentTime", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 		"shastaForkTime", c.ShastaClients.ForkTime,
 	)
-	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
+	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
 
 // CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
@@ -1553,6 +1554,10 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProvedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProvedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1573,6 +1578,10 @@ func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProposedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProposedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}

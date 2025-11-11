@@ -134,6 +134,7 @@ func newTestClient(t *testing.T) *rpc.Client {
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   os.Getenv("JWT_SECRET"),
+		UseLocalShastaDecoder:       true,
 	})
 
 	require.Nil(t, err)
