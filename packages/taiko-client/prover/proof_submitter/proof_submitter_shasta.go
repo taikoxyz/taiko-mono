@@ -58,21 +58,12 @@ func NewProofSubmitterShasta(
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	indexer *shastaIndexer.Indexer,
-	taikoAnchorAddress common.Address,
 	senderOpts *SenderOptions,
 	builder *transaction.ProveBatchesTxBuilder,
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterShasta, error) {
-	anchorValidator, err := validator.New(
-		taikoAnchorAddress,
-		senderOpts.RPCClient.L2.ChainID,
-		senderOpts.RPCClient,
-	)
-	if err != nil {
-		return nil, err
-	}
 	return &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
@@ -81,7 +72,6 @@ func NewProofSubmitterShasta(
 		batchAggregationNotify: batchAggregationNotify,
 		proofSubmissionCh:      proofSubmissionCh,
 		indexer:                indexer,
-		anchorValidator:        anchorValidator,
 		txBuilder:              builder,
 		sender: transaction.NewSender(
 			senderOpts.RPCClient,
