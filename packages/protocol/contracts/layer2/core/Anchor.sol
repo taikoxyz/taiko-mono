@@ -145,6 +145,7 @@ contract Anchor is EssentialContract {
         bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
+        uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
     );
@@ -228,6 +229,7 @@ contract Anchor is EssentialContract {
         if (_proposalParams.proposalId > lastProposalId) {
             _validateProposal(_proposalParams);
         }
+        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_blockParams);
 
         uint256 parentNumber = block.number - 1;
@@ -237,6 +239,7 @@ contract Anchor is EssentialContract {
             _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
+            prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
         );
