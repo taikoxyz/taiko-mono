@@ -26,7 +26,7 @@
     "proposal": "FOUNDRY_PROFILE=layer1 MODE=print forge script script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:dryrun:l1": "FOUNDRY_PROFILE=layer1 MODE=l1dryrun forge script --chain-id=1 --broadcast --rpc-url https://ethereum.publicnode.com script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:dryrun:l2": "FOUNDRY_PROFILE=layer1 MODE=l2dryrun forge script --chain-id=167000 --broadcast --rpc-url https://rpc.taiko.xyz script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
-    "genesis:gen": "pnpm compile:l2 && pnpm compile:shared && ts-node ./test/genesis/generate/generate.ts",
+    "genesis:gen": "pnpm compile:l2 && pnpm compile:shared && ts-node --project ./test/genesis/tsconfig.json ./test/genesis/generate/generate.ts",
     "genesis:test": "./test/genesis/genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
