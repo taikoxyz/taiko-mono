@@ -70,7 +70,6 @@ func NewProofSubmitterShasta(
 		senderOpts.RPCClient.L2.ChainID,
 		senderOpts.RPCClient,
 	)
-
 	if err != nil {
 		return nil, err
 	}
