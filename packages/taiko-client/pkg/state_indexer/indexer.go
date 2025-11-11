@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -730,9 +729,7 @@ func (s *Indexer) getTransitionsForFinalization(
 			)
 		}
 
-		if !ok ||
-			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
-			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
+		if !ok || transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash {
 			break
 		}
 		transitions = append(transitions, transition)
