@@ -16,6 +16,7 @@ export default defineConfig({
     starlight({
       plugins: [
         starlightLinksValidator({
+          errorOnLocalLinks: false,
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",

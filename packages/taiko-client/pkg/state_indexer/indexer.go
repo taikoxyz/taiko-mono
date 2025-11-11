@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -189,11 +188,6 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			break
 		}
 
-		if !s.historicalFetchCompleted && uint64(s.proposals.Count()) >= s.bufferSize {
-			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", s.proposals.Count())
-			break
-		}
-
 		// Update currentHeader for next iteration
 		currentHeader, err = s.rpc.L1.HeaderByNumber(s.ctx, startHeight)
 		if err != nil {
@@ -278,11 +272,11 @@ func (s *Indexer) onProvedEvent(
 	log.Debug(
 		"New indexed Shasta transition record",
 		"proposalId", meta.ProposalId,
-		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
-		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
+		"transitionHash", common.Hash(record.TransitionHash),
+		"parentTransitionHash", common.Hash(transition.ParentTransitionHash),
 		"checkpoint", transition.Checkpoint.BlockNumber,
-		"checkpointBlockHash", common.BytesToHash(transition.Checkpoint.BlockHash[:]),
-		"checkpointStateRoot", common.BytesToHash(transition.Checkpoint.StateRoot[:]),
+		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
+		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
 		"timeStamp", header.Time,
 	)
 
@@ -730,9 +724,7 @@ func (s *Indexer) getTransitionsForFinalization(
 			)
 		}
 
-		if !ok ||
-			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
-			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
+		if !ok || transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash {
 			break
 		}
 		transitions = append(transitions, transition)

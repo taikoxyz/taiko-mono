@@ -98,7 +98,7 @@ func requestHTTPProofResponse[T any](
 	apiKey string,
 	reqBody T,
 ) (*http.Response, error) {
-	client := &http.Client{}
+	client := http.DefaultClient
 
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
