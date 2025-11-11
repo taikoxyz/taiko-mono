@@ -111,15 +111,16 @@ func InitFromConfig(
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
-		L1Endpoint:         cfg.L1WsEndpoint,
-		L2Endpoint:         cfg.L2WsEndpoint,
-		PacayaInboxAddress: cfg.PacayaInboxAddress,
-		ShastaInboxAddress: cfg.ShastaInboxAddress,
-		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
-		TaikoTokenAddress:  cfg.TaikoTokenAddress,
-		ProverSetAddress:   cfg.ProverSetAddress,
-		Timeout:            cfg.RPCTimeout,
-		ShastaForkTime:     cfg.ShastaForkTime,
+		L1Endpoint:            cfg.L1WsEndpoint,
+		L2Endpoint:            cfg.L2WsEndpoint,
+		PacayaInboxAddress:    cfg.PacayaInboxAddress,
+		ShastaInboxAddress:    cfg.ShastaInboxAddress,
+		TaikoAnchorAddress:    cfg.TaikoAnchorAddress,
+		TaikoTokenAddress:     cfg.TaikoTokenAddress,
+		ProverSetAddress:      cfg.ProverSetAddress,
+		Timeout:               cfg.RPCTimeout,
+		ShastaForkTime:        cfg.ShastaForkTime,
+		UseLocalShastaDecoder: cfg.UseLocalShastaDecoder,
 	}); err != nil {
 		return err
 	}

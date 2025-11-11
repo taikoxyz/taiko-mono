@@ -74,6 +74,7 @@ func (s *ClientTestSuite) SetupTest() {
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   string(jwtSecret),
+		UseLocalShastaDecoder:       true,
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli

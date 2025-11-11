@@ -83,6 +83,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			ShastaForkTime:              c.Uint64(flags.ShastaForkTime.Name),
+			UseLocalShastaDecoder:       c.Bool(flags.ShastaUseLocalDecoder.Name),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
