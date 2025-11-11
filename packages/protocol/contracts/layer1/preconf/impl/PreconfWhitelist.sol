@@ -12,7 +12,6 @@ import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChecker {
-
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
         uint32 deprecatedInactiveSince; // Deprecated. Kept for storage compatibility.
@@ -286,7 +285,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
-    
+
     error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
