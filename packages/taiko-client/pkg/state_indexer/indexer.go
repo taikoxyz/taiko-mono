@@ -140,8 +140,8 @@ func (s *Indexer) Start() error {
 
 // fetchHistoricalProposals fetches historical proposals from the Shasta contract.
 func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uint64) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	// Reset proposals map before fetching historical proposals.
 	s.proposals.Clear()
@@ -188,11 +188,6 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			break
 		}
 
-		if !s.historicalFetchCompleted && uint64(s.proposals.Count()) >= s.bufferSize {
-			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", s.proposals.Count())
-			break
-		}
-
 		// Update currentHeader for next iteration
 		currentHeader, err = s.rpc.L1.HeaderByNumber(s.ctx, startHeight)
 		if err != nil {
@@ -200,15 +195,15 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		}
 	}
 
-	s.SetLastIndexedBlock(toBlock)
+	s.lastIndexedBlock = toBlock
 	s.historicalFetchCompleted = true
 	return nil
 }
 
 // fetchHistoricalTransitionRecords fetches historical transition records from the Shasta contract.
 func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Header) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	log.Info("Fetching historical Shasta transition records", "from", fromBlock.Number, "to", toBlock.Number)
 
@@ -277,11 +272,11 @@ func (s *Indexer) onProvedEvent(
 	log.Debug(
 		"New indexed Shasta transition record",
 		"proposalId", meta.ProposalId,
-		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
-		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
+		"transitionHash", common.Hash(record.TransitionHash),
+		"parentTransitionHash", common.Hash(transition.ParentTransitionHash),
 		"checkpoint", transition.Checkpoint.BlockNumber,
-		"checkpointBlockHash", common.BytesToHash(transition.Checkpoint.BlockHash[:]),
-		"checkpointStateRoot", common.BytesToHash(transition.Checkpoint.StateRoot[:]),
+		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
+		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
 		"timeStamp", header.Time,
 	)
 
@@ -333,7 +328,7 @@ func (s *Indexer) liveIndexing() error {
 					if err := s.liveIndex(l1Head); err != nil {
 						return err
 					}
-					s.lastIndexedBlock = l1Head
+					s.SetLastIndexedBlock(l1Head)
 					return nil
 				},
 				backoff.WithContext(backoff.NewExponentialBackOff(), s.ctx),
@@ -544,6 +539,8 @@ func (s *Indexer) GetLastIndexedBlock() *types.Header {
 
 // SetLastIndexedBlock updates the last indexed block header in a thread-safe manner.
 func (s *Indexer) SetLastIndexedBlock(header *types.Header) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.lastIndexedBlock = header
 }
 
