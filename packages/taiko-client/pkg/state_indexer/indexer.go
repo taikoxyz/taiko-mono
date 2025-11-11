@@ -277,11 +277,11 @@ func (s *Indexer) onProvedEvent(
 	log.Debug(
 		"New indexed Shasta transition record",
 		"proposalId", meta.ProposalId,
-		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
-		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
+		"transitionHash", common.Hash(record.TransitionHash),
+		"parentTransitionHash", common.Hash(transition.ParentTransitionHash),
 		"checkpoint", transition.Checkpoint.BlockNumber,
-		"checkpointBlockHash", common.BytesToHash(transition.Checkpoint.BlockHash[:]),
-		"checkpointStateRoot", common.BytesToHash(transition.Checkpoint.StateRoot[:]),
+		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
+		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
 		"timeStamp", header.Time,
 	)
 
