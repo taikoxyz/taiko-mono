@@ -29,6 +29,7 @@ type Config struct {
 	TaikoAnchorAddress        common.Address
 	TaikoTokenAddress         common.Address
 	ProverSetAddress          common.Address
+	ShastaForkTime            uint64
 	L1ProverPrivKey           *ecdsa.PrivateKey
 	StartingBatchID           *big.Int
 	BackOffMaxRetries         uint64
@@ -105,6 +106,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		ShastaForkTime:         c.Uint64(flags.ShastaForkTime.Name),
 		L1ProverPrivKey:        l1ProverPrivKey,
 		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
