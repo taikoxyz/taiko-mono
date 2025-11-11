@@ -23,8 +23,9 @@ contract AnchorTest is Test {
     uint256 private constant INITIAL_PROVER_BOND = 50 ether;
 
     // EIP-712 constants (must match Anchor.sol)
-    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
         keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
     bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
@@ -361,7 +362,9 @@ contract AnchorTest is Test {
 
         // Proposer should be designated as prover (fallback behavior)
         Anchor.ProposalState memory state = anchor.getProposalState();
-        assertEq(state.designatedProver, proposer, "Should fall back to proposer as designated prover");
+        assertEq(
+            state.designatedProver, proposer, "Should fall back to proposer as designated prover"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -403,8 +406,7 @@ contract AnchorTest is Test {
         uint256 provingFee = 3 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
-        (address signer, uint256 fee) =
-            anchor.validateProverAuth(proposalId, proposer, proverAuth);
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, proverAuth);
 
         assertEq(signer, proverCandidate, "Should recover prover candidate address");
         assertEq(fee, provingFee, "Should return correct proving fee");
@@ -419,8 +421,7 @@ contract AnchorTest is Test {
         uint256 wrongChainId = 1;
         bytes memory proverAuth = _buildProverAuthWithChainId(proposalId, provingFee, wrongChainId);
 
-        (address signer, uint256 fee) =
-            anchor.validateProverAuth(proposalId, proposer, proverAuth);
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, proverAuth);
 
         // Signature should be invalid - recovered address won't match proverCandidate
         assertTrue(signer != proverCandidate, "Should reject signature from wrong chain");
@@ -512,7 +513,10 @@ contract AnchorTest is Test {
     /// @param proposalId The proposal ID to authorize.
     /// @param provingFee The fee the prover will receive.
     /// @return Encoded ProverAuth with valid EIP-712 signature.
-    function _buildProverAuth(uint48 proposalId, uint256 provingFee)
+    function _buildProverAuth(
+        uint48 proposalId,
+        uint256 provingFee
+    )
         internal
         view
         returns (bytes memory)
@@ -525,17 +529,18 @@ contract AnchorTest is Test {
     /// @param provingFee The fee the prover will receive.
     /// @param chainId The chain ID to use in the domain separator.
     /// @return Encoded ProverAuth with signature for the specified chain.
-    function _buildProverAuthWithChainId(uint48 proposalId, uint256 provingFee, uint256 chainId)
+    function _buildProverAuthWithChainId(
+        uint48 proposalId,
+        uint256 provingFee,
+        uint256 chainId
+    )
         internal
         view
         returns (bytes memory)
     {
         // Build the ProverAuth struct (without signature initially)
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
-            proposalId: proposalId,
-            proposer: proposer,
-            provingFee: provingFee,
-            signature: ""
+            proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: ""
         });
 
         // Compute EIP-712 struct hash

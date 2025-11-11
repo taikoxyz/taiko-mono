@@ -96,8 +96,9 @@ contract Anchor is EssentialContract {
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
     /// @dev EIP-712 domain/type hashes for prover authorization signatures.
-    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
         keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
     bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
