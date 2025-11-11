@@ -140,8 +140,8 @@ func (s *Indexer) Start() error {
 
 // fetchHistoricalProposals fetches historical proposals from the Shasta contract.
 func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uint64) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	// Reset proposals map before fetching historical proposals.
 	s.proposals.Clear()
@@ -200,15 +200,15 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		}
 	}
 
-	s.SetLastIndexedBlock(toBlock)
+	s.lastIndexedBlock = toBlock
 	s.historicalFetchCompleted = true
 	return nil
 }
 
 // fetchHistoricalTransitionRecords fetches historical transition records from the Shasta contract.
 func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Header) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	log.Info("Fetching historical Shasta transition records", "from", fromBlock.Number, "to", toBlock.Number)
 
@@ -333,7 +333,7 @@ func (s *Indexer) liveIndexing() error {
 					if err := s.liveIndex(l1Head); err != nil {
 						return err
 					}
-					s.lastIndexedBlock = l1Head
+					s.SetLastIndexedBlock(l1Head)
 					return nil
 				},
 				backoff.WithContext(backoff.NewExponentialBackOff(), s.ctx),
@@ -544,6 +544,8 @@ func (s *Indexer) GetLastIndexedBlock() *types.Header {
 
 // SetLastIndexedBlock updates the last indexed block header in a thread-safe manner.
 func (s *Indexer) SetLastIndexedBlock(header *types.Header) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.lastIndexedBlock = header
 }
 
