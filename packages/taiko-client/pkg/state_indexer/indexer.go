@@ -188,11 +188,6 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			break
 		}
 
-		if !s.historicalFetchCompleted && uint64(s.proposals.Count()) >= s.bufferSize {
-			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", s.proposals.Count())
-			break
-		}
-
 		// Update currentHeader for next iteration
 		currentHeader, err = s.rpc.L1.HeaderByNumber(s.ctx, startHeight)
 		if err != nil {
