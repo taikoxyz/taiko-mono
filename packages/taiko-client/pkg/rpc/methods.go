@@ -133,7 +133,7 @@ func (c *Client) ensureGenesisMatched(
 		}
 	}
 
-	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", common.Hash(l2GenesisHash))
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", l2GenesisHash)
 
 	if l2GenesisHash == (common.Hash{}) {
 		log.Warn("Genesis block not found in Taiko contract")
@@ -141,11 +141,11 @@ func (c *Client) ensureGenesisMatched(
 	}
 
 	// Node's genesis header and Taiko contract's genesis header must match.
-	if common.Hash(l2GenesisHash) != nodeGenesis.Hash() {
+	if l2GenesisHash != nodeGenesis.Hash() {
 		return fmt.Errorf(
 			"genesis header hash mismatch, node: %s, Taiko contract: %s",
 			nodeGenesis.Hash(),
-			common.Hash(l2GenesisHash),
+			l2GenesisHash,
 		)
 	}
 
