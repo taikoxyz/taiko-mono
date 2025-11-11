@@ -5,7 +5,6 @@ import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -95,6 +94,14 @@ contract Anchor is EssentialContract {
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
+
+    /// @dev EIP-712 domain/type hashes for prover authorization signatures.
+    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant PROVER_AUTH_TYPEHASH =
+        keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
+    bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
+    bytes32 private constant PROVER_AUTH_DOMAIN_VERSION_HASH = keccak256("1");
 
     // ---------------------------------------------------------------
     // Immutables
@@ -325,7 +332,7 @@ contract Anchor is EssentialContract {
         bytes calldata _proverAuth
     )
         public
-        pure
+        view
         returns (address signer_, uint256 provingFee_)
     {
         if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
@@ -508,11 +515,30 @@ contract Anchor is EssentialContract {
     }
 
     /// @dev Hashes a `ProverAuth` payload into the message that must be signed by the prover.
-    function _hashProverAuthMessage(ProverAuth memory _auth) private pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_auth.proposalId)),
-            bytes32(uint256(uint160(_auth.proposer))),
-            bytes32(uint256(_auth.provingFee))
+    /// @dev Uses EIP-712 structured data hashing for better security and wallet compatibility.
+    function _hashProverAuthMessage(ProverAuth memory _auth) private view returns (bytes32) {
+        bytes32 structHash = _hashProverAuthStruct(_auth);
+        return ECDSA.toTypedDataHash(_proverAuthDomainSeparator(), structHash);
+    }
+
+    /// @dev Returns the EIP-712 struct hash for a `ProverAuth` payload.
+    function _hashProverAuthStruct(ProverAuth memory _auth) private pure returns (bytes32) {
+        return keccak256(
+            abi.encode(PROVER_AUTH_TYPEHASH, _auth.proposalId, _auth.proposer, _auth.provingFee)
+        );
+    }
+
+    /// @dev Builds the EIP-712 domain separator for prover authorization signatures.
+    /// @dev Uses standard EIP-712 fields: name, version, chainId, and verifyingContract.
+    function _proverAuthDomainSeparator() private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                PROVER_AUTH_DOMAIN_TYPEHASH,
+                PROVER_AUTH_DOMAIN_NAME_HASH,
+                PROVER_AUTH_DOMAIN_VERSION_HASH,
+                block.chainid,
+                address(this)
+            )
         );
     }
 
