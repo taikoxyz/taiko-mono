@@ -176,7 +176,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 2))
             });
         } else {
-            PreconfWhitelist(whitelist).upgradeTo(new PreconfWhitelist());
+            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
         }
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
