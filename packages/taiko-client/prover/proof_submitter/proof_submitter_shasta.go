@@ -482,41 +482,6 @@ func (s *ProofSubmitterShasta) validateBatchProofs(
 			continue
 		}
 
-		// Validate each block in each proposal.
-		for _, blockHeader := range proof.Opts.ShastaOptions().Headers {
-			// Get the corresponding L2 block.
-			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
-			if err != nil {
-				log.Error(
-					"Failed to get L2 block with given hash",
-					"proposalID", proposalID,
-					"blockID", blockHeader.Number,
-					"hash", blockHeader.Hash(),
-					"error", err,
-				)
-				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
-				break
-			}
-
-			if block.Transactions().Len() == 0 {
-				log.Error(
-					"Invalid block without anchor transaction",
-					"proposalID", proposalID,
-					"blockID", block.Number(),
-				)
-				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
-				break
-			}
-
-			// Validate TaikoAnchor.anchoV4 transaction inside the L2 block.
-			anchorTx := block.Transactions()[0]
-			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-				log.Error("Invalid anchor transaction", "error", err)
-				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
-				break
-			}
-		}
-
 		// Check if the proof has already been submitted.
 		transitionPayload := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
 		if transitionPayload != nil {
