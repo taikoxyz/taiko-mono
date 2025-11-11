@@ -119,6 +119,7 @@ func InitFromConfig(
 		TaikoTokenAddress:     cfg.TaikoTokenAddress,
 		ProverSetAddress:      cfg.ProverSetAddress,
 		Timeout:               cfg.RPCTimeout,
+		ShastaForkTime:        cfg.ShastaForkTime,
 		UseLocalShastaDecoder: cfg.UseLocalShastaDecoder,
 	}); err != nil {
 		return err

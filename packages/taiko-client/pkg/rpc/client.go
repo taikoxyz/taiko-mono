@@ -81,6 +81,7 @@ type ClientConfig struct {
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
+	ShastaForkTime              uint64
 	UseLocalShastaDecoder       bool
 }
 
@@ -296,20 +297,25 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
+	// Initialize Shasta clients with a fork-time value determined by precedence:
+	// 1) CLI flag (cfg.ShastaForkTime)
+	// 2) Env var TAIKO_INTERNAL_SHASTA_TIME
+	forkTime := cfg.ShastaForkTime
+	if forkTime == 0 {
+		if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
+			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
+				forkTime = parsed
+			}
+		}
+	}
+
 	c.ShastaClients = &ShastaClients{
 		Inbox:           shastaInbox,
 		InboxCodec:      inboxCodec,
 		Anchor:          shastaAnchor,
 		ComposeVerifier: composeVerifier,
-		ForkTime:        c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+		ForkTime:        forkTime,
 		UseLocalDecoder: cfg.UseLocalShastaDecoder,
-	}
-	// If an environment override is provided, prefer it to keep tests/tools
-	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
-	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
-		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
-			c.ShastaClients.ForkTime = parsed
-		}
 	}
 
 	return nil
