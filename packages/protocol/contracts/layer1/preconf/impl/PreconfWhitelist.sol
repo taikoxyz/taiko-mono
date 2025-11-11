@@ -255,6 +255,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             uint256 _operatorCount = operatorCount;
             uint32 _latestActivationEpoch = latestActivationEpoch;
 
+            if (_operatorCount == 0) return address(0);
             uint256 randomNumber = _getRandomNumber(randomnessTs);
             if (_epochTimestamp >= _latestActivationEpoch) {
                 // Fast path: This means all operators are active, so we can just select one without checking
