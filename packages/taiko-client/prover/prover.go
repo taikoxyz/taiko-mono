@@ -119,6 +119,7 @@ func InitFromConfig(
 		TaikoTokenAddress:     cfg.TaikoTokenAddress,
 		ProverSetAddress:      cfg.ProverSetAddress,
 		Timeout:               cfg.RPCTimeout,
+		ShastaForkTime:        cfg.ShastaForkTime,
 		UseLocalShastaDecoder: cfg.UseLocalShastaDecoder,
 	}); err != nil {
 		return err
@@ -355,11 +356,10 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return fmt.Errorf("empty batch proof")
 	}
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		return p.proofSubmitterShasta.BatchSubmitProofs(p.ctx, batchProof)
-	}
-
 	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}

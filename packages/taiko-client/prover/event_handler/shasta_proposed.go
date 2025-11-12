@@ -152,7 +152,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 				"batchID", batchID,
 				"parentBlockHash", header.ParentHash,
 				"parentTransitionHash", parentTransitionHash,
-				"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+				"proposalHash", common.Hash(record.Transition.ProposalHash),
 			)
 			return nil
 		}
@@ -162,7 +162,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"batchID", batchID,
 			"parentBlockHash", header.ParentHash,
 			"parentTransitionHash", parentTransitionHash,
-			"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+			"proposalHash", common.Hash(record.Transition.ProposalHash),
 		)
 		// We need to submit a valid proof.
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
