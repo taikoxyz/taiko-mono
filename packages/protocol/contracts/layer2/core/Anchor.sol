@@ -395,12 +395,12 @@ contract Anchor is EssentialContract {
     function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-        getDesignatedProver(
-            _proposalParams.proposalId,
-            _proposalParams.proposer,
-            _proposalParams.proverAuth,
-            _proposalState.designatedProver
-        );
+            getDesignatedProver(
+                _proposalParams.proposalId,
+                _proposalParams.proposer,
+                _proposalParams.proverAuth,
+                _proposalState.designatedProver
+            );
 
         if (proverFee > 0) {
             bondManager.debitBond(_proposalParams.proposer, proverFee);
@@ -529,12 +529,18 @@ contract Anchor is EssentialContract {
         }
 
         assembly {
-            oldAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            oldAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
 
         inputs[parentId % 255] = blockhash(parentId);
         assembly {
-            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newAncestorsHash_ := keccak256(
+                inputs,
+                8192 /*mul(256, 32)*/
+            )
         }
     }
 
