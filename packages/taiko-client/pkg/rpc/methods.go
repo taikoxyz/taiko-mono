@@ -908,10 +908,8 @@ func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int
 	// If batchID is zero, we try to fetch the last Pacaya batch's last block L1Origin.
 	if batchID.Cmp(common.Big0) == 0 {
 		lastPacayaBlockID, err := c.LastPacayaBlockID(ctxWithTimeout)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
-		}
-		if lastPacayaBlockID.Cmp(common.Big0) == 0 {
+		if err != nil || lastPacayaBlockID.Cmp(common.Big0) == 0 {
+			log.Info("Failed to fetch last Pacaya block ID, return L1Origin with zero block ID")
 			return &rawdb.L1Origin{BlockID: common.Big0}, nil
 		}
 
