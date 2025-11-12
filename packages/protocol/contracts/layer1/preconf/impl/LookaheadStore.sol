@@ -640,7 +640,9 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
+            commitmentType: LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
+            payload: abi.encode(_lookahead),
+            slasher: lookaheadSlasher
         });
     }
 
