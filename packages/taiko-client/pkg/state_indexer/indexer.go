@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -373,14 +374,37 @@ func (s *Indexer) onProposedEvent(
 		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),
 	)
-	s.cleanupFinalizedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
-	s.cleanupLegacyProposals(proposal.Id.Uint64())
-
 	return nil
+}
+
+// cleanupAfterEvents performs maintenance cleanup on proposals and transition records.
+// NOT THREAD-SAFE
+func (s *Indexer) cleanupAfterEvents() {
+	// Determine the latest proposal ID and the last finalized proposal ID
+	var lastProposalId uint64
+	var lastFinalizedId uint64
+	for _, p := range s.proposals {
+		if p == nil || p.Proposal == nil || p.CoreState == nil {
+			continue
+		}
+		id := p.Proposal.Id.Uint64()
+		if id > lastProposalId {
+			lastProposalId = id
+			lastFinalizedId = p.CoreState.LastFinalizedProposalId.Uint64()
+		}
+	}
+
+	if lastFinalizedId != 0 {
+		s.cleanupFinalizedTransitionRecords(lastFinalizedId)
+	}
+	if lastProposalId != 0 {
+		s.cleanupLegacyProposals(lastProposalId)
+	}
 }
 
 // liveIndex live indexes proposals from the last indexed block to the new head.
 func (s *Indexer) liveIndex(newHead *types.Header) error {
+	// Snapshot current cursor under lock, then release for RPC work
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	lastIndexed := s.lastIndexedBlock
@@ -448,37 +472,51 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 
 	log.Debug("Live indexing Shasta events", "from", startHeight, "to", newHead.Number)
 
-	// Index proposed events
-	iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
-		RpcClient:             s.rpc,
-		MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-		StartHeight:           startHeight,
-		EndHeight:             newHead.Number,
-		OnBatchProposedEvent:  s.onProposedEvent,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
-	}
-	if err := iter.Iter(); err != nil {
-		return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
-	}
+	// Run proposed and proved indexing in parallel.
+	g, _ := errgroup.WithContext(s.ctx)
 
-	// Index proved events
-	iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
-		RpcClient:             s.rpc,
-		MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-		StartHeight:           startHeight,
-		EndHeight:             newHead.Number,
-		OnShastaProvedEvent:   s.onProvedEvent,
+	// Proposed events iterator
+	g.Go(func() error {
+		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
+			RpcClient:             s.rpc,
+			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
+			StartHeight:           startHeight,
+			EndHeight:             newHead.Number,
+			OnBatchProposedEvent:  s.onProposedEvent,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
+		}
+		if err := iter.Iter(); err != nil {
+			return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
+		}
+		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
-	}
-	if err := iterProved.Iter(); err != nil {
-		return fmt.Errorf("failed to iterate Shasta Proved events: %w", err)
+
+	// Proved events iterator
+	g.Go(func() error {
+		iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
+			RpcClient:             s.rpc,
+			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
+			StartHeight:           startHeight,
+			EndHeight:             newHead.Number,
+			OnShastaProvedEvent:   s.onProvedEvent,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
+		}
+		if err := iterProved.Iter(); err != nil {
+			return fmt.Errorf("failed to iterate Shasta Proved events: %w", err)
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	s.lastIndexedBlock = newHead
+	s.cleanupAfterEvents()
 
 	return nil
 }

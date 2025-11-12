@@ -194,32 +194,37 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 		"l1Height", meta.GetRawBlockHeight(),
 		"sidecars", len(sidecars),
 	)
+	// Build a map of blobHash -> blobBytes for O(1) lookup.
+	blobMap := make(map[common.Hash][]byte, len(sidecars))
+	for j, sidecar := range sidecars {
+		log.Debug(
+			"Block sidecar",
+			"index", j,
+			"KzgCommitment", sidecar.KzgCommitment,
+		)
 
-	var b []byte
-	for _, blobHash := range blobHashes {
-		// Compare the blob hash with the sidecar's kzg commitment.
-		for j, sidecar := range sidecars {
-			log.Debug(
-				"Block sidecar",
-				"index", j,
-				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", blobHash,
-			)
+		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+		hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
 
-			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-				blob := eth.Blob(common.FromHex(sidecar.Blob))
-				bytes, err := blob.ToData()
-				if err != nil {
-					return nil, err
-				}
-
-				b = append(b, bytes...)
-				// Exit the loop as the matching sidecar has been found and processed.
-				break
-			}
+		blob := eth.Blob(common.FromHex(sidecar.Blob))
+		bytes, err := blob.ToData()
+		if err != nil {
+			return nil, err
 		}
+		blobMap[hash] = bytes
 	}
+
+	// Append in the order of blobHashes to preserve semantics.
+	var b []byte
+	for _, h := range blobHashes {
+		bytes, ok := blobMap[h]
+		if !ok {
+			// If any requested blob is missing, surface a clear error.
+			return nil, fmt.Errorf("requested blob hash %s not found in sidecars", h.Hex())
+		}
+		b = append(b, bytes...)
+	}
+
 	if len(b) == 0 {
 		return nil, pkg.ErrSidecarNotFound
 	}
