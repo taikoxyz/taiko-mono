@@ -915,7 +915,7 @@ func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int
 
 		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, lastPacayaBlockID)
 		if err != nil {
-			return nil, fmt.Errorf("L1Origin not found for last block in batch ID %d: %w", batchID, err)
+			return nil, fmt.Errorf("L1Origin not found for last Pacaya block ID %d: %w", lastPacayaBlockID, err)
 		}
 		return l1Origin, nil
 	}
