@@ -248,19 +248,19 @@ func (s *ProverTestSuite) TestProveAfterExtendedWindow() {
 	// Propose `BondProcessingDelay + 1` more Shasta proposals to ensure the bond instructions are processed.
 	for i := 0; i <= manifest.BondProcessingDelay; i++ {
 		s.True(s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer()).IsShasta())
+
+		l2Head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+		s.Nil(err)
+		s.Greater(l2Head.Transactions().Len(), 0)
+		receipt, err := s.RPCClient.L2.TransactionReceipt(context.Background(), l2Head.Transactions()[0].Hash())
+		s.Nil(err)
+		s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 	}
 
 	// Check the proposal state, the bond instructions should be processed.
 	state, err = s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
 	s.Nil(err)
 	s.NotZero(state.BondInstructionsHash)
-
-	l2Head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Greater(l2Head.Transactions().Len(), 0)
-	receipt, err := s.RPCClient.L2.TransactionReceipt(context.Background(), l2Head.Transactions()[0].Hash())
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
