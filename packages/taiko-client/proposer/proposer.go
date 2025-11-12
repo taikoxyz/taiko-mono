@@ -239,6 +239,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
 	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
