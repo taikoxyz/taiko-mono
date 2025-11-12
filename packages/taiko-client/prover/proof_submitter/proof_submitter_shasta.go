@@ -18,7 +18,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
-	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
@@ -37,10 +36,9 @@ type ProofSubmitterShasta struct {
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	// Utilities
-	anchorValidator *validator.AnchorTxValidator
-	txBuilder       *transaction.ProveBatchesTxBuilder
-	sender          *transaction.Sender
-	indexer         *shastaIndexer.Indexer
+	txBuilder *transaction.ProveBatchesTxBuilder
+	sender    *transaction.Sender
+	indexer   *shastaIndexer.Indexer
 	// Addresses
 	proverAddress common.Address
 	// Batch proof related
