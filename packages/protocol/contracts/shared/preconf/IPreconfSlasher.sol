@@ -25,7 +25,7 @@ interface IPreconfSlasher {
 
     // The slashing reason forwarded to the L1 preconfirmation slasher
     enum Fault {
-        // The preconfer did not submit a preconfed block
+        // The preconfer did not submit a preconfed block to the L1 inbox
         // (If the submission slot on L1 is a missed slot, it's a liveness fault, else a safety
         // fault)
         MissedSubmission,
