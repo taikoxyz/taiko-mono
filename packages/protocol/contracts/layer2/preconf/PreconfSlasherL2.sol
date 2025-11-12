@@ -5,7 +5,6 @@ import { Anchor } from "src/layer2/core/Anchor.sol";
 import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 
 /// @title PreconfSlasherL2
@@ -203,6 +202,8 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             abi.encode(_fault, _registrationRoot, _signedCommitment)
         );
 
+        uint64 destChainId = Anchor(anchor).l1ChainId();
+
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             fee: 0,
@@ -210,7 +211,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             from: address(0),
             srcChainId: 0,
             srcOwner: msg.sender,
-            destChainId: uint64(LibNetwork.ETHEREUM_MAINNET),
+            destChainId: destChainId,
             destOwner: msg.sender,
             to: unifiedSlasher,
             value: 0,
