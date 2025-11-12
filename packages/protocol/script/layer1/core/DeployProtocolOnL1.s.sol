@@ -184,18 +184,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         address bondToken =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
 
-        address signalService;
-        bool signalServiceExists = true;
-        try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), "signal_service", false) returns (
-            address existing
-        ) {
-            signalService = existing;
-        } catch {
-            signalServiceExists = false;
-        }
+        address signalService =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
 
-        if (!signalServiceExists) {
+        if (signalService == address(0)) {
             SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
             signalService = deployProxy({
                 name: "signal_service",
@@ -211,9 +203,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
-            impl: address(
-                new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
-            ),
+            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 
@@ -222,16 +212,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        if (!signalServiceExists) {
-            SignalService upgradedSignalServiceImpl =
-                new SignalService(shastaInbox, config.remoteSigSvc);
-            SignalService(signalService).upgradeTo(address(upgradedSignalServiceImpl));
-            console2.log("SignalService upgraded with Shasta inbox authorized syncer");
+        SignalService(signalService).upgradeTo(
+            address(new SignalService(shastaInbox, config.remoteSigSvc))
+        );
+        console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
-            if (config.contractOwner != msg.sender) {
-                Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
-                console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
-            }
+        if (config.contractOwner != msg.sender) {
+            Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
+            console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
         }
     }
 
@@ -297,8 +285,9 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
-        address signalService = IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
+        address signalService = IResolver(sharedResolver).resolve(
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
+        );
 
         address bridge = deployProxy({
             name: "bridge",
@@ -363,8 +352,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
         // Deploy sgx-geth automata attestation proxy
@@ -372,8 +360,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "sgx_geth_automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
     }

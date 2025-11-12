@@ -37,14 +37,15 @@ contract DevnetInbox is InboxOptimized2 {
         address _taikoToken,
         address _checkpointStore
     )
-        InboxOptimized2(IInbox.Config({
+        InboxOptimized2(
+            IInbox.Config({
                 bondToken: _taikoToken,
                 checkpointStore: _checkpointStore,
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                provingWindow: 2 hours,
-                extendedProvingWindow: 4 hours,
+                provingWindow: 72 seconds,
+                extendedProvingWindow: 144 seconds,
                 maxFinalizationCount: 16,
                 finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
@@ -56,7 +57,8 @@ contract DevnetInbox is InboxOptimized2 {
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
                 compositeKeyVersion: 1
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------
