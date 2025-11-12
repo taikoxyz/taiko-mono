@@ -254,7 +254,7 @@ func (s *ProverTestSuite) TestProveAfterExtendedWindow() {
 		}
 	}
 
-	// Propose `BondProcessingDelay` more Shasta proposals to ensure the bond instructions are processed.
+	// Propose `BondProcessingDelay + 1` more Shasta proposals to ensure the bond instructions are processed.
 	for i := 0; i <= manifest.BondProcessingDelay; i++ {
 		s.True(s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer()).IsShasta())
 	}
