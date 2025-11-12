@@ -79,8 +79,6 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Metadata that will be required for slashing violations of permissionless preconfs.
-    /// @dev This will be stored for whitelist preconfirmations as well, but will only be useful
-    /// when we activate permissionless preconfs.
     struct PreconfMetadata {
         uint48 anchorBlockNumber;
         uint48 submissionWindowEnd;
@@ -152,8 +150,6 @@ contract Anchor is EssentialContract {
     BlockState internal _blockState;
 
     /// @notice Mapping from block number to preconfirmation metadata
-    /// @dev This will be stored for whitelist preconfirmations as well, but will only be useful
-    /// when we activate permissionless preconfs.
     mapping(uint256 blockNumber => PreconfMetadata metadata) internal _preconfMetadata;
 
     /// @notice Storage gap for upgrade safety.
@@ -444,7 +440,7 @@ contract Anchor is EssentialContract {
     }
 
     /// @dev Stores preconfirmation metadata for the given proposal and block.
-    /// This information is used for slashing and permissionless preconfs.
+    /// This information is used for slashing on permissionless preconfs.
     /// @param _proposalParams The proposal-level parameters.
     /// @param _blockParams The block-level parameters.
     function _storePreconfMetadata(
