@@ -239,11 +239,16 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
+	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		manifest.MaxBlockGasLimit,
+		uint32(l2Head.GasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
@@ -295,7 +300,6 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	ok, err := p.shouldPropose(ctx)
-
 	if err != nil {
 		return fmt.Errorf("failed to check if proposer should propose: %w", err)
 	} else if !ok {
