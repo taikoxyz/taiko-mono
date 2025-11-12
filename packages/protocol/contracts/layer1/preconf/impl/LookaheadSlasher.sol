@@ -278,4 +278,16 @@ contract LookaheadSlasher is ILookaheadSlasher {
             z.offset := add(zOuterOffset, 0x20)
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidCommitmentType();
+    error InvalidLookaheadSlotsIndex();
+    error InvalidRegistrationProofValidator();
+    error LookaheadHashMismatch();
+    error PreconfValidatorIsSameAsBeaconValidator();
+    error PreconfValidatorIsNotRegistered();
+    error RegistrationRootMismatch();
 }

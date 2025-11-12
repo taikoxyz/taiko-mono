@@ -12,11 +12,6 @@ interface IPreconfSlasherL1 is IMessageInvocable {
         uint256 safetyFault;
     }
 
-    error CallerIsNotPreconfSlasherL2();
-    error ChallengerIsNotSelf();
-    error InvalidCommitmentType();
-    error MissedSlot();
-
     /// @notice Called by the URC to slash for preconfirmation faults.
     /// @param _commitment The preconfirmation commitment
     /// @param _evidence Evidence for the detected fault

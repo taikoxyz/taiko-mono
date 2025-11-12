@@ -19,9 +19,6 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
     address public immutable preconfSlasherL1;
     address public immutable lookaheadSlasher;
 
-    error CallerIsNotURC();
-    error UnsupportedCommitmentType();
-
     constructor(address _preconfSlasherL1, address _lookaheadSlasher) EssentialContract() {
         preconfSlasherL1 = _preconfSlasherL1;
         lookaheadSlasher = _lookaheadSlasher;
@@ -91,4 +88,11 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CallerIsNotURC();
+    error UnsupportedCommitmentType();
 }

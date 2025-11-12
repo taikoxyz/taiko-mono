@@ -53,14 +53,6 @@ interface ILookaheadSlasher {
         IRegistry.RegistrationProof operatorRegistrationProof;
     }
 
-    error InvalidCommitmentType();
-    error InvalidLookaheadSlotsIndex();
-    error InvalidRegistrationProofValidator();
-    error LookaheadHashMismatch();
-    error PreconfValidatorIsSameAsBeaconValidator();
-    error PreconfValidatorIsNotRegistered();
-    error RegistrationRootMismatch();
-
     /// @notice Called by the URC to slash for faults in the lookahead.
     /// @param _commitment The lookahead slots commitment
     /// @param _evidence Evidence for the detected fault

@@ -90,4 +90,13 @@ contract PreconfSlasherL1 is IPreconfSlasherL1 {
         // Note: These values will be changed
         return SlashAmount({ livenessFault: 0.5 ether, safetyFault: 1 ether });
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CallerIsNotPreconfSlasherL2();
+    error ChallengerIsNotSelf();
+    error InvalidCommitmentType();
+    error MissedSlot();
 }
