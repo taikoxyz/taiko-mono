@@ -261,11 +261,11 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
         whitelist.addOperator(Bob, _getSequencerAddress(Bob));
 
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyExists.selector);
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
 
         whitelist.removeOperator(Alice, false);
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyRemoved.selector);
         whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
@@ -330,7 +330,7 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.addOperator(Carol, _getSequencerAddress(Carol));
 
         // Now try to remove non-existing operator
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
@@ -433,7 +433,7 @@ contract TestPreconfWhitelist is CommonTest {
 
     function test_whitelist_removeOperatorUnauthorizedWillRevert() external {
         vm.prank(Bob);
-        vm.expectRevert(IPreconfWhitelist.NotOwnerOrEjecter.selector);
+        vm.expectRevert(PreconfWhitelist.NotOwnerOrEjecter.selector);
         whitelist.removeOperator(0);
     }
 

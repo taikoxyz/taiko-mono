@@ -15,7 +15,7 @@ import "src/layer1/preconf/libs/LibEIP4788.sol";
 /// @dev The contract inherits from the `ISlasher` interface containing the `slash` function
 /// required by the URC.
 /// @custom:security-contact security@taiko.xyz
-interface ILookaheadSlasher is ISlasher {
+interface ILookaheadSlasher {
     /// @dev Evidence for the problematic slot in the preconfer lookahead.
     struct EvidenceLookahead {
         // Timestamp of the problematic slot
@@ -53,10 +53,15 @@ interface ILookaheadSlasher is ISlasher {
         IRegistry.RegistrationProof operatorRegistrationProof;
     }
 
-    error InvalidLookaheadSlotsIndex();
-    error InvalidRegistrationProofValidator();
-    error LookaheadHashMismatch();
-    error PreconfValidatorIsSameAsBeaconValidator();
-    error PreconfValidatorIsNotRegistered();
-    error RegistrationRootMismatch();
+    /// @notice Called by the URC to slash for faults in the lookahead.
+    /// @param _commitment The lookahead slots commitment
+    /// @param _evidence Evidence for the detected fault
+    /// @return Slash amount applied for the given evidence and commitment
+    function slash(
+        ISlasher.Commitment calldata _commitment,
+        bytes calldata _evidence
+    )
+        external
+        view
+        returns (uint256);
 }
