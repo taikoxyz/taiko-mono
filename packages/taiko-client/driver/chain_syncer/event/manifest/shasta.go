@@ -336,7 +336,7 @@ func validateMetadataTimestamp(sourcePayload *ShastaDerivationSourcePayload, pro
 		}
 
 		// Calculate lower bound for timestamp.
-		lowerBound := max(parentTimestamp+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
+		lowerBound := max(parentTimestamp, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
 		if sourcePayload.BlockPayloads[i].Timestamp < lowerBound {
 			log.Info(
 				"Adjusting block timestamp to lower bound",
