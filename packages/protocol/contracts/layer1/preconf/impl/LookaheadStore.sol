@@ -640,7 +640,38 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
+            commitmentType: LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
+            payload: abi.encode(_lookahead),
+            slasher: lookaheadSlasher
         });
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CommitmentSignerMismatch();
+    error CommitterMismatch();
+    error InvalidLookahead();
+    error InvalidLookaheadEpoch();
+    error InvalidLookaheadTimestamp();
+    error InvalidSlotIndex();
+    error InvalidSlotTimestamp();
+    error InvalidValidatorLeafIndex();
+    error LookaheadNotRequired();
+    error NotInbox();
+    error OperatorHasBeenBlacklisted();
+    error OperatorHasBeenSlashed();
+    error OperatorHasInsufficientCollateral();
+    error OperatorHasNotOptedIn();
+    error OperatorHasNotRegistered();
+    error OperatorHasUnregistered();
+    error PosterHasBeenSlashed();
+    error PosterHasInsufficientCollateral();
+    error PosterHasNotOptedIn();
+    error PosterHasUnregistered();
+    error ProposerIsNotPreconfer();
+    error ProposerIsNotFallbackPreconfer();
+    error SlasherIsNotLookaheadSlasher();
+    error SlotTimestampIsNotIncrementing();
 }
