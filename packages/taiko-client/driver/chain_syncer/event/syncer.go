@@ -712,7 +712,7 @@ func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
 	return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
 }
 
-// blocksInserterShasta returns the Shasta blocks inserter.
+// BlocksInserterShasta returns the Shasta blocks inserter.
 func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
 	return s.blocksInserterShasta.(*blocksInserter.Shasta)
 }
