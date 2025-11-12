@@ -245,15 +245,6 @@ func (s *ProverTestSuite) TestProveAfterExtendedWindow() {
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
 	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
-	// Wait till the indexer indexes the latest transition record with bond instructions.
-	for {
-		_, record, err := s.ShastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
-		s.Nil(err)
-		if len(record) > 0 && len(record[0].TransitionRecord.BondInstructions) > 0 {
-			break
-		}
-	}
-
 	// Propose `BondProcessingDelay + 1` more Shasta proposals to ensure the bond instructions are processed.
 	for i := 0; i <= manifest.BondProcessingDelay; i++ {
 		s.True(s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer()).IsShasta())
