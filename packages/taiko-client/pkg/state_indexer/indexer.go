@@ -277,6 +277,7 @@ func (s *Indexer) onProvedEvent(
 		"checkpoint", transition.Checkpoint.BlockNumber,
 		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
 		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
+		"bondInstructionsHash", len(record.BondInstructions),
 		"timeStamp", header.Time,
 	)
 

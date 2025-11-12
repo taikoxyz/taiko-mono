@@ -97,7 +97,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 
-	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatch(
+	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatchShasta(
 		ctx,
 		new(big.Int).Sub(meta.Shasta().GetProposal().Id, common.Big1),
 	)

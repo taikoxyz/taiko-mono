@@ -221,8 +221,11 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		log.Info(
 			"Fetched transition from state indexer",
 			"index", i,
+			"proposalID", t.ProposalId,
 			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
 			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
+			"checkpointBlockHash", common.Bytes2Hex(t.Transition.Checkpoint.BlockHash[:]),
+			"bondInstructionsHash", len(t.TransitionRecord.BondInstructions),
 		)
 		if i == len(transitions)-1 {
 			checkpoint = t.Transition.Checkpoint
