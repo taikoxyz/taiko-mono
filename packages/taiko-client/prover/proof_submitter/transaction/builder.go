@@ -289,7 +289,7 @@ func BuildParentTransitionHash(
 			log.Debug(
 				"Using cached Shasta transition record",
 				"proposalId", transition.ProposalId,
-				"hash", common.BytesToHash(transition.TransitionRecord.TransitionHash[:]),
+				"hash", common.Hash(transition.TransitionRecord.TransitionHash),
 			)
 			var blockNumber *big.Int
 			if transition.Transition.Checkpoint.BlockNumber != nil {

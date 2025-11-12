@@ -431,7 +431,7 @@ func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
 		case <-ticker.C:
 			transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
 			if transition != nil {
-				return common.BytesToHash(transition.TransitionRecord.TransitionHash[:]), nil
+				return common.Hash(transition.TransitionRecord.TransitionHash), nil
 			}
 			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
 		}

@@ -593,7 +593,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 				"Verified block matched, start reorging",
 				"currentHeightToCheck", batch.LastBlockId,
 				"chainBlockHash", header.Hash(),
-				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
+				"transitionBlockHash", common.Hash(ts.BlockHash),
 			)
 			reorgCheckResult.IsReorged = true
 			if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
@@ -610,7 +610,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 			"Verified block mismatch",
 			"currentHeightToCheck", batch.LastBlockId,
 			"chainBlockHash", header.Hash(),
-			"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
+			"transitionBlockHash", common.Hash(ts.BlockHash),
 		)
 
 		lastVerifiedBatchID = previousBatch.BatchId
@@ -650,7 +650,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.BytesToHash(record.Transition.Checkpoint.BlockHash[:]),
+		"transitionBlockHash", common.Hash(record.Transition.Checkpoint.BlockHash),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
