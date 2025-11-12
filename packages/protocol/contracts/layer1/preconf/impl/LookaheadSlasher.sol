@@ -9,8 +9,6 @@ import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
-import "./LookaheadSlasher_Layout.sol"; // DO NOT DELETE
-
 /// @title LookaheadSlasher
 /// @dev This is a stateless contract intended to be delegatecall-ed to by the `UnifiedSlasher`
 /// @custom:security-contact security@taiko.xyz

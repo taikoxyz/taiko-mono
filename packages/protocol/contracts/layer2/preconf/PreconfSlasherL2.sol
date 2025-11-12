@@ -7,6 +7,8 @@ import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 
+import "./PreconfSlasherL2_Layout.sol"; // DO NOT DELETE
+
 /// @title PreconfSlasherL2
 /// @notice PreconfSlasherL2 is a smart contract that validates preconfirmations on Layer 2
 /// and forwards slashing requests to the L1 preconfirmation slasher contract when violations
