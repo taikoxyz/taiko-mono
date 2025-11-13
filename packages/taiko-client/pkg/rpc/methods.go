@@ -900,29 +900,29 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInBatch fetches the L1Origin of the last block in the given batch.
-func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
+// LastL1OriginInBatchShasta fetches the L1Origin of the last block in the given Shasta batch.
+func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	// If we can't find the L1Origin from the L2 execution engine, we will fetch it from the Pacaya protocol.
-	// NOTE: here we assume that when Shasta fork is activated, all Pacaya protocol calls will revert.
-	batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
-	if err != nil {
-		// Try to fetch the L1Origin (for Shasta blocks) from the L2 execution engine.
-		// NOTE: here we assume that if we pass a Shasta batch ID to fork router and call Pacaya TaikoInbox
-		// contract to try to get a Pacaya batch, it will return an error.
-		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
-		if err != nil {
-			return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
+	// If batchID is zero, we try to fetch the last Pacaya batch's last block L1Origin.
+	if batchID.Cmp(common.Big0) == 0 {
+		lastPacayaBlockID, err := c.LastPacayaBlockID(ctxWithTimeout)
+		if err != nil || lastPacayaBlockID.Cmp(common.Big0) == 0 {
+			log.Info("Failed to fetch last Pacaya block ID, return L1Origin with zero block ID")
+			return &rawdb.L1Origin{BlockID: common.Big0}, nil
 		}
 
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, lastPacayaBlockID)
+		if err != nil {
+			return nil, fmt.Errorf("L1Origin not found for last Pacaya block ID %d: %w", lastPacayaBlockID, err)
+		}
 		return l1Origin, nil
 	}
 
-	l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+	l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch L1Origin by ID: %w", err)
+		return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
 	}
 
 	return l1Origin, nil
