@@ -440,8 +440,9 @@ func (s *Syncer) processShastaProposal(
 		); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
-		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
-			return fmt.Errorf("failed to fetch the new parent block: %w", err)
+		if parent, err = s.rpc.WaitL2Block(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
+			log.Error("Failed to fetch the new parent block", "error", err)
+			return err
 		}
 
 	}
