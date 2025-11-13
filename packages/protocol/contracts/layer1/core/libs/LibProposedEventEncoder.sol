@@ -153,6 +153,7 @@ library LibProposedEventEncoder {
 
                 uint8 bondType;
                 (bondType, ptr) = P.unpackUint8(ptr);
+                require(bondType <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
                 payload_.bondInstructions[i].bondType = LibBonds.BondType(bondType);
 
                 (payload_.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
@@ -198,4 +199,10 @@ library LibProposedEventEncoder {
             size_ += _bondInstructions.length * (6 + 1 + 20 + 20);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidBondType();
 }
