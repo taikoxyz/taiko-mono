@@ -9,6 +9,7 @@ use k256::{
     },
 };
 use thiserror::Error;
+use tracing::{debug, instrument};
 
 /// Golden touch testnet private key used by the protocol.
 pub const GOLDEN_TOUCH_PRIVATE_KEY: &str =
@@ -50,6 +51,7 @@ pub struct FixedKSigner {
 
 impl FixedKSigner {
     /// Instantiate a signer from a hex-encoded private key (with or without `0x`).
+    #[instrument(skip(private_key_hex))]
     pub fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
         let trimmed = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
         let bytes = hex::decode_to_array::<_, 32>(trimmed)
@@ -65,10 +67,12 @@ impl FixedKSigner {
 
         let address = Self::derive_address(&scalar);
 
+        debug!(?address, "initialised fixed-k signer");
         Ok(Self { secret_scalar: scalar, address, chain_id: None })
     }
 
     /// Convenience helper that instantiates the signer using the embedded golden-touch key.
+    #[instrument]
     pub fn golden_touch() -> Result<Self, FixedKSignerError> {
         Self::new(GOLDEN_TOUCH_PRIVATE_KEY)
     }
@@ -76,12 +80,14 @@ impl FixedKSigner {
     /// Attempt to sign the provided digest using a fixed list of `k` candidates.
     ///
     /// The method mirrors the Go implementation by first trying `k = 1`, then `k = 2`.
+    #[instrument(skip(self, hash))]
     pub fn sign_with_predefined_k(
         &self,
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         for candidate in [Scalar::ONE, Scalar::from(2u64)] {
             if let Ok(signature) = self.sign_with_specific_k(candidate, hash) {
+                debug!(?candidate, "generated signature with fixed k");
                 return Ok(signature);
             }
         }
@@ -89,6 +95,7 @@ impl FixedKSigner {
     }
 
     /// Perform a fixed-`k` signing attempt. The caller is responsible for providing a valid `k`.
+    #[instrument(skip(self, hash))]
     pub fn sign_with_specific_k(
         &self,
         k: Scalar,
@@ -130,6 +137,12 @@ impl FixedKSigner {
             (recovery_id & 1) == 1,
         );
 
+        debug!(
+            r = ?r_bytes,
+            s = ?s_bytes,
+            recovery_id,
+            "produced fixed-k signature"
+        );
         Ok(SignatureWithRecoveryId { signature, recovery_id })
     }
 
@@ -144,7 +157,9 @@ impl FixedKSigner {
     fn sign_hash_internal(&self, hash: &B256) -> Result<AlloySignature, FixedKSignerError> {
         let mut bytes = [0u8; 32];
         bytes.copy_from_slice(hash.as_slice());
-        Ok(self.sign_with_predefined_k(&bytes)?.signature)
+        let sig = self.sign_with_predefined_k(&bytes)?;
+        debug!(address = ?self.address, "produced signature for hash");
+        Ok(sig.signature)
     }
 }
 

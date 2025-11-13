@@ -55,6 +55,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proposerAddress;
         bool useDummyVerifiers;
         bool pauseBridge;
+        address preconfWhitelist;
     }
 
     modifier broadcast() {
@@ -105,6 +106,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
+        config.preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
@@ -166,12 +168,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         returns (address shastaInbox)
     {
         // Deploy whitelist
-        address whitelist = deployProxy({
-            name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 0))
-        });
-
+        address whitelist = config.preconfWhitelist;
+        if (whitelist == address(0)) {
+            whitelist = deployProxy({
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 2))
+            });
+        } else {
+            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
+        }
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
         // Get dependencies
@@ -208,7 +214,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
             ),
-            data: abi.encodeCall(Inbox.init, (address(0), msg.sender))
+            data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 
         if (vm.envBool("ACTIVATE_INBOX")) {

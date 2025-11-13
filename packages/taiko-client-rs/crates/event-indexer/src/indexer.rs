@@ -5,7 +5,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use alloy::{rpc::types::Log, sol_types::SolEvent};
@@ -151,9 +151,11 @@ impl ShastaEventIndexer {
             "subscribing to L1"
         );
 
-        let mut event_scanner = source
-            .to_event_scanner_sync_from_latest_scanning(self.ring_buffer_size() as usize)
-            .await?;
+        const HISTORICAL_EVENT_MULTIPLIER: usize = 2;
+        let replay_count =
+            self.ring_buffer_size().saturating_mul(HISTORICAL_EVENT_MULTIPLIER as u64);
+        let mut event_scanner =
+            source.to_event_scanner_sync_from_latest_scanning(replay_count as usize).await?;
 
         // Filter for inbox events.
         let filter = EventFilter::new()
@@ -336,8 +338,6 @@ impl ShastaEventIndexer {
         mut last_finalized_transition_hash: B256,
     ) -> Vec<ProvedEventPayload> {
         let mut transitions = Vec::new();
-        let now =
-            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
         if self.max_finalization_count() == 0 {
             debug!("max_finalization_count is zero; no transitions eligible");
@@ -359,23 +359,6 @@ impl ShastaEventIndexer {
                     parent = ?payload.transition.parentTransitionHash,
                     expected = ?last_finalized_transition_hash,
                     "transition parent hash mismatch"
-                );
-                break;
-            }
-            let block_timestamp = match payload.log.block_timestamp {
-                Some(ts) => ts,
-                None => {
-                    warn!(?proposal_id, "proved payload missing block timestamp; deferring");
-                    break;
-                }
-            };
-            if block_timestamp.saturating_add(self.finalization_grace_period()) > now {
-                debug!(
-                    ?proposal_id,
-                    block_timestamp,
-                    grace_period = self.finalization_grace_period(),
-                    now,
-                    "transition still within grace period"
                 );
                 break;
             }

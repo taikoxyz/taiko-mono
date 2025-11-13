@@ -155,3 +155,17 @@ func TestProofBuffer_LargeBatchID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, b.Len())
 }
+
+func TestProofBuffer_DuplicateWhenFull(t *testing.T) {
+	b := NewProofBuffer(3)
+
+	for i := 1; i <= 3; i++ {
+		_, err := b.Write(&ProofResponse{BatchID: new(big.Int).SetUint64(uint64(i))})
+		require.NoError(t, err)
+	}
+	require.Equal(t, 3, b.Len())
+
+	_, err := b.Write(&ProofResponse{BatchID: new(big.Int).SetUint64(2)})
+	require.NoError(t, err)
+	require.Equal(t, 3, b.Len())
+}

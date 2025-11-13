@@ -5,6 +5,9 @@ on:
     # Only run the first time the PR is opened or when it is marked as ready for review
     # This is to avoid claude from automatically reviewing the PR every time there's a new commit
     types: [opened, ready_for_review]
+    branches-ignore:
+      - release-please--branches--**
+      - dependabot/**
 
 jobs:
   claude-review:
@@ -24,7 +27,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -38,6 +41,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
           prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices

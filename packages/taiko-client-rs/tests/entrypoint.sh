@@ -30,6 +30,7 @@ export PRECONF_INBOX="false"
 export DUMMY_VERIFIERS="true"
 export ACTIVATE_INBOX="true"
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
+export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
 
 docker compose -f tests/docker/docker-compose.test.yaml up -d
 trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR

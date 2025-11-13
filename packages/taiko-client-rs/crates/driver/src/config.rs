@@ -16,6 +16,8 @@ pub struct DriverConfig {
     pub l1_beacon_endpoint: Url,
     /// Optional L2 checkpoint endpoint used for beacon sync.
     pub l2_checkpoint_url: Option<Url>,
+    /// Optional blob server endpoint used when beacon blobs are unavailable.
+    pub blob_server_endpoint: Option<Url>,
 }
 
 impl DriverConfig {
@@ -28,7 +30,8 @@ impl DriverConfig {
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
+        blob_server_endpoint: Option<Url>,
     ) -> Self {
-        Self { client, retry_interval, l1_beacon_endpoint, l2_checkpoint_url }
+        Self { client, retry_interval, l1_beacon_endpoint, l2_checkpoint_url, blob_server_endpoint }
     }
 }

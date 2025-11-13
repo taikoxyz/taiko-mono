@@ -540,8 +540,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	endOfSequencing := false
-	for epoch := range s.sequencingEndedForEpochCache.Keys() {
-		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
+	for _, epoch := range s.sequencingEndedForEpochCache.Keys() {
+		if hash, ok := s.sequencingEndedForEpochCache.Get(epoch); ok && hash == block.Hash() {
 			endOfSequencing = true
 			break
 		}
@@ -1037,7 +1037,11 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.recordLatestSeenProposal(proposal)
+			if proposal.IsPacaya() {
+				s.recordLatestSeenProposalPacaya(proposal)
+			} else {
+				s.recordLatestSeenProposalShasta(proposal)
+			}
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
 		}
@@ -1088,9 +1092,10 @@ func (s *PreconfBlockAPIServer) monitorPacayaProposalOnChain(ctx context.Context
 
 	for iterPacaya.Next() {
 		if new(big.Int).SetUint64(iterPacaya.Event.Meta.BatchId).Cmp(s.latestSeenProposal.Pacaya().GetBatchID()) < 0 {
-			s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+			s.recordLatestSeenProposalPacaya(&encoding.LastSeenProposal{
 				TaikoProposalMetaData: metadata.NewTaikoDataBlockMetadataPacaya(iterPacaya.Event),
 				PreconfChainReorged:   true,
+				LastBlockID:           iterPacaya.Event.Info.LastBlockId,
 			})
 		}
 	}
@@ -1155,13 +1160,15 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 		if onChainHash == recordedProposalHash {
 			if currentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
 				log.Info("Found valid proposal after reorg", "proposalId", currentProposalID)
-				s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+				s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
 						Proposal:   *recordedProposal.Proposal,
 						Derivation: *recordedProposal.Derivation,
 						CoreState:  *recordedProposal.CoreState,
 					}, *recordedProposal.Log),
 					PreconfChainReorged: true,
+					// we dont set LastBlockID here because we don't know it at this time,
+					// s.lastUnsafeL2PayloadBlockID will be reset to 0 after a reorg.
 				})
 			}
 			return
@@ -1171,28 +1178,60 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 	log.Error("Could not find valid proposal after reorg", "searchedUpTo", latestSeenProposalID)
 }
 
-// recordLatestSeenProposal records the latest seen proposal.
-func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+// recordLatestSeenProposalPacaya records the latest seen proposal.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposalPacaya(proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	log.Info(
-		"Received latest proposal seen in event",
+		"Received latest pacaya proposal seen in event",
 		"batchID", proposal.Pacaya().GetBatchID(),
-		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+		"lastBlockID", proposal.LastBlockID,
 	)
+
 	s.latestSeenProposal = proposal
-	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.Pacaya().GetLastBlockID()))
+	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 			"batchID", proposal.Pacaya().GetBatchID(),
 			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
+		metrics.DriverReorgsByProposalCounter.Inc()
+	}
+}
+
+// recordLatestSeenProposalShasta records the latest seen proposal.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encoding.LastSeenProposal) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	log.Info(
+		"Received latest shasta proposal seen in event",
+		"proposalId", proposal.Shasta().GetProposal().Id,
+		"lastProposalBlockId", proposal.Shasta().GetCoreState().LastProposalBlockId.Uint64(),
+		"lastBlockId", proposal.LastBlockID,
+	)
+
+	s.latestSeenProposal = proposal
+
+	if proposal.LastBlockID != 0 {
+		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
+	}
+
+	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
+	if s.latestSeenProposal.PreconfChainReorged {
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
+		log.Info(
+			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+			"proposalId", proposal.Shasta().GetProposal().Id,
+			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+
 		metrics.DriverReorgsByProposalCounter.Inc()
 	}
 }

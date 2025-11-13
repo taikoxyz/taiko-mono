@@ -261,11 +261,11 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
         whitelist.addOperator(Bob, _getSequencerAddress(Bob));
 
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyExists.selector);
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
 
         whitelist.removeOperator(Alice, false);
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyRemoved.selector);
         whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
@@ -330,7 +330,7 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.addOperator(Carol, _getSequencerAddress(Carol));
 
         // Now try to remove non-existing operator
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
@@ -433,7 +433,7 @@ contract TestPreconfWhitelist is CommonTest {
 
     function test_whitelist_removeOperatorUnauthorizedWillRevert() external {
         vm.prank(Bob);
-        vm.expectRevert(IPreconfWhitelist.NotOwnerOrEjecter.selector);
+        vm.expectRevert(PreconfWhitelist.NotOwnerOrEjecter.selector);
         whitelist.removeOperator(0);
     }
 
@@ -622,6 +622,32 @@ contract TestPreconfWhitelist is CommonTest {
         whitelist.checkProposer(Alice, bytes(""));
     }
 
+    function test_getOperatorSelectionRemainsStableAcrossEpochBoundary() external {
+        _setBeaconBlockRoot(bytes32(uint256(1)));
+
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.stopPrank();
+
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 2);
+
+        // Operators become active after the configured delay (2 epochs).
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        address operatorForNextEpoch = whitelist.getOperatorForNextEpoch();
+        assertEq(operatorForNextEpoch, Bob);
+
+        _advanceOneEpoch();
+
+        address operatorForCurrentEpoch = whitelist.getOperatorForCurrentEpoch();
+        assertEq(operatorForCurrentEpoch, Bob);
+
+        assertEq(operatorForNextEpoch, operatorForCurrentEpoch);
+    }
+
     function test_setOperatorChangeDelay_UpdatesValue() external {
         vm.expectEmit(false, false, false, true);
         emit PreconfWhitelist.OperatorChangeDelaySet(5);
@@ -701,6 +727,9 @@ contract BeaconBlockRootImpl {
         uint256 _timestamp;
         assembly {
             _timestamp := calldataload(0)
+        }
+        if (_timestamp > block.timestamp) {
+            return abi.encode(bytes32(0));
         }
         return abi.encode(root);
     }

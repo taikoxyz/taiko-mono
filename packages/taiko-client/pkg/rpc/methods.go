@@ -28,6 +28,7 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
@@ -132,7 +133,7 @@ func (c *Client) ensureGenesisMatched(
 		}
 	}
 
-	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", common.BytesToHash(l2GenesisHash[:]))
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", l2GenesisHash)
 
 	if l2GenesisHash == (common.Hash{}) {
 		log.Warn("Genesis block not found in Taiko contract")
@@ -140,11 +141,11 @@ func (c *Client) ensureGenesisMatched(
 	}
 
 	// Node's genesis header and Taiko contract's genesis header must match.
-	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
+	if l2GenesisHash != nodeGenesis.Hash() {
 		return fmt.Errorf(
 			"genesis header hash mismatch, node: %s, Taiko contract: %s",
 			nodeGenesis.Hash(),
-			common.BytesToHash(l2GenesisHash[:]),
+			l2GenesisHash,
 		)
 	}
 
@@ -1045,9 +1046,9 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	}
 
 	// Otherwise, calculate Shasta base fee according to EIP-4396.
-	grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+	parentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
 	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 	log.Info(
@@ -1056,12 +1057,12 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"parentGasLimit", l2Head.GasLimit,
 		"parentGasUsed", l2Head.GasUsed,
 		"parentBaseFee", l2Head.BaseFee,
-		"parentTime", l2Head.Time-grandParentBlock.Time,
+		"parentTime", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 		"shastaForkTime", c.ShastaClients.ForkTime,
 	)
-	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
+	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
 
 // CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
@@ -1215,6 +1216,42 @@ func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
 	}
 
 	return new(big.Int).SetUint64(stateVars.Stats2.NumBatches - 1), nil
+}
+
+// GetAllActiveOperators fetch all active preconfirmation operators added to the whitelist contract.
+func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
+	}
+
+	var operators []common.Address
+	for i := 0; i < int(count); i++ {
+		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
+		}
+		opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
+		}
+		if opInfo.InactiveSince == 0 {
+			operators = append(operators, opInfo.SequencerAddress)
+		}
+	}
+
+	return operators, nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
@@ -1517,6 +1554,10 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProvedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProvedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1537,6 +1578,10 @@ func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProposedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProposedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}

@@ -18,15 +18,6 @@ interface IPreconfWhitelist {
         address indexed proposer, address indexed sequencer, uint256 inactiveSince
     );
 
-    error CannotRemoveLastOperator();
-    error InvalidOperatorIndex();
-    error InvalidOperatorCount();
-    error InvalidOperatorAddress();
-    error OperatorAlreadyExists();
-    error OperatorAlreadyRemoved();
-    error OperatorNotAvailableYet();
-    error NotOwnerOrEjecter();
-
     /// @notice Adds a new operator to the whitelist.
     /// @param _proposer The proposer address of the operator to be added.
     /// @param _sequencer The sequencer address of the operator to be added.

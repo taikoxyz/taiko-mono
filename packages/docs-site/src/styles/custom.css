@@ -28,3 +28,11 @@
   --sl-color-gray-7: #f5f6f8;
   --sl-color-black: #ffffff;
 }
+
+/* Show only the appropriate logo variant for the active theme */
+:root[data-theme="light"] .logo-dark {
+  display: none;
+}
+:root:not([data-theme="light"]) .logo-light {
+  display: none;
+}

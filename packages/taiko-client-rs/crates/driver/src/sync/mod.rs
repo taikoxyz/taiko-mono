@@ -3,6 +3,7 @@
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use rpc::client::Client;
+use tracing::{info, instrument};
 
 use crate::{
     config::DriverConfig,
@@ -38,6 +39,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Construct a new pipeline from the runtime configuration.
+    #[instrument(skip(cfg, rpc), name = "sync_pipeline_new")]
     pub async fn new(cfg: DriverConfig, rpc: Client<P>) -> Result<Self, DriverError> {
         let beacon = BeaconSyncer::new(&cfg, rpc.clone());
         let event = EventSyncer::new(&cfg, rpc).await?;
@@ -45,8 +47,11 @@ where
     }
 
     /// Start both syncers in order.
+    #[instrument(skip(self), name = "sync_pipeline_run")]
     pub async fn run(self) -> Result<(), DriverError> {
+        info!("beginning sync pipeline run");
         self.beacon.run().await?;
+        info!("beacon syncer completed");
         self.event.run().await?;
         Ok(())
     }
