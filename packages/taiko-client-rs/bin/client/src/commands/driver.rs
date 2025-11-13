@@ -36,6 +36,11 @@ impl DriverSubCommand {
         } else {
             None
         };
+        let blob_server = if let Some(url) = &self.driver_flags.blob_server_endpoint {
+            Some(RpcUrl::parse(url.as_str())?)
+        } else {
+            None
+        };
 
         let client_cfg = rpc::client::ClientConfig {
             l1_provider_source: l1_source,
@@ -50,6 +55,7 @@ impl DriverSubCommand {
             self.driver_flags.retry_interval(),
             l1_beacon,
             l2_checkpoint,
+            blob_server,
         ))
     }
 

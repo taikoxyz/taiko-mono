@@ -105,13 +105,14 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
-			L2Endpoint:         os.Getenv("L2_WS"),
-			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:          string(jwtSecret),
+			L1Endpoint:            os.Getenv("L1_WS"),
+			L2Endpoint:            os.Getenv("L2_WS"),
+			L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+			PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:             string(jwtSecret),
+			UseLocalShastaDecoder: true,
 		},
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
@@ -132,6 +133,7 @@ func (s *ProverTestSuite) SetupTest() {
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			UseLocalShastaDecoder:       true,
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -187,7 +189,9 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
+	} else {
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
 	}
 	if m.IsPacaya() {
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
@@ -246,7 +250,7 @@ func (s *ProverTestSuite) TestProveOp() {
 
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	var (
@@ -323,7 +327,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			continue
 		}
 		s.Nil(s.p.requestProofOp(req.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
 			break
@@ -341,7 +345,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
@@ -396,10 +400,10 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		s.Nil(s.p.requestProofOp(req1.Meta))
 		req2 := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req2.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	}
-	s.Nil(batchProver.aggregateOpPacaya(<-batchProver.batchesAggregationNotify))
+	s.Nil(batchProver.aggregateOp(<-batchProver.batchesAggregationNotifyPacaya, false))
 	s.ErrorIs(
 		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
 		proofSubmitter.ErrInvalidProof,
@@ -451,8 +455,8 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		req := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req.Meta))
 	}
-	proofType := <-batchProver.batchesAggregationNotify
-	s.Nil(batchProver.aggregateOpPacaya(proofType))
+	proofType := <-batchProver.batchesAggregationNotifyPacaya
+	s.Nil(batchProver.aggregateOp(proofType, false))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 
@@ -509,8 +513,8 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	req2 := <-batchProver.proofSubmissionCh
 	s.Nil(batchProver.requestProofOp(req2.Meta))
 
-	proofType := <-batchProver.batchesAggregationNotify
-	s.Nil(batchProver.aggregateOpPacaya(proofType))
+	proofType := <-batchProver.batchesAggregationNotifyPacaya
+	s.Nil(batchProver.aggregateOp(proofType, false))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 
@@ -566,7 +570,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Submit a valid proof.
 	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 	batchRes := <-s.p.batchProofGenerationCh
 	res := batchRes.ProofResponses[0]
 	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())

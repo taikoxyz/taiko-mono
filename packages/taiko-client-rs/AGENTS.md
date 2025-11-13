@@ -4,6 +4,7 @@
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
 - `crates/protocol`, `crates/proposer`, `crates/driver`, `crates/event-indexer`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
 - `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
+- The entire `bindings` crate is auto-generated; do not modify any files there manually.
 - `tests/` contains Docker-backed integration assets run through `tests/entrypoint.sh`. Place every end-to-end scenario here and note any extra prerequisites.
 - `script/` keeps repeatable maintenance scripts; extend them instead of duplicating ad-hoc helpers.
 
@@ -12,6 +13,7 @@
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - `just clippy` maps to `cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
+- After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
 
 ## Coding Style & Naming Conventions
 - Target MSRV 1.88 and gate newer features with `#[cfg]` as needed.
@@ -22,6 +24,10 @@
 - Run `just test` before submitting changes; it launches the Dockerized L1/L2 stack and executes `cargo nextest` across the workspace.
 - For focused suites, use `cargo nextest run -p <crate> --all-features` after exporting required RPC endpoints.
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
+
+## Event Scanner Integration
+- Build `EventScanner` instances via `SubscriptionSource::to_provider()` and `EventScannerBuilder::connect` to avoid transport-specific helpers that no longer exist upstream.
+- When syncing from a block/tag or from latest events, call `EventScannerBuilder::sync().from_block(...)` or `.from_latest(...)` and immediately `.connect(provider)` returned from the subscription source.
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.

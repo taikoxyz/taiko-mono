@@ -42,7 +42,10 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Proposal-level data that applies to the entire batch of blocks.
+    /// @dev For whitelist preconfirmations, `submissionWindowEnd` will not be used
+    /// and can be set to 0.
     struct ProposalParams {
+        uint48 submissionWindowEnd; // The end of the preconfirmation submission window
         uint48 proposalId; // Unique identifier of the proposal
         address proposer; // Address of the entity that proposed this batch
         bytes proverAuth; // Encoded ProverAuth for prover designation
@@ -51,10 +54,13 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Block-level data specific to a single block within a proposal.
+    /// @dev For whitelist preconfirmations, `rawTxListHash` will not be used
+    /// and can be set to 0-bytes
     struct BlockParams {
         uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
         bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
+        bytes32 rawTxListHash; // Keccak256 hash of the block's unprocessed transaction list
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
@@ -70,6 +76,15 @@ contract Anchor is EssentialContract {
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
+    }
+
+    /// @notice Metadata that will be required for slashing violations of permissionless preconfs.
+    struct PreconfMetadata {
+        uint48 anchorBlockNumber;
+        uint48 submissionWindowEnd;
+        uint48 parentSubmissionWindowEnd;
+        bytes32 rawTxListHash;
+        bytes32 parentRawTxListHash;
     }
 
     // ---------------------------------------------------------------
@@ -134,8 +149,11 @@ contract Anchor is EssentialContract {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    /// @notice Mapping from block number to preconfirmation metadata
+    mapping(uint256 blockNumber => PreconfMetadata metadata) internal _preconfMetadata;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -145,6 +163,7 @@ contract Anchor is EssentialContract {
         bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
+        uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
     );
@@ -228,7 +247,10 @@ contract Anchor is EssentialContract {
         if (_proposalParams.proposalId > lastProposalId) {
             _validateProposal(_proposalParams);
         }
+        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_blockParams);
+
+        _storePreconfMetadata(_proposalParams, _blockParams);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
@@ -237,6 +259,7 @@ contract Anchor is EssentialContract {
             _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
+            prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
         );
@@ -311,6 +334,16 @@ contract Anchor is EssentialContract {
     /// @notice Returns the current block-level state snapshot.
     function getBlockState() external view returns (BlockState memory) {
         return _blockState;
+    }
+
+    function getPreconfMetadata(uint256 _blockNumber)
+        external
+        view
+        returns (PreconfMetadata memory)
+    {
+        PreconfMetadata memory preconfMetadata = _preconfMetadata[_blockNumber];
+        require(preconfMetadata.anchorBlockNumber != 0, InvalidBlockNumber());
+        return preconfMetadata;
     }
 
     /// @dev Validates prover authentication and extracts signer.
@@ -407,6 +440,26 @@ contract Anchor is EssentialContract {
             );
             _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
+    }
+
+    /// @dev Stores preconfirmation metadata for the given proposal and block.
+    /// This information is used for slashing on permissionless preconfs.
+    /// @param _proposalParams The proposal-level parameters.
+    /// @param _blockParams The block-level parameters.
+    function _storePreconfMetadata(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
+        private
+    {
+        PreconfMetadata storage parentPreconfMetadata = _preconfMetadata[block.number - 1];
+        _preconfMetadata[block.number] = PreconfMetadata({
+            anchorBlockNumber: _blockParams.anchorBlockNumber,
+            submissionWindowEnd: _proposalParams.submissionWindowEnd,
+            parentSubmissionWindowEnd: parentPreconfMetadata.submissionWindowEnd,
+            rawTxListHash: _blockParams.rawTxListHash,
+            parentRawTxListHash: parentPreconfMetadata.rawTxListHash
+        });
     }
 
     /// @dev Processes bond instructions with cumulative hash verification.
@@ -525,6 +578,7 @@ contract Anchor is EssentialContract {
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();
+    error InvalidBlockNumber();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();

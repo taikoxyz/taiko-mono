@@ -1,6 +1,7 @@
 //! RPC client utilities for connecting to Taiko nodes.
 
 pub mod auth;
+pub mod beacon;
 pub mod blob;
 pub mod client;
 pub mod error;

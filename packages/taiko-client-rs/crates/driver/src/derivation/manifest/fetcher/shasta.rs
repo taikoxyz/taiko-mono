@@ -4,6 +4,7 @@ use alloy_consensus::BlobTransactionSidecar;
 use async_trait::async_trait;
 use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
 use rpc::blob::BlobDataSource;
+use tracing::{debug, instrument};
 
 use super::{ManifestFetcher, ManifestFetcherError};
 
@@ -38,8 +39,8 @@ pub struct ShastaSourceManifestFetcher {
 
 impl ShastaSourceManifestFetcher {
     /// Create a new Shasta manifest fetcher with the given blob source.
-    pub fn new(blob_source: BlobDataSource) -> Self {
-        Self { blob_source: Arc::new(blob_source) }
+    pub fn new(blob_source: Arc<BlobDataSource>) -> Self {
+        Self { blob_source }
     }
 }
 
@@ -53,11 +54,14 @@ impl ManifestFetcher for ShastaSourceManifestFetcher {
     }
 
     /// Decode a manifest from the provided sidecars and offset.
+    #[instrument(skip(self, sidecars), fields(sidecar_count = sidecars.len(), offset))]
     async fn decode_manifest(
         &self,
         sidecars: &[BlobTransactionSidecar],
         offset: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        decode_manifest_from_sidecars(sidecars, offset)
+        let manifest = decode_manifest_from_sidecars(sidecars, offset)?;
+        debug!(offset, "decoded shasta manifest from blob sidecars");
+        Ok(manifest)
     }
 }
