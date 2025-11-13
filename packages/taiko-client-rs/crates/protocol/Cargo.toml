@@ -25,3 +25,7 @@ tracing = { workspace = true }
 
 # serialization
 serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+rand = { version = "0.8", features = ["std", "std_rng"] }
+tokio = { workspace = true }
