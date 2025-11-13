@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.32.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.4...docs-site-v1.32.5) (2025-11-13)
+
+
+### Bug Fixes
+
+* **docs-site:** replace broken link with working ([#20715](https://github.com/taikoxyz/taiko-mono/issues/20715)) ([9723b53](https://github.com/taikoxyz/taiko-mono/commit/9723b53467c012c13e19ec40c47d98aa5c504085))
+
+
+### Chores
+
+* **docs-site:** remove taiko hekla ([#20718](https://github.com/taikoxyz/taiko-mono/issues/20718)) ([683e062](https://github.com/taikoxyz/taiko-mono/commit/683e06236692d05ba686404e6457aeacceedd8ac))
+
 ## [1.32.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.3...docs-site-v1.32.4) (2025-11-12)
 
 
