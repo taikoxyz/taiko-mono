@@ -316,6 +316,150 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	s.Zero(parentGasUsed)
 }
 
+func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	testTx1, err := testutils.AssembleAndSendTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce,
+		&s.TestAddr,
+		common.Big1,
+		nil,
+	)
+	s.Nil(err)
+
+	testTx2, err := testutils.AssembleAndSendTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce+1,
+		&s.TestAddr,
+		common.Big1,
+		nil,
+	)
+	s.Nil(err)
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		[]types.Transactions{{testTx1}, {testTx2}},
+		common.Big1,
+		common.Address{},
+		[]byte{},
+	)
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
+	s.Nil(err)
+	s.Equal(2, len(head2.Transactions()))
+	s.Equal(testTx1.Hash(), head2.Transactions()[1].Hash())
+
+	head3, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big2))
+	s.Nil(err)
+	s.Equal(2, len(head3.Transactions()))
+	s.Equal(testTx2.Hash(), head3.Transactions()[1].Hash())
+}
+
+func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlobsAndMaxBlocks() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	batches := manifest.ProposalMaxBlocks
+	txBatch := make([]types.Transactions, batches)
+	txsInBatch := 10
+
+	for i := 0; i < batches; i++ {
+		for j := 0; j < txsInBatch; j++ {
+			testTx, err := testutils.AssembleAndSendTestTx(
+				s.RPCClient.L2,
+				s.TestAddrPrivKey,
+				nonce,
+				&s.TestAddr,
+				common.Big1,
+				nil,
+			)
+			s.Nil(err)
+			txBatch[i] = append(txBatch[i], testTx)
+			nonce++
+		}
+	}
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		txBatch,
+		common.Big1,
+		common.Address{},
+		[]byte{},
+	)
+	s.Nil(err)
+	s.Greater(len(txCandidate.Blobs), 1)
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	for i := 1; i <= batches; i++ {
+		head, err := s.RPCClient.L2.BlockByNumber(
+			context.Background(),
+			new(big.Int).SetUint64(head1.Number().Uint64()+uint64(i)),
+		)
+		s.Nil(err)
+		s.Equal(txsInBatch+1, len(head.Transactions()))
+	}
+}
+
+func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	txBatch := make([]types.Transactions, manifest.ProposalMaxBlocks+1)
+
+	for i := 0; i < len(txBatch); i++ {
+		testTx, err := testutils.AssembleAndSendTestTx(
+			s.RPCClient.L2,
+			s.TestAddrPrivKey,
+			nonce,
+			&s.TestAddr,
+			common.Big1,
+			nil,
+		)
+		s.Nil(err)
+		txBatch[i] = types.Transactions{testTx}
+		nonce++
+	}
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		txBatch,
+		common.Big1,
+		common.Address{},
+		[]byte{},
+	)
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
+	s.Nil(err)
+	s.Equal(head1.NumberU64()+1, head2.NumberU64())
+	s.Equal(1, len(head2.Transactions()))
+}
+
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
