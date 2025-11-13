@@ -170,11 +170,12 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
 		}
-		log.Info("Print verifier info",
-			"GethVerifierId", batchProof.SgxGethVerifierID,
-			"GethProof", batchProof.SgxGethBatchProof,
-			"VerifierId", batchProof.VerifierID,
-			"Proof", batchProof.BatchProof,
+		log.Info(
+			"Verifier information",
+			"GethVerifierID", batchProof.SgxGethVerifierID,
+			"GethProof", common.Bytes2Hex(batchProof.SgxGethBatchProof),
+			"VerifierID", batchProof.VerifierID,
+			"Proof", common.Bytes2Hex(batchProof.BatchProof),
 		)
 
 		subProofs := []encoding.SubProofShasta{
