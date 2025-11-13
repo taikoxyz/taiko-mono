@@ -130,7 +130,14 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		if s.latestSeenProposal.IsShasta() {
 			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) &&
 				s.latestSeenProposal.IsShasta() {
-				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
+				parentProposalID, err := parseAnchorV4ProposalID(parent.Transactions()[0])
+				if err != nil {
+					return s.returnError(
+						c,
+						http.StatusInternalServerError,
+						fmt.Errorf("failed to decode parent anchor proposal ID: %w", err),
+					)
+				}
 
 				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
 					log.Warn(
@@ -424,6 +431,31 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 	})
+}
+
+// parseAnchorV4ProposalID extracts the proposal ID from an anchorV4 transaction calldata using fixed offsets.
+func parseAnchorV4ProposalID(tx *types.Transaction) (*big.Int, error) {
+	if tx == nil {
+		return nil, errors.New("anchor transaction is nil")
+	}
+	data := tx.Data()
+	const (
+		selectorSize        = 4  // method selector
+		wordSize            = 32 // ABI slot size
+		offsetFieldEnd      = selectorSize + wordSize
+		proposalIDStartByte = offsetFieldEnd + wordSize
+		proposalIDEndByte   = proposalIDStartByte + wordSize
+	)
+
+	if len(data) < proposalIDEndByte {
+		return nil, fmt.Errorf(
+			"anchor transaction calldata too short: got %d, need at least %d bytes",
+			len(data),
+			proposalIDEndByte,
+		)
+	}
+
+	return new(big.Int).SetBytes(data[proposalIDStartByte:proposalIDEndByte]), nil
 }
 
 // returnError is a helper function to return an error response.
