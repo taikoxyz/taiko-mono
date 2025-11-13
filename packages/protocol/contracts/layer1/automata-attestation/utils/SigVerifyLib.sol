@@ -13,7 +13,7 @@ contract SigVerifyLib is ISigVerifyLib {
     address private immutable __es256Verifier;
 
     constructor(address es256Verifier) {
-        require(es256Verifier != address(0), INVALID_ES256_VERIFIER());
+        require(es256Verifier != address(0), InvalidES256Verifier());
         __es256Verifier = es256Verifier;
     }
 
@@ -47,5 +47,5 @@ contract SigVerifyLib is ISigVerifyLib {
         return abi.decode(ret, (uint256)) == 1;
     }
 
-    error INVALID_ES256_VERIFIER();
+    error InvalidES256Verifier();
 }
