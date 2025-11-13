@@ -364,20 +364,12 @@ func (c *Client) WaitL1Header(ctx context.Context, blockID *big.Int) (*types.Hea
 			}
 		}
 	}
-	if block, err := waitBlock(ctx, c.L1, blockID); err != nil {
-		return nil, err
-	} else {
-		return block.Header(), nil
-	}
+	return waitHeader(ctx, c.L1, blockID)
 }
 
 // WaitL2Header keeps waiting for the L2 block header of the given block ID.
 func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Header, error) {
-	if block, err := waitBlock(ctx, c.L2, blockID); err != nil {
-		return nil, err
-	} else {
-		return block.Header(), nil
-	}
+	return waitHeader(ctx, c.L2, blockID)
 }
 
 // WaitL2Block keeps waiting for the L2 block of the given block ID.
@@ -385,12 +377,18 @@ func (c *Client) WaitL2Block(ctx context.Context, blockID *big.Int) (*types.Bloc
 	return waitBlock(ctx, c.L2, blockID)
 }
 
-// waitBlock keeps waiting for the block of the given block ID.
-func waitBlock(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Block, error) {
+// waitForFetchResult keeps polling the provided fetch function until a non-nil
+// response is returned or the context times out.
+func waitForFetchResult[T any](
+	ctx context.Context,
+	blockID *big.Int,
+	fetchFn func(context.Context, *big.Int) (T, error),
+) (T, error) {
 	var (
 		ctxWithTimeout = ctx
 		cancel         context.CancelFunc
-		block          *types.Block
+		response       T
+		emptyResponse  T
 		err            error
 	)
 
@@ -402,31 +400,41 @@ func waitBlock(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*ty
 		defer cancel()
 	}
 
-	log.Debug("Start fetching block block from execution engine", "blockID", blockID)
+	log.Debug("Start fetching result from execution engine", "blockID", blockID)
 
 	for ; true; <-ticker.C {
 		if ctxWithTimeout.Err() != nil {
-			return nil, ctxWithTimeout.Err()
+			return emptyResponse, ctxWithTimeout.Err()
 		}
 
-		block, err = ethClient.BlockByNumber(ctxWithTimeout, blockID)
+		response, err = fetchFn(ctxWithTimeout, blockID)
 		if err != nil {
 			log.Debug(
-				"Fetch block from execution engine not found, keep retrying",
+				"Fetch result from execution engine not found, keep retrying",
 				"blockID", blockID,
 				"error", err,
 			)
 			continue
 		}
 
-		if block == nil {
+		if response == nil {
 			continue
 		}
 
-		return block, nil
+		return response, nil
 	}
 
-	return nil, fmt.Errorf("failed to fetch block from L2 execution engine, blockID: %d", blockID)
+	return emptyResponse, fmt.Errorf("failed to fetch result from L2 execution engine, blockID: %d", blockID)
+}
+
+// waitBlock keeps polling the execution engine for the given block number.
+func waitBlock(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Block, error) {
+	return waitForFetchResult(ctx, blockID, ethClient.BlockByNumber)
+}
+
+// waitHeader keeps polling the execution engine for the given block header.
+func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Header, error) {
+	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
 // WaitShastaHeader keeps waiting for the Shasta block header of the given batch ID from the L2 execution engine.
