@@ -17,8 +17,9 @@ var (
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
 	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
-	StatusRegistered   = "registered"
 )
+
+const StatusRegistered = "registered"
 
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
