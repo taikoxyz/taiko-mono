@@ -16,7 +16,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	eventiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -155,18 +154,28 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 
 		log.Info("Fetching Shasta Proposed events", "from", startHeight, "to", currentHeader.Number)
 
-		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             currentHeader.Number,
-			OnBatchProposedEvent:  s.onProposedEvent,
-		})
+		end := currentHeader.Number.Uint64()
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
+			return fmt.Errorf("failed to filter Shasta Proposed events: %w", err)
 		}
-		if err := iter.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
+		defer iter.Close()
+		for iter.Next() {
+			event := iter.Event
+			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
+			if err != nil {
+				return fmt.Errorf("failed to decode proposed event data: %w", err)
+			}
+			if payload == nil {
+				return fmt.Errorf("decoded proposed event payload is nil")
+			}
+			meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
+			if err := s.onProposedEvent(s.ctx, meta); err != nil {
+				return fmt.Errorf("failed to handle proposed event: %w", err)
+			}
+		}
+		if err := iter.Error(); err != nil {
+			return fmt.Errorf("error iterating Shasta Proposed events: %w", err)
 		}
 
 		if startHeight.Cmp(common.Big0) == 0 {
@@ -222,18 +231,27 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 
 		log.Debug("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
 
-		iter, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           currentHeader.Number,
-			EndHeight:             endHeight,
-			OnShastaProvedEvent:   s.onProvedEvent,
-		})
+		end := endHeight.Uint64()
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{Start: currentHeader.Number.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
+			return fmt.Errorf("failed to filter Shasta Proved events: %w", err)
 		}
-		if err := iter.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proved events: %w", err)
+		defer iter.Close()
+		for iter.Next() {
+			event := iter.Event
+			provedEventPayload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
+			if err != nil {
+				return fmt.Errorf("failed to decode Shasta Proved event data: %w", err)
+			}
+			if provedEventPayload == nil {
+				return fmt.Errorf("decoded proved event payload is nil")
+			}
+			if err := s.onProvedEvent(s.ctx, provedEventPayload, &event.Raw); err != nil {
+				return fmt.Errorf("failed to handle Shasta Proved event: %w", err)
+			}
+		}
+		if err := iter.Error(); err != nil {
+			return fmt.Errorf("error iterating Shasta Proved events: %w", err)
 		}
 
 		// Break if we've reached the toBlock
@@ -257,7 +275,6 @@ func (s *Indexer) onProvedEvent(
 	ctx context.Context,
 	meta *shastaBindings.IInboxProvedEventPayload,
 	eventLog *types.Log,
-	endFunc eventiterator.EndShastaProvedEventIterFunc,
 ) error {
 	var (
 		transition = meta.Transition
@@ -342,7 +359,6 @@ func (s *Indexer) liveIndexing() error {
 func (s *Indexer) onProposedEvent(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	endFunc eventiterator.EndBatchProposedEventIterFunc,
 ) error {
 	if !meta.IsShasta() {
 		return nil
@@ -476,38 +492,57 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 	// Run proposed and proved indexing in parallel.
 	g, _ := errgroup.WithContext(s.ctx)
 
-	// Proposed events iterator
+	// Proposed events via contract FilterProposed
 	g.Go(func() error {
-		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             newHead.Number,
-			OnBatchProposedEvent:  s.onProposedEvent,
-		})
+		end := newHead.Number.Uint64()
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
+			return fmt.Errorf("failed to filter Shasta Proposed events: %w", err)
 		}
-		if err := iter.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
+		defer iter.Close()
+		for iter.Next() {
+			event := iter.Event
+			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
+			if err != nil {
+				return fmt.Errorf("failed to decode proposed event data: %w", err)
+			}
+			if payload == nil {
+				return fmt.Errorf("decoded proposed event payload is nil")
+			}
+			meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
+			if err := s.onProposedEvent(s.ctx, meta); err != nil {
+				return fmt.Errorf("failed to handle proposed event: %w", err)
+			}
+		}
+		if err := iter.Error(); err != nil {
+			return fmt.Errorf("error iterating Shasta Proposed events: %w", err)
 		}
 		return nil
 	})
 
-	// Proved events iterator
+	// Proved events via contract FilterProved
 	g.Go(func() error {
-		iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             newHead.Number,
-			OnShastaProvedEvent:   s.onProvedEvent,
-		})
+		end := newHead.Number.Uint64()
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
+			return fmt.Errorf("failed to filter Shasta Proved events: %w", err)
 		}
-		if err := iterProved.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proved events: %w", err)
+		defer iter.Close()
+		for iter.Next() {
+			event := iter.Event
+			provedEventPayload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
+			if err != nil {
+				return fmt.Errorf("failed to decode Shasta Proved event data: %w", err)
+			}
+			if provedEventPayload == nil {
+				return fmt.Errorf("decoded proved event payload is nil")
+			}
+			if err := s.onProvedEvent(s.ctx, provedEventPayload, &event.Raw); err != nil {
+				return fmt.Errorf("failed to handle Shasta Proved event: %w", err)
+			}
+		}
+		if err := iter.Error(); err != nil {
+			return fmt.Errorf("error iterating Shasta Proved events: %w", err)
 		}
 		return nil
 	})
