@@ -211,6 +211,7 @@ fn read_blob_slice(decoder: &mut Decoder<'_>) -> Result<BlobSlice> {
     })
 }
 
+/// Decode a sequence of bond instructions, optionally enforcing the Solidity bond-type bound.
 fn read_bond_instructions(
     decoder: &mut Decoder<'_>,
     enforce_type: bool,
@@ -223,6 +224,7 @@ fn read_bond_instructions(
     Ok(instructions)
 }
 
+/// Decode a single bond instruction, optionally enforcing the Solidity bond-type bound.
 fn read_bond_instruction(decoder: &mut Decoder<'_>, enforce_type: bool) -> Result<BondInstruction> {
     let proposal_id = decoder.read_u48()?;
     let bond_type = decoder.read_u8()?;
