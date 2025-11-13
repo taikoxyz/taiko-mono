@@ -174,10 +174,13 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			case proposedEventTopic:
 				payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: s.ctx}, lg.Data)
 				if err != nil {
-					return fmt.Errorf("failed to decode proposed event data: %w", err)
+					// Be tolerant to legacy/undecodable historical events: skip instead of failing startup.
+					log.Warn("Failed to decode historical Shasta Proposed event; skipping", "block", lg.BlockNumber, "hash", lg.BlockHash, "error", err)
+					continue
 				}
 				if payload == nil {
-					return fmt.Errorf("decoded proposed event payload is nil")
+					log.Warn("Decoded Shasta Proposed payload is nil; skipping", "block", lg.BlockNumber, "hash", lg.BlockHash)
+					continue
 				}
 				meta := metadata.NewTaikoProposalMetadataShasta(payload, lg)
 				if err := s.onProposedEvent(s.ctx, meta); err != nil {
@@ -210,6 +213,16 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		currentHeader, err = s.rpc.L1.HeaderByNumber(s.ctx, startHeight)
 		if err != nil {
 			return fmt.Errorf("failed to get header at height %s: %w", startHeight.String(), err)
+		}
+
+		// If a Shasta fork timestamp is configured and we've crossed below it, stop syncing further back.
+		if s.shastaForkTime > 0 && currentHeader.Time < s.shastaForkTime {
+			log.Info(
+				"Reached Shasta fork boundary, stop fetching historical proposals",
+				"forkTime", s.shastaForkTime,
+				"height", currentHeader.Number,
+			)
+			break
 		}
 	}
 
@@ -245,10 +258,12 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 			}
 			provedEventPayload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: s.ctx}, lg.Data)
 			if err != nil {
-				return fmt.Errorf("failed to decode staged Shasta Proved event data: %w", err)
+				log.Warn("Failed to decode historical Shasta Proved event; skipping", "block", lg.BlockNumber, "hash", lg.BlockHash, "error", err)
+				continue
 			}
 			if provedEventPayload == nil {
-				return fmt.Errorf("decoded proved event payload is nil")
+				log.Warn("Decoded Shasta Proved payload is nil; skipping", "block", lg.BlockNumber, "hash", lg.BlockHash)
+				continue
 			}
 			if err := s.onProvedEvent(s.ctx, provedEventPayload, &lg); err != nil {
 				return fmt.Errorf("failed to handle staged Shasta Proved event: %w", err)
