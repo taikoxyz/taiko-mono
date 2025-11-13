@@ -338,4 +338,17 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
         return uint256(beaconRoot);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CannotRemoveLastOperator();
+    error InvalidOperatorIndex();
+    error InvalidOperatorCount();
+    error InvalidOperatorAddress();
+    error OperatorAlreadyExists();
+    error OperatorAlreadyRemoved();
+    error OperatorNotAvailableYet();
+    error NotOwnerOrEjecter();
 }

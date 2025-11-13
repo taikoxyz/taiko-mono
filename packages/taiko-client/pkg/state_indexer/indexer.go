@@ -276,6 +276,7 @@ func (s *Indexer) onProvedEvent(
 		"checkpoint", transition.Checkpoint.BlockNumber,
 		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
 		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
+		"bondInstructions", len(record.BondInstructions),
 		"timeStamp", header.Time,
 	)
 	s.transitionRecords[meta.ProposalId.Uint64()] = &TransitionPayload{
