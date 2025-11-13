@@ -97,7 +97,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 
-	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatch(
+	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatchShasta(
 		ctx,
 		new(big.Int).Sub(meta.Shasta().GetProposal().Id, common.Big1),
 	)
@@ -289,15 +289,26 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
-	// TODO: check if there is valid proof on chain
-	var (
-		latestProvenBlockID = common.Big0
-		uint64ProposalIDs   []uint64
-	)
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
 		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
 	}
+
+	// Check if there is any invalid batch proofs in the aggregation, if so, we ignore them.
+	invalidProposalIDs, err := s.validateBatchProofs(ctx, batchProof)
+	if err != nil {
+		return fmt.Errorf("failed to validate batch proofs: %w", err)
+	}
+	if len(invalidProposalIDs) > 0 {
+		// If there are invalid proposals in the aggregation, we ignore these proposals.
+		log.Warn("Invalid proposals in an aggregation, ignore these proposals", "proposalIDs", invalidProposalIDs)
+		proofBuffer.ClearItems(invalidProposalIDs...)
+		return ErrInvalidProof
+	}
+	var (
+		latestProvenBlockID = common.Big0
+		uint64ProposalIDs   []uint64
+	)
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
 		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
@@ -425,4 +436,91 @@ func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
 			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
 		}
 	}
+}
+
+// validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
+// returns the invalid proposal IDs.
+func (s *ProofSubmitterShasta) validateBatchProofs(
+	ctx context.Context,
+	batchProof *proofProducer.BatchProofs,
+) ([]uint64, error) {
+	var invalidProposalIDs []uint64
+
+	if len(batchProof.ProofResponses) == 0 {
+		return nil, proofProducer.ErrInvalidLength
+	}
+
+	// Fetch the latest verified proposal ID.
+	coreState := s.indexer.GetLastCoreState()
+	latestVerifiedID := coreState.LastFinalizedProposalId
+
+	// Check if any batch in this aggregation is already submitted and valid,
+	// if so, we skip this batch.
+	for _, proof := range batchProof.ProofResponses {
+		// Check if this proof is still needed to be submitted.
+		ok, err := s.ValidateProof(ctx, proof, latestVerifiedID)
+		if err != nil {
+			return nil, err
+		}
+		proposalID := proof.BatchID
+		if !ok {
+			log.Error("A valid proof for this batch has already been submitted", "proposalID", proposalID)
+			invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+			continue
+		}
+
+		// Check if the proof has already been submitted.
+		transitionPayload := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
+		if transitionPayload != nil {
+			if transitionPayload.Transition.ParentTransitionHash == proof.Opts.ShastaOptions().ParentTransitionHash &&
+				transitionPayload.Transition.Checkpoint.BlockNumber.Cmp(proof.Opts.ShastaOptions().Checkpoint.BlockNumber) == 0 &&
+				transitionPayload.Transition.Checkpoint.BlockHash == proof.Opts.ShastaOptions().Checkpoint.BlockHash &&
+				transitionPayload.Transition.Checkpoint.StateRoot == proof.Opts.ShastaOptions().Checkpoint.StateRoot {
+				log.Warn("A valid proof is already submitted", "proposalID", proposalID)
+				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+			}
+		}
+	}
+	return invalidProposalIDs, nil
+}
+
+// ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
+// latest verified head is not ahead of this block proof.
+func (s *ProofSubmitterShasta) ValidateProof(
+	ctx context.Context,
+	proofResponse *proofProducer.ProofResponse,
+	latestVerifiedID *big.Int,
+) (bool, error) {
+	// 1. Check if the corresponding L1 block is still in the canonical chain.
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofResponse.Meta.GetRawBlockHeight())
+	if err != nil {
+		log.Warn(
+			"Failed to fetch L1 block",
+			"proposalID", proofResponse.BatchID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
+			"error", err,
+		)
+		return false, err
+	}
+	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
+		log.Warn(
+			"Reorg detected, skip the current proof submission",
+			"proposalID", proofResponse.BatchID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
+			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
+			"l1HashNew", l1Header.Hash(),
+		)
+		return false, nil
+	}
+
+	if latestVerifiedID.Cmp(proofResponse.BatchID) >= 0 {
+		log.Info(
+			"Proposal is already finalized, skip current proof submission",
+			"proposalID", proofResponse.BatchID,
+			"latestVerifiedID", latestVerifiedID,
+		)
+		return false, nil
+	}
+
+	return true, nil
 }

@@ -43,8 +43,7 @@ type eventHandlers struct {
 // Prover keeps trying to prove newly proposed blocks.
 type Prover struct {
 	// Configurations
-	cfg     *Config
-	backoff backoff.BackOffContext
+	cfg *Config
 
 	// Clients
 	rpc *rpc.Client
@@ -101,13 +100,6 @@ func InitFromConfig(
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
 	p.sharedState = state.New()
-	p.backoff = backoff.WithContext(
-		backoff.WithMaxRetries(
-			backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
-			p.cfg.BackOffMaxRetries,
-		),
-		p.ctx,
-	)
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
@@ -296,6 +288,8 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-shastaProposedCh:
 			reqProving()
+		case e := <-shastaProvedCh:
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -356,11 +350,10 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return fmt.Errorf("empty batch proof")
 	}
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		return p.proofSubmitterShasta.BatchSubmitProofs(p.ctx, batchProof)
-	}
-
 	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
@@ -410,7 +403,15 @@ func (p *Prover) withRetry(f func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		if err := backoff.Retry(f, p.backoff); err != nil {
+		// Create a fresh, per-call backoff policy to avoid shared state across goroutines.
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
+				p.cfg.BackOffMaxRetries,
+			),
+			p.ctx,
+		)
+		if err := backoff.Retry(f, bo); err != nil {
 			log.Error("Operation failed", "error", err)
 		}
 	}()

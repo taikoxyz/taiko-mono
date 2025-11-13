@@ -43,8 +43,6 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 2. Copy the sample .env files
 
     <Aside title="Info">
-    To run a `Taiko Hekla` node please copy `.env.sample.hekla` instead of `.env.sample`.
-
     To run a `Taiko Hoodi` node please copy `.env.sample.hoodi` instead of `.env.sample`.
     </Aside>
 
@@ -75,7 +73,6 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     It's recommended to [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node) but you browse around for other RPC Providers. Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
 
     For Taiko Alethia, the L1 Node will need to be an Ethereum node.
-    For Taiko Hekla, the L1 Node will need to be an Ethereum testnet (Holesky) node.
     For Taiko Hoodi, the L1 Node will need to be an Ethereum testnet (Hoodi) node.
     </Aside>
 
@@ -139,8 +136,6 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
     <Aside title="Info">
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
-
-    To run a Taiko Hekla node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
 
     To run a Taiko Hoodi node please use the following command instead: `docker compose -f docker-compose-hoodi.yml up -d`.
     </Aside>

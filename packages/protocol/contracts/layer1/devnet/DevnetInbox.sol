@@ -43,8 +43,8 @@ contract DevnetInbox is InboxOptimized2 {
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                provingWindow: 2 hours,
-                extendedProvingWindow: 4 hours,
+                provingWindow: 72 seconds,
+                extendedProvingWindow: 144 seconds,
                 maxFinalizationCount: 16,
                 finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
