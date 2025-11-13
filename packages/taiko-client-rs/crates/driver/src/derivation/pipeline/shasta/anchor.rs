@@ -142,6 +142,7 @@ where
         );
 
         let proposal_params = ProposalParams {
+            submissionWindowEnd: U48::ZERO,
             proposalId: U48::from(proposal_id),
             proposer,
             proverAuth: prover_auth.into(),
@@ -153,6 +154,7 @@ where
             anchorBlockNumber: U48::from(anchor_block_number),
             anchorBlockHash: anchor_block_hash,
             anchorStateRoot: anchor_state_root,
+            rawTxListHash: B256::ZERO,
         };
 
         let call_builder = self.rpc.shasta.anchor.anchorV4(proposal_params, block_params);

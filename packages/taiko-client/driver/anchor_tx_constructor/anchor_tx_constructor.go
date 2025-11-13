@@ -118,6 +118,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	return c.rpc.ShastaClients.Anchor.AnchorV4(
 		opts,
 		shastaBindings.AnchorProposalParams{
+			SubmissionWindowEnd:  common.Big0,
 			ProposalId:           proposalId,
 			Proposer:             proposer,
 			ProverAuth:           proverAuth,
@@ -128,6 +129,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 			AnchorBlockNumber: anchorBlockNumber,
 			AnchorBlockHash:   anchorBlockHash,
 			AnchorStateRoot:   anchorStateRoot,
+			RawTxListHash:     common.Hash{},
 		},
 	)
 }
