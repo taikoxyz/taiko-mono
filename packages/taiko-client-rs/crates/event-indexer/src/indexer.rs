@@ -27,14 +27,17 @@ use bindings::{
 };
 use dashmap::DashMap;
 use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
-use protocol::subscription_source::SubscriptionSource;
+use protocol::{
+    shasta::codec_optimized::{decode_proposed_event, decode_proved_event},
+    subscription_source::SubscriptionSource,
+};
 use tokio::{spawn, sync::Notify, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
-    error::Result,
+    error::{IndexerError, Result},
     interface::{ShastaProposeInput, ShastaProposeInputReader},
     metrics::IndexerMetrics,
 };
@@ -76,6 +79,8 @@ pub struct ShastaEventIndexerConfig {
     pub l1_subscription_source: SubscriptionSource,
     /// Address of the Shasta inbox contract.
     pub inbox_address: Address,
+    /// Whether to decode inbox events locally instead of calling the codec contract.
+    pub use_local_codec_decoder: bool,
 }
 
 /// Maintains live caches of Shasta inbox activity and providing higher-level inputs
@@ -91,6 +96,8 @@ pub struct ShastaEventIndexer {
     max_finalization_count: u64,
     /// Grace period that must elapse before a proved transition becomes finalizable.
     finalization_grace_period: u64,
+    /// Whether local decoding is preferred over codec contract calls.
+    use_local_codec_decoder: bool,
     /// Cache of recently observed `Proposed` events keyed by proposal id.
     proposed_payloads: DashMap<U256, ProposedEventPayload>,
     /// Cache of recently observed `Proved` events keyed by proposal id.
@@ -129,12 +136,15 @@ impl ShastaEventIndexer {
             "shasta inbox contract configuration"
         );
 
+        let use_local_codec_decoder = config.use_local_codec_decoder;
+
         Ok(Arc::new(Self {
             config,
             inbox_codec: CodecOptimized::new(inbox_config.codec, provider.root().clone()),
             inbox_ring_buffer_size: ring_buffer_size,
             max_finalization_count,
             finalization_grace_period,
+            use_local_codec_decoder,
             proposed_payloads: DashMap::new(),
             proved_payloads: DashMap::new(),
             historical_indexing_finished: Notify::new(),
@@ -236,17 +246,19 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proposed` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proposed(&self, log: Log) -> Result<()> {
-        // Decode the event payload using the contract codec.
+        // Decode the event payload using the configured codec path.
+        let proposed = Proposed::decode_log_data(log.data())?;
         let InboxProposedEventPayload {
             proposal,
             derivation,
             coreState,
             bondInstructions: codec_bond_instructions,
-        } = self
-            .inbox_codec
-            .decodeProposedEvent(Proposed::decode_log_data(log.data())?.data)
-            .call()
-            .await?;
+        } = if self.use_local_codec_decoder {
+            decode_proposed_event(proposed.data.as_ref())
+                .map_err(|err| IndexerError::Other(err.into()))?
+        } else {
+            self.inbox_codec.decodeProposedEvent(proposed.data.clone()).call().await?
+        };
 
         // Convert codec-originated bond instructions into the anchor representation used
         // downstream.
@@ -286,12 +298,15 @@ impl ShastaEventIndexer {
     /// Decode and cache a `Proved` event payload.
     #[instrument(skip(self, log), err, fields(block_hash = ?log.block_hash, tx_hash = ?log.transaction_hash))]
     async fn handle_proved(&self, log: Log) -> Result<()> {
-        // Decode the event payload using the contract codec.
-        let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } = self
-            .inbox_codec
-            .decodeProvedEvent(Proved::decode_log_data(log.data())?.data)
-            .call()
-            .await?;
+        // Decode the event payload using the configured codec path.
+        let proved = Proved::decode_log_data(log.data())?;
+        let InboxProvedEventPayload { proposalId, transition, transitionRecord, metadata } =
+            if self.use_local_codec_decoder {
+                decode_proved_event(proved.data.as_ref())
+                    .map_err(|err| IndexerError::Other(err.into()))?
+            } else {
+                self.inbox_codec.decodeProvedEvent(proved.data.clone()).call().await?
+            };
 
         // Cache the payload keyed by proposal id.
         let proposal_id = proposalId.to::<U256>();
@@ -571,6 +586,7 @@ mod tests {
         let config = ShastaEventIndexerConfig {
             l1_subscription_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
             inbox_address: env::var("SHASTA_INBOX")?.parse()?,
+            use_local_codec_decoder: true,
         };
 
         let indexer = ShastaEventIndexer::new(config).await?;
