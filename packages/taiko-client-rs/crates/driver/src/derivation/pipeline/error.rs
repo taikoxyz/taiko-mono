@@ -46,6 +46,9 @@ pub enum DerivationError {
     /// Bond instruction cache mutex was poisoned.
     #[error("bond instruction cache poisoned during {operation}: {message}")]
     BondInstructionCachePoisoned { operation: &'static str, message: String },
+    /// Execution engine failed to report the last block for a batch.
+    #[error("missing last execution block for proposal {proposal_id}")]
+    MissingBatchLastBlock { proposal_id: u64 },
     /// Failure while materialising payloads via the execution engine.
     #[error(transparent)]
     Engine(#[from] EngineSubmissionError),

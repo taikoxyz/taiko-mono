@@ -38,12 +38,19 @@ pub struct CommonArgs {
     )]
     pub l2_auth_jwt_secret: PathBuf,
     #[clap(
-        long = "shastaInbox",
+        long = "shasta.inbox",
         env = "SHASTA_INBOX",
         required = true,
         help = "Taiko Shasta protocol Inbox contract address"
     )]
     pub shasta_inbox_address: Address,
+    #[clap(
+        long = "shasta.localCodec",
+        env = "SHASTA_LOCAL_CODEC",
+        default_value_t = true,
+        help = "Use the local Shasta codec decoder instead of calling the codec contract"
+    )]
+    pub use_local_shasta_codec: bool,
     #[clap(
         short = 'v',
         long = "verbosity",

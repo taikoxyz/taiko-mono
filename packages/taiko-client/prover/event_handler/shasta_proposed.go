@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -60,7 +60,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"l1Hash", meta.GetRawBlockHash(),
 		"batchID", meta.Shasta().GetProposal().Id,
 		"lastBlockID", header.Number,
-		"assignedProver", meta.GetProposer(),
+		"proposer", meta.GetProposer(),
 		"proposalTimestamp", meta.Shasta().GetProposal().Timestamp,
 		"derivationSources", len(meta.Shasta().GetDerivation().Sources),
 	)
@@ -152,7 +152,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 				"batchID", batchID,
 				"parentBlockHash", header.ParentHash,
 				"parentTransitionHash", parentTransitionHash,
-				"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+				"proposalHash", common.Hash(record.Transition.ProposalHash),
 			)
 			return nil
 		}
@@ -162,7 +162,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"batchID", batchID,
 			"parentBlockHash", header.ParentHash,
 			"parentTransitionHash", parentTransitionHash,
-			"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+			"proposalHash", common.Hash(record.Transition.ProposalHash),
 		)
 		// We need to submit a valid proof.
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}

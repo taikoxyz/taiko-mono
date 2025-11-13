@@ -28,6 +28,7 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
@@ -132,7 +133,7 @@ func (c *Client) ensureGenesisMatched(
 		}
 	}
 
-	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", common.BytesToHash(l2GenesisHash[:]))
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", l2GenesisHash)
 
 	if l2GenesisHash == (common.Hash{}) {
 		log.Warn("Genesis block not found in Taiko contract")
@@ -140,11 +141,11 @@ func (c *Client) ensureGenesisMatched(
 	}
 
 	// Node's genesis header and Taiko contract's genesis header must match.
-	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
+	if l2GenesisHash != nodeGenesis.Hash() {
 		return fmt.Errorf(
 			"genesis header hash mismatch, node: %s, Taiko contract: %s",
 			nodeGenesis.Hash(),
-			common.BytesToHash(l2GenesisHash[:]),
+			l2GenesisHash,
 		)
 	}
 
@@ -371,12 +372,23 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 	return waitHeader(ctx, c.L2, blockID)
 }
 
-// waitHeader keeps waiting for the block header of the given block ID.
-func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Header, error) {
+// WaitL2Block keeps waiting for the L2 block of the given block ID.
+func (c *Client) WaitL2Block(ctx context.Context, blockID *big.Int) (*types.Block, error) {
+	return waitBlock(ctx, c.L2, blockID)
+}
+
+// waitForFetchResult keeps polling the provided fetch function until a non-nil
+// response is returned or the context times out.
+func waitForFetchResult[T any](
+	ctx context.Context,
+	blockID *big.Int,
+	fetchFn func(context.Context, *big.Int) (T, error),
+) (T, error) {
 	var (
 		ctxWithTimeout = ctx
 		cancel         context.CancelFunc
-		header         *types.Header
+		response       T
+		emptyResponse  T
 		err            error
 	)
 
@@ -388,31 +400,37 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 		defer cancel()
 	}
 
-	log.Debug("Start fetching block header from execution engine", "blockID", blockID)
+	log.Debug("Start fetching result from execution engine", "blockID", blockID)
 
 	for ; true; <-ticker.C {
 		if ctxWithTimeout.Err() != nil {
-			return nil, ctxWithTimeout.Err()
+			return emptyResponse, ctxWithTimeout.Err()
 		}
 
-		header, err = ethClient.HeaderByNumber(ctxWithTimeout, blockID)
+		response, err = fetchFn(ctxWithTimeout, blockID)
 		if err != nil {
 			log.Debug(
-				"Fetch block header from execution engine not found, keep retrying",
+				"Fetch result from execution engine not found, keep retrying",
 				"blockID", blockID,
 				"error", err,
 			)
 			continue
 		}
 
-		if header == nil {
-			continue
-		}
-
-		return header, nil
+		return response, nil
 	}
 
-	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, blockID: %d", blockID)
+	return emptyResponse, fmt.Errorf("failed to fetch result from L2 execution engine, blockID: %d", blockID)
+}
+
+// waitBlock keeps polling the execution engine for the given block number.
+func waitBlock(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Block, error) {
+	return waitForFetchResult(ctx, blockID, ethClient.BlockByNumber)
+}
+
+// waitHeader keeps polling the execution engine for the given block header.
+func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Header, error) {
+	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
 // WaitShastaHeader keeps waiting for the Shasta block header of the given batch ID from the L2 execution engine.
@@ -899,29 +917,29 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInBatch fetches the L1Origin of the last block in the given batch.
-func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
+// LastL1OriginInBatchShasta fetches the L1Origin of the last block in the given Shasta batch.
+func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	// If we can't find the L1Origin from the L2 execution engine, we will fetch it from the Pacaya protocol.
-	// NOTE: here we assume that when Shasta fork is activated, all Pacaya protocol calls will revert.
-	batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
-	if err != nil {
-		// Try to fetch the L1Origin (for Shasta blocks) from the L2 execution engine.
-		// NOTE: here we assume that if we pass a Shasta batch ID to fork router and call Pacaya TaikoInbox
-		// contract to try to get a Pacaya batch, it will return an error.
-		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
-		if err != nil {
-			return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
+	// If batchID is zero, we try to fetch the last Pacaya batch's last block L1Origin.
+	if batchID.Cmp(common.Big0) == 0 {
+		lastPacayaBlockID, err := c.LastPacayaBlockID(ctxWithTimeout)
+		if err != nil || lastPacayaBlockID.Cmp(common.Big0) == 0 {
+			log.Info("Failed to fetch last Pacaya block ID, return L1Origin with zero block ID")
+			return &rawdb.L1Origin{BlockID: common.Big0}, nil
 		}
 
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, lastPacayaBlockID)
+		if err != nil {
+			return nil, fmt.Errorf("L1Origin not found for last Pacaya block ID %d: %w", lastPacayaBlockID, err)
+		}
 		return l1Origin, nil
 	}
 
-	l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+	l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch L1Origin by ID: %w", err)
+		return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
 	}
 
 	return l1Origin, nil
@@ -1045,9 +1063,9 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	}
 
 	// Otherwise, calculate Shasta base fee according to EIP-4396.
-	grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+	parentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
 	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 	log.Info(
@@ -1056,12 +1074,12 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"parentGasLimit", l2Head.GasLimit,
 		"parentGasUsed", l2Head.GasUsed,
 		"parentBaseFee", l2Head.BaseFee,
-		"parentTime", l2Head.Time-grandParentBlock.Time,
+		"parentTime", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 		"shastaForkTime", c.ShastaClients.ForkTime,
 	)
-	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-grandParentBlock.Time), nil
+	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
 
 // CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
@@ -1553,6 +1571,10 @@ func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProvedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProvedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1573,6 +1595,10 @@ func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
 	*shastaBindings.IInboxProposedEventPayload,
 	error,
 ) {
+	if c.UseLocalShastaDecoder() {
+		return eventDecoder.DecodeProposedEvent(data)
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}

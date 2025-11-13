@@ -239,11 +239,17 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		manifest.MaxBlockGasLimit,
+		uint32(l2Head.GasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
@@ -295,7 +301,6 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	ok, err := p.shouldPropose(ctx)
-
 	if err != nil {
 		return fmt.Errorf("failed to check if proposer should propose: %w", err)
 	} else if !ok {
@@ -418,7 +423,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,

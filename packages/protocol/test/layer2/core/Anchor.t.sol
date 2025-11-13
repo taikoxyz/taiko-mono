@@ -155,7 +155,8 @@ contract AnchorTest is Test {
         Anchor.BlockParams memory secondBlockParams = Anchor.BlockParams({
             anchorBlockNumber: blockParams.anchorBlockNumber,
             anchorBlockHash: blockParams.anchorBlockHash,
-            anchorStateRoot: blockParams.anchorStateRoot
+            anchorStateRoot: blockParams.anchorStateRoot,
+            rawTxListHash: bytes32(0)
         });
 
         vm.prank(GOLDEN_TOUCH);
@@ -231,6 +232,7 @@ contract AnchorTest is Test {
         bytes memory proverAuth2 = _buildProverAuth(proposalId2, provingFee2);
 
         Anchor.ProposalParams memory proposalParams2 = Anchor.ProposalParams({
+            submissionWindowEnd: 0,
             proposalId: proposalId2,
             proposer: proposer,
             proverAuth: proverAuth2,
@@ -241,7 +243,8 @@ contract AnchorTest is Test {
         Anchor.BlockParams memory blockParams2 = Anchor.BlockParams({
             anchorBlockNumber: 1010,
             anchorBlockHash: bytes32(uint256(0xABCD)),
-            anchorStateRoot: bytes32(uint256(0xEF01))
+            anchorStateRoot: bytes32(uint256(0xEF01)),
+            rawTxListHash: bytes32(0)
         });
 
         vm.prank(GOLDEN_TOUCH);
@@ -326,6 +329,7 @@ contract AnchorTest is Test {
         });
 
         Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
+            submissionWindowEnd: 0,
             proposalId: proposalId,
             proposer: proposer,
             proverAuth: abi.encode(invalidAuth),
@@ -336,7 +340,8 @@ contract AnchorTest is Test {
         Anchor.BlockParams memory blockParams = Anchor.BlockParams({
             anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
-            anchorStateRoot: bytes32(uint256(0x5678))
+            anchorStateRoot: bytes32(uint256(0x5678)),
+            rawTxListHash: bytes32(0)
         });
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -581,6 +586,7 @@ contract AnchorTest is Test {
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
         proposalParams = Anchor.ProposalParams({
+            submissionWindowEnd: 0,
             proposalId: proposalId,
             proposer: proposer,
             proverAuth: proverAuth,
@@ -591,7 +597,8 @@ contract AnchorTest is Test {
         blockParams = Anchor.BlockParams({
             anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
-            anchorStateRoot: bytes32(uint256(0x5678))
+            anchorStateRoot: bytes32(uint256(0x5678)),
+            rawTxListHash: bytes32(0)
         });
     }
 }

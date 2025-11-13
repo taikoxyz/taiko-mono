@@ -105,7 +105,19 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	log.Info("Extracted manifest version and size from Shasta blobs", "version", version, "size", size)
 
-	encoded, err := utils.Decompress(b[offset+64 : offset+64+int(size)])
+	// Ensure the blob slice [offset+64, offset+64+size) is within bounds before slicing.
+	start := offset + 64
+	if start > len(b) || uint64(len(b)-start) < size {
+		log.Warn(
+			"Invalid manifest bounds in blob bytes, use default payload instead",
+			"version", version,
+			"offset", offset,
+			"size", size,
+			"blobLen", len(b),
+		)
+		return defaultPayload, nil
+	}
+	encoded, err := utils.Decompress(b[start : start+int(size)])
 	// Decompress the manifest bytes.
 	if err != nil {
 		log.Warn(
@@ -165,10 +177,15 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
 ) ([]byte, error) {
+	blobHashes := meta.GetBlobHashes(derivationIdx)
 	// Fetch the L1 block sidecars.
-	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), meta.GetBlobHashes(derivationIdx))
+	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
+	}
+
+	if len(sidecars) != len(blobHashes) {
+		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
 
 	log.Info(
@@ -177,32 +194,37 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 		"l1Height", meta.GetRawBlockHeight(),
 		"sidecars", len(sidecars),
 	)
+	// Build a map of blobHash -> blobBytes for O(1) lookup.
+	blobMap := make(map[common.Hash][]byte, len(sidecars))
+	for j, sidecar := range sidecars {
+		log.Debug(
+			"Block sidecar",
+			"index", j,
+			"KzgCommitment", sidecar.KzgCommitment,
+		)
 
-	var b []byte
-	for _, blobHash := range meta.GetBlobHashes(derivationIdx) {
-		// Compare the blob hash with the sidecar's kzg commitment.
-		for j, sidecar := range sidecars {
-			log.Debug(
-				"Block sidecar",
-				"index", j,
-				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", blobHash,
-			)
+		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+		hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
 
-			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-				blob := eth.Blob(common.FromHex(sidecar.Blob))
-				bytes, err := blob.ToData()
-				if err != nil {
-					return nil, err
-				}
-
-				b = append(b, bytes...)
-				// Exit the loop as the matching sidecar has been found and processed.
-				break
-			}
+		blob := eth.Blob(common.FromHex(sidecar.Blob))
+		bytes, err := blob.ToData()
+		if err != nil {
+			return nil, err
 		}
+		blobMap[hash] = bytes
 	}
+
+	// Append in the order of blobHashes to preserve semantics.
+	var b []byte
+	for _, h := range blobHashes {
+		bytes, ok := blobMap[h]
+		if !ok {
+			// If any requested blob is missing, surface a clear error.
+			return nil, fmt.Errorf("requested blob hash %s not found in sidecars", h.Hex())
+		}
+		b = append(b, bytes...)
+	}
+
 	if len(b) == 0 {
 		return nil, pkg.ErrSidecarNotFound
 	}

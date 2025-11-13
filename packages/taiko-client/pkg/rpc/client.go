@@ -37,11 +37,14 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox      *shastaBindings.ShastaInboxClient
-	InboxCodec *shastaBindings.CodecOptimizedClient
-	Anchor     *shastaBindings.ShastaAnchor
+	Inbox           *shastaBindings.ShastaInboxClient
+	InboxCodec      *shastaBindings.CodecOptimizedClient
+	Anchor          *shastaBindings.ShastaAnchor
+	ComposeVerifier *shastaBindings.ComposeVerifier
 	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
 	ForkTime uint64
+	// UseLocalDecoder decides whether Shasta events should be decoded locally instead of via codec contract.
+	UseLocalDecoder bool
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -78,6 +81,8 @@ type ClientConfig struct {
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
+	ShastaForkTime              uint64
+	UseLocalShastaDecoder       bool
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -154,7 +159,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
 		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
 	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
+	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
@@ -288,23 +293,37 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}
-
-	c.ShastaClients = &ShastaClients{
-		Inbox:      shastaInbox,
-		InboxCodec: inboxCodec,
-		Anchor:     shastaAnchor,
-		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+	composeVerifier, err := shastaBindings.NewComposeVerifier(config.ProofVerifier, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
-
-	// If an environment override is provided, prefer it to keep tests/tools
-	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
-	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
-		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
-			c.ShastaClients.ForkTime = parsed
+	// Initialize Shasta clients with a fork-time value determined by precedence:
+	// 1) CLI flag (cfg.ShastaForkTime)
+	// 2) Env var TAIKO_INTERNAL_SHASTA_TIME
+	forkTime := cfg.ShastaForkTime
+	if forkTime == 0 {
+		if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
+			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
+				forkTime = parsed
+			}
 		}
 	}
 
+	c.ShastaClients = &ShastaClients{
+		Inbox:           shastaInbox,
+		InboxCodec:      inboxCodec,
+		Anchor:          shastaAnchor,
+		ComposeVerifier: composeVerifier,
+		ForkTime:        forkTime,
+		UseLocalDecoder: cfg.UseLocalShastaDecoder,
+	}
+
 	return nil
+}
+
+// UseLocalShastaDecoder returns whether the client should decode Shasta events locally.
+func (c *Client) UseLocalShastaDecoder() bool {
+	return c.ShastaClients != nil && c.ShastaClients.UseLocalDecoder
 }
 
 // initForkHeightConfigs initializes the fork heights in protocol.
