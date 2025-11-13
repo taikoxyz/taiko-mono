@@ -436,26 +436,22 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 // parseAnchorV4ProposalID extracts the proposal ID from an anchorV4 transaction calldata using fixed offsets.
 func parseAnchorV4ProposalID(tx *types.Transaction) (*big.Int, error) {
 	if tx == nil {
-		return nil, errors.New("anchor transaction is nil")
+		return nil, errors.New("anchorV4 transaction is nil")
 	}
-	data := tx.Data()
 	const (
-		selectorSize        = 4  // method selector
-		wordSize            = 32 // ABI slot size
-		offsetFieldEnd      = selectorSize + wordSize
-		proposalIDStartByte = offsetFieldEnd + wordSize
-		proposalIDEndByte   = proposalIDStartByte + wordSize
+		proposalIDStartByte = 68  // 4-byte selector + 32-byte offset + submissionWindowEnd slot
+		proposalIDEndByte   = 100 // start + 32-byte proposalId slot
 	)
 
-	if len(data) < proposalIDEndByte {
+	if len(tx.Data()) < proposalIDEndByte {
 		return nil, fmt.Errorf(
-			"anchor transaction calldata too short: got %d, need at least %d bytes",
-			len(data),
+			"anchorV4 transaction calldata too short: got %d, need at least %d bytes",
+			len(tx.Data()),
 			proposalIDEndByte,
 		)
 	}
 
-	return new(big.Int).SetBytes(data[proposalIDStartByte:proposalIDEndByte]), nil
+	return new(big.Int).SetBytes(tx.Data()[proposalIDStartByte:proposalIDEndByte]), nil
 }
 
 // returnError is a helper function to return an error response.
