@@ -364,61 +364,25 @@ func (c *Client) WaitL1Header(ctx context.Context, blockID *big.Int) (*types.Hea
 			}
 		}
 	}
-	return waitHeader(ctx, c.L1, blockID)
+	if block, err := waitBlock(ctx, c.L1, blockID); err != nil {
+		return nil, err
+	} else {
+		return block.Header(), nil
+	}
 }
 
 // WaitL2Header keeps waiting for the L2 block header of the given block ID.
 func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Header, error) {
-	return waitHeader(ctx, c.L2, blockID)
+	if block, err := waitBlock(ctx, c.L2, blockID); err != nil {
+		return nil, err
+	} else {
+		return block.Header(), nil
+	}
 }
 
 // WaitL2Block keeps waiting for the L2 block of the given block ID.
 func (c *Client) WaitL2Block(ctx context.Context, blockID *big.Int) (*types.Block, error) {
 	return waitBlock(ctx, c.L2, blockID)
-}
-
-// waitHeader keeps waiting for the block header of the given block ID.
-func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*types.Header, error) {
-	var (
-		ctxWithTimeout = ctx
-		cancel         context.CancelFunc
-		header         *types.Header
-		err            error
-	)
-
-	ticker := time.NewTicker(rpcPollingInterval)
-	defer ticker.Stop()
-
-	if _, ok := ctx.Deadline(); !ok {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, defaultWaitTimeout)
-		defer cancel()
-	}
-
-	log.Debug("Start fetching block header from execution engine", "blockID", blockID)
-
-	for ; true; <-ticker.C {
-		if ctxWithTimeout.Err() != nil {
-			return nil, ctxWithTimeout.Err()
-		}
-
-		header, err = ethClient.HeaderByNumber(ctxWithTimeout, blockID)
-		if err != nil {
-			log.Debug(
-				"Fetch block header from execution engine not found, keep retrying",
-				"blockID", blockID,
-				"error", err,
-			)
-			continue
-		}
-
-		if header == nil {
-			continue
-		}
-
-		return header, nil
-	}
-
-	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, blockID: %d", blockID)
 }
 
 // waitBlock keeps waiting for the block of the given block ID.

@@ -441,10 +441,9 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
 		if parent, err = s.rpc.WaitL2Block(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
-			log.Warn("Failed to fetch the new parent block, keep retrying", "error", err)
+			log.Warn("Failed to fetch the new parent block", "error", err)
 			return err
 		}
-
 	}
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
 	s.lastInsertedBatchID = meta.GetProposal().Id
