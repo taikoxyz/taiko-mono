@@ -488,7 +488,8 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 	// Proposed events via contract FilterProposed
 	g.Go(func() error {
 		end := newHead.Number.Uint64()
-		iter, err := s.rpc.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProposed(
+			&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
 			return fmt.Errorf("failed to filter Shasta Proposed events: %w", err)
 		}
@@ -516,7 +517,8 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 	// Proved events via contract FilterProved
 	g.Go(func() error {
 		end := newHead.Number.Uint64()
-		iter, err := s.rpc.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
+		iter, err := s.rpc.ShastaClients.Inbox.FilterProved(
+			&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
 		if err != nil {
 			return fmt.Errorf("failed to filter Shasta Proved events: %w", err)
 		}
