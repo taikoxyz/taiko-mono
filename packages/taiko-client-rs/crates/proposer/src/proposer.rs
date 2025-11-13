@@ -49,6 +49,7 @@ impl Proposer {
         let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
             l1_subscription_source: cfg.l1_provider_source.clone(),
             inbox_address: cfg.inbox_address,
+            use_local_codec_decoder: cfg.use_local_shasta_codec,
         })
         .await?;
         indexer.clone().spawn();
