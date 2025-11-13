@@ -14,6 +14,7 @@ alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
+bindings = { path = "../bindings" }
 event-scanner = { workspace = true }
 
 # types

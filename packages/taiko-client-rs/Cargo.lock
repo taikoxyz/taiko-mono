@@ -6192,6 +6192,7 @@ dependencies = [
  "alloy-provider",
  "alloy-rlp",
  "anyhow",
+ "bindings",
  "event-scanner",
  "flate2",
  "serde",
