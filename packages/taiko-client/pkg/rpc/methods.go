@@ -417,10 +417,6 @@ func waitForFetchResult[T any](
 			continue
 		}
 
-		if response == nil {
-			continue
-		}
-
 		return response, nil
 	}
 
