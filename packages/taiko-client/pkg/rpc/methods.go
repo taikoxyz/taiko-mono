@@ -412,8 +412,6 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 
 		return header, nil
 	}
-
-	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, blockID: %d", blockID)
 }
 
 // WaitShastaHeader keeps waiting for the Shasta block header of the given batch ID from the L2 execution engine.
