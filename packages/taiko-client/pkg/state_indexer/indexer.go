@@ -8,9 +8,11 @@ import (
 	"sync"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
@@ -21,11 +23,14 @@ import (
 
 var (
 	// maxBlocksPerFilter defines the maximum number of blocks to filter in a single RPC query.
-	maxBlocksPerFilter uint64 = 1000
+	maxBlocksPerFilter uint64 = 500
 	// reorgSafetyDepth defines how many blocks back to rewind when a reorg is detected.
 	reorgSafetyDepth = new(big.Int).SetUint64(64)
 	// bufferSizeMultiplier determines how many times the buffer size to keep for historical data.
 	bufferSizeMultiplier uint64 = 2
+	// topics for Shasta Inbox events (Proposed / Proved)
+	proposedEventTopic = crypto.Keccak256Hash([]byte("Proposed(bytes)"))
+	provedEventTopic   = crypto.Keccak256Hash([]byte("Proved(bytes)"))
 )
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
@@ -62,6 +67,9 @@ type Indexer struct {
 	mutex                    sync.RWMutex
 	lastIndexedBlock         *types.Header
 	historicalFetchCompleted bool
+	// stagedProvedLogs holds proved logs fetched during historical proposal scan
+	// so we can avoid a second round of RPCs for Proved events.
+	stagedProvedLogs []types.Log
 }
 
 // New creates a new Shasta state indexer instance.
@@ -152,30 +160,33 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 			startHeight = new(big.Int).Sub(currentHeader.Number, new(big.Int).SetUint64(maxBlocksPerFilter))
 		}
 
-		log.Info("Fetching Shasta Proposed events", "from", startHeight, "to", currentHeader.Number)
+		log.Info("Fetching Shasta events (Proposed + Proved)", "from", startHeight, "to", currentHeader.Number)
 
-		end := currentHeader.Number.Uint64()
-		iter, err := s.rpc.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{Start: startHeight.Uint64(), End: &end, Context: s.ctx})
+		logs, err := s.ethGetLogsCombined(s.ctx, startHeight, currentHeader.Number)
 		if err != nil {
-			return fmt.Errorf("failed to filter Shasta Proposed events: %w", err)
+			return fmt.Errorf("eth_getLogs combined failed: %w", err)
 		}
-		defer iter.Close()
-		for iter.Next() {
-			event := iter.Event
-			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
-			if err != nil {
-				return fmt.Errorf("failed to decode proposed event data: %w", err)
+		for _, lg := range logs {
+			if len(lg.Topics) == 0 {
+				continue
 			}
-			if payload == nil {
-				return fmt.Errorf("decoded proposed event payload is nil")
+			switch lg.Topics[0] {
+			case proposedEventTopic:
+				payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: s.ctx}, lg.Data)
+				if err != nil {
+					return fmt.Errorf("failed to decode proposed event data: %w", err)
+				}
+				if payload == nil {
+					return fmt.Errorf("decoded proposed event payload is nil")
+				}
+				meta := metadata.NewTaikoProposalMetadataShasta(payload, lg)
+				if err := s.onProposedEvent(s.ctx, meta); err != nil {
+					return fmt.Errorf("failed to handle proposed event: %w", err)
+				}
+			case provedEventTopic:
+				// Stage proved logs for later processing once we know the finalized boundary.
+				s.stagedProvedLogs = append(s.stagedProvedLogs, lg)
 			}
-			meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
-			if err := s.onProposedEvent(s.ctx, meta); err != nil {
-				return fmt.Errorf("failed to handle proposed event: %w", err)
-			}
-		}
-		if err := iter.Error(); err != nil {
-			return fmt.Errorf("error iterating Shasta Proposed events: %w", err)
 		}
 
 		if startHeight.Cmp(common.Big0) == 0 {
@@ -216,57 +227,39 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 	defer s.mutex.Unlock()
 
 	s.transitionRecords = make(map[uint64]*TransitionPayload)
-	currentHeader := fromBlock
 
-	for currentHeader.Number.Cmp(toBlock.Number) < 0 {
-		if s.ctx.Err() != nil {
-			return s.ctx.Err()
+	// If we already staged proved logs during historical proposal scan, process them here.
+	if len(s.stagedProvedLogs) > 0 {
+		// Filter to the requested range, sort, and process.
+		var logsInRange []types.Log
+		for _, lg := range s.stagedProvedLogs {
+			// Note: BlockNumber is uint64; fromBlock.Number and toBlock.Number are *big.Int
+			if lg.BlockNumber >= fromBlock.Number.Uint64() && lg.BlockNumber <= toBlock.Number.Uint64() {
+				logsInRange = append(logsInRange, lg)
+			}
 		}
-		var endHeight *big.Int
-		if new(big.Int).Sub(toBlock.Number, currentHeader.Number).Cmp(new(big.Int).SetUint64(maxBlocksPerFilter)) <= 0 {
-			endHeight = toBlock.Number
-		} else {
-			endHeight = new(big.Int).Add(currentHeader.Number, new(big.Int).SetUint64(maxBlocksPerFilter))
-		}
-
-		log.Debug("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
-
-		end := endHeight.Uint64()
-		iter, err := s.rpc.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{Start: currentHeader.Number.Uint64(), End: &end, Context: s.ctx})
-		if err != nil {
-			return fmt.Errorf("failed to filter Shasta Proved events: %w", err)
-		}
-		defer iter.Close()
-		for iter.Next() {
-			event := iter.Event
-			provedEventPayload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: s.ctx}, event.Data)
+		for _, lg := range logsInRange {
+			// Only process proved logs staged
+			if len(lg.Topics) == 0 || lg.Topics[0] != provedEventTopic {
+				continue
+			}
+			provedEventPayload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: s.ctx}, lg.Data)
 			if err != nil {
-				return fmt.Errorf("failed to decode Shasta Proved event data: %w", err)
+				return fmt.Errorf("failed to decode staged Shasta Proved event data: %w", err)
 			}
 			if provedEventPayload == nil {
 				return fmt.Errorf("decoded proved event payload is nil")
 			}
-			if err := s.onProvedEvent(s.ctx, provedEventPayload, &event.Raw); err != nil {
-				return fmt.Errorf("failed to handle Shasta Proved event: %w", err)
+			if err := s.onProvedEvent(s.ctx, provedEventPayload, &lg); err != nil {
+				return fmt.Errorf("failed to handle staged Shasta Proved event: %w", err)
 			}
 		}
-		if err := iter.Error(); err != nil {
-			return fmt.Errorf("error iterating Shasta Proved events: %w", err)
-		}
-
-		// Break if we've reached the toBlock
-		if endHeight.Cmp(toBlock.Number) == 0 {
-			break
-		}
-
-		// Update currentHeader for next iteration
-		currentHeader, err = s.rpc.L1.HeaderByNumber(s.ctx, endHeight)
-		if err != nil {
-			return fmt.Errorf("failed to get header at height %s: %w", endHeight.String(), err)
-		}
+		// Clear staged logs after processing
+		s.stagedProvedLogs = nil
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("fetchHistoricalTransitionRecords: no staged proved logs to process")
 }
 
 // onProvedEvent handles the Proved event.
@@ -791,4 +784,15 @@ func (s *Indexer) ProposalsCount() int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return len(s.proposals)
+}
+
+// ethGetLogsCombined fetches Proposed and Proved logs in a single eth_getLogs call.
+func (s *Indexer) ethGetLogsCombined(ctx context.Context, from, to *big.Int) ([]types.Log, error) {
+	fq := ethereum.FilterQuery{
+		FromBlock: from,
+		ToBlock:   to,
+		Addresses: []common.Address{s.rpc.ShastaClients.InboxAddress},
+		Topics:    [][]common.Hash{{proposedEventTopic, provedEventTopic}},
+	}
+	return s.rpc.L1.EthClient().FilterLogs(ctx, fq)
 }
