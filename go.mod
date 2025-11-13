@@ -5,7 +5,6 @@ go 1.24.0
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.6
 	github.com/buildkite/terminal-to-html/v3 v3.16.8
-	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
@@ -29,7 +28,6 @@ require (
 	github.com/libp2p/go-libp2p v0.36.5
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/morkid/paginate v1.1.10
-	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
