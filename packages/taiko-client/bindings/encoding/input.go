@@ -146,9 +146,11 @@ var (
 	ProverSetPacayaABI      *abi.ABI
 
 	// Shasta fork
-	ShastaInboxABI  *abi.ABI
-	ShastaAnchorABI *abi.ABI
-	BondManagerABI  *abi.ABI
+	ShastaInboxABI           *abi.ABI
+	ShastaAnchorABI          *abi.ABI
+	BondManagerABI           *abi.ABI
+	ShastaProposedEventTopic common.Hash
+	ShastaProvedEventTopic   common.Hash
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -234,6 +236,18 @@ func init() {
 
 	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get Shasta Inbox ABI error", "error", err)
+	}
+
+	if proposedEvent, ok := ShastaInboxABI.Events["Proposed"]; ok {
+		ShastaProposedEventTopic = proposedEvent.ID
+	} else {
+		log.Crit("Proposed event not found in Shasta inbox ABI")
+	}
+
+	if provedEvent, ok := ShastaInboxABI.Events["Proved"]; ok {
+		ShastaProvedEventTopic = provedEvent.ID
+	} else {
+		log.Crit("Proved event not found in Shasta inbox ABI")
 	}
 
 	if ShastaAnchorABI, err = shastaBindings.ShastaAnchorMetaData.GetAbi(); err != nil {

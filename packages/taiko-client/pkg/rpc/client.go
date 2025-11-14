@@ -41,6 +41,7 @@ type ShastaClients struct {
 	InboxCodec      *shastaBindings.CodecOptimizedClient
 	Anchor          *shastaBindings.ShastaAnchor
 	ComposeVerifier *shastaBindings.ComposeVerifier
+	InboxAddress    common.Address
 	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
 	ForkTime uint64
 	// UseLocalDecoder decides whether Shasta events should be decoded locally instead of via codec contract.
@@ -314,6 +315,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		InboxCodec:      inboxCodec,
 		Anchor:          shastaAnchor,
 		ComposeVerifier: composeVerifier,
+		InboxAddress:    cfg.ShastaInboxAddress,
 		ForkTime:        forkTime,
 		UseLocalDecoder: cfg.UseLocalShastaDecoder,
 	}
