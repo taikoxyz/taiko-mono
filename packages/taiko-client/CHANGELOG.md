@@ -1,5 +1,158 @@
 # Changelog
 
+## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.0.0...taiko-alethia-client-v2.1.0) (2025-11-14)
+
+
+### Features
+
+* **protocol,taiko-client,taiko-client-rs:** upgrade preconf whitelist in `DeployProtocolOnL1` ([#20700](https://github.com/taikoxyz/taiko-mono/issues/20700)) ([4e84208](https://github.com/taikoxyz/taiko-mono/commit/4e842086939a869f7287cc149c6b27b08803b032))
+* **protocol:** allow operators to register a new address(sequencer) ([#19722](https://github.com/taikoxyz/taiko-mono/issues/19722)) ([01cc55a](https://github.com/taikoxyz/taiko-mono/commit/01cc55acdcf8f933de92dc2ee1cd497abf15d542))
+* **protocol:** implement Shasta fork ([#19664](https://github.com/taikoxyz/taiko-mono/issues/19664)) ([2f798ff](https://github.com/taikoxyz/taiko-mono/commit/2f798ff47ab115946ffda8856f9c673344ee1ae3))
+* **taiko-client,taiko-client-rs:** remove `blockIndex` in `anchorV4` ([#20610](https://github.com/taikoxyz/taiko-mono/issues/20610)) ([1ce7094](https://github.com/taikoxyz/taiko-mono/commit/1ce709490ae2107d53db664409b56476f730c46f))
+* **taiko-client:** add domain envelope type, update l1Origin with signature and forced inclusion marker ([#19719](https://github.com/taikoxyz/taiko-mono/issues/19719)) ([ee54a9d](https://github.com/taikoxyz/taiko-mono/commit/ee54a9dfee692106809ee7d21824bfef6027a720))
+* **taiko-client:** Add duration metrics to PreconfBlockApiServer ([#19969](https://github.com/taikoxyz/taiko-mono/issues/19969)) ([cb174ba](https://github.com/taikoxyz/taiko-mono/commit/cb174ba3342a88cf80818b9efe3a7add1859dac7))
+* **taiko-client:** add HTTP 429 rate limit detection for Raiko ([#20129](https://github.com/taikoxyz/taiko-mono/issues/20129)) ([4a03fbd](https://github.com/taikoxyz/taiko-mono/commit/4a03fbd5ae1e74a7722121f88917b309c9828397))
+* **taiko-client:** add proof generation time sum metrics ([#19781](https://github.com/taikoxyz/taiko-mono/issues/19781)) ([4d2d404](https://github.com/taikoxyz/taiko-mono/commit/4d2d40464c02201d3a0f0fcdbf2295fa89edd670))
+* **taiko-client:** add support for external signer from optimism module ([#19851](https://github.com/taikoxyz/taiko-mono/issues/19851)) ([0227770](https://github.com/taikoxyz/taiko-mono/commit/0227770f8baf256fd362b4393ab85da623e784f2))
+* **taiko-client:** align changes in [#20439](https://github.com/taikoxyz/taiko-mono/issues/20439) ([#20463](https://github.com/taikoxyz/taiko-mono/issues/20463)) ([2a9f611](https://github.com/taikoxyz/taiko-mono/commit/2a9f6110ad0a1c417327dcee2b3aabd8a342f52f))
+* **taiko-client:** blacklist peers who publish blocks signed by sequencers who arent onchain ([#20006](https://github.com/taikoxyz/taiko-mono/issues/20006)) ([8b477d3](https://github.com/taikoxyz/taiko-mono/commit/8b477d35402a5c7f63c479df984879a460876923))
+* **taiko-client:** bump `taiko-geth` dependency and update Go contract bindings ([#20589](https://github.com/taikoxyz/taiko-mono/issues/20589)) ([22667a5](https://github.com/taikoxyz/taiko-mono/commit/22667a5353226f3960fcc8753dff2f135ebdf4a3))
+* **taiko-client:** cache lookahead every l1 block ([#19785](https://github.com/taikoxyz/taiko-mono/issues/19785)) ([82c9308](https://github.com/taikoxyz/taiko-mono/commit/82c9308e8b30b3995608b23afb99b760b83513f6))
+* **taiko-client:** changes based on new protocol bond processing ([#20279](https://github.com/taikoxyz/taiko-mono/issues/20279)) ([f8677ef](https://github.com/taikoxyz/taiko-mono/commit/f8677ef812aab09e5ec06e7853a34f41c0f923ee))
+* **taiko-client:** changes based on protocol  [#20584](https://github.com/taikoxyz/taiko-mono/issues/20584) and [#20590](https://github.com/taikoxyz/taiko-mono/issues/20590) ([#20598](https://github.com/taikoxyz/taiko-mono/issues/20598)) ([0a9ca12](https://github.com/taikoxyz/taiko-mono/commit/0a9ca127aa65456db98ff3c257a72128ddccc757))
+* **taiko-client:** changes based on protocol `ICodec` interface ([#20289](https://github.com/taikoxyz/taiko-mono/issues/20289)) ([4a0dde5](https://github.com/taikoxyz/taiko-mono/commit/4a0dde57124170a3f0382a0fd1ae722168c15d0e))
+* **taiko-client:** check Shasta fork activation based on timestamp ([#20601](https://github.com/taikoxyz/taiko-mono/issues/20601)) ([a885d67](https://github.com/taikoxyz/taiko-mono/commit/a885d67529c4628da3ef6eec3ecf5fdb80a21d20))
+* **taiko-client:** check valid proof before submission ([#20690](https://github.com/taikoxyz/taiko-mono/issues/20690)) ([280bbaa](https://github.com/taikoxyz/taiko-mono/commit/280bbaaabcb0686a79fa61f59766295021fa89b7))
+* **taiko-client:** fallback preconf ([#19546](https://github.com/taikoxyz/taiko-mono/issues/19546)) ([3a402ad](https://github.com/taikoxyz/taiko-mono/commit/3a402ad83b4dfbb929ba3c00bc6603722a545008))
+* **taiko-client:** fallback to sgx proof ([#19967](https://github.com/taikoxyz/taiko-mono/issues/19967)) ([7a63b58](https://github.com/taikoxyz/taiko-mono/commit/7a63b58ca234997b2862063705d020bf3e72d90d))
+* **taiko-client:** import Shasta envelopes when receiving Shasta block P2P messages ([#20377](https://github.com/taikoxyz/taiko-mono/issues/20377)) ([51f421a](https://github.com/taikoxyz/taiko-mono/commit/51f421ac0e8803b230c11f5096d35a683ae54ecf))
+* **taiko-client:** improve the usage of mutex in Shasta event indexer ([#20705](https://github.com/taikoxyz/taiko-mono/issues/20705)) ([5931911](https://github.com/taikoxyz/taiko-mono/commit/59319114ef2aa500f27ef558f395cd3192c2aff7))
+* **taiko-client:** introduce `--shasta.useLocalDecoder` flag ([#20685](https://github.com/taikoxyz/taiko-mono/issues/20685)) ([ebde23e](https://github.com/taikoxyz/taiko-mono/commit/ebde23e05db2548ee172108641922c9ab35f4b84))
+* **taiko-client:** introduce `DerivationSourceManifest` ([#20338](https://github.com/taikoxyz/taiko-mono/issues/20338)) ([c9abe02](https://github.com/taikoxyz/taiko-mono/commit/c9abe02270d361ccf026548da6ec175fc84f3bba))
+* **taiko-client:** introduce `ShastaInboxAddress` and `PacayaInboxAddress` flags ([#20313](https://github.com/taikoxyz/taiko-mono/issues/20313)) ([cbf8dad](https://github.com/taikoxyz/taiko-mono/commit/cbf8dad5ac8bd4657a52c18edfbdcf7997790f83))
+* **taiko-client:** introduce api key for raiko ([#19732](https://github.com/taikoxyz/taiko-mono/issues/19732)) ([2962e23](https://github.com/taikoxyz/taiko-mono/commit/2962e2341457c85fb91f1922c9f9801bd9258ff0))
+* **taiko-client:** introduce real proofs for shasta ([#20565](https://github.com/taikoxyz/taiko-mono/issues/20565)) ([9ca78e7](https://github.com/taikoxyz/taiko-mono/commit/9ca78e7f20b150cefe911f910dac95d279808e32))
+* **taiko-client:** make the `beaconSyncer.getBlockPayload()` more compliant with the spec ([#19860](https://github.com/taikoxyz/taiko-mono/issues/19860)) ([747e898](https://github.com/taikoxyz/taiko-mono/commit/747e898f8187be6d4c10b88ec36ee5ed95db3580))
+* **taiko-client:** read handover slots on chain ([#19987](https://github.com/taikoxyz/taiko-mono/issues/19987)) ([316fadc](https://github.com/taikoxyz/taiko-mono/commit/316fadcef6a55dd9da4ba2b8a83ddbe00aca1c77))
+* **taiko-client:** remove dependency on geth `eth_getBlockByHash` ([#20357](https://github.com/taikoxyz/taiko-mono/issues/20357)) ([667cfaf](https://github.com/taikoxyz/taiko-mono/commit/667cfaf8669c5c5ac2c74da69490a6ce717f167d))
+* **taiko-client:** remove dependency on geth undocumented `eth_getHeaderByHash` feature  ([#20035](https://github.com/taikoxyz/taiko-mono/issues/20035)) ([e1032ce](https://github.com/taikoxyz/taiko-mono/commit/e1032ceeea5657f0d2f4cb290321a2902287ec66))
+* **taiko-client:** remove duplicate buffer-size stop condition ([#20704](https://github.com/taikoxyz/taiko-mono/issues/20704)) ([eb3f645](https://github.com/taikoxyz/taiko-mono/commit/eb3f645f1420a6115a0cce0cbce03fe1d9a47ead))
+* **taiko-client:** replace BytesToHash(slice) with zero-copy common Hash ([#20702](https://github.com/taikoxyz/taiko-mono/issues/20702)) ([df8dc6d](https://github.com/taikoxyz/taiko-mono/commit/df8dc6de8cb752b0b103d038b95438063cb4cd3c))
+* **taiko-client:** rpc/engine/ethclient metrics ([#20106](https://github.com/taikoxyz/taiko-mono/issues/20106)) ([d54c884](https://github.com/taikoxyz/taiko-mono/commit/d54c8841c77144a412ff7cf6859b3c99c5a0f60b))
+* **taiko-client:** send lastBlockID from inserter to the API, separate pacaya/shasta ([#20667](https://github.com/taikoxyz/taiko-mono/issues/20667)) ([977bffb](https://github.com/taikoxyz/taiko-mono/commit/977bffb2a13c1c8080e5486a70a1fb0de33aa328))
+* **taiko-client:** set highest unsafe l2 payload to latest head on server startup in driver ([#19696](https://github.com/taikoxyz/taiko-mono/issues/19696)) ([16ef25d](https://github.com/taikoxyz/taiko-mono/commit/16ef25d141f27bc4bc991e946c7ac9a63a1fef21))
+* **taiko-client:** shasta upgrade in client ([#20000](https://github.com/taikoxyz/taiko-mono/issues/20000)) ([8439ec2](https://github.com/taikoxyz/taiko-mono/commit/8439ec24fde14eb5b2252c5d3cee4cae36c38bb4))
+* **taiko-client:** update Go contract bindings ([#20362](https://github.com/taikoxyz/taiko-mono/issues/20362)) ([2213344](https://github.com/taikoxyz/taiko-mono/commit/2213344c33be9b8d0a9482ea6f1eca75e36d444a))
+* **taiko-client:** update Go contract bindings ([#20401](https://github.com/taikoxyz/taiko-mono/issues/20401)) ([8688065](https://github.com/taikoxyz/taiko-mono/commit/868806564de7d036e39ab63fc6712bdf0a618a77))
+* **taiko-client:** update Go contract bindings ([#20542](https://github.com/taikoxyz/taiko-mono/issues/20542)) ([d74782a](https://github.com/taikoxyz/taiko-mono/commit/d74782a5b669e1eb05151b8ed045aa97f4383e81))
+* **taiko-client:** update prover `l1Current` cursor initilization for Shasta protocol ([#20265](https://github.com/taikoxyz/taiko-mono/issues/20265)) ([0e5d1fa](https://github.com/taikoxyz/taiko-mono/commit/0e5d1fa4a90c95b3a582439ccaa659c53bf2187f))
+* **taiko-client:** update test scripts / bindings after [#20413](https://github.com/taikoxyz/taiko-mono/issues/20413) ([#20454](https://github.com/taikoxyz/taiko-mono/issues/20454)) ([b2373d5](https://github.com/taikoxyz/taiko-mono/commit/b2373d5180dd6d8ea3e11f07f035ad8a66717d65))
+* **taiko-client:** updates based on `AnchorForkRouter` ([#20493](https://github.com/taikoxyz/taiko-mono/issues/20493)) ([d494d58](https://github.com/taikoxyz/taiko-mono/commit/d494d583d70fdd3b1475b69fdcc467589696e1d5))
+
+
+### Bug Fixes
+
+* **protocol,taiko-client:** harden manifest parsing, require blobs for Shasta, and add timeouts ([#20692](https://github.com/taikoxyz/taiko-mono/issues/20692)) ([6f287e3](https://github.com/taikoxyz/taiko-mono/commit/6f287e3a7cfac477ac9a0a01ed75f8b19176b2c9))
+* **protocol:** fix devnet deployment ([#20098](https://github.com/taikoxyz/taiko-mono/issues/20098)) ([cbf0fc7](https://github.com/taikoxyz/taiko-mono/commit/cbf0fc71a2bde500bd8ce8e7f4cafee0d805996a))
+* **relayer:** improve MySQL container test reliability ([#20328](https://github.com/taikoxyz/taiko-mono/issues/20328)) ([8f72a97](https://github.com/taikoxyz/taiko-mono/commit/8f72a97f0b8fb0b36e4402501e3b8bd012dd236c))
+* **taiko-client,taiko-client-rs:** remove the `finalizationGracePeriod` check in `getTransitionsForFinalization` ([#20693](https://github.com/taikoxyz/taiko-mono/issues/20693)) ([35301ae](https://github.com/taikoxyz/taiko-mono/commit/35301aea752328184c83c0d0d91df096872124c3))
+* **taiko-client:** add extended retry for missing trie node sync errors ([#19874](https://github.com/taikoxyz/taiko-mono/issues/19874)) ([65c00fd](https://github.com/taikoxyz/taiko-mono/commit/65c00fd2c2d78a6dc317c1fcf1911513d8d2250e))
+* **taiko-client:** add idempotency check in the proof buffer ([#20440](https://github.com/taikoxyz/taiko-mono/issues/20440)) ([2fdf7fd](https://github.com/taikoxyz/taiko-mono/commit/2fdf7fdd536a585cce232b57e34f6ada71366352))
+* **taiko-client:** change to use `returnError` for some errors in `BuildPreconfBlock` ([#19753](https://github.com/taikoxyz/taiko-mono/issues/19753)) ([60320bc](https://github.com/taikoxyz/taiko-mono/commit/60320bcc1174c671e2efff431c891b6f4bea713f))
+* **taiko-client:** check the shasta last seen proposal after reorg ([#20496](https://github.com/taikoxyz/taiko-mono/issues/20496)) ([244f160](https://github.com/taikoxyz/taiko-mono/commit/244f1609ba16995153601e1f715fd69a3eed5518))
+* **taiko-client:** correct cleanupFinalizedTransitionRecords function name ([#20360](https://github.com/taikoxyz/taiko-mono/issues/20360)) ([a83526f](https://github.com/taikoxyz/taiko-mono/commit/a83526fac09ca430fd856591aca9feb1090a8a1b))
+* **taiko-client:** correct difficulty calculation for Shasta preconfirmation ([#20674](https://github.com/taikoxyz/taiko-mono/issues/20674)) ([058f9d7](https://github.com/taikoxyz/taiko-mono/commit/058f9d7b20a658f4580009ed4976af4e79b26871))
+* **taiko-client:** correct grammar and spelling issues ([#20175](https://github.com/taikoxyz/taiko-mono/issues/20175)) ([944aa01](https://github.com/taikoxyz/taiko-mono/commit/944aa01bd354e1ad1d8642d29397793ed5f4629c))
+* **taiko-client:** correct remaining duration in proving window helpers ([#20585](https://github.com/taikoxyz/taiko-mono/issues/20585)) ([6856ca3](https://github.com/taikoxyz/taiko-mono/commit/6856ca35641478e21d310c19ae740e9ca1579f28))
+* **taiko-client:** drain prover channel and fix backoff thread-safetyness ([#20717](https://github.com/taikoxyz/taiko-mono/issues/20717)) ([ba74086](https://github.com/taikoxyz/taiko-mono/commit/ba74086fa9b1bd9b4bf8643fb161e2e2cdd65b9a))
+* **taiko-client:** elapsed time in histograms ([#19975](https://github.com/taikoxyz/taiko-mono/issues/19975)) ([3807dfc](https://github.com/taikoxyz/taiko-mono/commit/3807dfcdd3f2b7cc08a6b1260b62723d58e64162))
+* **taiko-client:** enhance error handling in configuration and sync processes ([#20103](https://github.com/taikoxyz/taiko-mono/issues/20103)) ([0aeac9b](https://github.com/taikoxyz/taiko-mono/commit/0aeac9b1837e93ab7fe3391dde9e3d1865fb47fd))
+* **taiko-client:** ensure duplicate writes succeed even when buffer is full ([#20648](https://github.com/taikoxyz/taiko-mono/issues/20648)) ([6fea376](https://github.com/taikoxyz/taiko-mono/commit/6fea376c14819324c3e6972ea7ddf9290f5b6c25))
+* **taiko-client:** fallback proposer works when no active operator ([#20624](https://github.com/taikoxyz/taiko-mono/issues/20624)) ([6209a33](https://github.com/taikoxyz/taiko-mono/commit/6209a331f91403959d7729814ebaf106fa626cca))
+* **taiko-client:** fix `IsProvingWindowExpiredShasta` error message ([#20637](https://github.com/taikoxyz/taiko-mono/issues/20637)) ([de0446e](https://github.com/taikoxyz/taiko-mono/commit/de0446eb331f725c7886fe52de7671c7c144ea4f))
+* **taiko-client:** fix LRU Keys iteration in `OnUnsafeL2Request` ([#20695](https://github.com/taikoxyz/taiko-mono/issues/20695)) ([8062d02](https://github.com/taikoxyz/taiko-mono/commit/8062d0234788af70ed1708687ec531007b1d0ada))
+* **taiko-client:** fix preconf router config ([#20074](https://github.com/taikoxyz/taiko-mono/issues/20074)) ([e0ba42f](https://github.com/taikoxyz/taiko-mono/commit/e0ba42f497743d6e442c95fa447bdceb2cb61980))
+* **taiko-client:** fix repeated event process ([#20725](https://github.com/taikoxyz/taiko-mono/issues/20725)) ([fb5820a](https://github.com/taikoxyz/taiko-mono/commit/fb5820a44241b2f1ab860604bbfff6fe5c030d15))
+* **taiko-client:** fix SetHeadL1Origin RPC ([#20234](https://github.com/taikoxyz/taiko-mono/issues/20234)) ([4b27d8f](https://github.com/taikoxyz/taiko-mono/commit/4b27d8f9982592301939cc29181da038cc247b98))
+* **taiko-client:** fix swagger gen preconf blocks api ([#19794](https://github.com/taikoxyz/taiko-mono/issues/19794)) ([aae4af8](https://github.com/taikoxyz/taiko-mono/commit/aae4af8a3bb997a72d9205f15a94535ee3ca016d))
+* **taiko-client:** fix the returned err about blob not found ([#19869](https://github.com/taikoxyz/taiko-mono/issues/19869)) ([45336b0](https://github.com/taikoxyz/taiko-mono/commit/45336b037b4d7f52c1ae2cd44139011587393631))
+* **taiko-client:** fix thread-safety of indexer ([#20708](https://github.com/taikoxyz/taiko-mono/issues/20708)) ([b552c7b](https://github.com/taikoxyz/taiko-mono/commit/b552c7b4d1e152ca67bfcb1ae1c32aca2eec2192))
+* **taiko-client:** handle reorg case when getting blobs ([#19660](https://github.com/taikoxyz/taiko-mono/issues/19660)) ([aeb9ddc](https://github.com/taikoxyz/taiko-mono/commit/aeb9ddca5c264581ebc409f64c29a300521d6725))
+* **taiko-client:** initialize `reorgRewindDepth` from config in `BlockBatchIterator` ([#20456](https://github.com/taikoxyz/taiko-mono/issues/20456)) ([8c0d921](https://github.com/taikoxyz/taiko-mono/commit/8c0d9211f4d2da350defc0f0658ad4f3f0d5c011))
+* **taiko-client:** log correct error from godotenv.Load in LoadEnv ([#20653](https://github.com/taikoxyz/taiko-mono/issues/20653)) ([94fc1b9](https://github.com/taikoxyz/taiko-mono/commit/94fc1b967d1607e0f601223001df91d73470efb2))
+* **taiko-client:** monitor the latest proposal on chain ([#20464](https://github.com/taikoxyz/taiko-mono/issues/20464)) ([fe72387](https://github.com/taikoxyz/taiko-mono/commit/fe72387d159c5a64344f3087f73bb1255cbf466b))
+* **taiko-client:** p2p fixes ([#19841](https://github.com/taikoxyz/taiko-mono/issues/19841)) ([cac40c2](https://github.com/taikoxyz/taiko-mono/commit/cac40c2740ea2e065a71ac520ef43343df4ad5df))
+* **taiko-client:** read Shasta fork height from Pacaya Inbox ([#20459](https://github.com/taikoxyz/taiko-mono/issues/20459)) ([f64079d](https://github.com/taikoxyz/taiko-mono/commit/f64079d8b5bf90008f7be24d16535e4b5845d54c))
+* **taiko-client:** rename SubscribePorposedShasta to SubscribeProposedShasta ([#20332](https://github.com/taikoxyz/taiko-mono/issues/20332)) ([d157509](https://github.com/taikoxyz/taiko-mono/commit/d157509c75fc0a8351986d90d47517bd3ca46c50))
+* **taiko-client:** revert pr-20035 ([#20066](https://github.com/taikoxyz/taiko-mono/issues/20066)) ([2ee7349](https://github.com/taikoxyz/taiko-mono/commit/2ee73496fa701f1decda06befe6f3b1297d29fef))
+* **taiko-client:** should use blockID to get L1 origin ([#19713](https://github.com/taikoxyz/taiko-mono/issues/19713)) ([526018d](https://github.com/taikoxyz/taiko-mono/commit/526018d992e127e7feabd0b68412387b792ef3ad))
+* **taiko-client:** stop tickers/timers and cancel context on close ([#19902](https://github.com/taikoxyz/taiko-mono/issues/19902)) ([c83ca02](https://github.com/taikoxyz/taiko-mono/commit/c83ca02fa0eb29f1eaa10c3c4451c92bb1fba9e4))
+* **taiko-client:** update L1 origin of parent if the block is building on a orphaned parent ([#19701](https://github.com/taikoxyz/taiko-mono/issues/19701)) ([6632b6d](https://github.com/taikoxyz/taiko-mono/commit/6632b6d318e0501ec88f33e3a6f904b0ce02cf65))
+* **taiko-client:** use parent envelope signature and forced inclusion ([#20620](https://github.com/taikoxyz/taiko-mono/issues/20620)) ([12f127e](https://github.com/taikoxyz/taiko-mono/commit/12f127e18f2665d3dc3aebdb5befd312beb57272))
+* **taiko-client:** use unique log key for block ID in fallback check ([#20026](https://github.com/taikoxyz/taiko-mono/issues/20026)) ([793a2d6](https://github.com/taikoxyz/taiko-mono/commit/793a2d69e1882adfe029f85a68e5079cd8c63310))
+* **taiko-client:** use zk error as the err of `g.Wait()` ([#19806](https://github.com/taikoxyz/taiko-mono/issues/19806)) ([211d8fb](https://github.com/taikoxyz/taiko-mono/commit/211d8fb76522eca0190b1df1b880f5960d26c653))
+
+
+### Chores
+
+* fix some minor issues in comments ([#19740](https://github.com/taikoxyz/taiko-mono/issues/19740)) ([e39f4db](https://github.com/taikoxyz/taiko-mono/commit/e39f4db8406c0ec5f6ac383f32d9126cdb099ec4))
+* **main:** release taiko-alethia-client 1.10.0 ([#19856](https://github.com/taikoxyz/taiko-mono/issues/19856)) ([98684f2](https://github.com/taikoxyz/taiko-mono/commit/98684f2683a45330e64f73825cb172e63caa968a))
+* **main:** release taiko-alethia-client 1.10.1 ([#19886](https://github.com/taikoxyz/taiko-mono/issues/19886)) ([fd8cca4](https://github.com/taikoxyz/taiko-mono/commit/fd8cca4cecbbd0dba654fdb24cfcc0f8206b0a72))
+* **main:** release taiko-alethia-client 1.11.0 ([#19922](https://github.com/taikoxyz/taiko-mono/issues/19922)) ([eb76c2b](https://github.com/taikoxyz/taiko-mono/commit/eb76c2b90aec46c357cbde5af0ad0d4b64f4a7ec))
+* **main:** release taiko-alethia-client 1.6.3 ([#19659](https://github.com/taikoxyz/taiko-mono/issues/19659)) ([65fa4d7](https://github.com/taikoxyz/taiko-mono/commit/65fa4d75876a8596e13ee53e1d9100a5283705af))
+* **main:** release taiko-alethia-client 1.7.0 ([#19705](https://github.com/taikoxyz/taiko-mono/issues/19705)) ([815c5f7](https://github.com/taikoxyz/taiko-mono/commit/815c5f79bfc9a0ac7d39009f7a0a6e2689c16b65))
+* **main:** release taiko-alethia-client 1.8.0 ([#19758](https://github.com/taikoxyz/taiko-mono/issues/19758)) ([2eb790c](https://github.com/taikoxyz/taiko-mono/commit/2eb790cd4f5b92cc7516ef97901af6a218a09c7c))
+* **main:** release taiko-alethia-client 1.9.0 ([#19801](https://github.com/taikoxyz/taiko-mono/issues/19801)) ([7df6661](https://github.com/taikoxyz/taiko-mono/commit/7df6661acec8536bcc32bdb3bab9ef9ab422b162))
+* **protocol:** add `MAX_BLOCK_GAS_LIMIT` ([#20522](https://github.com/taikoxyz/taiko-mono/issues/20522)) ([9878f60](https://github.com/taikoxyz/taiko-mono/commit/9878f6022393ad70446bc5350b8b5e8c9350af09))
+* **relayer, taiko-client:** fix typo/grammar in comments ([#20071](https://github.com/taikoxyz/taiko-mono/issues/20071)) ([da74cf5](https://github.com/taikoxyz/taiko-mono/commit/da74cf532ec777eadbee5a6dd44fcc2a4b67d346))
+* **taiko-client,taiko-client-rs:** update Go / Rust contract bindings ([#20711](https://github.com/taikoxyz/taiko-mono/issues/20711)) ([15ccd79](https://github.com/taikoxyz/taiko-mono/commit/15ccd79536211e47610d457d1914c002cce8fe5b))
+* **taiko-client:** add `AGENTS.md` ([#20735](https://github.com/taikoxyz/taiko-mono/issues/20735)) ([d40444a](https://github.com/taikoxyz/taiko-mono/commit/d40444a0d73e6de5fd11558141f90135f34a0c69))
+* **taiko-client:** add emoji to quickly identify logs ([#19974](https://github.com/taikoxyz/taiko-mono/issues/19974)) ([8e979b6](https://github.com/taikoxyz/taiko-mono/commit/8e979b69aa00ba66140f1ab318b72b0f1a62d56b))
+* **taiko-client:** correct misspelling in `taiko-client` comments ([#20052](https://github.com/taikoxyz/taiko-mono/issues/20052)) ([96e8507](https://github.com/taikoxyz/taiko-mono/commit/96e8507581aebbfabd4c3cec3475baf0d87026d0))
+* **taiko-client:** fix incorrect comments in `ProofRequestOptions` interface methods ([#20642](https://github.com/taikoxyz/taiko-mono/issues/20642)) ([b79a297](https://github.com/taikoxyz/taiko-mono/commit/b79a297bd745b6c6abfc5e149d895376c3ee7102))
+* **taiko-client:** fix incorrect function name in comment ([#20713](https://github.com/taikoxyz/taiko-mono/issues/20713)) ([d27ed1c](https://github.com/taikoxyz/taiko-mono/commit/d27ed1c54b0d8c0e9562e90d05cf60426a274953))
+* **taiko-client:** fix some function names in comment ([#19724](https://github.com/taikoxyz/taiko-mono/issues/19724)) ([3c1d2cb](https://github.com/taikoxyz/taiko-mono/commit/3c1d2cbddd137354773e981a9f80929bc0cb9a57))
+* **taiko-client:** fix variable name in GetProposalByID function ([#20366](https://github.com/taikoxyz/taiko-mono/issues/20366)) ([02c678d](https://github.com/taikoxyz/taiko-mono/commit/02c678d65fabf62f46f12095408938d3fb5db4ff))
+* **taiko-client:** introduce flag for Shasta timestamp ([#20701](https://github.com/taikoxyz/taiko-mono/issues/20701)) ([1d4572e](https://github.com/taikoxyz/taiko-mono/commit/1d4572ed1215de66b51814c90be273ab1cb2e0df))
+* **taiko-client:** log length of txs in manifest ([#20736](https://github.com/taikoxyz/taiko-mono/issues/20736)) ([1173089](https://github.com/taikoxyz/taiko-mono/commit/1173089b3d1d844061cca4ceb6492af792a3b441))
+* **taiko-client:** log PreconfOperatorAddress ([#19787](https://github.com/taikoxyz/taiko-mono/issues/19787)) ([3d84ea5](https://github.com/taikoxyz/taiko-mono/commit/3d84ea5ef6e71400ae7ae47a0f3fac51b83ecdd5))
+* **taiko-client:** lower request sync margin ([#19913](https://github.com/taikoxyz/taiko-mono/issues/19913)) ([48ffe13](https://github.com/taikoxyz/taiko-mono/commit/48ffe13ed43fc59cdc6850f7374f5e779a6ed6f7))
+* **taiko-client:** make function comment match function name ([#19649](https://github.com/taikoxyz/taiko-mono/issues/19649)) ([30bde71](https://github.com/taikoxyz/taiko-mono/commit/30bde714f9a8cd296d586d6a9da09222dbf41ab5))
+* **taiko-client:** refactor preconfblocks envelope terminology ([#20096](https://github.com/taikoxyz/taiko-mono/issues/20096)) ([922fd50](https://github.com/taikoxyz/taiko-mono/commit/922fd509e5e7ba20cec1c5aba09fab51e88b6535))
+* **taiko-client:** remove unused `ErrBlobSizeTooSmall` error ([#20381](https://github.com/taikoxyz/taiko-mono/issues/20381)) ([c559a3d](https://github.com/taikoxyz/taiko-mono/commit/c559a3d91b0df385146e27c1b0d4a3a02a82aeb9))
+* **taiko-client:** remove unused prover fields from AssignmentExpiredEventHandler ([#20105](https://github.com/taikoxyz/taiko-mono/issues/20105)) ([fef006f](https://github.com/taikoxyz/taiko-mono/commit/fef006f760f35a5bc222c7348b2ca07e7db9a2b1))
+* **taiko-client:** rename `payload` to `envelope` ([#19752](https://github.com/taikoxyz/taiko-mono/issues/19752)) ([3df3a1e](https://github.com/taikoxyz/taiko-mono/commit/3df3a1e8d3f6eca6f02f0b32a79420168a3277e1))
+* **taiko-client:** unify log formatting ([#20375](https://github.com/taikoxyz/taiko-mono/issues/20375)) ([9bcf256](https://github.com/taikoxyz/taiko-mono/commit/9bcf2565c2cfcea7ad710c9c11ed611b1152921a))
+
+
+### Documentation
+
+* **protocol,relayer,taiko-client:** fix some inaccuracies in docs ([#20221](https://github.com/taikoxyz/taiko-mono/issues/20221)) ([5be8b50](https://github.com/taikoxyz/taiko-mono/commit/5be8b504e84c1ff61e5e55d5f0c1f185578dd7c3))
+* **taiko-client:** fix broken link ([#20078](https://github.com/taikoxyz/taiko-mono/issues/20078)) ([e066c1c](https://github.com/taikoxyz/taiko-mono/commit/e066c1cd3a6245eb1c2ad1fc69509c70e0b362d1))
+* **taiko-client:** fix incorrect function documentation for EncodeAndCompressShast… ([#20290](https://github.com/taikoxyz/taiko-mono/issues/20290)) ([56b939f](https://github.com/taikoxyz/taiko-mono/commit/56b939fd700dbf94f92922c0b361b182a4f86641))
+* **taiko-client:** fix readme to actual directory structure ([#20684](https://github.com/taikoxyz/taiko-mono/issues/20684)) ([64d2865](https://github.com/taikoxyz/taiko-mono/commit/64d28658eebd18c1a274c3a7b2800bba01117943))
+
+
+### Code Refactoring
+
+* **protocol,taiko-client-rs,taiko-client:** move LibManifest constants to Derivation.md ([#20545](https://github.com/taikoxyz/taiko-mono/issues/20545)) ([da27f44](https://github.com/taikoxyz/taiko-mono/commit/da27f4441507190eba742dcf90404956eeb67b45))
+* **taiko-client:** introduce `tryPutEnvelopeIntoCache` to reduce duplicated code ([#19769](https://github.com/taikoxyz/taiko-mono/issues/19769)) ([fb454b1](https://github.com/taikoxyz/taiko-mono/commit/fb454b19da004c00fe4c6cb8d731b16db4e14664))
+* **taiko-client:** reduce the number of requests ([#19802](https://github.com/taikoxyz/taiko-mono/issues/19802)) ([b57892f](https://github.com/taikoxyz/taiko-mono/commit/b57892fa1327072e6305badb88e9300093ef4adc))
+* **taiko-client:** use the built-in max/min to simplify the code ([#20022](https://github.com/taikoxyz/taiko-mono/issues/20022)) ([4bb93e2](https://github.com/taikoxyz/taiko-mono/commit/4bb93e2f57defcd81f160187696faaf7adc0bd5d))
+
+
+### Performance Improvements
+
+* **taiko-client:** parallelize live indexing and optimize blob fetching ([#20720](https://github.com/taikoxyz/taiko-mono/issues/20720)) ([ec9c3d5](https://github.com/taikoxyz/taiko-mono/commit/ec9c3d583a0a8b85128cac1da10ffa7cb89716b8))
+* **taiko-client:** reuse http client for connection pooling ([#20680](https://github.com/taikoxyz/taiko-mono/issues/20680)) ([aefb81f](https://github.com/taikoxyz/taiko-mono/commit/aefb81fce66c7adafacb31f1f67170ae289f8f4c))
+
+
+### Tests
+
+* **taiko-client,protocol:** introduce tests with bond instructions && improve `DeployProtocolOnL1` deployment script ([#20714](https://github.com/taikoxyz/taiko-mono/issues/20714)) ([fa61a1d](https://github.com/taikoxyz/taiko-mono/commit/fa61a1d8e509ebfff38b0b402c679a78da557e12))
+* **taiko-client:** add more Shasta driver tests ([#20716](https://github.com/taikoxyz/taiko-mono/issues/20716)) ([49ad31e](https://github.com/taikoxyz/taiko-mono/commit/49ad31eac2b18380a64df62595f69b3b3f048ff9))
+* **taiko-client:** remove the dependency of `debug_setHead` for better node implementations diversity support ([#19721](https://github.com/taikoxyz/taiko-mono/issues/19721)) ([958f2ac](https://github.com/taikoxyz/taiko-mono/commit/958f2ac50be2021b2456b6f6d3f8d1583cda980d))
+
 ## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.1...taiko-alethia-client-v1.11.0) (2025-09-18)
 
 
