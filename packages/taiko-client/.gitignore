@@ -27,5 +27,4 @@ integration_test/nodes/deployments/mainnet.json
 .env
 .claude/
 .code/
-.codex/
 .bmad/
