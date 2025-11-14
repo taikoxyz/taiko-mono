@@ -247,8 +247,8 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 	start := time.Now()
 	var (
 		results = make([]rangeLogs, len(ranges))
-		reqs    = make([]gethrpc.BatchElem, 0)
-		metas   = make([]rangeRequestMeta, 0)
+		reqs    = make([]gethrpc.BatchElem, 0, len(ranges)*2)
+		metas   = make([]rangeRequestMeta, 0, len(ranges)*2)
 	)
 	// Prepare batch requests for proposed and proved events.
 	for i, r := range ranges {
