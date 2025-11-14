@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -68,12 +69,11 @@ type ProposalPayload struct {
 
 // TransitionPayload represents the payload in a Shasta Proved event.
 type TransitionPayload struct {
-	ProposalId        *big.Int
-	Transition        *shastaBindings.IInboxTransition
-	TransitionRecord  *shastaBindings.IInboxTransitionRecord
-	RawBlockHash      common.Hash
-	RawBlockHeight    *big.Int
-	RawBlockTimeStamp uint64
+	ProposalId       *big.Int
+	Transition       *shastaBindings.IInboxTransition
+	TransitionRecord *shastaBindings.IInboxTransitionRecord
+	RawBlockHash     common.Hash
+	RawBlockHeight   *big.Int
 }
 
 // proposalRange represents the L1 block interval processed within a batch.
@@ -244,6 +244,7 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 		return nil
 	}
 
+	start := time.Now()
 	var (
 		results = make([]rangeLogs, len(ranges))
 		reqs    = make([]gethrpc.BatchElem, 0)
@@ -269,6 +270,7 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 	if err := s.rpc.L1.BatchCallContext(ctx, reqs); err != nil {
 		return err
 	}
+	log.Info("Historical RPC batch completed", "ranges", len(ranges), "duration", time.Since(start))
 	for idx, req := range reqs {
 		if req.Error != nil {
 			return fmt.Errorf(
@@ -291,7 +293,11 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 		})
 	}
 
-	return g.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	log.Info("Historical decode batch completed", "ranges", len(ranges), "duration", time.Since(start))
+	return nil
 }
 
 // buildShastaFilterArg constructs an eth_getLogs argument for the given topic and block interval.
@@ -397,10 +403,6 @@ func (s *Indexer) onProvedEvent(
 		transition = meta.Transition
 		record     = meta.TransitionRecord
 	)
-	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
-	if err != nil {
-		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
-	}
 
 	log.Debug(
 		"New indexed Shasta transition record",
@@ -411,15 +413,13 @@ func (s *Indexer) onProvedEvent(
 		"checkpointBlockHash", common.Hash(transition.Checkpoint.BlockHash),
 		"checkpointStateRoot", common.Hash(transition.Checkpoint.StateRoot),
 		"bondInstructions", len(record.BondInstructions),
-		"timeStamp", header.Time,
 	)
 	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
-		ProposalId:        meta.ProposalId,
-		Transition:        &transition,
-		TransitionRecord:  &record,
-		RawBlockHash:      eventLog.BlockHash,
-		RawBlockHeight:    new(big.Int).SetUint64(eventLog.BlockNumber),
-		RawBlockTimeStamp: header.Time,
+		ProposalId:       meta.ProposalId,
+		Transition:       &transition,
+		TransitionRecord: &record,
+		RawBlockHash:     eventLog.BlockHash,
+		RawBlockHeight:   new(big.Int).SetUint64(eventLog.BlockNumber),
 	})
 	return nil
 }
