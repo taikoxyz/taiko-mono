@@ -19,6 +19,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	eventiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -34,27 +35,9 @@ var (
 	bufferSizeMultiplier uint64 = 2
 	// maxHistoricalProposalFetchConcurrency caps how many proposal ranges we fetch in parallel.
 	maxHistoricalProposalFetchConcurrency = 32
-	shastaProposedEventTopic              common.Hash
-	shastaProvedEventTopic                common.Hash
+	shastaProposedEventTopic              = encoding.ShastaProposedEventTopic
+	shastaProvedEventTopic                = encoding.ShastaProvedEventTopic
 )
-
-// Initialize event topics from ABI.
-func init() {
-	abi, err := shastaBindings.ShastaInboxClientMetaData.GetAbi()
-	if err != nil {
-		log.Crit("Failed to parse Shasta inbox ABI", "err", err)
-	}
-	proposedEvent, ok := abi.Events["Proposed"]
-	if !ok {
-		log.Crit("Proposed event not found in Shasta inbox ABI")
-	}
-	provedEvent, ok := abi.Events["Proved"]
-	if !ok {
-		log.Crit("Proved event not found in Shasta inbox ABI")
-	}
-	shastaProposedEventTopic = proposedEvent.ID
-	shastaProvedEventTopic = provedEvent.ID
-}
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
