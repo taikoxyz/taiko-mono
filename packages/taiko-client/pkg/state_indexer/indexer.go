@@ -29,7 +29,7 @@ var (
 	// bufferSizeMultiplier determines how many times the buffer size to keep for historical data.
 	bufferSizeMultiplier uint64 = 2
 	// maxHistoricalProposalFetchConcurrency caps how many proposal ranges we fetch in parallel.
-	maxHistoricalProposalFetchConcurrency = 64
+	maxHistoricalProposalFetchConcurrency = 16
 )
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
@@ -173,7 +173,7 @@ func (s *Indexer) fetchHistorical(toBlock *types.Header, bufferSize uint64) erro
 			batch = append(batch, proposalRange{startHeight: startHeight, endHeight: endHeight})
 
 			if startHeight.Cmp(common.Big0) == 0 {
-				log.Info("Reached the genesis block, stop fetching historical proposals", "cached", s.proposals.Count())
+				log.Info("Queued final Shasta proposal range (reached genesis)", "cached", s.proposals.Count())
 				stopRequested = true
 				break
 			}
