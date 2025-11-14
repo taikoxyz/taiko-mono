@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This proposal transfers all TAIKO tokens held by the DAO Controller (controller.taiko.eth) to the Taiko Foundation Treasury (treasury.taiko.eth). This consolidation of approximately 94 million TAIKO tokens improves fund management efficiency and aligns with the protocol's treasury management strategy.
+This proposal transfers all TAIKO tokens held by the DAO Controller (controller.taiko.eth) -- approximately 94 million TAIKO tokens -- to the Taiko Foundation Treasury (treasury.taiko.eth). This transfer aligns with the Foundation's governance framework for treasury asset management. The transfer is a non-voting organizational measure that does not affect token voting dynamics or token supply, as both the Controller and Treasury addresses are non-voting accounts.
 
 ## Rationale
 
