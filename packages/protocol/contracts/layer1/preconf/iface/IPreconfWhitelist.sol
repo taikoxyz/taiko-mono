@@ -18,6 +18,11 @@ interface IPreconfWhitelist {
         address indexed proposer, address indexed sequencer, uint256 inactiveSince
     );
 
+    /// @notice Emitted when an ejecter is updated.
+    /// @param ejecter The address of the ejecter.
+    /// @param isEjecter Whether the address is an ejecter.
+    event EjecterUpdated(address indexed ejecter, bool isEjecter);
+
     /// @notice Adds a new operator to the whitelist.
     /// @param _proposer The proposer address of the operator to be added.
     /// @param _sequencer The sequencer address of the operator to be added.
