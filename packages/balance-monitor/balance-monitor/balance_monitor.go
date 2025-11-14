@@ -80,14 +80,16 @@ func (b *BalanceMonitor) Start() error {
 				b.checkEthBalance(context.Background(), b.l2EthClient, l2EthBalanceGauge, "L2", address)
 
 				// Check ERC-20 token balances
-				var balance float64 = 0
+				var l1Balance float64
+				var l2Balance float64
 				for _, tokenAddress := range b.erc20Addresses {
-					balance = balance + b.checkErc20Balance(context.Background(), b.l1EthClient, "L1", tokenAddress, address)
-					balance = balance + b.checkErc20Balance(context.Background(), b.l2EthClient, "L2", tokenAddress, address)
-
+					l1Balance += b.checkErc20Balance(context.Background(), b.l1EthClient, "L1", tokenAddress, address)
+					l2Balance += b.checkErc20Balance(context.Background(), b.l2EthClient, "L2", tokenAddress, address)
 				}
-				l1Erc20BalanceGauge.WithLabelValues(address.Hex()).Set(balance)
-				slog.Info("ERC-20 Balance", "address", address.Hex(), "balance", balance)
+				l1Erc20BalanceGauge.WithLabelValues(address.Hex()).Set(l1Balance)
+				l2Erc20BalanceGauge.WithLabelValues(address.Hex()).Set(l2Balance)
+				slog.Info("ERC-20 Balance", "network", "L1", "address", address.Hex(), "balance", l1Balance)
+				slog.Info("ERC-20 Balance", "network", "L2", "address", address.Hex(), "balance", l2Balance)
 			}
 		}
 	}
