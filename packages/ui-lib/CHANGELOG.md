@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/taikoxyz/taiko-mono/compare/ui-lib-v1.0.0...ui-lib-v1.0.1) (2025-11-14)
+
+
+### Bug Fixes
+
+* **repo:** correct typos across relayer, bridge-ui, and ui-lib ([#20337](https://github.com/taikoxyz/taiko-mono/issues/20337)) ([0c8ba23](https://github.com/taikoxyz/taiko-mono/commit/0c8ba23fb859388bff52fc208e31e0c73a66a2cf))
+
 ## 1.0.0 (2024-05-25)
 
 ### Features
