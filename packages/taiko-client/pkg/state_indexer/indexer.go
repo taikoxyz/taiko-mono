@@ -2,6 +2,7 @@ package shasta_indexer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -10,8 +11,10 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -30,7 +33,27 @@ var (
 	bufferSizeMultiplier uint64 = 2
 	// maxHistoricalProposalFetchConcurrency caps how many proposal ranges we fetch in parallel.
 	maxHistoricalProposalFetchConcurrency = 16
+	shastaProposedEventTopic              common.Hash
+	shastaProvedEventTopic                common.Hash
 )
+
+// Initialize event topics from ABI.
+func init() {
+	abi, err := shastaBindings.ShastaInboxClientMetaData.GetAbi()
+	if err != nil {
+		log.Crit("Failed to parse Shasta inbox ABI", "err", err)
+	}
+	proposedEvent, ok := abi.Events["Proposed"]
+	if !ok {
+		log.Crit("Proposed event not found in Shasta inbox ABI")
+	}
+	provedEvent, ok := abi.Events["Proved"]
+	if !ok {
+		log.Crit("Proved event not found in Shasta inbox ABI")
+	}
+	shastaProposedEventTopic = proposedEvent.ID
+	shastaProvedEventTopic = provedEvent.ID
+}
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
@@ -57,6 +80,18 @@ type TransitionPayload struct {
 type proposalRange struct {
 	startHeight *big.Int
 	endHeight   *big.Int
+}
+
+// rangeLogs groups the proposed and proved logs fetched for a proposal range.
+type rangeLogs struct {
+	proposed []types.Log
+	proved   []types.Log
+}
+
+// rangeRequestMeta keeps metadata for a specific batch request entry.
+type rangeRequestMeta struct {
+	typ      string
+	rangeIdx int
 }
 
 // Indexer saves the state of the Shasta protocol.
@@ -188,12 +223,7 @@ func (s *Indexer) fetchHistorical(toBlock *types.Header, bufferSize uint64) erro
 			break
 		}
 
-		// Kick off the batch concurrently and wait before scheduling the next one.
-		g, gCtx := errgroup.WithContext(s.ctx)
-		for _, r := range batch {
-			g.Go(func() error { return s.iterateHistoricalRange(gCtx, r.startHeight, r.endHeight) })
-		}
-		if err := g.Wait(); err != nil {
+		if err := s.batchFetchHistoricalRanges(s.ctx, batch); err != nil {
 			return fmt.Errorf("failed to fetch historical Shasta events: %w", err)
 		}
 
@@ -208,45 +238,114 @@ func (s *Indexer) fetchHistorical(toBlock *types.Header, bufferSize uint64) erro
 	return nil
 }
 
-// iterateHistoricalRange replays both proposed and proved events for the provided interval.
-func (s *Indexer) iterateHistoricalRange(ctx context.Context, startHeight, endHeight *big.Int) error {
-	g, gCtx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
-		iter, err := eventiterator.NewBatchProposedIterator(gCtx, &eventiterator.BatchProposedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             endHeight,
-			OnBatchProposedEvent:  s.onProposedEvent,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proposed event iterator: %w", err)
-		}
-		if err := iter.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
-		}
+// batchFetchHistoricalRanges fetches logs for the provided ranges via a single batch request and replays them locally.
+func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []proposalRange) error {
+	if len(ranges) == 0 {
 		return nil
-	})
+	}
 
-	g.Go(func() error {
-		iter, err := eventiterator.NewShastaProvedIterator(gCtx, &eventiterator.ShastaProvedIteratorConfig{
-			RpcClient:             s.rpc,
-			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
-			StartHeight:           startHeight,
-			EndHeight:             endHeight,
-			OnShastaProvedEvent:   s.onProvedEvent,
+	var (
+		results = make([]rangeLogs, len(ranges))
+		reqs    = make([]gethrpc.BatchElem, 0)
+		metas   = make([]rangeRequestMeta, 0)
+	)
+	// Prepare batch requests for proposed and proved events.
+	for i, r := range ranges {
+		reqs = append(reqs, gethrpc.BatchElem{
+			Method: "eth_getLogs",
+			Args:   []interface{}{s.buildShastaFilterArg(shastaProposedEventTopic, r.startHeight, r.endHeight)},
+			Result: &results[i].proposed,
 		})
-		if err != nil {
-			return fmt.Errorf("failed to create Shasta Proved event iterator: %w", err)
-		}
-		if err := iter.Iter(); err != nil {
-			return fmt.Errorf("failed to iterate Shasta Proved events: %w", err)
-		}
-		return nil
-	})
+		metas = append(metas, rangeRequestMeta{typ: "proposed", rangeIdx: i})
 
-	return g.Wait()
+		reqs = append(reqs, gethrpc.BatchElem{
+			Method: "eth_getLogs",
+			Args:   []interface{}{s.buildShastaFilterArg(shastaProvedEventTopic, r.startHeight, r.endHeight)},
+			Result: &results[i].proved,
+		})
+		metas = append(metas, rangeRequestMeta{typ: "proved", rangeIdx: i})
+	}
+
+	if err := s.rpc.L1.BatchCallContext(ctx, reqs); err != nil {
+		return err
+	}
+	for idx, req := range reqs {
+		if req.Error != nil {
+			return fmt.Errorf(
+				"failed to fetch Shasta %s logs between %s and %s: %w",
+				metas[idx].typ,
+				ranges[metas[idx].rangeIdx].startHeight.String(),
+				ranges[metas[idx].rangeIdx].endHeight.String(),
+				req.Error,
+			)
+		}
+	}
+
+	for i := range results {
+		if err := s.handleProposedLogs(ctx, results[i].proposed); err != nil {
+			return err
+		}
+		if err := s.handleProvedLogs(ctx, results[i].proved); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// buildShastaFilterArg constructs an eth_getLogs argument for the given topic and block interval.
+
+func (s *Indexer) buildShastaFilterArg(topic common.Hash, startHeight, endHeight *big.Int) map[string]interface{} {
+	return map[string]interface{}{
+		"address":   []common.Address{s.rpc.ShastaClients.InboxAddress},
+		"topics":    [][]common.Hash{{topic}},
+		"fromBlock": hexutil.EncodeBig(startHeight),
+		"toBlock":   hexutil.EncodeBig(endHeight),
+	}
+}
+
+// handleProposedLogs decodes Proposed event logs and feeds them through the standard callback.
+func (s *Indexer) handleProposedLogs(
+	ctx context.Context,
+	logs []types.Log,
+) error {
+	for _, logEntry := range logs {
+		if logEntry.Removed {
+			continue
+		}
+		payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, logEntry.Data)
+		if err != nil {
+			return fmt.Errorf("failed to decode Shasta proposed event: %w", err)
+		}
+		if payload == nil {
+			return errors.New("decoded Shasta proposed event payload is nil")
+		}
+		if err := s.onProposedEvent(
+			ctx,
+			metadata.NewTaikoProposalMetadataShasta(payload, logEntry),
+			func() {},
+		); err != nil {
+			return fmt.Errorf("failed to process Shasta proposed event: %w", err)
+		}
+	}
+	return nil
+}
+
+// handleProvedLogs decodes Proved event logs and feeds them through the standard callback.
+func (s *Indexer) handleProvedLogs(ctx context.Context, logs []types.Log) error {
+	for _, logEntry := range logs {
+		if logEntry.Removed {
+			continue
+		}
+		payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, logEntry.Data)
+		if err != nil {
+			return fmt.Errorf("failed to decode Shasta proved event: %w", err)
+		}
+		if err := s.onProvedEvent(ctx, payload, &logEntry, func() {}); err != nil {
+			return fmt.Errorf("failed to process Shasta proved event: %w", err)
+		}
+	}
+	return nil
 }
 
 // shouldStopHistoricalProposalFetch returns true when backfilling has met a terminal condition.
