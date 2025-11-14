@@ -301,7 +301,6 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 }
 
 // buildShastaFilterArg constructs an eth_getLogs argument for the given topic and block interval.
-
 func (s *Indexer) buildShastaFilterArg(topic common.Hash, startHeight, endHeight *big.Int) map[string]interface{} {
 	return map[string]interface{}{
 		"address":   []common.Address{s.rpc.ShastaClients.InboxAddress},
@@ -392,7 +391,6 @@ func (s *Indexer) shouldStopHistoricalProposalFetch(bufferSize uint64) bool {
 }
 
 // onProvedEvent handles the Proved event.
-// NOT THREAD-SAFE
 func (s *Indexer) onProvedEvent(
 	ctx context.Context,
 	meta *shastaBindings.IInboxProvedEventPayload,
@@ -472,7 +470,6 @@ func (s *Indexer) liveIndexing() error {
 }
 
 // onProposedEvent handles the Proposed event.
-// NOT THREAD-SAFE
 func (s *Indexer) onProposedEvent(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
@@ -513,7 +510,6 @@ func (s *Indexer) onProposedEvent(
 }
 
 // cleanupAfterEvents performs maintenance cleanup on proposals and transition records.
-// NOT THREAD-SAFE
 func (s *Indexer) cleanupAfterEvents() {
 	// Determine the latest proposal ID and the last finalized proposal ID
 	var (
@@ -660,7 +656,6 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 
 // cleanupFinalizedTransitionRecords cleans up transition records that are older than the last finalized proposal ID
 // minus the buffer size.
-// NOT THREAD-SAFE
 func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint64) {
 	// We keep bufferSizeMultiplier times the buffer size of transition records to avoid future reorg handling.
 	threshold := s.bufferSize * bufferSizeMultiplier
@@ -673,7 +668,6 @@ func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint
 }
 
 // cleanupLegacyProposals cleans up proposals that are older than the last proposal ID minus the buffer size.
-// NOT THREAD-SAFE
 func (s *Indexer) cleanupLegacyProposals(lastProposalId uint64) {
 	// We keep bufferSizeMultiplier times the buffer size of proposals to avoid future reorg handling.
 	threshold := s.bufferSize * bufferSizeMultiplier
