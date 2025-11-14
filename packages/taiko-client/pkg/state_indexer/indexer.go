@@ -32,7 +32,7 @@ var (
 	// bufferSizeMultiplier determines how many times the buffer size to keep for historical data.
 	bufferSizeMultiplier uint64 = 2
 	// maxHistoricalProposalFetchConcurrency caps how many proposal ranges we fetch in parallel.
-	maxHistoricalProposalFetchConcurrency = 16
+	maxHistoricalProposalFetchConcurrency = 32
 	shastaProposedEventTopic              common.Hash
 	shastaProvedEventTopic                common.Hash
 )
@@ -281,16 +281,17 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 		}
 	}
 
-	for i := range results {
-		if err := s.handleProposedLogs(ctx, results[i].proposed); err != nil {
-			return err
-		}
-		if err := s.handleProvedLogs(ctx, results[i].proved); err != nil {
-			return err
-		}
+	g, gCtx := errgroup.WithContext(ctx)
+	for _, rangeLogs := range results {
+		g.Go(func() error {
+			if err := s.handleProposedLogs(gCtx, rangeLogs.proposed); err != nil {
+				return err
+			}
+			return s.handleProvedLogs(gCtx, rangeLogs.proved)
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // buildShastaFilterArg constructs an eth_getLogs argument for the given topic and block interval.
@@ -313,7 +314,11 @@ func (s *Indexer) handleProposedLogs(
 		if logEntry.Removed {
 			continue
 		}
-		payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, logEntry.Data)
+		payloadData, err := extractEventPayload(logEntry.Data)
+		if err != nil {
+			return fmt.Errorf("failed to extract Shasta proposed event payload: %w", err)
+		}
+		payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, payloadData)
 		if err != nil {
 			return fmt.Errorf("failed to decode Shasta proposed event: %w", err)
 		}
@@ -337,7 +342,11 @@ func (s *Indexer) handleProvedLogs(ctx context.Context, logs []types.Log) error 
 		if logEntry.Removed {
 			continue
 		}
-		payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, logEntry.Data)
+		payloadData, err := extractEventPayload(logEntry.Data)
+		if err != nil {
+			return fmt.Errorf("failed to extract Shasta proved event payload: %w", err)
+		}
+		payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, payloadData)
 		if err != nil {
 			return fmt.Errorf("failed to decode Shasta proved event: %w", err)
 		}
@@ -346,6 +355,19 @@ func (s *Indexer) handleProvedLogs(ctx context.Context, logs []types.Log) error 
 		}
 	}
 	return nil
+}
+
+// extractEventPayload strips the ABI encoding of a single `bytes` field from an event log.
+func extractEventPayload(data []byte) ([]byte, error) {
+	if len(data) < 64 {
+		return nil, fmt.Errorf("invalid event data length %d", len(data))
+	}
+	length := new(big.Int).SetBytes(data[32:64]).Uint64()
+	end := 64 + length
+	if uint64(len(data)) < end {
+		return nil, fmt.Errorf("invalid event payload length %d for data size %d", length, len(data))
+	}
+	return data[64:end], nil
 }
 
 // shouldStopHistoricalProposalFetch returns true when backfilling has met a terminal condition.
