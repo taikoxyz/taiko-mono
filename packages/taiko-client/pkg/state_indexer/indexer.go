@@ -35,8 +35,6 @@ var (
 	bufferSizeMultiplier uint64 = 2
 	// maxHistoricalProposalFetchConcurrency caps how many proposal ranges we fetch in parallel.
 	maxHistoricalProposalFetchConcurrency = 32
-	shastaProposedEventTopic              = encoding.ShastaProposedEventTopic
-	shastaProvedEventTopic                = encoding.ShastaProvedEventTopic
 )
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
@@ -237,14 +235,14 @@ func (s *Indexer) batchFetchHistoricalRanges(ctx context.Context, ranges []propo
 	for i, r := range ranges {
 		reqs = append(reqs, gethrpc.BatchElem{
 			Method: "eth_getLogs",
-			Args:   []interface{}{s.buildShastaFilterArg(shastaProposedEventTopic, r.startHeight, r.endHeight)},
+			Args:   []interface{}{s.buildShastaFilterArg(encoding.ShastaProposedEventTopic, r.startHeight, r.endHeight)},
 			Result: &results[i].proposed,
 		})
 		metas = append(metas, rangeRequestMeta{typ: "proposed", rangeIdx: i})
 
 		reqs = append(reqs, gethrpc.BatchElem{
 			Method: "eth_getLogs",
-			Args:   []interface{}{s.buildShastaFilterArg(shastaProvedEventTopic, r.startHeight, r.endHeight)},
+			Args:   []interface{}{s.buildShastaFilterArg(encoding.ShastaProvedEventTopic, r.startHeight, r.endHeight)},
 			Result: &results[i].proved,
 		})
 		metas = append(metas, rangeRequestMeta{typ: "proved", rangeIdx: i})
