@@ -18,7 +18,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	event *signalservice.SignalServiceChainDataSynced,
 	waitForConfirmations bool,
 ) error {
-	slog.Info("chainDataSynced event found for msgHash",
+	slog.Info("chainDataSynced event found for signal",
 		"signal", common.Hash(event.Signal).Hex(),
 		"chainID", event.ChainId,
 		"blockID", event.BlockId,
