@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -54,8 +55,8 @@ type TransitionPayload struct {
 type Indexer struct {
 	ctx                     context.Context
 	rpc                     *rpc.Client
-	proposals               map[uint64]*ProposalPayload
-	transitionRecords       map[uint64]*TransitionPayload
+	proposals               cmap.ConcurrentMap[uint64, *ProposalPayload]
+	transitionRecords       cmap.ConcurrentMap[uint64, *TransitionPayload]
 	shastaForkTime          uint64
 	bufferSize              uint64
 	finalizationGracePeriod uint64
@@ -81,8 +82,12 @@ func New(
 		bufferSize:              config.RingBufferSize.Uint64(),
 		finalizationGracePeriod: config.FinalizationGracePeriod.Uint64(),
 		shastaForkTime:          shastaForkTime,
-		proposals:               make(map[uint64]*ProposalPayload),
-		transitionRecords:       make(map[uint64]*TransitionPayload),
+		proposals: cmap.NewWithCustomShardingFunction[
+			uint64, *ProposalPayload,
+		](func(key uint64) uint32 { return uint32(key) }),
+		transitionRecords: cmap.NewWithCustomShardingFunction[
+			uint64, *TransitionPayload,
+		](func(key uint64) uint32 { return uint32(key) }),
 	}, nil
 }
 
@@ -140,7 +145,7 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 	// Reset proposals map before fetching historical proposals.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.proposals = make(map[uint64]*ProposalPayload)
+	s.proposals.Clear()
 	currentHeader := toBlock
 	for currentHeader.Number.Cmp(common.Big0) > 0 {
 		if s.ctx.Err() != nil {
@@ -170,17 +175,17 @@ func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uin
 		}
 
 		if startHeight.Cmp(common.Big0) == 0 {
-			log.Info("Reached the genesis block, stop fetching historical proposals", "cached", len(s.proposals))
+			log.Info("Reached the genesis block, stop fetching historical proposals", "cached", s.proposals.Count())
 			break
 		}
 
 		// We stop fetching historical proposals if we have cached enough proposals
-		cachedLen := len(s.proposals)
+		cachedLen := s.proposals.Count()
 		if uint64(cachedLen) >= bufferSize {
 			log.Info("Cached enough Shasta proposals, stop fetching historical proposals", "cached", cachedLen)
 			break
 		}
-		p, ok := s.proposals[0]
+		p, ok := s.proposals.Get(0)
 		if ok && p.Proposal.Id.Cmp(common.Big0) == 0 {
 			log.Info("Reached genesis Shasta proposal, stop fetching historical proposals", "forkTime", s.shastaForkTime)
 			break
@@ -206,7 +211,7 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.transitionRecords = make(map[uint64]*TransitionPayload)
+	s.transitionRecords.Clear()
 	currentHeader := fromBlock
 
 	for currentHeader.Number.Cmp(toBlock.Number) < 0 {
@@ -279,14 +284,14 @@ func (s *Indexer) onProvedEvent(
 		"bondInstructions", len(record.BondInstructions),
 		"timeStamp", header.Time,
 	)
-	s.transitionRecords[meta.ProposalId.Uint64()] = &TransitionPayload{
+	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
 		ProposalId:        meta.ProposalId,
 		Transition:        &transition,
 		TransitionRecord:  &record,
 		RawBlockHash:      eventLog.BlockHash,
 		RawBlockHeight:    new(big.Int).SetUint64(eventLog.BlockNumber),
 		RawBlockTimeStamp: header.Time,
-	}
+	})
 	return nil
 }
 
@@ -363,7 +368,7 @@ func (s *Indexer) onProposedEvent(
 		RawBlockHeight:   meta.GetRawBlockHeight(),
 		Log:              meta.Shasta().GetLog(),
 	}
-	s.proposals[proposal.Id.Uint64()] = payload
+	s.proposals.Set(proposal.Id.Uint64(), payload)
 
 	log.Debug(
 		"New indexed Shasta proposal",
@@ -384,16 +389,16 @@ func (s *Indexer) cleanupAfterEvents() {
 	// Determine the latest proposal ID and the last finalized proposal ID
 	var lastProposalId uint64
 	var lastFinalizedId uint64
-	for _, p := range s.proposals {
+	s.proposals.IterCb(func(_ uint64, p *ProposalPayload) {
 		if p == nil || p.Proposal == nil || p.CoreState == nil {
-			continue
+			return
 		}
 		id := p.Proposal.Id.Uint64()
 		if id > lastProposalId {
 			lastProposalId = id
 			lastFinalizedId = p.CoreState.LastFinalizedProposalId.Uint64()
 		}
-	}
+	})
 
 	if lastFinalizedId != 0 {
 		s.cleanupFinalizedTransitionRecords(lastFinalizedId)
@@ -528,10 +533,10 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint64) {
 	// We keep bufferSizeMultiplier times the buffer size of transition records to avoid future reorg handling.
 	threshold := s.bufferSize * bufferSizeMultiplier
-	for key := range s.transitionRecords {
+	for _, key := range s.transitionRecords.Keys() {
 		if key+threshold < lastFinalizedProposalId {
 			log.Trace("Cleaning up finalized Shasta transition record", "proposalId", key)
-			delete(s.transitionRecords, key)
+			s.transitionRecords.Remove(key)
 		}
 	}
 }
@@ -541,10 +546,10 @@ func (s *Indexer) cleanupFinalizedTransitionRecords(lastFinalizedProposalId uint
 func (s *Indexer) cleanupLegacyProposals(lastProposalId uint64) {
 	// We keep bufferSizeMultiplier times the buffer size of proposals to avoid future reorg handling.
 	threshold := s.bufferSize * bufferSizeMultiplier
-	for key := range s.proposals {
+	for _, key := range s.proposals.Keys() {
 		if key+threshold < lastProposalId {
 			log.Trace("Cleaning up legacy Shasta proposal", "proposalId", key)
-			delete(s.proposals, key)
+			s.proposals.Remove(key)
 		}
 	}
 }
@@ -566,25 +571,21 @@ func (s *Indexer) GetLastProposal() *ProposalPayload {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	var (
-		maxID    uint64
-		maxIDKey uint64
+		maxID  uint64
+		latest *ProposalPayload
 	)
-	for key, p := range s.proposals {
-		if p == nil {
-			continue
+	s.proposals.IterCb(func(_ uint64, p *ProposalPayload) {
+		if p == nil || p.Proposal == nil {
+			return
 		}
-		if p.Proposal == nil {
-			continue
-		}
-		if p.Proposal.Id.Uint64() > maxID {
-			maxID = p.Proposal.Id.Uint64()
-			maxIDKey = key
-		}
-	}
 
-	proposal := s.proposals[maxIDKey]
+		if id := p.Proposal.Id.Uint64(); id > maxID {
+			maxID = id
+			latest = p
+		}
+	})
 
-	return proposal
+	return latest
 }
 
 // GetLastCoreState returns the core state of the latest proposal.
@@ -602,11 +603,11 @@ func (s *Indexer) findLastValidProposal() *ProposalPayload {
 	var proposals []*ProposalPayload
 
 	// Collect all proposals
-	for _, proposal := range s.proposals {
-		if proposal != nil {
+	s.proposals.IterCb(func(_ uint64, proposal *ProposalPayload) {
+		if proposal != nil && proposal.Proposal != nil {
 			proposals = append(proposals, proposal)
 		}
-	}
+	})
 
 	// Sort by ID descending (highest first)
 	sort.Slice(proposals, func(i, j int) bool {
@@ -636,19 +637,27 @@ func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 	var removedProposals, removedTransitions int
 
 	// Clean up invalid proposals
-	for key, proposal := range s.proposals {
-		if proposal.RawBlockHeight.Cmp(safeHeight) > 0 {
-			delete(s.proposals, key)
-			removedProposals++
+	var proposalKeysToRemove []uint64
+	s.proposals.IterCb(func(key uint64, proposal *ProposalPayload) {
+		if proposal != nil && proposal.RawBlockHeight.Cmp(safeHeight) > 0 {
+			proposalKeysToRemove = append(proposalKeysToRemove, key)
 		}
+	})
+	for _, key := range proposalKeysToRemove {
+		s.proposals.Remove(key)
+		removedProposals++
 	}
 
 	// Clean up invalid transition records
-	for key, transition := range s.transitionRecords {
-		if transition.RawBlockHeight.Cmp(safeHeight) > 0 {
-			delete(s.transitionRecords, key)
-			removedTransitions++
+	var transitionKeysToRemove []uint64
+	s.transitionRecords.IterCb(func(key uint64, transition *TransitionPayload) {
+		if transition != nil && transition.RawBlockHeight.Cmp(safeHeight) > 0 {
+			transitionKeysToRemove = append(transitionKeysToRemove, key)
 		}
+	})
+	for _, key := range transitionKeysToRemove {
+		s.transitionRecords.Remove(key)
+		removedTransitions++
 	}
 
 	log.Debug(
@@ -663,7 +672,7 @@ func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *TransitionPayload {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	transition, ok := s.transitionRecords[proposalID]
+	transition, ok := s.transitionRecords.Get(proposalID)
 	if !ok {
 		return nil
 	}
@@ -674,7 +683,7 @@ func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *Transition
 func (s *Indexer) GetProposalByID(proposalID uint64) (*ProposalPayload, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	proposal, ok := s.proposals[proposalID]
+	proposal, ok := s.proposals.Get(proposalID)
 	if !ok || proposal == nil || proposal.Proposal == nil {
 		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
 	}
@@ -697,7 +706,7 @@ func (s *Indexer) GetProposalsInput(
 	}
 	if lastProposals[0].Proposal.Id.Uint64()+1 >= s.bufferSize {
 		nextKey := lastProposals[0].Proposal.Id.Uint64() - (s.bufferSize - 1)
-		nextSlotProposal, ok := s.proposals[nextKey]
+		nextSlotProposal, ok := s.proposals.Get(nextKey)
 		if !ok {
 			return nil, nil, fmt.Errorf(
 				"missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()+1,
@@ -724,7 +733,7 @@ func (s *Indexer) getTransitionsForFinalization(
 ) []*TransitionPayload {
 	var transitions []*TransitionPayload
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
-		transition, ok := s.transitionRecords[lastFinalizedProposalId+i]
+		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
 		if ok {
 			log.Info(
 				"Checking transition for finalization",
@@ -755,5 +764,5 @@ func (s *Indexer) IsHistoricalFetchCompleted() bool {
 func (s *Indexer) ProposalsCount() int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return len(s.proposals)
+	return s.proposals.Count()
 }
