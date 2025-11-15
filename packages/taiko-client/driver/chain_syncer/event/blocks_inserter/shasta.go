@@ -194,6 +194,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"hash", lastPayloadData.BlockHash,
 			"coinbase", lastPayloadData.FeeRecipient.Hex(),
 			"transactions", len(lastPayloadData.Transactions),
+			"transactionsInManifest", sourcePayload.BlockPayloads[j].Transactions.Len(),
 			"timestamp", lastPayloadData.Timestamp,
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),

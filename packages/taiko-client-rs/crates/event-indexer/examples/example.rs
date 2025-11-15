@@ -13,6 +13,7 @@ async fn main() -> anyhow::Result<()> {
     let config = ShastaEventIndexerConfig {
         l1_subscription_source: SubscriptionSource::Ws(Url::from_str("ws://127.0.0.1:8546")?),
         inbox_address: Address::ZERO,
+        use_local_codec_decoder: true,
     };
 
     // Create and spawn the indexer.

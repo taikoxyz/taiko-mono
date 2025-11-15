@@ -440,11 +440,17 @@ func (s *Syncer) processShastaProposal(
 		); err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
-		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
-			return fmt.Errorf("failed to fetch the new parent block: %w", err)
+		if parent, err = s.rpc.WaitL2Block(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
+			log.Warn("Failed to fetch the new parent block", "error", err)
+			return err
 		}
 	}
+	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
+	s.lastInsertedBatchID = meta.GetProposal().Id
 
+	if s.progressTracker.Triggered() {
+		s.progressTracker.ClearMeta()
+	}
 	return nil
 }
 
@@ -491,7 +497,7 @@ func (s *Syncer) processPacayaBatch(
 		}
 	}
 
-	// Ignore those already inserted blatches.
+	// Ignore those already inserted batches.
 	if s.lastInsertedBatchID != nil && meta.Pacaya().GetBatchID().Cmp(s.lastInsertedBatchID) <= 0 {
 		log.Debug(
 			"Skip already inserted batch",
@@ -712,7 +718,7 @@ func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
 	return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
 }
 
-// blocksInserterShasta returns the Shasta blocks inserter.
+// BlocksInserterShasta returns the Shasta blocks inserter.
 func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
 	return s.blocksInserterShasta.(*blocksInserter.Shasta)
 }

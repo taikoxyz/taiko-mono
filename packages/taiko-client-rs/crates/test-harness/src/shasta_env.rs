@@ -297,8 +297,11 @@ impl ShastaEnv {
         let client = Client::new(client_config.clone()).await?;
         let cleanup = CleanupInner::initialize(client.clone()).await?;
 
-        let indexer_config =
-            ShastaEventIndexerConfig { l1_subscription_source: l1_source.clone(), inbox_address };
+        let indexer_config = ShastaEventIndexerConfig {
+            l1_subscription_source: l1_source.clone(),
+            inbox_address,
+            use_local_codec_decoder: true,
+        };
         let event_indexer = ShastaEventIndexer::new(indexer_config).await?;
         event_indexer.clone().spawn();
         event_indexer.wait_historical_indexing_finished().await;
@@ -309,6 +312,7 @@ impl ShastaEnv {
             l2_auth_provider_url: l2_auth_url.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
+            use_local_shasta_codec: true,
             l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(0),
             l1_proposer_private_key,
