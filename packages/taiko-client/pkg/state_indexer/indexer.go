@@ -37,6 +37,16 @@ var (
 	maxHistoricalProposalFetchConcurrency = 32
 )
 
+// ConfigureHistoricalFetch overrides the default historical fetch parameters.
+func ConfigureHistoricalFetch(maxFilter uint64, concurrency int) {
+	if maxFilter > 0 {
+		maxBlocksPerFilter = maxFilter
+	}
+	if concurrency > 0 {
+		maxHistoricalProposalFetchConcurrency = concurrency
+	}
+}
+
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
 	Proposal         *shastaBindings.IInboxProposal

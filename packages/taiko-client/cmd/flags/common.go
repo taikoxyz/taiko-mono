@@ -175,6 +175,20 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"SHASTA_USE_LOCAL_DECODER"},
 	}
+	ShastaMaxRangeSize = &cli.Uint64Flag{
+		Name:     "shasta.indexer.maxRangeSize",
+		Usage:    "Maximum L1 block span per Shasta historical range",
+		Category: commonCategory,
+		Value:    1000,
+		EnvVars:  []string{"SHASTA_INDEXER_MAX_RANGE_SIZE"},
+	}
+	ShastaMaxRangesPerBatch = &cli.IntFlag{
+		Name:     "shasta.indexer.maxRangesPerBatch",
+		Usage:    "Maximum Shasta historical ranges fetched per batch",
+		Category: commonCategory,
+		Value:    32,
+		EnvVars:  []string{"SHASTA_INDEXER_MAX_RANGES_PER_BATCH"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -197,6 +211,8 @@ var CommonFlags = []cli.Flag{
 	RPCTimeout,
 	L1PrivateEndpoint,
 	ShastaUseLocalDecoder,
+	ShastaMaxRangeSize,
+	ShastaMaxRangesPerBatch,
 }
 
 // MergeFlags merges the given flag slices.
