@@ -26,12 +26,24 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 					return errors.Wrap(err, "i.taikoInbox.GetStats1")
 				}
 
-				startingBlock = stats1.GenesisHeight
+				if stats1.GenesisHeight > 0 {
+					startingBlock = stats1.GenesisHeight - 1
+				} else {
+					startingBlock = 0
+				}
 			} else {
-				startingBlock = slotA.GenesisHeight
+				if slotA.GenesisHeight > 0 {
+					startingBlock = slotA.GenesisHeight - 1
+				} else {
+					startingBlock = 0
+				}
 			}
 		} else {
-			startingBlock = slotA.GenesisHeight
+			if slotA.GenesisHeight > 0 {
+				startingBlock = slotA.GenesisHeight - 1
+			} else {
+				startingBlock = 0
+			}
 		}
 	}
 
