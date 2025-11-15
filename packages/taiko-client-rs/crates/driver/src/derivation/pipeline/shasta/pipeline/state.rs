@@ -1,12 +1,10 @@
+use super::{super::validation::ValidationContext, bundle::BundleMeta};
+use crate::derivation::DerivationError;
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::primitives::B256;
 use alloy_consensus::Header;
-use protocol::shasta::manifest::BlockManifest;
-
-use super::{super::validation::ValidationContext, bundle::BundleMeta};
-use crate::{derivation::DerivationError, sync::engine::AppliedPayload};
 
 /// Rolling view of the parent block used when deriving successive payloads.
 #[derive(Debug, Clone)]
@@ -24,16 +22,16 @@ pub(super) struct ParentState {
 }
 
 impl ParentState {
-    /// Return an updated view of the parent state after committing `manifest_block` via the
-    /// provided execution payload.
+    /// Advance the parent state using an explicit consensus header.
+    ///
+    /// The header may come either from a freshly inserted execution payload or from an existing
+    /// canonical block detected by the proposal fast-path.
     pub(super) fn advance(
         &self,
-        manifest_block: &BlockManifest,
-        payload: &AppliedPayload,
+        header: Header,
+        anchor_block_number: u64,
         next_bond_instructions_hash: B256,
     ) -> Result<Self, DerivationError> {
-        let header = payload.outcome.block.header.clone().into_consensus();
-
         if header.number != self.next_block_number() {
             return Err(DerivationError::UnexpectedBlockNumber {
                 expected: self.next_block_number(),
@@ -45,7 +43,7 @@ impl ParentState {
             parent_block_time: header.timestamp.saturating_sub(self.header.timestamp),
             header,
             bond_instructions_hash: next_bond_instructions_hash,
-            anchor_block_number: manifest_block.anchor_block_number,
+            anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
         })
     }
