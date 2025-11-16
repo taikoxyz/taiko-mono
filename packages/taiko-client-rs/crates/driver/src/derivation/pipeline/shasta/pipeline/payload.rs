@@ -146,7 +146,7 @@ impl BlockPosition {
 /// Prepared data required to either materialise or validate a manifest block.
 ///
 /// By caching the payload attributes, anchor transaction, and derived metadata we can reuse the
-/// same computation when probing the canonical chain, mirroring the Go driver behaviour.
+/// same computation when probing the canonical chain.
 #[derive(Debug)]
 struct BlockDerivationContext {
     payload: TaikoPayloadAttributes,
@@ -635,6 +635,13 @@ where
                 // Any mismatch immediately aborts the fast-path and falls back to fresh payloads.
                 let Some(verified) = self.verify_canonical_block(meta, &derived_block).await?
                 else {
+                    debug!(
+                        proposal_id = meta.proposal_id,
+                        block_number = derived_block.block_number,
+                        segment_index,
+                        block_index,
+                        "canonical detection aborted; falling back to payload derivation"
+                    );
                     return Ok(None);
                 };
 
@@ -716,13 +723,14 @@ where
         }
 
         // Fetch the canonical execution block and ensure we have full transaction bodies.
-        let maybe_block = self
+        let Some(block) = self
             .rpc
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Number(block_id))
+            .full()
             .await?
-            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()));
-        let Some(block) = maybe_block else {
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        else {
             debug!(
                 proposal_id = meta.proposal_id,
                 block_id, "missing canonical block while checking batch"
