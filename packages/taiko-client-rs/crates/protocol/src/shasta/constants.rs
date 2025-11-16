@@ -37,6 +37,9 @@ pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
 /// contracts/layer1/libs/LibManifest.sol.
 pub const MAX_BLOCK_GAS_LIMIT: u64 = 100_000_000;
 
+/// Denominator (parts per million) used when clamping gas limits.
+pub const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;
+
 /// The delay in processing bond instructions relative to the current proposal.
 /// NOTE: Should be same with `BOND_PROCESSING_DELAY` in
 /// contracts/layer1/libs/LibManifest.sol.
