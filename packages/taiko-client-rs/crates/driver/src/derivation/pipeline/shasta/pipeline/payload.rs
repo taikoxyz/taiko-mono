@@ -215,7 +215,7 @@ where
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = segment.manifest;
-        let mut is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
+        let is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
 
         if !manifest_is_default(&decoded_manifest) && is_low_bond_proposal {
             info!(
