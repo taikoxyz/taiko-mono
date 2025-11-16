@@ -369,13 +369,14 @@ func (s *Syncer) processShastaProposal(
 		)
 
 		if designatedProverInfo.IsLowBondProposal {
-			sourcePayload.IsLowBondProposal = true
 			if !sourcePayload.Default {
 				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
 					Default:           true,
 					IsLowBondProposal: true,
 					ParentBlock:       sourcePayload.ParentBlock,
 				}
+			} else {
+				sourcePayload.IsLowBondProposal = true
 			}
 		}
 
