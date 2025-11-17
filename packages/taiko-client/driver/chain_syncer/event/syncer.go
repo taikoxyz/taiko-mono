@@ -369,45 +369,50 @@ func (s *Syncer) processShastaProposal(
 				return err
 			}
 		}
-		// If the proposal is not a default one, we need to do some extra validations for
-		// the proposer and `isLowBondProposal` flag.
-		if !sourcePayload.Default {
-			opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
-			proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
-			if err != nil {
-				return err
-			}
-			designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-				opts,
-				meta.GetProposal().Id,
-				meta.GetProposal().Proposer,
-				sourcePayload.ProverAuthBytes,
-				proposalState.DesignatedProver,
-			)
-			if err != nil {
-				return err
-			}
+		opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
+		proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
+		if err != nil {
+			return err
+		}
 
-			log.Info(
-				"Designated prover info",
-				"proposalID", meta.GetProposal().Id,
-				"blocks", len(sourcePayload.BlockPayloads),
-				"proposer", meta.GetProposal().Proposer,
-				"prover", designatedProverInfo.DesignatedProver,
-				"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
-				"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
-				"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
-			)
+		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
+			opts,
+			meta.GetProposal().Id,
+			meta.GetProposal().Proposer,
+			sourcePayload.ProverAuthBytes,
+			proposalState.DesignatedProver,
+		)
+		if err != nil {
+			return err
+		}
 
-			if designatedProverInfo.IsLowBondProposal {
+		log.Info(
+			"Designated prover info",
+			"proposalID", meta.GetProposal().Id,
+			"blocks", len(sourcePayload.BlockPayloads),
+			"proposer", meta.GetProposal().Proposer,
+			"prover", designatedProverInfo.DesignatedProver,
+			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
+			"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
+			"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
+		)
+
+		if designatedProverInfo.IsLowBondProposal {
+			if !sourcePayload.Default {
 				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
 					Default:           true,
 					IsLowBondProposal: true,
 					ProverAuthBytes:   sourcePayload.ProverAuthBytes,
 					ParentBlock:       sourcePayload.ParentBlock,
 				}
+			} else {
+				sourcePayload.IsLowBondProposal = true
 			}
+		}
 
+		// If the proposal is not a default one, we need to do some extra validations for
+		// the proposer and `isLowBondProposal` flag.
+		if !sourcePayload.Default {
 			// Check block-level metadata and reset some incorrect value.
 			if err := shastaManifest.ValidateMetadata(
 				ctx,

@@ -19,8 +19,10 @@ const (
 	AnchorMinOffset = 2
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number, refer to LibManifest.MAX_ANCHOR_OFFSET.
 	AnchorMaxOffset = 128
-	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block, in millionths (1/1,000,000), refer to LibManifest.MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD.
-	MaxBlockGasLimitChangePermyriad = 10 // 0.1%
+	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block, expressed in millionths (1/1,000,000), refer to LibManifest.MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD.
+	MaxBlockGasLimitChangePermyriad = 10 // 0.001%
+	// GasLimitChangeDenominator Denominator used when clamping gas limits (parts per million).
+	GasLimitChangeDenominator = 1_000_000
 	// MinBlockGasLimit The minimum block gas limit, refer to LibManifest.MIN_BLOCK_GAS_LIMIT.
 	MinBlockGasLimit = 10_000_000
 	// MaxBlockGasLimit The maximum block gas limit, refer to LibManifest.MAX_BLOCK_GAS_LIMIT.
