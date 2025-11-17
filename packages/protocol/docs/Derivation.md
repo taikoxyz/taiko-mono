@@ -298,14 +298,14 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = min(parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MAX_BLOCK_GAS_LIMIT)`
+   - `lowerBound = max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
