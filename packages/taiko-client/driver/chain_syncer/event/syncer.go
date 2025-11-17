@@ -397,18 +397,12 @@ func (s *Syncer) processShastaProposal(
 			"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
 		)
 
-		if designatedProverInfo.IsLowBondProposal {
-			if !sourcePayload.Default {
-				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
-					Default:           true,
-					IsLowBondProposal: true,
-					ProverAuthBytes:   sourcePayload.ProverAuthBytes,
-					ParentBlock:       sourcePayload.ParentBlock,
-				}
-			} else {
-				sourcePayload.IsLowBondProposal = true
-			}
-		}
+		// Apply low-bond proposal rules to the derivation payload.
+		sourcePayload = applyLowBondProposalRules(
+			sourcePayload,
+			!meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
+			designatedProverInfo.IsLowBondProposal,
+		)
 
 		// If the proposal is not a default one, we need to do some extra validations for
 		// the proposer and `isLowBondProposal` flag.
@@ -746,6 +740,34 @@ func (s *Syncer) checkReorgShasta(
 	}
 
 	return reorgCheckResult, nil
+}
+
+// applyLowBondProposalRules enforces default manifest rules for low-bond proposals.
+func applyLowBondProposalRules(
+	payload *shastaManifest.ShastaDerivationSourcePayload,
+	isProposerSource bool,
+	isLowBondProposal bool,
+) *shastaManifest.ShastaDerivationSourcePayload {
+	// If not a low-bond proposal, return directly.
+	if payload == nil || !isLowBondProposal {
+		return payload
+	}
+
+	// For low-bond proposals, we always enforce the default manifest rules.
+	// If the source is a forced inclusion source, we keep the original payload but
+	// set the `isLowBondProposal` flag to true.
+	if payload.Default || !isProposerSource {
+		payload.IsLowBondProposal = true
+		return payload
+	}
+
+	// For the normal proposal source, we replace the payload with a default one.
+	return &shastaManifest.ShastaDerivationSourcePayload{
+		Default:           true,
+		IsLowBondProposal: true,
+		ParentBlock:       payload.ParentBlock,
+		ProverAuthBytes:   payload.ProverAuthBytes,
+	}
 }
 
 // BlocksInserterPacaya returns the Pacaya blocks inserter.
