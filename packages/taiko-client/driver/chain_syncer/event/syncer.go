@@ -300,6 +300,35 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	// Prefetch all derivation source payloads, and set the proposer auth bytes.
+	var (
+		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetDerivation().Sources))
+		proposerAuth   []byte
+	)
+	if len(meta.GetDerivation().Sources) > 0 {
+		// Fetch the last derivation source payload first, and set the proposer auth bytes.
+		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetDerivation().Sources)-1)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to fetch Shasta derivation payload for index %d: %w",
+				len(meta.GetDerivation().Sources)-1,
+				err,
+			)
+		}
+		sourcePayloads[len(meta.GetDerivation().Sources)-1] = payload
+		proposerAuth = payload.ProverAuthBytes
+		// Fetch other derivation source payloads.
+		for i := 0; i < len(meta.GetDerivation().Sources)-1; i++ {
+			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
+			if err != nil {
+				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
+			}
+			// Set the proposer auth bytes for the non-last source payloads as well.
+			p.ProverAuthBytes = proposerAuth
+			sourcePayloads[i] = p
+		}
+	}
+
 	for derivationIdx := range meta.GetDerivation().Sources {
 		log.Info(
 			"Processing Shasta derivation source",
@@ -309,10 +338,10 @@ func (s *Syncer) processShastaProposal(
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
 		)
-		// Fetch and parse the derivation payload from blobs.
-		sourcePayload, err := s.derivationSourceFetcher.Fetch(ctx, meta, derivationIdx)
-		if err != nil {
-			return err
+		// Reuse the prefetched derivation payload.
+		sourcePayload := sourcePayloads[derivationIdx]
+		if sourcePayload == nil {
+			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
 
@@ -373,6 +402,7 @@ func (s *Syncer) processShastaProposal(
 				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
 					Default:           true,
 					IsLowBondProposal: true,
+					ProverAuthBytes:   sourcePayload.ProverAuthBytes,
 					ParentBlock:       sourcePayload.ParentBlock,
 				}
 			} else {
