@@ -414,7 +414,7 @@ func (s *Syncer) processShastaProposal(
 				sourcePayload,
 				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
 				meta.GetProposal(),
-				meta.GetRawBlockHeight().Uint64(),
+				meta.GetDerivation().OriginBlockNumber.Uint64(),
 				latestProposalState.BondInstructionsHash,
 				lastAnchorBlockNumber,
 			); err != nil {
