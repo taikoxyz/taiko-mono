@@ -217,7 +217,12 @@ where
         let mut decoded_manifest = segment.manifest;
         let is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
 
-        if !manifest_is_default(&decoded_manifest) && is_low_bond_proposal {
+        // If this is a low-bond proposal and its not a forced inclusion segment,
+        // override the manifest to be the default payload.
+        if !segment.is_forced_inclusion &&
+            !manifest_is_default(&decoded_manifest) &&
+            is_low_bond_proposal
+        {
             info!(
                 proposal_id = meta.proposal_id,
                 "low-bond proposal detected; using default manifest for segment processing"
