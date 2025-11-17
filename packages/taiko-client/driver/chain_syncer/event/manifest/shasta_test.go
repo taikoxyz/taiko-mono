@@ -345,7 +345,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	s.Equal(expectedUpperBound, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 4: Valid gas limit within bounds - should remain unchanged
-	validGasLimit := effectiveParentGasLimit + 20000 // 29,020,000, within bounds
+	validGasLimit := expectedLowerBound
+	if expectedUpperBound > expectedLowerBound {
+		span := expectedUpperBound - expectedLowerBound
+		increment := max(uint64(1), span/2)
+		validGasLimit = min(expectedUpperBound, expectedLowerBound+increment)
+	}
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -358,8 +363,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	s.Equal(validGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 5: Sequential blocks - parent gas limit should update
-	firstBlockGasLimit := effectiveParentGasLimit + 15000 // 29,015,000, within bounds
-	secondBlockGasLimit := uint64(0)                      // Should inherit from first block
+	firstBlockGasLimit := validGasLimit
+	secondBlockGasLimit := uint64(0) // Should inherit from first block
 
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
