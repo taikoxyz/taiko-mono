@@ -222,10 +222,11 @@ func isKnownCanonicalBatchPacaya(
 
 	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
+		idx := i
 		g.Go(func() error {
-			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(idx)))
 			if err != nil {
-				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(idx), err)
 			}
 
 			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
@@ -235,7 +236,7 @@ func isKnownCanonicalBatchPacaya(
 				metadata,
 				allTxs,
 				parentHeader,
-				i,
+				idx,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
@@ -246,7 +247,7 @@ func isKnownCanonicalBatchPacaya(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isKnownCanonicalBlock(
+			if headers[idx], err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
@@ -286,10 +287,11 @@ func isKnownCanonicalBatchShasta(
 
 	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(sourcePayload.BlockPayloads); i++ {
+		idx := i
 		g.Go(func() error {
-			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(idx)))
 			if err != nil {
-				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(idx), err)
 			}
 
 			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
@@ -299,7 +301,7 @@ func isKnownCanonicalBatchShasta(
 				metadata,
 				sourcePayload,
 				parentHeader,
-				i,
+				idx,
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
@@ -311,7 +313,7 @@ func isKnownCanonicalBatchShasta(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isKnownCanonicalBlock(
+			if headers[idx], err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
