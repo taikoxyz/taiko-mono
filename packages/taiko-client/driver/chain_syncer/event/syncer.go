@@ -766,6 +766,7 @@ func applyLowBondProposalRules(
 		Default:           true,
 		IsLowBondProposal: true,
 		ParentBlock:       payload.ParentBlock,
+		ProverAuthBytes:   payload.ProverAuthBytes,
 	}
 }
 
