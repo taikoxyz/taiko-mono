@@ -13,6 +13,7 @@ use alloy_primitives::aliases::U48;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use bindings::anchor::LibBonds::BondInstruction;
+use metrics::counter;
 use protocol::shasta::{
     constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
@@ -20,6 +21,7 @@ use protocol::shasta::{
 
 use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
+    metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 use tracing::{debug, info, instrument, warn};
@@ -569,6 +571,7 @@ where
         }
 
         self.rpc.update_l1_origin(&origin).await?;
+        counter!(DriverMetrics::DERIVATION_L1_ORIGIN_UPDATES_TOTAL).increment(1);
 
         if is_final_block {
             self.rpc.set_head_l1_origin(block_id).await?;
