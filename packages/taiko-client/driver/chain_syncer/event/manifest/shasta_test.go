@@ -297,12 +297,14 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	// Based on the log output, we can see the effective parent gas limit is 29,000,000 (0x1ba8140)
 	effectiveParentGasLimit := uint64(29_000_000) // This is what actually gets used
 
-	// Calculate expected bounds (0.1% change = 10 permyriad) based on effective parent gas limit
+	// Calculate expected bounds (0.001% change = 10 millionths) based on effective parent gas limit
 	expectedLowerBound := max(
-		effectiveParentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
+		effectiveParentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitChangePermyriad)/
+			manifest.GasLimitChangeDenominator,
 		manifest.MinBlockGasLimit,
 	)
-	expectedUpperBound := effectiveParentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
+	expectedUpperBound := effectiveParentGasLimit *
+		(manifest.GasLimitChangeDenominator + manifest.MaxBlockGasLimitChangePermyriad) / manifest.GasLimitChangeDenominator
 
 	// Test 1: Zero gas limit - should inherit parent
 	sourcePayload := &ShastaDerivationSourcePayload{
@@ -343,7 +345,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	s.Equal(expectedUpperBound, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 4: Valid gas limit within bounds - should remain unchanged
-	validGasLimit := effectiveParentGasLimit + 20000 // 29,020,000, within bounds
+	validGasLimit := expectedLowerBound
+	if expectedUpperBound > expectedLowerBound {
+		span := expectedUpperBound - expectedLowerBound
+		increment := max(uint64(1), span/2)
+		validGasLimit = min(expectedUpperBound, expectedLowerBound+increment)
+	}
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -356,8 +363,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	s.Equal(validGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 5: Sequential blocks - parent gas limit should update
-	firstBlockGasLimit := effectiveParentGasLimit + 15000 // 29,015,000, within bounds
-	secondBlockGasLimit := uint64(0)                      // Should inherit from first block
+	firstBlockGasLimit := validGasLimit
+	secondBlockGasLimit := uint64(0) // Should inherit from first block
 
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{

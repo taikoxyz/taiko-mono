@@ -248,19 +248,16 @@ where
             "processing proposal segment",
         );
 
-        let mut decoded_manifest = manifest;
-        let mut is_low_bond_proposal = false;
+        // Sanitize the manifest before deriving payload attributes.
+        let mut decoded_manifest = segment.manifest;
+        let is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
 
-        if !manifest_is_default(&decoded_manifest) {
-            is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
-            if is_low_bond_proposal {
-                info!(
-                    proposal_id = meta.proposal_id,
-                    segment_index,
-                    "low-bond proposal detected; using default manifest for segment processing"
-                );
-                decoded_manifest = DerivationSourceManifest::default();
-            }
+        if !manifest_is_default(&decoded_manifest) && is_low_bond_proposal {
+            info!(
+                proposal_id = meta.proposal_id,
+                "low-bond proposal detected; using default manifest for segment processing"
+            );
+            decoded_manifest = DerivationSourceManifest::default();
         }
 
         let validation_ctx = state.build_validation_context(meta, is_forced_inclusion);

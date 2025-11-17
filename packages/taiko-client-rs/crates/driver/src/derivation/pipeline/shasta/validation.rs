@@ -2,15 +2,12 @@ use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        BLOCK_GAS_LIMIT_MAX_CHANGE, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET,
-        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
+        BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT,
+        MIN_ANCHOR_OFFSET, MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
 };
 use thiserror::Error;
-
-/// Number of basis points used for percentage-based gas limit bounds.
-const GAS_LIMIT_BASIS_POINTS: u64 = 10_000;
 
 /// Input data required to validate and normalise metadata for a single derivation source.
 #[derive(Debug, Clone, Copy)]
@@ -179,15 +176,14 @@ fn adjust_gas_limit(
         }
 
         let parent = effective_parent_gas_limit as u128;
-        let basis_points = u128::from(GAS_LIMIT_BASIS_POINTS);
-        let lower_factor =
-            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_sub(BLOCK_GAS_LIMIT_MAX_CHANGE));
-        let lower_bound = parent.saturating_mul(lower_factor) / basis_points;
+        let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
+        let change = u128::from(BLOCK_GAS_LIMIT_MAX_CHANGE);
+        let lower_factor = denominator.saturating_sub(change);
+        let lower_bound = parent.saturating_mul(lower_factor) / denominator;
         let lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
 
-        let upper_factor =
-            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_add(BLOCK_GAS_LIMIT_MAX_CHANGE));
-        let upper_bound = parent.saturating_mul(upper_factor) / basis_points;
+        let upper_factor = denominator.saturating_add(change);
+        let upper_bound = parent.saturating_mul(upper_factor) / denominator;
         let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
 
         if block.gas_limit < lower_bound {

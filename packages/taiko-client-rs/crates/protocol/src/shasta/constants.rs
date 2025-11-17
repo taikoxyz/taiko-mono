@@ -22,11 +22,6 @@ pub const MIN_ANCHOR_OFFSET: u64 = 2;
 /// contracts/layer1/libs/LibManifest.sol.
 pub const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
 
-/// The maximum block gas limit change per block, expressed in millionths.
-/// NOTE: Should be same with `BLOCK_GAS_LIMIT_MAX_CHANGE` in
-/// contracts/layer1/libs/LibManifest.sol.
-pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 10;
-
 /// The minimum block gas limit.
 /// NOTE: Should be same with `MIN_BLOCK_GAS_LIMIT` in
 /// contracts/layer1/libs/LibConstants.sol.
@@ -36,6 +31,14 @@ pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
 /// NOTE: Should be same with `MAX_BLOCK_GAS_LIMIT` in
 /// contracts/layer1/libs/LibManifest.sol.
 pub const MAX_BLOCK_GAS_LIMIT: u64 = 100_000_000;
+
+/// The maximum block gas limit change per block, expressed in millionths.
+/// NOTE: Should be same with `BLOCK_GAS_LIMIT_MAX_CHANGE` in
+/// contracts/layer1/libs/LibManifest.sol.
+pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 10;
+
+/// Denominator (parts per million) used when clamping gas limits (10 ppm = 0.001%).
+pub const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;
 
 /// The delay in processing bond instructions relative to the current proposal.
 /// NOTE: Should be same with `BOND_PROCESSING_DELAY` in
