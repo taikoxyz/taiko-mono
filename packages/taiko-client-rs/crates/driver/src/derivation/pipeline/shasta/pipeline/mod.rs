@@ -290,22 +290,7 @@ where
             return Err(err);
         };
 
-        // Fetch the forced inclusion sources first.
-        let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in forced_inclusion_sources {
-            let mut manifest = self
-                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
-                .await?;
-            if source.isForcedInclusion {
-                manifest.apply_forced_inclusion_defaults();
-            }
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: source.isForcedInclusion,
-            });
-        }
-
-        // Fetch the normal proposal manifest last.
+        // Fetch the normal proposal manifest first so we can reuse its prover auth.
         let final_manifest = self
             .fetch_and_decode_manifest(
                 self.derivation_source_manifest_fetcher.as_ref(),
@@ -314,6 +299,25 @@ where
             .await?;
 
         let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
+
+        // Fetch the forced inclusion sources afterwards, injecting the proposal-level prover auth
+        // so every segment carries the same signature payload as required by the protocol.
+        let mut manifest_segments = Vec::with_capacity(sources.len());
+        for source in forced_inclusion_sources {
+            let mut manifest = self
+                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
+                .await?;
+            if source.isForcedInclusion {
+                manifest.apply_forced_inclusion_defaults();
+            }
+            // Inject the proposal-level prover auth into every segment.
+            manifest.prover_auth_bytes = prover_auth_bytes.clone();
+            manifest_segments.push(SourceManifestSegment {
+                manifest,
+                is_forced_inclusion: source.isForcedInclusion,
+            });
+        }
+
         manifest_segments.push(SourceManifestSegment {
             manifest: final_manifest,
             is_forced_inclusion: last_source.isForcedInclusion,
