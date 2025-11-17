@@ -120,35 +120,43 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	)
 
 	g.Go(func() error {
-		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(
+		tx, e := b.calldataTransactionBuilder.BuildPacaya(
 			ctx,
 			txBatch,
 			forcedInclusion,
 			minTxsPerForcedInclusion,
 			parentMetahash,
 			preconfRouterAddress,
-		); err != nil {
-			return fmt.Errorf("failed to build type-2 transaction: %w", err)
+		)
+		if e != nil {
+			return fmt.Errorf("failed to build type-2 transaction: %w", e)
 		}
-		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
-			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", encoding.TryParsingCustomError(err))
+		txWithCalldata = tx
+		cost, e := b.estimateCandidateCost(ctx, txWithCalldata)
+		if e != nil {
+			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", encoding.TryParsingCustomError(e))
 		}
+		costCalldata = cost
 		return nil
 	})
 	g.Go(func() error {
-		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(
+		tx, e := b.blobTransactionBuilder.BuildPacaya(
 			ctx,
 			txBatch,
 			forcedInclusion,
 			minTxsPerForcedInclusion,
 			parentMetahash,
 			preconfRouterAddress,
-		); err != nil {
-			return fmt.Errorf("failed to build type-3 transaction: %w", err)
+		)
+		if e != nil {
+			return fmt.Errorf("failed to build type-3 transaction: %w", e)
 		}
-		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
-			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", encoding.TryParsingCustomError(err))
+		txWithBlob = tx
+		cost, e := b.estimateCandidateCost(ctx, txWithBlob)
+		if e != nil {
+			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", encoding.TryParsingCustomError(e))
 		}
+		costBlob = cost
 		return nil
 	})
 

@@ -670,20 +670,35 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 			Stats1 pacayaBindings.ITaikoInboxStats1
 			Stats2 pacayaBindings.ITaikoInboxStats2
 		})
-		err error
+		s1 pacayaBindings.ITaikoInboxStats1
+		s2 pacayaBindings.ITaikoInboxStats2
 	)
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
-		return err
+		v, e := c.PacayaClients.TaikoInbox.GetStats1(opts)
+		if e != nil {
+			return e
+		}
+		s1 = v
+		return nil
 	})
 	g.Go(func() error {
-		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
-		return err
+		v, e := c.PacayaClients.TaikoInbox.GetStats2(opts)
+		if e != nil {
+			return e
+		}
+		s2 = v
+		return nil
 	})
 
-	return states, g.Wait()
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	states.Stats1 = s1
+	states.Stats2 = s2
+	return states, nil
 }
 
 // GetLastVerifiedTransitionPacaya gets the last verified transition from Pacaya TaikoInbox contract.
@@ -1283,17 +1298,24 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	var (
 		head uint64
 		tail uint64
-		err  error
 	)
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		h, e := c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+		if e != nil {
+			return e
+		}
+		head = h
+		return nil
 	})
 	g.Go(func() error {
-		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		t, e := c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+		if e != nil {
+			return e
+		}
+		tail = t
+		return nil
 	})
 	if err := g.Wait(); err != nil {
 		return nil, nil, encoding.TryParsingCustomError(err)
