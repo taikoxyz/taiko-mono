@@ -25,7 +25,7 @@ type Inserter interface {
 		metadata metadata.TaikoProposalMetaData,
 		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
-	) error
+	) (*big.Int, error)
 }
 
 // createExecutionPayloadsMetaData is a struct that contains all the necessary metadata
