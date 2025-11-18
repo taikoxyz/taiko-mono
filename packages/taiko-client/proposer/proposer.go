@@ -343,17 +343,20 @@ func (p *Proposer) ProposeTxLists(
 	if err != nil {
 		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	if l1Head.Time+shastaForkBufferSeconds < p.rpc.ShastaClients.ForkTime {
-		if l1Head.Time < p.rpc.ShastaClients.ForkTime {
+	// Still in the Pacaya era.
+	if l1Head.Time < p.rpc.ShastaClients.ForkTime {
+		// If we are within the buffer window, pause proposing to avoid submitting Pacaya batches
+		// right before the Shasta fork activates.
+		if l1Head.Time+shastaForkBufferSeconds >= p.rpc.ShastaClients.ForkTime {
 			log.Info(
-				"Approaching Shasta fork time, but still on Pacaya, waiting for Shasta fork",
+				"Approaching Shasta fork time, waiting to switch to Shasta proposals",
 				"l1HeadTime", l1Head.Time,
 				"shastaForkTime", p.rpc.ShastaClients.ForkTime,
 			)
 			return nil
 		}
-		// Fetch the latest parent meta hash, which will be used
-		// by revert protection.
+
+		// Fetch the latest parent meta hash, which will be used by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
