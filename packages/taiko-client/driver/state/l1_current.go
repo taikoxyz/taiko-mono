@@ -64,6 +64,9 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		}
 		proposedIn = new(big.Int).SetUint64(batch.AnchorBlockId)
 	} else {
+		if block.Transactions().Len() == 0 {
+			return fmt.Errorf("no transactions found in block %d", blockID)
+		}
 		// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
 		_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
 		if err != nil {
