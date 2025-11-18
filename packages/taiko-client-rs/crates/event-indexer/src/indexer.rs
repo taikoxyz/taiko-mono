@@ -212,18 +212,42 @@ impl ShastaEventIndexer {
                 info!(?topic, block_number = ?log.block_number, "received inbox event log");
 
                 // Retry handling the event with exponential backoff on failure.
+                // Limit retries to avoid indefinite stalls on permanently bad logs.
                 let retry_strategy =
-                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
-                let _ = Retry::spawn(retry_strategy, || {
+                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12)).take(50);
+
+                let tx_hash = log.transaction_hash;
+                let block_number = log.block_number;
+
+                let result = Retry::spawn(retry_strategy, || {
                     let log = log.clone();
                     let indexer = self.clone();
                     async move {
                         if *topic == Proposed::SIGNATURE_HASH {
                             trace!(?log.transaction_hash, "received Proposed event log");
-                            indexer.handle_proposed(log).await
+                            indexer.handle_proposed(log.clone()).await.map_err(|err| {
+                                metrics::counter!(IndexerMetrics::PROPOSED_EVENT_ERRORS)
+                                    .increment(1);
+                                warn!(
+                                    ?err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "handling Proposed event failed; retrying"
+                                );
+                                err
+                            })
                         } else if *topic == Proved::SIGNATURE_HASH {
                             trace!(?log.transaction_hash, "received Proved event log");
-                            indexer.handle_proved(log).await
+                            indexer.handle_proved(log.clone()).await.map_err(|err| {
+                                metrics::counter!(IndexerMetrics::PROVED_EVENT_ERRORS).increment(1);
+                                warn!(
+                                    ?err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "handling Proved event failed; retrying"
+                                );
+                                err
+                            })
                         } else {
                             warn!(?topic, "skipping unexpected inbox event signature");
                             Ok(())
@@ -231,6 +255,17 @@ impl ShastaEventIndexer {
                     }
                 })
                 .await;
+
+                if let Err(err) = result {
+                    error!(
+                        ?err,
+                        ?topic,
+                        tx_hash = ?tx_hash,
+                        block_number = block_number,
+                        "exhausted retries for inbox event; dropping"
+                    );
+                    metrics::counter!(IndexerMetrics::DROPPED_EVENTS).increment(1);
+                }
             }
         }
 

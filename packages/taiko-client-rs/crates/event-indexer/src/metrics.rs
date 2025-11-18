@@ -19,6 +19,10 @@ impl IndexerMetrics {
     /// Gauge for latest indexed block number.
     pub const LATEST_BLOCK: &'static str = "taiko_indexer_latest_block";
 
+    pub const PROPOSED_EVENT_ERRORS: &'static str = "taiko_indexer_proposed_event_errors_total";
+    pub const PROVED_EVENT_ERRORS: &'static str = "taiko_indexer_proved_event_errors_total";
+    pub const DROPPED_EVENTS: &'static str = "taiko_indexer_dropped_events_total";
+
     /// Describes metrics used in the indexer.
     pub fn describe() {
         metrics::describe_counter!(
@@ -39,6 +43,16 @@ impl IndexerMetrics {
         metrics::describe_gauge!(Self::CACHED_PROOFS, "Current number of proofs cached in memory");
 
         metrics::describe_gauge!(Self::LATEST_BLOCK, "Latest L1 block number indexed");
+
+        metrics::describe_counter!(
+            Self::PROPOSED_EVENT_ERRORS,
+            "Total number of Proposed event handling failures"
+        );
+        metrics::describe_counter!(
+            Self::PROVED_EVENT_ERRORS,
+            "Total number of Proved event handling failures"
+        );
+        metrics::describe_counter!(Self::DROPPED_EVENTS, "Total number of dropped inbox events");
     }
 
     /// Initializes metrics to 0 so they can be queried immediately.
@@ -54,5 +68,8 @@ impl IndexerMetrics {
         metrics::gauge!(Self::CACHED_PROPOSALS).set(0.0);
         metrics::gauge!(Self::CACHED_PROOFS).set(0.0);
         metrics::gauge!(Self::LATEST_BLOCK).set(0.0);
+        metrics::counter!(Self::PROPOSED_EVENT_ERRORS).absolute(0);
+        metrics::counter!(Self::PROVED_EVENT_ERRORS).absolute(0);
+        metrics::counter!(Self::DROPPED_EVENTS).absolute(0);
     }
 }
