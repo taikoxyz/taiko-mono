@@ -77,7 +77,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, proposedIn)
 	if err != nil {
-		return fmt.Errorf("failed to fetch L1 header by number (%d): %w", blockID, err)
+		return fmt.Errorf("failed to fetch L1 header by number (%d): %w", proposedIn, err)
 	}
 	s.SetL1Current(l1Current)
 
