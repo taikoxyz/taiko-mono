@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import { InboxOptimized2Deployer } from "../deployers/InboxOptimized2Deployer.sol";
-import { AbstractFinalizeTest } from "./AbstractFinalize.t.sol";
+import { AbstractOptimizedFinalize } from "./AbstractOptimizedFinalize.t.sol";
+import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
 /// @title InboxOptimized2Finalize
 /// @notice Finalization tests for the InboxOptimized2 implementation
-contract InboxOptimized2Finalize is AbstractFinalizeTest {
-    function setUp() public virtual override {
-        setDeployer(new InboxOptimized2Deployer());
-        super.setUp();
+contract InboxOptimized2Finalize is AbstractOptimizedFinalize {
+    function _createDeployer() internal override returns (IInboxDeployer) {
+        return new InboxOptimized2Deployer();
     }
 }
