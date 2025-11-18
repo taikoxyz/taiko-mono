@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { AbstractFinalizeTest } from "./AbstractFinalize.t.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title AbstractOptimizedFinalize
 /// @notice Shared finalization tests for optimized inbox implementations that aggregate spans

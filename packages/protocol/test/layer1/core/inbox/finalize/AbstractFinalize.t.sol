@@ -566,9 +566,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         }
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         vm.recordLogs();
@@ -612,10 +610,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         revert("Proposed event not found");
     }
 
-    function _decodeProvedEvents()
-        internal
-        returns (IInbox.ProvedEventPayload[] memory payloads)
-    {
+    function _decodeProvedEvents() internal returns (IInbox.ProvedEventPayload[] memory payloads) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount;
 
