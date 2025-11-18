@@ -293,15 +293,8 @@ func ValidateMetadata(
 	if sourcePayload == nil {
 		return errors.New("empty derivation source payload")
 	}
-	// If there is the default payload, we return directly
-	if sourcePayload.Default {
-		return nil
-	}
 
-	// 1. Validate and adjust each block's timestamp.
-	validateMetadataTimestamp(sourcePayload, proposal)
-
-	// 2. Validate and adjust each block's anchor block number.
+	// 1. Validate and adjust each block's anchor block number.
 	if !validateAnchorBlockNumber(
 		sourcePayload,
 		originBlockNumber,
@@ -310,8 +303,30 @@ func ValidateMetadata(
 		isForcedInclusion,
 	) {
 		sourcePayload.Default = true
-		return nil
 	}
+
+	// If the source payload is marked as default, replace its block payloads with the default payload.
+	if sourcePayload.Default {
+		sourcePayload.BlockPayloads = []*ShastaBlockPayload{
+			{
+				BlockManifest: manifest.BlockManifest{
+					Timestamp:         0,
+					Coinbase:          common.Address{},
+					AnchorBlockNumber: parentAnchorBlockNumber,
+					GasLimit:          0,
+					Transactions:      types.Transactions{},
+				},
+			},
+		}
+		log.Info(
+			"Use default Shasta derivation payload",
+			"proposalID", proposal.Id,
+			"proposer", proposal.Proposer,
+		)
+	}
+
+	// 2. Validate and adjust each block's timestamp.
+	validateMetadataTimestamp(sourcePayload, proposal)
 
 	// 3. Ensure each block's coinbase is correctly assigned.
 	validateCoinbase(sourcePayload, proposal, isForcedInclusion)

@@ -10,12 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -404,50 +402,18 @@ func (s *Syncer) processShastaProposal(
 			designatedProverInfo.IsLowBondProposal,
 		)
 
-		// If the proposal is not a default one, we need to do some extra validations for
-		// the proposer and `isLowBondProposal` flag.
-		if !sourcePayload.Default {
-			// Check block-level metadata and reset some incorrect value.
-			if err := shastaManifest.ValidateMetadata(
-				ctx,
-				s.rpc,
-				sourcePayload,
-				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
-				meta.GetProposal(),
-				meta.GetDerivation().OriginBlockNumber.Uint64(),
-				latestProposalState.BondInstructionsHash,
-				lastAnchorBlockNumber,
-			); err != nil {
-				return err
-			}
-		}
-
-		if sourcePayload.Default {
-			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
-			// the real gas limit from parent block metadata.
-			gasLimit := sourcePayload.ParentBlock.GasLimit()
-			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
-			}
-
-			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
-				{
-					BlockManifest: manifest.BlockManifest{
-						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
-						Coinbase:          meta.GetProposal().Proposer,
-						AnchorBlockNumber: lastAnchorBlockNumber,
-						GasLimit:          gasLimit,
-						Transactions:      types.Transactions{},
-					},
-				},
-			}
-			log.Info(
-				"Use default Shasta derivation payload",
-				"proposalID", meta.GetProposal().Id,
-				"proposer", meta.GetProposal().Proposer,
-			)
+		// Check block-level metadata and reset some incorrect value.
+		if err := shastaManifest.ValidateMetadata(
+			ctx,
+			s.rpc,
+			sourcePayload,
+			meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
+			meta.GetProposal(),
+			meta.GetDerivation().OriginBlockNumber.Uint64(),
+			latestProposalState.BondInstructionsHash,
+			lastAnchorBlockNumber,
+		); err != nil {
+			return err
 		}
 
 		// Assemble bond instructions for the derivation payload.

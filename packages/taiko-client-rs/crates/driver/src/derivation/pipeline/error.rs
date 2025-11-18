@@ -10,8 +10,7 @@ use thiserror::Error;
 
 use crate::{
     derivation::{
-        manifest::ManifestFetcherError,
-        pipeline::shasta::{anchor::AnchorTxConstructorError, validation::ValidationError},
+        manifest::ManifestFetcherError, pipeline::shasta::anchor::AnchorTxConstructorError,
     },
     sync::error::EngineSubmissionError,
 };
@@ -25,9 +24,6 @@ pub enum DerivationError {
     /// Failure constructing anchor transactions.
     #[error(transparent)]
     Anchor(#[from] AnchorTxConstructorError),
-    /// Manifest validation failure.
-    #[error(transparent)]
-    Validation(#[from] ValidationError),
     /// Manifest fetch or decode failure.
     #[error(transparent)]
     Manifest(#[from] ManifestFetcherError),

@@ -5,9 +5,8 @@ use protocol::shasta::{
         BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT,
         MIN_ANCHOR_OFFSET, MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
-    manifest::DerivationSourceManifest,
+    manifest::{BlockManifest, DerivationSourceManifest},
 };
-use thiserror::Error;
 
 /// Input data required to validate and normalise metadata for a single derivation source.
 #[derive(Debug, Clone, Copy)]
@@ -30,46 +29,50 @@ pub struct ValidationContext {
     pub is_forced_inclusion: bool,
 }
 
-/// Errors that can occur during manifest validation.
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum ValidationError {
-    /// Manifest contained no blocks.
-    #[error("derivation source manifest contains no blocks")]
-    EmptyManifest,
-    /// Manifest failed validation and should be defaulted.
-    #[error("derivation source manifest failed validation and should be defaulted")]
-    DefaultManifest,
+/// Result of validating a derivation source manifest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationStatus {
+    /// Manifest passed validation without requiring defaults.
+    Valid,
+    /// Manifest failed validation and was replaced with the default payload.
+    Defaulted,
 }
 
 /// Validate a derivation source manifest in-place according to the Shasta metadata rules.
 ///
 /// The manifest is mutated to clamp timestamps, anchor block numbers, coinbase values, and gas
 /// limits. If the manifest cannot be repaired (for example when forced inclusion protection
-/// triggers), [`ValidationError::DefaultManifest`] is returned and the caller should fall back to
-/// the default manifest.
+/// triggers), the manifest is replaced with the protocol-defined default manifest but still runs
+/// through the remaining validation steps so metadata stays consistent with Go behaviour.
 pub fn validate_source_manifest(
     manifest: &mut DerivationSourceManifest,
     ctx: &ValidationContext,
-) -> Result<(), ValidationError> {
-    if block_count(manifest) == 0 {
-        return Err(ValidationError::EmptyManifest);
+) -> ValidationStatus {
+    let mut should_default = block_count(manifest) == 0;
+
+    if !should_default &&
+        !adjust_anchor_numbers(
+            manifest,
+            ctx.origin_block_number,
+            ctx.parent_anchor_block_number,
+            ctx.is_forced_inclusion,
+        )
+    {
+        should_default = true;
+    }
+
+    if should_default {
+        manifest.blocks = vec![BlockManifest {
+            anchor_block_number: ctx.parent_anchor_block_number,
+            ..BlockManifest::default()
+        }];
     }
 
     adjust_timestamps(manifest, ctx.parent_timestamp, ctx.proposal_timestamp);
-
-    if !adjust_anchor_numbers(
-        manifest,
-        ctx.origin_block_number,
-        ctx.parent_anchor_block_number,
-        ctx.is_forced_inclusion,
-    ) {
-        return Err(ValidationError::DefaultManifest);
-    }
-
     adjust_coinbase(manifest, ctx.proposer, ctx.is_forced_inclusion);
     adjust_gas_limit(manifest, ctx.parent_block_number, ctx.parent_gas_limit);
 
-    Ok(())
+    if should_default { ValidationStatus::Defaulted } else { ValidationStatus::Valid }
 }
 
 /// Return the total number of blocks contained in the derivation source.
@@ -337,7 +340,11 @@ mod tests {
             is_forced_inclusion: false,
         };
 
-        let err = validate_source_manifest(&mut manifest, &ctx).unwrap_err();
-        assert_eq!(err, ValidationError::DefaultManifest);
+        let status = validate_source_manifest(&mut manifest, &ctx);
+        assert_eq!(status, ValidationStatus::Defaulted);
+        assert_eq!(manifest.blocks.len(), 1);
+        assert_eq!(manifest.blocks[0].anchor_block_number, ctx.parent_anchor_block_number);
+        assert_eq!(manifest.blocks[0].coinbase, ctx.proposer);
+        assert!(manifest.blocks[0].gas_limit >= MIN_BLOCK_GAS_LIMIT);
     }
 }

@@ -27,7 +27,7 @@ use crate::{
 use tracing::{debug, info, instrument, warn};
 
 use super::{
-    super::validation::{ValidationError, validate_source_manifest},
+    super::validation::{ValidationStatus, validate_source_manifest},
     ShastaDerivationPipeline,
     bundle::{BundleMeta, SourceManifestSegment},
     state::ParentState,
@@ -267,26 +267,17 @@ where
         let validation_ctx = state.build_validation_context(meta, is_forced_inclusion);
 
         match validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
-            Ok(()) => {
+            ValidationStatus::Valid => {
                 info!(
                     proposal_id = meta.proposal_id,
                     segment_index, "manifest segment validation succeeded"
                 );
             }
-            Err(ValidationError::EmptyManifest | ValidationError::DefaultManifest) => {
+            ValidationStatus::Defaulted => {
                 info!(
                     proposal_id = meta.proposal_id,
-                    segment_index,
-                    "manifest segment is empty or default; proceeding with default payload"
+                    segment_index, "manifest segment validation defaulted manifest payload"
                 );
-                decoded_manifest = DerivationSourceManifest::default();
-                if let Err(err) = validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
-                    warn!(
-                        ?err,
-                        proposal_id = meta.proposal_id,
-                        "default manifest validation failed; continuing with default payload"
-                    );
-                }
             }
         }
 
