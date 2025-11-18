@@ -13,6 +13,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use bindings::{anchor::Anchor::anchorV4Call, i_inbox::IInbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
+use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::spawn;
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -23,6 +24,7 @@ use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    metrics::DriverMetrics,
 };
 
 use rpc::{blob::BlobDataSource, client::Client};
@@ -233,8 +235,13 @@ where
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
-                ScannerMessage::Data(logs) => logs,
+                ScannerMessage::Data(logs) => {
+                    counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
+                    counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                    logs
+                }
                 ScannerMessage::Error(err) => {
+                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
                     error!(?err, "error receiving proposal logs from event scanner");
                     continue;
                 }
@@ -281,6 +288,8 @@ where
                     last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
                     "successfully processed proposal into L2 blocks",
                 );
+                counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL)
+                    .increment(outcomes.len() as u64);
             }
         }
         Ok(())

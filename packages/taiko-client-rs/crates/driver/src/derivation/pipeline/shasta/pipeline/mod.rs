@@ -21,6 +21,7 @@ use bindings::{
     },
     i_inbox::IInbox::Proposed,
 };
+use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{BOND_PROCESSING_DELAY, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
@@ -33,6 +34,7 @@ use crate::{
         manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
         pipeline::shasta::anchor::AnchorTxConstructor,
     },
+    metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
@@ -146,6 +148,7 @@ where
         if cache.len() > BOND_CACHE_CAPACITY {
             cache.pop_front();
         }
+        gauge!(DriverMetrics::DERIVATION_BOND_CACHE_DEPTH).set(cache.len() as f64);
         Ok(())
     }
 
@@ -414,6 +417,7 @@ where
                 initial_proposal_id = ?self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
         info!(
@@ -433,6 +437,7 @@ where
         {
             let outcomes =
                 known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
+            counter!(DriverMetrics::DERIVATION_CANONICAL_HITS_TOTAL).increment(1);
             self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
             return Ok(outcomes);
         }
@@ -458,6 +463,7 @@ where
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
 
