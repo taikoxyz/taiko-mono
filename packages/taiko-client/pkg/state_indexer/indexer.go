@@ -597,11 +597,11 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 	log.Debug("Live indexing Shasta events", "from", startHeight, "to", newHead.Number)
 
 	// Run proposed and proved indexing in parallel.
-	g, _ := errgroup.WithContext(s.ctx)
+	g, gCtx := errgroup.WithContext(s.ctx)
 
 	// Proposed events iterator
 	g.Go(func() error {
-		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
+		iter, err := eventiterator.NewBatchProposedIterator(gCtx, &eventiterator.BatchProposedIteratorConfig{
 			RpcClient:             s.rpc,
 			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
 			StartHeight:           startHeight,
@@ -619,7 +619,7 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 
 	// Proved events iterator
 	g.Go(func() error {
-		iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
+		iterProved, err := eventiterator.NewShastaProvedIterator(gCtx, &eventiterator.ShastaProvedIteratorConfig{
 			RpcClient:             s.rpc,
 			MaxBlocksReadPerEpoch: &maxBlocksPerFilter,
 			StartHeight:           startHeight,
