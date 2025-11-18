@@ -461,15 +461,16 @@ func (s *Syncer) processShastaProposal(
 		}
 
 		// Insert new blocks to L2 EE's chain.
-		if err := s.blocksInserterShasta.InsertBlocksWithManifest(
+		lastInsertedBlockID, err := s.blocksInserterShasta.InsertBlocksWithManifest(
 			ctx,
 			metadata,
 			sourcePayload,
 			endIter,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
-		if parent, err = s.rpc.WaitL2Block(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
+		if parent, err = s.rpc.WaitL2Block(ctx, lastInsertedBlockID); err != nil {
 			log.Warn("Failed to fetch the new parent block", "error", err)
 			return err
 		}
