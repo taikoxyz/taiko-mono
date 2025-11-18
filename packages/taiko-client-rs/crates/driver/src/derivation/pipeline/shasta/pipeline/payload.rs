@@ -256,10 +256,7 @@ where
 
         // If this is a low-bond proposal and its not a forced inclusion segment,
         // override the manifest to be the default payload.
-        if !is_forced_inclusion &&
-            !manifest_is_default(&decoded_manifest) &&
-            is_low_bond_proposal
-        {
+        if !is_forced_inclusion && !manifest_is_default(&decoded_manifest) && is_low_bond_proposal {
             info!(
                 proposal_id = meta.proposal_id,
                 "low-bond proposal detected; using default manifest for segment processing"
