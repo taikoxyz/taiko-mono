@@ -99,6 +99,7 @@ fn validate_timestamps(
     true
 }
 
+// Compute the minimum valid timestamp for the next block in the sequence.
 fn compute_timestamp_lower_bound(
     parent_timestamp: u64,
     proposal_timestamp: u64,
@@ -107,6 +108,7 @@ fn compute_timestamp_lower_bound(
     let lower_bound = parent_timestamp.saturating_add(1);
     lower_bound.max(proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET)).max(fork_timestamp)
 }
+
 /// Ensure anchor numbers progress monotonically and remain within the protocol bounds.
 fn validate_anchor_numbers(
     manifest: &DerivationSourceManifest,
@@ -164,10 +166,12 @@ fn validate_gas_limit(
         let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
         let change = u128::from(BLOCK_GAS_LIMIT_MAX_CHANGE);
         let lower_bound = parent.saturating_mul(denominator.saturating_sub(change)) / denominator;
-        let lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
-
         let upper_bound = parent.saturating_mul(denominator.saturating_add(change)) / denominator;
         let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
+        let mut lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
+        if lower_bound > upper_bound {
+            lower_bound = upper_bound;
+        }
 
         if block.gas_limit < lower_bound || block.gas_limit > upper_bound {
             return false;
@@ -287,6 +291,19 @@ mod tests {
             transactions: Vec::new(),
         }]);
         assert!(validate_anchor_numbers(&manifest, 1_000, 1_000 - MAX_ANCHOR_OFFSET, true));
+
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            1_000,
+            1_010,
+            900,
+            Address::repeat_byte(0x11),
+            60,
+            2,
+            30_000_000,
+        );
+        assert!(validate_anchor_numbers(&manifest, 100, 60, true));
     }
 
     #[test]

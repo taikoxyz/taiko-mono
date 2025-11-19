@@ -16,7 +16,7 @@ use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
     BlobCoder,
-    constants::MIN_ANCHOR_OFFSET,
+    constants::{MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET},
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -84,8 +84,7 @@ impl ShastaProposalTransactionBuilder {
                     .as_secs(),
                 coinbase: self.l2_suggested_fee_recipient,
                 anchor_block_number: current_l1_head - (MIN_ANCHOR_OFFSET + 1),
-                gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                               * limit during derivation. */
+                gas_limit: MAX_BLOCK_GAS_LIMIT,
                 transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
             })
             .collect::<Vec<BlockManifest>>();
