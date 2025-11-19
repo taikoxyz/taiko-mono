@@ -248,13 +248,13 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
 
-| Field               | Required Value | Reason                                                  |
-| ------------------- | -------------- | ------------------------------------------------------- |
-| `timestamp`         | `0`            | Protocol assigns based on proposal timing               |
-| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions |
-| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                     |
-| `gasLimit`          | `0`            | Protocol inherits from parent block                     |
-| `transactions`      | User-provided  | The actual transactions to be forcibly included         |
+| Field               | Required Value | Reason                                                                |
+| ------------------- | -------------- | --------------------------------------------------------------------- |
+| `timestamp`         | `0`            | Protocol inherits `parent.timestamp + 1` to maintain monotonicity     |
+| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions               |
+| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                                   |
+| `gasLimit`          | `0`            | Protocol inherits from parent block                                   |
+| `transactions`      | User-provided  | The actual transactions to be forcibly included                       |
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
@@ -266,11 +266,11 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 
 #### `timestamp` Validation
 
-Timestamp validation is performed collectively across all blocks and may result in block count reduction:
+Timestamp validation is performed collectively across all blocks:
 
-1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
-3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
+1. **Upper bound**: `proposal.timestamp`
+2. **Lower bound**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
+3. **Out-of-bounds handling**: If any block's `manifest.blocks[i].timestamp` is outside `[lowerBound, proposal.timestamp]`, the entire derivation source is replaced with the default source manifest.
 
 #### `anchorBlockNumber` Validation
 
@@ -293,25 +293,21 @@ The anchor hash and state root must always correspond to the actual L1 block ref
 The L2 coinbase address determination follows a hierarchical priority system:
 
 1. **Forced inclusions**: Always use `proposal.proposer`
-2. **Regular proposals**: Use `orderedBlocks[i].coinbase` if non-zero
-3. **Fallback**: Use `proposal.proposer` if manifest coinbase is `address(0)`
+2. **Regular proposals**: Use `orderedBlocks[i].coinbase`
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit changes remain bounded by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`.
 
-**Calculation process**:
+**Validation process**:
 
 1. **Define bounds**:
 
    - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
    - `upperBound = min(parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MAX_BLOCK_GAS_LIMIT)`
 
-2. **Apply constraints**:
-   - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
-   - If below `lowerBound`: Clamp to `lowerBound`
-   - If above `upperBound`: Clamp to `upperBound`
-   - Otherwise: Use manifest value unchanged
+2. **Source validation**:
+   - If `manifest.blocks[i].gasLimit` is non-zero and falls outside `[lowerBound, upperBound]`: Replace the entire derivation source with the default source manifest.
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
