@@ -352,13 +352,11 @@ func validateMetadataTimestamp(
 // ComputeTimestampLowerBound calculates the minimum allowed timestamp for the next block while respecting
 // parent progression, TIMESTAMP_MAX_OFFSET, and the Shasta fork activation time.
 func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uint64) uint64 {
-	lowerBound := parentTimestamp + 1
+	lowerBound := max(parentTimestamp+1, forkTime)
 	if proposalTimestamp > manifest.TimestampMaxOffset {
 		lowerBound = max(lowerBound, proposalTimestamp-manifest.TimestampMaxOffset)
 	}
-	if forkTime > 0 {
-		lowerBound = max(lowerBound, forkTime)
-	}
+
 	return lowerBound
 }
 
