@@ -261,8 +261,6 @@ This design ensures forced inclusions integrate properly with the chain's metada
 
 If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
 
-Forced inclusion manifests must contain **exactly one block**. If a forced inclusion is decoded with zero blocks or more than one block, the validator replaces that manifest with the default manifest to avoid ambiguity.
-
 ### Metadata Validation and Computation
 
 With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
