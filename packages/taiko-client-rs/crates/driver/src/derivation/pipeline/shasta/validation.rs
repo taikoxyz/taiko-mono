@@ -30,6 +30,18 @@ pub struct ValidationContext {
     pub fork_timestamp: u64,
 }
 
+/// Parameters required to populate inherited metadata for forced/default manifests.
+#[derive(Debug, Clone, Copy)]
+pub struct InheritedMetadataInput {
+    pub parent_timestamp: u64,
+    pub proposal_timestamp: u64,
+    pub fork_timestamp: u64,
+    pub proposer: Address,
+    pub anchor_block_number: u64,
+    pub parent_block_number: u64,
+    pub parent_gas_limit: u64,
+}
+
 /// Errors that can occur during manifest validation.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ValidationError {
@@ -196,23 +208,21 @@ fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -
 /// consistent metadata prior to validation.
 pub fn apply_inherited_metadata(
     manifest: &mut DerivationSourceManifest,
-    parent_timestamp: u64,
-    proposal_timestamp: u64,
-    fork_timestamp: u64,
-    proposer: Address,
-    anchor_block_number: u64,
-    parent_block_number: u64,
-    parent_gas_limit: u64,
+    input: InheritedMetadataInput,
 ) {
-    let mut parent_ts = parent_timestamp;
-    let parent_gas_limit = effective_parent_gas_limit(parent_block_number, parent_gas_limit);
+    let mut parent_ts = input.parent_timestamp;
+    let parent_gas_limit =
+        effective_parent_gas_limit(input.parent_block_number, input.parent_gas_limit);
 
     for block in &mut manifest.blocks {
-        let lower_bound =
-            compute_timestamp_lower_bound(parent_ts, proposal_timestamp, fork_timestamp);
+        let lower_bound = compute_timestamp_lower_bound(
+            parent_ts,
+            input.proposal_timestamp,
+            input.fork_timestamp,
+        );
         block.timestamp = lower_bound;
-        block.coinbase = proposer;
-        block.anchor_block_number = anchor_block_number;
+        block.coinbase = input.proposer;
+        block.anchor_block_number = input.anchor_block_number;
         block.gas_limit = parent_gas_limit;
         parent_ts = lower_bound;
     }
@@ -283,25 +293,33 @@ mod tests {
         }]);
         assert!(validate_anchor_numbers(&manifest, 100, 60, false));
 
-        let manifest = manifest_with_blocks(vec![BlockManifest {
-            anchor_block_number: 0,
-            timestamp: 0,
-            coinbase: Address::ZERO,
-            gas_limit: 0,
-            transactions: Vec::new(),
-        }]);
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_010,
+                fork_timestamp: 500,
+                proposer: Address::repeat_byte(0x22),
+                anchor_block_number: 1_000 - MAX_ANCHOR_OFFSET,
+                parent_block_number: 2,
+                parent_gas_limit: 30_000_000,
+            },
+        );
         assert!(validate_anchor_numbers(&manifest, 1_000, 1_000 - MAX_ANCHOR_OFFSET, true));
 
         let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
         apply_inherited_metadata(
             &mut manifest,
-            1_000,
-            1_010,
-            900,
-            Address::repeat_byte(0x11),
-            60,
-            2,
-            30_000_000,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_010,
+                fork_timestamp: 900,
+                proposer: Address::repeat_byte(0x11),
+                anchor_block_number: 60,
+                parent_block_number: 2,
+                parent_gas_limit: 30_000_000,
+            },
         );
         assert!(validate_anchor_numbers(&manifest, 100, 60, true));
     }
@@ -320,7 +338,7 @@ mod tests {
         assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
 
         let manifest = manifest_with_blocks(vec![BlockManifest {
-            gas_limit: parent_gas_limit,
+            gas_limit: parent_gas_limit - ANCHOR_V3_GAS_LIMIT,
             timestamp: 0,
             coinbase: Address::ZERO,
             anchor_block_number: 0,
@@ -364,13 +382,15 @@ mod tests {
             manifest_with_blocks(vec![BlockManifest::default(), BlockManifest::default()]);
         apply_inherited_metadata(
             &mut manifest,
-            1_000,
-            2_000,
-            1_500,
-            Address::repeat_byte(0x11),
-            900,
-            10,
-            30_000_000,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 2_000,
+                fork_timestamp: 1_500,
+                proposer: Address::repeat_byte(0x11),
+                anchor_block_number: 900,
+                parent_block_number: 10,
+                parent_gas_limit: 30_000_000,
+            },
         );
 
         for block in &manifest.blocks {

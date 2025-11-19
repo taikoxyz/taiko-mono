@@ -1,5 +1,5 @@
 use super::{
-    super::validation::{ValidationContext, apply_inherited_metadata},
+    super::validation::{InheritedMetadataInput, ValidationContext, apply_inherited_metadata},
     bundle::BundleMeta,
 };
 use crate::derivation::DerivationError;
@@ -100,13 +100,15 @@ impl ParentState {
     ) {
         apply_inherited_metadata(
             manifest,
-            self.header.timestamp,
-            meta.proposal_timestamp,
-            self.shasta_fork_timestamp,
-            meta.proposer,
-            self.anchor_block_number,
-            self.header.number,
-            self.header.gas_limit,
+            InheritedMetadataInput {
+                parent_timestamp: self.header.timestamp,
+                proposal_timestamp: meta.proposal_timestamp,
+                fork_timestamp: self.shasta_fork_timestamp,
+                proposer: meta.proposer,
+                anchor_block_number: self.anchor_block_number,
+                parent_block_number: self.header.number,
+                parent_gas_limit: self.header.gas_limit,
+            },
         );
     }
 }
