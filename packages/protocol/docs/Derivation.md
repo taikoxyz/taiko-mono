@@ -269,7 +269,7 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 Timestamp validation is performed collectively across all blocks and may result in block count reduction:
 
 1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
+2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET, SHASTA_FORK_TIME)`
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
 
 #### `anchorBlockNumber` Validation
@@ -572,3 +572,4 @@ The following constants govern the block derivation process:
 | **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
 | **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                               |
 | **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                            |
+| **SHASTA_FORK_TIME**           | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                         |
