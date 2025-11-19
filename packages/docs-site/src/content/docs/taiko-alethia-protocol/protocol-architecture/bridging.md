@@ -19,12 +19,10 @@ Taiko Alethia uses a **trust-minimized**, **Ethereum-equivalent** design for sec
 
 Two smart contracts are responsible for maintaining cross-chain state:
 
-- **TaikoInbox** (deployed on Ethereum) → Stores L2 world state roots
-- **TaikoAnchor** (deployed on Taiko) → Stores L1 world state roots
+- **Inbox** (deployed on Ethereum) → Stores L2 world state roots
+- **Anchor** (deployed on Taiko) → Stores L1 world state roots
 
-Whenever an L2 block is created, the corresponding world state root of the enclosing Ethereum L1 block is stored in the [`TaikoAnchor`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol#L150) contract using the `anchor` transaction. This ensures that only valid state transitions are recognized.
-
-Similarly, the L2 world state root is stored in [`TaikoInbox`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol#L699) using the `syncChainData` function.
+Authorized syncers (Inbox on L1, Anchor on L2) persist checkpoints via `SignalService.saveCheckpoint(...)` (as `ICheckpointStore`).
 
 ### Verifying values across chains using Merkle proofs
 
@@ -96,7 +94,7 @@ To complete the transfer:
 Taiko Alethia's bridge supports **Ether transfers** in two cases:
 
 1. **Direct ETH transfer**: The user calls `sendMessage` on the Bridge contract.
-2. **ETH + ERC token transfer**: The user calls `sendToken` on the `ERCXXXVault`, including ETH as part of the transaction.
+2. **ETH + ERC token transfer**: The user calls `sendToken` on the `ERC20Vault`, `ERC721Vault`, or `ERC1155Vault`, including ETH as part of the transaction.
 
 ## ERC-20, ERC-721, and ERC-1155 token bridging
 
@@ -105,17 +103,17 @@ Token bridging requires a **BridgedERC contract** on the destination chain.
 ### Bridging ERC tokens to the destination chain
 
 1. The ERC token contract must exist on the destination chain.
-2. The sender calls `sendToken` on `ERCXXXVault` (source chain).
-3. The vault transfers the token to the **Bridge contract** and generates a **Merkle proof**.
+2. The sender calls `sendToken` on the `ERC20Vault`, `ERC721Vault`, or `ERC1155Vault` (source chain).
+3. The vault transfers tokens (or burns bridged tokens), constructs a `Bridge.Message`, and calls `Bridge.sendMessage`; relayers generate the proof off-chain.
 4. The recipient submits a **Merkle proof** on the destination chain.
 5. If valid, the **BridgedERC contract** mints the corresponding amount.
 
 ### Bridging back to the canonical chain
 
-1. The sender calls `sendToken` on the `BridgedERC` contract (destination chain).
-2. The contract **burns** the token and generates a **Merkle proof**.
+1. The sender calls `sendToken` on the Vault contract with the bridged token (destination chain).
+2. The Vault **burns** the bridged token and constructs a `Bridge.Message`; relayers generate the proof off-chain.
 3. The recipient submits the **proof** on the canonical chain.
-4. The canonical **TokenVault contract** releases the original token.
+4. The canonical `ERC20Vault`/`ERC721Vault`/`ERC1155Vault` releases the original token.
 
 ## Summary
 
