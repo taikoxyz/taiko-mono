@@ -310,6 +310,15 @@ where
             let mut manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
+            // For forced-inclusion source, ensure it contains exactly one block.
+            if source.isForcedInclusion && manifest.blocks.len() != 1 {
+                info!(
+                    proposal_id,
+                    blocks = manifest.blocks.len(),
+                    "invalid blocks count in forced-inclusion source manifest, using default payload instead"
+                );
+                manifest = DerivationSourceManifest::default();
+            }
             // Inject the proposal-level prover auth into every segment.
             manifest.prover_auth_bytes = prover_auth_bytes.clone();
             manifest_segments.push(SourceManifestSegment {
