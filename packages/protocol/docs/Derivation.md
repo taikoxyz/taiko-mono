@@ -220,8 +220,7 @@ For each `DerivationSource[i]`, the validator performs:
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
 7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
-8. **Forced Inclusion Blob Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `derivation.sources[i].blobSlice.blobHashes.length != 1`, replace the entire source with the default manifest
-9. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
+8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
@@ -305,7 +304,6 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 **Calculation process**:
 
 1. **Define bounds**:
-
    - `lowerBound = max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
 
@@ -368,7 +366,6 @@ struct ProverAuth {
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
-
   - Validates the `ProverAuth` struct from the provided bytes
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
@@ -528,12 +525,10 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
-
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state
