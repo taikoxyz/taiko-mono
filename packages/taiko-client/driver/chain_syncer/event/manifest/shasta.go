@@ -134,17 +134,8 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	// For forced-inclusion sources, reset certain fields to zero.
-	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
-		for _, block := range derivationSourceManifest.Blocks {
-			// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
-			block.AnchorBlockNumber = 0
-			block.Timestamp = 0
-			block.Coinbase = common.Address{}
-			block.GasLimit = 0
-		}
-	} else {
-		// Only use the prover auth from the last source (non-forced-inclusion source).
+	// Only use the prover auth from the last source (non-forced-inclusion source).
+	if derivationIdx == len(meta.GetDerivation().Sources)-1 {
 		proverAuth = derivationSourceManifest.ProverAuthBytes
 	}
 

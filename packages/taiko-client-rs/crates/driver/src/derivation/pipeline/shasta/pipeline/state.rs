@@ -1,4 +1,7 @@
-use super::{super::validation::ValidationContext, bundle::BundleMeta};
+use super::{
+    super::validation::{ValidationContext, apply_inherited_metadata},
+    bundle::BundleMeta,
+};
 use crate::derivation::DerivationError;
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
@@ -83,8 +86,27 @@ impl ParentState {
             parent_anchor_block_number: self.anchor_block_number,
             proposal_timestamp: meta.proposal_timestamp,
             origin_block_number: meta.origin_block_number,
-            proposer: meta.proposer,
             is_forced_inclusion,
+            fork_timestamp: self.shasta_fork_timestamp,
         }
+    }
+
+    /// Populate the provided manifest with inherited metadata (timestamp, coinbase, anchor,
+    /// gas limit) based on the current parent state so forced/default manifests have usable fields.
+    pub(super) fn apply_inherited_metadata(
+        &self,
+        manifest: &mut protocol::shasta::manifest::DerivationSourceManifest,
+        meta: &BundleMeta,
+    ) {
+        apply_inherited_metadata(
+            manifest,
+            self.header.timestamp,
+            meta.proposal_timestamp,
+            self.shasta_fork_timestamp,
+            meta.proposer,
+            self.anchor_block_number,
+            self.header.number,
+            self.header.gas_limit,
+        );
     }
 }
