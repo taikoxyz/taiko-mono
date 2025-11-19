@@ -246,23 +246,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	for i, txs := range txBatch {
-		// For the first block, we set the anchor block number to
-		// (L1 head - AnchorMinOffset - 1).
-		var anchorBlockNumber = uint64(0)
-		if i == 0 {
-			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
-			log.Info(
-				"Set anchor block number for the first block in the batch",
-				"anchorBlockNumber", anchorBlockNumber,
-				"l1Head", l1Head.Number.Uint64(),
-				"anchorMinOffset", manifest.AnchorMinOffset,
-			)
-		}
-
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: anchorBlockNumber,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
 			GasLimit:          manifest.MaxBlockGasLimit,
 			Transactions:      txs,
 		})
