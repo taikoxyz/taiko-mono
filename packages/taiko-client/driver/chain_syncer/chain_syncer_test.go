@@ -479,6 +479,16 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	)
 	s.Nil(err)
 
+	testTx2, err := testutils.AssembleAndSendTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce+1,
+		&s.TestAddr,
+		common.Big1,
+		nil,
+	)
+	s.Nil(err)
+
 	manifest := &manifest.DerivationSourceManifest{
 		Blocks: []*manifest.BlockManifest{
 			{
@@ -487,6 +497,13 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 				AnchorBlockNumber: head.NumberU64(),
 				GasLimit:          head.GasLimit(),
 				Transactions:      types.Transactions{testTx},
+			},
+			{
+				Timestamp:         0,
+				Coinbase:          s.TestAddr,
+				AnchorBlockNumber: head.NumberU64(),
+				GasLimit:          head.GasLimit(),
+				Transactions:      types.Transactions{testTx2},
 			},
 		},
 	}
@@ -530,20 +547,29 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(head.NumberU64()+2, head2.NumberU64())
+	s.Equal(head.NumberU64()+3, head2.NumberU64())
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
 
-	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
+	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
 		new(big.Int).SetUint64(head.NumberU64()+1),
 	)
 	s.Nil(err)
-	s.Equal(head2.NumberU64()-1, forcedIncludedHeader.NumberU64())
-	s.Equal(2, len(forcedIncludedHeader.Transactions()))
-	s.Equal(testTx.Hash(), forcedIncludedHeader.Transactions()[1].Hash())
-	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
-	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
-	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
+	s.Equal(head2.NumberU64()-2, forcedIncludedHeader1.NumberU64())
+	s.Equal(2, len(forcedIncludedHeader1.Transactions()))
+	s.Equal(testTx.Hash(), forcedIncludedHeader1.Transactions()[1].Hash())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader1.Coinbase())
+	s.NotEqual(s.TestAddr, forcedIncludedHeader1.Coinbase())
+	s.Greater(head2.Header().Time, forcedIncludedHeader1.Header().Time)
+
+	forcedIncludedHeader2, err := s.RPCClient.L2.BlockByNumber(
+		context.Background(),
+		new(big.Int).SetUint64(head.NumberU64()+2),
+	)
+	s.Nil(err)
+	s.Equal(head2.NumberU64()-1, forcedIncludedHeader2.NumberU64())
+	s.Equal(2, len(forcedIncludedHeader2.Transactions()))
+	s.Equal(testTx2.Hash(), forcedIncludedHeader2.Transactions()[1].Hash())
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {

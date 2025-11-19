@@ -300,6 +300,35 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	// Prefetch all derivation source payloads, and set the proposer auth bytes.
+	var (
+		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetDerivation().Sources))
+		proposerAuth   []byte
+	)
+	if len(meta.GetDerivation().Sources) > 0 {
+		// Fetch the last derivation source payload first, and set the proposer auth bytes.
+		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetDerivation().Sources)-1)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to fetch Shasta derivation payload for index %d: %w",
+				len(meta.GetDerivation().Sources)-1,
+				err,
+			)
+		}
+		sourcePayloads[len(meta.GetDerivation().Sources)-1] = payload
+		proposerAuth = payload.ProverAuthBytes
+		// Fetch other derivation source payloads.
+		for i := 0; i < len(meta.GetDerivation().Sources)-1; i++ {
+			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
+			if err != nil {
+				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
+			}
+			// Set the proposer auth bytes for the non-last source payloads as well.
+			p.ProverAuthBytes = proposerAuth
+			sourcePayloads[i] = p
+		}
+	}
+
 	for derivationIdx := range meta.GetDerivation().Sources {
 		log.Info(
 			"Processing Shasta derivation source",
@@ -309,10 +338,10 @@ func (s *Syncer) processShastaProposal(
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
 		)
-		// Fetch and parse the derivation payload from blobs.
-		sourcePayload, err := s.derivationSourceFetcher.Fetch(ctx, meta, derivationIdx)
-		if err != nil {
-			return err
+		// Reuse the prefetched derivation payload.
+		sourcePayload := sourcePayloads[derivationIdx]
+		if sourcePayload == nil {
+			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
 
@@ -340,44 +369,44 @@ func (s *Syncer) processShastaProposal(
 				return err
 			}
 		}
+		opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
+		proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
+		if err != nil {
+			return err
+		}
+
+		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
+			opts,
+			meta.GetProposal().Id,
+			meta.GetProposal().Proposer,
+			sourcePayload.ProverAuthBytes,
+			proposalState.DesignatedProver,
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Info(
+			"Designated prover info",
+			"proposalID", meta.GetProposal().Id,
+			"blocks", len(sourcePayload.BlockPayloads),
+			"proposer", meta.GetProposal().Proposer,
+			"prover", designatedProverInfo.DesignatedProver,
+			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
+			"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
+			"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
+		)
+
+		// Apply low-bond proposal rules to the derivation payload.
+		sourcePayload = applyLowBondProposalRules(
+			sourcePayload,
+			!meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
+			designatedProverInfo.IsLowBondProposal,
+		)
+
 		// If the proposal is not a default one, we need to do some extra validations for
 		// the proposer and `isLowBondProposal` flag.
 		if !sourcePayload.Default {
-			opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
-			proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
-			if err != nil {
-				return err
-			}
-			designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-				opts,
-				meta.GetProposal().Id,
-				meta.GetProposal().Proposer,
-				sourcePayload.ProverAuthBytes,
-				proposalState.DesignatedProver,
-			)
-			if err != nil {
-				return err
-			}
-
-			log.Info(
-				"Designated prover info",
-				"proposalID", meta.GetProposal().Id,
-				"blocks", len(sourcePayload.BlockPayloads),
-				"proposer", meta.GetProposal().Proposer,
-				"prover", designatedProverInfo.DesignatedProver,
-				"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
-				"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
-				"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
-			)
-
-			if designatedProverInfo.IsLowBondProposal {
-				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
-					Default:           true,
-					IsLowBondProposal: true,
-					ParentBlock:       sourcePayload.ParentBlock,
-				}
-			}
-
 			// Check block-level metadata and reset some incorrect value.
 			if err := shastaManifest.ValidateMetadata(
 				ctx,
@@ -385,7 +414,7 @@ func (s *Syncer) processShastaProposal(
 				sourcePayload,
 				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
 				meta.GetProposal(),
-				meta.GetRawBlockHeight().Uint64(),
+				meta.GetDerivation().OriginBlockNumber.Uint64(),
 				latestProposalState.BondInstructionsHash,
 				lastAnchorBlockNumber,
 			); err != nil {
@@ -432,15 +461,16 @@ func (s *Syncer) processShastaProposal(
 		}
 
 		// Insert new blocks to L2 EE's chain.
-		if err := s.blocksInserterShasta.InsertBlocksWithManifest(
+		lastInsertedBlockID, err := s.blocksInserterShasta.InsertBlocksWithManifest(
 			ctx,
 			metadata,
 			sourcePayload,
 			endIter,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
 		}
-		if parent, err = s.rpc.WaitL2Block(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
+		if parent, err = s.rpc.WaitL2Block(ctx, lastInsertedBlockID); err != nil {
 			log.Warn("Failed to fetch the new parent block", "error", err)
 			return err
 		}
@@ -711,6 +741,34 @@ func (s *Syncer) checkReorgShasta(
 	}
 
 	return reorgCheckResult, nil
+}
+
+// applyLowBondProposalRules enforces default manifest rules for low-bond proposals.
+func applyLowBondProposalRules(
+	payload *shastaManifest.ShastaDerivationSourcePayload,
+	isProposerSource bool,
+	isLowBondProposal bool,
+) *shastaManifest.ShastaDerivationSourcePayload {
+	// If not a low-bond proposal, return directly.
+	if payload == nil || !isLowBondProposal {
+		return payload
+	}
+
+	// For low-bond proposals, we always enforce the default manifest rules.
+	// If the source is a forced inclusion source, we keep the original payload but
+	// set the `isLowBondProposal` flag to true.
+	if payload.Default || !isProposerSource {
+		payload.IsLowBondProposal = true
+		return payload
+	}
+
+	// For the normal proposal source, we replace the payload with a default one.
+	return &shastaManifest.ShastaDerivationSourcePayload{
+		Default:           true,
+		IsLowBondProposal: true,
+		ParentBlock:       payload.ParentBlock,
+		ProverAuthBytes:   payload.ProverAuthBytes,
+	}
 }
 
 // BlocksInserterPacaya returns the Pacaya blocks inserter.

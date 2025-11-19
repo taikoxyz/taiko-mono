@@ -273,8 +273,8 @@ func (i *Pacaya) InsertBlocksWithManifest(
 	_ metadata.TaikoProposalMetaData,
 	_ *shastaManifest.ShastaDerivationSourcePayload,
 	_ eventIterator.EndBatchProposedEventIterFunc,
-) error {
-	return errors.New("not supported in Pacaya")
+) (*big.Int, error) {
+	return nil, errors.New("not supported in Pacaya")
 }
 
 // InsertPreconfBlocksFromEnvelopes inserts preconfirmation blocks from the given envelopes.

@@ -21,6 +21,7 @@ use bindings::{
     },
     i_inbox::IInbox::Proposed,
 };
+use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{BOND_PROCESSING_DELAY, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
@@ -33,6 +34,7 @@ use crate::{
         manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
         pipeline::shasta::anchor::AnchorTxConstructor,
     },
+    metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
@@ -146,6 +148,7 @@ where
         if cache.len() > BOND_CACHE_CAPACITY {
             cache.pop_front();
         }
+        gauge!(DriverMetrics::DERIVATION_BOND_CACHE_DEPTH).set(cache.len() as f64);
         Ok(())
     }
 
@@ -290,22 +293,7 @@ where
             return Err(err);
         };
 
-        // Fetch the forced inclusion sources first.
-        let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in forced_inclusion_sources {
-            let mut manifest = self
-                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
-                .await?;
-            if source.isForcedInclusion {
-                manifest.apply_forced_inclusion_defaults();
-            }
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: source.isForcedInclusion,
-            });
-        }
-
-        // Fetch the normal proposal manifest last.
+        // Fetch the normal proposal manifest first so we can reuse its prover auth.
         let final_manifest = self
             .fetch_and_decode_manifest(
                 self.derivation_source_manifest_fetcher.as_ref(),
@@ -314,6 +302,25 @@ where
             .await?;
 
         let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
+
+        // Fetch the forced inclusion sources afterwards, injecting the proposal-level prover auth
+        // so every segment carries the same signature payload as required by the protocol.
+        let mut manifest_segments = Vec::with_capacity(sources.len());
+        for source in forced_inclusion_sources {
+            let mut manifest = self
+                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
+                .await?;
+            if source.isForcedInclusion {
+                manifest.apply_forced_inclusion_defaults();
+            }
+            // Inject the proposal-level prover auth into every segment.
+            manifest.prover_auth_bytes = prover_auth_bytes.clone();
+            manifest_segments.push(SourceManifestSegment {
+                manifest,
+                is_forced_inclusion: source.isForcedInclusion,
+            });
+        }
+
         manifest_segments.push(SourceManifestSegment {
             manifest: final_manifest,
             is_forced_inclusion: last_source.isForcedInclusion,
@@ -410,6 +417,7 @@ where
                 initial_proposal_id = ?self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
         info!(
@@ -421,6 +429,18 @@ where
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
         let mut parent_state = self.initialize_parent_state(&parent_block).await?;
+
+        // If every block already sits in the canonical chain we skip payload submission and only
+        // refresh L1 origins.
+        if let Some(known_blocks) =
+            self.detect_known_canonical_proposal(&meta, &sources, &parent_state).await?
+        {
+            let outcomes =
+                known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
+            counter!(DriverMetrics::DERIVATION_CANONICAL_HITS_TOTAL).increment(1);
+            self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
+            return Ok(outcomes);
+        }
 
         let outcomes =
             self.build_payloads_from_sources(sources, &meta, &mut parent_state, applier).await?;
@@ -443,6 +463,7 @@ where
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
 
