@@ -76,7 +76,7 @@ impl ShastaProposalTransactionBuilder {
         }
 
         let anchor_block_number = l1_head_number - (MIN_ANCHOR_OFFSET + 1);
-        let timstamp =
+        let timestamp =
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
         // Build the block manifests.

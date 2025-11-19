@@ -182,17 +182,7 @@ fn validate_gas_limit(
         effective_parent_gas_limit(parent_block_number, parent_gas_limit);
 
     for block in &manifest.blocks {
-        let parent = effective_parent_gas_limit as u128;
-        let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
-        let change = u128::from(BLOCK_GAS_LIMIT_MAX_CHANGE);
-        let lower_bound = parent.saturating_mul(denominator.saturating_sub(change)) / denominator;
-        let upper_bound = parent.saturating_mul(denominator.saturating_add(change)) / denominator;
-        let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
-        let mut lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
-        if lower_bound > upper_bound {
-            lower_bound = upper_bound;
-        }
-
+        let (lower_bound, upper_bound) = gas_limit_bounds(effective_parent_gas_limit);
         if block.gas_limit < lower_bound || block.gas_limit > upper_bound {
             return false;
         }
@@ -203,6 +193,20 @@ fn validate_gas_limit(
     true
 }
 
+// Compute the allowed gas limit bounds based on the parent gas limit.
+fn gas_limit_bounds(parent_gas_limit: u64) -> (u64, u64) {
+    let parent = u128::from(parent_gas_limit);
+    let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
+    let change = u128::from(BLOCK_GAS_LIMIT_MAX_CHANGE);
+    let upper = parent.saturating_mul(denominator.saturating_add(change)) / denominator;
+    let upper = upper.min(u128::from(MAX_BLOCK_GAS_LIMIT)) as u64;
+    let lower = parent.saturating_mul(denominator.saturating_sub(change)) / denominator;
+    let lower = lower.max(u128::from(MIN_BLOCK_GAS_LIMIT)).min(u128::from(upper)) as u64;
+
+    (lower, upper)
+}
+
+// Compute the effective parent gas limit by removing the anchor transaction gas when applicable.
 fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
     if parent_block_number == 0 {
         parent_gas_limit
