@@ -250,7 +250,7 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 | Field               | Required Value | Reason                                                                |
 | ------------------- | -------------- | --------------------------------------------------------------------- |
-| `timestamp`         | `0`            | Protocol inherits `parent.timestamp + 1` to maintain monotonicity     |
+| `timestamp`         | `0`            | Protocol inherits the timestamp validation lower bound below          |
 | `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions               |
 | `anchorBlockNumber` | `0`            | Protocol inherits from parent block                                   |
 | `gasLimit`          | `0`            | Protocol inherits from parent block                                   |
