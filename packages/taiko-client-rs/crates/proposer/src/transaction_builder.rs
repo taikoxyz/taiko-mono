@@ -1,9 +1,10 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::{sync::Arc, time::SystemTime};
+use std::sync::Arc;
 
 use alloy::{
     consensus::SidecarBuilder,
+    eips::BlockNumberOrTag,
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -74,18 +75,31 @@ impl ShastaProposalTransactionBuilder {
             });
         }
 
+        let anchor_block_number = l1_head_number - (MIN_ANCHOR_OFFSET + 1);
+        let timstamp =
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+
         // Build the block manifests.
         let block_manifests = txs_lists
             .iter()
-            .map(|txs| BlockManifest {
-                timestamp: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                coinbase: self.l2_suggested_fee_recipient,
-                anchor_block_number: current_l1_head - (MIN_ANCHOR_OFFSET + 1),
-                gas_limit: MAX_BLOCK_GAS_LIMIT,
-                transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+            .enumerate()
+            .map(|(index, txs)| {
+                info!(
+                    block_index = index,
+                    tx_count = txs.len(),
+                    timestamp,
+                    anchor_block_number,
+                    gas_limit = MAX_BLOCK_GAS_LIMIT,
+                    coinbase = ?self.l2_suggested_fee_recipient,
+                    "setting up derivation source manifest block"
+                );
+                BlockManifest {
+                    timestamp,
+                    coinbase: self.l2_suggested_fee_recipient,
+                    anchor_block_number,
+                    gas_limit: MAX_BLOCK_GAS_LIMIT,
+                    transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+                }
             })
             .collect::<Vec<BlockManifest>>();
 

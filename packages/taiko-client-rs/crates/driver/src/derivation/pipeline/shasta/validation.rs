@@ -118,7 +118,15 @@ fn compute_timestamp_lower_bound(
     fork_timestamp: u64,
 ) -> u64 {
     let lower_bound = parent_timestamp.saturating_add(1);
-    lower_bound.max(proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET)).max(fork_timestamp)
+
+    // Only tighten the bound when the proposal exceeds the offset.
+    let lower_bound = if proposal_timestamp > TIMESTAMP_MAX_OFFSET {
+        lower_bound.max(proposal_timestamp - TIMESTAMP_MAX_OFFSET)
+    } else {
+        lower_bound
+    };
+
+    lower_bound.max(fork_timestamp)
 }
 
 /// Ensure anchor numbers progress monotonically and remain within the protocol bounds.
@@ -338,6 +346,15 @@ mod tests {
         assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
 
         let manifest = manifest_with_blocks(vec![BlockManifest {
+            gas_limit: 0,
+            timestamp: 0,
+            coinbase: Address::ZERO,
+            anchor_block_number: 0,
+            transactions: Vec::new(),
+        }]);
+        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
+
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             gas_limit: parent_gas_limit - ANCHOR_V3_GAS_LIMIT,
             timestamp: 0,
             coinbase: Address::ZERO,
@@ -398,5 +415,32 @@ mod tests {
             assert_eq!(block.anchor_block_number, 900);
             assert_eq!(block.gas_limit, 30_000_000 - ANCHOR_V3_GAS_LIMIT);
         }
+        assert_eq!(
+            manifest.blocks.first().unwrap().timestamp,
+            compute_timestamp_lower_bound(1_000, 2_000, 1_500)
+        );
+    }
+
+    #[test]
+    fn apply_inherited_metadata_respects_fork_lower_bound() {
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_100,
+                fork_timestamp: 1_200,
+                proposer: Address::repeat_byte(0xAA),
+                anchor_block_number: 50,
+                parent_block_number: 10,
+                parent_gas_limit: 30_000_000,
+            },
+        );
+
+        assert_eq!(
+            manifest.blocks[0].timestamp,
+            compute_timestamp_lower_bound(1_000, 1_100, 1_200)
+        );
+        assert_eq!(manifest.blocks[0].coinbase, Address::repeat_byte(0xAA));
     }
 }

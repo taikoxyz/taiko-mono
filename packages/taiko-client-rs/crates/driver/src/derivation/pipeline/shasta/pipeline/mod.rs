@@ -310,9 +310,6 @@ where
             let mut manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
-            if source.isForcedInclusion {
-                manifest.apply_forced_inclusion_defaults();
-            }
             // Inject the proposal-level prover auth into every segment.
             manifest.prover_auth_bytes = prover_auth_bytes.clone();
             manifest_segments.push(SourceManifestSegment {
