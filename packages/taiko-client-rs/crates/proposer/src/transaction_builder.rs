@@ -1,10 +1,9 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::SystemTime};
 
 use alloy::{
     consensus::SidecarBuilder,
-    eips::BlockNumberOrTag,
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -75,7 +74,7 @@ impl ShastaProposalTransactionBuilder {
             });
         }
 
-        let anchor_block_number = l1_head_number - (MIN_ANCHOR_OFFSET + 1);
+        let anchor_block_number = current_l1_head - (MIN_ANCHOR_OFFSET + 1);
         let timestamp =
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
