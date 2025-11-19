@@ -3,7 +3,7 @@
 use std::{borrow::Cow, marker::PhantomData, time::Duration};
 
 use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
-use alloy::providers::Provider;
+use alloy::{primitives::B256, providers::Provider};
 use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{ProviderBuilder, RootProvider};
@@ -74,7 +74,7 @@ where
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
-        let parent_hash = block.header.parent_hash;
+        let _parent_hash = block.header.parent_hash;
         let withdrawals_root = block.header.withdrawals_root;
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
 
@@ -110,17 +110,20 @@ where
 
         let forkchoice_state = ForkchoiceState {
             head_block_hash: block_hash,
-            safe_block_hash: block_hash,
-            finalized_block_hash: parent_hash,
+            safe_block_hash: B256::ZERO,
+            finalized_block_hash: B256::ZERO,
         };
 
         let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
-        if forkchoice.payload_status.status != PayloadStatusEnum::Syncing {
-            return Err(DriverError::Other(anyhow!(
-                "unexpected forkchoice status {:?} for block {}",
-                forkchoice.payload_status.status,
-                block_number
-            )));
+        match forkchoice.payload_status.status {
+            PayloadStatusEnum::Valid | PayloadStatusEnum::Syncing => {}
+            other => {
+                return Err(DriverError::Other(anyhow!(
+                    "unexpected forkchoice status {:?} for block {}",
+                    other,
+                    block_number
+                )));
+            }
         }
 
         info!(block_number, ?block_hash, "checkpoint block submitted");
