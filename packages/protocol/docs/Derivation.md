@@ -229,8 +229,16 @@ A default source manifest is used when validation fails for a specific source:
 
 ```solidity
 DerivationSourceManifest memory defaultSource;
-defaultSource.blocks = new BlockManifest[](1);  // // Single block
+defaultSource.blocks = new BlockManifest[](1);  // Single block
 ```
+
+| Field               | Value                                                                       |
+| ------------------- | --------------------------------------------------------------------------- |
+| `timestamp`         | Protocol applies the timestamp validation lower bound afterward             |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                    |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                     |
+| `gasLimit`          | Protocol inherits from the parent block                                     |
+| `transactions`      | Empty list (only includes the anchor transaction)                           |
 
 #### ProposalManifest Construction
 
@@ -248,13 +256,13 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
 
-| Field               | Required Value | Reason                                                                |
-| ------------------- | -------------- | --------------------------------------------------------------------- |
-| `timestamp`         | `0`            | Protocol inherits the timestamp validation lower bound below          |
-| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions               |
-| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                                   |
-| `gasLimit`          | `0`            | Protocol inherits from parent block                                   |
-| `transactions`      | User-provided  | The actual transactions to be forcibly included                       |
+| Field               | Value                                                                       |
+| ------------------- | --------------------------------------------------------------------------- |
+| `timestamp`         | Protocol applies the timestamp validation lower bound afterward             |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                    |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                     |
+| `gasLimit`          | Protocol inherits from the parent block                                     |
+| `transactions`      | User-provided list of L2 transactions to force-include                      |
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
