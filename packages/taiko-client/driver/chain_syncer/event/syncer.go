@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -300,62 +301,38 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	// Prefetch all derivation source payloads, and set the proposer auth bytes.
+	// Fetch the normal derivation source payload first,
 	var (
-		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetDerivation().Sources))
-		proposerAuth   []byte
+		normalSourcePayloads *shastaManifest.ShastaDerivationSourcePayload
 	)
 	if len(meta.GetDerivation().Sources) > 0 {
-		// Fetch the last derivation source payload first, and set the proposer auth bytes.
-		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetDerivation().Sources)-1)
+		normalSourcePayloads, err = s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetDerivation().Sources)-1)
 		if err != nil {
 			return fmt.Errorf(
-				"failed to fetch Shasta derivation payload for index %d: %w",
-				len(meta.GetDerivation().Sources)-1,
+				"failed to fetch normal Shasta derivation payload: %w",
 				err,
 			)
-		}
-		sourcePayloads[len(meta.GetDerivation().Sources)-1] = payload
-		proposerAuth = payload.ProverAuthBytes
-		// Fetch other derivation source payloads.
-		for i := 0; i < len(meta.GetDerivation().Sources)-1; i++ {
-			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
-			if err != nil {
-				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
-			}
-			// Set the proposer auth bytes for the non-last source payloads as well.
-			p.ProverAuthBytes = proposerAuth
-			sourcePayloads[i] = p
 		}
 	}
 
 	for derivationIdx := range meta.GetDerivation().Sources {
+		isForcedInclusion := meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion
 		log.Info(
 			"Processing Shasta derivation source",
 			"proposalID", meta.GetProposal().Id,
 			"proposer", meta.GetProposal().Proposer,
 			"index", derivationIdx,
+			"length", len(meta.GetDerivation().Sources),
+			"isForceInclusion", isForcedInclusion,
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
 		)
-		// Reuse the prefetched derivation payload.
-		sourcePayload := sourcePayloads[derivationIdx]
-		if sourcePayload == nil {
-			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
+		sourcePayload, err := s.derivationSourceFetcher.Fetch(ctx, meta, derivationIdx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", derivationIdx, err)
 		}
-		sourcePayload.ParentBlock = parent
 
-		log.Info(
-			"Parent block info for Shasta derivation payload",
-			"proposalID", meta.GetProposal().Id,
-			"blocks", len(sourcePayload.BlockPayloads),
-			"parentBlockID", sourcePayload.ParentBlock.Number(),
-			"parentHash", sourcePayload.ParentBlock.Hash(),
-			"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
-			"parentTimestamp", sourcePayload.ParentBlock.Time(),
-		)
-
-		latestBlockState, latestProposalState, err := s.rpc.GetShastaAnchorState(
+		latestBlockState, _, err := s.rpc.GetShastaAnchorState(
 			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
 		)
 		if err != nil {
@@ -369,6 +346,61 @@ func (s *Syncer) processShastaProposal(
 				return err
 			}
 		}
+
+		sourcePayload.ParentBlock = parent
+		log.Info(
+			"Parent block info for Shasta derivation payload",
+			"proposalID", meta.GetProposal().Id,
+			"blocks", len(sourcePayload.BlockPayloads),
+			"parentBlockID", sourcePayload.ParentBlock.Number(),
+			"parentHash", sourcePayload.ParentBlock.Hash(),
+			"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
+			"parentTimestamp", sourcePayload.ParentBlock.Time(),
+		)
+
+		// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
+		// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+		// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
+		// the real gas limit from parent block metadata.
+		calibrationGasLimit := sourcePayload.ParentBlock.GasLimit()
+		if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+			calibrationGasLimit = calibrationGasLimit - consensus.AnchorV3V4GasLimit
+		}
+		lowerBound := max(sourcePayload.ParentBlock.Time()+1,
+			meta.GetProposal().Timestamp.Uint64()-manifest.TimestampMaxOffset,
+			s.state.ShastaForkTime)
+
+		if isForcedInclusion {
+			if normalSourcePayloads != nil {
+				sourcePayload.ProverAuthBytes = normalSourcePayloads.ProverAuthBytes
+			}
+			// Checked only 1 block in ForcedInclusion
+			for _, block := range sourcePayload.BlockPayloads {
+				// Set the params for ForcedInclusion
+				block.AnchorBlockNumber = lastAnchorBlockNumber
+				block.Timestamp = lowerBound
+				block.Coinbase = meta.GetProposal().Proposer
+				block.GasLimit = calibrationGasLimit
+			}
+		}
+
+		// If the proposal is not a default one, we need to do some extra validations.
+		if !sourcePayload.Default {
+			// Check block-level metadata and decide whether it is the default payload.
+			if err := shastaManifest.ValidateMetadata(
+				ctx,
+				s.rpc,
+				sourcePayload,
+				isForcedInclusion,
+				meta.GetProposal(),
+				meta.GetDerivation().OriginBlockNumber.Uint64(),
+				s.state.ShastaForkTime,
+				lastAnchorBlockNumber,
+			); err != nil {
+				return err
+			}
+		}
+
 		opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
 		proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
 		if err != nil {
@@ -400,45 +432,22 @@ func (s *Syncer) processShastaProposal(
 		// Apply low-bond proposal rules to the derivation payload.
 		sourcePayload = applyLowBondProposalRules(
 			sourcePayload,
-			!meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
+			isForcedInclusion,
 			designatedProverInfo.IsLowBondProposal,
 		)
 
-		// If the proposal is not a default one, we need to do some extra validations for
-		// the proposer and `isLowBondProposal` flag.
-		if !sourcePayload.Default {
-			// Check block-level metadata and reset some incorrect value.
-			if err := shastaManifest.ValidateMetadata(
-				ctx,
-				s.rpc,
-				sourcePayload,
-				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
-				meta.GetProposal(),
-				meta.GetDerivation().OriginBlockNumber.Uint64(),
-				latestProposalState.BondInstructionsHash,
-				lastAnchorBlockNumber,
-			); err != nil {
-				return err
-			}
-		}
-
 		if sourcePayload.Default {
-			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
-			// the real gas limit from parent block metadata.
-			gasLimit := sourcePayload.ParentBlock.GasLimit()
-			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
+			if parent.Time()+1 > meta.GetProposal().Timestamp.Uint64() {
+				return errors.New("parent timestamp is too large")
 			}
 
 			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
 				{
 					BlockManifest: manifest.BlockManifest{
-						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
+						Timestamp:         lowerBound, // Use parent's timestamp + 1
 						Coinbase:          meta.GetProposal().Proposer,
 						AnchorBlockNumber: lastAnchorBlockNumber,
-						GasLimit:          gasLimit,
+						GasLimit:          calibrationGasLimit,
 						Transactions:      types.Transactions{},
 					},
 				},
@@ -447,6 +456,9 @@ func (s *Syncer) processShastaProposal(
 				"Use default Shasta derivation payload",
 				"proposalID", meta.GetProposal().Id,
 				"proposer", meta.GetProposal().Proposer,
+				"index", derivationIdx,
+				"length", len(meta.GetDerivation().Sources),
+				"isForcedInclusion", isForcedInclusion,
 			)
 		}
 
@@ -746,7 +758,7 @@ func (s *Syncer) checkReorgShasta(
 // applyLowBondProposalRules enforces default manifest rules for low-bond proposals.
 func applyLowBondProposalRules(
 	payload *shastaManifest.ShastaDerivationSourcePayload,
-	isProposerSource bool,
+	isForcedInclusion bool,
 	isLowBondProposal bool,
 ) *shastaManifest.ShastaDerivationSourcePayload {
 	// If not a low-bond proposal, return directly.
@@ -757,7 +769,7 @@ func applyLowBondProposalRules(
 	// For low-bond proposals, we always enforce the default manifest rules.
 	// If the source is a forced inclusion source, we keep the original payload but
 	// set the `isLowBondProposal` flag to true.
-	if payload.Default || !isProposerSource {
+	if payload.Default || isForcedInclusion {
 		payload.IsLowBondProposal = true
 		return payload
 	}

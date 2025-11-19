@@ -54,7 +54,7 @@ func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource)
 	}
 }
 
-// NewShastaManifestFetcher creates a new ShastaDerivationSourceFetcher instance based on the given rpc client.
+// Fetch fetches and checks the payload from event and blobs.
 func (f *ShastaDerivationSourceFetcher) Fetch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
@@ -65,6 +65,12 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
 		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
+		return &ShastaDerivationSourcePayload{Default: true}, nil
+	}
+
+	// For forced-inclusion sources, we only allow 1 blob.
+	if derivationIdx != len(meta.GetDerivation().Sources)-1 &&
+		len(meta.GetBlobHashes(derivationIdx)) > 1 {
 		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
 
@@ -135,15 +141,17 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	// For forced-inclusion sources, reset certain fields to zero.
-	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
-		for _, block := range derivationSourceManifest.Blocks {
-			// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
-			block.AnchorBlockNumber = 0
-			block.Timestamp = 0
-			block.Coinbase = common.Address{}
-			block.GasLimit = 0
-		}
+	// For forced-inclusion sources, we only allow 1 block.
+	if derivationIdx != len(meta.GetDerivation().Sources)-1 &&
+		len(derivationSourceManifest.Blocks) > 1 {
+		return defaultPayload, nil
+		//for _, block := range derivationSourceManifest.Blocks {
+		//	// Reset the anchor block number and timestamp from a forced-inclusion source to zero.
+		//	block.AnchorBlockNumber = 0
+		//	block.Timestamp = 0
+		//	block.Coinbase = common.Address{}
+		//	block.GasLimit = 0
+		//}
 	} else {
 		// Only use the prover auth from the last source (non-forced-inclusion source).
 		proverAuth = derivationSourceManifest.ProverAuthBytes
@@ -279,7 +287,7 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 	return size.Uint64(), nil
 }
 
-// ValidateMetadata validates and adjusts block-level metadata according to protocol rules.
+// ValidateMetadata validates and decide block-level metadata according to protocol rules.
 func ValidateMetadata(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -287,7 +295,7 @@ func ValidateMetadata(
 	isForcedInclusion bool,
 	proposal shastaBindings.IInboxProposal,
 	originBlockNumber uint64,
-	bondInstructionsHash common.Hash,
+	forkTimestamp uint64,
 	parentAnchorBlockNumber uint64,
 ) error {
 	if sourcePayload == nil {
@@ -298,10 +306,13 @@ func ValidateMetadata(
 		return nil
 	}
 
-	// 1. Validate and adjust each block's timestamp.
-	validateMetadataTimestamp(sourcePayload, proposal)
+	// 1. Validate each block's timestamp.
+	if !validateMetadataTimestamp(sourcePayload, proposal, forkTimestamp) {
+		sourcePayload.Default = true
+		return nil
+	}
 
-	// 2. Validate and adjust each block's anchor block number.
+	// 2. Validate each block's anchor block number.
 	if !validateAnchorBlockNumber(
 		sourcePayload,
 		originBlockNumber,
@@ -313,46 +324,51 @@ func ValidateMetadata(
 		return nil
 	}
 
-	// 3. Ensure each block's coinbase is correctly assigned.
-	validateCoinbase(sourcePayload, proposal, isForcedInclusion)
-
-	// 4. Ensure each block's gas limit is within valid bounds.
-	validateGasLimit(
+	// 3. Validate each block's gas limit is within valid bounds.
+	if !validateGasLimit(
 		sourcePayload,
 		sourcePayload.ParentBlock.Number(),
 		sourcePayload.ParentBlock.GasLimit(),
-	)
+	) {
+		sourcePayload.Default = true
+		return nil
+	}
 
 	return nil
 }
 
-// validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
-func validateMetadataTimestamp(sourcePayload *ShastaDerivationSourcePayload, proposal shastaBindings.IInboxProposal) {
+// validateMetadataTimestamp checks if each block's timestamp is within valid bounds.
+func validateMetadataTimestamp(
+	sourcePayload *ShastaDerivationSourcePayload,
+	proposal shastaBindings.IInboxProposal,
+	forkTimestamp uint64,
+) bool {
 	var parentTimestamp = sourcePayload.ParentBlock.Time()
 	for i := range sourcePayload.BlockPayloads {
 		if sourcePayload.BlockPayloads[i].Timestamp > proposal.Timestamp.Uint64() {
 			log.Info(
-				"Adjusting block timestamp to upper bound",
+				"Invalid block timestamp to upper bound",
 				"blockIndex", i,
 				"originalTimestamp", sourcePayload.BlockPayloads[i].Timestamp,
-				"newTimestamp", proposal.Timestamp,
+				"upperBound", proposal.Timestamp,
 			)
-			sourcePayload.BlockPayloads[i].Timestamp = proposal.Timestamp.Uint64()
+			return false
 		}
 
 		// Calculate lower bound for timestamp.
-		lowerBound := max(parentTimestamp+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
+		lowerBound := max(parentTimestamp+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset, forkTimestamp)
 		if sourcePayload.BlockPayloads[i].Timestamp < lowerBound {
 			log.Info(
-				"Adjusting block timestamp to lower bound",
+				"Invalid block timestamp to lower bound",
 				"blockIndex", i,
 				"originalTimestamp", sourcePayload.BlockPayloads[i].Timestamp,
-				"newTimestamp", lowerBound,
+				"lowerBound", lowerBound,
 			)
-			sourcePayload.BlockPayloads[i].Timestamp = lowerBound
+			return false
 		}
 		parentTimestamp = sourcePayload.BlockPayloads[i].Timestamp
 	}
+	return true
 }
 
 // validateAnchorBlockNumber checks if each block's anchor block number is valid.
@@ -377,8 +393,7 @@ func validateAnchorBlockNumber(
 				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
 			)
-			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
-			continue
+			return false
 		}
 
 		// 2. Future reference: manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET
@@ -390,8 +405,7 @@ func validateAnchorBlockNumber(
 				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
 			)
-			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
-			continue
+			return false
 		}
 
 		// 3. Excessive lag: manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET
@@ -404,8 +418,7 @@ func validateAnchorBlockNumber(
 				"anchorBlockNumber", sourcePayload.BlockPayloads[i].AnchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
 			)
-			sourcePayload.BlockPayloads[i].AnchorBlockNumber = parentAnchorBlockNumber
-			continue
+			return false
 		}
 
 		if sourcePayload.BlockPayloads[i].AnchorBlockNumber > highestAnchorNumber {
@@ -432,29 +445,12 @@ func validateAnchorBlockNumber(
 	return true
 }
 
-// validateCoinbase ensures each block's coinbase is correctly assigned.
-func validateCoinbase(
-	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
-	isForcedInclusion bool,
-) {
-	for i := range sourcePayload.BlockPayloads {
-		if isForcedInclusion {
-			// Forced inclusions always use proposal.proposer
-			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
-		} else if (sourcePayload.BlockPayloads[i].Coinbase == common.Address{}) {
-			// Use proposal.proposer as fallback if manifest coinbase is zero
-			sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
-		}
-	}
-}
-
-// validateGasLimit ensures each block's gas limit is within valid bounds.
+// validateGasLimit checks each block's gas limit is within valid bounds.
 func validateGasLimit(
 	sourcePayload *ShastaDerivationSourcePayload,
 	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
-) {
+) bool {
 	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
 	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
 	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
@@ -474,33 +470,28 @@ func validateGasLimit(
 			manifest.MaxBlockGasLimit,
 		)
 
-		if sourcePayload.BlockPayloads[i].GasLimit == 0 {
-			// Inherit parent value.
-			sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
-			log.Info("Inheriting gas limit from parent", "blockIndex", i, "gasLimit", sourcePayload.BlockPayloads[i].GasLimit)
-		}
-
 		if sourcePayload.BlockPayloads[i].GasLimit < lowerGasBound {
 			log.Info(
-				"Clamping gas limit to lower bound",
+				"Invalid gas limit to lower bound",
 				"blockIndex", i,
 				"originalGasLimit", sourcePayload.BlockPayloads[i].GasLimit,
-				"newGasLimit", lowerGasBound,
+				"lowerGasBound", lowerGasBound,
 			)
-			sourcePayload.BlockPayloads[i].GasLimit = lowerGasBound
+			return false
 		}
 		if sourcePayload.BlockPayloads[i].GasLimit > upperGasBound {
 			log.Info(
-				"Clamping gas limit to upper bound",
+				"Invalid gas limit to upper bound",
 				"blockIndex", i,
 				"originalGasLimit", sourcePayload.BlockPayloads[i].GasLimit,
 				"newGasLimit", upperGasBound,
 			)
-			sourcePayload.BlockPayloads[i].GasLimit = upperGasBound
+			return false
 		}
 
 		parentGasLimit = sourcePayload.BlockPayloads[i].GasLimit
 	}
+	return true
 }
 
 // AssembleBondInstructions fetches and assembles bond instructions into the derivation payload.
