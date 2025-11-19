@@ -15,8 +15,6 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
-/// it's not upgradable itself.
 /// @dev This contract implements:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
@@ -153,6 +151,7 @@ contract Anchor is EssentialContract {
         bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
+        bool isNewProposal,
         uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
@@ -233,8 +232,9 @@ contract Anchor is EssentialContract {
             revert ProposalIdMismatch();
         }
 
+        bool isNewProposal = _proposalParams.proposalId > lastProposalId;
         // We do not need to account for proposalId = 0, since that's genesis
-        if (_proposalParams.proposalId > lastProposalId) {
+        if (isNewProposal) {
             _validateProposal(_proposalParams);
         }
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
@@ -247,6 +247,7 @@ contract Anchor is EssentialContract {
             _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
+            isNewProposal,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
