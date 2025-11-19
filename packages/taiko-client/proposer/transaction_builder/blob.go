@@ -240,10 +240,15 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	// The L1 head must be greater than AnchorMinOffset to propose a new proposal.
 	if l1Head.Number.Uint64() <= manifest.AnchorMinOffset {
 		return nil, fmt.Errorf(
-			"L1 head number %d is lower than required min offset %d",
+			"l1 head number %d is lower than required min offset %d",
 			l1Head.Number.Uint64(),
 			manifest.AnchorMinOffset,
 		)
+	}
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
 	for i, txs := range txBatch {
@@ -261,10 +266,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		}
 
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
-			Timestamp:         uint64(time.Now().Unix()),
+			Timestamp:         uint64(time.Now().Unix()) + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: anchorBlockNumber,
-			GasLimit:          0,
+			GasLimit:          l2Head.GasLimit,
 			Transactions:      txs,
 		})
 	}

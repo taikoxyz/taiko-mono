@@ -164,10 +164,9 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	proposal := shastaBindings.IInboxProposal{Id: proposalID}
 	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
-	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.False(result) // Should return default manifest
 
-	// Test 2: Future reference - should be adjusted and return false (no progression)
+	// Test 2: Future reference - should return default manifest
 	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -179,9 +178,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
-	// Test 3: Excessive lag - should be adjusted and return false (no progression)
+	// Test 3: Excessive lag - should return default manifest
 	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -193,7 +191,6 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
 	// Test 4: Valid anchor block number - should remain unchanged
 	validAnchor := uint64(950) // Between parent (900) and max allowed (998)
@@ -243,7 +240,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	expectedUpperBound := effectiveParentGasLimit *
 		(manifest.GasLimitChangeDenominator + manifest.MaxBlockGasLimitChangePermyriad) / manifest.GasLimitChangeDenominator
 
-	// Test 1: Zero gas limit - should inherit parent
+	// Test 1: Zero gas limit - should return default manifest
 	sourcePayload := &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -254,7 +251,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 
 	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
-	// Test 2: Gas limit below lower bound - should be clamped
+	// Test 2: Gas limit below lower bound - should return default manifest
 	lowGasLimit := expectedLowerBound - 1000
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -266,7 +263,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 
 	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
-	// Test 3: Gas limit above upper bound - should be clamped
+	// Test 3: Gas limit above upper bound - should return default manifest
 	highGasLimit := expectedUpperBound + 1000
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -295,9 +292,9 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 
 	s.True(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
-	// Test 5: Sequential blocks - parent gas limit should update
+	// Test 5: Sequential blocks - parent gas limit should return default manifest
 	firstBlockGasLimit := validGasLimit
-	secondBlockGasLimit := uint64(0) // Should inherit from first block
+	secondBlockGasLimit := uint64(0) // Should return default manifest
 
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -310,23 +307,19 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
-	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
-	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[1].GasLimit) // Should inherit from first block
+	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)) // Should return default manifest
 
 	// Test 6: Minimum gas limit enforcement
 	if manifest.MinBlockGasLimit > expectedLowerBound {
-		veryLowParentGasLimit := uint64(10_000_000) // Low parent gas limit
 		sourcePayload = &ShastaDerivationSourcePayload{
 			BlockPayloads: []*ShastaBlockPayload{
 				{BlockManifest: manifest.BlockManifest{
-					GasLimit: 5_000_000, // Very low, should be clamped to MIN_BLOCK_GAS_LIMIT
+					GasLimit: 5_000_000, // Very low, should return default manifest
 				}},
 			},
 		}
 
-		validateGasLimit(sourcePayload, parentBlockNumber, veryLowParentGasLimit)
-		s.Equal(manifest.MinBlockGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
+		s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 	}
 }
 

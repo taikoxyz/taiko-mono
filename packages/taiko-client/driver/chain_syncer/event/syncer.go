@@ -332,6 +332,17 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", derivationIdx, err)
 		}
 
+		sourcePayload.ParentBlock = parent
+		log.Info(
+			"Parent block info for Shasta derivation payload",
+			"proposalID", meta.GetProposal().Id,
+			"blocks", len(sourcePayload.BlockPayloads),
+			"parentBlockID", sourcePayload.ParentBlock.Number(),
+			"parentHash", sourcePayload.ParentBlock.Hash(),
+			"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
+			"parentTimestamp", sourcePayload.ParentBlock.Time(),
+		)
+
 		latestBlockState, _, err := s.rpc.GetShastaAnchorState(
 			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
 		)
@@ -346,17 +357,6 @@ func (s *Syncer) processShastaProposal(
 				return err
 			}
 		}
-
-		sourcePayload.ParentBlock = parent
-		log.Info(
-			"Parent block info for Shasta derivation payload",
-			"proposalID", meta.GetProposal().Id,
-			"blocks", len(sourcePayload.BlockPayloads),
-			"parentBlockID", sourcePayload.ParentBlock.Number(),
-			"parentHash", sourcePayload.ParentBlock.Hash(),
-			"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
-			"parentTimestamp", sourcePayload.ParentBlock.Time(),
-		)
 
 		// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
 		// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
