@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
@@ -12,23 +11,36 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 
 contract AnchorTest is Test {
+    // Bond configuration
     uint256 private constant LIVENESS_BOND = 5 ether;
     uint256 private constant PROVABILITY_BOND = 7 ether;
+
+    // Test setup constants
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
+    address private constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    uint256 private constant INITIAL_PROPOSER_BOND = 100 ether;
+    uint256 private constant INITIAL_PROVER_BOND = 50 ether;
 
+    // EIP-712 constants (must match Anchor.sol)
+    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
+    bytes32 private constant PROVER_AUTH_TYPEHASH =
+        keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
+    bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
+    bytes32 private constant PROVER_AUTH_DOMAIN_VERSION_HASH = keccak256("1");
+
+    // Contract instances
     Anchor internal anchor;
     BondManager internal bondManager;
     SignalService internal checkpointStore;
     TestERC20 internal token;
 
+    // Test actors
     address internal proposer;
     address internal proverCandidate;
     uint256 internal proverKey;
-
-    address internal constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 internal constant INITIAL_PROPOSER_BOND = 100 ether;
-    uint256 internal constant INITIAL_PROVER_BOND = 50 ether;
 
     function setUp() external {
         token = new TestERC20("Mock", "MOCK");
@@ -299,6 +311,67 @@ contract AnchorTest is Test {
         );
     }
 
+    function test_anchorV4_IgnoresProverAuthWithInvalidSignature() external {
+        uint48 proposalId = 1;
+        (LibBonds.BondInstruction[] memory instructions, bytes32 expectedHash) =
+            _buildBondInstructions(proposalId);
+
+        uint256 provingFee = 5 ether;
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceBefore = bondManager.getBondBalance(proverCandidate);
+
+        // Create ProverAuth with invalid (empty) signature
+        Anchor.ProverAuth memory invalidAuth = Anchor.ProverAuth({
+            proposalId: proposalId,
+            proposer: proposer,
+            provingFee: provingFee,
+            signature: "" // Invalid empty signature
+        });
+
+        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
+            submissionWindowEnd: 0,
+            proposalId: proposalId,
+            proposer: proposer,
+            proverAuth: abi.encode(invalidAuth),
+            bondInstructionsHash: expectedHash,
+            bondInstructions: instructions
+        });
+
+        Anchor.BlockParams memory blockParams = Anchor.BlockParams({
+            anchorBlockNumber: 1000,
+            anchorBlockHash: bytes32(uint256(0x1234)),
+            anchorStateRoot: bytes32(uint256(0x5678)),
+            rawTxListHash: bytes32(0)
+        });
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        // Key security property: Invalid signature should not transfer proving fee
+        // Prover candidate should not receive any funds
+        uint256 proverBalanceAfter = bondManager.getBondBalance(proverCandidate);
+        assertEq(
+            proverBalanceAfter,
+            proverBalanceBefore,
+            "Prover candidate should not receive fee with invalid signature"
+        );
+
+        // Proposer should only pay liveness and provability bonds
+        uint256 proposerBalanceAfter = bondManager.getBondBalance(proposer);
+        assertEq(
+            proposerBalanceAfter,
+            proposerBalanceBefore - LIVENESS_BOND - PROVABILITY_BOND,
+            "Proposer should only pay liveness/provability bonds, not proving fee"
+        );
+
+        // Proposer should be designated as prover (fallback behavior)
+        Anchor.ProposalState memory state = anchor.getProposalState();
+        assertEq(
+            state.designatedProver, proposer, "Should fall back to proposer as designated prover"
+        );
+    }
+
     // ---------------------------------------------------------------
     // getDesignatedProver
     // ---------------------------------------------------------------
@@ -331,6 +404,60 @@ contract AnchorTest is Test {
         (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, abi.encode(auth));
         assertEq(signer, proposer);
         assertEq(fee, 0);
+    }
+
+    function test_validateProverAuth_AcceptsValidEIP712Signature() external view {
+        uint48 proposalId = 42;
+        uint256 provingFee = 3 ether;
+        bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, proverAuth);
+
+        assertEq(signer, proverCandidate, "Should recover prover candidate address");
+        assertEq(fee, provingFee, "Should return correct proving fee");
+    }
+
+    function test_validateProverAuth_RejectsSignatureFromWrongChain() external view {
+        uint48 proposalId = 42;
+        uint256 provingFee = 3 ether;
+
+        // Create signature with wrong chain ID (simulating cross-chain replay attempt)
+        // Foundry default chainId is 31337, so use 1 (Ethereum mainnet) as the wrong chainId
+        uint256 wrongChainId = 1;
+        bytes memory proverAuth = _buildProverAuthWithChainId(proposalId, provingFee, wrongChainId);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, proverAuth);
+
+        // Signature should be invalid - recovered address won't match proverCandidate
+        assertTrue(signer != proverCandidate, "Should reject signature from wrong chain");
+        assertEq(fee, provingFee, "Fee should still be extracted from struct");
+    }
+
+    function test_validateProverAuth_RejectsSignatureForWrongProposal() external view {
+        uint48 proposalId = 42;
+        uint256 provingFee = 3 ether;
+        bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
+
+        // Try to use signature for different proposal ID
+        (address signer, uint256 fee) =
+            anchor.validateProverAuth(proposalId + 1, proposer, proverAuth);
+
+        assertEq(signer, proposer, "Should reject signature for wrong proposal ID");
+        assertEq(fee, 0, "Should return zero fee when context mismatch");
+    }
+
+    function test_validateProverAuth_RejectsSignatureForWrongProposer() external view {
+        uint48 proposalId = 42;
+        uint256 provingFee = 3 ether;
+        bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
+
+        // Try to use signature with different proposer
+        address wrongProposer = address(0xBAD);
+        (address signer, uint256 fee) =
+            anchor.validateProverAuth(proposalId, wrongProposer, proverAuth);
+
+        assertEq(signer, wrongProposer, "Should reject signature for wrong proposer");
+        assertEq(fee, 0, "Should return zero fee when context mismatch");
     }
 
     // ---------------------------------------------------------------
@@ -387,6 +514,10 @@ contract AnchorTest is Test {
         expectedHash = LibBonds.aggregateBondInstruction(expectedHash, instructions[1]);
     }
 
+    /// @dev Builds a properly signed ProverAuth using EIP-712 structured data signing.
+    /// @param proposalId The proposal ID to authorize.
+    /// @param provingFee The fee the prover will receive.
+    /// @return Encoded ProverAuth with valid EIP-712 signature.
     function _buildProverAuth(
         uint48 proposalId,
         uint256 provingFee
@@ -395,12 +526,48 @@ contract AnchorTest is Test {
         view
         returns (bytes memory)
     {
+        return _buildProverAuthWithChainId(proposalId, provingFee, block.chainid);
+    }
+
+    /// @dev Builds a ProverAuth with a custom chainId for testing cross-chain replay protection.
+    /// @param proposalId The proposal ID to authorize.
+    /// @param provingFee The fee the prover will receive.
+    /// @param chainId The chain ID to use in the domain separator.
+    /// @return Encoded ProverAuth with signature for the specified chain.
+    function _buildProverAuthWithChainId(
+        uint48 proposalId,
+        uint256 provingFee,
+        uint256 chainId
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        // Build the ProverAuth struct (without signature initially)
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
             proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: ""
         });
 
-        bytes32 messageHash = keccak256(abi.encode(proposalId, proposer, provingFee));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(proverKey, messageHash);
+        // Compute EIP-712 struct hash
+        bytes32 structHash =
+            keccak256(abi.encode(PROVER_AUTH_TYPEHASH, proposalId, proposer, provingFee));
+
+        // Compute EIP-712 domain separator
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                PROVER_AUTH_DOMAIN_TYPEHASH,
+                PROVER_AUTH_DOMAIN_NAME_HASH,
+                PROVER_AUTH_DOMAIN_VERSION_HASH,
+                chainId,
+                address(anchor)
+            )
+        );
+
+        // Compute final EIP-712 digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+
+        // Sign the digest with prover's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(proverKey, digest);
         auth.signature = abi.encodePacked(r, s, v);
 
         return abi.encode(auth);
