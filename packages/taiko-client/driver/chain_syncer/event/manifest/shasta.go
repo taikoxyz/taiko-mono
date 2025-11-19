@@ -447,16 +447,16 @@ func validateGasLimit(
 		parentGasLimit = parentGasLimit - consensus.AnchorV3V4GasLimit
 	}
 	for i := range sourcePayload.BlockPayloads {
-		lowerGasBound := max(
-			parentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitChangePermyriad)/
-				manifest.GasLimitChangeDenominator,
-			manifest.MinBlockGasLimit,
-		)
 		upperGasBound := min(
 			parentGasLimit*(manifest.GasLimitChangeDenominator+manifest.MaxBlockGasLimitChangePermyriad)/
 				manifest.GasLimitChangeDenominator,
 			manifest.MaxBlockGasLimit,
 		)
+		lowerGasBound := min(max(
+			parentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitChangePermyriad)/
+				manifest.GasLimitChangeDenominator,
+			manifest.MinBlockGasLimit,
+		), upperGasBound)
 
 		if sourcePayload.BlockPayloads[i].GasLimit < lowerGasBound ||
 			sourcePayload.BlockPayloads[i].GasLimit > upperGasBound {

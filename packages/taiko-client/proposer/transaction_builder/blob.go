@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -246,12 +245,6 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
-	// Fetch L2 head to get gas limit for the new blocks.
-	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get L2 head: %w", err)
-	}
-
 	for i, txs := range txBatch {
 		// For the first block, we set the anchor block number to
 		// (L1 head - AnchorMinOffset - 1).
@@ -267,10 +260,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		}
 
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
-			Timestamp:         uint64(time.Now().Unix()) + uint64(i),
+			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: anchorBlockNumber,
-			GasLimit:          l2Head.GasLimit,
+			GasLimit:          manifest.MaxBlockGasLimit,
 			Transactions:      txs,
 		})
 	}
