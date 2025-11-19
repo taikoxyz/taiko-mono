@@ -34,6 +34,8 @@ type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 static SNAPSHOT_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 const CLEANUP_RPC_TIMEOUT: Duration = Duration::from_secs(5);
+const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
+const L1_BLOCK_TIME_SECONDS: u64 = 12;
 
 struct CleanupInner {
     client: RpcClient,
@@ -138,6 +140,14 @@ fn persist_snapshot_result(result: Result<String>) {
             *guard = None;
         }
     }
+}
+
+async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
+    for _ in 0..PRECONF_OPERATOR_ACTIVATION_BLOCKS {
+        increase_l1_time(client, L1_BLOCK_TIME_SECONDS).await?;
+        mine_l1_block(client).await?;
+    }
+    Ok(())
 }
 
 fn is_not_found_error(err: &RpcClientError) -> bool {
@@ -296,6 +306,7 @@ impl ShastaEnv {
         };
         let client = Client::new(client_config.clone()).await?;
         let cleanup = CleanupInner::initialize(client.clone()).await?;
+        ensure_preconf_whitelist_active(&client).await?;
 
         let indexer_config = ShastaEventIndexerConfig {
             l1_subscription_source: l1_source.clone(),
@@ -337,4 +348,34 @@ impl ShastaEnv {
             _cleanup: cleanup,
         })
     }
+}
+
+/// Mines a single empty L1 block via the connected execution engine.
+pub async fn mine_l1_block<P>(client: &Client<P>) -> Result<()>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    client
+        .l1_provider
+        .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
+        .await
+        .context("mining L1 block")?;
+    Ok(())
+}
+
+async fn increase_l1_time(client: &RpcClient, seconds: u64) -> Result<()> {
+    let increase_call =
+        client.l1_provider.raw_request::<_, i64>(Cow::Borrowed("evm_increaseTime"), (seconds,));
+    match timeout(CLEANUP_RPC_TIMEOUT, increase_call).await {
+        Ok(result) => {
+            result.context("increasing L1 time via evm_increaseTime")?;
+        }
+        Err(_) => {
+            return Err(anyhow!(
+                "timed out increasing L1 time via evm_increaseTime after {:?}",
+                CLEANUP_RPC_TIMEOUT
+            ));
+        }
+    }
+    Ok(())
 }

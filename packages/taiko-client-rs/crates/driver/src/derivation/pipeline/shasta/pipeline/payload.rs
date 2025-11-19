@@ -264,9 +264,13 @@ where
             decoded_manifest = DerivationSourceManifest::default();
         }
 
+        if is_forced_inclusion || manifest_is_default(&decoded_manifest) {
+            state.apply_inherited_metadata(&mut decoded_manifest, meta);
+        }
+
         let validation_ctx = state.build_validation_context(meta, is_forced_inclusion);
 
-        match validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
+        match validate_source_manifest(&decoded_manifest, &validation_ctx) {
             Ok(()) => {
                 info!(
                     proposal_id = meta.proposal_id,
@@ -280,13 +284,7 @@ where
                     "manifest segment is empty or default; proceeding with default payload"
                 );
                 decoded_manifest = DerivationSourceManifest::default();
-                if let Err(err) = validate_source_manifest(&mut decoded_manifest, &validation_ctx) {
-                    warn!(
-                        ?err,
-                        proposal_id = meta.proposal_id,
-                        "default manifest validation failed; continuing with default payload"
-                    );
-                }
+                state.apply_inherited_metadata(&mut decoded_manifest, meta);
             }
         }
 

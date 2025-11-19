@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -344,6 +343,7 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
+		isForcedInclusion := meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
 			"Parent block info for Shasta derivation payload",
@@ -355,7 +355,7 @@ func (s *Syncer) processShastaProposal(
 			"parentTimestamp", sourcePayload.ParentBlock.Time(),
 		)
 
-		latestBlockState, latestProposalState, err := s.rpc.GetShastaAnchorState(
+		latestBlockState, _, err := s.rpc.GetShastaAnchorState(
 			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
 		)
 		if err != nil {
@@ -397,56 +397,47 @@ func (s *Syncer) processShastaProposal(
 			"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
 		)
 
+		// If the derivation source is forced inclusion, we apply inherited metadata first.
+		if isForcedInclusion {
+			shastaManifest.ApplyInheritedMetadata(
+				sourcePayload,
+				meta.GetProposal(),
+				lastAnchorBlockNumber,
+				s.rpc.ShastaClients.ForkTime,
+			)
+		}
+
 		// Apply low-bond proposal rules to the derivation payload.
 		sourcePayload = applyLowBondProposalRules(
 			sourcePayload,
-			!meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
+			!isForcedInclusion,
 			designatedProverInfo.IsLowBondProposal,
 		)
 
-		// If the proposal is not a default one, we need to do some extra validations for
-		// the proposer and `isLowBondProposal` flag.
-		if !sourcePayload.Default {
-			// Check block-level metadata and reset some incorrect value.
-			if err := shastaManifest.ValidateMetadata(
-				ctx,
-				s.rpc,
-				sourcePayload,
-				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
-				meta.GetProposal(),
-				meta.GetDerivation().OriginBlockNumber.Uint64(),
-				latestProposalState.BondInstructionsHash,
-				lastAnchorBlockNumber,
-			); err != nil {
-				return err
-			}
-		}
-
-		if sourcePayload.Default {
-			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
-			// the real gas limit from parent block metadata.
-			gasLimit := sourcePayload.ParentBlock.GasLimit()
-			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
-			}
-
+		// If the derivation source payload's metadata is invalid, we replace it with default metadata.
+		if !shastaManifest.ValidateMetadata(
+			s.rpc,
+			sourcePayload,
+			meta.GetProposal(),
+			meta.GetDerivation().OriginBlockNumber.Uint64(),
+			lastAnchorBlockNumber,
+			isForcedInclusion,
+		) {
+			sourcePayload.Default = true
 			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
-				{
-					BlockManifest: manifest.BlockManifest{
-						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
-						Coinbase:          meta.GetProposal().Proposer,
-						AnchorBlockNumber: lastAnchorBlockNumber,
-						GasLimit:          gasLimit,
-						Transactions:      types.Transactions{},
-					},
-				},
+				{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
 			}
+			shastaManifest.ApplyInheritedMetadata(
+				sourcePayload,
+				meta.GetProposal(),
+				lastAnchorBlockNumber,
+				s.rpc.ShastaClients.ForkTime,
+			)
 			log.Info(
 				"Use default Shasta derivation payload",
 				"proposalID", meta.GetProposal().Id,
 				"proposer", meta.GetProposal().Proposer,
+				"anchorBlockNumber", lastAnchorBlockNumber,
 			)
 		}
 

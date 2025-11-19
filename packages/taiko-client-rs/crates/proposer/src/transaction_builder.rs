@@ -16,7 +16,7 @@ use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
     BlobCoder,
-    constants::MIN_ANCHOR_OFFSET,
+    constants::{MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET},
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -74,19 +74,31 @@ impl ShastaProposalTransactionBuilder {
             });
         }
 
+        let anchor_block_number = current_l1_head - (MIN_ANCHOR_OFFSET + 1);
+        let timestamp =
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+
         // Build the block manifests.
         let block_manifests = txs_lists
             .iter()
-            .map(|txs| BlockManifest {
-                timestamp: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                coinbase: self.l2_suggested_fee_recipient,
-                anchor_block_number: current_l1_head - (MIN_ANCHOR_OFFSET + 1),
-                gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                               * limit during derivation. */
-                transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+            .enumerate()
+            .map(|(index, txs)| {
+                info!(
+                    block_index = index,
+                    tx_count = txs.len(),
+                    timestamp,
+                    anchor_block_number,
+                    gas_limit = MAX_BLOCK_GAS_LIMIT,
+                    coinbase = ?self.l2_suggested_fee_recipient,
+                    "setting up derivation source manifest block"
+                );
+                BlockManifest {
+                    timestamp,
+                    coinbase: self.l2_suggested_fee_recipient,
+                    anchor_block_number,
+                    gas_limit: MAX_BLOCK_GAS_LIMIT,
+                    transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+                }
             })
             .collect::<Vec<BlockManifest>>();
 
