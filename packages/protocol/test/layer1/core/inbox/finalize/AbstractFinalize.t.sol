@@ -29,6 +29,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
     uint256 internal maxFinalizationCount;
 
     bytes32 private constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
+    bytes32 private constant PROVED_EVENT_TOPIC = keccak256("Proved(bytes)");
 
     struct ProvenProposal {
         IInbox.Proposal proposal;
@@ -542,6 +543,46 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         records[0] = record;
     }
 
+    function _proveConsecutiveProposalsAndGetRecords(IInbox.Proposal[] memory proposals)
+        internal
+        returns (
+            IInbox.TransitionRecord[] memory records,
+            ICheckpointStore.Checkpoint memory lastCheckpoint
+        )
+    {
+        require(proposals.length > 0, "proposals required");
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](proposals.length);
+        IInbox.TransitionMetadata[] memory metadata =
+            new IInbox.TransitionMetadata[](proposals.length);
+
+        bytes32 parentTransitionHash = _getGenesisTransitionHash();
+
+        for (uint256 i; i < proposals.length; ++i) {
+            transitions[i] = _createTransitionForProposal(proposals[i]);
+            transitions[i].parentTransitionHash = parentTransitionHash;
+            metadata[i] = _createMetadataForTransition(currentProver, currentProver);
+            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+        }
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals, transitions: transitions, metadata: metadata
+        });
+
+        vm.recordLogs();
+        vm.prank(currentProver);
+        inbox.prove(_codec().encodeProveInput(proveInput), _createValidProof());
+
+        IInbox.ProvedEventPayload[] memory provedPayloads = _decodeProvedEvents();
+        records = new IInbox.TransitionRecord[](provedPayloads.length);
+
+        for (uint256 i; i < provedPayloads.length; ++i) {
+            records[i] = provedPayloads[i].transitionRecord;
+        }
+
+        lastCheckpoint = transitions[transitions.length - 1].checkpoint;
+    }
+
     function _aggregateBondInstructionsHash(LibBonds.BondInstruction[] memory instructions)
         internal
         pure
@@ -567,6 +608,27 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         }
 
         revert("Proposed event not found");
+    }
+
+    function _decodeProvedEvents() internal returns (IInbox.ProvedEventPayload[] memory payloads) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 eventCount;
+
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == PROVED_EVENT_TOPIC) {
+                ++eventCount;
+            }
+        }
+
+        payloads = new IInbox.ProvedEventPayload[](eventCount);
+        uint256 index;
+
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == PROVED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(logs[i].data, (bytes));
+                payloads[index++] = _codec().decodeProvedEvent(eventData);
+            }
+        }
     }
 
     function _createTransitionForProposal(IInbox.Proposal memory proposal)

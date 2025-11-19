@@ -993,9 +993,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     TransitionRecordHashMismatchWithStorage()
                 );
 
-                coreState.lastFinalizedProposalId = proposalId;
-                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
-
                 uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
@@ -1009,6 +1006,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 uint48 nextProposalId = proposalId + transitionRecord.span;
                 require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
+
+                coreState.lastFinalizedProposalId = nextProposalId - 1;
+                coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
 
                 proposalId = nextProposalId;
 
