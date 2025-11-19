@@ -220,6 +220,7 @@ For each `DerivationSource[i]`, the validator performs:
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
 7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
+8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
@@ -259,6 +260,8 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
 If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
+
+Forced inclusion manifests must contain **exactly one block**. If a forced inclusion is decoded with zero blocks or more than one block, the validator replaces that manifest with the default manifest to avoid ambiguity.
 
 ### Metadata Validation and Computation
 
