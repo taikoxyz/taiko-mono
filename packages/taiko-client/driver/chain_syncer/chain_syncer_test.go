@@ -367,7 +367,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	s.Equal(testTx2.Hash(), head3.Transactions()[1].Hash())
 }
 
-func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobsAndMultipleBlocks() {
+func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() {
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
 	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
