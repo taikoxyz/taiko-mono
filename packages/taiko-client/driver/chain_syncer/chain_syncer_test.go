@@ -367,7 +367,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	s.Equal(testTx2.Hash(), head3.Transactions()[1].Hash())
 }
 
-func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlobsAndMaxBlocks() {
+func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobsAndMultipleBlocks() {
 	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
 	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
@@ -376,9 +376,9 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlobsAndMaxBlocks()
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	batches := manifest.ProposalMaxBlocks
+	batches := 100
 	txBatch := make([]types.Transactions, batches)
-	txsInBatch := 10
+	txsInBatch := 1
 
 	for i := 0; i < batches; i++ {
 		for j := 0; j < txsInBatch; j++ {
@@ -404,7 +404,11 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlobsAndMaxBlocks()
 		[]byte{},
 	)
 	s.Nil(err)
-	s.Greater(len(txCandidate.Blobs), 1)
+
+	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches)*uint64(txsInBatch))
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
 	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
 

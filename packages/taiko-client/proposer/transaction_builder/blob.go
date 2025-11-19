@@ -246,6 +246,15 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	for i, txs := range txBatch {
+		log.Info(
+			"Setting up derivation source manifest block",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", manifest.MaxBlockGasLimit,
+		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
