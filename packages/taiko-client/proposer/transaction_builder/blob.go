@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -250,7 +251,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
-	var gasLimit = l2Head.GasLimit
+	var gasLimit = l2Head.GasLimit - consensus.AnchorV3V4GasLimit
 	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
 		gasLimit = manifest.MaxBlockGasLimit
 	}
