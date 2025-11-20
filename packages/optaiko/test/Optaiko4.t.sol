@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {Optaiko4} from "../contracts/Optaiko4.sol";
-import {IOptaiko4} from "../contracts/IOptaiko4.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IOptaiko4 } from "../contracts/IOptaiko4.sol";
+import { Optaiko4 } from "../contracts/Optaiko4.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Test } from "forge-std/Test.sol";
 
 /// @title Optaiko4Test
 /// @notice Test suite for Optaiko4 contract
@@ -44,12 +44,7 @@ contract Optaiko4Test is Test {
 
         // Create a simple long call option leg
         IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](1);
-        legs[0] = IOptaiko4.Leg({
-            isLong: true,
-            tickLower: -60,
-            tickUpper: 60,
-            liquidity: 1000e18
-        });
+        legs[0] = IOptaiko4.Leg({ isLong: true, tickLower: -60, tickUpper: 60, liquidity: 1000e18 });
 
         bytes32 poolId = keccak256("test_pool");
 
@@ -78,12 +73,8 @@ contract Optaiko4Test is Test {
 
         // Create and mint a position
         IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](1);
-        legs[0] = IOptaiko4.Leg({
-            isLong: false,
-            tickLower: -120,
-            tickUpper: 120,
-            liquidity: 500e18
-        });
+        legs[0] =
+            IOptaiko4.Leg({ isLong: false, tickLower: -120, tickUpper: 120, liquidity: 500e18 });
 
         bytes32 poolId = keccak256("test_pool");
         uint256 positionId = optaiko.mintOption(poolId, legs);
@@ -104,18 +95,8 @@ contract Optaiko4Test is Test {
 
         // Create a bull call spread (long lower strike, short higher strike)
         IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](2);
-        legs[0] = IOptaiko4.Leg({
-            isLong: true,
-            tickLower: -60,
-            tickUpper: 0,
-            liquidity: 1000e18
-        });
-        legs[1] = IOptaiko4.Leg({
-            isLong: false,
-            tickLower: 0,
-            tickUpper: 60,
-            liquidity: 1000e18
-        });
+        legs[0] = IOptaiko4.Leg({ isLong: true, tickLower: -60, tickUpper: 0, liquidity: 1000e18 });
+        legs[1] = IOptaiko4.Leg({ isLong: false, tickLower: 0, tickUpper: 60, liquidity: 1000e18 });
 
         bytes32 poolId = keccak256("test_pool");
         uint256 positionId = optaiko.mintOption(poolId, legs);

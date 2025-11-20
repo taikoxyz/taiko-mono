@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {IOptaiko4} from "./IOptaiko4.sol";
-import {IPoolManager} from "@uniswap/v4-core/interfaces/IPoolManager.sol";
-import {PoolKey} from "@uniswap/v4-core/types/PoolKey.sol";
-import {PoolIdLibrary} from "@uniswap/v4-core/types/PoolId.sol";
+import { IOptaiko4 } from "./IOptaiko4.sol";
 import "./Optaiko4_Layout.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { IPoolManager } from "@uniswap/v4-core/interfaces/IPoolManager.sol";
+import { PoolIdLibrary } from "@uniswap/v4-core/types/PoolId.sol";
+import { PoolKey } from "@uniswap/v4-core/types/PoolKey.sol";
 
 /// @title Optaiko4
 /// @author Optaiko Team
@@ -36,7 +41,12 @@ import "./Optaiko4_Layout.sol";
 /// Only the contract owner can authorize upgrades.
 ///
 /// @custom:security-contact security@optaiko.xyz
-contract Optaiko4 is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, IOptaiko4 {
+contract Optaiko4 is
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IOptaiko4
+{
     using PoolIdLibrary for PoolKey;
 
     // ---------------------------------------------------------------
@@ -107,7 +117,10 @@ contract Optaiko4 is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUp
     /// @param poolId The Uniswap V4 Pool ID (derived from PoolKey)
     /// @param legs Array of legs defining the option strategy
     /// @return positionId The ID of the newly created position
-    function mintOption(bytes32 poolId, IOptaiko4.Leg[] calldata legs)
+    function mintOption(
+        bytes32 poolId,
+        IOptaiko4.Leg[] calldata legs
+    )
         external
         override
         nonReentrant
