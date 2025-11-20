@@ -114,6 +114,7 @@ type ProofRequestOptionsShasta struct {
 	DesignatedProver              common.Address
 	ParentTransitionHash          common.Hash
 	Checkpoint                    *shastaBindings.ICheckpointStoreCheckpoint
+	LastAnchorBlockNumber         *big.Int
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.
