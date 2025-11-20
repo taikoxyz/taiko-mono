@@ -37,6 +37,7 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
+            optaiko
             overseer-rs
             protocol
             relayer
