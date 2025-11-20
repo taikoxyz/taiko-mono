@@ -151,6 +151,7 @@ func (s *SgxGethProofProducer) requestBatchProof(
 					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
 					StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 				},
+				LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

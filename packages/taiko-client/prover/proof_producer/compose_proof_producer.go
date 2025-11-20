@@ -43,6 +43,7 @@ type RaikoProposals struct {
 	DesignatedProver       string           `json:"designated_prover"`
 	ParentTransitionHash   string           `json:"parent_transition_hash"`
 	Checkpoint             *RaikoCheckpoint `json:"checkpoint"`
+	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
 }
 
 // RaikoRequestProofBodyV3Shasta represents the JSON body for requesting the proof.
@@ -298,6 +299,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
 					StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 				},
+				LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
 			})
 		}
 		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
