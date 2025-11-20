@@ -136,10 +136,9 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	}
 	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
 		// For forced-inclusion source, ensure it contains exactly one block.
-		if len(derivationSourceManifest.Blocks) != 1 ||
-			len(meta.GetDerivation().Sources[derivationIdx].BlobSlice.BlobHashes) != 1 {
+		if len(derivationSourceManifest.Blocks) != 1 {
 			log.Warn(
-				"Invalid blocks / blobs count in forced-inclusion source manifest, use default payload instead",
+				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
 				"blobs", len(meta.GetDerivation().Sources[derivationIdx].BlobSlice.BlobHashes),
 				"blocks", len(derivationSourceManifest.Blocks),
 			)
