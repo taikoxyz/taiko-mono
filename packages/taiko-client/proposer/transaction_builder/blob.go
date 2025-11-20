@@ -250,6 +250,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
+	var gasLimit = l2Head.GasLimit
+	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
+		gasLimit = manifest.MaxBlockGasLimit
+	}
 
 	for i, txs := range txBatch {
 		log.Info(
@@ -259,13 +263,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"timestamp", l1Head.Time+uint64(i),
 			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
 			"coinbase", b.l2SuggestedFeeRecipient,
-			"gasLimit", l2Head.GasLimit,
+			"gasLimit", gasLimit,
 		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
-			GasLimit:          l2Head.GasLimit,
+			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
 	}
