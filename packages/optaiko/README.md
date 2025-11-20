@@ -8,4 +8,3 @@ Optaiko is an options trading protocol that leverages Uniswap V4 liquidity posit
 
 - **Short options** = Providing liquidity to earn fees (streaming premium)
 - **Long options** = Conceptually "borrowing" liquidity (paying streaming premium)
-

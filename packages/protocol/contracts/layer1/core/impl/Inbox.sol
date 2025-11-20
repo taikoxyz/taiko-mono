@@ -64,7 +64,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     event InboxActivated(bytes32 lastPacayaBlockHash);
-    event FinalizationSkipped(uint48 proposalId);
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -987,11 +986,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (recordHash == 0) break;
 
-                if (finalizationDeadline == type(uint48).max) {
-                    emit FinalizationSkipped(proposalId);
-                    break;
-                }
-
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 
                 require(
@@ -1156,7 +1150,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
     error SpanOutOfBounds();
-    error TransitionConflict();
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
