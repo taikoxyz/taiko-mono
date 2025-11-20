@@ -20,7 +20,6 @@
 
   let hasEnoughEth: boolean = false;
   let hasEnoughFundsToContinue: boolean = false;
-  let exceedsQuota: boolean = false;
   let bridgingStatus: BridgingStatus;
   let needsManualReviewConfirmation: boolean;
 
@@ -52,7 +51,7 @@
     <div class="space-y-[30px] mt-[30px]">
       {#if activeStep === BridgeSteps.IMPORT}
         <!-- IMPORT STEP -->
-        <ImportStep bind:hasEnoughEth bind:exceedsQuota />
+        <ImportStep bind:hasEnoughEth />
       {:else if activeStep === BridgeSteps.REVIEW}
         <!-- REVIEW STEP -->
         <ReviewStep
@@ -71,7 +70,6 @@
       <!-- NAVIGATION -->
       <StepNavigation
         bind:activeStep
-        bind:exceedsQuota
         bind:hasEnoughFundsToContinue
         {bridgingStatus}
         bind:needsManualReviewConfirmation
