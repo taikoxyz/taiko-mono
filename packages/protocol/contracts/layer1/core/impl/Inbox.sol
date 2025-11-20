@@ -974,17 +974,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
-                if (i >= transitionCount) {
-                    if (recordHash == 0) break;
+                if (recordHash == 0) break;
 
+                if (i >= transitionCount) {
                     if (currentTimestamp >= finalizationDeadline) {
                         revert TransitionRecordNotProvided();
                     }
 
                     break;
                 }
-
-                if (recordHash == 0) break;
 
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 
