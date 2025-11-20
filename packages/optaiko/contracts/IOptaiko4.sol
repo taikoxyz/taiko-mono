@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-/// @title IOptaiko
-/// @notice Interface for the Optaiko Core contract
-interface IOptaiko {
+/// @title IOptaiko4
+/// @notice Interface for the Optaiko4 Core contract
+interface IOptaiko4 {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------

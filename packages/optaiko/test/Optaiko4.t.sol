@@ -2,15 +2,15 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {Optaiko} from "../contracts/Optaiko.sol";
-import {IOptaiko} from "../contracts/IOptaiko.sol";
+import {Optaiko4} from "../contracts/Optaiko4.sol";
+import {IOptaiko4} from "../contracts/IOptaiko4.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-/// @title OptaikoTest
-/// @notice Test suite for Optaiko contract
-contract OptaikoTest is Test {
-    Optaiko public optaikoImplementation;
-    Optaiko public optaiko;
+/// @title Optaiko4Test
+/// @notice Test suite for Optaiko4 contract
+contract Optaiko4Test is Test {
+    Optaiko4 public optaikoImplementation;
+    Optaiko4 public optaiko;
     address public poolManager;
     address public owner;
     address public user1;
@@ -22,14 +22,14 @@ contract OptaikoTest is Test {
         poolManager = makeAddr("poolManager");
 
         // Deploy implementation
-        optaikoImplementation = new Optaiko();
+        optaikoImplementation = new Optaiko4();
 
         // Deploy proxy and initialize
         bytes memory initData =
-            abi.encodeWithSelector(Optaiko.initialize.selector, poolManager, owner);
+            abi.encodeWithSelector(Optaiko4.initialize.selector, poolManager, owner);
 
         ERC1967Proxy proxy = new ERC1967Proxy(address(optaikoImplementation), initData);
-        optaiko = Optaiko(address(proxy));
+        optaiko = Optaiko4(address(proxy));
     }
 
     /// @notice Test deployment and initialization
@@ -43,8 +43,8 @@ contract OptaikoTest is Test {
         vm.startPrank(user1);
 
         // Create a simple long call option leg
-        IOptaiko.Leg[] memory legs = new IOptaiko.Leg[](1);
-        legs[0] = IOptaiko.Leg({
+        IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](1);
+        legs[0] = IOptaiko4.Leg({
             isLong: true,
             tickLower: -60,
             tickUpper: 60,
@@ -60,7 +60,7 @@ contract OptaikoTest is Test {
         assertEq(positionId, 1, "Position ID should be 1");
 
         // Get position details
-        IOptaiko.OptionPosition memory position = optaiko.getPosition(positionId);
+        IOptaiko4.OptionPosition memory position = optaiko.getPosition(positionId);
 
         assertEq(position.owner, user1, "Position owner incorrect");
         assertEq(position.poolId, poolId, "Pool ID incorrect");
@@ -77,8 +77,8 @@ contract OptaikoTest is Test {
         vm.startPrank(user1);
 
         // Create and mint a position
-        IOptaiko.Leg[] memory legs = new IOptaiko.Leg[](1);
-        legs[0] = IOptaiko.Leg({
+        IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](1);
+        legs[0] = IOptaiko4.Leg({
             isLong: false,
             tickLower: -120,
             tickUpper: 120,
@@ -103,14 +103,14 @@ contract OptaikoTest is Test {
         vm.startPrank(user1);
 
         // Create a bull call spread (long lower strike, short higher strike)
-        IOptaiko.Leg[] memory legs = new IOptaiko.Leg[](2);
-        legs[0] = IOptaiko.Leg({
+        IOptaiko4.Leg[] memory legs = new IOptaiko4.Leg[](2);
+        legs[0] = IOptaiko4.Leg({
             isLong: true,
             tickLower: -60,
             tickUpper: 0,
             liquidity: 1000e18
         });
-        legs[1] = IOptaiko.Leg({
+        legs[1] = IOptaiko4.Leg({
             isLong: false,
             tickLower: 0,
             tickUpper: 60,
@@ -120,7 +120,7 @@ contract OptaikoTest is Test {
         bytes32 poolId = keccak256("test_pool");
         uint256 positionId = optaiko.mintOption(poolId, legs);
 
-        IOptaiko.OptionPosition memory position = optaiko.getPosition(positionId);
+        IOptaiko4.OptionPosition memory position = optaiko.getPosition(positionId);
 
         assertEq(position.legs.length, 2, "Should have 2 legs");
         assertEq(position.legs[0].isLong, true, "First leg should be long");
@@ -132,7 +132,7 @@ contract OptaikoTest is Test {
     /// @notice Test upgradeability
     function testUpgrade() public {
         // Deploy new implementation
-        Optaiko newImplementation = new Optaiko();
+        Optaiko4 newImplementation = new Optaiko4();
 
         // Upgrade (as owner)
         vm.prank(owner);
@@ -145,7 +145,7 @@ contract OptaikoTest is Test {
 
     /// @notice Test unauthorized upgrade attempt
     function testUnauthorizedUpgrade() public {
-        Optaiko newImplementation = new Optaiko();
+        Optaiko4 newImplementation = new Optaiko4();
 
         // Should revert when non-owner tries to upgrade
         vm.prank(user1);

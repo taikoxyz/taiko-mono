@@ -5,13 +5,13 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {IOptaiko} from "./IOptaiko.sol";
+import {IOptaiko4} from "./IOptaiko4.sol";
 import {IPoolManager} from "@uniswap/v4-core/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/types/PoolKey.sol";
 import {PoolIdLibrary} from "@uniswap/v4-core/types/PoolId.sol";
-import "./Optaiko_Layout.sol";
+import "./Optaiko4_Layout.sol";
 
-/// @title Optaiko
+/// @title Optaiko4
 /// @author Optaiko Team
 /// @notice Core contract for the Optaiko options protocol built on top of Uniswap V4
 /// @dev This contract implements a Panoptic-style options protocol where options are represented
@@ -36,7 +36,7 @@ import "./Optaiko_Layout.sol";
 /// Only the contract owner can authorize upgrades.
 ///
 /// @custom:security-contact security@optaiko.xyz
-contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, IOptaiko {
+contract Optaiko4 is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, IOptaiko4 {
     using PoolIdLibrary for PoolKey;
 
     // ---------------------------------------------------------------
@@ -53,7 +53,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
 
     /// @notice Mapping from position ID to position data
     /// @dev Position IDs are auto-incremented starting from 1
-    mapping(uint256 => IOptaiko.OptionPosition) private _positions;
+    mapping(uint256 => IOptaiko4.OptionPosition) private _positions;
 
     /// @notice Mapping to track accrued premia for each position
     /// @dev Premia is tracked in the base currency of the pool
@@ -107,7 +107,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
     /// @param poolId The Uniswap V4 Pool ID (derived from PoolKey)
     /// @param legs Array of legs defining the option strategy
     /// @return positionId The ID of the newly created position
-    function mintOption(bytes32 poolId, IOptaiko.Leg[] calldata legs)
+    function mintOption(bytes32 poolId, IOptaiko4.Leg[] calldata legs)
         external
         override
         nonReentrant
@@ -120,7 +120,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
         positionId = ++_positionIdCounter;
 
         // Create the position storage
-        IOptaiko.OptionPosition storage position = _positions[positionId];
+        IOptaiko4.OptionPosition storage position = _positions[positionId];
         position.owner = msg.sender;
         position.poolId = poolId;
         position.openedAt = block.timestamp;
@@ -163,7 +163,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
     ///
     /// @param positionId The ID of the position to close
     function burnOption(uint256 positionId) external override nonReentrant {
-        IOptaiko.OptionPosition storage position = _positions[positionId];
+        IOptaiko4.OptionPosition storage position = _positions[positionId];
 
         // Verify ownership
         require(position.owner == msg.sender, Unauthorized());
@@ -196,7 +196,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
         external
         view
         override
-        returns (IOptaiko.OptionPosition memory position)
+        returns (IOptaiko4.OptionPosition memory position)
     {
         position = _positions[positionId];
         require(position.owner != address(0), PositionDoesNotExist());
@@ -239,7 +239,7 @@ contract Optaiko is UUPSUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpg
     /// @dev Internal helper to validate tick ranges and liquidity
     /// @param leg The leg to validate
     /// @param tickSpacing The tick spacing of the pool
-    function _validateLeg(IOptaiko.Leg memory leg, int24 tickSpacing) internal pure {
+    function _validateLeg(IOptaiko4.Leg memory leg, int24 tickSpacing) internal pure {
         require(leg.tickLower < leg.tickUpper, InvalidTickRange());
         require(leg.tickLower % tickSpacing == 0, InvalidTickRange());
         require(leg.tickUpper % tickSpacing == 0, InvalidTickRange());

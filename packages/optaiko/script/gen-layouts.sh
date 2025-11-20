@@ -12,11 +12,11 @@
 set -euo pipefail
 
 # Contract to generate layout for
-CONTRACT="contracts/Optaiko.sol:Optaiko"
+CONTRACT="contracts/Optaiko4.sol:Optaiko4"
 FILE_PATH="${CONTRACT%%:*}"  # Extract path before colon
 CONTRACT_NAME="${CONTRACT##*:}"  # Extract contract name after colon
 
-echo "Generating Optaiko storage layout..."
+echo "Generating Optaiko4 storage layout..."
 
 # Check if contract file exists
 if [ ! -f "$FILE_PATH" ]; then
