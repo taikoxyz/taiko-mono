@@ -163,6 +163,14 @@ contract LibForcedInclusionTest is Test {
         harness.save{ value: 5 gwei }(10, 100, ref);
     }
 
+    function test_saveForcedInclusion_RevertWhen_MultipleBlobsProvided() external {
+        _setupBlobHashes(3);
+        LibBlobs.BlobReference memory ref = _makeRef(0, 2, 0); // 2 blobs
+
+        vm.expectRevert(LibForcedInclusion.OnlySingleBlobAllowed.selector);
+        harness.save{ value: 100 gwei }(100, 100, ref);
+    }
+
     function test_saveForcedInclusion_RefundsExcessPayment() external {
         _setupBlobHashes(1);
         LibBlobs.BlobReference memory ref = _makeRef(0, 1, 0);

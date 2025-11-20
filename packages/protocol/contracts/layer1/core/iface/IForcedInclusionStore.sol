@@ -19,6 +19,7 @@ interface IForcedInclusionStore {
 
     /// @notice Saves a forced inclusion request
     /// A priority fee must be paid to the contract
+    /// @dev Only one blob reference can be saved per forced inclusion
     /// @param _blobReference The blob locator that contains the transaction data
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
