@@ -138,6 +138,9 @@
         }
       ]
     },
+    "packages/optaiko": {
+      "package-name": "optaiko"
+    },
     "packages/ui-lib": {}
   }
 }
