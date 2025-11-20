@@ -311,14 +311,12 @@ where
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
             // For forced-inclusion source, ensure it contains exactly one block and blob hash.
-            if source.isForcedInclusion &&
-                (manifest.blocks.len() != 1 || source.blobSlice.blobHashes.len() != 1)
-            {
+            if source.isForcedInclusion && manifest.blocks.len() != 1 {
                 info!(
                     proposal_id,
                     blocks = manifest.blocks.len(),
                     blob_hashes = source.blobSlice.blobHashes.len(),
-                    "invalid blocks / blobs count in forced-inclusion source manifest, using default payload instead"
+                    "invalid blocks count in forced-inclusion source manifest, using default payload instead"
                 );
                 manifest = DerivationSourceManifest::default();
             }
