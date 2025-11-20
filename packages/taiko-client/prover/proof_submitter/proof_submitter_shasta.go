@@ -118,7 +118,10 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
-	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{BlockHash: lastOriginInLastProposal.L2BlockHash, Context: ctx})
+	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+		BlockHash: lastOriginInLastProposal.L2BlockHash,
+		Context:   ctx,
+	})
 	if err != nil {
 		return err
 	}
