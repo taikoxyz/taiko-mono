@@ -245,6 +245,12 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
 	for i, txs := range txBatch {
 		log.Info(
 			"Setting up derivation source manifest block",
@@ -253,13 +259,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"timestamp", l1Head.Time+uint64(i),
 			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
 			"coinbase", b.l2SuggestedFeeRecipient,
-			"gasLimit", manifest.MaxBlockGasLimit,
+			"gasLimit", l2Head.GasLimit,
 		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
-			GasLimit:          manifest.MaxBlockGasLimit,
+			GasLimit:          l2Head.GasLimit,
 			Transactions:      txs,
 		})
 	}
