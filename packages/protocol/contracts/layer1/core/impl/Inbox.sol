@@ -977,10 +977,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (recordHash == 0) break;
 
                 if (i >= transitionCount) {
-                    if (currentTimestamp >= finalizationDeadline) {
-                        revert TransitionRecordNotProvided();
-                    }
-
+                    require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
                     break;
                 }
 
