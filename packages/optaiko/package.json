@@ -1,0 +1,23 @@
+{
+    "name": "@taiko/optaiko",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "clean": "rm -rf out cache* cache-* && (forge clean || true)",
+        "compile": "forge build --build-info --extra-output storage-layout",
+        "test": "forge test --extra-output storage-layout",
+        "test:gas": "forge test --gas-report",
+        "layout": "./script/gen-layouts.sh",
+        "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
+        "test:coverage": "forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage"
+    },
+    "devDependencies": {
+        "solhint": "^6.0.1"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^5.0.2",
+        "@openzeppelin/contracts-upgradeable": "^5.0.2",
+        "@uniswap/v4-core": "^1.0.2",
+        "forge-std": "github:foundry-rs/forge-std#v1.8.1"
+    }
+}
