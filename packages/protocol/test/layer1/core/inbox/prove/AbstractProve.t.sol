@@ -93,6 +93,27 @@ abstract contract AbstractProveTest is InboxTestHelper {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, expectedEvents, "Unexpected number of Proved events");
+
+        // Verify the first Proved event payload structure
+        IInbox.ProvedEventPayload memory payload = _extractFirstProvedEventPayload(logs);
+
+        // Verify: proposalId should be the FIRST proposal's ID
+        assertEq(payload.proposalId, proposals[0].id, "ProposalId should match first proposal");
+
+        // Verify: transition.proposalHash should be the FIRST proposal's hash
+        assertEq(
+            payload.transition.proposalHash,
+            _codec().hashProposal(proposals[0]),
+            "Transition proposalHash should match first proposal"
+        );
+
+        // Verify: span should match expected aggregation behavior
+        (, uint256 expectedMaxSpan) = _getExpectedAggregationBehavior(2, true);
+        assertEq(
+            payload.transitionRecord.span,
+            expectedMaxSpan,
+            "TransitionRecord span should match expected aggregation"
+        );
     }
 
     /// @dev Tests proving 3 consecutive proposals - demonstrates gas efficiency of aggregation
@@ -441,6 +462,22 @@ abstract contract AbstractProveTest is InboxTestHelper {
                 count++;
             }
         }
+    }
+
+    function _extractFirstProvedEventPayload(Vm.Log[] memory logs)
+        internal
+        view
+        returns (IInbox.ProvedEventPayload memory payload)
+    {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("Proved(bytes)")) {
+                bytes memory eventData = logs[i].data;
+                // Event data is already ABI encoded, decode the outer wrapper first
+                bytes memory innerData = abi.decode(eventData, (bytes));
+                return _codec().decodeProvedEvent(innerData);
+            }
+        }
+        revert("No Proved event found");
     }
 
     // ---------------------------------------------------------------
