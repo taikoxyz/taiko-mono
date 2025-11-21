@@ -3,6 +3,9 @@ pragma solidity ^0.8.24;
 
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 import { AbstractProveTest } from "./AbstractProve.t.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 
 /// @title InboxOptimized1Prove
 /// @notice Test suite for prove functionality on InboxOptimized1 implementation
@@ -27,4 +30,5 @@ contract InboxOptimized1Prove is AbstractProveTest {
             return (proposalCount, 1); // Individual events for gaps
         }
     }
+
 }
