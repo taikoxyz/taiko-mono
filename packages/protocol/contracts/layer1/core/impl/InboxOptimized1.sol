@@ -208,12 +208,12 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.checkpointHash = nextRecord.checkpointHash;
                     currentRecord.span++;
                 } else {
-                    // Save current aggregation group
+                    // Save current group and start new one
                     _setAggregatedTransitionRecordHashAndDeadline(
                         _input, groupStartProposalId, firstIndex, currentRecord
                     );
 
-                    // Start new aggregation group
+                   // Reset for new group
                     groupStartProposalId = _input.proposals[i].id;
                     firstIndex = i;
                     currentRecord = _buildTransitionRecord(
