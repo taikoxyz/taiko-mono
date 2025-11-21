@@ -245,9 +245,9 @@ contract InboxOptimized1 is Inbox {
         unchecked {
             if (_record.span > 1) {
                 // Use first transition but replace checkpoint with the last one
-                uint256 groupEndIndex = _firstIndex + _record.span - 1;
+                uint256 lastIndex = _firstIndex + _record.span - 1;
                 _input.transitions[_firstIndex].checkpoint =
-                _input.transitions[groupEndIndex].checkpoint;
+                _input.transitions[lastIndex].checkpoint;
             }
             _setTransitionRecordHashAndDeadline(
                 _groupStartProposalId,
