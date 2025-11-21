@@ -1,6 +1,6 @@
 # PROPOSAL-0006: Taiko Shasta Fork Upgrade
 
-Upgrade Taiko L1/L2 smart contracts for the Shasta fork: L1 `signal_service` and `preconf_whitelist` proxies, plus L2 `signal_service` and `anchor` proxies. Implementation addresses come from the Shasta deploy scripts (run separately).
+Upgrade Taiko L1/L2 smart contracts for the Shasta fork: L1 `signal_service` and `preconf_whitelist` proxies, plus L2 `signal_service` and `anchor` proxies. Implementation addresses come from the Shasta deploy scripts (run separately). The new Shasta Inbox will remain owned by `admin.taiko.eth` after execution; a follow-up proposal will be created to accept its ownership after the Shasta genesis proposal initialization.
 
 ## Deployment Scripts
 
