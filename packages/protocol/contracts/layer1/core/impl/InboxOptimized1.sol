@@ -185,13 +185,14 @@ contract InboxOptimized1 is Inbox {
             );
 
             uint48 currentGroupStartId = _input.proposals[0].id;
-            uint256 firstIndex;
-            uint256 lastIndex; // Track last index in current aggregation group
+            uint256 groupStartIndex = 0;
+            uint256 groupEndIndex = 0;
 
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
                 // Check for consecutive proposal aggregation
                 if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                    // Extend current aggregation group
                     TransitionRecord memory nextRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
@@ -207,45 +208,63 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.transitionHash = nextRecord.transitionHash;
                     currentRecord.checkpointHash = nextRecord.checkpointHash;
                     currentRecord.span++;
-                    lastIndex = i; // Update last index in aggregation group
+                    groupEndIndex = i;
                 } else {
-                    // Save current group and start new one
-                    // Create transition with first proposal's hash but last transition's checkpoint
-                    Transition memory aggregatedTransition = Transition({
-                        proposalHash: _input.transitions[firstIndex].proposalHash,
-                        parentTransitionHash: _input.transitions[firstIndex].parentTransitionHash,
-                        checkpoint: _input.transitions[lastIndex].checkpoint
-                    });
-                    _setTransitionRecordHashAndDeadline(
+                    // Save current aggregation group
+                    _saveAggregatedGroup(
+                        _input,
                         currentGroupStartId,
-                        aggregatedTransition,
-                        _input.metadata[firstIndex],
+                        groupStartIndex,
+                        groupEndIndex,
                         currentRecord
                     );
 
-                    // Reset for new group
+                    // Start new aggregation group
                     currentGroupStartId = _input.proposals[i].id;
-                    firstIndex = i;
-                    lastIndex = i;
+                    groupStartIndex = i;
+                    groupEndIndex = i;
                     currentRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
                 }
             }
 
-            // Save the final aggregated record
-            // Create transition with first proposal's hash but last transition's checkpoint
-            Transition memory aggregatedTransition = Transition({
-                proposalHash: _input.transitions[firstIndex].proposalHash,
-                parentTransitionHash: _input.transitions[firstIndex].parentTransitionHash,
-                checkpoint: _input.transitions[lastIndex].checkpoint
-            });
-            _setTransitionRecordHashAndDeadline(
+            // Save the final aggregation group
+            _saveAggregatedGroup(
+                _input,
                 currentGroupStartId,
-                aggregatedTransition,
-                _input.metadata[firstIndex],
+                groupStartIndex,
+                groupEndIndex,
                 currentRecord
             );
         }
+    }
+
+    /// @dev Saves an aggregated group with proper transition construction
+    /// @param _input Original prove input
+    /// @param _groupStartId First proposal ID in the group
+    /// @param _groupStartIndex Index of first transition in the group
+    /// @param _groupEndIndex Index of last transition in the group
+    /// @param _record Aggregated transition record for the group
+    function _saveAggregatedGroup(
+        ProveInput memory _input,
+        uint48 _groupStartId,
+        uint256 _groupStartIndex,
+        uint256 _groupEndIndex,
+        TransitionRecord memory _record
+    )
+        private
+    {
+        // Construct transition with first proposal's hash but last transition's checkpoint
+        // This ensures the Proved event reflects the starting point and final state
+        Transition memory aggregatedTransition = Transition({
+            proposalHash: _input.transitions[_groupStartIndex].proposalHash,
+            parentTransitionHash: _input.transitions[_groupStartIndex].parentTransitionHash,
+            checkpoint: _input.transitions[_groupEndIndex].checkpoint
+        });
+
+        _setTransitionRecordHashAndDeadline(
+            _groupStartId, aggregatedTransition, _input.metadata[_groupStartIndex], _record
+        );
     }
 }
