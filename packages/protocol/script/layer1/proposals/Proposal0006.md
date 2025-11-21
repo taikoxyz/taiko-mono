@@ -22,7 +22,7 @@ Upgrade Taiko L1/L2 smart contracts for the Shasta fork: L1 `signal_service` and
 
 ## Verification & Execution
 
-1. Deploy the new SignalService and PreconfWhitelist implementations on L1 via `script/layer1/mainnet/DeployShasta.s.sol`, capture the emitted implementation addresses.
+1. Deploy the new SignalService, PreconfWhitelist implementations and Shasta Inbox on L1 via `script/layer1/mainnet/DeployShasta.s.sol`, capture the emitted implementation addresses.
 2. Deploy the new SignalService and Anchor implementations on L2 via `script/layer2/DeployShasta.s.sol`, capture the emitted implementation addresses.
 3. Verify proposal calldata: `P=0006 pnpm proposal`.
 4. Dry-run on L1: `P=0006 pnpm proposal:dryrun:l1`.
