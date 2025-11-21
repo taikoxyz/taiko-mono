@@ -39,11 +39,12 @@ contract DeployShasta is BaseScript {
 
         address inboxProxy = _deployInbox(c);
         _deploySignalServiceFork(c, inboxProxy);
+        deployPreconfWhitelistImpl();
     }
 
     /// @dev Deploys a PreconfWhitelist implementation (no proxy).
-    function deployPreconfWhitelistImpl() external broadcast returns (address impl) {
-        impl = address(new PreconfWhitelist());
+    function deployPreconfWhitelistImpl() private {
+        address impl = address(new PreconfWhitelist());
         console2.log("PreconfWhitelist implementation deployed:", impl);
     }
 
