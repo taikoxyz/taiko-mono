@@ -52,23 +52,30 @@ contract DeployShasta is BaseScript {
         _deploySignalService(config);
     }
 
-    /// @dev Deploys a new BondManager and Anchor impl, wraps with fork router.
+    /// @dev Deploys a new BondManager (as proxy) and Anchor impl, wraps with fork router.
     /// Caller should execute proxy upgrade separately if desired.
     function _deployAnchor(Config memory config) private {
         Anchor anchor = Anchor(config.anchorProxy);
         address currentImpl = anchor.impl();
+        address owner = anchor.owner();
 
-        BondManager bondManager = new BondManager(
+        BondManager bondManagerImpl = new BondManager(
             config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
         );
+        address bondManagerProxy = deploy({
+            name: bytes32("shasta_bond_manager"),
+            impl: address(bondManagerImpl),
+            data: abi.encodeCall(BondManager.init, (owner))
+        });
+
         // Fresh BondManager + Anchor impl configured from env.
         Anchor newImpl = new Anchor(
             ICheckpointStore(config.signalServiceProxy),
-            bondManager,
+            BondManager(bondManagerProxy),
             config.livenessBond,
             config.provabilityBond,
             config.l1ChainId,
-            anchor.owner()
+            owner
         );
 
         AnchorForkRouter router = new AnchorForkRouter(currentImpl, address(newImpl));
@@ -76,7 +83,8 @@ contract DeployShasta is BaseScript {
         console2.log("Deploy anchor proxy:", config.anchorProxy);
         console2.log("Current implementation:", currentImpl);
         console2.log("New implementation:", address(newImpl));
-        console2.log("BondManager implementation:", address(bondManager));
+        console2.log("BondManager proxy:", bondManagerProxy);
+        console2.log("BondManager implementation:", address(bondManagerImpl));
         console2.log("Fork router implementation:", address(router));
     }
 
