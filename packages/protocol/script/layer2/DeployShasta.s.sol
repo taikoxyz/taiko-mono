@@ -63,7 +63,7 @@ contract DeployShasta is BaseScript {
             config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
         );
         address bondManagerProxy = deploy({
-            name: bytes32("shasta_bond_manager"),
+            name: "shasta_bond_manager",
             impl: address(bondManagerImpl),
             data: abi.encodeCall(BondManager.init, (owner))
         });
