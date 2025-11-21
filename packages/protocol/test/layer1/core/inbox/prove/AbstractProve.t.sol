@@ -70,8 +70,27 @@ abstract contract AbstractProveTest is InboxTestHelper {
         // Create 2 consecutive proposals
         IInbox.Proposal[] memory proposals = _createConsecutiveProposals(2);
 
-        // Create prove input
-        bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
+        // Build transitions manually so we can verify checkpoint usage
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
+
+        bytes32 parentHash = _getGenesisTransitionHash();
+
+        // First transition
+        transitions[0] = _createTransitionForProposal(proposals[0]);
+        transitions[0].parentTransitionHash = parentHash;
+        metadata[0] = _createMetadataForTransition(Alice, Alice);
+        parentHash = keccak256(abi.encode(transitions[0]));
+
+        // Second transition (for aggregated event, this checkpoint should be used)
+        transitions[1] = _createTransitionForProposal(proposals[1]);
+        transitions[1].parentTransitionHash = parentHash;
+        metadata[1] = _createMetadataForTransition(Alice, Alice);
+
+        IInbox.ProveInput memory input =
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+
+        bytes memory proveData = _codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Check expected events based on implementation
@@ -113,6 +132,25 @@ abstract contract AbstractProveTest is InboxTestHelper {
             payload.transitionRecord.span,
             expectedMaxSpan,
             "TransitionRecord span should match expected aggregation"
+        );
+
+        // Verify: For InboxOptimized1, checkpoint should be from LAST transition (groupEndIndex)
+        // For regular Inbox, checkpoint should be from FIRST transition
+        uint256 expectedCheckpointIndex = expectedMaxSpan == 2 ? 1 : 0; // If span=2, use last; else first
+        assertEq(
+            payload.transition.checkpoint.blockNumber,
+            transitions[expectedCheckpointIndex].checkpoint.blockNumber,
+            "Checkpoint blockNumber should match expected transition"
+        );
+        assertEq(
+            payload.transition.checkpoint.blockHash,
+            transitions[expectedCheckpointIndex].checkpoint.blockHash,
+            "Checkpoint blockHash should match expected transition"
+        );
+        assertEq(
+            payload.transition.checkpoint.stateRoot,
+            transitions[expectedCheckpointIndex].checkpoint.stateRoot,
+            "Checkpoint stateRoot should match expected transition"
         );
     }
 
