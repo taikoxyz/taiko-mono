@@ -230,12 +230,12 @@ contract InboxOptimized1 is Inbox {
     /// @dev Sets the aggregated transition record hash and deadline
     /// @param _input Original prove input
     /// @param _groupStartProposalId First proposal ID in the group
-    /// @param _groupStartIndex Index of first transition in the group
+    /// @param _firstIndex Index of first transition in the group
     /// @param _record Aggregated transition record for the group
     function _setAggregatedTransitionRecordHashAndDeadline(
         ProveInput memory _input,
         uint48 _groupStartProposalId,
-        uint256 _groupStartIndex,
+        uint256 _firstIndex,
         TransitionRecord memory _record
     )
         private
@@ -243,14 +243,14 @@ contract InboxOptimized1 is Inbox {
         unchecked {
         if (_record.span > 1) {
             // Use first transition but replace checkpoint with the last one
-            uint256 groupEndIndex = _groupStartIndex + _record.span - 1;
-            _input.transitions[_groupStartIndex].checkpoint =
+            uint256 groupEndIndex = _firstIndex + _record.span - 1;
+            _input.transitions[_firstIndex].checkpoint =
                 _input.transitions[groupEndIndex].checkpoint;
         }
         _setTransitionRecordHashAndDeadline(
             _groupStartProposalId,
-            _input.transitions[_groupStartIndex],
-            _input.metadata[_groupStartIndex],
+            _input.transitions[_firstIndex],
+            _input.metadata[_firstIndex],
             _record
         );
     }}
