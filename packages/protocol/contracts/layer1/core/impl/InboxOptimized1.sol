@@ -213,7 +213,7 @@ contract InboxOptimized1 is Inbox {
                         _input, groupStartProposalId, firstIndex, currentRecord
                     );
 
-                   // Reset for new group
+                    // Reset for new group
                     groupStartProposalId = _input.proposals[i].id;
                     firstIndex = i;
                     currentRecord = _buildTransitionRecord(
@@ -223,7 +223,9 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Save the final aggregation group
-            _setAggregatedTransitionRecordHashAndDeadline(_input, groupStartProposalId, firstIndex, currentRecord);
+            _setAggregatedTransitionRecordHashAndDeadline(
+                _input, groupStartProposalId, firstIndex, currentRecord
+            );
         }
     }
 
@@ -241,17 +243,18 @@ contract InboxOptimized1 is Inbox {
         private
     {
         unchecked {
-        if (_record.span > 1) {
-            // Use first transition but replace checkpoint with the last one
-            uint256 groupEndIndex = _firstIndex + _record.span - 1;
-            _input.transitions[_firstIndex].checkpoint =
+            if (_record.span > 1) {
+                // Use first transition but replace checkpoint with the last one
+                uint256 groupEndIndex = _firstIndex + _record.span - 1;
+                _input.transitions[_firstIndex].checkpoint =
                 _input.transitions[groupEndIndex].checkpoint;
+            }
+            _setTransitionRecordHashAndDeadline(
+                _groupStartProposalId,
+                _input.transitions[_firstIndex],
+                _input.metadata[_firstIndex],
+                _record
+            );
         }
-        _setTransitionRecordHashAndDeadline(
-            _groupStartProposalId,
-            _input.transitions[_firstIndex],
-            _input.metadata[_firstIndex],
-            _record
-        );
-    }}
+    }
 }

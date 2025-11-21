@@ -87,8 +87,9 @@ abstract contract AbstractProveTest is InboxTestHelper {
         transitions[1].parentTransitionHash = parentHash;
         metadata[1] = _createMetadataForTransition(Alice, Alice);
 
-        IInbox.ProveInput memory input =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: proposals, transitions: transitions, metadata: metadata
+        });
 
         bytes memory proveData = _codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
