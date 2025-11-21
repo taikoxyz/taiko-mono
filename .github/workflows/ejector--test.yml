@@ -32,8 +32,9 @@ jobs:
 
       # Toolchain + components (rustfmt, clippy)
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       # Cache target/ and cargo registry/git
@@ -64,8 +65,9 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Cache cargo
@@ -89,8 +91,9 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
