@@ -22,7 +22,19 @@ Upgrade Taiko L1/L2 smart contracts for the Shasta fork: L1 `signal_service` and
 
 ## Verification & Execution
 
-1. Confirm verified source code and configs of the new deployed implementation addresses in [Etherscan](https://etherscan.io/) and [Taikoscan](https://taikoscan.io/).
+1. Confirm verified source/config on [Etherscan](https://etherscan.io/) / [Taikoscan](https://taikoscan.io/) for:
+   - L1:
+     - `SignalService` impl
+     - `SignalServiceForkRouter` impl
+     - `PreconfWhitelist` impl
+     - `CodecOptimized` impl
+     - `MainnetInbox` impl / proxy
+   - L2:
+     - `BondManager` impl / proxy
+     - `Anchor` impl
+     - `AnchorForkRouter` impl
+     - `SignalService` impl
+     - `SignalServiceForkRouter` impl
 2. Verify proposal calldata: `P=0006 pnpm proposal`.
 3. Dry-run on L1: `P=0006 pnpm proposal:dryrun:l1`.
 4. Dry-run on L2: `P=0006 pnpm proposal:dryrun:l2`.
