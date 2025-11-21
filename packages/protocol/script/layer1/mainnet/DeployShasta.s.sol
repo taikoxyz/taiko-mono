@@ -61,8 +61,8 @@ contract DeployShasta is BaseScript {
 
     /// @dev Deploys MainnetInbox.
     function _deployInbox(Config memory c) private returns (address proxy) {
-        MainnetInbox impl =
-            new MainnetInbox(address(new CodecOptimized()), c.proofVerifier, c.proposerChecker);
+        CodecOptimized codec = new CodecOptimized();
+        MainnetInbox impl = new MainnetInbox(address(codec), c.proofVerifier, c.proposerChecker);
         proxy = deploy({
             name: "shasta_inbox",
             impl: address(impl),
@@ -73,6 +73,7 @@ contract DeployShasta is BaseScript {
         });
 
         console2.log("Inbox proxy deployed:", proxy);
+        console2.log("CodecOptimized implementation:", address(codec));
         console2.log("Inbox implementation:", address(impl));
     }
 }

@@ -58,12 +58,13 @@ contract DeployShasta is BaseScript {
         Anchor anchor = Anchor(config.anchorProxy);
         address currentImpl = anchor.impl();
 
+        BondManager bondManager = new BondManager(
+            config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
+        );
         // Fresh BondManager + Anchor impl configured from env.
         Anchor newImpl = new Anchor(
             ICheckpointStore(config.signalServiceProxy),
-            new BondManager(
-                config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
-            ),
+            bondManager,
             config.livenessBond,
             config.provabilityBond,
             config.l1ChainId,
@@ -75,23 +76,24 @@ contract DeployShasta is BaseScript {
         console2.log("Deploy anchor proxy:", config.anchorProxy);
         console2.log("Current implementation:", currentImpl);
         console2.log("New implementation:", address(newImpl));
+        console2.log("BondManager implementation:", address(bondManager));
         console2.log("Fork router implementation:", address(router));
     }
 
     /// @dev Deploys a new SignalService impl, wraps with fork router.
     /// Caller should execute proxy upgrade separately if desired.
     function _deploySignalService(Config memory config) private {
-        SignalService signalService = SignalService(config.signalServiceProxy);
-
         SignalService newSignalServiceImpl =
             new SignalService(config.anchorProxy, config.remoteSignalService);
 
         SignalServiceForkRouter router = new SignalServiceForkRouter(
-            signalService.impl(), address(newSignalServiceImpl), config.shastaForkTimestamp
+            SignalService(config.signalServiceProxy).impl(),
+            address(newSignalServiceImpl),
+            config.shastaForkTimestamp
         );
 
         console2.log("Deploy SignalService proxy:", config.signalServiceProxy);
-        console2.log("Current implementation:", signalService.impl());
+        console2.log("Current implementation:", SignalService(config.signalServiceProxy).impl());
         console2.log("New implementation:", address(newSignalServiceImpl));
         console2.log("Fork router implementation:", address(router));
     }
