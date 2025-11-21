@@ -186,6 +186,7 @@ contract InboxOptimized1 is Inbox {
 
             uint48 currentGroupStartId = _input.proposals[0].id;
             uint256 firstIndex;
+            uint256 lastIndex; // Track last index in current aggregation group
 
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
@@ -206,11 +207,18 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.transitionHash = nextRecord.transitionHash;
                     currentRecord.checkpointHash = nextRecord.checkpointHash;
                     currentRecord.span++;
+                    lastIndex = i; // Update last index in aggregation group
                 } else {
                     // Save current group and start new one
+                    // Create transition with first proposal's hash but last transition's checkpoint
+                    Transition memory aggregatedTransition = Transition({
+                        proposalHash: _input.transitions[firstIndex].proposalHash,
+                        parentTransitionHash: _input.transitions[firstIndex].parentTransitionHash,
+                        checkpoint: _input.transitions[lastIndex].checkpoint
+                    });
                     _setTransitionRecordHashAndDeadline(
                         currentGroupStartId,
-                        _input.transitions[firstIndex],
+                        aggregatedTransition,
                         _input.metadata[firstIndex],
                         currentRecord
                     );
@@ -218,6 +226,7 @@ contract InboxOptimized1 is Inbox {
                     // Reset for new group
                     currentGroupStartId = _input.proposals[i].id;
                     firstIndex = i;
+                    lastIndex = i;
                     currentRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
@@ -225,9 +234,15 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Save the final aggregated record
+            // Create transition with first proposal's hash but last transition's checkpoint
+            Transition memory aggregatedTransition = Transition({
+                proposalHash: _input.transitions[firstIndex].proposalHash,
+                parentTransitionHash: _input.transitions[firstIndex].parentTransitionHash,
+                checkpoint: _input.transitions[lastIndex].checkpoint
+            });
             _setTransitionRecordHashAndDeadline(
                 currentGroupStartId,
-                _input.transitions[firstIndex],
+                aggregatedTransition,
                 _input.metadata[firstIndex],
                 currentRecord
             );

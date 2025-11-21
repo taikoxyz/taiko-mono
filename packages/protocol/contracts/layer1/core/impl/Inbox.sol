@@ -520,6 +520,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             transitionRecord: _transitionRecord,
             metadata: _metadata
         });
+
+
         emit Proved(_encodeProvedEventData(payload));
     }
 
