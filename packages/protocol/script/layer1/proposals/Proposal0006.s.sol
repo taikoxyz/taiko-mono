@@ -6,28 +6,17 @@ import "../governance/BuildProposal.sol";
 // To print the proposal action data: `P=0006 pnpm proposal`
 // To dryrun the proposal on L1: `P=0006 pnpm proposal:dryrun:l1`
 // To dryrun the proposal on L2: `P=0006 pnpm proposal:dryrun:l2`
-// NOTE: Deploy new implementations first:
-// - L1 SignalServiceForkRouter + PreconfWhitelist via script/layer1/mainnet/DeployShasta.s.sol
-// - L2 SignalServiceForkRouter + Anchor via script/layer2/DeployShasta.s.sol
-// Then replace all placeholder impl addresses before executing this proposal.
+// TODO: run L1 / L2 deployment scripts after the audit, then update the new implementation addresses
+// below, then generate `Proposal0006.action.md`.
 contract Proposal0006 is BuildProposal {
     address public constant SIGNAL_SERVICE_PROXY = L1.SIGNAL_SERVICE;
-
-    // Placeholder; update after deploying the new SignalServiceForkRouter (L1).
-    address public constant SIGNAL_SERVICE_NEW_IMPL = 0x0000000000000000000000000000000000000000;
-
-    // Preconf whitelist proxy on L1 (rollup resolver name: preconf_whitelist).
     address public constant PRECONF_WHITELIST_PROXY = 0xFD019460881e6EeC632258222393d5821029b2ac;
-
-    // Placeholder; update after deploying the new PreconfWhitelist implementation.
-    address public constant PRECONF_WHITELIST_NEW_IMPL = 0x0000000000000000000000000000000000000000;
-
-    // L2 proxies (Taiko mainnet L2).
     address public constant L2_SIGNAL_SERVICE_PROXY = L2.SIGNAL_SERVICE;
     address public constant L2_ANCHOR_PROXY = L2.ANCHOR;
 
-    // Placeholders; update after deploying SignalServiceForkRouter and Anchor (L2) via
-    // script/layer2/DeployShasta.s.sol.
+    // TODO: update these addresses after deployment.
+    address public constant SIGNAL_SERVICE_NEW_IMPL = 0x0000000000000000000000000000000000000000;
+    address public constant PRECONF_WHITELIST_NEW_IMPL = 0x0000000000000000000000000000000000000000;
     address public constant L2_SIGNAL_SERVICE_NEW_IMPL = 0x0000000000000000000000000000000000000000;
     address public constant L2_ANCHOR_NEW_IMPL = 0x0000000000000000000000000000000000000000;
 
@@ -46,6 +35,8 @@ contract Proposal0006 is BuildProposal {
         override
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
+        // Since we only have one actions list to execute, we set `executionId` to `0`, to
+        // skip the `executionId` check in `DelegateController.onMessageInvocation`.
         l2ExecutionId = 0;
         l2GasLimit = L2_GAS_LIMIT;
         actions = new Controller.Action[](2);

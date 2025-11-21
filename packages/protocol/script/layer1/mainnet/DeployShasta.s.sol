@@ -5,18 +5,20 @@ import "script/BaseScript.sol";
 
 import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 
 /// forge script --rpc-url <L1_RPC> script/layer1/mainnet/DeployShasta.s.sol --broadcast
-/// Deploys a fresh CodecOptimized, SignalService fork router, and a standalone Shasta Inbox implementation.
+/// Deploys a CodecOptimized, SignalService fork router, and a new Shasta Inbox.
 contract DeployShasta is BaseScript {
     struct Config {
         address proofVerifier;
         address proposerChecker;
-        address owner;
+        address taikoAdmin;
         address remoteSignalService;
         address oldSignalServiceImpl;
         uint64 shastaForkTimestamp;
@@ -24,11 +26,11 @@ contract DeployShasta is BaseScript {
 
     /// @dev Loads config from env vars.
     function _loadConfig() private view returns (Config memory c) {
-        c.proofVerifier = vm.envAddress("PROOF_VERIFIER");
-        c.proposerChecker = vm.envAddress("PROPOSER_CHECKER"); // 0xFD019460881e6EeC632258222393d5821029b2ac
-        c.owner = vm.envAddress("OWNER"); // admin.taiko.eth
-        c.remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE"); // 0x1670000000000000000000000000000000000005
-        c.oldSignalServiceImpl = vm.envAddress("OLD_SIGNAL_SERVICE_IMPL"); // 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c
+        c.proofVerifier = vm.envAddress("PROOF_VERIFIER"); // Will be deployed in a separated script, should be 100% zk.
+        c.proposerChecker = 0xFD019460881e6EeC632258222393d5821029b2ac; // preconf_whitelist
+        c.taikoAdmin = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
+        c.remoteSignalService = LibL2Addrs.SIGNAL_SERVICE;
+        c.oldSignalServiceImpl = SignalService(LibL1Addrs.SIGNAL_SERVICE).impl();
         c.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }
 
@@ -63,7 +65,10 @@ contract DeployShasta is BaseScript {
         proxy = deploy({
             name: "shasta_inbox",
             impl: address(impl),
-            data: abi.encodeCall(Inbox.init, (c.owner))
+            // NOTE: we need to let `admin.taiko.eth` to transfer the ownership of shasta inbox to
+            // DAO later after the shasta genesis proposal initialization, then create another
+            // proposal to let the DAO accept the ownership.
+            data: abi.encodeCall(Inbox.init, (c.taikoAdmin))
         });
 
         console2.log("Inbox proxy deployed:", proxy);

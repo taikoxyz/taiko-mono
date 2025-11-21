@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import "script/BaseScript.sol";
 
+import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { AnchorForkRouter } from "src/layer2/core/AnchorForkRouter.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
-
+import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
@@ -30,25 +31,20 @@ contract DeployShasta is BaseScript {
 
     /// @dev Load config from env vars.
     function _loadConfig() private view returns (Config memory config) {
-        config.anchorProxy = vm.envAddress("ANCHOR_PROXY");
-        require(config.anchorProxy != address(0), "anchor address not set");
+        config.anchorProxy = LibL2Addrs.ANCHOR;
+        config.signalServiceProxy = LibL2Addrs.SIGNAL_SERVICE;
+        config.remoteSignalService = LibL1Addrs.SIGNAL_SERVICE;
+        config.bondToken = LibL2Addrs.TAIKO_TOKEN;
+        config.l1ChainId = 1;
 
-        config.signalServiceProxy = vm.envAddress("SIGNAL_SERVICE_PROXY");
-        require(config.signalServiceProxy != address(0), "signal service address not set");
-
-        config.remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
-        require(config.remoteSignalService != address(0), "remote signal service not set");
-
-        config.bondToken = vm.envAddress("BOND_TOKEN");
         config.minBond = vm.envUint("MIN_BOND");
         config.withdrawalDelay = uint48(vm.envUint("WITHDRAWAL_DELAY"));
         config.livenessBond = vm.envUint("LIVENESS_BOND");
         config.provabilityBond = vm.envUint("PROVABILITY_BOND");
-        config.l1ChainId = uint64(vm.envUint("L1_CHAIN_ID"));
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }
 
-    /// @notice Entry point: deploy new anchor impl first, then signal service impl.
+    /// @notice Entry point: deploy new anchor fork router impl first, then signal service impl.
     function run() external broadcast {
         Config memory config = _loadConfig();
 
@@ -86,10 +82,7 @@ contract DeployShasta is BaseScript {
     /// Caller should execute proxy upgrade separately if desired.
     function _deploySignalService(Config memory config) private {
         SignalService signalService = SignalService(config.signalServiceProxy);
-        address owner = signalService.owner();
-        require(owner == vm.addr(deployerPrivateKey), "caller is not signal owner");
 
-        // Swap in new SignalService impl and route through fork router by timestamp.
         SignalService newSignalServiceImpl =
             new SignalService(config.anchorProxy, config.remoteSignalService);
 
