@@ -72,7 +72,13 @@ func createPayloadAndSetHead(
 	meta.L1Origin.BuildPayloadArgsID = args.Id()
 
 	// Create a new execution payload and set the chain head.
-	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
+	return createExecutionPayloadsAndSetHead(
+		ctx,
+		rpc,
+		meta.createExecutionPayloadsMetaData,
+		txListBytes,
+		meta.VerifiedCheckpoint,
+	)
 }
 
 // createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
@@ -82,6 +88,7 @@ func createExecutionPayloadsAndSetHead(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
+	safeCheckpoint *verifiedCheckpoint,
 ) (payloadData *engine.ExecutableData, err error) {
 	// Create a new execution payload.
 	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
@@ -90,13 +97,8 @@ func createExecutionPayloadsAndSetHead(
 	}
 
 	var lastVerifiedBlockHash common.Hash
-	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-	}
-
-	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
+	if safeCheckpoint != nil && safeCheckpoint.BlockID != nil && meta.BlockID.Cmp(safeCheckpoint.BlockID) > 0 {
+		lastVerifiedBlockHash = safeCheckpoint.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -938,6 +940,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		decompressedTxs,
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
