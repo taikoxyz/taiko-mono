@@ -14,7 +14,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 
-/// forge script --rpc-url <L2_RPC> script/layer2/DeployShasta.s.sol --broadcast
+/// FOUNDRY_PROFILE=layer2 forge script --rpc-url <L2_RPC> script/layer2/DeployShasta.s.sol --broadcast
 contract DeployShasta is BaseScript {
     struct Config {
         address anchorProxy;
