@@ -7,7 +7,7 @@ import "../governance/BuildProposal.sol";
 // To dryrun the proposal on L1: `P=0006 pnpm proposal:dryrun:l1`
 // To dryrun the proposal on L2: `P=0006 pnpm proposal:dryrun:l2`
 // TODO: run L1 / L2 deployment scripts after the audit, then update the new implementation addresses
-// below, then generate `Proposal0006.action.md`.
+// below, and generate `Proposal0006.action.md`.
 contract Proposal0006 is BuildProposal {
     address public constant SIGNAL_SERVICE_PROXY = L1.SIGNAL_SERVICE;
     address public constant PRECONF_WHITELIST_PROXY = 0xFD019460881e6EeC632258222393d5821029b2ac;
