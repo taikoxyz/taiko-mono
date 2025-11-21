@@ -102,8 +102,8 @@ contract Anchor is EssentialContract {
     ///   - bytes offset: 32 bytes
     ///   - bytes length: 32 bytes
     ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
-    /// Total: 32 + 32 + 32 + 32 + 32 + 65 = 225 bytes
-    uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
+    /// Total (accounting for ABI padding): head = 4 * 32 = 128 bytes; tail = 32 (length) + 96 (padded 65-byte signature) = 128 bytes; overall = 256 bytes
+    uint256 private constant MIN_PROVER_AUTH_LENGTH = 256;
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
