@@ -940,7 +940,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		decompressedTxs,
-		nil,
+		nil, // We don't need to progress safe / finalized block when inserting preconf blocks.
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
