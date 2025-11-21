@@ -185,7 +185,7 @@ contract InboxOptimized1 is Inbox {
             );
 
             uint48 groupStartProposalId = _input.proposals[0].id;
-            uint256 groupStartIndex;
+            uint256 firstIndex;
 
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
@@ -210,12 +210,12 @@ contract InboxOptimized1 is Inbox {
                 } else {
                     // Save current aggregation group
                     _setAggregatedTransitionRecordHashAndDeadline(
-                        _input, groupStartProposalId, groupStartIndex, currentRecord
+                        _input, groupStartProposalId, firstIndex, currentRecord
                     );
 
                     // Start new aggregation group
                     groupStartProposalId = _input.proposals[i].id;
-                    groupStartIndex = i;
+                    firstIndex = i;
                     currentRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
@@ -223,7 +223,7 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Save the final aggregation group
-            _setAggregatedTransitionRecordHashAndDeadline(_input, groupStartProposalId, groupStartIndex, currentRecord);
+            _setAggregatedTransitionRecordHashAndDeadline(_input, groupStartProposalId, firstIndex, currentRecord);
         }
     }
 
