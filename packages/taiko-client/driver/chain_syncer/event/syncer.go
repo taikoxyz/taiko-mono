@@ -637,7 +637,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 		}
 
 		log.Info(
-			"Verified block mismatch",
+			"Verified block mismatch Pacaya",
 			"currentHeightToCheck", batch.LastBlockId,
 			"chainBlockHash", header.Hash(),
 			"transitionBlockHash", common.Hash(ts.BlockHash),
@@ -679,7 +679,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 	}
 
 	log.Info(
-		"Verified block mismatch",
+		"Verified block mismatch Shasta",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
 		"transitionBlockHash", common.Hash(record.Transition.Checkpoint.BlockHash),
