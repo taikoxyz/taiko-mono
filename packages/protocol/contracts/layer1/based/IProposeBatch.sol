@@ -12,12 +12,11 @@ interface IProposeBatch {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @return info_ The info of the proposed batch.
-    /// @return meta_ The mmetadata of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_);
 }

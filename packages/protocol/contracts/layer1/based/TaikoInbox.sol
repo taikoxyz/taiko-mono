@@ -64,8 +64,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList Transaction list in calldata. If the txList is empty, blob will be used for
     /// data availability.
-    /// @return info_ Information of the proposed batch, which is used for constructing blocks
-    /// offchain.
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function proposeBatch(
         bytes calldata _params,
@@ -74,7 +72,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         public
         override(ITaikoInbox, IProposeBatch)
         nonReentrant
-        returns (BatchInfo memory info_, BatchMetadata memory meta_)
+        returns (BatchMetadata memory meta_, uint64 lastBlockId_)
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = pacayaConfig();
@@ -157,7 +155,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // use
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-            info_ = BatchInfo({
+            BatchInfo memory info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
                 //
                 // Data to build L2 blocks
@@ -184,6 +182,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
                 ? stats2.numBatches + uint64(params.blocks.length) - 1
                 : lastBatch.lastBlockId + uint64(params.blocks.length);
+            lastBlockId_ = info_.lastBlockId;
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);

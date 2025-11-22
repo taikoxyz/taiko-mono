@@ -30,15 +30,15 @@ contract MainnetInbox is TaikoInbox {
             // configuration values must NEVER be changed!!!
             maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
-            maxBatchesToVerify: 16,
+            maxBatchesToVerify: 8,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 50e18, // 50 Taiko token per batch
+            livenessBondBase: 25e18, // 25 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 50,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
@@ -49,7 +49,7 @@ contract MainnetInbox is TaikoInbox {
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
-                pacaya: 538_304 * 10, // TODO
+                pacaya: 1_166_000,
                 shasta: 0,
                 unzen: 0
             })

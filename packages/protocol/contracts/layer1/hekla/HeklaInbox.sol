@@ -85,15 +85,15 @@ contract HeklaInbox is TaikoInbox {
             maxUnverifiedBatches: 324_000,
             // Never change this value as ring buffer is being reused!!!
             batchRingBufferSize: 324_512,
-            maxBatchesToVerify: 16,
+            maxBatchesToVerify: 8,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 50,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes

@@ -6,7 +6,6 @@ import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
     mapping(uint256 => bytes) private _batchMetadatas;
-    mapping(uint256 => bytes) private _batchInfos;
 
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
@@ -47,6 +46,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
+            address(0), //no wrapper
             pacayaConfig()
         );
 
@@ -89,29 +89,18 @@ abstract contract InboxTestBase is Layer1Test {
     // internal helper functions
     // -------------------------------------------------------------------
 
-    function _saveMetadataAndInfo(
-        ITaikoInbox.BatchMetadata memory _metadata,
-        ITaikoInbox.BatchInfo memory _info
-    )
-        internal
-    {
+    function _saveMetadata(ITaikoInbox.BatchMetadata memory _metadata) internal {
         _batchMetadatas[_metadata.batchId] = abi.encode(_metadata);
-        _batchInfos[_metadata.batchId] = abi.encode(_info);
     }
 
-    function _loadMetadataAndInfo(uint64 _batchId)
+    function _loadMetadata(uint64 _batchId)
         internal
         view
-        returns (ITaikoInbox.BatchMetadata memory meta_, ITaikoInbox.BatchInfo memory info_)
+        returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         bytes memory data = _batchMetadatas[_batchId];
         if (data.length != 0) {
             meta_ = abi.decode(data, (ITaikoInbox.BatchMetadata));
-        }
-
-        data = _batchInfos[_batchId];
-        if (data.length != 0) {
-            info_ = abi.decode(data, (ITaikoInbox.BatchInfo));
         }
     }
 
@@ -135,9 +124,9 @@ abstract contract InboxTestBase is Layer1Test {
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
-            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+            (ITaikoInbox.BatchMetadata memory meta,) =
                 inbox.proposeBatch(abi.encode(batchParams), txList);
-            _saveMetadataAndInfo(meta, info);
+            _saveMetadata(meta);
             batchIds[i] = meta.batchId;
         }
     }
@@ -147,7 +136,7 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
+            metas[i] = _loadMetadata(batchIds[i]);
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
@@ -161,7 +150,7 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
+            metas[i] = _loadMetadata(batchIds[i]);
             transitions[i].parentHash = randBytes32();
             transitions[i].blockHash = randBytes32();
             transitions[i].stateRoot = randBytes32();

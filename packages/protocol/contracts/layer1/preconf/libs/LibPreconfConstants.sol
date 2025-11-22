@@ -15,6 +15,7 @@ library LibPreconfConstants {
     uint256 internal constant SECONDS_IN_EPOCH = SECONDS_IN_SLOT * 32;
     uint256 internal constant TWO_EPOCHS = 2 * SECONDS_IN_EPOCH;
     uint256 internal constant DISPUTE_PERIOD = 2 * SECONDS_IN_EPOCH;
+    uint256 internal constant RANDOMNESS_DELAY_EPOCHS = 2;
 
     function getGenesisTimestamp(uint256 _chainid) internal pure returns (uint256) {
         if (_chainid == LibNetwork.ETHEREUM_MAINNET) {

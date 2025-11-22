@@ -18,12 +18,12 @@ contract MockTaikoInbox is EssentialContract {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     {
         // Decode the batch params
         ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
 
-        info_ = ITaikoInbox.BatchInfo({
+        ITaikoInbox.BatchInfo memory info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
@@ -31,7 +31,7 @@ contract MockTaikoInbox is EssentialContract {
             extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             gasLimit: 0, // Mock value
-            lastBlockId: 0,
+            lastBlockId: 100, // Mock value for lastBlockId
             lastBlockTimestamp: 0,
             proposedIn: uint64(block.number),
             blobCreatedIn: 0,
@@ -55,5 +55,6 @@ contract MockTaikoInbox is EssentialContract {
         });
 
         metaHash = keccak256(abi.encode(meta_));
+        lastBlockId_ = info_.lastBlockId;
     }
 }

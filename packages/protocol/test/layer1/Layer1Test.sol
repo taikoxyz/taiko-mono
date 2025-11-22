@@ -60,6 +60,7 @@ abstract contract Layer1Test is CommonTest {
         address _verifier,
         address _bondToken,
         address _signalService,
+        address _wrapper,
         ITaikoInbox.Config memory _config
     )
         internal
@@ -68,7 +69,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
+                impl: address(new ConfigurableInbox(_wrapper, _verifier, _bondToken, _signalService)),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )

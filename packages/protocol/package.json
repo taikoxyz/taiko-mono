@@ -53,7 +53,7 @@
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "risc0-ethereum": "github:risc0/risc0-ethereum#v2.0.0-rc.3",
+    "risc0-ethereum": "github:risc0/risc0-ethereum#v2.2.2",
     "solady": "github:Vectorized/solady#v0.0.231",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0"
   }
