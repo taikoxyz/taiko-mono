@@ -578,6 +578,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 		lastVerifiedBatchID = ts.BatchId
 	)
 
+	log.Info("Checking last verified block mismatch Pacaya", "lastVerifiedBatchID", lastVerifiedBatchID)
+
 	// If the current L2 chain is behind of the last verified block, we skip the check.
 	if s.state.GetL2Head().Number.Uint64() < ts.BlockId ||
 		(s.lastInsertedBatchID != nil && s.lastInsertedBatchID.Uint64() < ts.BlockId) {
@@ -655,6 +657,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 		reorgCheckResult    = new(rpc.ReorgCheckResult)
 		lastVerifiedBatchID = indexer.GetLastProposal().CoreState.LastFinalizedProposalId
 	)
+
+	log.Info("Checking last verified block mismatch Shasta", "lastVerifiedBatchID", lastVerifiedBatchID)
 
 	if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
 		return reorgCheckResult, nil
