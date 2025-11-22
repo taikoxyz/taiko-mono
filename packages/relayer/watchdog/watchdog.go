@@ -224,7 +224,7 @@ func (w *Watchdog) Start() error {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
-				slog.Error("processor queue subscription error", "err", err.Error())
+				slog.Error("watchdog queue subscription error", "err", err.Error())
 				return err
 			}
 
@@ -285,6 +285,7 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 // checkMessage checks a MessageReceived event message and makes sure
 // that the message was actually sent on the source chain. If it wasn't,
 // we send a suspend transaction.
+//nolint:funlen
 func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	msgBody := &queue.QueueMessageProcessedBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
@@ -332,7 +333,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause transaction reverted for bridge %s (status=%d)",
+				w.cfg.SrcBridgeAddress.Hex(),
+				pauseReceipt.Status,
+			)
 		}
 	}
 
@@ -354,7 +359,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause transaction reverted for bridge %s (status=%d)",
+				w.cfg.DestBridgeAddress.Hex(),
+				pauseReceipt.Status,
+			)
 		}
 	}
 
