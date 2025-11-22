@@ -254,8 +254,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	if len(p.hops) > 0 {
 		var hopEthClient = p.srcEthClient
 
-		var hopChainID *big.Int
-
 		for _, hop := range p.hops {
 			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
 
@@ -266,11 +264,9 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			blockNum = event.SyncedInBlockID
 
 			hopEthClient = hop.ethClient
-
-			hopChainID = hop.chainID
 		}
 
-		event, err := p.waitHeaderSynced(ctx, hopEthClient, hopChainID.Uint64(), blockNum)
+		event, err := p.waitHeaderSynced(ctx, hopEthClient, p.destChainId.Uint64(), blockNum)
 		if err != nil {
 			return nil, err
 		}
