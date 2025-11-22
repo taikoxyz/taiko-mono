@@ -26,10 +26,18 @@ var (
 		},
 		[]string{"address"},
 	)
+	l2Erc20BalanceGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "l2_erc20_balance",
+			Help: "ERC-20 token balance of addresses on L2",
+		},
+		[]string{"address"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(l1EthBalanceGauge)
 	prometheus.MustRegister(l2EthBalanceGauge)
 	prometheus.MustRegister(l1Erc20BalanceGauge)
+	prometheus.MustRegister(l2Erc20BalanceGauge)
 }
