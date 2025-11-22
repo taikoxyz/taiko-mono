@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/blobindexer-rs-v0.2.0...blobindexer-rs-v0.3.0) (2025-11-22)
+
+
+### Features
+
+* **taiko-client:** send lastBlockID from inserter to the API, separate pacaya/shasta ([#20667](https://github.com/taikoxyz/taiko-mono/issues/20667)) ([977bffb](https://github.com/taikoxyz/taiko-mono/commit/977bffb2a13c1c8080e5486a70a1fb0de33aa328))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/blobindexer-rs-v0.1.0...blobindexer-rs-v0.2.0) (2025-11-04)
 
 
