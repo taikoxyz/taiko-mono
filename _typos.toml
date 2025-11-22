@@ -12,6 +12,7 @@ extend-ignore-identifiers-re = [
   "groth",
   "GROTH",
   "TTKOt",
+  "Optaiko",
   "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
 ]
 

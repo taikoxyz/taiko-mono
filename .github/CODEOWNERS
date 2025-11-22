@@ -21,3 +21,7 @@
 /packages/ejector/**            @cyberhorsey @YoGhurt111 @davidtaikocha
 /packages/fork-diff/**          @cyberhorsey @YoGhurt111 @davidtaikocha @RogerLamTd
 /packages/geth-rpc-gateway/**   @cyberhorsey @YoGhurt111 @davidtaikocha
+
+# Optaiko
+/packages/optaiko/**            @dantaik
+
