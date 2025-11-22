@@ -26,7 +26,7 @@ use bindings::{
     i_inbox::IInbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
-use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
+use event_scanner::{EventFilter, Notification, ScannerMessage};
 use protocol::{
     shasta::codec_optimized::{decode_proposed_event, decode_proved_event},
     subscription_source::SubscriptionSource,
@@ -188,18 +188,18 @@ impl ShastaEventIndexer {
             trace!(?message, "received scanner message");
 
             let logs = match message {
-                ScannerMessage::Data(logs) => logs,
-                ScannerMessage::Error(err) => {
-                    error!(?err, "error receiving logs from event scanner");
-                    continue;
-                }
-                ScannerMessage::Status(status) => {
-                    info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::SwitchingToLive) &&
+                Ok(ScannerMessage::Data(logs)) => logs,
+                Ok(ScannerMessage::Notification(notification)) => {
+                    info!(?notification, "scanner notification");
+                    if notification == Notification::SwitchingToLive &&
                         !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
                     }
+                    continue;
+                }
+                Err(err) => {
+                    error!(?err, "error receiving logs from event scanner");
                     continue;
                 }
             };
