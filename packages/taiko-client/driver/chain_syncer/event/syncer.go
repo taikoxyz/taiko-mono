@@ -89,6 +89,7 @@ func NewSyncer(
 		),
 		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
 			client,
+			indexer,
 			progressTracker,
 			constructor,
 			latestSeenProposalCh,
