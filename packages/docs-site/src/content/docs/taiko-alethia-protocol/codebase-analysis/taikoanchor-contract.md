@@ -1,135 +1,152 @@
 ---
 title: TaikoAnchor
-description: Taiko Alethia protocol page for "TaikoAnchor.sol".
+description: Taiko Alethia protocol page for "Anchor.sol" in layer2/core.
 ---
 
-[TaikoAnchor](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **cross-layer state synchronization**, **gas pricing via EIP-1559**, and **bridging support**. It ensures L2 remains in sync with L1 and facilitates **secure message verification**.
+[Taiko Anchor](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/core/Anchor.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **L1 checkpoint anchoring**, **bond-based security and prover designation**, and **public input integrity via ancestor-hash computation**. It ensures L2 remains consistent with L1 checkpoints and facilitates secure verification primitives.
 
 ---
 
 ## Features
 
-- **Anchor L1 State to L2**: Ensures **L2 block validity** by referencing L1 state.
-- **EIP-1559 Gas Pricing**: Dynamically adjusts **base fees** and **gas targets** based on L1 data.
-- **Cross-Layer Bridging**: Enables **state root anchoring** for message verification between L1 and L2.
-- **Optimized Block Processing**: Ensures **gas-efficient state transitions**.
+- **L1 Checkpoint Anchoring**: Persists selected L1 block data (number, hash, state root) to L2 via `ICheckpointStore`.
+- **Bond-Based Security**: Processes cumulative bond instructions with integrity verification using `LibBonds` and `IBondManager`.
+- **Prover Designation (EIP-712)**: Validates designated prover via ECDSA signatures and transfers proving fees from proposer bonds when applicable.
+- **Ancestor Hash Integrity**: Computes previous/new ancestors hash (public inputs) over a 255-block ring buffer plus `chainid` to secure sequencing.
+- **Preconfirmation Metadata**: Stores per-block metadata required for slashing in permissionless preconfirmations.
 
 ---
 
 ## Contract Methods
 
-### `anchorV3`
+### `anchorV4(ProposalParams _proposalParams, BlockParams _blockParams)`
 
-Anchors the **latest L1 block details to L2** for cross-layer message verification.
+Processes a block within a proposal: designates prover (first block only), processes bond instructions, anchors L1 checkpoint data if fresher, updates ancestors hash, and emits `Anchored`.
 
-| Parameter          | Type                          | Description                             |
-| ------------------ | ----------------------------- | --------------------------------------- |
-| `_anchorBlockId`   | `uint64`                      | L1 block ID to anchor.                  |
-| `_anchorStateRoot` | `bytes32`                     | State root of the specified L1 block.   |
-| `_parentGasUsed`   | `uint32`                      | Gas used in the parent block.           |
-| `_baseFeeConfig`   | `LibSharedData.BaseFeeConfig` | Configuration for base fee calculation. |
-| `_signalSlots`     | `bytes32[]`                   | The signal slots to mark as received.   |
+- **Access control**: `onlyValidSender` (see Access Control) and `nonReentrant`.
 
-- Synchronizes chain data.
+| Parameter          | Type            | Description |
+| ------------------ | --------------- | ----------- |
+| `_proposalParams`  | `ProposalParams`| Proposal-level parameters (first block of a proposal updates state). |
+| `_blockParams`     | `BlockParams`   | Block-level parameters for anchoring and metadata. |
 
----
+#### `ProposalParams`
 
-### `getBasefeeV2`
+| Field                   | Type                         | Description |
+| ----------------------- | ---------------------------- | ----------- |
+| `submissionWindowEnd`   | `uint48`                     | End of preconfirmation submission window (0 for whitelist preconfs). |
+| `proposalId`            | `uint48`                     | Unique proposal identifier; must be monotonic. |
+| `proposer`              | `address`                    | Proposer address. |
+| `proverAuth`            | `bytes`                      | ABI-encoded `ProverAuth` for prover designation. |
+| `bondInstructionsHash`  | `bytes32`                    | Expected cumulative hash after processing bond instructions. |
+| `bondInstructions`      | `LibBonds.BondInstruction[]` | Bond credit instructions to process. |
 
-Calculates **EIP-1559 base fee** and updates gas parameters.
+#### `BlockParams`
 
-| Parameter        | Type      | Description                              |
-| ---------------- | --------- | ---------------------------------------- |
-| `_parentGasUsed` | `uint256` | Gas used in the parent block.            |
-| `_baseFeeConfig` | `uint256` | Configuration for EIP-1559 calculations. |
-
-**Returns**:
-
-| Return Value    | Type      | Description                |
-| --------------- | --------- | -------------------------- |
-| `basefee_`      | `uint256` | Computed base fee per gas. |
-| `newGasTarget_` | `uint256` | Updated gas target.        |
-| `newGasExcess_` | `uint256` | Updated gas excess.        |
-
-**Technical Details**:
-
-- Uses `LibEIP1559.calc1559BaseFee` to compute the **new base fee**.
-- Adjusts gas targets dynamically using `LibEIP1559.adjustExcess`.
+| Field               | Type      | Description |
+| ------------------- | --------- | ----------- |
+| `anchorBlockNumber` | `uint48`  | L1 block number to anchor (0 to skip). |
+| `anchorBlockHash`   | `bytes32` | L1 block hash at `anchorBlockNumber`. |
+| `anchorStateRoot`   | `bytes32` | L1 state root at `anchorBlockNumber`. |
+| `rawTxListHash`     | `bytes32` | Keccak256 of the block's unprocessed transaction list (0-bytes for whitelist preconfs). |
 
 ---
 
-### `getBlockHash`
+### `getDesignatedProver(uint48 _proposalId, address _proposer, bytes _proverAuth, address _currentDesignatedProver)`
 
-Retrieves the **block hash** for a given block ID.
+Determines the designated prover from an EIP-712 signed `ProverAuth`, considering bond sufficiency.
 
-| Parameter  | Type      | Description                  |
-| ---------- | --------- | ---------------------------- |
-| `_blockId` | `uint256` | ID of the block to retrieve. |
+| Returns                          | Type      | Description |
+| -------------------------------- | --------- | ----------- |
+| `isLowBondProposal_`             | `bool`    | True if proposer lacks sufficient bond for the proving fee. |
+| `designatedProver_`              | `address` | The designated prover (may remain proposer). |
+| `provingFeeToTransfer_`          | `uint256` | Fee to transfer from proposer bond to the prover. |
 
-**Returns**:
+---
 
-| Return Value | Type      | Description                  |
-| ------------ | --------- | ---------------------------- |
-| `blockHash_` | `bytes32` | Hash of the requested block. |
+### `validateProverAuth(uint48 _proposalId, address _proposer, bytes _proverAuth)`
 
-**Technical Note**:
+Validates and recovers signer from `ProverAuth` (EIP-712). Returns `(signer_, provingFee_)` where `signer_` is `proposer` on validation failure.
 
-- If the block is older than **256 blocks**, `_blockhashes` mapping is used instead of `blockhash()`.
+---
+
+### `getProposalState()` / `getBlockState()` / `getPreconfMetadata(uint256 _blockNumber)`
+
+- `getProposalState()` returns `ProposalState { bondInstructionsHash, designatedProver, isLowBondProposal, proposalId }`.
+- `getBlockState()` returns `BlockState { anchorBlockNumber, ancestorsHash }`.
+- `getPreconfMetadata(_blockNumber)` returns `PreconfMetadata { anchorBlockNumber, submissionWindowEnd, parentSubmissionWindowEnd, rawTxListHash, parentRawTxListHash }` and reverts if `_blockNumber` is invalid.
+
+---
+
+### `blockHashes(uint256) -> bytes32`
+
+Public mapping of stored parent block hashes, updated during `anchorV4` for `block.number - 1`.
+
+---
+
+### `withdraw(address _token, address _to)`
+
+Withdraws Ether (`_token == address(0)`) or ERC20 tokens to `_to`. Emits `Withdrawn`.
 
 ---
 
 ## Events
 
-### `Anchored`
+### `Anchored(bytes32 bondInstructionsHash, address designatedProver, bool isLowBondProposal, bool isNewProposal, uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)`
 
-Emitted when **L1 block details** are successfully anchored to L2.
-
-| Parameter         | Type      | Description                                |
-| ----------------- | --------- | ------------------------------------------ |
-| `parentHash`      | `bytes32` | Hash of the parent block.                  |
-| `parentGasExcess` | `uint256` | Gas excess used for base fee calculations. |
+Emitted on each processed block to record proposal-level and block-level state, including ancestors hash and latest anchored L1 block number.
 
 ---
 
-### `EIP1559Update`
+### `Withdrawn(address token, address to, uint256 amount)`
 
-Emitted when **gas parameters** are updated.
-
-| Parameter      | Type      | Description          |
-| -------------- | --------- | -------------------- |
-| `oldGasTarget` | `uint256` | Previous gas target. |
-| `newGasTarget` | `uint256` | Updated gas target.  |
-| `oldGasExcess` | `uint256` | Previous gas excess. |
-| `newGasExcess` | `uint256` | Updated gas excess.  |
-| `basefee`      | `uint256` | Computed base fee.   |
+Emitted on successful withdrawal of Ether or tokens from the contract.
 
 ---
 
 ## State Variables
 
-| Variable          | Type      | Description                                                |
-| ----------------- | --------- | ---------------------------------------------------------- |
-| `publicInputHash` | `bytes32` | Ensures integrity of public inputs for block verification. |
-| `parentGasExcess` | `uint256` | Tracks gas usage exceeding the target for fee adjustments. |
-| `lastSyncedBlock` | `uint256` | Stores the **most recent** L1 block ID synced with L2.     |
-| `l1ChainId`       | `uint256` | Chain ID of **L1** (Ethereum).                             |
-| `parentTimeStamp` | `uint64`  | The last L2 block's timestamp.                             |
-| `parentGasTarget` | `uint64`  | The last L2 block's gas target.                            |
+- **Immutables**
+  - `bondManager: IBondManager`
+  - `checkpointStore: ICheckpointStore`
+  - `livenessBond: uint256`
+  - `provabilityBond: uint256`
+  - `l1ChainId: uint64`
+
+- **Public mapping**
+  - `blockHashes(uint256 blockNumber) -> bytes32 blockHash`
+
+- **Internal state**
+  - `_proposalState: ProposalState { bondInstructionsHash, designatedProver, isLowBondProposal, proposalId }`
+  - `_blockState: BlockState { anchorBlockNumber, ancestorsHash }`
+  - `_preconfMetadata: mapping(uint256 => PreconfMetadata)`
+  - `_pacayaSlots: uint256[3]` (legacy storage layout for Pacaya anchor slots; not user-facing)
 
 ---
 
 ## Design Considerations
 
-1. **State Synchronization**
-   - Ensures **L1-L2 consistency** via **anchoring**.
-   - Uses **public input hash validation** to prevent state mismatches.
+1. **Checkpoint Freshness**
+   - Saves checkpoints only when a strictly newer `anchorBlockNumber` is provided.
 
-2. **Gas Efficiency**
-   - Implements **EIP-1559 dynamic gas pricing**.
-   - Optimizes **L2 execution costs** based on **L1 gas usage**.
+2. **Bond Instruction Integrity**
+   - Aggregates `LibBonds.BondInstruction` entries and enforces `bondInstructionsHash` equality after processing.
 
-3. **Bridging & Interoperability**
-   - Stores **verified state roots** to facilitate **cross-layer message verification**.
-   - Ensures compatibility with **bridging mechanisms**.
+3. **Prover Designation & Fees**
+   - EIP-712 `ProverAuth` signature validation; proving fee debited from proposer bond and credited to designated prover when applicable.
+
+4. **Ancestors Hash Computation**
+   - Computes previous/new public input hashes using a 255-slot ring buffer of historical block hashes plus `chainid`.
+
+5. **Preconfirmation Metadata**
+   - Stores per-block metadata used for slashing checks in permissionless preconfs.
+
+---
+
+## Access Control & Limits
+
+- **onlyValidSender**: `anchorV4` can only be called by `GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec`.
+- **nonReentrant**: `anchorV4` is protected by reentrancy guard.
+- **Gas limit**: Implementations must enforce `ANCHOR_GAS_LIMIT = 1_000_000` for anchor transactions.
 
 ---
