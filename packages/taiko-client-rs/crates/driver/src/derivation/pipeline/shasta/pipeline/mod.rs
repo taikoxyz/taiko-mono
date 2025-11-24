@@ -19,7 +19,7 @@ use bindings::{
         IInbox::{DerivationSource, ProposedEventPayload},
         LibBonds::BondInstruction as CodecBondInstruction,
     },
-    i_inbox::IInbox::Proposed,
+    inbox::Inbox::Proposed,
 };
 use metrics::{counter, gauge};
 use protocol::shasta::{

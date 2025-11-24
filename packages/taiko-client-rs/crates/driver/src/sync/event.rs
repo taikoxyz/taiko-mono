@@ -11,7 +11,7 @@ use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
-use bindings::{anchor::Anchor::anchorV4Call, i_inbox::IInbox::Proposed};
+use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
