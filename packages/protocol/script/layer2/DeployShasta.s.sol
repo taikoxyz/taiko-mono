@@ -32,16 +32,39 @@ contract DeployShasta is BaseScript {
     /// @dev Load config from env vars.
     function _loadConfig() private view returns (Config memory config) {
         config.anchorProxy = LibL2Addrs.ANCHOR;
+        console2.log("anchorProxy:", config.anchorProxy);
+
         config.signalServiceProxy = LibL2Addrs.SIGNAL_SERVICE;
+        console2.log("signalServiceProxy:", config.signalServiceProxy);
+
         config.remoteSignalService = LibL1Addrs.SIGNAL_SERVICE;
+        console2.log("remoteSignalService:", config.remoteSignalService);
+
         config.bondToken = LibL2Addrs.TAIKO_TOKEN;
+        console2.log("bondToken:", config.bondToken);
+
         config.l1ChainId = 1;
+        console2.log("l1ChainId:", config.l1ChainId);
 
         config.minBond = vm.envUint("MIN_BOND");
+        require(config.minBond > 0, "MIN_BOND not set");
+        console2.log("minBond:", config.minBond);
+
         config.withdrawalDelay = uint48(vm.envUint("WITHDRAWAL_DELAY"));
+        require(config.withdrawalDelay > 0, "WITHDRAWAL_DELAY not set");
+        console2.log("withdrawalDelay:", config.withdrawalDelay);
+
         config.livenessBond = vm.envUint("LIVENESS_BOND");
+        require(config.livenessBond > 0, "LIVENESS_BOND not set");
+        console2.log("livenessBond:", config.livenessBond);
+
         config.provabilityBond = vm.envUint("PROVABILITY_BOND");
+        require(config.provabilityBond > 0, "PROVABILITY_BOND not set");
+        console2.log("provabilityBond:", config.provabilityBond);
+
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
+        require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
+        console2.log("shastaForkTimestamp:", config.shastaForkTimestamp);
     }
 
     /// @notice Entry point: deploy new anchor fork router impl first, then signal service impl.
@@ -55,54 +78,61 @@ contract DeployShasta is BaseScript {
     /// @dev Deploys a new BondManager (as proxy) and Anchor impl, wraps with fork router.
     /// Caller should execute proxy upgrade separately if desired.
     function _deployAnchor(Config memory config) private {
-        Anchor anchor = Anchor(config.anchorProxy);
-        address currentImpl = anchor.impl();
-        address owner = anchor.owner();
+        Anchor anchorProxy = Anchor(config.anchorProxy);
 
-        BondManager bondManagerImpl = new BondManager(
-            config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
+        address anchorOldImpl = anchorProxy.impl();
+        console2.log("anchorOldImpl:", anchorOldImpl);
+
+        address owner = anchorProxy.owner();
+        console2.log("anchor owner:", owner);
+
+        address bondManagerImpl = address(
+            new BondManager(
+                config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
+            )
         );
+        console2.log("bondManagerImpl deployed:", address(bondManagerImpl));
+
         address bondManagerProxy = deploy({
             name: "shasta_bond_manager",
-            impl: address(bondManagerImpl),
+            impl: bondManagerImpl,
             data: abi.encodeCall(BondManager.init, (owner))
         });
+        console2.log("bondManagerProxy deployed:", bondManagerProxy);
 
         // Fresh BondManager + Anchor impl configured from env.
-        Anchor newImpl = new Anchor(
-            ICheckpointStore(config.signalServiceProxy),
-            BondManager(bondManagerProxy),
-            config.livenessBond,
-            config.provabilityBond,
-            config.l1ChainId,
-            owner
+        address anchorNewImpl = address(
+            new Anchor(
+                ICheckpointStore(config.signalServiceProxy),
+                BondManager(bondManagerProxy),
+                config.livenessBond,
+                config.provabilityBond,
+                config.l1ChainId
+            )
         );
+        console2.log("anchorNewImpl deployed:", address(anchorNewImpl));
 
-        AnchorForkRouter router = new AnchorForkRouter(currentImpl, address(newImpl));
-
-        console2.log("Deploy anchor proxy:", config.anchorProxy);
-        console2.log("Current implementation:", currentImpl);
-        console2.log("New implementation:", address(newImpl));
-        console2.log("BondManager proxy:", bondManagerProxy);
-        console2.log("BondManager implementation:", address(bondManagerImpl));
-        console2.log("Fork router implementation:", address(router));
+        address anchorForkRouter = address(new AnchorForkRouter(anchorOldImpl, anchorNewImpl));
+        console2.log("anchorForkRouter deployed:", anchorForkRouter);
     }
 
     /// @dev Deploys a new SignalService impl, wraps with fork router.
     /// Caller should execute proxy upgrade separately if desired.
     function _deploySignalService(Config memory config) private {
-        SignalService newSignalServiceImpl =
-            new SignalService(config.anchorProxy, config.remoteSignalService);
+        console2.log("signalServiceOldImpl:", SignalService(config.signalServiceProxy).impl());
 
-        SignalServiceForkRouter router = new SignalServiceForkRouter(
-            SignalService(config.signalServiceProxy).impl(),
-            address(newSignalServiceImpl),
-            config.shastaForkTimestamp
+        address signalServiceNewImpl =
+            address(new SignalService(config.anchorProxy, config.remoteSignalService));
+        console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
+
+        address signalServiceRouter = address(
+            new SignalServiceForkRouter(
+                SignalService(config.signalServiceProxy).impl(),
+                signalServiceNewImpl,
+                config.shastaForkTimestamp
+            )
         );
 
-        console2.log("Deploy SignalService proxy:", config.signalServiceProxy);
-        console2.log("Current implementation:", SignalService(config.signalServiceProxy).impl());
-        console2.log("New implementation:", address(newSignalServiceImpl));
-        console2.log("Fork router implementation:", address(router));
+        console2.log("signalServiceForkRouter deployed:", signalServiceRouter);
     }
 }
