@@ -271,18 +271,18 @@ where
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
-                ScannerMessage::Data(logs) => {
+                Ok(ScannerMessage::Data(logs)) => {
                     counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
                     counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
                     logs
                 }
-                ScannerMessage::Error(err) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "error receiving proposal logs from event scanner");
+                Ok(ScannerMessage::Notification(notification)) => {
+                    info!(?notification, "event scanner notification");
                     continue;
                 }
-                ScannerMessage::Status(status) => {
-                    info!(?status, "event scanner status update");
+                Err(err) => {
+                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                    error!(?err, "error receiving proposal logs from event scanner");
                     continue;
                 }
             };

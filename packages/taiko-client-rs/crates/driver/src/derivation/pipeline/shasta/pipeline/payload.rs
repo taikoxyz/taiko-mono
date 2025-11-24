@@ -182,6 +182,68 @@ impl<P> ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
 {
+    /// Resolve the hash of the last finalized proposal's block if available.
+    ///
+    /// Errors are logged but never propagated so payload application can proceed even when the
+    /// mapping is unavailable.
+    async fn finalized_block_hash_for(&self, last_finalized_proposal_id: u64) -> Option<B256> {
+        if last_finalized_proposal_id == 0 {
+            return None;
+        }
+
+        let block_number = match self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(last_finalized_proposal_id))
+            .await
+        {
+            Ok(Some(block_id)) => block_id.to::<u64>(),
+            Ok(None) => {
+                debug!(
+                    proposal_id = last_finalized_proposal_id,
+                    "no batch-to-block mapping for finalized proposal id"
+                );
+                return None;
+            }
+            Err(err) => {
+                warn!(
+                    proposal_id = last_finalized_proposal_id,
+                    error = %err,
+                    "failed to query finalized proposal block id"
+                );
+                return None;
+            }
+        };
+
+        match self.rpc.l2_provider.get_block_by_number(BlockNumberOrTag::Number(block_number)).await
+        {
+            Ok(Some(block)) => {
+                debug!(
+                    proposal_id = last_finalized_proposal_id,
+                    block_number,
+                    block_hash = ?block.header.hash,
+                    "resolved finalized block hash from proposal core state"
+                );
+                Some(block.header.hash)
+            }
+            Ok(None) => {
+                warn!(
+                    proposal_id = last_finalized_proposal_id,
+                    block_number, "missing block for finalized proposal id"
+                );
+                None
+            }
+            Err(err) => {
+                warn!(
+                    proposal_id = last_finalized_proposal_id,
+                    block_number,
+                    error = %err,
+                    "failed to fetch finalized block by number"
+                );
+                None
+            }
+        }
+    }
+
     /// Process all manifest segments in order, materialising blocks via the execution engine.
     #[instrument(
         skip(self, sources, state, applier),
@@ -197,6 +259,10 @@ where
         // Each source can expand into multiple payloads; accumulate their engine outcomes in order.
         let segments_total = sources.len();
         let mut outcomes = Vec::new();
+        // Best-effort lookup of the last finalized block hash; missing data should not block
+        // payload application.
+        let finalized_block_hash =
+            self.finalized_block_hash_for(meta.last_finalized_proposal_id).await;
         info!(
             proposal_id = meta.proposal_id,
             segment_count = segments_total,
@@ -204,8 +270,15 @@ where
         );
         for (segment_index, segment) in sources.into_iter().enumerate() {
             let segment_ctx = SegmentContext { meta, segment_index, segments_total };
-            let segment_outcomes =
-                self.process_manifest_segment(segment, state, segment_ctx, applier).await?;
+            let segment_outcomes = self
+                .process_manifest_segment(
+                    segment,
+                    state,
+                    segment_ctx,
+                    applier,
+                    finalized_block_hash,
+                )
+                .await?;
 
             outcomes.extend(segment_outcomes);
         }
@@ -302,6 +375,7 @@ where
         state: &mut ParentState,
         ctx: SegmentContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
+        finalized_block_hash: Option<B256>,
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let SegmentContext { meta, segment_index, segments_total } = ctx;
         let SourceManifestSegment { manifest, is_forced_inclusion } = segment;
@@ -332,7 +406,9 @@ where
                 },
                 is_low_bond_proposal,
             };
-            let outcome = self.process_block_manifest(block, state, block_ctx, applier).await?;
+            let outcome = self
+                .process_block_manifest(block, state, block_ctx, applier, finalized_block_hash)
+                .await?;
             outcomes.push(outcome);
         }
 
@@ -356,6 +432,7 @@ where
         state: &mut ParentState,
         ctx: BlockContext<'_>,
         applier: &(dyn PayloadApplier + Send + Sync),
+        finalized_block_hash: Option<B256>,
     ) -> Result<EngineBlockOutcome, DerivationError> {
         let BlockContext { meta, .. } = ctx;
         let derived_block = self.prepare_block(block, state, ctx).await?;
@@ -367,7 +444,7 @@ where
             ..
         } = derived_block;
 
-        let applied = applier.apply_payload(&payload, parent_hash).await?;
+        let applied = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
         let header = applied.outcome.block.header.clone().into_consensus();
         *state = state.advance(header, block.anchor_block_number, bond_instructions_hash)?;
 
