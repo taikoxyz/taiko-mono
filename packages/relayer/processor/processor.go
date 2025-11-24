@@ -33,6 +33,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -220,12 +221,27 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		})
 	}
 
-	srcSignalService, err := signalservice.NewSignalService(
-		cfg.SrcSignalServiceAddress,
-		srcEthClient,
-	)
-	if err != nil {
-		return err
+	var srcSignalService relayer.SignalService
+
+	switch {
+	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
+		srcSignalService, err = v4signalservice.NewSignalService(
+			cfg.SrcSignalServiceForkRouterAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
+		srcSignalService, err = signalservice.NewSignalService(
+			cfg.SrcSignalServiceAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("srcSignalService address not provided")
 	}
 
 	destERC20Vault, err := erc20vault.NewERC20Vault(
@@ -354,6 +370,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
+	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
+		p.srcSignalServiceAddress = cfg.SrcSignalServiceForkRouterAddress
+	}
 
 	p.msgCh = make(chan queue.Message)
 	p.srcCaller = srcRpcClient

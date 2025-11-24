@@ -298,13 +298,18 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
-		latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
-			ctx,
-			p.destChainId.Uint64(),
-			p.srcChainId.Uint64(),
-		)
+		latestBlockID, err := p.latestSyncedBlockID(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
 		if err != nil {
 			return nil, err
+		}
+
+		if latestBlockID == 0 {
+			latestBlockID = blockNum
+			slog.Warn("no synced header found; using message block number",
+				"fallbackBlockNum", latestBlockID,
+				"srcChainId", p.srcChainId.Uint64(),
+				"destChainId", p.destChainId.Uint64(),
+			)
 		}
 
 		hops = append(hops, proof.HopParams{

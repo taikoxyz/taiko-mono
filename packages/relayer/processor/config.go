@@ -34,13 +34,14 @@ type hopConfig struct {
 // Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
-	SrcSignalServiceAddress common.Address
-	DestBridgeAddress       common.Address
-	DestERC721VaultAddress  common.Address
-	DestERC20VaultAddress   common.Address
-	DestERC1155VaultAddress common.Address
-	DestTaikoAddress        common.Address
-	DestQuotaManagerAddress common.Address
+	SrcSignalServiceAddress           common.Address
+	SrcSignalServiceForkRouterAddress common.Address
+	DestBridgeAddress                 common.Address
+	DestERC721VaultAddress            common.Address
+	DestERC20VaultAddress             common.Address
+	DestERC1155VaultAddress           common.Address
+	DestTaikoAddress                  common.Address
+	DestQuotaManagerAddress           common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
@@ -141,6 +142,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
 		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		SrcSignalServiceForkRouterAddress:  common.HexToAddress(c.String(flags.SrcSignalServiceForkRouterAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:                  common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
