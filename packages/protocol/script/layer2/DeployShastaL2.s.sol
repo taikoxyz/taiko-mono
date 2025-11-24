@@ -86,9 +86,11 @@ contract DeployShasta is BaseScript {
         address owner = anchorProxy.owner();
         console2.log("anchor owner:", owner);
 
-        address bondManagerImpl = address(new BondManager(
-            config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
-        ));
+        address bondManagerImpl = address(
+            new BondManager(
+                config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
+            )
+        );
         console2.log("bondManagerImpl deployed:", address(bondManagerImpl));
 
         address bondManagerProxy = deploy({
@@ -118,14 +120,16 @@ contract DeployShasta is BaseScript {
         console2.log("signalServiceOldImpl:", SignalService(config.signalServiceProxy).impl());
 
         address signalServiceNewImpl =
-           address(  new SignalService(config.anchorProxy, config.remoteSignalService));
-           console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
+            address(new SignalService(config.anchorProxy, config.remoteSignalService));
+        console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
 
-    address    signalServiceRouter =address( new SignalServiceForkRouter(
-            SignalService(config.signalServiceProxy).impl(),
-            signalServiceNewImpl,
-            config.shastaForkTimestamp
-        ));
+        address signalServiceRouter = address(
+            new SignalServiceForkRouter(
+                SignalService(config.signalServiceProxy).impl(),
+                signalServiceNewImpl,
+                config.shastaForkTimestamp
+            )
+        );
 
         console2.log("signalServiceForkRouter deployed:", signalServiceRouter);
     }

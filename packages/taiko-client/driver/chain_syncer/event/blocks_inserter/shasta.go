@@ -20,12 +20,14 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Shasta is responsible for inserting Shasta blocks to the L2 execution engine.
 type Shasta struct {
 	rpc                  *rpc.Client
+	indexer              *shastaIndexer.Indexer
 	progressTracker      *beaconsync.SyncProgressTracker
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor
@@ -35,12 +37,14 @@ type Shasta struct {
 // NewBlocksInserterShasta creates a new Shasta instance.
 func NewBlocksInserterShasta(
 	rpc *rpc.Client,
+	indexer *shastaIndexer.Indexer,
 	progressTracker *beaconsync.SyncProgressTracker,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) *Shasta {
 	return &Shasta{
 		rpc:                  rpc,
+		indexer:              indexer,
 		progressTracker:      progressTracker,
 		anchorConstructor:    anchorConstructor,
 		latestSeenProposalCh: latestSeenProposalCh,
@@ -85,10 +89,22 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"invalidManifest", sourcePayload.Default,
 	)
 
+	latestVerifiedTransition := i.indexer.
+		GetTransitionRecordByProposalID(meta.GetCoreState().
+			LastFinalizedProposalId.Uint64())
+
 	var (
-		parent          = sourcePayload.ParentBlock.Header()
-		lastPayloadData *engine.ExecutableData
+		parent              = sourcePayload.ParentBlock.Header()
+		lastPayloadData     *engine.ExecutableData
+		batchSafeCheckpoint *verifiedCheckpoint
 	)
+
+	if latestVerifiedTransition != nil {
+		batchSafeCheckpoint = &verifiedCheckpoint{
+			BlockID:   new(big.Int).Set(latestVerifiedTransition.Transition.Checkpoint.BlockNumber),
+			BlockHash: latestVerifiedTransition.Transition.Checkpoint.BlockHash,
+		}
+	}
 
 	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
@@ -175,6 +191,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 			&createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
 				Parent:                          parent,
+				VerifiedCheckpoint:              batchSafeCheckpoint,
 			},
 			anchorTx,
 		); err != nil {

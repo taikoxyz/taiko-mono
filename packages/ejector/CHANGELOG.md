@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.0...ejector-v0.1.1) (2025-11-21)
+
+
+### Bug Fixes
+
+* **ejector:** lowercase addresses before metrics init ([#20796](https://github.com/taikoxyz/taiko-mono/issues/20796)) ([3661d09](https://github.com/taikoxyz/taiko-mono/commit/3661d0990243e7cdab7fcba76dd943694420d228))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.0...ejector-v0.1.0) (2025-11-04)
 
 

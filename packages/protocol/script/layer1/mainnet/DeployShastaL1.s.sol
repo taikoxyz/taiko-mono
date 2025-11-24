@@ -12,7 +12,6 @@ import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 
-
 /// @title DeployShastaL1
 /// @notice This deployment script deploys the following contracts:
 /// - CodecOptimized (L1 codec used by the inbox)
@@ -36,7 +35,7 @@ contract DeployShastaL1 is BaseScript {
     /// @dev Loads config from env vars.
     function _loadConfig() private view returns (Config memory c) {
         // proofVerifier will be deployed in a separated script, should be 100% zk.
-        c.proofVerifier = vm.envAddress("PROOF_VERIFIER"); 
+        c.proofVerifier = vm.envAddress("PROOF_VERIFIER");
         require(c.proofVerifier != address(0), "PROOF_VERIFIER not set");
         console2.log("proofVerifier:", c.proofVerifier);
 
@@ -55,7 +54,6 @@ contract DeployShastaL1 is BaseScript {
 
         c.signalServiceOldImpl = SignalService(LibL1Addrs.SIGNAL_SERVICE).impl();
         console2.log("signalServiceOldImpl:", c.signalServiceOldImpl);
-
     }
 
     function run() external broadcast {
@@ -74,10 +72,13 @@ contract DeployShastaL1 is BaseScript {
 
     /// @dev Deploys SignalService implementation and fork router, initializes router storage.
     function _deploySignalServiceFork(Config memory config, address inboxProxy) private {
-        address signalServiceNewImpl = address(new SignalService(inboxProxy, config.remoteSignalService));
-        address signalServiceForkRouter = address(new SignalServiceForkRouter(
-            config.signalServiceOldImpl, signalServiceNewImpl, config.shastaForkTimestamp
-        ));
+        address signalServiceNewImpl =
+            address(new SignalService(inboxProxy, config.remoteSignalService));
+        address signalServiceForkRouter = address(
+            new SignalServiceForkRouter(
+                config.signalServiceOldImpl, signalServiceNewImpl, config.shastaForkTimestamp
+            )
+        );
 
         console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
         console2.log("signalServiceForkRouter deployed:", signalServiceForkRouter);
@@ -88,7 +89,8 @@ contract DeployShastaL1 is BaseScript {
         address codec = address(new CodecOptimized());
         console2.log("CodecOptimized deployed:", codec);
 
-        address mainnetInboxImpl = address(new MainnetInbox(codec, config.proofVerifier, config.proposerChecker));
+        address mainnetInboxImpl =
+            address(new MainnetInbox(codec, config.proofVerifier, config.proposerChecker));
         console2.log("mainnetInboxImpl deploeyd:", mainnetInboxImpl);
 
         address mainnetInboxProxy = deploy({
@@ -102,6 +104,5 @@ contract DeployShastaL1 is BaseScript {
 
         console2.log("mainnetInboxProxy deployed:", mainnetInboxProxy);
         console2.log("mainnetInboxProxy owner():", MainnetInbox(proxy).owner());
-       
     }
 }

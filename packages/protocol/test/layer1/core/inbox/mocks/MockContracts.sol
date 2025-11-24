@@ -28,7 +28,9 @@ contract MockProofVerifier is ComposeVerifier {
         // Always accept
     }
 
-    function areVerifiersSufficient(address[] memory /*_verifiers*/)
+    function areVerifiersSufficient(
+        address[] memory /*_verifiers*/
+    )
         internal
         pure
         override
