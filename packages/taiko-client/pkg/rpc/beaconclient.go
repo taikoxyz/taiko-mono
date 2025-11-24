@@ -20,6 +20,7 @@ var (
 	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
 	genesisRequestURL  = "/eth/v1/beacon/genesis"
 	getConfigSpecPath  = "/eth/v1/config/spec"
+	beaconBlockBySlot  = "/eth/v2/beacon/blocks/%d"
 )
 
 // ConfigSpec is the config spec of the beacon node.
@@ -32,6 +33,22 @@ type ConfigSpec struct {
 type GenesisResponse struct {
 	Data struct {
 		GenesisTime string `json:"genesis_time"`
+	} `json:"data"`
+}
+
+// beaconBlockResponse is the response from the beacon node for fetching a beacon block.
+type beaconBlockResponse struct {
+	Data struct {
+		Message struct {
+			Body struct {
+				ExecutionPayload *struct {
+					BlockNumber string `json:"block_number"`
+				} `json:"execution_payload"`
+				ExecutionPayloadHeader *struct {
+					BlockNumber string `json:"block_number"`
+				} `json:"execution_payload_header"`
+			} `json:"body"`
+		} `json:"message"`
 	} `json:"data"`
 }
 
@@ -140,6 +157,50 @@ func (c *BeaconClient) SlotInEpoch() uint64 {
 
 func (c *BeaconClient) TimestampOfSlot(slot uint64) uint64 {
 	return c.genesisTime + slot*c.SecondsPerSlot
+}
+
+// ExecutionBlockNumberByTimestamp returns the execution layer block number whose timestamp is
+// greater than or equal to the provided timestamp by walking backwards through beacon slots.
+func (c *BeaconClient) ExecutionBlockNumberByTimestamp(ctx context.Context, timestamp uint64) (uint64, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	slot, err := c.timeToSlot(timestamp)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert timestamp to slot: %w", err)
+	}
+
+	return c.executionBlockNumberBySlot(ctxWithTimeout, slot)
+}
+
+// executionBlockNumberBySlot fetches the execution block number for a specific beacon slot.
+func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint64) (uint64, error) {
+	body, err := c.Get(ctx, c.BaseURL().Path+fmt.Sprintf(beaconBlockBySlot, slot))
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch beacon block for slot %d: %w", slot, err)
+	}
+
+	var resp beaconBlockResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal beacon block response for slot %d: %w", slot, err)
+	}
+
+	var blockNumberStr string
+	switch {
+	case resp.Data.Message.Body.ExecutionPayload != nil:
+		blockNumberStr = resp.Data.Message.Body.ExecutionPayload.BlockNumber
+	case resp.Data.Message.Body.ExecutionPayloadHeader != nil:
+		blockNumberStr = resp.Data.Message.Body.ExecutionPayloadHeader.BlockNumber
+	default:
+		return 0, client.ErrNotFound
+	}
+
+	blockNumber, err := strconv.ParseUint(blockNumberStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse execution block number: %w", err)
+	}
+
+	return blockNumber, nil
 }
 
 // getConfigSpec retrieve the current configs of the network used by the beacon node.

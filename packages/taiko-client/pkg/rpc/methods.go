@@ -1115,12 +1115,51 @@ func (c *Client) CalculateBaseFeePacaya(
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		// NOTE: for Shasta genesis height, we return 0 directly.
-		// TODO: Maybe we should hardcode the Shasta genesis height in the client config.
-		return common.Big0, nil
+		return c.getShastaActivationBlockNumber(ctx)
 	}
 
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
+}
+
+// getShastaActivationBlockNumber resolves the L1 block number when the Shasta inbox was activated.
+func (c *Client) getShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	activationTimestamp, err := c.ShastaClients.Inbox.ActivationTimestamp(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Shasta activation timestamp: %w", err)
+	}
+
+	// If activation timestamp is zero, returns zero block number.
+	if activationTimestamp.Cmp(common.Big0) == 0 {
+		return common.Big0, nil
+	}
+
+	// Fetch the L1 block number by the activation timestamp.
+	blockNumber, err := c.blockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve Shasta activation block number: %w", err)
+	}
+
+	return blockNumber, nil
+}
+
+// blockNumberByTimestamp finds the L1 block number by the given timestamp.
+func (c *Client) blockNumberByTimestamp(ctx context.Context, timestamp uint64) (*big.Int, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	if c.L1Beacon == nil {
+		return common.Big0, nil
+	}
+
+	blockNumber, err := c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch L1 block number by timestamp %d: %w", timestamp, err)
+	}
+
+	return new(big.Int).SetUint64(blockNumber), nil
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
