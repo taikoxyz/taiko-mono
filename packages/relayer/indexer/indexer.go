@@ -439,10 +439,12 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
-				// we also want to index chain data synced events.
-				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
-					slog.Error("i.indexChainDataSyncedEvents", "error", err)
-					relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
+				if i.signalService != nil {
+					// we also want to index chain data synced events.
+					if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
+						slog.Error("i.indexChainDataSyncedEvents", "error", err)
+						relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
+					}
 				}
 
 				if i.signalServiceV2 != nil {
