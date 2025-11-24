@@ -401,6 +401,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+
 	if cfg.ForkWindowSeconds > 0 {
 		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
 	}

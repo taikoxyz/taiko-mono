@@ -24,6 +24,7 @@ func TestWaitHeaderSyncedUsesChainDataSynced(t *testing.T) {
 	if err != nil {
 		t.Fatalf("waitHeaderSynced err: %v", err)
 	}
+
 	if ev == nil || ev.ChainID != mock.MockChainID.Int64() {
 		t.Fatalf("unexpected event: %#v", ev)
 	}
@@ -39,6 +40,7 @@ func TestLatestSyncedBlockIDPrefersCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("latestSyncedBlockID err: %v", err)
 	}
+
 	if blockID != 5 {
 		t.Fatalf("expected 5, got %d", blockID)
 	}
@@ -54,6 +56,7 @@ func TestFindSyncedEventUsesBothSources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("findSyncedEvent err: %v", err)
 	}
+
 	if ev == nil || ev.ChainID != mock.MockChainID.Int64() {
 		t.Fatalf("unexpected event: %#v", ev)
 	}
