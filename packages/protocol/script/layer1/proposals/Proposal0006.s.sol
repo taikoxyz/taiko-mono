@@ -10,10 +10,10 @@ import "../governance/BuildProposal.sol";
 // below, and generate `Proposal0006.action.md`.
 contract Proposal0006 is BuildProposal {
     // TODO: update these addresses after deployment.
-    address public constant L1_SIGNAL_SERVICE_FORK_ROUTER_NEW_IMPL =
+    address public constant L1_SIGNAL_SERVICE_FORK_ROUTER =
         0x0000000000000000000000000000000000000000;
     address public constant L1_PRECONF_WHITELIST_NEW_IMPL = 0x0000000000000000000000000000000000000000;
-    address public constant L2_SIGNAL_SERVICE_FORK_ROUTER_NEW_IMPL =
+    address public constant L2_SIGNAL_SERVICE_FORK_ROUTER=
         0x0000000000000000000000000000000000000000;
     address public constant L2_ANCHOR_FORK_ROUTER_NEW_IMPL =
         0x0000000000000000000000000000000000000000;
@@ -21,7 +21,7 @@ contract Proposal0006 is BuildProposal {
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](2);
 
-        actions[0] = buildUpgradeAction(L1.SIGNAL_SERVICE, L1_SIGNAL_SERVICE_FORK_ROUTER_NEW_IMPL);
+        actions[0] = buildUpgradeAction(L1.SIGNAL_SERVICE, L1_SIGNAL_SERVICE_FORK_ROUTER);
         actions[1] = buildUpgradeAction(L1.PRECONF_WHITELIST, L1_PRECONF_WHITELIST_NEW_IMPL);
     }
 
@@ -38,7 +38,7 @@ contract Proposal0006 is BuildProposal {
         actions = new Controller.Action[](2);
 
         actions[0] =
-            buildUpgradeAction(L2.SIGNAL_SERVICE, L2_SIGNAL_SERVICE_FORK_ROUTER_NEW_IMPL);
+            buildUpgradeAction(L2.SIGNAL_SERVICE, L2_SIGNAL_SERVICE_FORK_ROUTER);
         actions[1] = buildUpgradeAction(L2.ANCHOR, L2_ANCHOR_FORK_ROUTER_NEW_IMPL);
     }
 }
