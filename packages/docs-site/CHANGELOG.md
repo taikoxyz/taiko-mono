@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.5...docs-site-v1.32.6) (2025-11-24)
+
+
+### Chores
+
+* **docs-site:** add growthepie Taiko Alethia link card to developer tools ([#20792](https://github.com/taikoxyz/taiko-mono/issues/20792)) ([20f401c](https://github.com/taikoxyz/taiko-mono/commit/20f401c459e63c891d7f72ddafde451b8dc08327))
+
 ## [1.32.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.4...docs-site-v1.32.5) (2025-11-13)
 
 
