@@ -190,7 +190,11 @@ contract InboxOptimized1 is Inbox {
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
                 // Check for consecutive proposal aggregation
-                if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                // Cap at 255 proposals per record to prevent uint8 span overflow
+                if (
+                    _input.proposals[i].id == currentGroupStartId + currentRecord.span
+                        && currentRecord.span < type(uint8).max
+                ) {
                     TransitionRecord memory nextRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
