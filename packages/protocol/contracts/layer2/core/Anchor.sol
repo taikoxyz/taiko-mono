@@ -183,13 +183,11 @@ contract Anchor is EssentialContract {
         IBondManager _bondManager,
         uint256 _livenessBond,
         uint256 _provabilityBond,
-        uint64 _l1ChainId,
-        address _owner
+        uint64 _l1ChainId
     ) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
-        require(_owner != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -201,8 +199,6 @@ contract Anchor is EssentialContract {
         livenessBond = _livenessBond;
         provabilityBond = _provabilityBond;
         l1ChainId = _l1ChainId;
-
-        _transferOwnership(_owner);
     }
 
     // ---------------------------------------------------------------

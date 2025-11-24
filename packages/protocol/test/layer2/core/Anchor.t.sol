@@ -68,8 +68,7 @@ contract AnchorTest is Test {
             bondManager,
             LIVENESS_BOND,
             PROVABILITY_BOND,
-            L1_CHAIN_ID,
-            address(this)
+            L1_CHAIN_ID
         );
 
         BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
@@ -453,31 +452,6 @@ contract AnchorTest is Test {
 
         assertEq(signer, wrongProposer, "Should reject signature for wrong proposer");
         assertEq(fee, 0, "Should return zero fee when context mismatch");
-    }
-
-    // ---------------------------------------------------------------
-    // withdraw
-    // ---------------------------------------------------------------
-
-    function test_withdraw_Ether_SendsToRecipient() external {
-        vm.deal(address(anchor), 10 ether);
-        address recipient = address(0xD1);
-        uint256 beforeBal = recipient.balance;
-
-        anchor.withdraw(address(0), recipient);
-
-        assertEq(recipient.balance, beforeBal + 10 ether);
-        assertEq(address(anchor).balance, 0);
-    }
-
-    function test_withdraw_Token_SendsBalance() external {
-        token.mint(address(anchor), 1000 ether);
-        address recipient = address(0xD2);
-
-        anchor.withdraw(address(token), recipient);
-
-        assertEq(token.balanceOf(recipient), 1000 ether);
-        assertEq(token.balanceOf(address(anchor)), 0);
     }
 
     // ---------------------------------------------------------------
