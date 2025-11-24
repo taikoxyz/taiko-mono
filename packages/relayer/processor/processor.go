@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -132,6 +133,9 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
+
+	shastaForkTimestamp uint64
+	forkWindow          time.Duration
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -232,6 +236,21 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		if err != nil {
 			return err
 		}
+
+		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
+			cfg.SrcSignalServiceForkRouterAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		p.shastaForkTimestamp = shastaForkTimestamp
 	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
 		srcSignalService, err = signalservice.NewSignalService(
 			cfg.SrcSignalServiceAddress,
@@ -380,6 +399,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+	if cfg.ForkWindowSeconds > 0 {
+		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
+	}
 
 	p.targetTxHash = cfg.TargetTxHash
 

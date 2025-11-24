@@ -74,11 +74,12 @@ type Config struct {
 	QueuePort     uint64
 	QueuePrefetch uint64
 	// rpc configs
-	SrcRPCUrl        string
-	DestRPCUrl       string
-	ETHClientTimeout uint64
-	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (db.DB, error)
+	SrcRPCUrl         string
+	DestRPCUrl        string
+	ETHClientTimeout  uint64
+	ForkWindowSeconds uint64
+	OpenQueueFunc     func() (queue.Queue, error)
+	OpenDBFunc        func() (db.DB, error)
 
 	hopConfigs []hopConfig
 
@@ -171,6 +172,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
+		ForkWindowSeconds:                  c.Uint64(flags.ForkWindowSeconds.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,

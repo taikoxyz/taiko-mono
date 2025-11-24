@@ -143,6 +143,36 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
+	if p.shastaForkTimestamp > 0 && p.forkWindow > 0 {
+		header, err := p.srcEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(msgBody.Event.Raw.BlockNumber))
+		if err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+
+		blockTs := header.Time
+		if blockTs >= p.shastaForkTimestamp {
+			diff := time.Duration(blockTs-p.shastaForkTimestamp) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("within shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
+				return true, msgBody.TimesRetried, nil
+			}
+		} else {
+			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("approaching shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
+				return true, msgBody.TimesRetried, nil
+			}
+		}
+	}
+
 	// check paused status
 	paused, err := p.destBridge.Paused(&bind.CallOpts{
 		Context: ctx,
