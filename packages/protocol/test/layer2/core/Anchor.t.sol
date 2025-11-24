@@ -460,6 +460,30 @@ contract AnchorTest is Test {
         assertEq(fee, 0, "Should return zero fee when context mismatch");
     }
 
+    function test_validateProverAuth_RejectsUndersizedCalldata_255Bytes() external view {
+        // Construct calldata of exactly 255 bytes (below the minimum decodable length)
+        bytes memory undersized = new bytes(255);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, undersized);
+
+        assertEq(signer, proposer, "Should reject undersized calldata");
+        assertEq(fee, 0);
+    }
+
+    function test_validateProverAuth_AcceptsMinimumValidSize_256Bytes() external view {
+        // Build a valid ProverAuth payload using EIP-712 (expected to be >= 256 bytes)
+        uint48 proposalId = 1;
+        uint256 provingFee = 1 ether;
+        bytes memory validAuth = _buildProverAuth(proposalId, provingFee);
+
+        assertTrue(validAuth.length >= 256, "Valid auth should be at least 256 bytes");
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, validAuth);
+
+        assertEq(signer, proverCandidate);
+        assertEq(fee, provingFee);
+    }
+
     // ---------------------------------------------------------------
     // withdraw
     // ---------------------------------------------------------------
