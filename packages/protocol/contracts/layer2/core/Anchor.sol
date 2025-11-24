@@ -15,8 +15,6 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
-/// it's not upgradable itself.
 /// @dev This contract implements:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication

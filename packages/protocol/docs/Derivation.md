@@ -220,6 +220,7 @@ For each `DerivationSource[i]`, the validator performs:
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
 7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
+8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
 
@@ -229,8 +230,16 @@ A default source manifest is used when validation fails for a specific source:
 
 ```solidity
 DerivationSourceManifest memory defaultSource;
-defaultSource.blocks = new BlockManifest[](1);  // // Single block
+defaultSource.blocks = new BlockManifest[](1);  // Single block
 ```
+
+| Field               | Value                                                                       |
+| ------------------- | --------------------------------------------------------------------------- |
+| `timestamp`         | Protocol applies the timestamp validation lower bound afterward             |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                    |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                     |
+| `gasLimit`          | Protocol inherits from the parent block                                     |
+| `transactions`      | Empty list (only includes the anchor transaction)                           |
 
 #### ProposalManifest Construction
 
@@ -248,13 +257,13 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
 
-| Field               | Required Value | Reason                                                  |
-| ------------------- | -------------- | ------------------------------------------------------- |
-| `timestamp`         | `0`            | Protocol assigns based on proposal timing               |
-| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions |
-| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                     |
-| `gasLimit`          | `0`            | Protocol inherits from parent block                     |
-| `transactions`      | User-provided  | The actual transactions to be forcibly included         |
+| Field               | Value                                                                       |
+| ------------------- | --------------------------------------------------------------------------- |
+| `timestamp`         | Protocol applies the timestamp validation lower bound afterward             |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                    |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                     |
+| `gasLimit`          | Protocol inherits from the parent block                                     |
+| `transactions`      | User-provided list of L2 transactions to force-include                      |
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
@@ -266,23 +275,23 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 
 #### `timestamp` Validation
 
-Timestamp validation is performed collectively across all blocks and may result in block count reduction:
+Timestamp validation is performed collectively across all blocks:
 
-1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET, SHASTA_FORK_TIME)`
-3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
+1. **Upper bound**: `proposal.timestamp`
+2. **Lower bound**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET, SHASTA_FORK_TIME)`
+3. **Out-of-bounds handling**: If any block's `manifest.blocks[i].timestamp` is outside `[lowerBound, proposal.timestamp]`, the entire derivation source is replaced with the default source manifest.
 
 #### `anchorBlockNumber` Validation
 
 Anchor block validation ensures proper L1 state synchronization and may trigger manifest replacement:
 
-**Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
+**Invalidation conditions** (replace the derivation source with the default source manifest):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
-**Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
+**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == false`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -293,25 +302,21 @@ The anchor hash and state root must always correspond to the actual L1 block ref
 The L2 coinbase address determination follows a hierarchical priority system:
 
 1. **Forced inclusions**: Always use `proposal.proposer`
-2. **Regular proposals**: Use `orderedBlocks[i].coinbase` if non-zero
-3. **Fallback**: Use `proposal.proposer` if manifest coinbase is `address(0)`
+2. **Regular proposals**: Use `orderedBlocks[i].coinbase`
 
 #### `gasLimit` Validation
 
 Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
-**Calculation process**:
+**Validation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
+   - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
-2. **Apply constraints**:
-   - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
-   - If below `lowerBound`: Clamp to `lowerBound`
-   - If above `upperBound`: Clamp to `upperBound`
-   - Otherwise: Use manifest value unchanged
+2. **Source validation**:
+   - If `manifest.blocks[i].gasLimit` falls outside `[lowerBound, upperBound]`: Replace the entire derivation source with the default source manifest.
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
@@ -366,7 +371,6 @@ struct ProverAuth {
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
-
   - Validates the `ProverAuth` struct from the provided bytes
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
@@ -526,12 +530,10 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
-
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state

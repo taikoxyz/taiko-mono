@@ -11,7 +11,6 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// maintains a FIFO queue of inclusion requests.
 /// @dev Inclusion delay is measured in seconds, since we don't have an easy way to get batch number
 /// in the Shasta design.
-/// @dev We only allow one forced inclusion per L1 transaction to avoid spamming the proposer.
 /// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
@@ -52,6 +51,7 @@ library LibForcedInclusion {
         returns (uint256 refund_)
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
+        require(blobSlice.blobHashes.length == 1, OnlySingleBlobAllowed());
 
         uint64 requiredFeeInGwei =
             getCurrentForcedInclusionFee($, _baseFeeInGwei, _feeDoubleThreshold);
@@ -179,4 +179,5 @@ library LibForcedInclusion {
 
     error InsufficientFee();
     error InvalidFeeDoubleThreshold();
+    error OnlySingleBlobAllowed();
 }
