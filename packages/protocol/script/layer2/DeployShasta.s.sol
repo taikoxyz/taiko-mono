@@ -101,13 +101,15 @@ contract DeployShasta is BaseScript {
         console2.log("bondManagerProxy deployed:", bondManagerProxy);
 
         // Fresh BondManager + Anchor impl configured from env.
-        address anchorNewImpl = address(new Anchor(
-            ICheckpointStore(config.signalServiceProxy),
-            BondManager(bondManagerProxy),
-            config.livenessBond,
-            config.provabilityBond,
-            config.l1ChainId
-        ));
+        address anchorNewImpl = address(
+            new Anchor(
+                ICheckpointStore(config.signalServiceProxy),
+                BondManager(bondManagerProxy),
+                config.livenessBond,
+                config.provabilityBond,
+                config.l1ChainId
+            )
+        );
         console2.log("anchorNewImpl deployed:", address(anchorNewImpl));
 
         address anchorForkRouter = address(new AnchorForkRouter(anchorOldImpl, anchorNewImpl));
