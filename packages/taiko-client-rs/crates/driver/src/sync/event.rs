@@ -156,24 +156,17 @@ where
             return Ok(0);
         }
 
-        match self.blob_source.execution_block_number_by_timestamp(activation_time).await {
-            Ok(block_number) => {
-                info!(
-                    activation_time,
-                    activation_block_number = block_number,
-                    "resolved activation timestamp to L1 block number via beacon"
-                );
-                Ok(block_number)
-            }
-            Err(err) => {
-                warn!(
-                    ?err,
-                    activation_time,
-                    "failed to resolve activation block number from beacon; falling back to anchor block number"
-                );
-                Ok(0)
-            }
-        }
+        let block_number = self
+            .blob_source
+            .execution_block_number_by_timestamp(activation_time)
+            .await
+            .map_err(|err| SyncError::Other(err.into()))?;
+        info!(
+            activation_time,
+            activation_block_number = block_number,
+            "resolved activation timestamp to L1 block number via beacon"
+        );
+        Ok(block_number)
     }
 
     /// Parse the first transaction in `block` and recover the anchor block number from the
