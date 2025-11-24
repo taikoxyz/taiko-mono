@@ -85,7 +85,7 @@ contract DeployShasta is BaseScript {
     }
 
     /// @dev Deploys MainnetInbox.
-    function _deployInbox(Config memory config) private returns (address proxy) {
+    function _deployInbox(Config memory config) private returns (address mainnetInboxProxy) {
         address codec = address(new CodecOptimized());
         console2.log("CodecOptimized deployed:", codec);
 
@@ -93,7 +93,7 @@ contract DeployShasta is BaseScript {
             address(new MainnetInbox(codec, config.proofVerifier, config.proposerChecker));
         console2.log("mainnetInboxImpl deploeyd:", mainnetInboxImpl);
 
-        address mainnetInboxProxy = deploy({
+        mainnetInboxProxy = deploy({
             name: "shasta_inbox",
             impl: mainnetInboxImpl,
             // NOTE: we need to let `admin.taiko.eth` to transfer the ownership of shasta inbox to
@@ -103,6 +103,6 @@ contract DeployShasta is BaseScript {
         });
 
         console2.log("mainnetInboxProxy deployed:", mainnetInboxProxy);
-        console2.log("mainnetInboxProxy owner():", MainnetInbox(proxy).owner());
+        console2.log("mainnetInboxProxy owner():", MainnetInbox(mainnetInboxProxy).owner());
     }
 }
