@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -50,6 +51,7 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)

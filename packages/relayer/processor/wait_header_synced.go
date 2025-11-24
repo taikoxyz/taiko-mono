@@ -70,42 +70,31 @@ func (p *Processor) findSyncedEvent(
 	syncedChainId uint64,
 	blockNum uint64,
 ) (*relayer.Event, error) {
-	pairs := [][2]uint64{
-		{chainId, syncedChainId},
-		{syncedChainId, chainId},
+	event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
+		ctx,
+		chainId,
+		syncedChainId,
+		blockNum,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, pair := range pairs {
-		event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
-			ctx,
-			pair[0],
-			pair[1],
-			blockNum,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if event != nil {
-			return event, nil
-		}
-
-		event, err = p.eventRepo.CheckpointSyncedEventByBlockNumberOrGreater(
-			ctx,
-			pair[0],
-			pair[1],
-			blockNum,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if event != nil {
-			return event, nil
-		}
+	if event != nil {
+		return event, nil
 	}
 
-	return nil, nil
+	event, err = p.eventRepo.CheckpointSyncedEventByBlockNumberOrGreater(
+		ctx,
+		chainId,
+		syncedChainId,
+		blockNum,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return event, nil
 }
 
 func (p *Processor) latestSyncedBlockID(
@@ -113,32 +102,19 @@ func (p *Processor) latestSyncedBlockID(
 	chainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
-	var maxBlockID uint64
-
-	pairs := [][2]uint64{
-		{chainId, syncedChainId},
-		{syncedChainId, chainId},
+	blockID, err := p.eventRepo.LatestChainDataSyncedEvent(ctx, chainId, syncedChainId)
+	if err != nil {
+		return 0, err
 	}
 
-	for _, pair := range pairs {
-		blockID, err := p.eventRepo.LatestChainDataSyncedEvent(ctx, pair[0], pair[1])
-		if err != nil {
-			return 0, err
-		}
-
-		if blockID > maxBlockID {
-			maxBlockID = blockID
-		}
-
-		checkpointBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, pair[0], pair[1])
-		if err != nil {
-			return 0, err
-		}
-
-		if checkpointBlockID > maxBlockID {
-			maxBlockID = checkpointBlockID
-		}
+	checkpointBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, chainId, syncedChainId)
+	if err != nil {
+		return 0, err
 	}
 
-	return maxBlockID, nil
+	if checkpointBlockID > blockID {
+		return checkpointBlockID, nil
+	}
+
+	return blockID, nil
 }
