@@ -12,9 +12,9 @@ import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 
-/// FOUNDRY_PROFILE=layer1 forge script --rpc-url <L1_RPC> script/layer1/mainnet/DeployShasta.s.sol --broadcast
+/// FOUNDRY_PROFILE=layer1 forge script --rpc-url <L1_RPC> script/layer1/mainnet/DeployShastaL1.s.sol --broadcast
 /// Deploys a CodecOptimized, SignalService fork router, and a new Shasta Inbox.
-contract DeployShasta is BaseScript {
+contract DeployShastaL1 is BaseScript {
     struct Config {
         address proofVerifier;
         address proposerChecker;
