@@ -86,9 +86,11 @@ contract DeployShasta is BaseScript {
         address owner = anchorProxy.owner();
         console2.log("anchor owner:", owner);
 
-        address bondManagerImpl = address(new BondManager(
-            config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
-        ));
+        address bondManagerImpl = address(
+            new BondManager(
+                config.anchorProxy, config.bondToken, config.minBond, config.withdrawalDelay
+            )
+        );
         console2.log("bondManagerImpl deployed:", address(bondManagerImpl));
 
         address bondManagerProxy = deploy({
@@ -99,14 +101,16 @@ contract DeployShasta is BaseScript {
         console2.log("bondManagerProxy deployed:", bondManagerProxy);
 
         // Fresh BondManager + Anchor impl configured from env.
-        address anchorNewImpl = address(new Anchor(
-            ICheckpointStore(config.signalServiceProxy),
-            BondManager(bondManagerProxy),
-            config.livenessBond,
-            config.provabilityBond,
-            config.l1ChainId,
-            owner // really?
-        ));
+        address anchorNewImpl = address(
+            new Anchor(
+                ICheckpointStore(config.signalServiceProxy),
+                BondManager(bondManagerProxy),
+                config.livenessBond,
+                config.provabilityBond,
+                config.l1ChainId,
+                owner // really?
+            )
+        );
         console2.log("anchorNewImpl deployed:", address(anchorNewImpl));
 
         address anchorForkRouter = address(new AnchorForkRouter(anchorOldImpl, anchorNewImpl));
@@ -119,14 +123,16 @@ contract DeployShasta is BaseScript {
         console2.log("signalServiceOldImpl:", SignalService(config.signalServiceProxy).impl());
 
         address signalServiceNewImpl =
-           address(  new SignalService(config.anchorProxy, config.remoteSignalService));
-           console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
+            address(new SignalService(config.anchorProxy, config.remoteSignalService));
+        console2.log("signalServiceNewImpl deployed:", signalServiceNewImpl);
 
-    address    signalServiceRouter =address( new SignalServiceForkRouter(
-            SignalService(config.signalServiceProxy).impl(),
-            signalServiceNewImpl,
-            config.shastaForkTimestamp
-        ));
+        address signalServiceRouter = address(
+            new SignalServiceForkRouter(
+                SignalService(config.signalServiceProxy).impl(),
+                signalServiceNewImpl,
+                config.shastaForkTimestamp
+            )
+        );
 
         console2.log("signalServiceForkRouter deployed:", signalServiceRouter);
     }
