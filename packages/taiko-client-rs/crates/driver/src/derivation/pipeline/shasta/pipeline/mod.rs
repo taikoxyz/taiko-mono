@@ -337,6 +337,7 @@ where
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
                 proposal_id,
+                last_finalized_proposal_id: payload.coreState.lastFinalizedProposalId.to::<u64>(),
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 origin_block_hash: B256::from(payload.derivation.originBlockHash),

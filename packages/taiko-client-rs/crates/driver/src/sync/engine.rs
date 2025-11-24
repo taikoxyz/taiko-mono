@@ -62,6 +62,7 @@ pub trait PayloadApplier {
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
+        finalized_block_hash: Option<B256>,
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
@@ -101,7 +102,7 @@ where
         );
 
         for payload in payloads {
-            let applied = apply_payload_internal(self, payload, parent_hash).await?;
+            let applied = apply_payload_internal(self, payload, parent_hash, None).await?;
             parent_hash = applied.outcome.block_hash();
             outcomes.push(applied.outcome);
         }
@@ -115,9 +116,11 @@ where
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
+        finalized_block_hash: Option<B256>,
     ) -> Result<AppliedPayload, EngineSubmissionError> {
         let span = tracing::Span::current();
-        let applied = apply_payload_internal(self, payload, parent_hash).await?;
+        let applied =
+            apply_payload_internal(self, payload, parent_hash, finalized_block_hash).await?;
         span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
         Ok(applied)
     }
@@ -138,6 +141,7 @@ async fn apply_payload_internal<P>(
     rpc: &Client<P>,
     payload: &TaikoPayloadAttributes,
     parent_hash: B256,
+    finalized_block_hash: Option<B256>,
 ) -> Result<AppliedPayload, EngineSubmissionError>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -187,12 +191,15 @@ where
         "engine accepted execution payload"
     );
 
+    // If we cannot resolve a finalized block hash, keep the forkchoice-safe/finalized hashes zeroed
+    // instead of failing payload application.
+    let resolved_finalized_hash = finalized_block_hash.unwrap_or(B256::ZERO);
+
     // Update forkchoice to promote the freshly inserted block as the new head and safe block.
     let promoted_state = ForkchoiceState {
         head_block_hash: block_hash,
-        // TODO: set the correct `safe_block_hash` and `finalized_block_hash`.
-        safe_block_hash: B256::ZERO,
-        finalized_block_hash: B256::ZERO,
+        safe_block_hash: resolved_finalized_hash,
+        finalized_block_hash: resolved_finalized_hash,
     };
     rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
 
