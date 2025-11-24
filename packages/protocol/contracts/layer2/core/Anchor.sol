@@ -524,14 +524,17 @@ contract Anchor is EssentialContract {
 
     /// @dev Returns the EIP-712 struct hash for a `ProverAuth` payload.
     function _hashProverAuthStruct(ProverAuth memory _auth) private pure returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(
             abi.encode(PROVER_AUTH_TYPEHASH, _auth.proposalId, _auth.proposer, _auth.provingFee)
         );
+        /// forge-lint: disable-end
     }
 
     /// @dev Builds the EIP-712 domain separator for prover authorization signatures.
     /// @dev Uses standard EIP-712 fields: name, version, chainId, and verifyingContract.
     function _proverAuthDomainSeparator() private view returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(
             abi.encode(
                 PROVER_AUTH_DOMAIN_TYPEHASH,
@@ -541,6 +544,7 @@ contract Anchor is EssentialContract {
                 address(this)
             )
         );
+        /// forge-lint: disable-end
     }
 
     // ---------------------------------------------------------------
