@@ -201,6 +201,12 @@ contract Anchor is EssentialContract {
         l1ChainId = _l1ChainId;
     }
 
+    /// @notice Initializes the owner of the Anchor.
+    /// @param _owner The owner of this contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+    
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
