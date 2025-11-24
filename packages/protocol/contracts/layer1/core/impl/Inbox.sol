@@ -326,7 +326,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
-        
+
         uint256 refund = LibForcedInclusion.saveForcedInclusion(
             _forcedInclusionStorage,
             _forcedInclusionFeeInGwei,
