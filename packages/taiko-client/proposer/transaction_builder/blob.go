@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -245,6 +246,16 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	var gasLimit = l2Head.GasLimit - consensus.AnchorV3V4GasLimit
+	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
+		gasLimit = manifest.MaxBlockGasLimit
+	}
+
 	for i, txs := range txBatch {
 		log.Info(
 			"Setting up derivation source manifest block",
@@ -253,13 +264,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"timestamp", l1Head.Time+uint64(i),
 			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
 			"coinbase", b.l2SuggestedFeeRecipient,
-			"gasLimit", manifest.MaxBlockGasLimit,
+			"gasLimit", gasLimit,
 		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
-			GasLimit:          manifest.MaxBlockGasLimit,
+			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
 	}

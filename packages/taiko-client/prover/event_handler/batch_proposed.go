@@ -207,10 +207,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !windowExpired && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -239,10 +236,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
 	// we should skip proving this batch.
-	if !h.proveUnassignedBlocks &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !h.proveUnassignedBlocks && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Expired batch is not provable by current prover",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -315,4 +309,11 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	return nil
+}
+
+// shouldProve checks whether the current running prover is assigned to prove the proposed batch.
+func (h *BatchProposedEventHandler) shouldProve(assignedProver common.Address) bool {
+	return assignedProver == h.proverAddress ||
+		assignedProver == h.proverSetAddress ||
+		slices.Contains(h.localProposerAddresses, assignedProver)
 }
