@@ -34,6 +34,9 @@ impl DriverMetrics {
     /// Counter tracking L1 origin rows written to the execution engine database.
     pub const DERIVATION_L1_ORIGIN_UPDATES_TOTAL: &'static str =
         "driver_derivation_l1_origin_updates_total";
+    /// Gauge tracking the last finalized proposal id advertised by the inbox core state.
+    pub const DERIVATION_LAST_FINALIZED_PROPOSAL_ID: &'static str =
+        "driver_derivation_last_finalized_proposal_id";
 
     /// Register metric descriptors and initialise gauges/counters.
     pub fn init() {
@@ -97,12 +100,13 @@ impl DriverMetrics {
             Unit::Count,
             "L1 origin updates written during derivation"
         );
+        metrics::describe_gauge!(
+            Self::DERIVATION_LAST_FINALIZED_PROPOSAL_ID,
+            Unit::Count,
+            "Last finalized proposal id observed from the core state"
+        );
 
-        metrics::gauge!(Self::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(0.0);
-        metrics::gauge!(Self::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(0.0);
-        metrics::gauge!(Self::BEACON_SYNC_HEAD_LAG_BLOCKS).set(0.0);
-        metrics::gauge!(Self::DERIVATION_BOND_CACHE_DEPTH).set(0.0);
-
+        // Reset counters to zero.
         metrics::counter!(Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_BATCHES_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_ERRORS_TOTAL).absolute(0);
