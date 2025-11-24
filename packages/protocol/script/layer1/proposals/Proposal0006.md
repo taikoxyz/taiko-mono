@@ -9,16 +9,16 @@ Upgrade Taiko L1/L2 smart contracts for the Shasta fork: L1 `signal_service` and
 
 ## Addresses
 
-| Contract                        | Address                                      | Notes                                                                |
-| ------------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
-| L1 SignalService proxy          | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `L1.SIGNAL_SERVICE`                                                  |
-| L1 SignalService impl (new)     | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L1 fork router from `DeployShasta.s.sol` |
-| L1 PreconfWhitelist proxy       | `0xFD019460881e6EeC632258222393d5821029b2ac` | rollup resolver name `preconf_whitelist` on L1                       |
-| L1 PreconfWhitelist impl (new)  | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L1 deploy output                      |
-| L2 SignalService proxy          | `0x1670000000000000000000000000000000000005` | `L2.SIGNAL_SERVICE` (Taiko mainnet L2)                               |
-| L2 SignalService impl (new)     | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L2 fork router from `script/layer2/DeployShasta.s.sol` |
-| L2 Anchor proxy                 | `0x1670000000000000000000000000000000010001` | `L2.ANCHOR` (Taiko mainnet L2)                                       |
-| L2 Anchor impl (new)            | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L2 deploy output                      |
+| Contract                              | Address                                      | Notes                                                                                 |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| L1 SignalService proxy                | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `L1.SIGNAL_SERVICE`                                                                   |
+| L1 SignalServiceForkRouter impl (new) | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L1 fork router from `DeployShasta.s.sol`               |
+| L1 PreconfWhitelist proxy             | `0xFD019460881e6EeC632258222393d5821029b2ac` | rollup resolver name `preconf_whitelist` on L1                                        |
+| L1 PreconfWhitelist impl (new)        | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L1 deploy output                                       |
+| L2 SignalService proxy                | `0x1670000000000000000000000000000000000005` | `L2.SIGNAL_SERVICE` (Taiko mainnet L2)                                                |
+| L2 SignalServiceForkRouter impl (new) | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L2 fork router from `script/layer2/DeployShasta.s.sol` |
+| L2 Anchor proxy                       | `0x1670000000000000000000000000000000010001` | `L2.ANCHOR` (Taiko mainnet L2)                                                        |
+| L2 AnchorForkRouter impl (new)        | `0x0000000000000000000000000000000000000000` | **Placeholder** — replace with L2 deploy output                                       |
 
 ## Verification & Execution
 
