@@ -11,7 +11,7 @@ use alloy::{
 use alloy_network::TransactionBuilder;
 use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
-use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
+use protocol::shasta::constants::PROPOSAL_MAX_BLOB_BYTES;
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use tokio::time::interval;
@@ -156,12 +156,20 @@ impl Proposer {
         let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
             .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
+        let l2_head = self
+            .rpc_provider
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or(ProposerError::LatestBlockNotFound)?;
+        let block_max_gas_limit = l2_head.header.gas_limit;
+
         let pool_content = self
             .rpc_provider
             .tx_pool_content_with_min_tip(rpc::TxPoolContentParams {
                 beneficiary: self.cfg.l2_suggested_fee_recipient,
                 base_fee: Some(base_fee_u64),
-                block_max_gas_limit: MIN_BLOCK_GAS_LIMIT,
+                block_max_gas_limit,
                 max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
                 locals: vec![],
                 max_transactions_lists: 1,
