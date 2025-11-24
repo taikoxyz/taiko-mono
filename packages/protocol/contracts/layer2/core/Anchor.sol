@@ -206,7 +206,7 @@ contract Anchor is EssentialContract {
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
-    
+
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
