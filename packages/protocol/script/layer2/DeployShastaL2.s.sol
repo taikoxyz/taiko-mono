@@ -104,8 +104,7 @@ contract DeployShasta is BaseScript {
             BondManager(bondManagerProxy),
             config.livenessBond,
             config.provabilityBond,
-            config.l1ChainId,
-            owner // really?
+            config.l1ChainId
         ));
         console2.log("anchorNewImpl deployed:", address(anchorNewImpl));
 
