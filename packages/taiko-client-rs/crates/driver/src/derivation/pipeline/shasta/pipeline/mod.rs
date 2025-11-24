@@ -349,6 +349,9 @@ where
             sources: manifest_segments,
         };
 
+        gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+            .set(bundle.meta.last_finalized_proposal_id as f64);
+
         self.cache_bond_instructions_from_payload(payload)?;
 
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
