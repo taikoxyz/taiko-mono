@@ -64,11 +64,7 @@ contract AnchorTest is Test {
         );
 
         anchor = new Anchor(
-            checkpointStore,
-            bondManager,
-            LIVENESS_BOND,
-            PROVABILITY_BOND,
-            L1_CHAIN_ID
+            checkpointStore, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID
         );
 
         BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
