@@ -1132,34 +1132,11 @@ func (c *Client) getShastaActivationBlockNumber(ctx context.Context) (*big.Int, 
 	}
 
 	// If activation timestamp is zero, returns zero block number.
-	if activationTimestamp.Cmp(common.Big0) == 0 {
+	if activationTimestamp.Cmp(common.Big0) == 0 || c.L1Beacon == nil {
 		return common.Big0, nil
 	}
 
-	// Fetch the L1 block number by the activation timestamp.
-	blockNumber, err := c.blockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve Shasta activation block number: %w", err)
-	}
-
-	return blockNumber, nil
-}
-
-// blockNumberByTimestamp finds the L1 block number by the given timestamp.
-func (c *Client) blockNumberByTimestamp(ctx context.Context, timestamp uint64) (*big.Int, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	if c.L1Beacon == nil {
-		return common.Big0, nil
-	}
-
-	blockNumber, err := c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, timestamp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch L1 block number by timestamp %d: %w", timestamp, err)
-	}
-
-	return new(big.Int).SetUint64(blockNumber), nil
+	return c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.

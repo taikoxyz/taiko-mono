@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -161,28 +162,28 @@ func (c *BeaconClient) TimestampOfSlot(slot uint64) uint64 {
 
 // ExecutionBlockNumberByTimestamp returns the execution layer block number whose timestamp is
 // greater than or equal to the provided timestamp by walking backwards through beacon slots.
-func (c *BeaconClient) ExecutionBlockNumberByTimestamp(ctx context.Context, timestamp uint64) (uint64, error) {
+func (c *BeaconClient) ExecutionBlockNumberByTimestamp(ctx context.Context, timestamp uint64) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	slot, err := c.timeToSlot(timestamp)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert timestamp to slot: %w", err)
+		return nil, fmt.Errorf("failed to convert timestamp to slot: %w", err)
 	}
 
 	return c.executionBlockNumberBySlot(ctxWithTimeout, slot)
 }
 
 // executionBlockNumberBySlot fetches the execution block number for a specific beacon slot.
-func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint64) (uint64, error) {
+func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint64) (*big.Int, error) {
 	body, err := c.Get(ctx, c.BaseURL().Path+fmt.Sprintf(beaconBlockBySlot, slot))
 	if err != nil {
-		return 0, fmt.Errorf("failed to fetch beacon block for slot %d: %w", slot, err)
+		return nil, fmt.Errorf("failed to fetch beacon block for slot %d: %w", slot, err)
 	}
 
 	var resp beaconBlockResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal beacon block response for slot %d: %w", slot, err)
+		return nil, fmt.Errorf("failed to unmarshal beacon block response for slot %d: %w", slot, err)
 	}
 
 	var blockNumberStr string
@@ -192,15 +193,15 @@ func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint
 	case resp.Data.Message.Body.ExecutionPayloadHeader != nil:
 		blockNumberStr = resp.Data.Message.Body.ExecutionPayloadHeader.BlockNumber
 	default:
-		return 0, client.ErrNotFound
+		return nil, client.ErrNotFound
 	}
 
 	blockNumber, err := strconv.ParseUint(blockNumberStr, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse execution block number: %w", err)
+		return nil, fmt.Errorf("failed to parse execution block number: %w", err)
 	}
 
-	return blockNumber, nil
+	return new(big.Int).SetUint64(blockNumber), nil
 }
 
 // getConfigSpec retrieve the current configs of the network used by the beacon node.
