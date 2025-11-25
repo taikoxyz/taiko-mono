@@ -1115,12 +1115,28 @@ func (c *Client) CalculateBaseFeePacaya(
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		// NOTE: for Shasta genesis height, we return 0 directly.
-		// TODO: Maybe we should hardcode the Shasta genesis height in the client config.
-		return common.Big0, nil
+		return c.getShastaActivationBlockNumber(ctx)
 	}
 
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
+}
+
+// getShastaActivationBlockNumber resolves the L1 block number when the Shasta inbox was activated.
+func (c *Client) getShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	activationTimestamp, err := c.ShastaClients.Inbox.ActivationTimestamp(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Shasta activation timestamp: %w", err)
+	}
+
+	// If activation timestamp is zero, returns zero block number.
+	if activationTimestamp.Cmp(common.Big0) == 0 || c.L1Beacon == nil {
+		return common.Big0, nil
+	}
+
+	return c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
