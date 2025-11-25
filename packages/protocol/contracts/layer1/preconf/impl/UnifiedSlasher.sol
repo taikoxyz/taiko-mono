@@ -19,12 +19,7 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
     address public immutable preconfSlasherL1;
     address public immutable lookaheadSlasher;
 
-    constructor(
-        address _preconfSlasherL1,
-        address _lookaheadSlasher,
-        address _urc
-    )
-    {
+    constructor(address _preconfSlasherL1, address _lookaheadSlasher, address _urc) {
         preconfSlasherL1 = _preconfSlasherL1;
         lookaheadSlasher = _lookaheadSlasher;
         urc = _urc;
