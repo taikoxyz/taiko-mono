@@ -146,9 +146,6 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
-
         // Verify finalization deadline was set to max via ring buffer
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());

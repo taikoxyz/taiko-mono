@@ -113,7 +113,6 @@ contract InboxOptimized1 is Inbox {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
-                conflictingTransitionDetected = true;
                 record.hashAndDeadline.finalizationDeadline = type(uint48).max;
             }
         } else {

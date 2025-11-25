@@ -134,9 +134,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public conflictingTransitionDetected;
-
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -430,8 +427,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        conflictingTransitionDetected = false;
-
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -556,7 +551,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit TransitionDuplicateDetected();
         } else {
             emit TransitionConflictDetected();
-            conflictingTransitionDetected = true;
             entry.finalizationDeadline = type(uint48).max;
         }
     }
@@ -980,6 +974,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
 
                 if (recordHash == 0) break;
+                require(finalizationDeadline != type(uint48).max, TransitionInConflict());
 
                 if (i >= transitionCount) {
                     require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
@@ -1150,6 +1145,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
     error SpanOutOfBounds();
+    error TransitionInConflict();
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
