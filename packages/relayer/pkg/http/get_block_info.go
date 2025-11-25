@@ -51,6 +51,9 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 		if !ok {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain param"))
 		}
+		if srcChain.Sign() < 0 || !srcChain.IsUint64() {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain param: must be a non-negative uint64"))
+		}
 
 		srcChainID = srcChain
 	}
@@ -65,8 +68,19 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 		if !ok {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid dest chain param"))
 		}
+		if destChain.Sign() < 0 || !destChain.IsUint64() {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid dest chain param: must be a non-negative uint64"))
+		}
 
 		destChainID = destChain
+	}
+
+	if srcChainID.Sign() < 0 || !srcChainID.IsUint64() {
+		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain id"))
+	}
+
+	if destChainID.Sign() < 0 || !destChainID.IsUint64() {
+		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid dest chain id"))
 	}
 
 	latestSrcBlock, err := srv.srcEthClient.BlockNumber(c.Request().Context())
