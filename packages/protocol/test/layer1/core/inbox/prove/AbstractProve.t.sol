@@ -213,7 +213,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
         indices[4] = 6;
         IInbox.Proposal[] memory proposals = _createProposalsWithGaps(indices);
 
-        bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
+        // Use chaining to allow aggregation within each consecutive subgroup.
+        bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
         bytes memory proof = _createValidProof();
 
         // Record events to verify count
@@ -224,8 +225,11 @@ abstract contract AbstractProveTest is InboxTestHelper {
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
-        // With parent hash continuity enforced, gaps break aggregation; expect one event per proof.
-        uint256 expectedEvents = proposals.length; // 5 events
+        // Optimized inboxes should aggregate inside each consecutive subgroup: expect 2 events
+        // ([1,2] and [4,5,6]) when aggregation is supported. Basic inbox emits 5 events.
+        uint256 expectedEvents;
+        (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true);
+        expectedEvents = consecutiveEvents == 1 ? 2 : proposals.length;
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, expectedEvents, "Unexpected event count for mixed scenario");
@@ -394,9 +398,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         IInbox.TransitionMetadata[] memory metadata =
             new IInbox.TransitionMetadata[](proposals.length);
 
-        // Build transitions with proper parent hash chaining
-        // For consecutive proposals, chain the transition hashes
-        // For non-consecutive, each starts from genesis (or their actual parent in real scenarios)
+        // Build transitions with chaining inside each consecutive subgroup.
         bytes32 parentHash = _getGenesisTransitionHash();
 
         for (uint256 i = 0; i < proposals.length; i++) {
@@ -406,12 +408,9 @@ abstract contract AbstractProveTest is InboxTestHelper {
             // Create metadata for each transition
             metadata[i] = _createMetadataForTransition(Alice, Alice);
 
-            if (consecutive) {
-                // Chain transitions for consecutive proposals
+            if (consecutive && i + 1 < proposals.length) {
                 parentHash = _codec().hashTransition(transitions[i]);
             } else {
-                // For non-consecutive, each transition starts from genesis
-                // This is simplified - in reality each would have its proper parent
                 parentHash = _getGenesisTransitionHash();
             }
         }
