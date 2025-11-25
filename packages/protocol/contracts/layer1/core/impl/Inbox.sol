@@ -40,7 +40,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    uint256 private constant ACTIVATION_WINDOW = 2 hours;
+    uint256 private constant _ACTIVATION_WINDOW = 2 hours;
+
+    uint256 private constant _FORCE_INCLUSION_ACTIVATION_DELAY = 24 hours;
 
     // ---------------------------------------------------------------
     // Structs
@@ -211,7 +213,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             activationTimestamp = uint48(block.timestamp);
         } else {
             require(
-                block.timestamp <= ACTIVATION_WINDOW + activationTimestamp,
+                block.timestamp <= _ACTIVATION_WINDOW + activationTimestamp,
                 ActivationPeriodExpired()
             );
         }
@@ -324,8 +326,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev This function will revert if called before the first non-activation proposal is submitted
     /// to make sure blocks have been produced already and the derivation can use the parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        bytes32 proposalHash = _proposalHashes[1];
-        require(proposalHash != bytes32(0), IncorrectProposalCount());
+        unchecked {
+        require(block.timestamp > activationTimestamp + _FORCE_INCLUSION_ACTIVATION_DELAY, ForceInclusionNotActivated());
+        }
 
         uint256 refund = LibForcedInclusion.saveForcedInclusion(
             _forcedInclusionStorage,
@@ -1142,6 +1145,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error CheckpointNotProvided();
     error DeadlineExceeded();
     error EmptyProposals();
+    error ForceInclusionNotActivated();
     error InconsistentParams();
     error IncorrectProposalCount();
     error InvalidLastPacayaBlockHash();

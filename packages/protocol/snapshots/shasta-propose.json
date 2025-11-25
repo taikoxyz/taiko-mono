@@ -1,10 +1,4 @@
 {
-  "forced_inclusion_multiple_Inbox": "95541",
-  "forced_inclusion_multiple_InboxOptimized1": "97902",
-  "forced_inclusion_multiple_InboxOptimized2": "90167",
-  "forced_inclusion_single_Inbox": "91104",
-  "forced_inclusion_single_InboxOptimized1": "93459",
-  "forced_inclusion_single_InboxOptimized2": "86517",
   "propose_reuse_ring_buffer_Inbox": "64264",
   "propose_reuse_ring_buffer_InboxOptimized1": "64619",
   "propose_reuse_ring_buffer_InboxOptimized2": "49433",
