@@ -55,10 +55,6 @@ contract InboxOptimized1 is Inbox {
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
     /// @inheritdoc Inbox
     /// @dev Optimized transition record building with automatic aggregation.
     ///      Strategy:
