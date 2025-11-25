@@ -388,6 +388,44 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         inbox.propose(bytes(""), proposeData);
     }
 
+    function test_finalize_RevertWhen_TransitionInConflict() public {
+        // Propose and prove the first proposal
+        IInbox.ProposedEventPayload memory firstPayload = _proposeInitial();
+        ProvenProposal memory proven = _proveProposal(
+            firstPayload.proposal, _getGenesisTransitionHash(), currentProver, currentProver
+        );
+
+        // Submit a conflicting proof for the same proposal/parent to set deadline = type(uint48).max
+        IInbox.Transition memory conflictingTransition =
+            _createTransitionForProposal(firstPayload.proposal);
+        conflictingTransition.checkpoint.stateRoot = bytes32(uint256(999)); // force conflict
+
+        IInbox.ProveInput memory conflictInput = IInbox.ProveInput({
+            proposals: _wrapSingleProposal(firstPayload.proposal),
+            transitions: _wrapSingleTransition(conflictingTransition),
+            metadata: _wrapSingleMetadata(_createMetadataForTransition(currentProver, currentProver))
+        });
+
+        vm.prank(currentProver);
+        inbox.prove(_codec().encodeProveInput(conflictInput), _createValidProof());
+
+        // Attempt to finalize should revert due to TransitionInConflict
+        _setupBlobHashes();
+        bytes memory proposeData = _codec().encodeProposeInput(
+            _buildFinalizeInput(
+                firstPayload.coreState,
+                _buildParentArray(firstPayload.proposal),
+                _wrapSingleRecord(proven.record),
+                proven.checkpoint
+            )
+        );
+
+        vm.roll(block.number + 1);
+        vm.prank(currentProposer);
+        vm.expectRevert(Inbox.TransitionInConflict.selector);
+        inbox.propose(bytes(""), proposeData);
+    }
+
     // ---------------------------------------------------------------
     // Helper Functions
     // ---------------------------------------------------------------
@@ -534,6 +572,15 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         parents[0] = parent;
     }
 
+    function _wrapSingleProposal(IInbox.Proposal memory proposal)
+        internal
+        pure
+        returns (IInbox.Proposal[] memory parents)
+    {
+        parents = new IInbox.Proposal[](1);
+        parents[0] = proposal;
+    }
+
     function _wrapSingleRecord(IInbox.TransitionRecord memory record)
         internal
         pure
@@ -658,6 +705,26 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         return IInbox.TransitionMetadata({
             designatedProver: designatedProver, actualProver: actualProver
         });
+    }
+
+    function _wrapSingleTransition(IInbox.Transition memory transition)
+        internal
+        pure
+        returns (IInbox.Transition[] memory)
+    {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = transition;
+        return transitions;
+    }
+
+    function _wrapSingleMetadata(IInbox.TransitionMetadata memory metadata)
+        internal
+        pure
+        returns (IInbox.TransitionMetadata[] memory)
+    {
+        IInbox.TransitionMetadata[] memory arr = new IInbox.TransitionMetadata[](1);
+        arr[0] = metadata;
+        return arr;
     }
 
     function _labelForFinalizedCount(uint256 count) private pure returns (string memory) {
