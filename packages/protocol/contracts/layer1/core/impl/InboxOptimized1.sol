@@ -189,7 +189,8 @@ contract InboxOptimized1 is Inbox {
                 // tail transition.
                 if (
                     _input.proposals[i].id == currentGroupStartId + currentRecord.span
-                        && _input.transitions[i].parentTransitionHash == currentRecord.transitionHash
+                        && _input.transitions[i].parentTransitionHash
+                            == currentRecord.transitionHash
                 ) {
                     TransitionRecord memory nextRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]

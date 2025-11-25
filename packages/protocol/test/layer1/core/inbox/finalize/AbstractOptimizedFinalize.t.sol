@@ -81,9 +81,7 @@ abstract contract AbstractOptimizedFinalize is AbstractFinalizeTest {
         metadata[1] = _createMetadataForTransition(currentProver, currentProver);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            metadata: metadata
+            proposals: proposals, transitions: transitions, metadata: metadata
         });
 
         vm.recordLogs();
