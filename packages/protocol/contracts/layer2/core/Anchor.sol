@@ -15,8 +15,6 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
 /// prover designation and checkpoint management.
-/// @dev IMPORTANT: This contract will be deployed behind the `AnchorRouter` contract, and that's why
-/// it's not upgradable itself.
 /// @dev This contract implements:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
@@ -96,7 +94,7 @@ contract Anchor is EssentialContract {
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
     /// @dev EIP-712 domain/type hashes for prover authorization signatures.
-    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
+    bytes32 private constant EIP712_DOMAIN_TYPEHASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
@@ -153,6 +151,7 @@ contract Anchor is EssentialContract {
         bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
+        bool isNewProposal,
         uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
@@ -233,8 +232,9 @@ contract Anchor is EssentialContract {
             revert ProposalIdMismatch();
         }
 
+        bool isNewProposal = _proposalParams.proposalId > lastProposalId;
         // We do not need to account for proposalId = 0, since that's genesis
-        if (_proposalParams.proposalId > lastProposalId) {
+        if (isNewProposal) {
             _validateProposal(_proposalParams);
         }
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
@@ -247,6 +247,7 @@ contract Anchor is EssentialContract {
             _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
+            isNewProposal,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
@@ -322,6 +323,13 @@ contract Anchor is EssentialContract {
     /// @notice Returns the current block-level state snapshot.
     function getBlockState() external view returns (BlockState memory) {
         return _blockState;
+    }
+
+    /// @notice Returns the EIP-712 domain separator for prover authorization signatures.
+    /// @dev Off-chain signers should use this to construct valid EIP-712 signatures.
+    /// @return The domain separator hash.
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _proverAuthDomainSeparator();
     }
 
     /// @dev Validates prover authentication and extracts signer.
@@ -537,7 +545,7 @@ contract Anchor is EssentialContract {
     function _proverAuthDomainSeparator() private view returns (bytes32) {
         return keccak256(
             abi.encode(
-                PROVER_AUTH_DOMAIN_TYPEHASH,
+                EIP712_DOMAIN_TYPEHASH,
                 PROVER_AUTH_DOMAIN_NAME_HASH,
                 PROVER_AUTH_DOMAIN_VERSION_HASH,
                 block.chainid,
