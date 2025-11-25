@@ -94,7 +94,7 @@ contract Anchor is EssentialContract {
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
     /// @dev EIP-712 domain/type hashes for prover authorization signatures.
-    bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
+    bytes32 private constant EIP712_DOMAIN_TYPEHASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
@@ -327,6 +327,13 @@ contract Anchor is EssentialContract {
         return _blockState;
     }
 
+    /// @notice Returns the EIP-712 domain separator for prover authorization signatures.
+    /// @dev Off-chain signers should use this to construct valid EIP-712 signatures.
+    /// @return The domain separator hash.
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _proverAuthDomainSeparator();
+    }
+
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
     /// @param _proposer The proposer address to validate against.
@@ -543,7 +550,7 @@ contract Anchor is EssentialContract {
         /// forge-lint: disable-start(asm-keccak256)
         return keccak256(
             abi.encode(
-                PROVER_AUTH_DOMAIN_TYPEHASH,
+                EIP712_DOMAIN_TYPEHASH,
                 PROVER_AUTH_DOMAIN_NAME_HASH,
                 PROVER_AUTH_DOMAIN_VERSION_HASH,
                 block.chainid,

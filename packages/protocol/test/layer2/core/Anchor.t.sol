@@ -597,4 +597,25 @@ contract AnchorTest is Test {
             anchorStateRoot: bytes32(uint256(0x5678))
         });
     }
+
+    // ---------------------------------------------------------------
+    // DOMAIN_SEPARATOR
+    // ---------------------------------------------------------------
+
+    function test_DOMAIN_SEPARATOR_returnsCorrectValue() external view {
+        bytes32 domainSeparator = anchor.DOMAIN_SEPARATOR();
+
+        // Manually compute expected domain separator
+        bytes32 expectedDomainSeparator = keccak256(
+            abi.encode(
+                PROVER_AUTH_DOMAIN_TYPEHASH,
+                PROVER_AUTH_DOMAIN_NAME_HASH,
+                PROVER_AUTH_DOMAIN_VERSION_HASH,
+                block.chainid,
+                address(anchor)
+            )
+        );
+
+        assertEq(domainSeparator, expectedDomainSeparator, "Domain separator mismatch");
+    }
 }
