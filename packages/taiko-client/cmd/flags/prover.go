@@ -11,7 +11,7 @@ import (
 var (
 	L1ProverPrivKey = &cli.StringFlag{
 		Name:     "l1.proverPrivKey",
-		Usage:    "Private key of L1 prover, who will send TaikoInbox.proveBatches transactions",
+		Usage:    "Private key of L1 prover, who will send transactions to Pacaya / Shasta inbox",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},

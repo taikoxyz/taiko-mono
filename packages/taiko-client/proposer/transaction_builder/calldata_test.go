@@ -28,7 +28,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
-			s.RPCClient.PacayaClients.ForkHeights.Shasta,
+			s.RPCClient.ShastaClients.ForkTime,
 		)
 	)
 
@@ -36,7 +36,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		s.RPCClient,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
 		0,
@@ -47,7 +47,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		s.RPCClient,
 		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),

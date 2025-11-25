@@ -28,7 +28,7 @@ var testEvents = []relayer.Event{
 		ID:   1,
 		Name: "name",
 		// nolint lll
-		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+		Data:                   datatypes.JSON(fmt.Appendf(nil, `{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex()))),
 		ChainID:                1,
 		DestChainID:            2,
 		Status:                 relayer.EventStatusDone,
@@ -47,7 +47,7 @@ var testEvents = []relayer.Event{
 		ID:   2,
 		Name: "name",
 		// nolint lll
-		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+		Data:                   datatypes.JSON(fmt.Appendf(nil, `{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex()))),
 		ChainID:                1,
 		DestChainID:            2,
 		Status:                 relayer.EventStatusDone,
@@ -66,7 +66,7 @@ var testEvents = []relayer.Event{
 		ID:   3,
 		Name: "name",
 		// nolint lll
-		Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+		Data:                   datatypes.JSON(fmt.Appendf(nil, `{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex()))),
 		ChainID:                1,
 		DestChainID:            2,
 		Status:                 relayer.EventStatusDone,
@@ -474,7 +474,7 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 				ID:   1,
 				Name: "name",
 				// nolint lll
-				Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+				Data:                   datatypes.JSON(fmt.Appendf(nil, `{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex()))),
 				ChainID:                1,
 				DestChainID:            2,
 				Status:                 relayer.EventStatusDone,

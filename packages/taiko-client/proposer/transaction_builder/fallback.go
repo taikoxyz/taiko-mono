@@ -39,7 +39,8 @@ func NewBuilderWithFallback(
 	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
-	taikoInboxAddress common.Address,
+	pacayaInboxAddress common.Address,
+	shastaInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
@@ -55,7 +56,8 @@ func NewBuilderWithFallback(
 			rpc,
 			shastaStateIndexer,
 			proposerPrivateKey,
-			taikoInboxAddress,
+			pacayaInboxAddress,
+			shastaInboxAddress,
 			taikoWrapperAddress,
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
@@ -69,7 +71,7 @@ func NewBuilderWithFallback(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
-		taikoInboxAddress,
+		pacayaInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
@@ -193,6 +195,10 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	// Shasta requires blob transactions for proposal data availability.
+	if b.blobTransactionBuilder == nil {
+		return nil, fmt.Errorf("blob transactions must be enabled for Shasta; set --l1.blobAllowed=true")
+	}
 	return b.blobTransactionBuilder.BuildShasta(
 		ctx,
 		txBatch,

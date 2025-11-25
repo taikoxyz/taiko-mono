@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"slices"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -49,6 +48,12 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return err
 	}
 
+	// Get the proposal state from the Shasta Anchor contract.
+	_, proposalState, err := h.rpc.GetShastaAnchorState(&bind.CallOpts{Context: ctx, BlockHash: header.Hash()})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta proposal state (batchID %d): %w", meta.Shasta().GetProposal().Id, err)
+	}
+
 	// If the current batch is handled, just skip it.
 	if meta.Shasta().GetProposal().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
 		return nil
@@ -60,7 +65,8 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"l1Hash", meta.GetRawBlockHash(),
 		"batchID", meta.Shasta().GetProposal().Id,
 		"lastBlockID", header.Number,
-		"assignedProver", meta.GetProposer(),
+		"proposer", meta.GetProposer(),
+		"designatedProver", proposalState.DesignatedProver,
 		"proposalTimestamp", meta.Shasta().GetProposal().Timestamp,
 		"derivationSources", len(meta.Shasta().GetDerivation().Sources),
 	)
@@ -79,12 +85,17 @@ func (h *BatchProposedEventHandler) HandleShasta(
 	go func() {
 		if err := backoff.Retry(
 			func() error {
-				if err := h.checkExpirationAndSubmitProofShasta(ctx, meta, meta.Shasta().GetProposal().Id); err != nil {
+				if err := h.checkExpirationAndSubmitProofShasta(
+					ctx,
+					meta,
+					meta.Shasta().GetProposal().Id,
+					proposalState.DesignatedProver,
+				); err != nil {
 					log.Error(
 						"Failed to check Shasta proof status and submit proof",
 						"batchID", meta.Shasta().GetProposal().Id,
 						"derivationSources", len(meta.Shasta().GetDerivation().Sources),
-						"maxRetrys", h.backOffMaxRetrys,
+						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)
 					return err
@@ -93,7 +104,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 				return nil
 			},
 			backoff.WithContext(
-				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetrys),
+				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetries),
 				ctx,
 			),
 		); err != nil {
@@ -110,6 +121,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	batchID *big.Int,
+	designatedProver common.Address,
 ) error {
 	// Check whether the batch has been verified.
 	var (
@@ -152,7 +164,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 				"batchID", batchID,
 				"parentBlockHash", header.ParentHash,
 				"parentTransitionHash", parentTransitionHash,
-				"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+				"proposalHash", common.Hash(record.Transition.ProposalHash),
 			)
 			return nil
 		}
@@ -162,7 +174,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"batchID", batchID,
 			"parentBlockHash", header.ParentHash,
 			"parentTransitionHash", parentTransitionHash,
-			"proposalHash", common.BytesToHash(record.Transition.ProposalHash[:]),
+			"proposalHash", common.Hash(record.Transition.ProposalHash),
 		)
 		// We need to submit a valid proof.
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
@@ -176,14 +188,11 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !windowExpired && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Proposed Shasta batch is not provable by current prover at the moment",
 			"batchID", meta.Shasta().GetProposal().Id,
-			"prover", meta.GetProposer(),
+			"designatedProver", designatedProver,
 			"timeToExpire", timeToExpire,
 			"localProposerAddresses", h.localProposerAddresses,
 		)
@@ -192,7 +201,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			log.Info(
 				"Add proposed Shasta batch to wait for proof window expiration",
 				"batchID", meta.Shasta().GetProposal().Id,
-				"assignProver", meta.GetProposer(),
+				"designatedProver", designatedProver,
 				"timeToExpire", timeToExpire,
 				"localProposerAddresses", h.localProposerAddresses,
 			)
@@ -208,16 +217,13 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 
 	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
 	// we should skip proving this batch.
-	if !h.proveUnassignedBlocks &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !h.proveUnassignedBlocks && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Expired Shasta batch is not provable by current prover",
 			"batchID", meta.Shasta().GetProposal().Id,
 			"currentProver", h.proverAddress,
 			"currentProverSet", h.proverSetAddress,
-			"assignProver", meta.GetProposer(),
+			"designatedProver", designatedProver,
 			"localProposerAddresses", h.localProposerAddresses,
 		)
 		return nil
@@ -226,7 +232,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	log.Info(
 		"Proposed Shasta batch is provable",
 		"batchID", meta.Shasta().GetProposal().Id,
-		"assignProver", meta.GetProposer(),
+		"designatedProver", designatedProver,
 		"localProposerAddresses", h.localProposerAddresses,
 	)
 

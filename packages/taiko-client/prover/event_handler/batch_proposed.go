@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -38,7 +38,7 @@ type BatchProposedEventHandler struct {
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
 	backOffRetryInterval   time.Duration
-	backOffMaxRetrys       uint64
+	backOffMaxRetries      uint64
 	proveUnassignedBlocks  bool
 }
 
@@ -53,7 +53,7 @@ type NewBatchProposedEventHandlerOps struct {
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
 	BackOffRetryInterval   time.Duration
-	BackOffMaxRetrys       uint64
+	BackOffMaxRetries      uint64
 	ProveUnassignedBlocks  bool
 }
 
@@ -69,7 +69,7 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
 		opts.BackOffRetryInterval,
-		opts.BackOffMaxRetrys,
+		opts.BackOffMaxRetries,
 		opts.ProveUnassignedBlocks,
 	}
 }
@@ -137,7 +137,7 @@ func (h *BatchProposedEventHandler) Handle(
 						"batchID", meta.Pacaya().GetBatchID(),
 						"numBlobs", len(meta.Pacaya().GetBlobHashes()),
 						"blocks", len(meta.Pacaya().GetBlocks()),
-						"maxRetrys", h.backOffMaxRetrys,
+						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)
 					return err
@@ -146,7 +146,7 @@ func (h *BatchProposedEventHandler) Handle(
 				return nil
 			},
 			backoff.WithContext(
-				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetrys),
+				backoff.WithMaxRetries(backoff.NewConstantBackOff(h.backOffRetryInterval), h.backOffMaxRetries),
 				ctx,
 			),
 		); err != nil {
@@ -207,10 +207,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !windowExpired && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -239,10 +236,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
 	// we should skip proving this batch.
-	if !h.proveUnassignedBlocks &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !h.proveUnassignedBlocks && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Expired batch is not provable by current prover",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -315,4 +309,11 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	return nil
+}
+
+// shouldProve checks whether the current running prover is assigned to prove the proposed batch.
+func (h *BatchProposedEventHandler) shouldProve(assignedProver common.Address) bool {
+	return assignedProver == h.proverAddress ||
+		assignedProver == h.proverSetAddress ||
+		slices.Contains(h.localProposerAddresses, assignedProver)
 }

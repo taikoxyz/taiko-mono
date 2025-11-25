@@ -16,6 +16,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -24,10 +25,12 @@ type Config struct {
 	L1WsEndpoint              string
 	L2WsEndpoint              string
 	L2HttpEndpoint            string
-	TaikoInboxAddress         common.Address
+	PacayaInboxAddress        common.Address
+	ShastaInboxAddress        common.Address
 	TaikoAnchorAddress        common.Address
 	TaikoTokenAddress         common.Address
 	ProverSetAddress          common.Address
+	ShastaForkTime            uint64
 	L1ProverPrivKey           *ecdsa.PrivateKey
 	StartingBatchID           *big.Int
 	BackOffMaxRetries         uint64
@@ -49,10 +52,15 @@ type Config struct {
 	ForceBatchProvingInterval time.Duration
 	ProofPollingInterval      time.Duration
 	Dummy                     bool
+	UseLocalShastaDecoder     bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	shastaIndexer.ConfigureHistoricalFetch(
+		c.Uint64(flags.ShastaMaxRangeSize.Name),
+		c.Int(flags.ShastaMaxRangesPerBatch.Name),
+	)
 	var (
 		raikoApiKey []byte
 	)
@@ -92,17 +100,18 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		addr := common.HexToAddress(localProposerAddress)
 		localProposerAddresses = append(localProposerAddresses, addr)
 	}
-
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
 	return &Config{
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
-		TaikoInboxAddress:      common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		PacayaInboxAddress:     common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
+		ShastaInboxAddress:     common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		ShastaForkTime:         c.Uint64(flags.ShastaForkTime.Name),
 		L1ProverPrivKey:        l1ProverPrivKey,
 		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
@@ -128,5 +137,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
+		UseLocalShastaDecoder:     c.Bool(flags.ShastaUseLocalDecoder.Name),
 	}, nil
 }

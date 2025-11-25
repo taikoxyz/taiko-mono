@@ -83,8 +83,8 @@ func SubscribeBatchesProvedPacaya(
 	})
 }
 
-// SubscribePorposedShasta subscribes the Shasta protocol's Proposed events.
-func SubscribePorposedShasta(
+// SubscribeProposedShasta subscribes the Shasta protocol's Proposed events.
+func SubscribeProposedShasta(
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProposed,
 ) event.Subscription {

@@ -57,8 +57,12 @@ var (
 		{Name: "blockHash", Type: "bytes32"},
 		{Name: "stateRoot", Type: "bytes32"},
 	}
-	SubProofComponents = []abi.ArgumentMarshaling{
+	SubProofPacayaComponents = []abi.ArgumentMarshaling{
 		{Name: "verifier", Type: "address"},
+		{Name: "proof", Type: "bytes"},
+	}
+	SubProofShastaComponents = []abi.ArgumentMarshaling{
+		{Name: "verifierId", Type: "uint8"},
 		{Name: "proof", Type: "bytes"},
 	}
 	BondInstructionComponents = []abi.ArgumentMarshaling{
@@ -82,11 +86,15 @@ var (
 	}
 	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
-	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
+	SubProofsPacayaComponentsArrayType, _ = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofPacayaComponents)
+	SubProofsShastaComponentsArrayType, _ = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofShastaComponents)
 	BondInstructionComponentsType, _      = abi.NewType("tuple", "LibBonds.BondInstruction", BondInstructionComponents)
 	BondInstructionComponentsArgs         = abi.Arguments{{Name: "LibBonds.BondInstruction", Type: BondInstructionComponentsType}}
-	SubProofsComponentsArrayArgs          = abi.Arguments{
-		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
+	SubProofsPacayaComponentsArrayArgs    = abi.Arguments{
+		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsPacayaComponentsArrayType},
+	}
+	SubProofsShastaComponentsArrayArgs = abi.Arguments{
+		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsShastaComponentsArrayType},
 	}
 	ProveBatchesInputArgs = abi.Arguments{
 		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
@@ -138,9 +146,11 @@ var (
 	ProverSetPacayaABI      *abi.ABI
 
 	// Shasta fork
-	ShastaInboxABI  *abi.ABI
-	ShastaAnchorABI *abi.ABI
-	BondManagerABI  *abi.ABI
+	ShastaInboxABI           *abi.ABI
+	ShastaAnchorABI          *abi.ABI
+	BondManagerABI           *abi.ABI
+	ShastaProposedEventTopic common.Hash
+	ShastaProvedEventTopic   common.Hash
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -228,6 +238,18 @@ func init() {
 		log.Crit("Get Shasta Inbox ABI error", "error", err)
 	}
 
+	if proposedEvent, ok := ShastaInboxABI.Events["Proposed"]; ok {
+		ShastaProposedEventTopic = proposedEvent.ID
+	} else {
+		log.Crit("Proposed event not found in Shasta inbox ABI")
+	}
+
+	if provedEvent, ok := ShastaInboxABI.Events["Proved"]; ok {
+		ShastaProvedEventTopic = provedEvent.ID
+	} else {
+		log.Crit("Proved event not found in Shasta inbox ABI")
+	}
+
 	if ShastaAnchorABI, err = shastaBindings.ShastaAnchorMetaData.GetAbi(); err != nil {
 		log.Crit("Get Shasta Anchor ABI error", "error", err)
 	}
@@ -279,11 +301,20 @@ func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchPa
 	return batchParamsWithForcedInclusionArgs.Pack(x, y)
 }
 
-// EncodeBatchesSubProofs performs the solidity `abi.encode` for the given Pacaya batchParams.
-func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
-	b, err := SubProofsComponentsArrayArgs.Pack(subProofs)
+// EncodeBatchesSubProofsPacaya performs the solidity `abi.encode` for the given Pacaya SubProof.
+func EncodeBatchesSubProofsPacaya(subProofs []SubProofPacaya) ([]byte, error) {
+	b, err := SubProofsPacayaComponentsArrayArgs.Pack(subProofs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode Pacaya batch subproofs (count: %d), %w", len(subProofs), err)
+	}
+	return b, nil
+}
+
+// EncodeBatchesSubProofsShasta performs the solidity `abi.encode` for the given Shasta SubProof.
+func EncodeBatchesSubProofsShasta(subProofs []SubProofShasta) ([]byte, error) {
+	b, err := SubProofsShastaComponentsArrayArgs.Pack(subProofs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode Shasta batch subproofs (count: %d), %w", len(subProofs), err)
 	}
 	return b, nil
 }

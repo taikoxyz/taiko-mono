@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IResolver.sol";
 import "./EssentialContract.sol";
+import "./IResolver.sol";
 
 abstract contract EssentialResolverContract is EssentialContract {
     // ---------------------------------------------------------------
@@ -44,6 +44,7 @@ abstract contract EssentialResolverContract is EssentialContract {
     // ---------------------------------------------------------------
 
     constructor(address _resolver) {
+        require(_resolver != address(0), RESOLVER_NOT_FOUND());
         __resolver = _resolver;
     }
 

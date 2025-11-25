@@ -68,16 +68,23 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
 	}
-	TaikoInboxAddress = &cli.StringFlag{
-		Name:     "taikoInbox",
-		Usage:    "TaikoInbox contract `address`",
+	PacayaInboxAddress = &cli.StringFlag{
+		Name:     "pacayaInbox",
+		Usage:    "Inbox contract `address` for Pacaya protocol",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_INBOX"},
+		EnvVars:  []string{"PACAYA_INBOX"},
+	}
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInbox",
+		Usage:    "Inbox contract `address` for Shasta protocol",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"SHASTA_INBOX"},
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
-		Usage:    "TaikoAnchor contract `address`",
+		Usage:    "Taiko anchor contract `address`",
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
@@ -155,16 +162,45 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	ShastaForkTime = &cli.Uint64Flag{
+		Name:     "shasta.time",
+		Usage:    "Shasta hardfork activation timestamp (unix seconds)",
+		Category: commonCategory,
+		EnvVars:  []string{"TAIKO_SHASTA_TIME"},
+	}
+	ShastaUseLocalDecoder = &cli.BoolFlag{
+		Name:     "shasta.useLocalDecoder",
+		Usage:    "Decode Shasta events locally in Go (disable to call the codec contract)",
+		Value:    true,
+		Category: commonCategory,
+		EnvVars:  []string{"SHASTA_USE_LOCAL_DECODER"},
+	}
+	ShastaMaxRangeSize = &cli.Uint64Flag{
+		Name:     "shasta.indexer.maxRangeSize",
+		Usage:    "Maximum L1 block span per Shasta historical range",
+		Category: commonCategory,
+		Value:    1000,
+		EnvVars:  []string{"SHASTA_INDEXER_MAX_RANGE_SIZE"},
+	}
+	ShastaMaxRangesPerBatch = &cli.IntFlag{
+		Name:     "shasta.indexer.maxRangesPerBatch",
+		Usage:    "Maximum Shasta historical ranges fetched per batch",
+		Category: commonCategory,
+		Value:    32,
+		EnvVars:  []string{"SHASTA_INDEXER_MAX_RANGES_PER_BATCH"},
+	}
 )
 
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
 	L1WSEndpoint,
-	TaikoInboxAddress,
+	PacayaInboxAddress,
+	ShastaInboxAddress,
 	TaikoAnchorAddress,
 	// Optional
 	ProverSetAddress,
+	ShastaForkTime,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,
@@ -174,6 +210,9 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+	ShastaUseLocalDecoder,
+	ShastaMaxRangeSize,
+	ShastaMaxRangesPerBatch,
 }
 
 // MergeFlags merges the given flag slices.

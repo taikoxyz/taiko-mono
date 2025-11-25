@@ -22,14 +22,16 @@ DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/de
 export INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export SHARED_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.shared_resolver' | sed 's/\"//g')
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
+export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
+export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
 
 cat "L1 contracts deployed:
-  TaikoInbox: $INBOX
+  PacayaTaikoInbox: $INBOX
   SharedAddressManager: $SHARED_RESOLVER
 "
 
 cd ../protocol &&
-  FOUNDRY_PROFILE=layer1o PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/devnet/UpgradeShastaL1.s.sol:UpgradeShastaL1 \
+  FOUNDRY_PROFILE=layer1o PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \

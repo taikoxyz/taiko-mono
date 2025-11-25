@@ -50,6 +50,9 @@ interface ILookaheadStore {
         /// will be updated with this value
         /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the
         /// current epoch start
+        /// @dev Can be empty for same-epoch proposers when next epoch lookahead already exists
+        /// on-chain (gas optimization). Must be provided for cross-epoch proposers (need slot
+        /// info) and fallback preconfers (responsible for posting/validation)
         LookaheadSlot[] nextLookahead;
         /// @notice Commitment signature for the lookahead poster
         /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
@@ -68,31 +71,6 @@ interface ILookaheadStore {
         // The lookahead slot covering the current preconfing window
         LookaheadSlot lookaheadSlot;
     }
-
-    error CommitmentSignerMismatch();
-    error CommitterMismatch();
-    error InvalidLookahead();
-    error InvalidLookaheadEpoch();
-    error InvalidLookaheadTimestamp();
-    error InvalidSlotIndex();
-    error InvalidSlotTimestamp();
-    error InvalidValidatorLeafIndex();
-    error LookaheadNotRequired();
-    error NotInbox();
-    error OperatorHasBeenBlacklisted();
-    error OperatorHasBeenSlashed();
-    error OperatorHasInsufficientCollateral();
-    error OperatorHasNotOptedIn();
-    error OperatorHasNotRegistered();
-    error OperatorHasUnregistered();
-    error PosterHasBeenSlashed();
-    error PosterHasInsufficientCollateral();
-    error PosterHasNotOptedIn();
-    error PosterHasUnregistered();
-    error ProposerIsNotPreconfer();
-    error ProposerIsNotFallbackPreconfer();
-    error SlasherIsNotLookaheadSlasher();
-    error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
         uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots

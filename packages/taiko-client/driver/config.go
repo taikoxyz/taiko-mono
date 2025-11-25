@@ -19,6 +19,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 // Config contains the configurations to initialize a Taiko driver.
@@ -39,6 +40,10 @@ type Config struct {
 // NewConfigFromCliContext creates a new config instance from
 // the command line inputs.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	shastaIndexer.ConfigureHistoricalFetch(
+		c.Uint64(flags.ShastaMaxRangeSize.Name),
+		c.Int(flags.ShastaMaxRangesPerBatch.Name),
+	)
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
@@ -87,13 +92,16 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L1BeaconEndpoint:        beaconEndpoint,
 			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:            l2CheckPoint,
-			TaikoInboxAddress:       common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+			PacayaInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
+			ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
 			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
+			ShastaForkTime:          c.Uint64(flags.ShastaForkTime.Name),
+			UseLocalShastaDecoder:   c.Bool(flags.ShastaUseLocalDecoder.Name),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup

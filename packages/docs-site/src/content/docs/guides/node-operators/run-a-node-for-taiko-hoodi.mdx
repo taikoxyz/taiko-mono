@@ -58,7 +58,7 @@ It's generally better to start `taiko-geth` before you start `taiko-client` as y
     ```bash
         ./build/bin/geth \
             --taiko \
-            --networkid 167012 \
+            --networkid 167013 \
             --gcmode archive \
             --datadir ./data/taiko-geth \
             --metrics \
@@ -113,6 +113,23 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
     You will need either an RPC provider, or run a full Ethereum Hoodi node yourself.
 
+    <Aside type="tip">
+    As of October 28, 2025, at slot 1,622,016, the Fusaka upgrade has rolled out to Ethereum Hoodi. With this upgrade comes [EIP-7594](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7594.md),
+    which introduces data sampling instead of full downloads; this means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
+    you L2 node may experience blob unavailability or chain divergence.
+
+    Please configure your beacon client with the respective flags (detailed below) before the Fusaka hard fork date to avoid interruptions!
+
+    - Lighthouse: **`--semi-supernode` or `--supernode`**
+    - Teku: **`--p2p-subscribe-all-custody-subnets-enabled`**
+    - Grandine: **`--subscribe-all-data-column-subnets`**
+    - Lodestar: **`--supernode`**
+    - Nimbus: **`--debug-peerdas-supernode`**
+
+    Alternatively, you may set a `--blob.server` url if you wish to use a thirdparty or self hosted blob indexer service.
+    This can be done with `$BLOB_SERVER_URL` in `simple-taiko-node`'s `.env`.
+    </Aside>
+
     ```bash
     export L1_WS=...  # the WS address for the node to sync from.
     export L1_BEACON_URL=... # URL address for the L1 Beacon-node HTTP endpoint to use.
@@ -138,8 +155,8 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --l2.ws ws://l2_execution_engine:8546 \
             --l1.beacon ${L1_BEACON_HTTP} \
             --l2.auth http://l2_execution_engine:8551 \
-            --taikoInbox 0x50A576435E2D9c179124D657d804eb56A10b6999 \
-            --taikoAnchor 0x1670120000000000000000000000000000010001 \
+            --taikoInbox 0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9 \
+            --taikoAnchor 0x1670130000000000000000000000000000010001 \
             --preconfirmation.whitelist 0x83AE31678B9f255346Af4636B4726A84c3bD2886 \
             --preconfirmation.serverPort 9871 \
             --jwtSecret /data/taiko-geth/geth/jwtsecret \
