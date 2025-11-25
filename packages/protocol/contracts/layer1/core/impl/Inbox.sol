@@ -321,7 +321,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
+    /// @dev This function will revert if called before the first non-activation proposal is submitted
+    /// to make sure blocks have been produced already and the derivation can use the parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        bytes32 proposalHash = _proposalHashes[1];
+        require(proposalHash != bytes32(0), IncorrectProposalCount());
+
         uint256 refund = LibForcedInclusion.saveForcedInclusion(
             _forcedInclusionStorage,
             _forcedInclusionFeeInGwei,
@@ -974,17 +979,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
+                if (recordHash == 0) break;
+
                 if (i >= transitionCount) {
-                    if (recordHash == 0) break;
-
-                    if (currentTimestamp >= finalizationDeadline) {
-                        revert TransitionRecordNotProvided();
-                    }
-
+                    require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
                     break;
                 }
-
-                if (recordHash == 0) break;
 
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 
