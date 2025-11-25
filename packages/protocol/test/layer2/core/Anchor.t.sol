@@ -71,9 +71,7 @@ contract AnchorTest is Test {
         // Deploy Anchor behind a proxy
         anchor = Anchor(
             address(
-                new ERC1967Proxy(
-                    address(anchorImpl), abi.encodeCall(Anchor.init, (address(this)))
-                )
+                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
             )
         );
 
