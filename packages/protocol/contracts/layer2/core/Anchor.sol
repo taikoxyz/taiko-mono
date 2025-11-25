@@ -183,13 +183,11 @@ contract Anchor is EssentialContract {
         IBondManager _bondManager,
         uint256 _livenessBond,
         uint256 _provabilityBond,
-        uint64 _l1ChainId,
-        address _owner
+        uint64 _l1ChainId
     ) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
-        require(_owner != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -201,8 +199,12 @@ contract Anchor is EssentialContract {
         livenessBond = _livenessBond;
         provabilityBond = _provabilityBond;
         l1ChainId = _l1ChainId;
+    }
 
-        _transferOwnership(_owner);
+    /// @notice Initializes the owner of the Anchor.
+    /// @param _owner The owner of this contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     // ---------------------------------------------------------------
@@ -528,14 +530,17 @@ contract Anchor is EssentialContract {
 
     /// @dev Returns the EIP-712 struct hash for a `ProverAuth` payload.
     function _hashProverAuthStruct(ProverAuth memory _auth) private pure returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(
             abi.encode(PROVER_AUTH_TYPEHASH, _auth.proposalId, _auth.proposer, _auth.provingFee)
         );
+        /// forge-lint: disable-end
     }
 
     /// @dev Builds the EIP-712 domain separator for prover authorization signatures.
     /// @dev Uses standard EIP-712 fields: name, version, chainId, and verifyingContract.
     function _proverAuthDomainSeparator() private view returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(
             abi.encode(
                 PROVER_AUTH_DOMAIN_TYPEHASH,
@@ -545,6 +550,7 @@ contract Anchor is EssentialContract {
                 address(this)
             )
         );
+        /// forge-lint: disable-end
     }
 
     // ---------------------------------------------------------------

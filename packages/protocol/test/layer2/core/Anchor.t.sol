@@ -63,13 +63,16 @@ contract AnchorTest is Test {
             )
         );
 
-        anchor = new Anchor(
-            checkpointStore,
-            bondManager,
-            LIVENESS_BOND,
-            PROVABILITY_BOND,
-            L1_CHAIN_ID,
-            address(this)
+        // Deploy Anchor implementation
+        Anchor anchorImpl = new Anchor(
+            checkpointStore, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID
+        );
+
+        // Deploy Anchor behind a proxy
+        anchor = Anchor(
+            address(
+                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
+            )
         );
 
         BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
