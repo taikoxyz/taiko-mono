@@ -224,20 +224,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
-        // Calculate expected events dynamically for mixed scenario [1,2,4,5,6]:
-        // Basic implementation: 5 events (one per proposal)
-        // Optimized implementations: 2 events (group 1-2 and group 4-6)
-        uint256 expectedEvents;
-        (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive
-        // behavior
-        if (consecutiveEvents == 1) {
-            // Optimized implementation: supports aggregation
-            // Mixed scenario has 2 consecutive groups: [1,2] and [4,5,6]
-            expectedEvents = 2;
-        } else {
-            // Basic implementation: no aggregation, one event per proposal
-            expectedEvents = proposals.length; // 5 events
-        }
+        // With parent hash continuity enforced, gaps break aggregation; expect one event per proof.
+        uint256 expectedEvents = proposals.length; // 5 events
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, expectedEvents, "Unexpected event count for mixed scenario");
@@ -420,7 +408,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
             if (consecutive) {
                 // Chain transitions for consecutive proposals
-                parentHash = keccak256(abi.encode(transitions[i]));
+                parentHash = _codec().hashTransition(transitions[i]);
             } else {
                 // For non-consecutive, each transition starts from genesis
                 // This is simplified - in reality each would have its proper parent
@@ -561,7 +549,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             metadata[i] = _createMetadataForTransition(currentProver, currentProver);
 
             // Update parent hash for next iteration
-            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+            parentTransitionHash = _codec().hashTransition(transitions[i]);
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({

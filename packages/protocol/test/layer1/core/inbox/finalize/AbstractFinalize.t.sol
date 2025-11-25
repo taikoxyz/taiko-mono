@@ -562,7 +562,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             transitions[i] = _createTransitionForProposal(proposals[i]);
             transitions[i].parentTransitionHash = parentTransitionHash;
             metadata[i] = _createMetadataForTransition(currentProver, currentProver);
-            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+            parentTransitionHash = _codec().hashTransition(transitions[i]);
         }
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
