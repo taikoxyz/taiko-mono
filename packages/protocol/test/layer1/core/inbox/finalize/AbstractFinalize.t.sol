@@ -403,7 +403,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         IInbox.ProveInput memory conflictInput = IInbox.ProveInput({
             proposals: _wrapSingleProposal(firstPayload.proposal),
             transitions: _wrapSingleTransition(conflictingTransition),
-            metadata: _wrapSingleMetadata(_createMetadataForTransition(currentProver, currentProver))
+            metadata: _wrapSingleMetadata(
+                _createMetadataForTransition(currentProver, currentProver)
+            )
         });
 
         vm.prank(currentProver);
@@ -411,14 +413,15 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
 
         // Attempt to finalize should revert due to TransitionInConflict
         _setupBlobHashes();
-        bytes memory proposeData = _codec().encodeProposeInput(
-            _buildFinalizeInput(
-                firstPayload.coreState,
-                _buildParentArray(firstPayload.proposal),
-                _wrapSingleRecord(proven.record),
-                proven.checkpoint
-            )
-        );
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _buildFinalizeInput(
+                    firstPayload.coreState,
+                    _buildParentArray(firstPayload.proposal),
+                    _wrapSingleRecord(proven.record),
+                    proven.checkpoint
+                )
+            );
 
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
