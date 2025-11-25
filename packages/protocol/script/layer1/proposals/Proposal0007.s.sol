@@ -14,7 +14,7 @@ contract Proposal0007 is BuildProposal {
     function buildL1Actions() internal view override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](2);
 
-        actions[0] = buildUpgradeAction(L1.SIGNAL_SERVICE, ForkRouter(L1.SIGNAL_SERVICE).newFork());
+        actions[0] = buildUpgradeAction(L1.SIGNAL_SERVICE, ForkRouter(payable(L1.SIGNAL_SERVICE)).newFork());
 
         actions[1] = Controller.Action({
             target: SHASTA_INBOX_PROXY,
@@ -33,7 +33,7 @@ contract Proposal0007 is BuildProposal {
         l2GasLimit = 1_500_000;
         actions = new Controller.Action[](2);
 
-        actions[0] = buildUpgradeAction(L2.SIGNAL_SERVICE, ForkRouter(L2.SIGNAL_SERVICE).newFork());
-        actions[1] = buildUpgradeAction(L2.ANCHOR, ForkRouter(L2.ANCHOR).newFork());
+        actions[0] = buildUpgradeAction(L2.SIGNAL_SERVICE, ForkRouter(payable(L2.SIGNAL_SERVICE)).newFork());
+        actions[1] = buildUpgradeAction(L2.ANCHOR, ForkRouter(payable(L2.ANCHOR)).newFork());
     }
 }

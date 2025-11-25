@@ -24,7 +24,6 @@ contract UnifiedSlasher is EssentialContract, ISlasher, IMessageInvocable {
         address _lookaheadSlasher,
         address _urc
     )
-        EssentialContract()
     {
         preconfSlasherL1 = _preconfSlasherL1;
         lookaheadSlasher = _lookaheadSlasher;
