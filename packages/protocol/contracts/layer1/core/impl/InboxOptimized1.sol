@@ -185,8 +185,12 @@ contract InboxOptimized1 is Inbox {
 
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
-                // Check for consecutive proposal aggregation
-                if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                // Aggregate only when proposals are consecutive and the chain links to the current
+                // tail transition.
+                if (
+                    _input.proposals[i].id == currentGroupStartId + currentRecord.span
+                        && _input.transitions[i].parentTransitionHash == currentRecord.transitionHash
+                ) {
                     TransitionRecord memory nextRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
