@@ -11,7 +11,7 @@ use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
-use bindings::{anchor::Anchor::anchorV4Call, i_inbox::IInbox::Proposed};
+use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
@@ -122,8 +122,8 @@ where
             target_block_number = target_block.number(),
             "determined target block for anchor extraction",
         );
-
-        let anchor_block_number = decode_anchor_block_number(&target_block, anchor_address)?;
+        let anchor_block_number =
+            self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
             anchor_block_number,
             latest_hash = ?target_block.hash(),
@@ -135,17 +135,53 @@ where
     }
 }
 
-/// Parse the first transaction in `block` and recover the anchor block number from the
-/// `anchorV4` calldata emitted by the goldentouch transaction.
-fn decode_anchor_block_number(
-    block: &RpcBlock<TxEnvelope>,
-    anchor_address: Address,
-) -> Result<u64, SyncError> {
-    // TODO(David): maybe we can hardcode the deployment height of the inbox contract here.
-    if block.header.number == 0 {
-        return Ok(0);
+impl<P> EventSyncer<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Resolve the activation block number by converting the inbox activation timestamp through
+    /// the beacon endpoint.
+    async fn activation_block_number(&self) -> Result<u64, SyncError> {
+        let activation_time = self
+            .rpc
+            .shasta
+            .inbox
+            .activationTimestamp()
+            .call()
+            .await
+            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .to::<u64>();
+
+        if activation_time == 0 {
+            return Ok(0);
+        }
+
+        let block_number = self
+            .blob_source
+            .execution_block_number_by_timestamp(activation_time)
+            .await
+            .map_err(|err| SyncError::Other(err.into()))?;
+        info!(
+            activation_time,
+            activation_block_number = block_number,
+            "resolved activation timestamp to L1 block number via beacon"
+        );
+        Ok(block_number)
     }
-    Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
+
+    /// Parse the first transaction in `block` and recover the anchor block number from the
+    /// `anchorV4` calldata emitted by the goldentouch transaction. Falls back to the activation
+    /// block number when inspecting the genesis block.
+    async fn decode_anchor_block_number(
+        &self,
+        block: &RpcBlock<TxEnvelope>,
+        anchor_address: Address,
+    ) -> Result<u64, SyncError> {
+        if block.header.number == 0 {
+            return self.activation_block_number().await;
+        }
+        Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
+    }
 }
 
 /// Parse the first transaction in `block` and recover the proposal id from the `anchorV4`
@@ -235,18 +271,18 @@ where
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
-                ScannerMessage::Data(logs) => {
+                Ok(ScannerMessage::Data(logs)) => {
                     counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
                     counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
                     logs
                 }
-                ScannerMessage::Error(err) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "error receiving proposal logs from event scanner");
+                Ok(ScannerMessage::Notification(notification)) => {
+                    info!(?notification, "event scanner notification");
                     continue;
                 }
-                ScannerMessage::Status(status) => {
-                    info!(?status, "event scanner status update");
+                Err(err) => {
+                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                    error!(?err, "error receiving proposal logs from event scanner");
                     continue;
                 }
             };

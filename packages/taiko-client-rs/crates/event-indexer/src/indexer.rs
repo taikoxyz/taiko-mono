@@ -23,10 +23,10 @@ use bindings::{
         },
         LibBonds::BondInstruction as CodecBondInstruction,
     },
-    i_inbox::IInbox::{self, Proposed, Proved},
+    inbox::Inbox::{self, Proposed, Proved},
 };
 use dashmap::DashMap;
-use event_scanner::{EventFilter, ScannerMessage, ScannerStatus};
+use event_scanner::{EventFilter, Notification, ScannerMessage};
 use protocol::{
     shasta::codec_optimized::{decode_proposed_event, decode_proved_event},
     subscription_source::SubscriptionSource,
@@ -122,7 +122,7 @@ impl ShastaEventIndexer {
             }
         };
 
-        let inbox = IInbox::new(inbox_address, provider.clone());
+        let inbox = Inbox::new(inbox_address, provider.clone());
         let inbox_config = inbox.getConfig().call().await?;
         let ring_buffer_size = inbox_config.ringBufferSize.to();
         let max_finalization_count = inbox_config.maxFinalizationCount.to();
@@ -188,18 +188,18 @@ impl ShastaEventIndexer {
             trace!(?message, "received scanner message");
 
             let logs = match message {
-                ScannerMessage::Data(logs) => logs,
-                ScannerMessage::Error(err) => {
-                    error!(?err, "error receiving logs from event scanner");
-                    continue;
-                }
-                ScannerMessage::Status(status) => {
-                    info!(?status, "scanner status update");
-                    if matches!(status, ScannerStatus::SwitchingToLive) &&
+                Ok(ScannerMessage::Data(logs)) => logs,
+                Ok(ScannerMessage::Notification(notification)) => {
+                    info!(?notification, "scanner notification");
+                    if notification == Notification::SwitchingToLive &&
                         !self.historical_indexing_done.swap(true, Ordering::SeqCst)
                     {
                         self.historical_indexing_finished.notify_waiters();
                     }
+                    continue;
+                }
+                Err(err) => {
+                    error!(?err, "error receiving logs from event scanner");
                     continue;
                 }
             };
@@ -557,7 +557,7 @@ mod tests {
                 TransitionRecord,
             },
         },
-        i_inbox::IInbox::IInboxInstance,
+        inbox::Inbox::InboxInstance,
     };
 
     fn init_tracing() {
@@ -572,7 +572,7 @@ mod tests {
 
     struct TestSetup {
         indexer: Arc<ShastaEventIndexer>,
-        inbox: IInboxInstance<RootProvider>,
+        inbox: InboxInstance<RootProvider>,
     }
 
     async fn setup() -> anyhow::Result<TestSetup> {
@@ -593,7 +593,7 @@ mod tests {
 
         Ok(TestSetup {
             indexer,
-            inbox: IInboxInstance::new(env::var("SHASTA_INBOX")?.parse()?, provider.root().clone()),
+            inbox: InboxInstance::new(env::var("SHASTA_INBOX")?.parse()?, provider.root().clone()),
         })
     }
 

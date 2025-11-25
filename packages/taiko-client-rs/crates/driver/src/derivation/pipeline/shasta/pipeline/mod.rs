@@ -19,7 +19,7 @@ use bindings::{
         IInbox::{DerivationSource, ProposedEventPayload},
         LibBonds::BondInstruction as CodecBondInstruction,
     },
-    i_inbox::IInbox::Proposed,
+    inbox::Inbox::Proposed,
 };
 use metrics::{counter, gauge};
 use protocol::shasta::{
@@ -337,6 +337,7 @@ where
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
                 proposal_id,
+                last_finalized_proposal_id: payload.coreState.lastFinalizedProposalId.to::<u64>(),
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 origin_block_hash: B256::from(payload.derivation.originBlockHash),
@@ -347,6 +348,9 @@ where
             },
             sources: manifest_segments,
         };
+
+        gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+            .set(bundle.meta.last_finalized_proposal_id as f64);
 
         self.cache_bond_instructions_from_payload(payload)?;
 

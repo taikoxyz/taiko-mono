@@ -257,7 +257,7 @@ mod tests {
             CodecOptimized::{self, CodecOptimizedInstance},
             LibBonds::BondType,
         },
-        i_inbox::IInbox::IInboxInstance,
+        inbox::Inbox::InboxInstance,
     };
     use rand::{Rng, RngCore, SeedableRng, rngs::StdRng};
     use std::{env, iter::zip, str::FromStr};
@@ -482,7 +482,7 @@ mod tests {
         .context("invalid SHASTA_INBOX address")?;
 
         let provider = ProviderBuilder::default().connect_http(Url::from_str(&http_url)?);
-        let inbox = IInboxInstance::new(inbox_address, provider.clone());
+        let inbox = InboxInstance::new(inbox_address, provider.clone());
         let codec_address = inbox.getConfig().call().await?.codec;
 
         Ok(CodecOptimized::new(codec_address, provider.root().clone()))
