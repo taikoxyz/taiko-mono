@@ -9,7 +9,7 @@ ALLOY_VERSION=1.0.36
 
 forge bind \
   --root ../protocol \
-  --select '^IInbox$' \
+  --select '^Inbox$' \
   --select '^CodecOptimized$' \
   --select '^Anchor$' \
   --bindings-path crates/bindings \

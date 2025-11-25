@@ -7,7 +7,8 @@ use alloy::{
     sol_types::private::primitives::aliases::U48,
 };
 use alloy_consensus::{
-    EthereumTypedTransaction, TxEip1559, TxEnvelope, transaction::SignableTransaction,
+    EthereumTypedTransaction, TxEip1559, TxEnvelope,
+    transaction::{SignableTransaction, TxHashable},
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
@@ -184,11 +185,12 @@ where
         let mut hash_bytes = [0u8; 32];
         hash_bytes.copy_from_slice(sig_hash.as_slice());
         let signature = self.signer.sign_with_predefined_k(&hash_bytes)?;
+        let tx_hash = tx.tx_hash(&signature.signature);
 
         Ok(TxEnvelope::new_unchecked(
             EthereumTypedTransaction::Eip1559(tx),
             signature.signature,
-            sig_hash,
+            tx_hash,
         ))
     }
 }

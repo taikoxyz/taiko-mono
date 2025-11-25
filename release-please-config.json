@@ -77,7 +77,6 @@
     "packages/eventindexer": {},
     "packages/ejector": {
       "package-name": "ejector",
-      "release-as": "0.1.0",
       "release-type": "simple",
       "component": "ejector",
       "extra-files": [

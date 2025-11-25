@@ -86,6 +86,8 @@ func (pb *ProofBuffer) Len() int {
 
 // FirstItemAt returns the first item updated time of the buffer.
 func (pb *ProofBuffer) FirstItemAt() time.Time {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return pb.firstItemAt
 }
 
@@ -117,10 +119,14 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 
 // MarkAggregating marks the proofs in this buffer are aggregating.
 func (pb *ProofBuffer) MarkAggregating() {
+	pb.mutex.Lock()
+	defer pb.mutex.Unlock()
 	pb.isAggregating = true
 }
 
 // IsAggregating returns if the proofs in this buffer are aggregating.
 func (pb *ProofBuffer) IsAggregating() bool {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return pb.isAggregating
 }

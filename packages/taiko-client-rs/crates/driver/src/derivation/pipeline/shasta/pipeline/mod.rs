@@ -19,8 +19,9 @@ use bindings::{
         IInbox::{DerivationSource, ProposedEventPayload},
         LibBonds::BondInstruction as CodecBondInstruction,
     },
-    i_inbox::IInbox::Proposed,
+    inbox::Inbox::Proposed,
 };
+use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{BOND_PROCESSING_DELAY, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
@@ -33,6 +34,7 @@ use crate::{
         manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
         pipeline::shasta::anchor::AnchorTxConstructor,
     },
+    metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
@@ -146,6 +148,7 @@ where
         if cache.len() > BOND_CACHE_CAPACITY {
             cache.pop_front();
         }
+        gauge!(DriverMetrics::DERIVATION_BOND_CACHE_DEPTH).set(cache.len() as f64);
         Ok(())
     }
 
@@ -307,8 +310,15 @@ where
             let mut manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
-            if source.isForcedInclusion {
-                manifest.apply_forced_inclusion_defaults();
+            // For forced-inclusion source, ensure it contains exactly one block and blob hash.
+            if source.isForcedInclusion && manifest.blocks.len() != 1 {
+                info!(
+                    proposal_id,
+                    blocks = manifest.blocks.len(),
+                    blob_hashes = source.blobSlice.blobHashes.len(),
+                    "invalid blocks count in forced-inclusion source manifest, using default payload instead"
+                );
+                manifest = DerivationSourceManifest::default();
             }
             // Inject the proposal-level prover auth into every segment.
             manifest.prover_auth_bytes = prover_auth_bytes.clone();
@@ -327,6 +337,7 @@ where
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
                 proposal_id,
+                last_finalized_proposal_id: payload.coreState.lastFinalizedProposalId.to::<u64>(),
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 origin_block_hash: B256::from(payload.derivation.originBlockHash),
@@ -337,6 +348,9 @@ where
             },
             sources: manifest_segments,
         };
+
+        gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+            .set(bundle.meta.last_finalized_proposal_id as f64);
 
         self.cache_bond_instructions_from_payload(payload)?;
 
@@ -414,6 +428,7 @@ where
                 initial_proposal_id = ?self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
         info!(
@@ -425,6 +440,18 @@ where
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
         let mut parent_state = self.initialize_parent_state(&parent_block).await?;
+
+        // If every block already sits in the canonical chain we skip payload submission and only
+        // refresh L1 origins.
+        if let Some(known_blocks) =
+            self.detect_known_canonical_proposal(&meta, &sources, &parent_state).await?
+        {
+            let outcomes =
+                known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
+            counter!(DriverMetrics::DERIVATION_CANONICAL_HITS_TOTAL).increment(1);
+            self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
+            return Ok(outcomes);
+        }
 
         let outcomes =
             self.build_payloads_from_sources(sources, &meta, &mut parent_state, applier).await?;
@@ -447,6 +474,7 @@ where
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
+            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
             return Ok(Vec::new());
         }
 

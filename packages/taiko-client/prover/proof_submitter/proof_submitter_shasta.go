@@ -118,6 +118,13 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
+	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+		BlockHash: lastOriginInLastProposal.L2BlockHash,
+		Context:   ctx,
+	})
+	if err != nil {
+		return err
+	}
 	proposalID := meta.Shasta().GetProposal().Id
 	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, s.indexer, proposalID)
 	if err != nil {
@@ -145,6 +152,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				BlockHash:   header.Hash(),
 				StateRoot:   header.Root,
 			},
+			LastAnchorBlockNumber: lastBlockState.AnchorBlockNumber,
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse

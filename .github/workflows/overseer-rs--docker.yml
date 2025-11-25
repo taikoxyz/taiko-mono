@@ -53,7 +53,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.11.1
         with:
-          version: latest
+          version: v0.29.1
+          cache-binary: false
 
       - name: Docker meta
         id: meta
@@ -108,7 +109,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.11.1
         with:
-          version: latest
+          version: v0.29.1
+          cache-binary: false
 
       - name: Docker meta
         id: meta

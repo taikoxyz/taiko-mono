@@ -1,48 +1,119 @@
 //! Metrics exposed by the driver runtime.
 
-use metrics::{Unit, describe_gauge};
+use metrics::Unit;
 
 /// Metric namespace for the driver.
 pub struct DriverMetrics;
 
 impl DriverMetrics {
-    /// Gauge tracking the latest L1 origin block ID seen on the execution engine.
-    pub const BEACON_HEAD_BLOCK_ID: &'static str = "driver_beacon_head_block_id";
-    /// Gauge tracking the next proposal ID reported by the inbox core state.
-    pub const NEXT_PROPOSAL_ID: &'static str = "driver_next_proposal_id";
-    /// Gauge tracking the last finalized proposal ID.
-    pub const LAST_FINALIZED_PROPOSAL_ID: &'static str = "driver_last_finalized_proposal_id";
-    /// Gauge tracking the highest proposal ID observed from events.
-    pub const LAST_SEEN_PROPOSAL_ID: &'static str = "driver_last_seen_proposal_id";
-    /// Gauge tracking the number of pending transitions waiting for finalization.
-    pub const TRANSITION_QUEUE_DEPTH: &'static str = "driver_transition_queue_depth";
+    /// Gauge tracking the latest L2 head observed on the execution engine.
+    pub const BEACON_SYNC_LOCAL_HEAD_BLOCK: &'static str = "driver_beacon_sync_local_head_block";
+    /// Gauge tracking the checkpoint node head height.
+    pub const BEACON_SYNC_CHECKPOINT_HEAD_BLOCK: &'static str =
+        "driver_beacon_sync_checkpoint_head_block";
+    /// Gauge tracking the delta between checkpoint and local heads.
+    pub const BEACON_SYNC_HEAD_LAG_BLOCKS: &'static str = "driver_beacon_sync_head_lag_blocks";
+    /// Counter tracking submitted checkpoint blocks.
+    pub const BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL: &'static str =
+        "driver_beacon_sync_remote_submissions_total";
+    /// Counter tracking batches of proposal logs received from the scanner.
+    pub const EVENT_SCANNER_BATCHES_TOTAL: &'static str = "driver_event_scanner_batches_total";
+    /// Counter tracking scanner stream errors.
+    pub const EVENT_SCANNER_ERRORS_TOTAL: &'static str = "driver_event_scanner_errors_total";
+    /// Counter tracking proposal logs processed by the driver.
+    pub const EVENT_PROPOSALS_TOTAL: &'static str = "driver_event_proposals_total";
+    /// Counter tracking skipped proposals (e.g. zero ID, below initial ID).
+    pub const EVENT_PROPOSALS_SKIPPED_TOTAL: &'static str = "driver_event_proposals_skipped_total";
+    /// Counter tracking derived or confirmed L2 blocks per proposal.
+    pub const EVENT_DERIVED_BLOCKS_TOTAL: &'static str = "driver_event_derived_blocks_total";
+    /// Gauge tracking depth of the cached bond instruction queue.
+    pub const DERIVATION_BOND_CACHE_DEPTH: &'static str = "driver_derivation_bond_cache_depth";
+    /// Counter tracking proposals resolved entirely via canonical chain detection.
+    pub const DERIVATION_CANONICAL_HITS_TOTAL: &'static str =
+        "driver_derivation_canonical_hits_total";
+    /// Counter tracking L1 origin rows written to the execution engine database.
+    pub const DERIVATION_L1_ORIGIN_UPDATES_TOTAL: &'static str =
+        "driver_derivation_l1_origin_updates_total";
+    /// Gauge tracking the last finalized proposal id advertised by the inbox core state.
+    pub const DERIVATION_LAST_FINALIZED_PROPOSAL_ID: &'static str =
+        "driver_derivation_last_finalized_proposal_id";
 
-    /// Register metric descriptors.
+    /// Register metric descriptors and initialise gauges/counters.
     pub fn init() {
-        describe_gauge!(
-            Self::BEACON_HEAD_BLOCK_ID,
+        metrics::describe_gauge!(
+            Self::BEACON_SYNC_LOCAL_HEAD_BLOCK,
             Unit::Count,
-            "Latest L1 origin block ID known by the execution engine"
+            "Latest L2 head height observed during beacon sync"
         );
-        describe_gauge!(
-            Self::NEXT_PROPOSAL_ID,
+        metrics::describe_gauge!(
+            Self::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK,
             Unit::Count,
-            "Next proposal ID expected to be proposed on L1"
+            "Checkpoint node head height sampled during beacon sync"
         );
-        describe_gauge!(
-            Self::LAST_FINALIZED_PROPOSAL_ID,
+        metrics::describe_gauge!(
+            Self::BEACON_SYNC_HEAD_LAG_BLOCKS,
             Unit::Count,
-            "Last finalized proposal ID tracked by the protocol"
+            "Checkpoint vs local head lag tracked by beacon sync"
         );
-        describe_gauge!(
-            Self::LAST_SEEN_PROPOSAL_ID,
+        metrics::describe_counter!(
+            Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL,
             Unit::Count,
-            "Highest proposal ID observed from Shasta inbox events"
+            "Checkpoint blocks submitted during beacon sync"
         );
-        describe_gauge!(
-            Self::TRANSITION_QUEUE_DEPTH,
+        metrics::describe_counter!(
+            Self::EVENT_SCANNER_BATCHES_TOTAL,
             Unit::Count,
-            "Number of cached transition records ready for finalization"
+            "Proposal log batches received from the event scanner"
         );
+        metrics::describe_counter!(
+            Self::EVENT_SCANNER_ERRORS_TOTAL,
+            Unit::Count,
+            "Errors emitted by the event scanner stream"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_PROPOSALS_TOTAL,
+            Unit::Count,
+            "Total proposal logs dispatched to derivation"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_PROPOSALS_SKIPPED_TOTAL,
+            Unit::Count,
+            "Proposal logs skipped before derivation"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_DERIVED_BLOCKS_TOTAL,
+            Unit::Count,
+            "L2 blocks derived or confirmed from proposals"
+        );
+        metrics::describe_gauge!(
+            Self::DERIVATION_BOND_CACHE_DEPTH,
+            Unit::Count,
+            "Entries retained inside the bond instruction cache"
+        );
+        metrics::describe_counter!(
+            Self::DERIVATION_CANONICAL_HITS_TOTAL,
+            Unit::Count,
+            "Proposals resolved via canonical block detection"
+        );
+        metrics::describe_counter!(
+            Self::DERIVATION_L1_ORIGIN_UPDATES_TOTAL,
+            Unit::Count,
+            "L1 origin updates written during derivation"
+        );
+        metrics::describe_gauge!(
+            Self::DERIVATION_LAST_FINALIZED_PROPOSAL_ID,
+            Unit::Count,
+            "Last finalized proposal id observed from the core state"
+        );
+
+        // Reset counters to zero.
+        metrics::counter!(Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_SCANNER_BATCHES_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_SCANNER_ERRORS_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_PROPOSALS_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_PROPOSALS_SKIPPED_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_DERIVED_BLOCKS_TOTAL).absolute(0);
+        metrics::counter!(Self::DERIVATION_CANONICAL_HITS_TOTAL).absolute(0);
+        metrics::counter!(Self::DERIVATION_L1_ORIGIN_UPDATES_TOTAL).absolute(0);
     }
 }

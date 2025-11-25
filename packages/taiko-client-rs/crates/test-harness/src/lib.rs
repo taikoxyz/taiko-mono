@@ -8,7 +8,7 @@ mod blob_server;
 mod shasta_env;
 
 pub use blob_server::BlobServer;
-pub use shasta_env::{ShastaEnv, verify_anchor_block, wait_for_new_proposal};
+pub use shasta_env::{ShastaEnv, mine_l1_block, verify_anchor_block, wait_for_new_proposal};
 
 /// Initialise tracing for tests using a single global subscriber.
 ///

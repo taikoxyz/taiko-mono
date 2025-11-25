@@ -1,7 +1,6 @@
 package manifest
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -89,75 +89,50 @@ func TestShastaManifestFetcherTestSuite(t *testing.T) {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
-	parentTime := testutils.RandomHash().Big().Uint64() % 10000
-	proposalTimestamp := big.NewInt(int64(parentTime + testutils.RandomHash().Big().Uint64()%5000 + 1000))
+	parentTime := uint64(1_000)
+	proposalTimestamp := parentTime + manifest.TimestampMaxOffset + 100
+	forkTime := proposalTimestamp - 50
+	proposal := shastaBindings.IInboxProposal{Timestamp: big.NewInt(int64(proposalTimestamp))}
 
-	// Test upper bound enforcement
+	// Timestamp above proposal timestamp should fail.
 	sourcePayload := &ShastaDerivationSourcePayload{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
 		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Timestamp: proposalTimestamp.Uint64() + testutils.RandomHash().Big().Uint64()%1000 + 1,
-			}},
+			{BlockManifest: manifest.BlockManifest{Timestamp: proposalTimestamp + 1}},
 		},
 	}
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, forkTime))
 
-	proposal := shastaBindings.IInboxProposal{Timestamp: proposalTimestamp}
-
-	validateMetadataTimestamp(sourcePayload, proposal)
-	s.Equal(proposalTimestamp.Uint64(), sourcePayload.BlockPayloads[0].Timestamp)
-
-	// Test lower bound enforcement with TIMESTAMP_MAX_OFFSET
-	// Calculate what the expected lower bound will be
-	expectedLowerBound := max(parentTime+1, proposalTimestamp.Uint64()-manifest.TimestampMaxOffset)
-	// Set lowTimestamp to be safely below the lower bound but above 0
-	offsetFromLowerBound := testutils.RandomHash().Big().Uint64()%100 + 10
-	lowTimestamp := expectedLowerBound - offsetFromLowerBound
-	if lowTimestamp > expectedLowerBound || lowTimestamp == 0 {
-		// Fallback to a safe value if calculation went wrong
-		lowTimestamp = max(1, expectedLowerBound-50)
-	}
+	// Timestamp below lower bound should fail.
+	expectedLowerBound := max(parentTime+1, proposalTimestamp-manifest.TimestampMaxOffset)
+	expectedLowerBound = max(expectedLowerBound, forkTime)
 	sourcePayload = &ShastaDerivationSourcePayload{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
 		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Timestamp: lowTimestamp,
-			}},
+			{BlockManifest: manifest.BlockManifest{Timestamp: expectedLowerBound - 1}},
 		},
 	}
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, forkTime))
 
-	validateMetadataTimestamp(sourcePayload, proposal)
-	s.Equal(expectedLowerBound, sourcePayload.BlockPayloads[0].Timestamp)
-
-	// Test sequential block validation (parent timestamp updates)
-	// Ensure first block is within valid bounds and won't be adjusted
-	lowerBoundFirst := max(parentTime+1, proposalTimestamp.Uint64()-manifest.TimestampMaxOffset)
-	firstBlockTime := lowerBoundFirst + testutils.RandomHash().Big().Uint64()%100 + 10
-	if firstBlockTime > proposalTimestamp.Uint64() {
-		firstBlockTime = proposalTimestamp.Uint64() - testutils.RandomHash().Big().Uint64()%50 - 1
-	}
-
-	// Second block timestamp too low, should be adjusted
-	secondBlockTime := firstBlockTime - testutils.RandomHash().Big().Uint64()%50 - 10
+	// Valid payload passes.
+	validTimestamp := expectedLowerBound + 10
 	sourcePayload = &ShastaDerivationSourcePayload{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
 		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{Timestamp: firstBlockTime}},
-			{BlockManifest: manifest.BlockManifest{Timestamp: secondBlockTime}},
+			{BlockManifest: manifest.BlockManifest{Timestamp: validTimestamp}},
 		},
 	}
-
-	validateMetadataTimestamp(sourcePayload, proposal)
-	s.Equal(firstBlockTime, sourcePayload.BlockPayloads[0].Timestamp)
-	s.GreaterOrEqual(sourcePayload.BlockPayloads[1].Timestamp, sourcePayload.BlockPayloads[0].Timestamp+1)
+	s.True(validateMetadataTimestamp(sourcePayload, proposal, forkTime))
+	s.Equal(validTimestamp, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	originBlockNumber := uint64(1000)
 	parentAnchorBlockNumber := uint64(900)
 	proposalID := testutils.RandomHash().Big()
+	parentTime := uint64(1_000)
 
-	// Test 1: Non-monotonic progression - should be adjusted and return false (no progression)
+	// Test 1: Non-monotonic progression - should return false
 	sourcePayload := &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -168,8 +143,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 	proposal := shastaBindings.IInboxProposal{Id: proposalID}
 	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
-	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.False(result)
 
 	// Test 2: Future reference - should be adjusted and return false (no progression)
 	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
@@ -182,8 +156,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	}
 
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
-	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.False(result)
 
 	// Test 3: Excessive lag - should be adjusted and return false (no progression)
 	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
@@ -196,8 +169,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	}
 
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
-	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.False(result)
 
 	// Test 4: Valid anchor block number - should remain unchanged
 	validAnchor := uint64(950) // Between parent (900) and max allowed (998)
@@ -225,68 +197,77 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false for non-forced inclusion without progression
 
-	// Test 6: Forced inclusion should always return true
+	// Test 6: Forced inclusion should pass once inherited metadata is applied
+	sourcePayload = &ShastaDerivationSourcePayload{
+		ParentBlock: types.NewBlock(
+			&types.Header{Number: big.NewInt(int64(parentAnchorBlockNumber)), Time: parentTime, GasLimit: 30_000_000},
+			&types.Body{},
+			nil,
+			nil,
+		),
+		BlockPayloads: []*ShastaBlockPayload{
+			{BlockManifest: manifest.BlockManifest{
+				AnchorBlockNumber: 0, // Forced inclusion inherits parent anchor
+			}},
+		},
+	}
+	ApplyInheritedMetadata(
+		sourcePayload,
+		shastaBindings.IInboxProposal{
+			Timestamp: big.NewInt(int64(parentTime + 5)),
+			Proposer:  proposal.Proposer,
+		},
+		parentAnchorBlockNumber,
+		parentTime,
+	)
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, true)
-	s.True(result) // Should return true for forced inclusion even without progression
+	s.True(result)
+	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 }
 
-func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
+func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
+	parentTime := uint64(1_000)
+	parentHeader := &types.Header{
+		Number:   big.NewInt(1),
+		GasLimit: 30_000_000,
+		Time:     parentTime,
+	}
+	parentBlock := types.NewBlockWithHeader(parentHeader)
 	proposer := common.BytesToAddress(testutils.RandomBytes(20))
-	customCoinbase := common.BytesToAddress(testutils.RandomBytes(20))
 
-	// Test 1: Forced inclusion - always use proposal.proposer
+	proposal := shastaBindings.IInboxProposal{
+		Timestamp: big.NewInt(int64(parentTime + 20)),
+		Proposer:  proposer,
+	}
+
 	sourcePayload := &ShastaDerivationSourcePayload{
+		ParentBlock: parentBlock,
 		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Coinbase: customCoinbase, // Should be overridden
-			}},
+			{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
+			{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
 		},
 	}
 
-	proposal := shastaBindings.IInboxProposal{Proposer: proposer}
-	validateCoinbase(sourcePayload, proposal, true)
-	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase) // Should use proposer
-
-	// Test 2: Regular proposal with non-zero coinbase - should remain unchanged
-	// NOTE: This tests the current buggy behavior where the second if condition still executes
-	sourcePayload = &ShastaDerivationSourcePayload{
-		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Coinbase: customCoinbase,
-			}},
-		},
-	}
-
-	validateCoinbase(sourcePayload, proposal, false)
-	// Due to the bug, both conditions are checked independently
-	// Since customCoinbase is not zero, it should remain unchanged
-	s.Equal(customCoinbase, sourcePayload.BlockPayloads[0].Coinbase)
-
-	// Test 3: Regular proposal with zero coinbase - should use fallback
-	sourcePayload = &ShastaDerivationSourcePayload{
-		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Coinbase: common.Address{}, // Zero address
-			}},
-		},
-	}
-
-	validateCoinbase(sourcePayload, proposal, false)
-	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase) // Should use proposer as fallback
-
-	// Test 4: Demonstrate the bug - forced inclusion still checks zero condition
-	// This shows that even for forced inclusion, if coinbase happens to be zero after
-	// being set to proposer, it would be set again (though to the same value)
-	sourcePayload = &ShastaDerivationSourcePayload{
-		BlockPayloads: []*ShastaBlockPayload{
-			{BlockManifest: manifest.BlockManifest{
-				Coinbase: common.Address{}, // Zero address initially
-			}},
-		},
-	}
-
-	validateCoinbase(sourcePayload, proposal, true)
+	expectedLowerBound := max(parentTime+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
+	ApplyInheritedMetadata(sourcePayload, proposal, 900, parentTime-10)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
+	s.Equal(uint64(900), sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.Equal(expectedLowerBound, sourcePayload.BlockPayloads[0].Timestamp)
+	s.Equal(sourcePayload.BlockPayloads[0].GasLimit, sourcePayload.BlockPayloads[1].GasLimit)
+	s.Greater(sourcePayload.BlockPayloads[1].Timestamp, sourcePayload.BlockPayloads[0].Timestamp)
+
+	// When lower bound exceeds proposal timestamp, metadata still uses the computed lower bound.
+	proposal.Timestamp = big.NewInt(int64(parentTime))
+	sourcePayload = &ShastaDerivationSourcePayload{
+		ParentBlock: parentBlock,
+		BlockPayloads: []*ShastaBlockPayload{
+			{BlockManifest: manifest.BlockManifest{}},
+		},
+	}
+	exceedingFork := proposal.Timestamp.Uint64() + 1
+	ApplyInheritedMetadata(sourcePayload, proposal, 900, exceedingFork)
+	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
+	s.Equal(max(parentTime+1, exceedingFork), sourcePayload.BlockPayloads[0].Timestamp)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
@@ -306,7 +287,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	expectedUpperBound := effectiveParentGasLimit *
 		(manifest.GasLimitChangeDenominator + manifest.MaxBlockGasLimitChangePermyriad) / manifest.GasLimitChangeDenominator
 
-	// Test 1: Zero gas limit - should inherit parent
+	// Test 1: Zero gas limit - should fail
 	sourcePayload := &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -315,10 +296,9 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
-	s.Equal(effectiveParentGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
+	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
-	// Test 2: Gas limit below lower bound - should be clamped
+	// Test 2: Gas limit below lower bound - should fail
 	lowGasLimit := expectedLowerBound - 1000
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -328,10 +308,9 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
-	s.Equal(expectedLowerBound, sourcePayload.BlockPayloads[0].GasLimit)
+	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
-	// Test 3: Gas limit above upper bound - should be clamped
+	// Test 3: Gas limit above upper bound - should fail
 	highGasLimit := expectedUpperBound + 1000
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -341,8 +320,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
-	s.Equal(expectedUpperBound, sourcePayload.BlockPayloads[0].GasLimit)
+	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 
 	// Test 4: Valid gas limit within bounds - should remain unchanged
 	validGasLimit := expectedLowerBound
@@ -359,12 +337,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
+	s.True(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 	s.Equal(validGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 5: Sequential blocks - parent gas limit should update
 	firstBlockGasLimit := validGasLimit
-	secondBlockGasLimit := uint64(0) // Should inherit from first block
+	secondBlockGasLimit := validGasLimit
 
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
@@ -377,11 +355,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit)
+	s.True(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
 	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[1].GasLimit) // Should inherit from first block
 
-	// Test 6: Minimum gas limit enforcement
+	// Test 6: Minimum gas limit enforcement returns false when below MIN_BLOCK_GAS_LIMIT
 	if manifest.MinBlockGasLimit > expectedLowerBound {
 		veryLowParentGasLimit := uint64(10_000_000) // Low parent gas limit
 		sourcePayload = &ShastaDerivationSourcePayload{
@@ -392,21 +370,58 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			},
 		}
 
-		validateGasLimit(sourcePayload, parentBlockNumber, veryLowParentGasLimit)
-		s.Equal(manifest.MinBlockGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
+		s.False(validateGasLimit(sourcePayload, parentBlockNumber, veryLowParentGasLimit))
 	}
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
-	// Empty manifest
-	s.NotNil(ValidateMetadata(
-		context.Background(),
-		s.RPCClient,
-		nil,
+	parentTime := uint64(1_000)
+	parentHeader := &types.Header{
+		Number:   big.NewInt(0),
+		GasLimit: 30_000_000,
+		Time:     parentTime,
+	}
+	parentBlock := types.NewBlockWithHeader(parentHeader)
+
+	sourcePayload := &ShastaDerivationSourcePayload{
+		ParentBlock: parentBlock,
+		BlockPayloads: []*ShastaBlockPayload{
+			{BlockManifest: manifest.BlockManifest{
+				Timestamp:         parentTime + 10,
+				Coinbase:          common.BytesToAddress(testutils.RandomBytes(20)),
+				AnchorBlockNumber: 950,
+				GasLimit:          30_000_000,
+			}},
+		},
+	}
+
+	proposal := shastaBindings.IInboxProposal{
+		Id:        big.NewInt(1),
+		Timestamp: big.NewInt(int64(parentTime + 20)),
+		Proposer:  common.BytesToAddress(testutils.RandomBytes(20)),
+	}
+
+	rpcClient := &rpc.Client{
+		ShastaClients: &rpc.ShastaClients{ForkTime: parentTime},
+	}
+
+	s.True(ValidateMetadata(
+		rpcClient,
+		sourcePayload,
+		proposal,
+		1_000,
+		900,
 		false,
-		shastaBindings.IInboxProposal{},
-		0,
-		common.Hash{},
-		0),
-	)
+	))
+
+	// Anchor block number without progression should invalidate the source.
+	sourcePayload.BlockPayloads[0].AnchorBlockNumber = 900
+	s.False(ValidateMetadata(
+		rpcClient,
+		sourcePayload,
+		proposal,
+		1_000,
+		900,
+		false,
+	))
 }
