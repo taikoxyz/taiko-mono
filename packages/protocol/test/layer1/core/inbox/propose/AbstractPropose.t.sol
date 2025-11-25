@@ -253,6 +253,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     function test_propose_processesSingleForcedInclusion() public {
         _setupBlobHashes();
 
+        IInbox.ProposedEventPayload memory firstPayload = _proposeFirstBlock();
+
         LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
         LibBlobs.BlobSlice memory expectedForcedSlice = _enqueueForcedInclusion(forcedRef, Alice);
 
@@ -260,7 +262,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + delay + 1);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        IInbox.ProposeInput memory input = _buildNextProposeInput(firstPayload);
         input.numForcedInclusions = 1;
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
@@ -276,7 +278,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload = _decodeLastProposedEvent();
 
         assertEq(payload.proposal.proposer, currentProposer, "Proposer mismatch");
-        assertEq(uint256(payload.proposal.id), 1, "Proposal id mismatch");
+        assertEq(uint256(payload.proposal.id), 2, "Proposal id mismatch");
         assertEq(payload.derivation.sources.length, 2, "Unexpected source count");
         _assertForcedSource(payload.derivation.sources[0], expectedForcedSlice);
         assertFalse(payload.derivation.sources[1].isForcedInclusion, "Normal source missing");
@@ -284,6 +286,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_processesMultipleForcedInclusions() public {
         _setupBlobHashes();
+
+        IInbox.ProposedEventPayload memory firstPayload = _proposeFirstBlock();
 
         LibBlobs.BlobReference memory forcedRef0 = _createBlobRef(1, 1, 0);
         LibBlobs.BlobSlice memory firstSlice = _enqueueForcedInclusion(forcedRef0, Alice);
@@ -297,7 +301,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + delay + 1);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        IInbox.ProposeInput memory input = _buildNextProposeInput(firstPayload);
         input.numForcedInclusions = 2;
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
@@ -321,6 +325,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     function test_propose_RevertWhen_forcedInclusionDueButNotProcessed() public {
         _setupBlobHashes();
 
+        IInbox.ProposedEventPayload memory firstPayload = _proposeFirstBlock();
+
         LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
         _enqueueForcedInclusion(forcedRef, Alice);
 
@@ -328,7 +334,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + delay + 1);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        IInbox.ProposeInput memory input = _buildNextProposeInput(firstPayload);
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
 
@@ -337,8 +343,22 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         inbox.propose(bytes(""), proposeData);
     }
 
+    function test_saveForcedInclusion_RevertWhen_FirstProposalMissing() public {
+        _setupBlobHashes();
+
+        LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
+        uint256 fee = _getForcedInclusionFeeWei() * 3;
+
+        vm.deal(Alice, fee);
+        vm.expectRevert(Inbox.IncorrectProposalCount.selector);
+        vm.prank(Alice);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef);
+    }
+
     function test_propose_allowsPermissionlessWhenForcedInclusionTooOld() public {
         _setupBlobHashes();
+
+        IInbox.ProposedEventPayload memory firstPayload = _proposeFirstBlock();
 
         LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
         LibBlobs.BlobSlice memory expectedForcedSlice = _enqueueForcedInclusion(forcedRef, Alice);
@@ -349,7 +369,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(block.timestamp + delay + 1);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory unauthorizedInput = _createFirstProposeInput();
+        IInbox.ProposeInput memory unauthorizedInput = _buildNextProposeInput(firstPayload);
         unauthorizedInput.numForcedInclusions = 1;
         bytes memory unauthorizedData = _codec().encodeProposeInput(unauthorizedInput);
 
@@ -361,7 +381,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(targetTimestamp);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        IInbox.ProposeInput memory input = _buildNextProposeInput(firstPayload);
         input.numForcedInclusions = 1;
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
@@ -398,6 +418,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     function test_propose_RevertWhen_UnauthorizedForcedInclusionNotTooOld() public {
         _setupBlobHashes();
 
+        IInbox.ProposedEventPayload memory firstPayload = _proposeFirstBlock();
+
         LibBlobs.BlobReference memory forcedRef = _createBlobRef(1, 1, 0);
         _enqueueForcedInclusion(forcedRef, Alice);
 
@@ -407,7 +429,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.warp(targetTimestamp);
         vm.roll(block.number + 1);
 
-        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        IInbox.ProposeInput memory input = _buildNextProposeInput(firstPayload);
         input.numForcedInclusions = 1;
 
         bytes memory proposeData = _codec().encodeProposeInput(input);
@@ -998,6 +1020,18 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
 
+    function _proposeFirstBlock() internal returns (IInbox.ProposedEventPayload memory) {
+        vm.roll(block.number + 1);
+
+        bytes memory proposeData = _codec().encodeProposeInput(_createFirstProposeInput());
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        return _decodeLastProposedEvent();
+    }
+
     function _enqueueForcedInclusion(
         LibBlobs.BlobReference memory _ref,
         address _payer
@@ -1097,6 +1131,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     function test_getCurrentForcedInclusionFee_IncreasesWithQueue() public {
         _setupBlobHashes();
 
+        _proposeFirstBlock();
+
         // Get base fee
         uint64 initialFee = inbox.getCurrentForcedInclusionFee();
         uint256 baseFee = _getForcedInclusionFeeWei() / 1 gwei;
@@ -1122,6 +1158,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_getCurrentForcedInclusionFee_MatchesCalculation() public {
         _setupBlobHashes();
+
+        _proposeFirstBlock();
 
         IInbox.Config memory config = inbox.getConfig();
 

@@ -63,13 +63,16 @@ contract AnchorTest is Test {
             )
         );
 
-        anchor = new Anchor(
-            checkpointStore,
-            bondManager,
-            LIVENESS_BOND,
-            PROVABILITY_BOND,
-            L1_CHAIN_ID,
-            address(this)
+        // Deploy Anchor implementation
+        Anchor anchorImpl = new Anchor(
+            checkpointStore, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID
+        );
+
+        // Deploy Anchor behind a proxy
+        anchor = Anchor(
+            address(
+                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
+            )
         );
 
         BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
@@ -593,5 +596,26 @@ contract AnchorTest is Test {
             anchorBlockHash: bytes32(uint256(0x1234)),
             anchorStateRoot: bytes32(uint256(0x5678))
         });
+    }
+
+    // ---------------------------------------------------------------
+    // DOMAIN_SEPARATOR
+    // ---------------------------------------------------------------
+
+    function test_DOMAIN_SEPARATOR_returnsCorrectValue() external view {
+        bytes32 domainSeparator = anchor.DOMAIN_SEPARATOR();
+
+        // Manually compute expected domain separator
+        bytes32 expectedDomainSeparator = keccak256(
+            abi.encode(
+                PROVER_AUTH_DOMAIN_TYPEHASH,
+                PROVER_AUTH_DOMAIN_NAME_HASH,
+                PROVER_AUTH_DOMAIN_VERSION_HASH,
+                block.chainid,
+                address(anchor)
+            )
+        );
+
+        assertEq(domainSeparator, expectedDomainSeparator, "Domain separator mismatch");
     }
 }
