@@ -8,18 +8,11 @@ import { ForkRouter } from "src/shared/fork-router/ForkRouter.sol";
 // To dryrun the proposal on L1: `P=0007 pnpm proposal:dryrun:l1`
 // To dryrun the proposal on L2: `P=0007 pnpm proposal:dryrun:l2`
 contract Proposal0007 is BuildProposal {
-    // TODO: set to the Shasta inbox proxy address before execution.
-    address public constant SHASTA_INBOX_PROXY = 0x0000000000000000000000000000000000000000;
-
     function buildL1Actions() internal view override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](2);
+        actions = new Controller.Action[](1);
 
         actions[0] =
             buildUpgradeAction(L1.SIGNAL_SERVICE, ForkRouter(payable(L1.SIGNAL_SERVICE)).newFork());
-
-        actions[1] = Controller.Action({
-            target: SHASTA_INBOX_PROXY, value: 0, data: abi.encodeWithSignature("acceptOwnership()")
-        });
     }
 
     function buildL2Actions()
