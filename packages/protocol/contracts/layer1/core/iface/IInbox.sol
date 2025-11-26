@@ -214,7 +214,12 @@ interface IInbox {
     /// @param parentTransitionHash The parent transition hash where the conflict occurred
     /// @param previousRecordHash The hash of the previous transition record
     /// @param newRecordHash The hash of the new conflicting transition record
-    event TransitionConflictDetected(uint48 indexed proposalId, bytes32 indexed parentTransitionHash, bytes26 previousRecordHash, bytes26 newRecordHash);
+    event TransitionConflictDetected(
+        uint48 indexed proposalId,
+        bytes32 indexed parentTransitionHash,
+        bytes26 previousRecordHash,
+        bytes26 newRecordHash
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions

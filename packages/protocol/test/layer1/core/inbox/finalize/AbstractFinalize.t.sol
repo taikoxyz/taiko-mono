@@ -420,7 +420,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 if (
                     logs[i].topics.length > 0
                         && logs[i].topics[0]
-                            == keccak256("TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)")
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
                 ) {
                     conflictEventFound = true;
                     // topics[0] = event signature
@@ -445,7 +447,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             (uint48 deadline, bytes26 recordHash) =
                 inbox.getTransitionRecordHash(firstPayload.proposal.id, _getGenesisTransitionHash());
             assertEq(
-                deadline, type(uint48).max, "Deadline should be set to max for conflicting transition"
+                deadline,
+                type(uint48).max,
+                "Deadline should be set to max for conflicting transition"
             );
             assertTrue(recordHash != bytes26(0), "Record hash should still exist");
         }

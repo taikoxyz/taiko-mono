@@ -150,7 +150,9 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
                 if (
                     logs[i].topics.length > 0
                         && logs[i].topics[0]
-                            == keccak256("TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)")
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
                 ) {
                     conflictEventFound = true;
                     break;
@@ -163,7 +165,9 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         {
             (uint48 conflictDeadline, bytes26 conflictRecordHash) =
                 inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-            assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
+            assertEq(
+                conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict"
+            );
             assertEq(
                 conflictRecordHash,
                 firstRecordHash,
