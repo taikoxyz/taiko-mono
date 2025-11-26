@@ -104,17 +104,23 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - check for duplicate or conflict
+            // Same proposal and parent hash - check conflict
             bytes26 recordHash = record.hashAndDeadline.recordHash;
 
             if (recordHash == 0) {
+                // No existing record - store this transition
                 record.hashAndDeadline = _hashAndDeadline;
-            } else if (recordHash == _recordHash) {
-                emit TransitionDuplicateDetected();
-            } else {
-                emit TransitionConflictDetected();
-                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
-            }
+                return;
+            } 
+            
+            // Same transition re-submitted - do nothing
+            if (recordHash == _recordHash) return;
+
+            // Conflict: different transition for same parent
+            emit TransitionConflictDetected(
+                _proposalId, _parentTransitionHash, recordHash, _recordHash
+            );
+            record.hashAndDeadline.finalizationDeadline = type(uint48).max;
         } else {
             super._storeTransitionRecord(
                 _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline

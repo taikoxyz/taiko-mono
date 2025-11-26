@@ -408,10 +408,53 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             )
         });
 
+        vm.recordLogs();
         vm.prank(currentProver);
         inbox.prove(_codec().encodeProveInput(conflictInput), _createValidProof());
 
-        // Attempt to finalize should revert due to TransitionInConflict
+        // Verify TransitionConflictDetected event was emitted with the proposal ID and record hashes
+        {
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            bool conflictEventFound = false;
+            for (uint256 i = 0; i < logs.length; i++) {
+                if (
+                    logs[i].topics.length > 0
+                        && logs[i].topics[0]
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
+                ) {
+                    conflictEventFound = true;
+                    // topics[0] = event signature
+                    // topics[1] = indexed proposalId
+                    // topics[2] = indexed parentTransitionHash
+                    // data = previousRecordHash, newRecordHash
+                    (bytes26 previousRecordHash, bytes26 newRecordHash) =
+                        abi.decode(logs[i].data, (bytes26, bytes26));
+                    assertTrue(
+                        previousRecordHash != bytes26(0), "Previous record hash should not be zero"
+                    );
+                    assertTrue(newRecordHash != bytes26(0), "New record hash should not be zero");
+                    assertTrue(previousRecordHash != newRecordHash, "Hashes should be different");
+                    break;
+                }
+            }
+            assertTrue(conflictEventFound, "TransitionConflictDetected event not emitted");
+        }
+
+        // Verify the finalization deadline was set to max
+        {
+            (uint48 deadline, bytes26 recordHash) =
+                inbox.getTransitionRecordHash(firstPayload.proposal.id, _getGenesisTransitionHash());
+            assertEq(
+                deadline,
+                type(uint48).max,
+                "Deadline should be set to max for conflicting transition"
+            );
+            assertTrue(recordHash != bytes26(0), "Record hash should still exist");
+        }
+
+        // Attempt to finalize should stop early (not revert) when encountering the conflicting transition
         _setupBlobHashes();
         bytes memory proposeData = _codec()
             .encodeProposeInput(
@@ -423,10 +466,23 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
                 )
             );
 
+        vm.recordLogs();
         vm.roll(block.number + 1);
         vm.prank(currentProposer);
-        vm.expectRevert(Inbox.TransitionInConflict.selector);
         inbox.propose(bytes(""), proposeData);
+
+        // Verify that finalization did not proceed (lastFinalizedProposalId should remain 0)
+        IInbox.ProposedEventPayload memory finalizedPayload = _decodeLastProposedEvent();
+        assertEq(
+            finalizedPayload.coreState.lastFinalizedProposalId,
+            0,
+            "Finalization should not proceed when transition is in conflict"
+        );
+        assertEq(
+            finalizedPayload.coreState.lastFinalizedTransitionHash,
+            _getGenesisTransitionHash(),
+            "Last finalized transition hash should remain at genesis"
+        );
     }
 
     // ---------------------------------------------------------------

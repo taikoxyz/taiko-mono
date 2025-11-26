@@ -78,22 +78,20 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
+        // Get the stored record hash and deadline for verification
+        (uint48 firstDeadline, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate
+        // Second prove with identical data - should be silently ignored (no event, no storage change)
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
+        // Verify the record hash and deadline are unchanged
+        (uint48 secondDeadline, bytes26 secondRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
+        assertEq(secondDeadline, firstDeadline, "Deadline should remain unchanged");
+        assertTrue(secondDeadline < type(uint48).max, "Deadline should not be marked as conflicted");
     }
 
     // ---------------------------------------------------------------
@@ -138,23 +136,43 @@ contract InboxTransitionRecord is InboxTestHelper {
         bytes memory proveData2 = _codec().encodeProveInput(input);
         bytes memory proof2 = _createValidProof();
 
-        // Expect TransitionConflictDetected event
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
-        // Second prove with conflicting data
+        // Second prove with conflicting data - expect TransitionConflictDetected event
+        vm.recordLogs();
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
+        // Verify TransitionConflictDetected event was emitted
+        {
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            bool conflictEventFound = false;
+            for (uint256 i = 0; i < logs.length; i++) {
+                if (
+                    logs[i].topics.length > 0
+                        && logs[i].topics[0]
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
+                ) {
+                    conflictEventFound = true;
+                    break;
+                }
+            }
+            assertTrue(conflictEventFound, "TransitionConflictDetected event not emitted");
+        }
+
         // Verify finalization deadline was set to max
-        (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
-        assertEq(
-            conflictRecordHash,
-            firstRecordHash,
-            "Original record hash should remain (not overwritten)"
-        );
+        {
+            (uint48 conflictDeadline, bytes26 conflictRecordHash) =
+                inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            assertEq(
+                conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict"
+            );
+            assertEq(
+                conflictRecordHash,
+                firstRecordHash,
+                "Original record hash should remain (not overwritten)"
+            );
+        }
     }
 
     // ---------------------------------------------------------------
@@ -275,11 +293,28 @@ contract InboxTransitionRecord is InboxTestHelper {
         bytes memory conflictingProveData = _codec().encodeProveInput(input);
 
         // Expect conflict detection
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
+        vm.recordLogs();
         vm.prank(currentProver);
         inbox.prove(conflictingProveData, _createValidProof());
+
+        // Verify TransitionConflictDetected event was emitted
+        {
+            Vm.Log[] memory conflictLogs = vm.getRecordedLogs();
+            bool conflictDetected = false;
+            for (uint256 i = 0; i < conflictLogs.length; i++) {
+                if (
+                    conflictLogs[i].topics.length > 0
+                        && conflictLogs[i].topics[0]
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
+                ) {
+                    conflictDetected = true;
+                    break;
+                }
+            }
+            assertTrue(conflictDetected, "TransitionConflictDetected event not emitted");
+        }
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =

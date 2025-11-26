@@ -545,14 +545,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes26 recordHash = entry.recordHash;
 
         if (recordHash == 0) {
+            // No existing record - store this transition
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash == _recordHash) {
-            emit TransitionDuplicateDetected();
-        } else {
-            emit TransitionConflictDetected();
-            entry.finalizationDeadline = type(uint48).max;
+            return;
         }
+
+        // Same transition re-submitted - do nothing
+        if (recordHash == _recordHash) return;
+
+        // Conflict: different transition for same parent
+        emit TransitionConflictDetected(
+            _proposalId, _parentTransitionHash, recordHash, _recordHash
+        );
+        entry.finalizationDeadline = type(uint48).max;
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -837,9 +843,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
+            uint256 toProcess = _numForcedInclusionsRequested.min(available);
 
             // Allocate array with extra slot for normal source
             result_.sources = new IInbox.DerivationSource[](toProcess + 1);
@@ -973,8 +977,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
-                if (recordHash == 0) break;
-                require(finalizationDeadline != type(uint48).max, TransitionInConflict());
+                if (recordHash == 0 || finalizationDeadline == type(uint48).max) break;
 
                 if (i >= transitionCount) {
                     require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
@@ -1145,7 +1148,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
     error SpanOutOfBounds();
-    error TransitionInConflict();
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
