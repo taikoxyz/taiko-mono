@@ -555,9 +555,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (recordHash == _recordHash) return;
 
         // Conflict: different transition for same parent
-        emit TransitionConflictDetected(
-            _proposalId, _parentTransitionHash, recordHash, _recordHash
-        );
+        emit TransitionConflictDetected(_proposalId, _parentTransitionHash, recordHash, _recordHash);
         entry.finalizationDeadline = type(uint48).max;
     }
 

@@ -111,8 +111,8 @@ contract InboxOptimized1 is Inbox {
                 // No existing record - store this transition
                 record.hashAndDeadline = _hashAndDeadline;
                 return;
-            } 
-            
+            }
+
             // Same transition re-submitted - do nothing
             if (recordHash == _recordHash) return;
 
