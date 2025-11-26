@@ -245,10 +245,7 @@ contract InboxOptimized1 is Inbox {
                 aggregatedTransition.checkpoint = _input.transitions[lastIndex].checkpoint;
             }
             _setTransitionRecordHashAndDeadline(
-                _groupStartProposalId,
-                aggregatedTransition,
-                _input.metadata[_firstIndex],
-                _record
+                _groupStartProposalId, aggregatedTransition, _input.metadata[_firstIndex], _record
             );
         }
     }
