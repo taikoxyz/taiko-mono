@@ -283,6 +283,11 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	var blockNum = event.Raw.BlockNumber
 
+	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+
 	// wait for srcChain => destChain header to sync if no hops,
 	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
 	if len(p.hops) > 0 {
@@ -318,7 +323,9 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	hops := []proof.HopParams{}
 
-	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
+	key, err := signalService.GetSignalSlot(&bind.CallOpts{
+		Context: ctx,
+	},
 		event.Message.SrcChainId,
 		event.Raw.Address,
 		event.MsgHash,
@@ -348,10 +355,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
+			SignalServiceAddress: signalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
+			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          latestBlockID,
 		})
@@ -360,10 +367,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		// the rest of the hops after.
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
+			SignalServiceAddress: signalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
+			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          blockNum,
 		})
@@ -431,6 +438,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	}
 
 	return encodedSignalProof, nil
+}
+
+// signalServiceForBlock picks the correct signal service fork based on the
+// block timestamp relative to the Shasta fork.
+func (p *Processor) signalServiceForBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) (relayer.SignalService, common.Address, error) {
+	if p.shastaForkTimestamp == 0 ||
+		p.shastaOldForkSignalService == nil ||
+		p.shastaNewForkSignalService == nil {
+		return p.srcSignalService, p.srcSignalServiceAddress, nil
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+
+	defer cancel()
+
+	header, err := p.srcEthClient.HeaderByNumber(callCtx, new(big.Int).SetUint64(blockNumber))
+	if err != nil {
+		return nil, common.Address{}, err
+	}
+
+	if header.Time < p.shastaForkTimestamp {
+		return p.shastaOldForkSignalService, p.shastaOldForkAddress, nil
+	}
+
+	return p.shastaNewForkSignalService, p.shastaNewForkAddress, nil
 }
 
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce

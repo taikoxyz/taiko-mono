@@ -102,6 +102,8 @@ type Processor struct {
 
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
+	shastaOldForkAddress    common.Address
+	shastaNewForkAddress    common.Address
 
 	confirmations uint64
 
@@ -138,6 +140,9 @@ type Processor struct {
 
 	shastaForkTimestamp uint64
 	forkWindow          time.Duration
+
+	shastaOldForkSignalService relayer.SignalService
+	shastaNewForkSignalService relayer.SignalService
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -231,14 +236,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	switch {
 	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
-		srcSignalService, err = v4signalservice.NewSignalService(
-			cfg.SrcSignalServiceForkRouterAddress,
-			srcEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
 		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
 			cfg.SrcSignalServiceForkRouterAddress,
 			srcEthClient,
@@ -246,6 +243,33 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		if err != nil {
 			return err
 		}
+
+		oldForkAddress, err := router.OldFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		newForkAddress, err := router.NewFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		oldForkSignalService, err := v4signalservice.NewSignalService(oldForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		newForkSignalService, err := v4signalservice.NewSignalService(newForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		srcSignalService = oldForkSignalService
+
+		p.shastaOldForkSignalService = oldForkSignalService
+		p.shastaNewForkSignalService = newForkSignalService
+		p.shastaOldForkAddress = oldForkAddress
+		p.shastaNewForkAddress = newForkAddress
 
 		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
 		if err != nil {
@@ -392,7 +416,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
-		p.srcSignalServiceAddress = cfg.SrcSignalServiceForkRouterAddress
+		p.srcSignalServiceAddress = p.shastaOldForkAddress
 	}
 
 	p.msgCh = make(chan queue.Message)
