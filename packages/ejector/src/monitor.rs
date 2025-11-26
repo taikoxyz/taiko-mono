@@ -139,6 +139,7 @@ pub struct Monitor {
     preconf_router_address: Address,
     min_operators: u64,
     min_reorg_depth_for_eject: usize,
+    reorg_ejection_enabled: bool,
 }
 
 impl Monitor {
@@ -157,6 +158,7 @@ impl Monitor {
         preconf_router_address: Address,
         min_operators: u64,
         min_reorg_depth_for_eject: usize,
+        reorg_ejection_enabled: bool,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
         let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
@@ -176,6 +178,7 @@ impl Monitor {
             preconf_router_address,
             min_operators,
             min_reorg_depth_for_eject,
+            reorg_ejection_enabled,
         }
     }
 
@@ -458,6 +461,16 @@ impl Monitor {
                                             );
 
                                             metrics::note_reorg(reorg_depth);
+
+                                            if !self.reorg_ejection_enabled {
+                                                info!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    "Reorg ejection disabled via flag; skipping operator eject"
+                                                );
+                                                metrics::inc_reorg_skipped();
+                                                continue;
+                                            }
 
                                             if reorg_depth < self.min_reorg_depth_for_eject {
                                                 info!(
