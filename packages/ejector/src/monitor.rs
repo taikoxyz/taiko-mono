@@ -470,29 +470,15 @@ impl Monitor {
                                                 continue;
                                             }
 
-                                            let Some(culprit) = removed_blocks
-                                                .iter()
-                                                .min_by_key(|b| b.number)
-                                                .cloned()
-                                            else {
-                                                warn!(
-                                                    block_number,
-                                                    "Reorg blocks unexpectedly empty after depth check; skipping eject"
-                                                );
-                                                continue;
-                                            };
-
-                                            for skipped in removed_blocks
-                                                .iter()
-                                                .filter(|b| b.number != culprit.number)
-                                            {
+                                            for removed in removed_blocks.iter() {
                                                 debug!(
-                                                    block_number = skipped.number,
-                                                    block_hash = ?skipped.hash,
-                                                    "Additional reorged block observed; attributing fault to earliest removed block"
+                                                    block_number = removed.number,
+                                                    block_hash = ?removed.hash,
+                                                    "Block removed due to reorg"
                                                 );
                                             }
 
+                                            let culprit = tracked_block.clone();
                                             let coinbase = culprit.coinbase;
                                             if coinbase.is_zero() {
                                                 warn!(
