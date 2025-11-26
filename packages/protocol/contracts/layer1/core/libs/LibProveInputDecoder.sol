@@ -16,7 +16,11 @@ library LibProveInputDecoder {
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
+    function encode(IInbox.ProveInput memory _input)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
         // Calculate total size needed
         uint256 bufferSize =
             _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
@@ -154,6 +158,7 @@ library LibProveInputDecoder {
     {
         newPtr_ = P.packAddress(_ptr, _metadata.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
+        newPtr_ = P.packBytes32(newPtr_, _metadata.bondProcessingProposalHash);
     }
 
     /// @notice Decode a single TransitionMetadata
@@ -164,6 +169,7 @@ library LibProveInputDecoder {
     {
         (metadata_.designatedProver, newPtr_) = P.unpackAddress(_ptr);
         (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+        (metadata_.bondProcessingProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
@@ -194,7 +200,10 @@ library LibProveInputDecoder {
             //
             // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40
             //
-            size_ += _proposals.length * (102 + 134 + 40);
+            // Metadata - each has fixed size:
+            // designatedProver(20) + actualProver(20) + bondProcessingProposalHash(32) = 72
+            //
+            size_ += _proposals.length * (102 + 134 + 72);
         }
     }
 

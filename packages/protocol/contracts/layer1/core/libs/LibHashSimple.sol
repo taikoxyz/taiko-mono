@@ -107,7 +107,8 @@ library LibHashSimple {
                 abi.encodePacked(
                     hashTransition(_transitions[i]),
                     _metadata[i].designatedProver,
-                    _metadata[i].actualProver
+                    _metadata[i].actualProver,
+                    _metadata[i].bondProcessingProposalHash
                 )
             );
         }

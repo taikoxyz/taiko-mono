@@ -110,6 +110,8 @@ interface IInbox {
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
+        /// @notice Hash of the proposal at `id - BOND_PROCESSING_DELAY` used for bond processing.
+        bytes32 bondProcessingProposalHash;
     }
 
     /// @notice Represents a record of a transition with additional metadata.

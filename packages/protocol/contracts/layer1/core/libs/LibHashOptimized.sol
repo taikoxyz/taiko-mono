@@ -313,10 +313,9 @@ library LibHashOptimized {
             bytes32(uint256(_source.blobSlice.timestamp))
         );
 
-        return
-            EfficientHashLib.hash(
-                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-            );
+        return EfficientHashLib.hash(
+            bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+        );
     }
 
     /// @notice Safely hashes a single bond instruction to avoid collisions
@@ -355,7 +354,8 @@ library LibHashOptimized {
             _transition.parentTransitionHash,
             hashCheckpoint(_transition.checkpoint),
             bytes32(uint256(uint160(_metadata.designatedProver))),
-            bytes32(uint256(uint160(_metadata.actualProver)))
+            bytes32(uint256(uint160(_metadata.actualProver))),
+            _metadata.bondProcessingProposalHash
         );
     }
 

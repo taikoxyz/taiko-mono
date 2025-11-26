@@ -5,6 +5,13 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Delay (in proposals) before processing bond instructions.
+    uint256 public constant BOND_PROCESSING_DELAY = 6;
+
+    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 

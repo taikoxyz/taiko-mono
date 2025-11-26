@@ -48,6 +48,7 @@ library LibProvedEventEncoder {
         // Encode TransitionMetadata
         ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
+        ptr = P.packBytes32(ptr, _payload.metadata.bondProcessingProposalHash);
 
         // Encode bond instructions array length (uint16)
         P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
@@ -92,6 +93,7 @@ library LibProvedEventEncoder {
         // Decode TransitionMetadata
         (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
+        (payload_.metadata.bondProcessingProposalHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
@@ -122,18 +124,19 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 247 bytes
+            // Fixed size: 279 bytes
             // proposalId: 6
             // Transition: proposalHash(32) + parentTransitionHash(32) = 64
             //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) = 65
-            // TransitionMetadata: designatedProver(20) + actualProver(20) = 40
+            // TransitionMetadata: designatedProver(20) + actualProver(20) +
+            // bondProcessingProposalHash(32) = 72
             // bondInstructions array length: 2
-            // Total fixed: 6 + 64 + 70 + 65 + 40 + 2 = 247
+            // Total fixed: 6 + 64 + 70 + 65 + 72 + 2 = 279
 
             // Variable size: each bond instruction is 47 bytes
             // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47
-            size_ = 247 + (_bondInstructionsCount * 47);
+            size_ = 279 + (_bondInstructionsCount * 47);
         }
     }
 
