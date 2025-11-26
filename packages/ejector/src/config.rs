@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "ejector", version)]
@@ -61,6 +61,10 @@ pub struct Config {
     // minimum reorg depth (number of blocks replaced) required before we eject operators
     #[arg(long, env = "MIN_REORG_DEPTH_FOR_EJECT", default_value_t = 4usize)]
     pub min_reorg_depth_for_eject: usize,
+
+    // toggle whether reorg-triggered ejection is enabled
+    #[arg(long, env = "ENABLE_REORG_EJECTION", default_value_t = true, action = ArgAction::Set)]
+    pub enable_reorg_ejection: bool,
 }
 
 // tests
@@ -101,6 +105,8 @@ mod tests {
             "1",
             "--min-reorg-depth-for-eject",
             "5",
+            "--enable-reorg-ejection",
+            "false",
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
@@ -118,5 +124,6 @@ mod tests {
         assert_eq!(config.server_port, 8081);
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
+        assert!(!config.enable_reorg_ejection);
     }
 }
