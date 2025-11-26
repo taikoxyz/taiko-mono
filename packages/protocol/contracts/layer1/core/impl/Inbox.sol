@@ -545,14 +545,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes26 recordHash = entry.recordHash;
 
         if (recordHash == 0) {
+            // No existing record - store this transition
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash != _recordHash) {
-            emit TransitionConflictDetected(
-                _proposalId, _parentTransitionHash, recordHash, _recordHash
-            );
-            entry.finalizationDeadline = type(uint48).max;
+            return;
         }
+
+        // Same transition re-submitted - do nothing
+        if (recordHash == _recordHash) return;
+
+        // Conflict: different transition for same parent
+        emit TransitionConflictDetected(
+            _proposalId, _parentTransitionHash, recordHash, _recordHash
+        );
+        entry.finalizationDeadline = type(uint48).max;
     }
 
     /// @dev Loads transition record metadata from storage.
