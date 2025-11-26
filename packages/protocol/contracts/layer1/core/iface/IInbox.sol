@@ -210,11 +210,11 @@ interface IInbox {
 
     /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
     /// Proved event.
-    event TransitionConflictDetected();
-
-    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
-    /// event.
-    event TransitionDuplicateDetected();
+    /// @param proposalId The proposal ID where the conflict was detected
+    /// @param parentTransitionHash The parent transition hash where the conflict occurred
+    /// @param previousRecordHash The hash of the previous transition record
+    /// @param newRecordHash The hash of the new conflicting transition record
+    event TransitionConflictDetected(uint48 indexed proposalId, bytes32 indexed parentTransitionHash, bytes26 previousRecordHash, bytes26 newRecordHash);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

@@ -66,6 +66,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
     /// @notice Tests duplicate transition record detection with ring buffer
     /// @dev InboxOptimized1 specific: partialParentHash match, recordHash == _recordHash
+    /// When a duplicate proof is submitted, no event is emitted and storage remains unchanged
     function test_storeTransitionRecord_duplicateDetection_ringBuffer() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
@@ -78,22 +79,20 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
+        // Get the stored record hash and deadline for verification
+        (uint48 firstDeadline, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate via ring buffer
+        // Second prove with identical data - should be silently ignored (no event, no storage change)
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
+        // Verify the record hash and deadline are unchanged
+        (uint48 secondDeadline, bytes26 secondRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
+        assertEq(secondDeadline, firstDeadline, "Deadline should remain unchanged");
+        assertTrue(secondDeadline < type(uint48).max, "Deadline should not be marked as conflicted");
     }
 
     // ---------------------------------------------------------------
@@ -138,23 +137,39 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         bytes memory proveData2 = _codec().encodeProveInput(input);
         bytes memory proof2 = _createValidProof();
 
-        // Expect TransitionConflictDetected event
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
-        // Second prove with conflicting data
+        // Second prove with conflicting data - expect TransitionConflictDetected event
+        vm.recordLogs();
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
+        // Verify TransitionConflictDetected event was emitted
+        {
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            bool conflictEventFound = false;
+            for (uint256 i = 0; i < logs.length; i++) {
+                if (
+                    logs[i].topics.length > 0
+                        && logs[i].topics[0]
+                            == keccak256("TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)")
+                ) {
+                    conflictEventFound = true;
+                    break;
+                }
+            }
+            assertTrue(conflictEventFound, "TransitionConflictDetected event not emitted");
+        }
+
         // Verify finalization deadline was set to max via ring buffer
-        (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
-        assertEq(
-            conflictRecordHash,
-            firstRecordHash,
-            "Original record hash should remain (not overwritten)"
-        );
+        {
+            (uint48 conflictDeadline, bytes26 conflictRecordHash) =
+                inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
+            assertEq(
+                conflictRecordHash,
+                firstRecordHash,
+                "Original record hash should remain (not overwritten)"
+            );
+        }
     }
 
     // ---------------------------------------------------------------
