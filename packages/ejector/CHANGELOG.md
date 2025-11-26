@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.1...ejector-v0.1.2) (2025-11-26)
+
+
+### Bug Fixes
+
+* **ejector:** eject correct operator on reorg, add flag to enable/disable ([#20837](https://github.com/taikoxyz/taiko-mono/issues/20837)) ([ba8fc96](https://github.com/taikoxyz/taiko-mono/commit/ba8fc96649bfde29339bf7ebf60c1d8bd06f8b94))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 2 directories with 2 updates ([#20822](https://github.com/taikoxyz/taiko-mono/issues/20822)) ([405b4b5](https://github.com/taikoxyz/taiko-mono/commit/405b4b5c9fc605161d3c469febd1ffa1efa22612))
+
 ## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.0...ejector-v0.1.1) (2025-11-21)
 
 
