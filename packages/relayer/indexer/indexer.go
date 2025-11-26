@@ -93,7 +93,7 @@ type Indexer struct {
 	destBridge relayer.Bridge
 
 	signalService   relayer.ChainDataSignalService
-	signalServiceV2 *v4.SignalService
+	signalServiceV4 *v4.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
@@ -206,7 +206,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var signalService relayer.ChainDataSignalService
 
-	var signalServiceV2 *v4.SignalService
+	var signalServiceV4 *v4.SignalService
 
 	if cfg.SrcSignalServiceAddress != ZeroAddress {
 		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
@@ -220,7 +220,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	if cfg.SrcSignalServiceForkRouterAddress != ZeroAddress {
 		slog.Info("setting srcSignalServiceForkRouterAddress", "addr", cfg.SrcSignalServiceForkRouterAddress.Hex())
 
-		signalServiceV2, err = v4.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
+		signalServiceV4, err = v4.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
@@ -242,7 +242,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.bridge = srcBridge
 	i.destBridge = destBridge
 	i.signalService = signalService
-	i.signalServiceV2 = signalServiceV2
+	i.signalServiceV4 = signalServiceV4
 	i.taikol1 = taikoL1
 	i.taikoL1V2 = taikoL1V2
 	i.taikoInboxV3 = taikoInboxV3
@@ -447,7 +447,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 					}
 				}
 
-				if i.signalServiceV2 != nil {
+				if i.signalServiceV4 != nil {
 					if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
 						slog.Error("i.indexCheckpointSavedEvents", "error", err)
 						relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
@@ -668,18 +668,18 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	if i.signalServiceV2 == nil {
+	if i.signalServiceV4 == nil {
 		return nil
 	}
 
 	slog.Info("indexing checkpointSaved events")
 
-	checkpointEvents, err := i.signalServiceV2.FilterCheckpointSaved(
+	checkpointEvents, err := i.signalServiceV4.FilterCheckpointSaved(
 		filterOpts,
 		nil,
 	)
 	if err != nil {
-		return errors.Wrap(err, "signalServiceV2.FilterCheckpointSaved")
+		return errors.Wrap(err, "signalServiceV4.FilterCheckpointSaved")
 	}
 
 	group, _ := errgroup.WithContext(ctx)
