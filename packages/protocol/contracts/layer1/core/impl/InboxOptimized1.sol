@@ -238,15 +238,15 @@ contract InboxOptimized1 is Inbox {
         private
     {
         unchecked {
+            Transition memory aggregatedTransition = _input.transitions[_firstIndex];
             if (_record.span > 1) {
                 // Use first transition but replace checkpoint with the last one
                 uint256 lastIndex = _firstIndex + _record.span - 1;
-                _input.transitions[_firstIndex].checkpoint =
-                _input.transitions[lastIndex].checkpoint;
+                aggregatedTransition.checkpoint = _input.transitions[lastIndex].checkpoint;
             }
             _setTransitionRecordHashAndDeadline(
                 _groupStartProposalId,
-                _input.transitions[_firstIndex],
+                aggregatedTransition,
                 _input.metadata[_firstIndex],
                 _record
             );
