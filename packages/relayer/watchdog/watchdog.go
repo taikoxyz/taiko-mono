@@ -332,7 +332,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause tx %s failed for bridge %s",
+				pauseReceipt.TxHash.Hex(),
+				w.cfg.SrcBridgeAddress.Hex(),
+			)
 		}
 	}
 
@@ -354,7 +358,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause tx %s failed for bridge %s",
+				pauseReceipt.TxHash.Hex(),
+				w.cfg.DestBridgeAddress.Hex(),
+			)
 		}
 	}
 
