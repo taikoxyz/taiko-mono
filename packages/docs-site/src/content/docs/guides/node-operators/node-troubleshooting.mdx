@@ -3,7 +3,7 @@ title: Node Troubleshooting
 description: This page describes common node bugs and potential fixes
 ---
 
- This page describes common node bugs and potential fixes.
+This page describes common node bugs and potential fixes.
 
 ### `Caught SIGILL in blst_cgo_init`
 
@@ -26,7 +26,6 @@ Please use an L1 Node that has a blob server configured!
 
 All WARN messages can essentially be ignored.
 
-
 ### Dial tcp: lookup l2_execution_engine on 127.0.0.1:53: server misbehaving
 
 This error can occur if there are issues with your L1 node, such as it being out of sync or your node facing rate limitations (e.g., if you are using Blockpi). To address this error, follow these steps:
@@ -39,6 +38,7 @@ This error can occur if there are issues with your L1 node, such as it being out
 Potential Solution #1: Set L1_BEACON_HTTP in .env file and restart your node.
 
 Potential Solution #2: It's possible that the endpoint either lacks WebSocket (ws) support or is malformed. To address this error, ensure the following:
+
 - Your L1 node is operating correctly.
 - There are no errors in the .env file where you specify L1 endpoints.
 
@@ -94,6 +94,7 @@ You may run into this problem if you ran a node for a previous testnet, please r
 ### Block successfully proposed, but no proof request in Raiko
 
 If you notice that your proposer has successfully proposed a block, but your prover seems to have either:
+
 - failed to submit a proof
 - not sent a proof request to Raiko
 - not attempted to submit a proof at all
@@ -114,4 +115,4 @@ If the solution fails, please reach out to us in Discord with your logs.
 
 ### Failed to ensure genesis block matched: genesis header hash mismatch
 
-*(simple-taiko-node only)* You're using the wrong docker-compose file for the network. Use the correct file for your target network, e.g., `docker compose -f docker-compose-hoodi.yml up -d` for Taiko Hoodi testnet.
+_(simple-taiko-node only)_ You're using the wrong docker-compose file for the network. Use the correct file for your target network, e.g., `docker compose -f docker-compose-hoodi.yml up -d` for Taiko Hoodi testnet.

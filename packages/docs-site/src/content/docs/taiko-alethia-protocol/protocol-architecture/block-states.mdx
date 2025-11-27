@@ -3,7 +3,7 @@ title: Block states
 description: Core concept page for "Block states".
 ---
 
-import { Code } from '@astrojs/starlight/components';
+import { Code } from "@astrojs/starlight/components";
 
 A block in Taiko Alethia transitions through different states as it progresses through the protocol. The key states are:
 
@@ -18,14 +18,17 @@ Taiko Alethia allows parallel proof generation, meaning multiple blocks can be p
 ## Safe and Finalized Block States
 
 ### Safe Block
+
 The **Safe** block state on Taiko Alethia is equivalent to a **Safe** block on Ethereum.
 
 Each L2 block originates from an L1 block that can be queried using the [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/v1.8.0/eth/taiko_api_backend.go#L50). If the corresponding L1 block is considered Safe, the associated L2 block can also be considered Safe.
 
 #### Querying L1 Origin for an L2 Block
+
 The following **taiko-geth API method** retrieves the **L1 origin** of a given Taiko Alethia L2 block:
 
-<Code code='
+<Code
+  code="
 func (s *TaikoAPIBackend) L1OriginByID(blockID *math.HexOrDecimal256) (*rawdb.L1Origin, error) {
     l1Origin, err := rawdb.ReadL1Origin(s.eth.ChainDb(), (*big.Int)(blockID))
     if err != nil {
@@ -36,8 +39,10 @@ func (s *TaikoAPIBackend) L1OriginByID(blockID *math.HexOrDecimal256) (*rawdb.L1
     }
     return l1Origin, nil
 }
-' lang="go" title="L1OriginByID API" />
-
+"
+  lang="go"
+  title="L1OriginByID API"
+/>
 
 ---
 
@@ -57,29 +62,39 @@ A Verified block cannot be reverted, ensuring **strong finality guarantees**.
 
 The following JSON-RPC request retrieves the L1 origin for a given L2 block:
 
-<Code code='
+<Code
+  code='
 {
     "method": "taiko_l1OriginByID",
     "id": 1,
     "jsonrpc": "2.0",
     "params": ["0x19a3c"]
-}' lang="json" title="query.json" />
+}'
+  lang="json"
+  title="query.json"
+/>
 
 ### Response
-<Code code='
+
+<Code
+  code='
 "result": {
     "blockID": "0x19a3c",
     "l2BlockHash": "0x0905c85f9a288ebe94eb85743a65c8cf6266097b8b826cdca4f4018e6267c26a",
     "l1BlockHeight": "0x16ef0f",
     "l1BlockHash": "0x419f0c5b2cc90078c7040c3b90d174895ce83d76ebfdd75ad2dd5521036d0938"
-}' lang="json" title="response.json" />
+}'
+  lang="json"
+  title="response.json"
+/>
 
 ---
 
 ### Interpreting the Response
+
 For block `0x19a3c`:
+
 - It is **Safe** if the **L1 block (`0x419f..`)** reaches a **Safe** state.
 - It is **Finalized (Verified)** if **all state transitions from genesis to block `0x19a3c`** have **valid proofs**.
 
 ---
-
