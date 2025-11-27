@@ -20,11 +20,12 @@ contract SimpleTokenUnlock is EssentialContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
-    uint256 public constant SIX_MONTHS = 182.5 days;
+    uint256 public immutable SIX_MONTHS; // 183 days
+    address public immutable TAIKO_TOKEN; //
+    uint64 public immutable GRANT_TIMESTAMP; // 1764460800 for 30 Nov 2025, 00:00:00 UTC. 8 bytes
 
     uint256 public amountGranted; // slot 1
     address public recipient; // 20 bytes
-    uint64 public grantTimestamp; // 1764460800 for 30 Nov 2025, 00:00:00 UTC. 8 bytes
 
     uint256[48] private __gap;
 
@@ -47,30 +48,31 @@ contract SimpleTokenUnlock is EssentialContract {
     error PERMISSION_DENIED();
 
     modifier onlyRecipient() {
-        if (msg.sender != recipient) revert PERMISSION_DENIED();
+        require(msg.sender == recipient, PERMISSION_DENIED());
         _;
     }
 
     modifier onlyRecipientOrOwner() {
-        if (msg.sender != recipient && msg.sender != owner()) revert PERMISSION_DENIED();
+        require((msg.sender == recipient || msg.sender == owner()), PERMISSION_DENIED());
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver) EssentialContract(_resolver) {
+        SIX_MONTHS = 183 days;
+        TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
+        GRANT_TIMESTAMP = 1764460800;
+     }
 
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
     /// @param _recipient Who will be the grantee for this contract.
-    /// @param _grantTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _recipient,
-        uint64 _grantTimestamp
+        address _recipient
     )
         external
         nonZeroAddr(_recipient)
-        nonZeroValue(_grantTimestamp)
         initializer
     {
         if (_owner == _recipient) revert INVALID_PARAM();
@@ -78,7 +80,7 @@ contract SimpleTokenUnlock is EssentialContract {
         __Essential_init(_owner);
 
         recipient = _recipient;
-        grantTimestamp = _grantTimestamp;
+        ERC20VotesUpgradeable(TAIKO_TOKEN).delegate(_recipient);
     }
 
     /// @notice Grants certain tokens to this contract.
@@ -89,7 +91,7 @@ contract SimpleTokenUnlock is EssentialContract {
         amountGranted += _amount;
         emit TokenGranted(_amount);
 
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransferFrom(
+        IERC20(TAIKO_TOKEN).safeTransferFrom(
             msg.sender, address(this), _amount
         );
     }
@@ -102,21 +104,17 @@ contract SimpleTokenUnlock is EssentialContract {
         uint256 _amount
     )
         external
-        nonZeroAddr(_to)
-        nonZeroValue(_amount)
-        onlyRecipient
+        onlyRecipientOrOwner
         nonReentrant
     {
+        if (_to == address(0)) _to = recipient;
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
+        if (_amount == 0) {
+            _amount = amountWithdrawable();
+        }
         emit TokenWithdrawn(_to, _amount);
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
-    }
-
-    /// @notice Withdraws all tokens to the recipient address.
-    function withdraw() external nonReentrant {
-        uint256 amount = amountWithdrawable();
-        emit TokenWithdrawn(recipient, amount);
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
+        IERC20(TAIKO_TOKEN).safeTransfer(_to, _amount);
+        amountGranted -= _amount;
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
@@ -126,20 +124,21 @@ contract SimpleTokenUnlock is EssentialContract {
 
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
+        ERC20VotesUpgradeable(TAIKO_TOKEN).delegate(recipient);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
-        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
+        ERC20VotesUpgradeable(TAIKO_TOKEN).delegate(_delegatee);
     }
 
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        IERC20 tko = IERC20(TAIKO_TOKEN);
         uint256 balance = tko.balanceOf(address(this));
-        if (block.timestamp < grantTimestamp + SIX_MONTHS){
+        if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS){
             return 0;
         } else { return balance.min(amountGranted); }
     }

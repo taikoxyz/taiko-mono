@@ -8,7 +8,6 @@ contract DeploySimpleTokenUnlock is BaseScript {
     using stdJson for string;
 
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
-    uint64 public GRANT_TIMESTAMP = 1_764_460_800; // 30 Nov 2025, 00:00:00 UTC.
     // NOT YET DEPLOYED
     // address public SIMPLE_TOKEN_UNLOCK_IMPL =
 
@@ -24,7 +23,7 @@ contract DeploySimpleTokenUnlock is BaseScript {
             address proxy = deploy({
                 name: "",
                 impl: SIMPLE_TOKEN_UNLOCK_IMPL,
-                data: abi.encodeCall(SimpleTokenUnlock.init, (OWNER, recipients[i], GRANT_TIMESTAMP))
+                data: abi.encodeCall(SimpleTokenUnlock.init, (OWNER, recipients[i]))
             });
             console2.log("grantee:", recipients[i]);
             console2.log("proxy. :", proxy);
