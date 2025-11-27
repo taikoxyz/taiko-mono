@@ -48,7 +48,7 @@ contract LibProvedEventEncoderTest is Test {
             transition: transition,
             transitionRecord: transitionRecord,
             metadata: metadata,
-            isOverwrittenByOwner: false,
+            isisOverwrittenByOwner: false,
             isDuplicate: false,
             isConflicting: false
         });
@@ -167,7 +167,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x7777), actualProver: address(0x8888)
             }),
-            isOverwrittenByOwner: true,
+            isisOverwrittenByOwner: true,
             isDuplicate: false,
             isConflicting: true
         });
@@ -177,9 +177,9 @@ contract LibProvedEventEncoderTest is Test {
 
         // Verify bool flags
         assertEq(
-            decoded.isOverwrittenByOwner,
-            payload.isOverwrittenByOwner,
-            "isOverwrittenByOwner mismatch"
+            decoded.isisOverwrittenByOwner,
+            payload.isisOverwrittenByOwner,
+            "isisOverwrittenByOwner mismatch"
         );
         assertEq(decoded.isDuplicate, payload.isDuplicate, "isDuplicate mismatch");
         assertEq(decoded.isConflicting, payload.isConflicting, "isConflicting mismatch");
@@ -241,7 +241,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x9999), actualProver: address(0xAAAA)
             }),
-            isOverwrittenByOwner: false,
+            isisOverwrittenByOwner: false,
             isDuplicate: true,
             isConflicting: false
         });
@@ -278,7 +278,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0xDDDD), actualProver: address(0xEEEE)
             }),
-            isOverwrittenByOwner: false,
+            isisOverwrittenByOwner: false,
             isDuplicate: false,
             isConflicting: false
         });

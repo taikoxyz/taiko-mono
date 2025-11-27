@@ -492,12 +492,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _metadata The metadata containing prover information to include in the event
-    /// @param _overwrittenByOwner Whether this transaction is called by the owner
+    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
     function _setTransitionRecordHashAndDeadline(
         Proposal memory _proposal,
         Transition memory _transition,
         TransitionMetadata memory _metadata,
-        bool _overwrittenByOwner
+        bool _isOverwrittenByOwner
     )
         internal
     {
@@ -517,8 +517,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            (bool isOverwrittenByOwner, bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
-                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, _overwrittenByOwner
+            (bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
+                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, _isOverwrittenByOwner
             );
 
             ProvedEventPayload memory payload = ProvedEventPayload({
@@ -526,7 +526,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 transition: _transition,
                 transitionRecord: transitionRecord,
                 metadata: _metadata,
-                isOverwrittenByOwner: isOverwrittenByOwner,
+                isisOverwrittenByOwner: _isOverwrittenByOwner,
                 isDuplicate: isDuplicate,
                 isConflicting: isConflicting
             });
@@ -538,8 +538,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-    /// @param _overwrittenByOwner Whether this transaction is called by the owner
-    /// @return isOverwrittenByOwner True if the transition was saved by owner overwrite.
+    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
     /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
     /// @return isConflicting_ True if this is a conflicting transition (different hash for same
     /// key).
@@ -547,34 +546,32 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         TransitionRecordHashAndDeadline memory _hashAndDeadline,
-        bool _overwrittenByOwner
+        bool _isOverwrittenByOwner
     )
         internal
         virtual
-        returns (bool isOverwrittenByOwner, bool isDuplicate_, bool isConflicting_)
+        returns (bool isDuplicate_, bool isConflicting_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         return _updateTransitionRecord(
-            _transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _overwrittenByOwner
+            _transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _isOverwrittenByOwner
         );
     }
 
     /// @dev Updates a transition record in storage and computes flags.
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
-    /// @param _overwrittenByOwner Whether this transaction is called by the owner.
-    /// @return isOverwrittenByOwner_ True if the transition was saved by owner overwrite.
+    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner.
     /// @return isDuplicate_ True if this is a duplicate transition.
     /// @return isConflicting_ True if this is a conflicting transition.
     function _updateTransitionRecord(
         TransitionRecordHashAndDeadline storage _entry,
         TransitionRecordHashAndDeadline memory _hashAndDeadline,
-        bool _overwrittenByOwner
+        bool _isOverwrittenByOwner
     )
         internal
-        returns (bool isOverwrittenByOwner_, bool isDuplicate_, bool isConflicting_)
+        returns (bool isDuplicate_, bool isConflicting_)
     {
-        isOverwrittenByOwner_ = _overwrittenByOwner;
         bytes26 existingRecordHash = _entry.recordHash;
 
         if (existingRecordHash == 0) {
@@ -586,7 +583,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             isConflicting_ = true;
             _entry.recordHash = _hashAndDeadline.recordHash;
             _entry.finalizationDeadline =
-                isOverwrittenByOwner_ ? _hashAndDeadline.finalizationDeadline : type(uint48).max;
+                _isOverwrittenByOwner ? _hashAndDeadline.finalizationDeadline : type(uint48).max;
         }
     }
 

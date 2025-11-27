@@ -61,8 +61,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _hashAndDeadline The finalization metadata to persist
-    /// @param _overwrittenByOwner Whether this transaction is called by the owner
-    /// @return isOverwrittenByOwner True if the transition was saved by owner overwrite.
+    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
     /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
     /// @return isConflicting_ True if this is a conflicting transition (different hash for same
     /// key).
@@ -70,11 +69,11 @@ contract InboxOptimized1 is Inbox {
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         TransitionRecordHashAndDeadline memory _hashAndDeadline,
-        bool _overwrittenByOwner
+        bool _isOverwrittenByOwner
     )
         internal
         override
-        returns (bool isOverwrittenByOwner, bool isDuplicate_, bool isConflicting_)
+        returns (bool isDuplicate_, bool isConflicting_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -90,11 +89,11 @@ contract InboxOptimized1 is Inbox {
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
             return _updateTransitionRecord(
-                record.hashAndDeadline, _hashAndDeadline, _overwrittenByOwner
+                record.hashAndDeadline, _hashAndDeadline, _isOverwrittenByOwner
             );
         } else {
             return super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _hashAndDeadline, _overwrittenByOwner
+                _proposalId, _parentTransitionHash, _hashAndDeadline, _isOverwrittenByOwner
             );
         }
     }
