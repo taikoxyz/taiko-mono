@@ -48,6 +48,13 @@ library LibProvedEventEncoder {
         ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
+        // Encode 3 bool flags packed into 1 byte (bits: isOwnerSaved, isDuplicate, isConflicting)
+        uint8 flags;
+        if (_payload.isOwnerSaved) flags |= 0x04;
+        if (_payload.isDuplicate) flags |= 0x02;
+        if (_payload.isConflicting) flags |= 0x01;
+        ptr = P.packUint8(ptr, flags);
+
         // Encode bond instructions array length (uint16)
         P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
         ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
@@ -91,6 +98,13 @@ library LibProvedEventEncoder {
         (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
 
+        // Decode 3 bool flags from 1 byte (bits: isOwnerSaved, isDuplicate, isConflicting)
+        uint8 flags;
+        (flags, ptr) = P.unpackUint8(ptr);
+        payload_.isOwnerSaved = (flags & 0x04) != 0;
+        payload_.isDuplicate = (flags & 0x02) != 0;
+        payload_.isConflicting = (flags & 0x01) != 0;
+
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
         (arrayLength, ptr) = P.unpackUint16(ptr);
@@ -120,18 +134,19 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 246 bytes
+            // Fixed size: 247 bytes
             // proposalId: 6
             // Transition: proposalHash(32) + parentTransitionHash(32) = 64
             //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // TransitionRecord: transitionHash(32) + checkpointHash(32) = 64
             // TransitionMetadata: designatedProver(20) + actualProver(20) = 40
+            // flags (isOwnerSaved, isDuplicate, isConflicting): 1
             // bondInstructions array length: 2
-            // Total fixed: 6 + 64 + 70 + 64 + 40 + 2 = 246
+            // Total fixed: 6 + 64 + 70 + 64 + 40 + 1 + 2 = 247
 
             // Variable size: each bond instruction is 47 bytes
             // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47
-            size_ = 246 + (_bondInstructionsCount * 47);
+            size_ = 247 + (_bondInstructionsCount * 47);
         }
     }
 

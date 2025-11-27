@@ -62,6 +62,10 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _hashAndDeadline The finalization metadata to persist
     /// @param _overwrittenByOwner Whether this transaction is called by the owner
+    /// @return isOwnerSaved_ True if the transition was saved by owner overwrite.
+    /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
+    /// @return isConflicting_ True if this is a conflicting transition (different hash for same
+    /// key).
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -70,6 +74,7 @@ contract InboxOptimized1 is Inbox {
     )
         internal
         override
+        returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -84,17 +89,9 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - check for duplicate or conflict
-            bytes26 recordHash = record.hashAndDeadline.recordHash;
-            require(recordHash != 0, UnexpectedRecordHash());
-
-            if (recordHash != _hashAndDeadline.recordHash && !_overwrittenByOwner) {
-                _hashAndDeadline.finalizationDeadline = type(uint48).max;
-                emit TransitionConflictDetected();
-            }
-            record.hashAndDeadline = _hashAndDeadline;
+            return _updateTransitionRecord(record.hashAndDeadline, _hashAndDeadline, _overwrittenByOwner);
         } else {
-            super._storeTransitionRecord(
+            return super._storeTransitionRecord(
                 _proposalId, _parentTransitionHash, _hashAndDeadline, _overwrittenByOwner
             );
         }
@@ -136,10 +133,4 @@ contract InboxOptimized1 is Inbox {
             return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         }
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error UnexpectedRecordHash();
 }
