@@ -11,7 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 
 /// @title TokenUnlock
-/// @notice Manages the unlocking of Taiko tokens after 6 months.
+/// @notice Manages the unlocking of Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals are permitted only at the 6 month mark.
 /// A separate instance of this contract is deployed for each recipient.
