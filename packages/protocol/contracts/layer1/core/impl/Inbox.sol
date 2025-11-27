@@ -357,6 +357,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
+    
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return LibForcedInclusion.getCurrentForcedInclusionFee(
@@ -472,31 +473,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Builds and persists transition records for batch proof submissions
     /// Validates transitions, calculates bond instructions, and stores records
-    /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _processSingleTransitionAtIndex(_input, i);
+            _validateTransition(_input.proposals[i], _input.transitions[i]);
+            _setTransitionRecordHashAndDeadline(
+                _input.proposals[i],
+                _input.transitions[i],
+                _input.metadata[i]
+            );
         }
-    }
-
-    /// @dev Processes a single transition at the specified index
-    /// Reusable function for validating, building, and storing individual transitions
-    /// @param _input The ProveInput containing all transition data
-    /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(
-        ProveInput memory _input,
-        uint256 _index
-    )
-        internal
-    {
-        _validateTransition(_input.proposals[_index], _input.transitions[_index]);
-
-        _setTransitionRecordHashAndDeadline(
-            _input.proposals[_index],
-            _input.transitions[_index],
-            _input.metadata[_index]
-        );
     }
 
     /// @dev Stores a proposal hash in the ring buffer
