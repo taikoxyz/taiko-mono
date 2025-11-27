@@ -29,7 +29,7 @@ contract InboxOptimized1 is Inbox {
     struct ReusableTransitionRecord {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
-        TransitionRecordHashAndDeadline hashAndDeadline;
+        TransitionSnippet snippet;
     }
 
     // ---------------------------------------------------------------
@@ -81,12 +81,12 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _recordHash The keccak hash representing the transition record
-    /// @param _hashAndDeadline The finalization metadata to persist
+    /// @param _snippet The finalization metadata to persist
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         bytes26 _recordHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionSnippet memory _snippet
     )
         internal
         override
@@ -102,23 +102,23 @@ contract InboxOptimized1 is Inbox {
             // New proposal ID - use reusable slot
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = partialParentHash;
-            record.hashAndDeadline = _hashAndDeadline;
+            record.snippet = _snippet;
         } else if (record.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
-            bytes26 recordHash = record.hashAndDeadline.recordHash;
+            bytes26 recordHash = record.snippet.recordHash;
 
             if (recordHash == 0) {
-                record.hashAndDeadline = _hashAndDeadline;
+                record.snippet = _snippet;
             } else if (recordHash == _recordHash) {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
                 conflictingTransitionDetected = true;
-                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
+                record.snippet.finalizationDeadline = type(uint48).max;
             }
         } else {
             super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+                _proposalId, _parentTransitionHash, _recordHash, _snippet
             );
         }
     }
@@ -138,7 +138,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return recordHash_ The hash of the transition record
     /// @return finalizationDeadline_ The finalization deadline for the transition
-    function _getTransitionRecordHashAndDeadline(
+    function _getTransitionSnippet(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -155,11 +155,11 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
+            return (record.snippet.recordHash, record.snippet.finalizationDeadline);
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+        return super._getTransitionSnippet(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
@@ -204,7 +204,7 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.span++;
                 } else {
                     // Save current group and start new one
-                    _setAggregatedTransitionRecordHashAndDeadline(
+                    _setAggregatedTransitionSnippet(
                         _input, groupStartProposalId, firstIndex, currentRecord
                     );
 
@@ -218,7 +218,7 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Save the final aggregation group
-            _setAggregatedTransitionRecordHashAndDeadline(
+            _setAggregatedTransitionSnippet(
                 _input, groupStartProposalId, firstIndex, currentRecord
             );
         }
@@ -229,7 +229,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _groupStartProposalId First proposal ID in the group
     /// @param _firstIndex Index of first transition in the group
     /// @param _record Aggregated transition record for the group
-    function _setAggregatedTransitionRecordHashAndDeadline(
+    function _setAggregatedTransitionSnippet(
         ProveInput memory _input,
         uint48 _groupStartProposalId,
         uint256 _firstIndex,
@@ -244,7 +244,7 @@ contract InboxOptimized1 is Inbox {
                 _input.transitions[_firstIndex].checkpoint =
                 _input.transitions[lastIndex].checkpoint;
             }
-            _setTransitionRecordHashAndDeadline(
+            _setTransitionSnippet(
                 _groupStartProposalId,
                 _input.transitions[_firstIndex],
                 _input.metadata[_firstIndex],
