@@ -580,8 +580,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (existingRecordHash == 0) {
             _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            _entry.recordHash = _hashAndDeadline.recordHash;
         } else if (existingRecordHash == _hashAndDeadline.recordHash) {
             isDuplicate_ = true;
+            // Skip writing recordHash - it's already the same value
         } else {
             isConflicting_ = true;
             if (_overwrittenByOwner) {
@@ -590,8 +592,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             } else {
                 _entry.finalizationDeadline = type(uint48).max;
             }
+            _entry.recordHash = _hashAndDeadline.recordHash;
         }
-        _entry.recordHash = _hashAndDeadline.recordHash;
     }
 
     /// @dev Loads transition record metadata from storage.
