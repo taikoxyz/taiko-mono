@@ -81,7 +81,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _snippet The finalization metadata to persist
-    function _storeTransitionRecord(
+    function _storeTransitionSnippet(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         TransitionSnippet memory _snippet
@@ -122,7 +122,7 @@ contract InboxOptimized1 is Inbox {
                 );
             }
         } else {
-            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _snippet);
+            super._storeTransitionSnippet(_proposalId, _parentTransitionHash, _snippet);
         }
     }
 

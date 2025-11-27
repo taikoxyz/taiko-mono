@@ -515,7 +515,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
        TransitionSnippet memory snippet =
             _computeTransitionSnippet(_transitionRecord);
 
-        _storeTransitionRecord(
+        _storeTransitionSnippet(
             _proposalId, _transition.parentTransitionHash,  snippet
         );
 
@@ -534,7 +534,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _snippet The finalization metadata to store alongside the hash.
-    function _storeTransitionRecord(
+    function _storeTransitionSnippet(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         TransitionSnippet memory _snippet
