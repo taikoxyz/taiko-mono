@@ -46,11 +46,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Struct for storing transition record hash, transition span, and deadline. 
-    /// @dev Stores transition record hash and finalization deadline.
+    /// @notice Struct for storing transition record hash, transition span, and deadline.
+    /// @dev Stores transition record hash, span, and finalization deadline.
     struct TransitionSnippet {
         bytes26 recordHash;
-        uint48 finalizationDeadline;
+        uint8 transitionSpan;
+        uint40 finalizationDeadline;
     }
 
     /// @notice Result from consuming forced inclusions
@@ -391,7 +392,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        (recordHash_, finalizationDeadline_) =
+        (recordHash_,, finalizationDeadline_) =
             _getTransitionSnippet(_proposalId, _parentTransitionHash);
     }
 
@@ -544,7 +545,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        (bytes26 recordHash,) = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
+        (bytes26 recordHash,,) = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
 
         if (recordHash == 0) {
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
@@ -554,7 +555,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit TransitionConflictDetected();
             conflictingTransitionDetected = true;
             _transitionSnippet[compositeKey] =
-                _encodeTransitionSnippet(TransitionSnippet(recordHash, type(uint48).max));
+                _encodeTransitionSnippet(TransitionSnippet(recordHash, 0, type(uint40).max));
         }
     }
 
@@ -562,6 +563,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
     /// @return recordHash_ The hash of the transition record.
+    /// @return transitionSpan_ The transition span.
     /// @return finalizationDeadline_ The finalization deadline for the transition.
     function _getTransitionSnippet(
         uint48 _proposalId,
@@ -570,7 +572,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
+        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         return _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
@@ -641,8 +643,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             recordHash_ = _hashTransitionRecord(_transitionRecord);
             snippet_ = TransitionSnippet({
-                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash: recordHash_
+                recordHash: recordHash_,
+                transitionSpan: _transitionRecord.span,
+                finalizationDeadline: uint40(block.timestamp + _finalizationGracePeriod)
             });
         }
     }
@@ -668,26 +671,31 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Encodes a TransitionSnippet struct into a bytes32 value.
     /// @param _snippet The TransitionSnippet to encode.
-    /// @return encoded_ The encoded bytes32 value (bytes26 recordHash || uint48 deadline).
+    /// @return encoded_ The encoded bytes32 value (bytes26 recordHash || uint8 span || uint40 deadline).
     function _encodeTransitionSnippet(TransitionSnippet memory _snippet)
         internal
         pure
         returns (bytes32 encoded_)
     {
-        encoded_ = bytes32(_snippet.recordHash) | bytes32(uint256(_snippet.finalizationDeadline));
+        require(_snippet.finalizationDeadline <= type(uint40).max, DeadlineExceedsMax());
+        encoded_ = bytes32(_snippet.recordHash)
+            | bytes32(uint256(_snippet.transitionSpan) << 40)
+            | bytes32(uint256(_snippet.finalizationDeadline));
     }
 
     /// @dev Decodes a bytes32 value into TransitionSnippet components.
     /// @param _encoded The encoded bytes32 value.
     /// @return recordHash_ The decoded record hash (bytes26).
-    /// @return finalizationDeadline_ The decoded finalization deadline (uint48).
+    /// @return transitionSpan_ The decoded transition span (uint8).
+    /// @return finalizationDeadline_ The decoded finalization deadline (uint40).
     function _decodeTransitionSnippet(bytes32 _encoded)
         internal
         pure
-        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
+        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
     {
         recordHash_ = bytes26(_encoded);
-        finalizationDeadline_ = uint48(uint256(_encoded));
+        transitionSpan_ = uint8(uint256(_encoded) >> 40);
+        finalizationDeadline_ = uint40(uint256(_encoded));
     }
     
     // ---------------------------------------------------------------
@@ -996,7 +1004,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionSnippet(
+                (bytes26 recordHash,, uint40 finalizationDeadline) = _getTransitionSnippet(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
@@ -1157,6 +1165,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error CheckpointMismatch();
     error CheckpointNotProvided();
     error DeadlineExceeded();
+    error DeadlineExceedsMax();
     error EmptyProposals();
     error InconsistentParams();
     error IncorrectProposalCount();

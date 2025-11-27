@@ -25,7 +25,7 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
-    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
+    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26*8 + 8 + 40 = 304 bits)
     struct ReusableTransitionRecord {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
@@ -114,7 +114,7 @@ contract InboxOptimized1 is Inbox {
             } else {
                 emit TransitionConflictDetected();
                 conflictingTransitionDetected = true;
-                record.snippet.finalizationDeadline = type(uint48).max;
+                record.snippet.finalizationDeadline = type(uint40).max;
             }
         } else {
             super._storeTransitionRecord(
@@ -137,6 +137,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return recordHash_ The hash of the transition record
+    /// @return transitionSpan_ The transition span
     /// @return finalizationDeadline_ The finalization deadline for the transition
     function _getTransitionSnippet(
         uint48 _proposalId,
@@ -145,7 +146,7 @@ contract InboxOptimized1 is Inbox {
         internal
         view
         override
-        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
+        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -155,7 +156,11 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return (record.snippet.recordHash, record.snippet.finalizationDeadline);
+            return (
+                record.snippet.recordHash,
+                record.snippet.transitionSpan,
+                record.snippet.finalizationDeadline
+            );
         }
 
         // Slow path: composite key mapping (additional SLOAD)

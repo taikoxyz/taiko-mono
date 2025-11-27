@@ -152,7 +152,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         // Verify finalization deadline was set to max via ring buffer
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
+        assertEq(conflictDeadline, type(uint40).max, "Deadline should be set to max on conflict");
         assertEq(
             conflictRecordHash,
             firstRecordHash,
