@@ -558,6 +558,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
         } else if (recordHash != _hashAndDeadline.recordHash) {
             if (_overwrittenByOwner) {
+                entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
                 emit OwnerOverwriteTransition();
             } else {
                 entry.finalizationDeadline = type(uint48).max;
