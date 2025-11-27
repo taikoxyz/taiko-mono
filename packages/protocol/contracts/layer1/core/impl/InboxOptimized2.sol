@@ -101,8 +101,8 @@ contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes32)
     {
-        return LibHashOptimized.composeTransitionKey(_compositeKeyVersion,
-            _proposalId, _parentTransitionHash,_transitionSpan
+        return LibHashOptimized.composeTransitionKey(
+            _compositeKeyVersion, _proposalId, _parentTransitionHash, _transitionSpan
         );
     }
 

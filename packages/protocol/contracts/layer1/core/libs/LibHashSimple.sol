@@ -130,13 +130,16 @@ library LibHashSimple {
         uint16 _compositeKeyVersion,
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        uint8 _transitionSpan    )
+        uint8 _transitionSpan
+    )
         internal
         pure
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_compositeKeyVersion, _proposalId, _parentTransitionHash, _transitionSpan));
+        return keccak256(
+            abi.encode(_compositeKeyVersion, _proposalId, _parentTransitionHash, _transitionSpan)
+        );
     }
 
     // ---------------------------------------------------------------

@@ -394,8 +394,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        (recordHash_, finalizationDeadline_) =
-            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash, _transitionSpan);
+        (recordHash_, finalizationDeadline_) = _getTransitionRecordHashAndDeadline(
+            _proposalId, _parentTransitionHash, _transitionSpan
+        );
     }
 
     /// @inheritdoc IInbox
@@ -518,7 +519,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
         _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash,_transitionRecord.span, transitionRecordHash, hashAndDeadline
+            _proposalId,
+            _transition.parentTransitionHash,
+            _transitionRecord.span,
+            transitionRecordHash,
+            hashAndDeadline
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -547,7 +552,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash,_transitionSpan);
+        bytes32 compositeKey =
+            _composeTransitionKey(_proposalId, _parentTransitionHash, _transitionSpan);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
         bytes26 recordHash = entry.recordHash;
@@ -572,14 +578,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return finalizationDeadline_ The finalization deadline for the transition.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
-        bytes32 _parentTransitionHash, uint8 _transitionSpan
+        bytes32 _parentTransitionHash,
+        uint8 _transitionSpan
     )
         internal
         view
         virtual
         returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash,_transitionSpan);
+        bytes32 compositeKey =
+            _composeTransitionKey(_proposalId, _parentTransitionHash, _transitionSpan);
         TransitionRecordHashAndDeadline storage hashAndDeadline =
             _transitionRecordHashAndDeadline[compositeKey];
         return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
@@ -669,8 +677,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(_compositeKeyVersion,
-            _proposalId,  _parentTransitionHash,_transitionSpan
+        return LibHashSimple.composeTransitionKey(
+            _compositeKeyVersion, _proposalId, _parentTransitionHash, _transitionSpan
         );
     }
 

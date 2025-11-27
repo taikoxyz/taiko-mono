@@ -280,15 +280,19 @@ library LibHashOptimized {
         uint16 _compositeKeyVersion,
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        uint8 _transitionSpan 
-           )
+        uint8 _transitionSpan
+    )
         internal
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_compositeKeyVersion) << 56 | uint256(_proposalId) << 8 | uint256(_transitionSpan)),
-            _parentTransitionHash        );
+            bytes32(
+                uint256(_compositeKeyVersion) << 56 | uint256(_proposalId) << 8
+                    | uint256(_transitionSpan)
+            ),
+            _parentTransitionHash
+        );
     }
 
     // ---------------------------------------------------------------

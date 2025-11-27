@@ -120,7 +120,7 @@ contract InboxOptimized1 is Inbox {
             }
         } else {
             super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash,_transitionSpan, _recordHash, _hashAndDeadline
+                _proposalId, _parentTransitionHash, _transitionSpan, _recordHash, _hashAndDeadline
             );
         }
     }
@@ -163,7 +163,9 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash,_transitionSpan);
+        return super._getTransitionRecordHashAndDeadline(
+            _proposalId, _parentTransitionHash, _transitionSpan
+        );
     }
 
     // ---------------------------------------------------------------
