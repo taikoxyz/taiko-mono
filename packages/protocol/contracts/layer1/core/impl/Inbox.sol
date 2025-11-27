@@ -340,6 +340,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+       /// @notice Owner write a transition record directly without proof verification, overwriting any existing record.
+       /// This allows the DAO to recover from potential bugs in the proof verifier or other critical issues.
+    function ownerWriteTransition(
+        Proposal calldata _proposal,
+        Transition calldata _transition,
+        TransitionMetadata calldata _metadata
+    )
+        external
+        onlyOwner
+    {
+        _validateTransition(_proposal, _transition);
+
+        TransitionRecord memory transitionRecord = _buildTransitionRecord(
+            _proposal, _transition, _metadata
+        );
+
+        _setTransitionRecordHashAndDeadline(_proposal.id, _transition, _metadata, transitionRecord
+        );
+    }
+
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
@@ -518,7 +538,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(_transitionRecord)
             });
 
-            _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline);
+            _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline, false);
 
             ProvedEventPayload memory payload = ProvedEventPayload({
                 proposalId: _proposalId,
@@ -536,10 +556,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+     /// @param _overwrittenByOwner Whether this transaction is called by the owner
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHashAndDeadline memory _hashAndDeadline,
+        bool _overwrittenByOwner
     )
         internal
         virtual
@@ -551,7 +573,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes26 recordHash = entry.recordHash;
         if (recordHash == 0) {
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash != _hashAndDeadline.recordHash) {
+        } else if (recordHash != _hashAndDeadline.recordHash && !_overwrittenByOwner) {
             entry.finalizationDeadline = type(uint48).max;
             emit TransitionConflictDetected();
         }

@@ -61,10 +61,12 @@ contract InboxOptimized1 is Inbox {
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _hashAndDeadline The finalization metadata to persist
+    /// @param _overwrittenByOwner Whether this transaction is called by the owner
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHashAndDeadline memory _hashAndDeadline,
+        bool _overwrittenByOwner
     )
         internal
         override
@@ -86,13 +88,13 @@ contract InboxOptimized1 is Inbox {
             bytes26 recordHash = record.hashAndDeadline.recordHash;
             require(recordHash != 0, UnexpectedRecordHash());
 
-            if (recordHash != _hashAndDeadline.recordHash) {
+            if ( recordHash != _hashAndDeadline.recordHash && !_overwrittenByOwner ) {
                 _hashAndDeadline.finalizationDeadline = type(uint48).max;
                 emit TransitionConflictDetected();
             }
             record.hashAndDeadline = _hashAndDeadline;
         } else {
-            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline);
+            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline, _overwrittenByOwner);
         }
     }
 
