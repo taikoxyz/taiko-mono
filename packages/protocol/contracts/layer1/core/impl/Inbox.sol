@@ -518,7 +518,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             (bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
-                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, _isOverwrittenByOwner
+                _proposal.id,
+                _transition.parentTransitionHash,
+                hashAndDeadline,
+                _isOverwrittenByOwner
             );
 
             ProvedEventPayload memory payload = ProvedEventPayload({
