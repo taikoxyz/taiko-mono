@@ -351,13 +351,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         onlyOwner
     {
         _validateTransition(_proposal, _transition);
-
-        TransitionRecord memory transitionRecord = _buildTransitionRecord(
-            _proposal, _transition, _metadata
-        );
-
-        _setTransitionRecordHashAndDeadline(_proposal.id, _transition, _metadata, transitionRecord
-        );
+        _setTransitionRecordHashAndDeadline(_proposal, _transition, _metadata);
     }
 
     // ---------------------------------------------------------------
@@ -498,15 +492,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
-        TransitionRecord memory transitionRecord = _buildTransitionRecord(
-            _input.proposals[_index], _input.transitions[_index], _input.metadata[_index]
-        );
-
         _setTransitionRecordHashAndDeadline(
-            _input.proposals[_index].id,
+            _input.proposals[_index],
             _input.transitions[_index],
-            _input.metadata[_index],
-            transitionRecord
+            _input.metadata[_index]
         );
     }
 
@@ -516,34 +505,39 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Stores transition record hash and emits `Proved` event
+    /// @dev Builds transition record, stores hash, and emits `Proved` event
     /// Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
-    /// @param _proposalId The ID of the proposal being proven
+    /// @param _proposal The proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _metadata The metadata containing prover information to include in the event
-    /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordHashAndDeadline(
-        uint48 _proposalId,
+        Proposal memory _proposal,
         Transition memory _transition,
-        TransitionMetadata memory _metadata,
-        TransitionRecord memory _transitionRecord
+        TransitionMetadata memory _metadata
     )
         internal
         virtual
     {
         unchecked {
+            TransitionRecord memory transitionRecord;
+            transitionRecord.bondInstructions = LibBondInstruction.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _proposal, _metadata
+            );
+            transitionRecord.transitionHash = _hashTransition(_transition);
+            transitionRecord.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+
             TransitionRecordHashAndDeadline memory hashAndDeadline = TransitionRecordHashAndDeadline({
                 finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash: _hashTransitionRecord(_transitionRecord)
+                recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline, false);
+            _storeTransitionRecord(_proposal.id, _transition.parentTransitionHash, hashAndDeadline, false);
 
             ProvedEventPayload memory payload = ProvedEventPayload({
-                proposalId: _proposalId,
+                proposalId: _proposal.id,
                 transition: _transition,
-                transitionRecord: _transitionRecord,
+                transitionRecord: transitionRecord,
                 metadata: _metadata
             });
             emit Proved(_encodeProvedEventData(payload));
@@ -627,27 +621,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         proposalHash_ = _hashProposal(_proposal);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
-    }
-
-    /// @dev Builds a transition record for a proposal, transition, and metadata tuple.
-    /// @param _proposal The proposal the transition is proving.
-    /// @param _transition The transition associated with the proposal.
-    /// @param _metadata The metadata describing the prover and additional context.
-    /// @return record The constructed transition record.
-    function _buildTransitionRecord(
-        Proposal memory _proposal,
-        Transition memory _transition,
-        TransitionMetadata memory _metadata
-    )
-        internal
-        view
-        returns (TransitionRecord memory record)
-    {
-        record.bondInstructions = LibBondInstruction.calculateBondInstructions(
-            _provingWindow, _extendedProvingWindow, _proposal, _metadata
-        );
-        record.transitionHash = _hashTransition(_transition);
-        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
     }
 
     /// @dev Computes composite key for transition record storage
