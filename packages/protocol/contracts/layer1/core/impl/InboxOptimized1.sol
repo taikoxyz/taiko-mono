@@ -88,13 +88,15 @@ contract InboxOptimized1 is Inbox {
             bytes26 recordHash = record.hashAndDeadline.recordHash;
             require(recordHash != 0, UnexpectedRecordHash());
 
-            if ( recordHash != _hashAndDeadline.recordHash && !_overwrittenByOwner ) {
+            if (recordHash != _hashAndDeadline.recordHash && !_overwrittenByOwner) {
                 _hashAndDeadline.finalizationDeadline = type(uint48).max;
                 emit TransitionConflictDetected();
             }
             record.hashAndDeadline = _hashAndDeadline;
         } else {
-            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline, _overwrittenByOwner);
+            super._storeTransitionRecord(
+                _proposalId, _parentTransitionHash, _hashAndDeadline, _overwrittenByOwner
+            );
         }
     }
 
