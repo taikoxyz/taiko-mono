@@ -26,7 +26,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Uses multiple storage slots for the struct (48 + 26*8 + 26*8 + 8 + 40 = 304 bits)
-    struct ReusableTransitionRecord {
+    struct ReusableTransitionSnippet {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
         TransitionSnippet snippet;
@@ -40,8 +40,8 @@ contract InboxOptimized1 is Inbox {
     /// @notice Stores one transition record per buffer slot for gas optimization
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
-    mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal
-        _reusableTransitionRecords;
+    mapping(uint256 bufferSlot => ReusableTransitionSnippet record) internal
+        _reusableTransitionSnippets;
 
     uint256[49] private __gap;
 
@@ -80,19 +80,17 @@ contract InboxOptimized1 is Inbox {
     ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
-    /// @param _recordHash The keccak hash representing the transition record
     /// @param _snippet The finalization metadata to persist
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        bytes26 _recordHash,
         TransitionSnippet memory _snippet
     )
         internal
         override
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        ReusableTransitionSnippet storage record = _reusableTransitionSnippets[bufferSlot];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
@@ -109,7 +107,7 @@ contract InboxOptimized1 is Inbox {
 
             if (recordHash == 0) {
                 record.snippet = _snippet;
-            } else if (recordHash == _recordHash) {
+            } else if (recordHash == _snippet.recordHash) {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
@@ -117,9 +115,7 @@ contract InboxOptimized1 is Inbox {
                 record.snippet.finalizationDeadline = type(uint40).max;
             }
         } else {
-            super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _recordHash, _snippet
-            );
+            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _snippet);
         }
     }
 
@@ -149,7 +145,7 @@ contract InboxOptimized1 is Inbox {
         returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        ReusableTransitionSnippet storage record = _reusableTransitionSnippets[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
         if (
