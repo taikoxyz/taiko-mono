@@ -133,9 +133,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         IInbox.TransitionRecord[] memory transitions = new IInbox.TransitionRecord[](1);
         transitions[0] = IInbox.TransitionRecord({
-            bondInstructions: bonds,
-            transitionHash: transitionHash,
-            checkpointHash: checkpointHash
+            bondInstructions: bonds, transitionHash: transitionHash, checkpointHash: checkpointHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({

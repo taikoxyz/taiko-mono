@@ -87,14 +87,12 @@ contract InboxOptimized1 is Inbox {
             require(recordHash != 0, InvalidExistingRecardHash());
 
             if (recordHash != _hashAndDeadline.recordHash) {
-                _hashAndDeadline.finalizationDeadline =type(uint48).max; 
+                _hashAndDeadline.finalizationDeadline = type(uint48).max;
                 record.hashAndDeadline = _hashAndDeadline;
                 emit TransitionConflictDetected();
             }
         } else {
-            super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _hashAndDeadline
-            );
+            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline);
         }
     }
 
@@ -125,16 +123,15 @@ contract InboxOptimized1 is Inbox {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
-        if ( record.proposalId != _proposalId) {
+        if (record.proposalId != _proposalId) {
             return (0, 0);
         } else if (record.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
             TransitionRecordHashAndDeadline memory hashAndDeadline = record.hashAndDeadline;
             return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
         } else {
-          return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         }
     }
-
 
     // ---------------------------------------------------------------
     // Errors

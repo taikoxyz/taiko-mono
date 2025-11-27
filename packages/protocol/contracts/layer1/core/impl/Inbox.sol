@@ -515,9 +515,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         TransitionRecordHashAndDeadline memory hashAndDeadline =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
-        _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash,  hashAndDeadline
-        );
+        _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline);
 
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: _proposalId,
@@ -637,7 +635,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             hashAndDeadline_ = TransitionRecordHashAndDeadline({
                 finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash:  _hashTransitionRecord(_transitionRecord)
+                recordHash: _hashTransitionRecord(_transitionRecord)
             });
         }
     }

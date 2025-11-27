@@ -382,9 +382,7 @@ abstract contract AbstractCodecFuzzTest is Test {
         });
 
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
-            bondInstructions: bonds,
-            transitionHash: transitionHash,
-            checkpointHash: checkpointHash
+            bondInstructions: bonds, transitionHash: transitionHash, checkpointHash: checkpointHash
         });
 
         bytes26 hash1 = codec.hashTransitionRecord(record);
