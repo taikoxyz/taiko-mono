@@ -213,6 +213,9 @@ interface IInbox {
     /// Proved event.
     event TransitionConflictDetected();
 
+    /// @notice Emitted when the owner overwrites an existing proposal.
+    event OwnerOverwriteTransition();
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
