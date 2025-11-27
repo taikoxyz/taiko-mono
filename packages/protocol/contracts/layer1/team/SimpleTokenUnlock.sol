@@ -124,7 +124,6 @@ contract SimpleTokenUnlock is EssentialContract {
 
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
-        ERC20VotesUpgradeable(TAIKO_TOKEN).delegate(recipient);
     }
 
     /// @notice Delegates token voting right to a delegatee.
