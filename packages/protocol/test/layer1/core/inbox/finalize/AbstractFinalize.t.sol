@@ -203,7 +203,8 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
 
         (uint48 deadline, bytes26 recordHash) = inbox.getTransitionRecordHash(
             proven[maxFinalizationCount].proposal.id,
-            proven[maxFinalizationCount - 1].record.transitionHash
+            proven[maxFinalizationCount - 1].record.transitionHash,
+            proven[maxFinalizationCount].record.span
         );
         assertTrue(recordHash != bytes26(0), "Next transition record should remain stored");
         assertTrue(deadline > 0, "Next transition record should keep original deadline");
@@ -279,7 +280,7 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         );
 
         (uint48 deadline, bytes26 recordHash) = inbox.getTransitionRecordHash(
-            secondPayload.proposal.id, firstProven.record.transitionHash
+            secondPayload.proposal.id, firstProven.record.transitionHash, 1
         );
         assertEq(recordHash, bytes26(0), "Unproven proposal should not have a record");
         assertEq(deadline, 0, "Unproven proposal should not have a deadline");

@@ -43,7 +43,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Verify the transition record was stored
         (uint48 deadline, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         assertTrue(recordHash != bytes26(0), "Record hash should be non-zero");
         assertTrue(deadline > 0, "Finalization deadline should be set");
@@ -80,7 +80,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Get the stored record hash for verification
         (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         // Expect TransitionDuplicateDetected event on second prove
         vm.expectEmit(true, true, true, true);
@@ -92,7 +92,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Verify the record hash is unchanged
         (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
     }
 
@@ -116,7 +116,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Get the stored deadline before conflict
         (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         // Create second prove input with different checkpoint (causes conflict)
         IInbox.Transition memory transition = _createTransitionForProposal(proposal);
@@ -151,7 +151,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Verify finalization deadline was set to max
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
         assertEq(
             conflictRecordHash,
@@ -189,7 +189,7 @@ contract InboxTransitionRecord is InboxTestHelper {
             // Verify each was stored correctly
             bytes32 parentHash =
                 i == 0 ? _getGenesisTransitionHash() : _computeTransitionHash(i - 1);
-            (, bytes26 recordHash) = inbox.getTransitionRecordHash(proposals[i].id, parentHash);
+            (, bytes26 recordHash) = inbox.getTransitionRecordHash(proposals[i].id, parentHash, 1);
             assertTrue(recordHash != bytes26(0), "Each proposal should have stored record");
         }
     }
@@ -213,7 +213,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Verify first record was stored
-        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertTrue(recordHash1 != bytes26(0), "First record should be stored");
 
         // Create second transition with different parent hash
@@ -225,14 +225,14 @@ contract InboxTransitionRecord is InboxTestHelper {
         inbox.prove(proveData2, proof2);
 
         // Verify second record was stored independently
-        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2);
+        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2, 1);
         assertTrue(recordHash2 != bytes26(0), "Second record should be stored");
 
         // Verify both records exist and are different
         assertTrue(recordHash1 != recordHash2, "Records should be different for different parents");
 
         // Verify first record is still intact
-        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertEq(recordHash1Again, recordHash1, "First record should remain unchanged");
     }
 
@@ -289,7 +289,7 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =
-            inbox.getTransitionRecordHash(proposal2.id, _computeTransitionHash(0));
+            inbox.getTransitionRecordHash(proposal2.id, _computeTransitionHash(0), 1);
         assertTrue(proposal2RecordHash != bytes26(0), "Proposal2 record should remain valid");
     }
 

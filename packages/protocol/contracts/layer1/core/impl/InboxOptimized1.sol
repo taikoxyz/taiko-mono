@@ -80,11 +80,13 @@ contract InboxOptimized1 is Inbox {
     ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
+    /// @param _transitionSpan The span of the transition
     /// @param _recordHash The keccak hash representing the transition record
     /// @param _hashAndDeadline The finalization metadata to persist
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
+        uint8 _transitionSpan,
         bytes26 _recordHash,
         TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
@@ -118,7 +120,7 @@ contract InboxOptimized1 is Inbox {
             }
         } else {
             super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+                _proposalId, _parentTransitionHash,_transitionSpan, _recordHash, _hashAndDeadline
             );
         }
     }
@@ -136,11 +138,13 @@ contract InboxOptimized1 is Inbox {
     ///      4. Fallback to composite key mapping (most expensive).
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
+    /// @param _transitionSpan The span of the transition
     /// @return recordHash_ The hash of the transition record
     /// @return finalizationDeadline_ The finalization deadline for the transition
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes32 _parentTransitionHash,
+        uint8 _transitionSpan
     )
         internal
         view
@@ -159,7 +163,7 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Slow path: composite key mapping (additional SLOAD)
-        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+        return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash,_transitionSpan);
     }
 
     // ---------------------------------------------------------------

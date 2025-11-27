@@ -54,7 +54,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
         // Verify transition record is stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
 
         // Verify exactly one Proved event was emitted
@@ -352,7 +352,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
         // Verify transition record was stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
     }
 

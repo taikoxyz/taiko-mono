@@ -382,18 +382,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
     /// @param _proposalId The ID of the proposal containing the transition
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
+    /// @param _transitionSpan The span of the transition
     /// @return finalizationDeadline_ The timestamp when finalization is enforced
     /// @return recordHash_ The hash of the transition record
     function getTransitionRecordHash(
         uint48 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes32 _parentTransitionHash,
+        uint8 _transitionSpan
     )
         external
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         (recordHash_, finalizationDeadline_) =
-            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash, _transitionSpan);
     }
 
     /// @inheritdoc IInbox
@@ -516,7 +518,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
         _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+            _proposalId, _transition.parentTransitionHash,_transitionRecord.span, transitionRecordHash, hashAndDeadline
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -538,13 +540,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
+        uint8 _transitionSpan,
         bytes26 _recordHash,
         TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash,_transitionSpan);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
         bytes26 recordHash = entry.recordHash;
@@ -564,18 +567,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
+    /// @param _transitionSpan The span of the transition.
     /// @return recordHash_ The hash of the transition record.
     /// @return finalizationDeadline_ The finalization deadline for the transition.
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes32 _parentTransitionHash, uint8 _transitionSpan
     )
         internal
         view
         virtual
         returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash,_transitionSpan);
         TransitionRecordHashAndDeadline storage hashAndDeadline =
             _transitionRecordHashAndDeadline[compositeKey];
         return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
@@ -657,15 +661,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return _ Keccak256 hash of encoded parameters
     function _composeTransitionKey(
         uint48 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes32 _parentTransitionHash,
+        uint8 _transitionSpan
     )
         internal
         view
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(
-            _proposalId, _compositeKeyVersion, _parentTransitionHash
+        return LibHashSimple.composeTransitionKey(_compositeKeyVersion,
+            _proposalId,  _parentTransitionHash,_transitionSpan
         );
     }
 
@@ -974,19 +979,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 // Check if there are more proposals to finalize
                 if (proposalId >= coreState.nextProposalId) break;
 
-                // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
-                    proposalId, coreState.lastFinalizedTransitionHash
-                );
-
-                if (recordHash == 0) break;
-
+                // Check bounds before accessing the array
                 if (i >= transitionCount) {
+                    // No more transition records provided - check if there's a stored record with span=1
+                    (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                        proposalId, coreState.lastFinalizedTransitionHash, 1
+                    );
+                    if (recordHash == 0) break;
                     require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
                     break;
                 }
 
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
+
+                // Try to finalize the current proposal
+                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                    proposalId, coreState.lastFinalizedTransitionHash, transitionRecord.span
+                );
+
+                if (recordHash == 0) break;
 
                 require(
                     _hashTransitionRecord(transitionRecord) == recordHash,

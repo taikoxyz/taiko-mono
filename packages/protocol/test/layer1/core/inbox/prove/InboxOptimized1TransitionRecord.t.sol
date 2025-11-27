@@ -43,7 +43,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Verify the transition record was stored
         (uint48 deadline, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         assertTrue(recordHash != bytes26(0), "Record hash should be non-zero");
         assertTrue(deadline > 0, "Finalization deadline should be set");
@@ -80,7 +80,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Get the stored record hash for verification
         (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         // Expect TransitionDuplicateDetected event on second prove
         vm.expectEmit(true, true, true, true);
@@ -92,7 +92,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Verify the record hash is unchanged
         (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
     }
 
@@ -116,7 +116,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Get the stored deadline before conflict
         (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
 
         // Create second prove input with different checkpoint (causes conflict)
         IInbox.Transition memory transition = _createTransitionForProposal(proposal);
@@ -151,7 +151,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Verify finalization deadline was set to max via ring buffer
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(), 1);
         assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
         assertEq(
             conflictRecordHash,
@@ -180,7 +180,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Verify first record was stored in ring buffer
-        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertTrue(recordHash1 != bytes26(0), "First record should be stored");
 
         // Create second transition with different parent hash
@@ -193,14 +193,14 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         inbox.prove(proveData2, proof2);
 
         // Verify second record was stored via composite key mapping
-        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2);
+        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2, 1);
         assertTrue(recordHash2 != bytes26(0), "Second record should be stored via composite key");
 
         // Verify both records exist and are different
         assertTrue(recordHash1 != recordHash2, "Records should be different for different parents");
 
         // Verify first record is still intact in ring buffer
-        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertEq(
             recordHash1Again, recordHash1, "First record should remain unchanged in ring buffer"
         );
@@ -226,7 +226,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Verify first proposal was stored in ring buffer
         (, bytes26 recordHash1) =
-            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash(), 1);
         assertTrue(recordHash1 != bytes26(0), "First proposal should be stored");
 
         // Create a few more proposals to test ring buffer behavior
@@ -247,7 +247,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         // Verify all proposals are stored in ring buffer
         for (uint256 i = 0; i < 3; i++) {
             (, bytes26 recordHash) =
-                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash());
+                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash(), 1);
             assertTrue(recordHash != bytes26(0), "Each proposal should be in ring buffer");
         }
 
@@ -278,7 +278,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData1, _createValidProof());
 
-        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertTrue(recordHash1 != bytes26(0), "First transition stored in ring buffer");
 
         // Second transition uses different parent - triggers composite key fallback
@@ -288,7 +288,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData2, _createValidProof());
 
-        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2);
+        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2, 1);
         assertTrue(recordHash2 != bytes26(0), "Second transition stored via composite key");
 
         // Third transition uses yet another parent - also uses composite key
@@ -298,7 +298,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData3, _createValidProof());
 
-        (, bytes26 recordHash3) = inbox.getTransitionRecordHash(proposal.id, parent3);
+        (, bytes26 recordHash3) = inbox.getTransitionRecordHash(proposal.id, parent3, 1);
         assertTrue(recordHash3 != bytes26(0), "Third transition stored via composite key");
 
         // Verify all three transitions are independently stored and retrievable
@@ -307,7 +307,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         assertTrue(recordHash1 != recordHash3, "First and third should be different");
 
         // Verify first transition still accessible via ring buffer
-        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1Again) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertEq(recordHash1Again, recordHash1, "Ring buffer entry remains accessible");
     }
 
@@ -341,7 +341,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData1, _createValidProof());
 
-        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1);
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1, 1);
         assertTrue(recordHash1 != bytes26(0), "First transition stored");
 
         // Store second transition with partial hash collision
@@ -352,7 +352,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
         // Note: Due to partial hash collision, this may overwrite ring buffer entry
         // The behavior depends on whether full hash is checked in ring buffer lookup
-        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2);
+        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2, 1);
         assertTrue(recordHash2 != bytes26(0), "Second transition should be stored");
     }
 
@@ -381,14 +381,14 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
 
             // Verify each was stored in ring buffer
             (, bytes26 recordHash) =
-                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash());
+                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash(), 1);
             assertTrue(recordHash != bytes26(0), "Each proposal should be stored in ring buffer");
         }
 
         // Verify all proposals are still retrievable
         for (uint256 i = 0; i < numProposals; i++) {
             (, bytes26 recordHash) =
-                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash());
+                inbox.getTransitionRecordHash(proposals[i].id, _getGenesisTransitionHash(), 1);
             assertTrue(recordHash != bytes26(0), "All proposals should remain accessible");
         }
     }

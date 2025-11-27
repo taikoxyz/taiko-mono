@@ -269,26 +269,26 @@ library LibHashOptimized {
     // Utility Functions
     // ---------------------------------------------------------------
 
-    /// @notice Computes optimized composite key for transition record storage
-    /// @dev Creates unique identifier using efficient hashing
-    /// @param _proposalId The ID of the proposal
+    /// @notice Computes simple composite key for transition record storage
+    /// @dev Creates unique identifier using standard keccak256(abi.encode(...))
     /// @param _compositeKeyVersion Version identifier for key generation
+    /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash Hash of the parent transition
+    /// @param _transitionSpan The span of the transition
     /// @return The composite key for storage mapping
     function composeTransitionKey(
-        uint48 _proposalId,
         uint16 _compositeKeyVersion,
-        bytes32 _parentTransitionHash
-    )
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash,
+        uint8 _transitionSpan 
+           )
         internal
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)),
-            bytes32(uint256(_compositeKeyVersion)),
-            _parentTransitionHash
-        );
+            bytes32(uint256(_compositeKeyVersion) << 56 | uint256(_proposalId) << 8 | uint256(_transitionSpan)),
+            _parentTransitionHash        );
     }
 
     // ---------------------------------------------------------------
