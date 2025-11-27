@@ -75,7 +75,7 @@ func (s *L2ChainSyncer) Sync() error {
 	if err != nil {
 		return fmt.Errorf("failed to check if beacon sync is needed: %w", err)
 	}
-	blockIDToSync = 1_399_240
+	blockIDToSync = 1_399_220
 	// If current L2 execution engine's chain is behind of the block head to sync, and the
 	// `P2PSync` flag is set, try triggering a beacon sync in L2 execution engine to catch up the
 	// head.
