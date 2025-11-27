@@ -519,7 +519,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            (bool isOwnerSaved, bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
+            (bool isOverwrittenByOwner, bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
                 _proposal.id, _transition.parentTransitionHash, hashAndDeadline, _overwrittenByOwner
             );
 
@@ -528,7 +528,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 transition: _transition,
                 transitionRecord: transitionRecord,
                 metadata: _metadata,
-                isOwnerSaved: isOwnerSaved,
+                isOverwrittenByOwner: isOverwrittenByOwner,
                 isDuplicate: isDuplicate,
                 isConflicting: isConflicting
             });
@@ -541,7 +541,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
     /// @param _overwrittenByOwner Whether this transaction is called by the owner
-    /// @return isOwnerSaved_ True if the transition was saved by owner overwrite.
+    /// @return isOverwrittenByOwner True if the transition was saved by owner overwrite.
     /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
     /// @return isConflicting_ True if this is a conflicting transition (different hash for same
     /// key).
@@ -553,7 +553,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
         virtual
-        returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
+        returns (bool isOverwrittenByOwner, bool isDuplicate_, bool isConflicting_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         return _updateTransitionRecord(
@@ -565,7 +565,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
     /// @param _overwrittenByOwner Whether this transaction is called by the owner.
-    /// @return isOwnerSaved_ True if the transition was saved by owner overwrite.
+    /// @return isOverwrittenByOwner_ True if the transition was saved by owner overwrite.
     /// @return isDuplicate_ True if this is a duplicate transition.
     /// @return isConflicting_ True if this is a conflicting transition.
     function _updateTransitionRecord(
@@ -574,24 +574,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bool _overwrittenByOwner
     )
         internal
-        returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
+        returns (bool isOverwrittenByOwner_, bool isDuplicate_, bool isConflicting_)
     {
-        isOwnerSaved_ = _overwrittenByOwner;
+        isOverwrittenByOwner_ = _overwrittenByOwner;
         bytes26 existingRecordHash = _entry.recordHash;
 
         if (existingRecordHash == 0) {
-            _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
             _entry.recordHash = _hashAndDeadline.recordHash;
+            _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
         } else if (existingRecordHash == _hashAndDeadline.recordHash) {
             isDuplicate_ = true; // Skip writing recordHash - it's already the same value
         } else {
             isConflicting_ = true;
-            if (isOwnerSaved_) {
-                _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-            } else {
-                _entry.finalizationDeadline = type(uint48).max;
-            }
             _entry.recordHash = _hashAndDeadline.recordHash;
+            _entry.finalizationDeadline = isOverwrittenByOwner_
+                ? _hashAndDeadline.finalizationDeadline
+                : type(uint48).max;
         }
     }
 

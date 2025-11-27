@@ -48,9 +48,9 @@ library LibProvedEventEncoder {
         ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
-        // Encode 3 bool flags packed into 1 byte (bits: isOwnerSaved, isDuplicate, isConflicting)
+        // Encode 3 bool flags packed into 1 byte (bits: isOverwrittenByOwner, isDuplicate, isConflicting)
         uint8 flags;
-        if (_payload.isOwnerSaved) flags |= 0x04;
+        if (_payload.isOverwrittenByOwner) flags |= 0x04;
         if (_payload.isDuplicate) flags |= 0x02;
         if (_payload.isConflicting) flags |= 0x01;
         ptr = P.packUint8(ptr, flags);
@@ -98,10 +98,10 @@ library LibProvedEventEncoder {
         (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
 
-        // Decode 3 bool flags from 1 byte (bits: isOwnerSaved, isDuplicate, isConflicting)
+        // Decode 3 bool flags from 1 byte (bits: isOverwrittenByOwner, isDuplicate, isConflicting)
         uint8 flags;
         (flags, ptr) = P.unpackUint8(ptr);
-        payload_.isOwnerSaved = (flags & 0x04) != 0;
+        payload_.isOverwrittenByOwner = (flags & 0x04) != 0;
         payload_.isDuplicate = (flags & 0x02) != 0;
         payload_.isConflicting = (flags & 0x01) != 0;
 
@@ -140,7 +140,7 @@ library LibProvedEventEncoder {
             //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // TransitionRecord: transitionHash(32) + checkpointHash(32) = 64
             // TransitionMetadata: designatedProver(20) + actualProver(20) = 40
-            // flags (isOwnerSaved, isDuplicate, isConflicting): 1
+            // flags (isOverwrittenByOwner, isDuplicate, isConflicting): 1
             // bondInstructions array length: 2
             // Total fixed: 6 + 64 + 70 + 64 + 40 + 1 + 2 = 247
 

@@ -48,7 +48,7 @@ contract LibProvedEventEncoderTest is Test {
             transition: transition,
             transitionRecord: transitionRecord,
             metadata: metadata,
-            isOwnerSaved: false,
+            isOverwrittenByOwner: false,
             isDuplicate: false,
             isConflicting: false
         });
@@ -167,7 +167,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x7777), actualProver: address(0x8888)
             }),
-            isOwnerSaved: true,
+            isOverwrittenByOwner: true,
             isDuplicate: false,
             isConflicting: true
         });
@@ -176,7 +176,7 @@ contract LibProvedEventEncoderTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify bool flags
-        assertEq(decoded.isOwnerSaved, payload.isOwnerSaved, "isOwnerSaved mismatch");
+        assertEq(decoded.isOverwrittenByOwner, payload.isOverwrittenByOwner, "isOverwrittenByOwner mismatch");
         assertEq(decoded.isDuplicate, payload.isDuplicate, "isDuplicate mismatch");
         assertEq(decoded.isConflicting, payload.isConflicting, "isConflicting mismatch");
 
@@ -237,7 +237,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x9999), actualProver: address(0xAAAA)
             }),
-            isOwnerSaved: false,
+            isOverwrittenByOwner: false,
             isDuplicate: true,
             isConflicting: false
         });
@@ -274,7 +274,7 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0xDDDD), actualProver: address(0xEEEE)
             }),
-            isOwnerSaved: false,
+            isOverwrittenByOwner: false,
             isDuplicate: false,
             isConflicting: false
         });

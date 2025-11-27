@@ -62,7 +62,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _hashAndDeadline The finalization metadata to persist
     /// @param _overwrittenByOwner Whether this transaction is called by the owner
-    /// @return isOwnerSaved_ True if the transition was saved by owner overwrite.
+    /// @return isOverwrittenByOwner True if the transition was saved by owner overwrite.
     /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
     /// @return isConflicting_ True if this is a conflicting transition (different hash for same
     /// key).
@@ -74,7 +74,7 @@ contract InboxOptimized1 is Inbox {
     )
         internal
         override
-        returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
+        returns (bool isOverwrittenByOwner, bool isDuplicate_, bool isConflicting_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
