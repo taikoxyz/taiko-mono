@@ -576,29 +576,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
     }
 
-    /// @dev Encodes a TransitionSnippet struct into a bytes32 value.
-    /// @param _snippet The TransitionSnippet to encode.
-    /// @return encoded_ The encoded bytes32 value (bytes26 recordHash || uint48 deadline).
-    function _encodeTransitionSnippet(TransitionSnippet memory _snippet)
-        internal
-        pure
-        returns (bytes32 encoded_)
-    {
-        encoded_ = bytes32(_snippet.recordHash) | bytes32(uint256(_snippet.finalizationDeadline));
-    }
 
-    /// @dev Decodes a bytes32 value into TransitionSnippet components.
-    /// @param _encoded The encoded bytes32 value.
-    /// @return recordHash_ The decoded record hash (bytes26).
-    /// @return finalizationDeadline_ The decoded finalization deadline (uint48).
-    function _decodeTransitionSnippet(bytes32 _encoded)
-        internal
-        pure
-        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
-    {
-        recordHash_ = bytes26(_encoded);
-        finalizationDeadline_ = uint48(uint256(_encoded));
-    }
 
     /// @dev Validates transition consistency with its corresponding proposal
     /// Ensures the transition references the correct proposal hash
@@ -688,6 +666,30 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
     }
 
+    /// @dev Encodes a TransitionSnippet struct into a bytes32 value.
+    /// @param _snippet The TransitionSnippet to encode.
+    /// @return encoded_ The encoded bytes32 value (bytes26 recordHash || uint48 deadline).
+    function _encodeTransitionSnippet(TransitionSnippet memory _snippet)
+        internal
+        pure
+        returns (bytes32 encoded_)
+    {
+        encoded_ = bytes32(_snippet.recordHash) | bytes32(uint256(_snippet.finalizationDeadline));
+    }
+
+    /// @dev Decodes a bytes32 value into TransitionSnippet components.
+    /// @param _encoded The encoded bytes32 value.
+    /// @return recordHash_ The decoded record hash (bytes26).
+    /// @return finalizationDeadline_ The decoded finalization deadline (uint48).
+    function _decodeTransitionSnippet(bytes32 _encoded)
+        internal
+        pure
+        returns (bytes26 recordHash_, uint48 finalizationDeadline_)
+    {
+        recordHash_ = bytes26(_encoded);
+        finalizationDeadline_ = uint48(uint256(_encoded));
+    }
+    
     // ---------------------------------------------------------------
     // Encoder Functions
     // ---------------------------------------------------------------
