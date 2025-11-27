@@ -41,7 +41,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
     mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal
-        _reusableTransitionRecords;
+        _reusableTransitionRecord;
 
     uint256[49] private __gap;
 
@@ -90,7 +90,7 @@ contract InboxOptimized1 is Inbox {
         override
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        ReusableTransitionRecord storage record = _reusableTransitionRecord[bufferSlot];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
@@ -107,12 +107,12 @@ contract InboxOptimized1 is Inbox {
 
             if (existing.recordHash == 0 || existing.transitionSpan < _snippet.transitionSpan) {
                 record.snippetEncoded = _encodeTransitionSnippet(_snippet);
-            } else if (existing.transitionSpan == _snippet.transitionSpan  && existing.recordHash != _snippet.recordHash) {
+            } else if (existing.transitionSpan == _snippet.transitionSpan && existing.recordHash != _snippet.recordHash) {
                 emit TransitionConflictDetected();
-                  _snippet.finalizationDeadline = type(uint40).max;
-                record.snippetEncoded = _encodeTransitionSnippet(
-                  _snippet
-                );
+                existing.finalizationDeadline = type(uint40).max;
+                record.snippetEncoded = _encodeTransitionSnippet(existing);
+            } else {
+                revert TransitionWithSmallerSpanRejected();
             }
         } else {
             super._storeTransitionSnippet(_proposalId, _parentTransitionHash, _snippet);
@@ -143,7 +143,7 @@ contract InboxOptimized1 is Inbox {
         returns (TransitionSnippet memory snippet_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        ReusableTransitionRecord storage record = _reusableTransitionRecord[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
         if (
