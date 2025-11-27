@@ -340,8 +340,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-       /// @notice Owner stores a transition record directly without proof verification, overwriting any existing record.
-       /// This allows the DAO to recover from potential proving/finalization bugs.
+    /// @notice Owner stores a transition record directly without proof verification, overwriting any existing record.
+    /// This allows the DAO to recover from potential proving/finalization bugs.
     function setTransitionWithoutProof(
         Proposal calldata _proposal,
         Transition calldata _transition,
@@ -356,7 +356,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
-    
+
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return LibForcedInclusion.getCurrentForcedInclusionFee(
@@ -476,9 +476,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
             _setTransitionRecordHashAndDeadline(
-                _input.proposals[i],
-                _input.transitions[i],
-                _input.metadata[i]
+                _input.proposals[i], _input.transitions[i], _input.metadata[i]
             );
         }
     }
@@ -519,7 +517,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            _storeTransitionRecord(_proposal.id, _transition.parentTransitionHash, hashAndDeadline, false);
+            _storeTransitionRecord(
+                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, false
+            );
 
             ProvedEventPayload memory payload = ProvedEventPayload({
                 proposalId: _proposal.id,
@@ -537,7 +537,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-     /// @param _overwrittenByOwner Whether this transaction is called by the owner
+    /// @param _overwrittenByOwner Whether this transaction is called by the owner
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
