@@ -512,11 +512,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        (bytes26 transitionRecordHash, TransitionSnippet memory snippet) =
+       TransitionSnippet memory snippet =
             _computeTransitionSnippet(_transitionRecord);
 
         _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash, transitionRecordHash, snippet
+            _proposalId, _transition.parentTransitionHash,  snippet
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -533,12 +533,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// emissions.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
-    /// @param _recordHash The keccak hash representing the transition record.
     /// @param _snippet The finalization metadata to store alongside the hash.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        bytes26 _recordHash,
         TransitionSnippet memory _snippet
     )
         internal
@@ -549,7 +547,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (recordHash == 0) {
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
-        } else if (recordHash == _recordHash) {
+        } else if (recordHash == _snippet.recordHash) {
             emit TransitionDuplicateDetected();
         } else {
             emit TransitionConflictDetected();
@@ -633,17 +631,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Computes the hash and finalization deadline for a transition record.
     /// @param _transitionRecord The transition record to hash.
-    /// @return recordHash_ The keccak hash of the transition record.
-    /// @return snippet_ The struct containing the hash and deadline to persist.
+    /// @return _ The struct containing the hash and deadline to persist.
     function _computeTransitionSnippet(TransitionRecord memory _transitionRecord)
         internal
         view
-        returns (bytes26 recordHash_, TransitionSnippet memory snippet_)
+        returns (TransitionSnippet memory)
     {
         unchecked {
-            recordHash_ = _hashTransitionRecord(_transitionRecord);
-            snippet_ = TransitionSnippet({
-                recordHash: recordHash_,
+            return TransitionSnippet({
+                recordHash:  _hashTransitionRecord(_transitionRecord),
                 transitionSpan: _transitionRecord.span,
                 finalizationDeadline: uint40(block.timestamp + _finalizationGracePeriod)
             });
