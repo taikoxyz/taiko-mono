@@ -84,7 +84,7 @@ contract InboxOptimized1 is Inbox {
         } else if (record.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
             bytes26 recordHash = record.hashAndDeadline.recordHash;
-            require(recordHash != 0, InvalidExistingRecardHash());
+            require(recordHash != 0, UnexpectedRecordHash());
 
             if (recordHash != _hashAndDeadline.recordHash) {
                 _hashAndDeadline.finalizationDeadline = type(uint48).max;
@@ -137,5 +137,5 @@ contract InboxOptimized1 is Inbox {
     // Errors
     // ---------------------------------------------------------------
 
-    error InvalidExistingRecardHash();
+    error UnexpectedRecordHash();
 }
