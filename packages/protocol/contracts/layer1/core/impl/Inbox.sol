@@ -1005,7 +1005,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
 
                 if (snippet.recordHash == 0) break;
-
+                if (snippet.finalizationDeadline == type(uint40).max) break;
+                
                 if (i >= transitionCount) {
                     require(currentTimestamp < snippet.finalizationDeadline, TransitionRecordNotProvided());
                     break;
