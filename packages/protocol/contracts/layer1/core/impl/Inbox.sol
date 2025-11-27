@@ -460,7 +460,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
-    function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
+    function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
             _processSingleTransitionAtIndex(_input, i);
         }
