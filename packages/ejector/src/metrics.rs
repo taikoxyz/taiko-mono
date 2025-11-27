@@ -104,15 +104,18 @@ pub fn inc_l2_blocks() {
 }
 
 pub fn ensure_eject_metric_labels(addr: &str) {
-    let _ = EJECTIONS_TOTAL.with_label_values(&["success", addr]);
-    let _ = EJECTIONS_TOTAL.with_label_values(&["error", addr]);
+    let addr = addr.to_ascii_lowercase();
+    let _ = EJECTIONS_TOTAL.with_label_values(&["success", &addr]);
+    let _ = EJECTIONS_TOTAL.with_label_values(&["error", &addr]);
 }
 
 pub fn inc_eject_success(addr: &str) {
-    EJECTIONS_TOTAL.with_label_values(&["success", addr]).inc();
+    let addr = addr.to_ascii_lowercase();
+    EJECTIONS_TOTAL.with_label_values(&["success", &addr]).inc();
 }
 pub fn inc_eject_error(addr: &str) {
-    EJECTIONS_TOTAL.with_label_values(&["error", addr]).inc();
+    let addr = addr.to_ascii_lowercase();
+    EJECTIONS_TOTAL.with_label_values(&["error", &addr]).inc();
 }
 
 pub fn inc_ws_reconnections() {

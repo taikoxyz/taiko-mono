@@ -20,6 +20,7 @@ pub struct ShastaProposalBundle {
 #[derive(Debug, Clone)]
 pub(super) struct BundleMeta {
     pub(super) proposal_id: u64,
+    pub(super) last_finalized_proposal_id: u64,
     pub(super) proposal_timestamp: u64,
     pub(super) origin_block_number: u64,
     pub(super) origin_block_hash: B256,

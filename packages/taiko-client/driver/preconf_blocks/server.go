@@ -1134,9 +1134,8 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
 	// Find the last valid proposal by searching backwards
-	maxIterations := latestSeenProposalID.Int64()
-	for i := int64(1); i <= maxIterations; i++ {
-		currentProposalID := new(big.Int).Sub(latestSeenProposalID, big.NewInt(i))
+	for i := uint64(1); i <= latestSeenProposalID.Uint64(); i++ {
+		currentProposalID := new(big.Int).Sub(latestSeenProposalID, new(big.Int).SetUint64(i))
 
 		onChainHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, currentProposalID)
 		if err != nil {
@@ -1160,6 +1159,16 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 		if onChainHash == recordedProposalHash {
 			if currentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
 				log.Info("Found valid proposal after reorg", "proposalId", currentProposalID)
+				blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, currentProposalID)
+				if err != nil {
+					log.Error(
+						"Failed to get last block in batch for shasta proposal",
+						"proposalId", currentProposalID,
+						"err", err,
+					)
+					return
+				}
+
 				s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
 						Proposal:   *recordedProposal.Proposal,
@@ -1167,8 +1176,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 						CoreState:  *recordedProposal.CoreState,
 					}, *recordedProposal.Log),
 					PreconfChainReorged: true,
-					// we dont set LastBlockID here because we don't know it at this time,
-					// s.lastUnsafeL2PayloadBlockID will be reset to 0 after a reorg.
+					LastBlockID:         blockID.Uint64(),
 				})
 			}
 			return
