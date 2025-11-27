@@ -61,43 +61,7 @@ contract InboxTransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
-    // Test Case 2: Same Proposal & Parent - Duplicate Detection
-    // ---------------------------------------------------------------
-
-    /// @notice Tests duplicate transition record detection
-    /// @dev Second branch: recordHash == _recordHash, should emit TransitionDuplicateDetected
-    function test_storeTransitionRecord_duplicateDetection() public {
-        // Create and propose a new proposal
-        IInbox.Proposal memory proposal = _proposeAndGetProposal();
-
-        // Create prove input
-        bytes memory proveData = _createProveInput(proposal);
-        bytes memory proof = _createValidProof();
-
-        // First prove - should succeed
-        vm.prank(currentProver);
-        inbox.prove(proveData, proof);
-
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate
-        vm.prank(currentProver);
-        inbox.prove(proveData, proof);
-
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
-    }
-
-    // ---------------------------------------------------------------
-    // Test Case 3: Same Proposal & Parent - Conflict Detection
+    // Test Case 2: Same Proposal & Parent - Conflict Detection
     // ---------------------------------------------------------------
 
     /// @notice Tests conflicting transition record detection
@@ -146,8 +110,6 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
 
         // Verify finalization deadline was set to max
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
@@ -284,8 +246,6 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(conflictingProveData, _createValidProof());
 
-        // Verify conflict flag is set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict should be detected");
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =

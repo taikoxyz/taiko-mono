@@ -135,9 +135,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public conflictingTransitionDetected;
-
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -431,8 +428,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        conflictingTransitionDetected = false;
-
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -513,11 +508,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-       TransitionSnippet memory snippet =
-            _computeTransitionSnippet(_transitionRecord);
-
         _storeTransitionSnippet(
-            _proposalId, _transition.parentTransitionHash,  snippet
+            _proposalId, _transition.parentTransitionHash,  _computeTransitionSnippet(_transitionRecord)
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -546,16 +538,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionSnippet memory existing = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
 
-        if (existing.recordHash == 0) {
+        if (existing.recordHash == 0 || existing.transitionSpan < _snippet.transitionSpan) {
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
-        } else if (existing.recordHash == _snippet.recordHash) {
-            emit TransitionDuplicateDetected();
-        } else {
+        } 
+
+        else if (existing.transitionSpan == _snippet.transitionSpan && existing.recordHash != _snippet.recordHash) {
             emit TransitionConflictDetected();
-            conflictingTransitionDetected = true;
-            _transitionSnippet[compositeKey] = _encodeTransitionSnippet(
-                TransitionSnippet(existing.recordHash, 0, type(uint40).max)
-            );
+            existing.finalizationDeadline = type(uint40).max;
+            _transitionSnippet[compositeKey] = _encodeTransitionSnippet(existing);
+        } else {
+            revert TransitionWithSmallerSpanRejected();
         }
     }
 
@@ -1006,7 +998,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (snippet.recordHash == 0) break;
                 if (snippet.finalizationDeadline == type(uint40).max) break;
-                
+
                 if (i >= transitionCount) {
                     require(currentTimestamp < snippet.finalizationDeadline, TransitionRecordNotProvided());
                     break;
@@ -1179,5 +1171,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error SpanOutOfBounds();
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
+    error TransitionWithSmallerSpanRejected();
     error UnprocessedForcedInclusionIsDue();
+  
 }

@@ -61,43 +61,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
-    // Test Case 2: Same Proposal & Partial Parent - Duplicate Detection
-    // ---------------------------------------------------------------
-
-    /// @notice Tests duplicate transition record detection with ring buffer
-    /// @dev InboxOptimized1 specific: partialParentHash match, recordHash == _recordHash
-    function test_storeTransitionRecord_duplicateDetection_ringBuffer() public {
-        // Create and propose a new proposal
-        IInbox.Proposal memory proposal = _proposeAndGetProposal();
-
-        // Create prove input
-        bytes memory proveData = _createProveInput(proposal);
-        bytes memory proof = _createValidProof();
-
-        // First prove - should succeed
-        vm.prank(currentProver);
-        inbox.prove(proveData, proof);
-
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate via ring buffer
-        vm.prank(currentProver);
-        inbox.prove(proveData, proof);
-
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
-    }
-
-    // ---------------------------------------------------------------
-    // Test Case 3: Same Proposal & Partial Parent - Conflict Detection
+    // Test Case 2: Same Proposal & Partial Parent - Conflict Detection
     // ---------------------------------------------------------------
 
     /// @notice Tests conflicting transition record detection with ring buffer
@@ -146,8 +110,6 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
 
         // Verify finalization deadline was set to max via ring buffer
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
