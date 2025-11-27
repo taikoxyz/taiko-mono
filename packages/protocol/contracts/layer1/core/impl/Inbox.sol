@@ -512,21 +512,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-             unchecked {
-             TransitionRecordHashAndDeadline memory hashAndDeadline = TransitionRecordHashAndDeadline({
+        unchecked {
+            TransitionRecordHashAndDeadline memory hashAndDeadline = TransitionRecordHashAndDeadline({
                 finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
                 recordHash: _hashTransitionRecord(_transitionRecord)
             });
 
-        _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline);
+            _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline);
 
-        ProvedEventPayload memory payload = ProvedEventPayload({
-            proposalId: _proposalId,
-            transition: _transition,
-            transitionRecord: _transitionRecord,
-            metadata: _metadata
-        });
-        emit Proved(_encodeProvedEventData(payload));}
+            ProvedEventPayload memory payload = ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
+            });
+            emit Proved(_encodeProvedEventData(payload));
+        }
     }
 
     /// @dev Persists transition record metadata in storage.
@@ -626,7 +627,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         record.transitionHash = _hashTransition(_transition);
         record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
     }
-
 
     /// @dev Computes composite key for transition record storage
     /// Creates unique identifier for proposal-parent transition pairs
