@@ -193,7 +193,7 @@ interface IInbox {
         /// @notice The metadata containing prover information.
         TransitionMetadata metadata;
         /// @notice Whether the transition was saved by the owner (overwrite).
-        bool isOwnerSaved;
+        bool isOverwrittenByOwner;
         /// @notice Whether this is a duplicate transition (same hash already exists).
         bool isDuplicate;
         /// @notice Whether this is a conflicting transition (different hash for same key).
