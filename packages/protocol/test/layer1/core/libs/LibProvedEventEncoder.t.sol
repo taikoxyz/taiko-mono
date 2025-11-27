@@ -176,7 +176,11 @@ contract LibProvedEventEncoderTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify bool flags
-        assertEq(decoded.isOverwrittenByOwner, payload.isOverwrittenByOwner, "isOverwrittenByOwner mismatch");
+        assertEq(
+            decoded.isOverwrittenByOwner,
+            payload.isOverwrittenByOwner,
+            "isOverwrittenByOwner mismatch"
+        );
         assertEq(decoded.isDuplicate, payload.isDuplicate, "isDuplicate mismatch");
         assertEq(decoded.isConflicting, payload.isConflicting, "isConflicting mismatch");
 

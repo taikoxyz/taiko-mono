@@ -587,9 +587,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         } else {
             isConflicting_ = true;
             _entry.recordHash = _hashAndDeadline.recordHash;
-            _entry.finalizationDeadline = isOverwrittenByOwner_
-                ? _hashAndDeadline.finalizationDeadline
-                : type(uint48).max;
+            _entry.finalizationDeadline =
+                isOverwrittenByOwner_ ? _hashAndDeadline.finalizationDeadline : type(uint48).max;
         }
     }
 
