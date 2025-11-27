@@ -576,18 +576,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
     {
+        isOwnerSaved_ = _overwrittenByOwner;
         bytes26 existingRecordHash = _entry.recordHash;
 
         if (existingRecordHash == 0) {
             _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
             _entry.recordHash = _hashAndDeadline.recordHash;
         } else if (existingRecordHash == _hashAndDeadline.recordHash) {
-            isDuplicate_ = true;
-            // Skip writing recordHash - it's already the same value
+            isDuplicate_ = true; // Skip writing recordHash - it's already the same value
         } else {
             isConflicting_ = true;
-            if (_overwrittenByOwner) {
-                isOwnerSaved_ = true;
+            if (isOwnerSaved_) {
                 _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
             } else {
                 _entry.finalizationDeadline = type(uint48).max;
