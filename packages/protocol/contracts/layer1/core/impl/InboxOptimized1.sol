@@ -90,33 +90,33 @@ contract InboxOptimized1 is Inbox {
         override
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionSnippet storage record = _reusableTransitionSnippets[bufferSlot];
+        ReusableTransitionSnippet storage snippet = _reusableTransitionSnippets[bufferSlot];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
-        if (record.proposalId != _proposalId) {
+        if (snippet.proposalId != _proposalId) {
             // New proposal ID - use reusable slot
-            record.proposalId = _proposalId;
-            record.partialParentTransitionHash = partialParentHash;
-            record.snippetEncoded = _encodeTransitionSnippet(_snippet);
-        } else if (record.partialParentTransitionHash == partialParentHash) {
+            snippet.proposalId = _proposalId;
+            snippet.partialParentTransitionHash = partialParentHash;
+            snippet.snippetEncoded = _encodeTransitionSnippet(_snippet);
+        } else if (snippet.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
-            (bytes26 recordHash,,) = _decodeTransitionSnippet(record.snippetEncoded);
+            (bytes26 recordHash,,) = _decodeTransitionSnippet(snippet.snippetEncoded);
 
             if (recordHash == 0) {
-                record.snippetEncoded = _encodeTransitionSnippet(_snippet);
+                snippet.snippetEncoded = _encodeTransitionSnippet(_snippet);
             } else if (recordHash == _snippet.recordHash) {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
                 conflictingTransitionDetected = true;
                 // Set deadline to max while preserving other fields
-                record.snippetEncoded = _encodeTransitionSnippet(
+                snippet.snippetEncoded = _encodeTransitionSnippet(
                     TransitionSnippet({
                         recordHash: recordHash,
-                        transitionSpan: uint8(uint256(record.snippetEncoded) >> 40),
+                        transitionSpan: uint8(uint256(snippet.snippetEncoded) >> 40),
                         finalizationDeadline: type(uint40).max
                     })
                 );
@@ -152,14 +152,14 @@ contract InboxOptimized1 is Inbox {
         returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionSnippet storage record = _reusableTransitionSnippets[bufferSlot];
+        ReusableTransitionSnippet storage snippet = _reusableTransitionSnippets[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
         if (
-            record.proposalId == _proposalId
-                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
+            snippet.proposalId == _proposalId
+                && snippet.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return _decodeTransitionSnippet(record.snippetEncoded);
+            return _decodeTransitionSnippet(snippet.snippetEncoded);
         }
 
         // Slow path: composite key mapping (additional SLOAD)
