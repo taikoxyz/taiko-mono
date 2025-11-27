@@ -47,7 +47,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Struct for storing transition record hash, transition span, and deadline.
-    /// @dev Stores transition record hash, span, and finalization deadline.
     struct TransitionSnippet {
         bytes26 recordHash;
         uint8 transitionSpan;
