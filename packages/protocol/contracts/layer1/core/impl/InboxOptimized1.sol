@@ -88,9 +88,9 @@ contract InboxOptimized1 is Inbox {
 
             if (recordHash != _hashAndDeadline.recordHash) {
                 _hashAndDeadline.finalizationDeadline = type(uint48).max;
-                record.hashAndDeadline = _hashAndDeadline;
                 emit TransitionConflictDetected();
             }
+            record.hashAndDeadline = _hashAndDeadline;
         } else {
             super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline);
         }
