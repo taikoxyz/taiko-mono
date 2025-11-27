@@ -541,7 +541,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (existing.recordHash == 0) {
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
         } else if (existing.transitionSpan < _snippet.transitionSpan) {
-            emit TransitionReplaced();
+            emit TransitionReplaced(_proposalId, _parentTransitionHash);
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
         } 
 

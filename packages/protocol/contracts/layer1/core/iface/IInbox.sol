@@ -214,7 +214,10 @@ interface IInbox {
 
     /// @notice Emitted when a transition is replaced by one with a larger span. This event will be
     /// followed by a Proved event.
-    event TransitionReplaced();
+    /// @param _proposalId The proposal ID whose transition was replaced.
+    /// @param _parentTransitionHash The parent transition hash of the replaced transition.
+    event TransitionReplaced(  uint48 indexed _proposalId,
+        bytes32 indexed _parentTransitionHash);
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

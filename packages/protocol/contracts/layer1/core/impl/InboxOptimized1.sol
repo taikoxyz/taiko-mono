@@ -107,7 +107,7 @@ contract InboxOptimized1 is Inbox {
             require(existing.recordHash != 0, "never"); // Sanity check
 
             if (existing.transitionSpan < _snippet.transitionSpan) {
-                emit TransitionReplaced();
+                emit TransitionReplaced(_proposalId, _parentTransitionHash);
                 record.snippetEncoded = _encodeTransitionSnippet(_snippet);
             } else if (existing.transitionSpan == _snippet.transitionSpan && existing.recordHash != _snippet.recordHash) {
                 emit TransitionConflictDetected();
