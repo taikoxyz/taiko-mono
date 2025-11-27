@@ -340,9 +340,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-       /// @notice Owner write a transition record directly without proof verification, overwriting any existing record.
+       /// @notice Owner stores a transition record directly without proof verification, overwriting any existing record.
        /// This allows the DAO to recover from potential proving/finalization bugs.
-    function ownerWriteTransition(
+    function setTransitionWithoutProof(
         Proposal calldata _proposal,
         Transition calldata _transition,
         TransitionMetadata calldata _metadata
@@ -350,7 +350,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         external
         onlyOwner
     {
-        _validateTransition(_proposal, _transition);
         _setTransitionRecordHashAndDeadline(_proposal, _transition, _metadata);
     }
 
@@ -476,7 +475,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _validateTransition(_input.proposals[i], _input.transitions[i]);
             _setTransitionRecordHashAndDeadline(
                 _input.proposals[i],
                 _input.transitions[i],
@@ -491,7 +489,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Builds transition record, stores hash, and emits `Proved` event
+    /// @dev Validates transition, builds transition record, stores hash, and emits `Proved` event
     /// Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
     /// @param _proposal The proposal being proven
@@ -505,6 +503,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
+        bytes32 proposalHash = _checkProposalHash(_proposal);
+        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
+
         unchecked {
             TransitionRecord memory transitionRecord;
             transitionRecord.bondInstructions = LibBondInstruction.calculateBondInstructions(
@@ -578,21 +579,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         TransitionRecordHashAndDeadline storage hashAndDeadline =
             _transitionRecordHashAndDeadline[compositeKey];
         return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
-    }
-
-    /// @dev Validates transition consistency with its corresponding proposal
-    /// Ensures the transition references the correct proposal hash
-    /// @param _proposal The proposal being proven
-    /// @param _transition The transition to validate against the proposal
-    function _validateTransition(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-    {
-        bytes32 proposalHash = _checkProposalHash(_proposal);
-        require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
     /// @dev Validates proposal hash against stored value
