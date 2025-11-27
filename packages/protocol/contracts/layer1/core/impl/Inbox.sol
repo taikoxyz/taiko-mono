@@ -392,8 +392,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
-        (recordHash_,, finalizationDeadline_) =
-            _getTransitionSnippet(_proposalId, _parentTransitionHash);
+        TransitionSnippet memory snippet = _getTransitionSnippet(_proposalId, _parentTransitionHash);
+        recordHash_ = snippet.recordHash;
+        finalizationDeadline_ = snippet.finalizationDeadline;
     }
 
     /// @inheritdoc IInbox
@@ -543,26 +544,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        (bytes26 recordHash,,) = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
+        TransitionSnippet memory existing = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
 
-        if (recordHash == 0) {
+        if (existing.recordHash == 0) {
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
-        } else if (recordHash == _snippet.recordHash) {
+        } else if (existing.recordHash == _snippet.recordHash) {
             emit TransitionDuplicateDetected();
         } else {
             emit TransitionConflictDetected();
             conflictingTransitionDetected = true;
-            _transitionSnippet[compositeKey] =
-                _encodeTransitionSnippet(TransitionSnippet(recordHash, 0, type(uint40).max));
+            _transitionSnippet[compositeKey] = _encodeTransitionSnippet(
+                TransitionSnippet(existing.recordHash, 0, type(uint40).max)
+            );
         }
     }
 
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
-    /// @return recordHash_ The hash of the transition record.
-    /// @return transitionSpan_ The transition span.
-    /// @return finalizationDeadline_ The finalization deadline for the transition.
+    /// @return snippet_ The decoded TransitionSnippet struct.
     function _getTransitionSnippet(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -570,10 +570,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
+        returns (TransitionSnippet memory snippet_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
+        snippet_ = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
     }
 
 
@@ -679,19 +679,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             | bytes32(uint256(_snippet.finalizationDeadline));
     }
 
-    /// @dev Decodes a bytes32 value into TransitionSnippet components.
+    /// @dev Decodes a bytes32 value into a TransitionSnippet struct.
     /// @param _encoded The encoded bytes32 value.
-    /// @return recordHash_ The decoded record hash (bytes26).
-    /// @return transitionSpan_ The decoded transition span (uint8).
-    /// @return finalizationDeadline_ The decoded finalization deadline (uint40).
+    /// @return snippet_ The decoded TransitionSnippet struct.
     function _decodeTransitionSnippet(bytes32 _encoded)
         internal
         pure
-        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
+        returns (TransitionSnippet memory snippet_)
     {
-        recordHash_ = bytes26(_encoded);
-        transitionSpan_ = uint8(uint256(_encoded) >> 40);
-        finalizationDeadline_ = uint40(uint256(_encoded));
+        snippet_ = TransitionSnippet({
+            recordHash: bytes26(_encoded),
+            transitionSpan: uint8(uint256(_encoded) >> 40),
+            finalizationDeadline: uint40(uint256(_encoded))
+        });
     }
     
     // ---------------------------------------------------------------
@@ -1000,21 +1000,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash,, uint40 finalizationDeadline) = _getTransitionSnippet(
+                TransitionSnippet memory snippet = _getTransitionSnippet(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
-                if (recordHash == 0) break;
+                if (snippet.recordHash == 0) break;
 
                 if (i >= transitionCount) {
-                    require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
+                    require(currentTimestamp < snippet.finalizationDeadline, TransitionRecordNotProvided());
                     break;
                 }
 
                 TransitionRecord memory transitionRecord = _input.transitionRecords[i];
 
                 require(
-                    _hashTransitionRecord(transitionRecord) == recordHash,
+                    _hashTransitionRecord(transitionRecord) == snippet.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 

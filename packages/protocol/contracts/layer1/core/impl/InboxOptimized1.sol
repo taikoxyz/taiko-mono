@@ -40,7 +40,7 @@ contract InboxOptimized1 is Inbox {
     /// @notice Stores one transition record per buffer slot for gas optimization
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
-    mapping(uint256 bufferSlot => ReusableTransitionSnippet record) internal
+    mapping(uint256 bufferSlot => ReusableTransitionSnippet snippet) internal
         _reusableTransitionSnippets;
 
     uint256[49] private __gap;
@@ -103,11 +103,11 @@ contract InboxOptimized1 is Inbox {
             snippet.snippetEncoded = _encodeTransitionSnippet(_snippet);
         } else if (snippet.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
-            (bytes26 recordHash,,) = _decodeTransitionSnippet(snippet.snippetEncoded);
+            TransitionSnippet memory existing = _decodeTransitionSnippet(snippet.snippetEncoded);
 
-            if (recordHash == 0) {
+            if (existing.recordHash == 0) {
                 snippet.snippetEncoded = _encodeTransitionSnippet(_snippet);
-            } else if (recordHash == _snippet.recordHash) {
+            } else if (existing.recordHash == _snippet.recordHash) {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
@@ -115,8 +115,8 @@ contract InboxOptimized1 is Inbox {
                 // Set deadline to max while preserving other fields
                 snippet.snippetEncoded = _encodeTransitionSnippet(
                     TransitionSnippet({
-                        recordHash: recordHash,
-                        transitionSpan: uint8(uint256(snippet.snippetEncoded) >> 40),
+                        recordHash: existing.recordHash,
+                        transitionSpan: existing.transitionSpan,
                         finalizationDeadline: type(uint40).max
                     })
                 );
@@ -139,9 +139,7 @@ contract InboxOptimized1 is Inbox {
     ///      4. Fallback to composite key mapping (most expensive).
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
-    /// @return recordHash_ The hash of the transition record
-    /// @return transitionSpan_ The transition span
-    /// @return finalizationDeadline_ The finalization deadline for the transition
+    /// @return snippet_ The decoded TransitionSnippet struct
     function _getTransitionSnippet(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -149,17 +147,17 @@ contract InboxOptimized1 is Inbox {
         internal
         view
         override
-        returns (bytes26 recordHash_, uint8 transitionSpan_, uint40 finalizationDeadline_)
+        returns (TransitionSnippet memory snippet_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionSnippet storage snippet = _reusableTransitionSnippets[bufferSlot];
+        ReusableTransitionSnippet storage reusable = _reusableTransitionSnippets[bufferSlot];
 
         // Fast path: ring buffer hit (single SLOAD + memory comparison)
         if (
-            snippet.proposalId == _proposalId
-                && snippet.partialParentTransitionHash == bytes26(_parentTransitionHash)
+            reusable.proposalId == _proposalId
+                && reusable.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return _decodeTransitionSnippet(snippet.snippetEncoded);
+            return _decodeTransitionSnippet(reusable.snippetEncoded);
         }
 
         // Slow path: composite key mapping (additional SLOAD)
