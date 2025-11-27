@@ -556,7 +556,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bool isOwnerSaved_, bool isDuplicate_, bool isConflicting_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _updateTransitionRecord(_transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _overwrittenByOwner);
+        return _updateTransitionRecord(
+            _transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _overwrittenByOwner
+        );
     }
 
     /// @dev Updates a transition record in storage and computes flags.
@@ -644,6 +646,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _proposalId, _compositeKeyVersion, _parentTransitionHash
         );
     }
+
     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
