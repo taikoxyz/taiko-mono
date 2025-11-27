@@ -546,10 +546,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
 
-        entry.recordHash = _hashAndDeadline.recordHash;
-
         bytes26 recordHash = entry.recordHash;
         if (recordHash == 0) {
+            entry.recordHash = _hashAndDeadline.recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
         } else if (recordHash != _hashAndDeadline.recordHash) {
             entry.finalizationDeadline = type(uint48).max;
