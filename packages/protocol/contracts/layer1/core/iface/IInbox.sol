@@ -114,13 +114,11 @@ interface IInbox {
 
     /// @notice Represents a record of a transition with additional metadata.
     struct TransitionRecord {
-        /// @notice The span indicating how many proposals this transition record covers.
-        uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the span.
+        /// @notice The hash of the transition.
         bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the span.
+        /// @notice The hash of the checkpoint.
         bytes32 checkpointHash;
     }
 
@@ -208,13 +206,12 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
+    /// @notice Emitted when a duplicate transition is detected during proving.
+    event TransitionDuplicateDetected();
+
     /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
     /// Proved event.
     event TransitionConflictDetected();
-
-    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
-    /// event.
-    event TransitionDuplicateDetected();
 
     // ---------------------------------------------------------------
     // External Transactional Functions

@@ -12,34 +12,37 @@ contract LibBondInstructionTest is Test {
     address private constant PROPOSER = address(0xB1);
 
     // ---------------------------------------------------------------
-    // mergeBondInstructions
+    // mergeBondInstructions - REMOVED
     // ---------------------------------------------------------------
 
-    function test_mergeBondInstructions_UsesLoopCopyBelowThreshold() external pure {
-        LibBonds.BondInstruction[] memory existing = new LibBonds.BondInstruction[](3);
-        existing[0] = _makeInstruction(1, LibBonds.BondType.LIVENESS, PROPOSER, DESIGNATED);
-        existing[1] = _makeInstruction(2, LibBonds.BondType.PROVABILITY, DESIGNATED, ACTUAL);
-        existing[2] = _makeInstruction(3, LibBonds.BondType.NONE, DESIGNATED, ACTUAL);
+    // NOTE: mergeBondInstructions function was removed from LibBondInstruction
+    // The test below has been commented out as the function no longer exists
 
-        LibBonds.BondInstruction[] memory incoming = new LibBonds.BondInstruction[](2);
-        incoming[0] = _makeInstruction(4, LibBonds.BondType.LIVENESS, ACTUAL, DESIGNATED);
-        incoming[1] = _makeInstruction(5, LibBonds.BondType.PROVABILITY, DESIGNATED, PROPOSER);
+    // function test_mergeBondInstructions_UsesLoopCopyBelowThreshold() external pure {
+    //     LibBonds.BondInstruction[] memory existing = new LibBonds.BondInstruction[](3);
+    //     existing[0] = _makeInstruction(1, LibBonds.BondType.LIVENESS, PROPOSER, DESIGNATED);
+    //     existing[1] = _makeInstruction(2, LibBonds.BondType.PROVABILITY, DESIGNATED, ACTUAL);
+    //     existing[2] = _makeInstruction(3, LibBonds.BondType.NONE, DESIGNATED, ACTUAL);
 
-        LibBonds.BondInstruction[] memory merged =
-            LibBondInstruction.mergeBondInstructions(existing, incoming);
+    //     LibBonds.BondInstruction[] memory incoming = new LibBonds.BondInstruction[](2);
+    //     incoming[0] = _makeInstruction(4, LibBonds.BondType.LIVENESS, ACTUAL, DESIGNATED);
+    //     incoming[1] = _makeInstruction(5, LibBonds.BondType.PROVABILITY, DESIGNATED, PROPOSER);
 
-        assertEq(merged.length, 5, "Merged array should keep ordering");
-        for (uint256 i; i < existing.length; ++i) {
-            assertEq(merged[i].proposalId, existing[i].proposalId);
-        }
-        for (uint256 i; i < incoming.length; ++i) {
-            assertEq(merged[existing.length + i].proposalId, incoming[i].proposalId);
-        }
+    //     LibBonds.BondInstruction[] memory merged =
+    //         LibBondInstruction.mergeBondInstructions(existing, incoming);
 
-        // Ensure original arrays are untouched
-        assertEq(uint8(existing[0].bondType), uint8(LibBonds.BondType.LIVENESS));
-        assertEq(uint8(incoming[0].bondType), uint8(LibBonds.BondType.LIVENESS));
-    }
+    //     assertEq(merged.length, 5, "Merged array should keep ordering");
+    //     for (uint256 i; i < existing.length; ++i) {
+    //         assertEq(merged[i].proposalId, existing[i].proposalId);
+    //     }
+    //     for (uint256 i; i < incoming.length; ++i) {
+    //         assertEq(merged[existing.length + i].proposalId, incoming[i].proposalId);
+    //     }
+
+    //     // Ensure original arrays are untouched
+    //     assertEq(uint8(existing[0].bondType), uint8(LibBonds.BondType.LIVENESS));
+    //     assertEq(uint8(incoming[0].bondType), uint8(LibBonds.BondType.LIVENESS));
+    // }
 
     // ---------------------------------------------------------------
     // calculateBondInstructions

@@ -83,7 +83,15 @@ library LibHashSimple {
         returns (bytes26)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
+        return bytes26(
+            keccak256(
+                abi.encode(
+                    _transitionRecord.bondInstructions,
+                    _transitionRecord.transitionHash,
+                    _transitionRecord.checkpointHash
+                )
+            )
+        );
     }
 
     /// @notice Simple hashing for arrays of Transitions with metadata

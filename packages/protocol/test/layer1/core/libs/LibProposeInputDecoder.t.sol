@@ -213,7 +213,6 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = IInbox.TransitionRecord({
-            span: 5,
             bondInstructions: bondInstructions,
             transitionHash: bytes32(uint256(777)),
             checkpointHash: bytes32(uint256(888))
@@ -246,7 +245,6 @@ contract LibProposeInputDecoderTest is Test {
 
         // Verify transition records
         assertEq(decoded.transitionRecords.length, 1, "Transition records length mismatch");
-        assertEq(decoded.transitionRecords[0].span, 5, "Transition record span mismatch");
         assertEq(
             decoded.transitionRecords[0].bondInstructions.length,
             2,

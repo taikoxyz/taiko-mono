@@ -15,7 +15,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
     function testFuzz_encodeDecodeBasicFields(
         uint48 _proposalId,
-        uint8 _span,
         bytes32 _transitionHash,
         bytes32 _checkpointHash
     )
@@ -24,7 +23,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
     {
         IInbox.ProvedEventPayload memory original;
         original.proposalId = _proposalId;
-        original.transitionRecord.span = _span;
         original.transitionRecord.transitionHash = _transitionHash;
         original.transitionRecord.checkpointHash = _checkpointHash;
         original.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](0);
@@ -33,7 +31,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, original.proposalId);
-        assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
     }
@@ -141,7 +138,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.metadata.actualProver = address(uint160(_designatedProver) + 1);
 
         // Create TransitionRecord with derived values
-        original.transitionRecord.span = uint8(uint256(keccak256(abi.encode(_proposalId))) % 10 + 1);
         original.transitionRecord.transitionHash =
             keccak256(abi.encode("transitionHash", _proposalId));
         original.transitionRecord.checkpointHash =
@@ -174,7 +170,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
         assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
         assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
-        assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
         assertEq(decoded.transitionRecord.bondInstructions.length, _bondInstructionCount);
@@ -194,7 +189,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
     function testFuzz_roundTripPreservesData(
         uint48 _proposalId,
-        uint8 _span,
         uint8 _bondInstructionCount
     )
         public
@@ -204,7 +198,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         IInbox.ProvedEventPayload memory original = _createPayload(_bondInstructionCount);
         original.proposalId = _proposalId;
-        original.transitionRecord.span = _span;
 
         // First round trip
         bytes memory encoded1 = LibProvedEventEncoder.encode(original);
@@ -216,7 +209,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         // Verify data is preserved through multiple round trips
         assertEq(decoded1.proposalId, decoded2.proposalId);
-        assertEq(decoded1.transitionRecord.span, decoded2.transitionRecord.span);
         assertEq(decoded1.transition.proposalHash, decoded2.transition.proposalHash);
         assertEq(encoded1, encoded2);
     }
@@ -232,7 +224,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.checkpoint.stateRoot = bytes32(type(uint256).max);
         original.metadata.designatedProver = address(type(uint160).max);
         original.metadata.actualProver = address(type(uint160).max);
-        original.transitionRecord.span = type(uint8).max;
         original.transitionRecord.transitionHash = bytes32(type(uint256).max);
         original.transitionRecord.checkpointHash = bytes32(type(uint256).max);
         original.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](1);
@@ -248,7 +239,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.proposalId, type(uint48).max);
         assertEq(decoded.transition.checkpoint.blockNumber, type(uint48).max);
-        assertEq(decoded.transitionRecord.span, type(uint8).max);
     }
 
     function _createPayload(uint8 _bondInstructionCount)
@@ -264,7 +254,6 @@ contract LibProvedEventEncoderFuzzTest is Test {
         payload.transition.checkpoint.stateRoot = keccak256("endState");
         payload.metadata.designatedProver = address(0x1234);
         payload.metadata.actualProver = address(0x5678);
-        payload.transitionRecord.span = 3;
         payload.transitionRecord.transitionHash = keccak256("transitionHash");
         payload.transitionRecord.checkpointHash = keccak256("checkpointHash");
 

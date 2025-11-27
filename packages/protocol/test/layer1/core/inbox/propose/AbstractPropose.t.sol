@@ -953,7 +953,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             );
 
         record = IInbox.TransitionRecord({
-            span: 1,
             bondInstructions: bondInstructions,
             transitionHash: _codec().hashTransition(transition),
             checkpointHash: _codec().hashCheckpoint(transition.checkpoint)

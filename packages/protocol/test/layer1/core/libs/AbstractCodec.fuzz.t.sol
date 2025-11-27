@@ -340,7 +340,6 @@ abstract contract AbstractCodecFuzzTest is Test {
     // ---------------------------------------------------------------
 
     function testFuzz_hashTransitionRecord_emptyBonds(
-        uint8 span,
         bytes32 transitionHash,
         bytes32 checkpointHash
     )
@@ -348,7 +347,6 @@ abstract contract AbstractCodecFuzzTest is Test {
         view
     {
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
-            span: span,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: transitionHash,
             checkpointHash: checkpointHash
@@ -365,7 +363,6 @@ abstract contract AbstractCodecFuzzTest is Test {
     }
 
     function testFuzz_hashTransitionRecord_singleBond(
-        uint8 span,
         bytes32 transitionHash,
         bytes32 checkpointHash,
         uint48 proposalId,
@@ -385,7 +382,6 @@ abstract contract AbstractCodecFuzzTest is Test {
         });
 
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
-            span: span,
             bondInstructions: bonds,
             transitionHash: transitionHash,
             checkpointHash: checkpointHash

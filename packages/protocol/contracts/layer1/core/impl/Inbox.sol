@@ -512,11 +512,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        (bytes26 transitionRecordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
+        TransitionRecordHashAndDeadline memory hashAndDeadline =
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
         _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+            _proposalId, _transition.parentTransitionHash,  hashAndDeadline
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -533,12 +533,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// emissions.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
-    /// @param _recordHash The keccak hash representing the transition record.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        bytes26 _recordHash,
         TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
@@ -547,17 +545,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage entry =
             _transitionRecordHashAndDeadline[compositeKey];
-        bytes26 recordHash = entry.recordHash;
 
+        entry.recordHash = _hashAndDeadline.recordHash;
+
+        bytes26 recordHash = entry.recordHash;
         if (recordHash == 0) {
-            entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash == _recordHash) {
-            emit TransitionDuplicateDetected();
-        } else {
-            emit TransitionConflictDetected();
-            conflictingTransitionDetected = true;
+        } else if (recordHash != _hashAndDeadline.recordHash) {
             entry.finalizationDeadline = type(uint48).max;
+            emit TransitionConflictDetected();
         }
     }
 
@@ -614,7 +610,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal the transition is proving.
     /// @param _transition The transition associated with the proposal.
     /// @param _metadata The metadata describing the prover and additional context.
-    /// @return record The constructed transition record with span set to one.
+    /// @return record The constructed transition record.
     function _buildTransitionRecord(
         Proposal memory _proposal,
         Transition memory _transition,
@@ -624,7 +620,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (TransitionRecord memory record)
     {
-        record.span = 1;
         record.bondInstructions = LibBondInstruction.calculateBondInstructions(
             _provingWindow, _extendedProvingWindow, _proposal, _metadata
         );
@@ -634,18 +629,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Computes the hash and finalization deadline for a transition record.
     /// @param _transitionRecord The transition record to hash.
-    /// @return recordHash_ The keccak hash of the transition record.
     /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
     function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
         internal
         view
-        returns (bytes26 recordHash_, TransitionRecordHashAndDeadline memory hashAndDeadline_)
+        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
     {
         unchecked {
-            recordHash_ = _hashTransitionRecord(_transitionRecord);
             hashAndDeadline_ = TransitionRecordHashAndDeadline({
                 finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash: recordHash_
+                recordHash:  _hashTransitionRecord(_transitionRecord)
             });
         }
     }
@@ -1002,15 +995,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 totalBondInstructionCount += bondInstructionLen;
 
-                require(transitionRecord.span > 0, InvalidSpan());
-
-                uint48 nextProposalId = proposalId + transitionRecord.span;
-                require(nextProposalId <= coreState.nextProposalId, SpanOutOfBounds());
-
-                coreState.lastFinalizedProposalId = nextProposalId - 1;
+                coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
 
-                proposalId = nextProposalId;
+                ++proposalId;
 
                 // Update state for successful finalization
                 lastFinalizedRecordIdx = i;
@@ -1141,7 +1129,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error IncorrectProposalCount();
     error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
-    error InvalidSpan();
     error InvalidState();
     error NextProposalHashMismatch();
     error NoBondToWithdraw();
@@ -1149,7 +1136,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
-    error SpanOutOfBounds();
     error TransitionRecordHashMismatchWithStorage();
     error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();

@@ -207,7 +207,6 @@ library LibHashOptimized {
             }
 
             bytes32 fullHash = EfficientHashLib.hash(
-                bytes32(uint256(_transitionRecord.span)),
                 bondInstructionsHash,
                 _transitionRecord.transitionHash,
                 _transitionRecord.checkpointHash

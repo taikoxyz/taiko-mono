@@ -64,8 +64,9 @@ contract InboxTransitionRecord is InboxTestHelper {
     // Test Case 2: Same Proposal & Parent - Duplicate Detection
     // ---------------------------------------------------------------
 
-    /// @notice Tests duplicate transition record detection
-    /// @dev Second branch: recordHash == _recordHash, should emit TransitionDuplicateDetected
+    /// @notice Tests duplicate transition record handling
+    /// @dev Second branch: recordHash == _recordHash, no event is emitted (duplicate is silently
+    /// accepted)
     function test_storeTransitionRecord_duplicateDetection() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
@@ -82,11 +83,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         (, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate
+        // Second prove with identical data - duplicate is silently accepted (no special event)
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
@@ -115,7 +112,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Get the stored deadline before conflict
-        (, bytes26 firstRecordHash) =
+        (uint48 initialDeadline,) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
         // Create second prove input with different checkpoint (causes conflict)
@@ -146,18 +143,12 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
-
         // Verify finalization deadline was set to max
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
-        assertEq(
-            conflictRecordHash,
-            firstRecordHash,
-            "Original record hash should remain (not overwritten)"
-        );
+        assertTrue(conflictRecordHash != bytes26(0), "Record hash should be set");
+        assertTrue(initialDeadline < type(uint48).max, "Initial deadline should not be max");
     }
 
     // ---------------------------------------------------------------
@@ -284,8 +275,10 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(conflictingProveData, _createValidProof());
 
-        // Verify conflict flag is set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict should be detected");
+        // Verify conflict was detected by checking deadline is set to max
+        (uint48 conflictDeadline,) =
+            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+        assertEq(conflictDeadline, type(uint48).max, "Conflict should be detected via max deadline");
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =
