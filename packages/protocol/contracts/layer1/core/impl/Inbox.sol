@@ -350,7 +350,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         external
         onlyOwner
     {
-        _setTransitionRecordHashAndDeadline(_proposal, _transition, _metadata);
+        _setTransitionRecordHashAndDeadline(_proposal, _transition, _metadata, true);
     }
 
     // ---------------------------------------------------------------
@@ -476,7 +476,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
             _setTransitionRecordHashAndDeadline(
-                _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                _input.proposals[i], _input.transitions[i], _input.metadata[i], false
             );
         }
     }
@@ -493,10 +493,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _metadata The metadata containing prover information to include in the event
+    /// @param _overwrittenByOwner Whether this transaction is called by the owner
     function _setTransitionRecordHashAndDeadline(
         Proposal memory _proposal,
         Transition memory _transition,
-        TransitionMetadata memory _metadata
+        TransitionMetadata memory _metadata,
+        bool _overwrittenByOwner
     )
         internal
         virtual
@@ -518,7 +520,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _storeTransitionRecord(
-                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, false
+                _proposal.id, _transition.parentTransitionHash, hashAndDeadline, _overwrittenByOwner
             );
 
             ProvedEventPayload memory payload = ProvedEventPayload({
