@@ -212,6 +212,9 @@ interface IInbox {
     /// Proved event.
     event TransitionConflictDetected();
 
+    /// @notice Emitted when a transition is replaced by one with a larger span. This event will be
+    /// followed by a Proved event.
+    event TransitionReplaced();
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

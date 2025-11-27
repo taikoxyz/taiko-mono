@@ -104,8 +104,10 @@ contract InboxOptimized1 is Inbox {
         } else if (record.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
             TransitionSnippet memory existing = _decodeTransitionSnippet(record.snippetEncoded);
+            require(existing.recordHash != 0, "never"); // Sanity check
 
-            if (existing.recordHash == 0 || existing.transitionSpan < _snippet.transitionSpan) {
+            if (existing.transitionSpan < _snippet.transitionSpan) {
+                emit TransitionReplaced();
                 record.snippetEncoded = _encodeTransitionSnippet(_snippet);
             } else if (existing.transitionSpan == _snippet.transitionSpan && existing.recordHash != _snippet.recordHash) {
                 emit TransitionConflictDetected();

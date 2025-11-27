@@ -538,7 +538,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionSnippet memory existing = _decodeTransitionSnippet(_transitionSnippet[compositeKey]);
 
-        if (existing.recordHash == 0 || existing.transitionSpan < _snippet.transitionSpan) {
+        if (existing.recordHash == 0) {
+            _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
+        } else if (existing.transitionSpan < _snippet.transitionSpan) {
+            emit TransitionReplaced();
             _transitionSnippet[compositeKey] = _encodeTransitionSnippet(_snippet);
         } 
 
