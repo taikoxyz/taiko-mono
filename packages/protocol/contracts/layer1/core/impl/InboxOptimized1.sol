@@ -25,11 +25,11 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
-    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26*8 + 8 + 40 = 304 bits)
+    ///      Uses two storage slots: (48 + 208 = 256 bits) + (256 bits) = 512 bits
     struct ReusableTransitionSnippet {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
-        TransitionSnippet snippet;
+        bytes32 snippetEncoded;
     }
 
     // ---------------------------------------------------------------
@@ -100,19 +100,26 @@ contract InboxOptimized1 is Inbox {
             // New proposal ID - use reusable slot
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = partialParentHash;
-            record.snippet = _snippet;
+            record.snippetEncoded = _encodeTransitionSnippet(_snippet);
         } else if (record.partialParentTransitionHash == partialParentHash) {
             // Same proposal and parent hash - check for duplicate or conflict
-            bytes26 recordHash = record.snippet.recordHash;
+            (bytes26 recordHash,,) = _decodeTransitionSnippet(record.snippetEncoded);
 
             if (recordHash == 0) {
-                record.snippet = _snippet;
+                record.snippetEncoded = _encodeTransitionSnippet(_snippet);
             } else if (recordHash == _snippet.recordHash) {
                 emit TransitionDuplicateDetected();
             } else {
                 emit TransitionConflictDetected();
                 conflictingTransitionDetected = true;
-                record.snippet.finalizationDeadline = type(uint40).max;
+                // Set deadline to max while preserving other fields
+                record.snippetEncoded = _encodeTransitionSnippet(
+                    TransitionSnippet({
+                        recordHash: recordHash,
+                        transitionSpan: uint8(uint256(record.snippetEncoded) >> 40),
+                        finalizationDeadline: type(uint40).max
+                    })
+                );
             }
         } else {
             super._storeTransitionRecord(_proposalId, _parentTransitionHash, _snippet);
@@ -152,11 +159,7 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return (
-                record.snippet.recordHash,
-                record.snippet.transitionSpan,
-                record.snippet.finalizationDeadline
-            );
+            return _decodeTransitionSnippet(record.snippetEncoded);
         }
 
         // Slow path: composite key mapping (additional SLOAD)
