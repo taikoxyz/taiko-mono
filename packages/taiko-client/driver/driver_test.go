@@ -937,6 +937,50 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	}
 }
 
+func (s *DriverTestSuite) TestIsBasedOnCanonicalChainRejectsSiblingBlock() {
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
+
+	// Capture the canonical tip to craft sibling payloads.
+	canonicalBlock, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+
+	// Same parent as canonical block, but different hash should be rejected.
+	ok, err := blocksInserter.IsBasedOnCanonicalChain(
+		context.Background(),
+		s.RPCClient,
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(canonicalBlock.Number().Uint64()),
+				BlockHash:   testutils.RandomHash(),
+				ParentHash:  canonicalBlock.ParentHash(),
+			},
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.False(ok)
+
+	// Canonical hash should be accepted.
+	ok, err = blocksInserter.IsBasedOnCanonicalChain(
+		context.Background(),
+		s.RPCClient,
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(canonicalBlock.Number().Uint64()),
+				BlockHash:   canonicalBlock.Hash(),
+				ParentHash:  canonicalBlock.ParentHash(),
+			},
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.True(ok)
+}
+
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks

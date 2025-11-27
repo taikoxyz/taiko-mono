@@ -958,14 +958,39 @@ func IsBasedOnCanonicalChain(
 	envelope *preconf.Envelope,
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {
-	canonicalParent, err := cli.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(envelope.Payload.BlockNumber-1)))
+	blockNumber := uint64(envelope.Payload.BlockNumber)
+
+	parentNumber := new(big.Int).SetUint64(blockNumber - 1)
+
+	// fetch the canonical parent
+	canonicalParent, err := cli.L2.HeaderByNumber(ctx, parentNumber)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
 	}
-	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.
-	if canonicalParent != nil && canonicalParent.Hash() == envelope.Payload.ParentHash {
-		return true, nil
+
+	// parent must be canonical. if it isnt, its absolutely not based on the canonical chain.
+	if canonicalParent == nil || canonicalParent.Hash() != envelope.Payload.ParentHash {
+		return false, nil
 	}
 
-	return false, nil
+	// fetch the canonical header at this height to detect sibling blocks.
+	canonicalBlock, err := cli.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return false, fmt.Errorf("failed to fetch canonical block: %w", err)
+	}
+
+	// if we have already finalized an L1 origin that covers this block height,
+	// we should have a canonical header and it must match. headL1Origin should be populated on the event
+	// being processed onchain. So, this will prevent any reorgs for any blocks below the finalized
+	// L1 origin height. If the header is missing, treat the payload as non-canonical instead of erroring.
+	if headL1Origin != nil && headL1Origin.BlockID != nil && blockNumber <= headL1Origin.BlockID.Uint64() && canonicalBlock == nil {
+		return false, nil
+	}
+
+	// reject if a different canonical block already exists at this height.
+	if canonicalBlock != nil && canonicalBlock.Hash() != envelope.Payload.BlockHash {
+		return false, nil
+	}
+
+	return true, nil
 }
