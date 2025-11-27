@@ -1,14 +1,6 @@
 {
-  "finalize_16_Inbox": "151803",
-  "finalize_16_InboxOptimized1": "155110",
-  "finalize_16_InboxOptimized2": "138229",
-  "finalize_bonds_Inbox": "112489",
-  "finalize_bonds_InboxOptimized1": "112705",
-  "finalize_bonds_InboxOptimized2": "105888",
-  "finalize_single_Inbox": "108901",
-  "finalize_single_InboxOptimized1": "109109",
-  "finalize_single_InboxOptimized2": "102519",
-  "finalize_two_Inbox": "111346",
-  "finalize_two_InboxOptimized1": "111762",
-  "finalize_two_InboxOptimized2": "104735"
+  "finalize_16_InboxOptimized1": "153764",
+  "finalize_bonds_InboxOptimized1": "112622",
+  "finalize_single_InboxOptimized1": "109026",
+  "finalize_two_InboxOptimized1": "111597"
 }
