@@ -488,7 +488,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Validates transition, builds transition record, stores hash, and emits `Proved` event
-    /// Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
     /// @param _proposal The proposal being proven
     /// @param _transition The transition data to include in the event
@@ -501,7 +500,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bool _overwrittenByOwner
     )
         internal
-        virtual
     {
         bytes32 proposalHash = _checkProposalHash(_proposal);
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
