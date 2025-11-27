@@ -341,7 +341,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
        /// @notice Owner write a transition record directly without proof verification, overwriting any existing record.
-       /// This allows the DAO to recover from potential bugs in the proof verifier or other critical issues.
+       /// This allows the DAO to recover from potential proving/finalization bugs.
     function ownerWriteTransition(
         Proposal calldata _proposal,
         Transition calldata _transition,
