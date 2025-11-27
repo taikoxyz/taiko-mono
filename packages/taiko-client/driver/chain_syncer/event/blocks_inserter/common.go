@@ -983,7 +983,10 @@ func IsBasedOnCanonicalChain(
 	// we should have a canonical header and it must match. headL1Origin should be populated on the event
 	// being processed onchain. So, this will prevent any reorgs for any blocks below the finalized
 	// L1 origin height. If the header is missing, treat the payload as non-canonical instead of erroring.
-	if headL1Origin != nil && headL1Origin.BlockID != nil && blockNumber <= headL1Origin.BlockID.Uint64() && canonicalBlock == nil {
+	if headL1Origin != nil &&
+		headL1Origin.BlockID != nil &&
+		blockNumber <= headL1Origin.BlockID.Uint64() &&
+		canonicalBlock == nil {
 		return false, nil
 	}
 
