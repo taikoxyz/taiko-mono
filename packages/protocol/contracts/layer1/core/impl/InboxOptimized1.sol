@@ -130,8 +130,7 @@ contract InboxOptimized1 is Inbox {
         if (record.proposalId != _proposalId) {
             return (0, 0);
         } else if (record.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
-            TransitionRecordHashAndDeadline memory hashAndDeadline = record.hashAndDeadline;
-            return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
+            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
         } else {
             return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         }
