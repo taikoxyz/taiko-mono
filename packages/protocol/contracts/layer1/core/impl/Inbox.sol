@@ -512,8 +512,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        TransitionRecordHashAndDeadline memory hashAndDeadline =
-            _computeTransitionRecordHashAndDeadline(_transitionRecord);
+             unchecked {
+             TransitionRecordHashAndDeadline memory hashAndDeadline = TransitionRecordHashAndDeadline({
+                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+                recordHash: _hashTransitionRecord(_transitionRecord)
+            });
 
         _storeTransitionRecord(_proposalId, _transition.parentTransitionHash, hashAndDeadline);
 
@@ -523,7 +526,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             transitionRecord: _transitionRecord,
             metadata: _metadata
         });
-        emit Proved(_encodeProvedEventData(payload));
+        emit Proved(_encodeProvedEventData(payload));}
     }
 
     /// @dev Persists transition record metadata in storage.
@@ -624,21 +627,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
     }
 
-    /// @dev Computes the hash and finalization deadline for a transition record.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return hashAndDeadline_ The struct containing the hash and deadline to persist.
-    function _computeTransitionRecordHashAndDeadline(TransitionRecord memory _transitionRecord)
-        internal
-        view
-        returns (TransitionRecordHashAndDeadline memory hashAndDeadline_)
-    {
-        unchecked {
-            hashAndDeadline_ = TransitionRecordHashAndDeadline({
-                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash: _hashTransitionRecord(_transitionRecord)
-            });
-        }
-    }
 
     /// @dev Computes composite key for transition record storage
     /// Creates unique identifier for proposal-parent transition pairs
