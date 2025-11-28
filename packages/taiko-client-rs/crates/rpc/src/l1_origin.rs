@@ -56,22 +56,22 @@ impl<P: Provider + Clone> Client<P> {
     }
 
     /// Fetch the last L1 origin associated with the given batch id via the public engine API.
-    pub async fn last_l1_origin_by_batch_id(&self, proposal_id: U256) -> Result<Option<L1Origin>> {
+    pub async fn last_l1_origin_by_batch_id(&self, batch_id: U256) -> Result<Option<L1Origin>> {
         self.l2_provider
             .raw_request(
                 Cow::Borrowed(TaikoOriginMethod::LastL1OriginByBatchId.as_str()),
-                (proposal_id,),
+                (batch_id,),
             )
             .await
             .or_else(handle_not_found)
     }
 
     /// Fetch the last block id that corresponds to the provided batch id.
-    pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
+    pub async fn last_block_id_by_batch_id(&self, batch_id: U256) -> Result<Option<U256>> {
         self.l2_provider
             .raw_request(
                 Cow::Borrowed(TaikoOriginMethod::LastBlockIdByBatchId.as_str()),
-                (proposal_id,),
+                (batch_id,),
             )
             .await
             .or_else(handle_not_found)
