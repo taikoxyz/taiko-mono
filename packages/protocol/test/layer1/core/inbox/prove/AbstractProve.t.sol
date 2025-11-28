@@ -456,8 +456,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
         virtual
         returns (uint256 expectedEvents, uint256 expectedMaxSpan)
     {
-        // Default (Basic Inbox): no aggregation
-        return (proposalCount, 1);
+        // Optimized Inbox aggregates consecutive proposals into a single event.
+        return (1, proposalCount);
     }
 
     function _proposeAndGetProposal() internal returns (IInbox.Proposal memory) {

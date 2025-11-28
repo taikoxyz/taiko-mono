@@ -54,6 +54,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint8 span;
     }
 
+    /// @notice Optimized storage for frequently accessed transition records
+    /// @dev Uses ring buffer to cache the first transition record per proposal ID.
+    struct ReusableTransitionRecord {
+        uint48 proposalId;
+        bytes26 partialParentTransitionHash;
+        TransitionRecordHashAndDeadline hashAndDeadline;
+    }
+
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
         IInbox.DerivationSource[] sources;
@@ -153,7 +161,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[37] private __gap;
+    /// @dev Ring buffer slot cache for transition records
+    mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal _reusableTransitionRecords;
+
+    uint256[36] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -454,11 +465,56 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Builds and persists transition records for batch proof submissions
     /// Validates transitions, calculates bond instructions, and stores records
-    /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
+    /// @dev Aggregates consecutive proposals to reduce storage and event costs.
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
-        for (uint256 i; i < _input.proposals.length; ++i) {
-            _processSingleTransitionAtIndex(_input, i);
+        if (_input.proposals.length == 0) return;
+
+        if (_input.proposals.length == 1) {
+            _processSingleTransitionAtIndex(_input, 0);
+            return;
+        }
+
+        unchecked {
+            for (uint256 i; i < _input.proposals.length; ++i) {
+                _validateTransition(_input.proposals[i], _input.transitions[i]);
+            }
+
+            // Initialize aggregation state from first proposal
+            TransitionRecord memory currentRecord =
+                _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
+
+            uint48 currentGroupStartId = _input.proposals[0].id;
+            uint256 firstIndex;
+
+            for (uint256 i = 1; i < _input.proposals.length; ++i) {
+                // Cap at 255 proposals per record to prevent uint8 span overflow
+                bool isConsecutive = _input.proposals[i].id == currentGroupStartId + currentRecord.span
+                    && _input.transitions[i].parentTransitionHash == currentRecord.transitionHash
+                    && currentRecord.span < type(uint8).max;
+
+                if (isConsecutive) {
+                    TransitionRecord memory nextRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    );
+                    currentRecord.bondInstructions =
+                        _mergeBondInstructions(currentRecord.bondInstructions, nextRecord.bondInstructions);
+                    currentRecord.transitionHash = nextRecord.transitionHash;
+                    currentRecord.checkpointHash = nextRecord.checkpointHash;
+                    currentRecord.span++;
+                } else {
+                    _storeAggregatedRecord(_input, firstIndex, currentRecord, currentGroupStartId);
+
+                    currentGroupStartId = _input.proposals[i].id;
+                    firstIndex = i;
+                    currentRecord = _buildTransitionRecord(
+                        _input.proposals[i], _input.transitions[i], _input.metadata[i]
+                    );
+                }
+            }
+
+            // Save the final aggregated record
+            _storeAggregatedRecord(_input, firstIndex, currentRecord, currentGroupStartId);
         }
     }
 
@@ -528,8 +584,92 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proved(_encodeProvedEventData(payload));
     }
 
-    /// @dev Persists transition record metadata in storage.
-    /// Reverts if a different record is attempted for the same proposal/parent pair.
+    /// @dev Stores an aggregated record and allows a span upgrade when the new record strictly
+    /// extends the stored prefix.
+    /// @param _input The prove input being processed.
+    /// @param _startIndex Index where the aggregated group starts in `_input`.
+    /// @param _record Aggregated transition record to store.
+    /// @param _startProposalId Proposal ID of the first proposal in the aggregated group.
+    function _storeAggregatedRecord(
+        ProveInput memory _input,
+        uint256 _startIndex,
+        TransitionRecord memory _record,
+        uint48 _startProposalId
+    )
+        private
+    {
+        bytes32 parentTransitionHash = _input.transitions[_startIndex].parentTransitionHash;
+        (bytes26 recordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
+            _computeTransitionRecordHashAndDeadline(_record);
+
+        TransitionRecordHashAndDeadline memory existing =
+            _loadExistingTransitionRecord(_startProposalId, parentTransitionHash);
+
+        bytes26 prefixHash;
+        if (existing.recordHash != 0 && existing.recordHash != recordHash) {
+            // There is a store record with a different hash. We need to decide if we can overwrite it.
+            require(existing.finalizationDeadline >= _finalizationGracePeriod, InvalidState());
+
+            // Calculate the `block.timestamp` when the proof was submitted.
+            // TODO: this might be a bit brittle if during an upgrade we change `_finalizationGracePeriod`.
+            uint256 storedProofTimestamp =
+                uint256(existing.finalizationDeadline) - _finalizationGracePeriod;
+            TransitionRecord memory prefixRecord = _buildAggregatedRecordForSpan(
+                _input, _startIndex, existing.span, storedProofTimestamp
+            );
+            prefixHash = _hashTransitionRecord(prefixRecord);
+        }
+
+        _storeTransitionRecord(
+            _startProposalId, parentTransitionHash, recordHash, hashAndDeadline, prefixHash
+        );
+
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            proposalId: _startProposalId,
+            transition: _input.transitions[_startIndex],
+            transitionRecord: _record,
+            metadata: _input.metadata[_startIndex]
+        });
+        emit Proved(_encodeProvedEventData(payload));
+    }
+
+    /// @dev Reconstructs an aggregated TransitionRecord for a prefix of the current group.
+    /// @param _input The prove input containing proposals, transitions, and metadata.
+    /// @param _startIndex Index where the aggregated group starts.
+    /// @param _span Number of proposals to include in the prefix reconstruction.
+    /// @param _proofTimestamp Proof timestamp to use for bond calculation.
+    /// @return record Reconstructed transition record for the prefix.
+    function _buildAggregatedRecordForSpan(
+        ProveInput memory _input,
+        uint256 _startIndex,
+        uint256 _span,
+        uint256 _proofTimestamp
+    )
+        private
+        view
+        returns (TransitionRecord memory record)
+    {
+        record = _buildTransitionRecordAt(
+            _input.proposals[_startIndex],
+            _input.transitions[_startIndex],
+            _input.metadata[_startIndex],
+            _proofTimestamp
+        );
+
+        uint256 end = _startIndex + _span;
+        for (uint256 i = _startIndex + 1; i < end; ++i) {
+            TransitionRecord memory nextRecord = _buildTransitionRecordAt(
+                _input.proposals[i], _input.transitions[i], _input.metadata[i], _proofTimestamp
+            );
+            record.bondInstructions =
+                _mergeBondInstructions(record.bondInstructions, nextRecord.bondInstructions);
+            record.transitionHash = nextRecord.transitionHash;
+            record.checkpointHash = nextRecord.checkpointHash;
+            record.span++;
+        }
+    }
+
+    /// @dev Persists transition record metadata in storage, potentially overwriting it under certain conditions.
     /// Overwrite rules:
     /// - Empty slot: store the new record.
     /// - Same hash: no-op (duplicate proof).
@@ -552,24 +692,30 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        TransitionRecordHashAndDeadline storage entry =
-            _transitionRecordHashAndDeadline[compositeKey];
-        bytes26 recordHash = entry.recordHash;
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage reusable = _reusableTransitionRecords[bufferSlot];
+        bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
-        if (recordHash == 0) {
-            entry.recordHash = _recordHash;
-            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-            entry.span = _hashAndDeadline.span;
-        } else if (recordHash == _recordHash) {
+        if (reusable.proposalId != _proposalId) {
+            // This is the first record for this proposal, use the ring buffer slot.
+            reusable.proposalId = _proposalId;
+            reusable.partialParentTransitionHash = partialParentHash;
+            reusable.hashAndDeadline = _hashAndDeadline;
             return;
-        } else {
-            require(_hashAndDeadline.span > entry.span, TransitionRecordHashMismatchWithStorage());
-            require(_prefixHash == recordHash && _prefixHash != 0, TransitionRecordHashMismatchWithStorage());
-            entry.recordHash = _recordHash;
-            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-            entry.span = _hashAndDeadline.span;
         }
+
+        if (reusable.partialParentTransitionHash == partialParentHash) {
+            // There is already a record with the same proposal and parent hash - we need to decide if we can overwrite it.
+            _upsertTransitionRecordSlot(
+                reusable.hashAndDeadline, _recordHash, _hashAndDeadline, _prefixHash
+            );
+            return;
+        }
+
+        // Cannot use the ring buffer because there is already a proposal with a different parent hash.
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        TransitionRecordHashAndDeadline storage entry = _transitionRecordHashAndDeadline[compositeKey];
+        _upsertTransitionRecordSlot(entry, _recordHash, _hashAndDeadline, _prefixHash);
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -586,10 +732,52 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+
+        if (
+            record.proposalId == _proposalId
+                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
+        ) {
+            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
+        }
+
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         TransitionRecordHashAndDeadline storage hashAndDeadline =
             _transitionRecordHashAndDeadline[compositeKey];
         return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
+    }
+
+    /// @dev Upserts a transition record into a storage slot. If the slot is empty, the record is
+    /// stored directly. If the slot contains the same record hash, the operation is a no-op.
+    /// Otherwise, an overwrite is attempted if the new record has a larger span and the existing
+    /// record hash matches the prefix hash of the new record (indicating valid aggregation).
+    /// @param _entry The storage slot to upsert into.
+    /// @param _recordHash The hash of the new transition record.
+    /// @param _hashAndDeadline The new transition record metadata to store.
+    /// @param _prefixHash The expected hash of the existing record for span-aware overwrites.
+    function _upsertTransitionRecordSlot(
+        TransitionRecordHashAndDeadline storage _entry,
+        bytes26 _recordHash,
+        TransitionRecordHashAndDeadline memory _hashAndDeadline,
+        bytes26 _prefixHash
+    )
+        private
+    {
+        bytes26 storedHash = _entry.recordHash;
+        if (storedHash == 0) {
+            _entry.recordHash = _recordHash;
+            _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            _entry.span = _hashAndDeadline.span;
+        } else if (storedHash == _recordHash) {
+            return;
+        } else {
+            require(_hashAndDeadline.span > _entry.span, TransitionRecordHashMismatchWithStorage());
+            require(_prefixHash == storedHash && _prefixHash != 0, TransitionRecordHashMismatchWithStorage());
+            _entry.recordHash = _recordHash;
+            _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            _entry.span = _hashAndDeadline.span;
+        }
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
@@ -640,6 +828,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Builds a transition record using an explicit proof timestamp. This allows reconstructing
     /// previously stored records without relying on the current block timestamp.
+    /// @param _proposal The proposal the transition is proving.
+    /// @param _transition The transition associated with the proposal.
+    /// @param _metadata The metadata describing the prover and additional context.
+    /// @param _proofTimestamp The timestamp to use for bond calculation.
+    /// @return record The constructed transition record.
     function _buildTransitionRecordAt(
         Proposal memory _proposal,
         Transition memory _transition,
@@ -656,6 +849,53 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
         record.transitionHash = _hashTransition(_transition);
         record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+    }
+
+    /// @dev Loads an existing transition record from storage by first checking the ring buffer
+    /// cache, then falling back to the composite key mapping if not found.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
+    /// @return existing The stored transition record metadata, or empty if not found.
+    function _loadExistingTransitionRecord(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        private
+        view
+        returns (TransitionRecordHashAndDeadline memory existing)
+    {
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
+        ReusableTransitionRecord storage reusable = _reusableTransitionRecords[bufferSlot];
+        if (
+            reusable.proposalId == _proposalId
+                && reusable.partialParentTransitionHash == bytes26(_parentTransitionHash)
+        ) {
+            return reusable.hashAndDeadline;
+        }
+
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        TransitionRecordHashAndDeadline storage entry = _transitionRecordHashAndDeadline[compositeKey];
+        existing.recordHash = entry.recordHash;
+        existing.finalizationDeadline = entry.finalizationDeadline;
+        existing.span = entry.span;
+    }
+
+    /// @dev Merges two arrays of bond instructions. Returns the non-empty array if one is empty,
+    /// or delegates to LibBondInstruction for actual merging when both contain elements.
+    /// @param _current The existing bond instructions.
+    /// @param _next The new bond instructions to merge.
+    /// @return _ The merged bond instruction array.
+    function _mergeBondInstructions(
+        LibBonds.BondInstruction[] memory _current,
+        LibBonds.BondInstruction[] memory _next
+    )
+        private
+        pure
+        returns (LibBonds.BondInstruction[] memory)
+    {
+        if (_next.length == 0) return _current;
+        if (_current.length == 0) return _next;
+        return LibBondInstruction.mergeBondInstructions(_current, _next);
     }
 
     /// @dev Computes the hash and finalization deadline for a transition record.
