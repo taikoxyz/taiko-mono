@@ -84,9 +84,7 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            _updateTransitionRecord(
-                record.hashAndDeadline, _hashAndDeadline, _isOverwrittenByOwner
-            );
+            _updateTransitionRecord(record.hashAndDeadline, _hashAndDeadline, _isOverwrittenByOwner);
             if (_isOverwrittenByOwner) {
                 emit TransitionOverwritten(_proposalId, _parentTransitionHash);
             }
