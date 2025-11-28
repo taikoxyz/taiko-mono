@@ -162,9 +162,9 @@ abstract contract AbstractCodecFuzzTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
-            })
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            stateRoot: stateRoot
         });
 
         bytes32 hash1 = codec.hashTransition(transition);
@@ -264,9 +264,9 @@ abstract contract AbstractCodecFuzzTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
-            })
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            stateRoot: stateRoot
         });
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
@@ -298,9 +298,9 @@ abstract contract AbstractCodecFuzzTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
-            })
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            stateRoot: stateRoot
         });
 
         // Single element array
@@ -446,11 +446,9 @@ abstract contract AbstractCodecFuzzTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: bytes32(uint256(proposalId)),
             parentTransitionHash: parentTransitionHash,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: proposalId,
-                blockHash: bytes32(uint256(proposalId)),
-                stateRoot: parentTransitionHash
-            })
+            blockNumber: proposalId,
+            blockHash: bytes32(uint256(proposalId)),
+            stateRoot: parentTransitionHash
         });
 
         // Test that calling the same function multiple times gives same result

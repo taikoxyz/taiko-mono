@@ -99,8 +99,12 @@ interface IInbox {
         /// transition to
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
-        /// @notice The end block header containing number, hash, and state root.
-        ICheckpointStore.Checkpoint checkpoint;
+        /// @notice The block number associated with the checkpoint.
+        uint48 blockNumber;
+        /// @notice The block hash for the end (last) L2 block in this proposal.
+        bytes32 blockHash;
+        /// @notice The state root for the end (last) L2 block in this proposal.
+        bytes32 stateRoot;
     }
 
     /// @notice Metadata about the proving of a transition

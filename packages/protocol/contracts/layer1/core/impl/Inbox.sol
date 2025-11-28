@@ -433,7 +433,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         conflictingTransitionDetected = false;
 
         Transition memory transition;
-        transition.checkpoint.blockHash = _lastPacayaBlockHash;
+        transition.blockHash = _lastPacayaBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -629,7 +629,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _provingWindow, _extendedProvingWindow, _proposal, _metadata
         );
         record.transitionHash = _hashTransition(_transition);
-        record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
+        record.checkpointHash = _hashCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: _transition.blockNumber,
+                blockHash: _transition.blockHash,
+                stateRoot: _transition.stateRoot
+            })
+        );
     }
 
     /// @dev Computes the hash and finalization deadline for a transition record.
