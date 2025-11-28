@@ -19,7 +19,6 @@ contract InboxOptimized1 is Inbox {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
