@@ -34,9 +34,6 @@
               "signalServiceAddress": {
                 "type": "string"
               },
-              "quotaManagerAddress": {
-                "type": "string"
-              },
               "hops": {
                 "type": "array",
                 "default": [],
