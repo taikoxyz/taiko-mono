@@ -48,8 +48,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice Version identifier for composite key generation
-        uint16 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
