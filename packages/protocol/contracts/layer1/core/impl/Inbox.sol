@@ -51,6 +51,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
         uint48 finalizationDeadline;
+        uint8 span;
     }
 
     /// @notice Result from consuming forced inclusions
@@ -511,7 +512,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _computeTransitionRecordHashAndDeadline(_transitionRecord);
 
         _storeTransitionRecord(
-            _proposalId, _transition.parentTransitionHash, transitionRecordHash, hashAndDeadline
+            _proposalId,
+            _transition.parentTransitionHash,
+            transitionRecordHash,
+            hashAndDeadline,
+            0 // no prefix check in base path
         );
 
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -525,15 +530,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Persists transition record metadata in storage.
     /// Reverts if a different record is attempted for the same proposal/parent pair.
+    /// Overwrite rules:
+    /// - Empty slot: store the new record.
+    /// - Same hash: no-op (duplicate proof).
+    /// - Different hash: only allowed if the new span is strictly greater than the stored span and
+    ///   `_prefixHash` equals the stored record hash. This enforces that a longer aggregated proof
+    ///   is a strict extension of the already proven prefix (including bond aggregation and
+    ///   checkpoints). Otherwise the call reverts.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @param _prefixHash The hash of the existing span if the new record strictly extends it.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         bytes26 _recordHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHashAndDeadline memory _hashAndDeadline,
+        bytes26 _prefixHash
     )
         internal
         virtual
@@ -546,8 +560,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (recordHash == 0) {
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            entry.span = _hashAndDeadline.span;
+        } else if (recordHash == _recordHash) {
+            return;
         } else {
-            require(recordHash == _recordHash, TransitionRecordHashMismatchWithStorage());
+            require(_hashAndDeadline.span > entry.span, TransitionRecordHashMismatchWithStorage());
+            require(_prefixHash == recordHash && _prefixHash != 0, TransitionRecordHashMismatchWithStorage());
+            entry.recordHash = _recordHash;
+            entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+            entry.span = _hashAndDeadline.span;
         }
     }
 
@@ -635,7 +656,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             recordHash_ = _hashTransitionRecord(_transitionRecord);
             hashAndDeadline_ = TransitionRecordHashAndDeadline({
                 finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
-                recordHash: recordHash_
+                recordHash: recordHash_,
+                span: _transitionRecord.span
             });
         }
     }

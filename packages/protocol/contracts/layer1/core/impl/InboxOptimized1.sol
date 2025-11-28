@@ -86,7 +86,8 @@ contract InboxOptimized1 is Inbox {
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
         bytes26 _recordHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHashAndDeadline memory _hashAndDeadline,
+        bytes26 _prefixHash
     )
         internal
         override
@@ -104,17 +105,21 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - ignore duplicate submissions
+            // Same proposal and parent hash - handle duplicates/upgrades
             bytes26 recordHash = record.hashAndDeadline.recordHash;
 
             if (recordHash == 0) {
                 record.hashAndDeadline = _hashAndDeadline;
+            } else if (recordHash == _recordHash) {
+                return;
             } else {
-                require(recordHash == _recordHash, TransitionRecordHashMismatchWithStorage());
+                require(_hashAndDeadline.span > record.hashAndDeadline.span, TransitionRecordHashMismatchWithStorage());
+                require(_prefixHash == recordHash && _prefixHash != 0, TransitionRecordHashMismatchWithStorage());
+                record.hashAndDeadline = _hashAndDeadline;
             }
         } else {
             super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline
+                _proposalId, _parentTransitionHash, _recordHash, _hashAndDeadline, _prefixHash
             );
         }
     }
@@ -172,9 +177,8 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Initialize aggregation state from first proposal
-            TransitionRecord memory currentRecord = _buildTransitionRecord(
-                _input.proposals[0], _input.transitions[0], _input.metadata[0]
-            );
+            TransitionRecord memory currentRecord =
+                _buildTransitionRecord(_input.proposals[0], _input.transitions[0], _input.metadata[0]);
 
             uint48 currentGroupStartId = _input.proposals[0].id;
             uint256 firstIndex;
@@ -204,12 +208,7 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.span++;
                 } else {
                     // Save current group and start new one
-                    _setTransitionRecordHashAndDeadline(
-                        currentGroupStartId,
-                        _input.transitions[firstIndex],
-                        _input.metadata[firstIndex],
-                        currentRecord
-                    );
+                    _storeAggregatedRecord(_input, firstIndex, currentRecord, currentGroupStartId);
 
                     // Reset for new group
                     currentGroupStartId = _input.proposals[i].id;
@@ -221,12 +220,90 @@ contract InboxOptimized1 is Inbox {
             }
 
             // Save the final aggregated record
-            _setTransitionRecordHashAndDeadline(
-                currentGroupStartId,
-                _input.transitions[firstIndex],
-                _input.metadata[firstIndex],
-                currentRecord
+            _storeAggregatedRecord(_input, firstIndex, currentRecord, currentGroupStartId);
+        }
+    }
+
+    /// @dev Stores an aggregated record allowing overwrite when the new record strictly extends an
+    /// existing compatible record.
+    function _storeAggregatedRecord(
+        ProveInput memory _input,
+        uint256 _startIndex,
+        TransitionRecord memory _record,
+        uint48 _startProposalId
+    )
+        private
+    {
+        bytes32 parentTransitionHash = _input.transitions[_startIndex].parentTransitionHash;
+        (bytes26 recordHash, TransitionRecordHashAndDeadline memory hashAndDeadline) =
+            _computeTransitionRecordHashAndDeadline(_record);
+
+        // Fetch existing record data (ring buffer fast path)
+        uint256 bufferSlot = _startProposalId % _ringBufferSize;
+        ReusableTransitionRecord storage reusable = _reusableTransitionRecords[bufferSlot];
+        bool useReusable = reusable.proposalId == _startProposalId
+            && reusable.partialParentTransitionHash == bytes26(parentTransitionHash);
+        bytes26 storedHash = useReusable ? reusable.hashAndDeadline.recordHash : bytes26(0);
+        uint8 storedSpan = useReusable ? reusable.hashAndDeadline.span : 0;
+
+        if (!useReusable) {
+            bytes32 compositeKey = _composeTransitionKey(_startProposalId, parentTransitionHash);
+            TransitionRecordHashAndDeadline storage entry = _transitionRecordHashAndDeadline[compositeKey];
+            storedHash = entry.recordHash;
+            storedSpan = entry.span;
+        }
+
+        bytes26 prefixHash;
+        if (storedHash != 0 && storedHash != recordHash) {
+            require(hashAndDeadline.span > storedSpan, TransitionRecordHashMismatchWithStorage());
+            TransitionRecord memory prefixRecord =
+                _buildAggregatedRecordForSpan(_input, _startIndex, storedSpan);
+            prefixHash = _hashTransitionRecord(prefixRecord);
+        }
+
+        _storeTransitionRecord(
+            _startProposalId, parentTransitionHash, recordHash, hashAndDeadline, prefixHash
+        );
+
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            proposalId: _startProposalId,
+            transition: _input.transitions[_startIndex],
+            transitionRecord: _record,
+            metadata: _input.metadata[_startIndex]
+        });
+        emit Proved(_encodeProvedEventData(payload));
+    }
+
+    /// @dev Reconstructs an aggregated TransitionRecord for a prefix of the current group.
+    function _buildAggregatedRecordForSpan(
+        ProveInput memory _input,
+        uint256 _startIndex,
+        uint256 _span
+    )
+        private
+        view
+        returns (TransitionRecord memory record)
+    {
+        record = _buildTransitionRecord(
+            _input.proposals[_startIndex], _input.transitions[_startIndex], _input.metadata[_startIndex]
+        );
+
+        uint256 end = _startIndex + _span;
+        for (uint256 i = _startIndex + 1; i < end; ++i) {
+            TransitionRecord memory nextRecord = _buildTransitionRecord(
+                _input.proposals[i], _input.transitions[i], _input.metadata[i]
             );
+            if (nextRecord.bondInstructions.length == 0) {
+                // keep
+            } else if (record.bondInstructions.length == 0) {
+                record.bondInstructions = nextRecord.bondInstructions;
+            } else {
+                record.bondInstructions =
+                    LibBondInstruction.mergeBondInstructions(record.bondInstructions, nextRecord.bondInstructions);
+            }
+            record.transitionHash = nextRecord.transitionHash;
+            record.checkpointHash = nextRecord.checkpointHash;
+            record.span++;
         }
     }
 }
