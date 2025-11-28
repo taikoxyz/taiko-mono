@@ -5,6 +5,7 @@ import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxDeployer } from "../deployers/InboxDeployer.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title InboxTransitionRecord
@@ -61,12 +62,12 @@ contract InboxTransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
-    // Test Case 2: Same Proposal & Parent - Duplicate Detection
+    // Test Case 2: Same Proposal & Parent - Duplicate Proof No-Op
     // ---------------------------------------------------------------
 
-    /// @notice Tests duplicate transition record detection
-    /// @dev Second branch: recordHash == _recordHash, should emit TransitionDuplicateDetected
-    function test_storeTransitionRecord_duplicateDetection() public {
+    /// @notice Tests duplicate transition record submission is a no-op
+    /// @dev Second branch: recordHash == _recordHash, should keep storage unchanged
+    function test_storeTransitionRecord_duplicateIsNoop() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
 
@@ -82,10 +83,6 @@ contract InboxTransitionRecord is InboxTestHelper {
         (, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
         // Second prove with identical data - should detect duplicate
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
@@ -97,12 +94,12 @@ contract InboxTransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
-    // Test Case 3: Same Proposal & Parent - Conflict Detection
+    // Test Case 3: Same Proposal & Parent - Conflicting Proof Reverts
     // ---------------------------------------------------------------
 
-    /// @notice Tests conflicting transition record detection
-    /// @dev Third branch: recordHash != _recordHash, should emit TransitionConflictDetected
-    function test_storeTransitionRecord_conflictDetection() public {
+    /// @notice Tests conflicting transition record submission reverts
+    /// @dev Third branch: recordHash != _recordHash, should revert
+    function test_storeTransitionRecord_conflictReverts() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
 
@@ -115,7 +112,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         inbox.prove(proveData1, proof1);
 
         // Get the stored deadline before conflict
-        (, bytes26 firstRecordHash) =
+        (uint48 firstDeadline, bytes26 firstRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
 
         // Create second prove input with different checkpoint (causes conflict)
@@ -138,21 +135,15 @@ contract InboxTransitionRecord is InboxTestHelper {
         bytes memory proveData2 = _codec().encodeProveInput(input);
         bytes memory proof2 = _createValidProof();
 
-        // Expect TransitionConflictDetected event
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
-        // Second prove with conflicting data
+        // Expect a revert on conflicting data
+        vm.expectRevert(Inbox.TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(currentProver);
         inbox.prove(proveData2, proof2);
 
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
-
-        // Verify finalization deadline was set to max
+        // Verify finalization deadline is unchanged after revert
         (uint48 conflictDeadline, bytes26 conflictRecordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
+        assertEq(conflictDeadline, firstDeadline, "Deadline remains");
         assertEq(
             conflictRecordHash,
             firstRecordHash,
@@ -237,10 +228,10 @@ contract InboxTransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
-    // Test Case 6: Conflict After Multiple Valid Stores
+    // Test Case 6: Conflicting Proof After Multiple Valid Stores
     // ---------------------------------------------------------------
 
-    /// @notice Tests conflict detection after multiple valid stores
+    /// @notice Tests conflicting proof reverts even after multiple valid stores
     function test_storeTransitionRecord_conflictAfterMultipleStores() public {
         // Create multiple proposals
         IInbox.Proposal memory proposal1 = _proposeAndGetProposal();
@@ -277,15 +268,9 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         bytes memory conflictingProveData = _codec().encodeProveInput(input);
 
-        // Expect conflict detection
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
+        vm.expectRevert(Inbox.TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(currentProver);
         inbox.prove(conflictingProveData, _createValidProof());
-
-        // Verify conflict flag is set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict should be detected");
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =

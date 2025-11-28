@@ -76,7 +76,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores transition record hash with optimized slot reuse.
     ///      Storage strategy:
     ///      1. New proposal ID: overwrite the reusable slot.
-    ///      2. Same ID and parent: detect duplicates or conflicts and update accordingly.
+    ///      2. Same ID and parent: return on duplicates, revert on mismatched records.
     ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
@@ -104,17 +104,13 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            // Same proposal and parent hash - check for duplicate or conflict
+            // Same proposal and parent hash - ignore duplicate submissions
             bytes26 recordHash = record.hashAndDeadline.recordHash;
 
             if (recordHash == 0) {
                 record.hashAndDeadline = _hashAndDeadline;
-            } else if (recordHash == _recordHash) {
-                emit TransitionDuplicateDetected();
             } else {
-                emit TransitionConflictDetected();
-                conflictingTransitionDetected = true;
-                record.hashAndDeadline.finalizationDeadline = type(uint48).max;
+                require(recordHash == _recordHash, TransitionRecordHashMismatchWithStorage());
             }
         } else {
             super._storeTransitionRecord(

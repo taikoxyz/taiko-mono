@@ -134,9 +134,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public conflictingTransitionDetected;
-
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -430,8 +427,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        conflictingTransitionDetected = false;
-
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -529,8 +524,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Persists transition record metadata in storage.
-    /// Returns false when an identical record already exists, avoiding redundant event
-    /// emissions.
+    /// Reverts if a different record is attempted for the same proposal/parent pair.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _recordHash The keccak hash representing the transition record.
@@ -552,12 +546,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (recordHash == 0) {
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash == _recordHash) {
-            emit TransitionDuplicateDetected();
         } else {
-            emit TransitionConflictDetected();
-            conflictingTransitionDetected = true;
-            entry.finalizationDeadline = type(uint48).max;
+            require(recordHash == _recordHash, TransitionRecordHashMismatchWithStorage());
         }
     }
 
