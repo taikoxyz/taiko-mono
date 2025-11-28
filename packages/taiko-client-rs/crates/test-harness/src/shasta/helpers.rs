@@ -2,14 +2,17 @@ use std::borrow::Cow;
 
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{aliases::U48, Address, B256, FixedBytes, U256};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
-use rpc::{client::Client, error::RpcClientError};
+use rpc::{
+    client::{Client, ClientWithWallet},
+    error::RpcClientError,
+};
 
 use crate::helper::{increase_l1_time, mine_l1_block};
 
@@ -59,6 +62,12 @@ pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Re
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
         .with_context(|| format!("creating L1 snapshot during {phase}"))
+}
+
+/// Fetch proposal hash from the inbox contract.
+pub async fn get_proposal_hash(client: &ClientWithWallet, proposal_id: U48) -> Result<B256> {
+    let hash: FixedBytes<32> = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
+    Ok(hash.into())
 }
 
 /// Ensures the latest L2 block contains an Anchor `anchorV4` call.
