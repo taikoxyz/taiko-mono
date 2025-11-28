@@ -18,7 +18,7 @@ use rpc::{
     client::{Client, ClientConfig},
 };
 use test_context::AsyncTestContext;
-use tracing::{error, info};
+use tracing::info;
 use url::Url;
 
 use super::helpers::{
@@ -205,8 +205,8 @@ impl AsyncTestContext for ShastaEnv {
 
     /// Teardown the ShastaEnv after each test.
     async fn teardown(self) {
-        if let Err(err) = self.shutdown().await {
-            error!(error = %err, "failed to teardown ShastaEnv");
-        }
+        self.shutdown()
+            .await
+            .expect("ShastaEnv teardown must succeed");
     }
 }
