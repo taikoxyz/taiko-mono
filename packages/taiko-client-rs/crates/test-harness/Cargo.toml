@@ -23,6 +23,7 @@ proposer = { path = "../proposer" }
 rpc = { path = "../rpc" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+test-context = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
