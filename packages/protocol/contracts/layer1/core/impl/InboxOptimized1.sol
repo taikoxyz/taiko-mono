@@ -25,7 +25,8 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
-    ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
+    ///      Uses two storage slots: proposalId + partialParentTransitionHash share one slot,
+    ///      and the packed hash/deadline/span struct uses another.
     struct ReusableTransitionRecord {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
@@ -243,22 +244,32 @@ contract InboxOptimized1 is Inbox {
         ReusableTransitionRecord storage reusable = _reusableTransitionRecords[bufferSlot];
         bool useReusable = reusable.proposalId == _startProposalId
             && reusable.partialParentTransitionHash == bytes26(parentTransitionHash);
-        bytes26 storedHash = useReusable ? reusable.hashAndDeadline.recordHash : bytes26(0);
-        uint8 storedSpan = useReusable ? reusable.hashAndDeadline.span : 0;
+        TransitionRecordHashAndDeadline memory existing;
 
-        if (!useReusable) {
+        if (useReusable) {
+            existing = reusable.hashAndDeadline;
+        } else {
             bytes32 compositeKey = _composeTransitionKey(_startProposalId, parentTransitionHash);
             TransitionRecordHashAndDeadline storage entry = _transitionRecordHashAndDeadline[compositeKey];
-            storedHash = entry.recordHash;
-            storedSpan = entry.span;
+            existing.recordHash = entry.recordHash;
+            existing.span = entry.span;
+            existing.finalizationDeadline = entry.finalizationDeadline;
         }
 
         bytes26 prefixHash;
-        if (storedHash != 0 && storedHash != recordHash) {
-            require(hashAndDeadline.span > storedSpan, TransitionRecordHashMismatchWithStorage());
-            TransitionRecord memory prefixRecord =
-                _buildAggregatedRecordForSpan(_input, _startIndex, storedSpan);
-            prefixHash = _hashTransitionRecord(prefixRecord);
+        if (existing.recordHash != 0) {
+            if (hashAndDeadline.span > existing.span) {
+                require(existing.finalizationDeadline >= _finalizationGracePeriod, InvalidState());
+                uint256 storedProofTimestamp =
+                    uint256(existing.finalizationDeadline) - _finalizationGracePeriod;
+                TransitionRecord memory prefixRecord = _buildAggregatedRecordForSpan(
+                    _input, _startIndex, existing.span, storedProofTimestamp
+                );
+                prefixHash = _hashTransitionRecord(prefixRecord);
+                require(prefixHash == existing.recordHash, TransitionRecordHashMismatchWithStorage());
+            } else {
+                require(recordHash == existing.recordHash, TransitionRecordHashMismatchWithStorage());
+            }
         }
 
         _storeTransitionRecord(
@@ -278,20 +289,24 @@ contract InboxOptimized1 is Inbox {
     function _buildAggregatedRecordForSpan(
         ProveInput memory _input,
         uint256 _startIndex,
-        uint256 _span
+        uint256 _span,
+        uint256 _proofTimestamp
     )
         private
         view
         returns (TransitionRecord memory record)
     {
-        record = _buildTransitionRecord(
-            _input.proposals[_startIndex], _input.transitions[_startIndex], _input.metadata[_startIndex]
+        record = _buildTransitionRecordAt(
+            _input.proposals[_startIndex],
+            _input.transitions[_startIndex],
+            _input.metadata[_startIndex],
+            _proofTimestamp
         );
 
         uint256 end = _startIndex + _span;
         for (uint256 i = _startIndex + 1; i < end; ++i) {
-            TransitionRecord memory nextRecord = _buildTransitionRecord(
-                _input.proposals[i], _input.transitions[i], _input.metadata[i]
+            TransitionRecord memory nextRecord = _buildTransitionRecordAt(
+                _input.proposals[i], _input.transitions[i], _input.metadata[i], _proofTimestamp
             );
             if (nextRecord.bondInstructions.length == 0) {
                 // keep

@@ -7,6 +7,8 @@ import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibBondInstruction } from "src/layer1/core/libs/LibBondInstruction.sol";
 
 /// @title InboxOptimized1TransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in InboxOptimized1
@@ -381,8 +383,195 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
+    // Test Case 9: Span Extension Overwrite Rules
+    // ---------------------------------------------------------------
+
+    /// @notice Verifies span upgrades succeed even if submitted after the original proving window
+    ///         by reusing the stored proof timestamp for prefix validation.
+    function test_storeTransitionRecord_spanExtension_respectsStoredProofTimestamp() public {
+        // Create three consecutive proposals
+        IInbox.Proposal memory proposal1 = _proposeAndGetProposal();
+        IInbox.Proposal memory proposal2 = _proposeConsecutiveProposal(proposal1);
+        IInbox.Proposal memory proposal3 = _proposeConsecutiveProposal(proposal2);
+
+        // Prove an aggregated record covering the first two proposals
+        IInbox.Proposal[] memory firstTwo = new IInbox.Proposal[](2);
+        firstTwo[0] = proposal1;
+        firstTwo[1] = proposal2;
+
+        bytes memory proveTwo = _createProveInputForProposals(firstTwo);
+        vm.prank(currentProver);
+        inbox.prove(proveTwo, _createValidProof());
+
+        (uint48 firstDeadline, bytes26 firstHash) =
+            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+
+        // Warp past the proving window to ensure bond classification would change without the fix
+        vm.warp(block.timestamp + inbox.getConfig().provingWindow + 1);
+
+        // Extend the span to three proposals
+        IInbox.Proposal[] memory firstThree = new IInbox.Proposal[](3);
+        firstThree[0] = proposal1;
+        firstThree[1] = proposal2;
+        firstThree[2] = proposal3;
+
+        bytes memory proveThree = _createProveInputForProposals(firstThree);
+
+        vm.prank(currentProver);
+        inbox.prove(proveThree, _createValidProof());
+
+        (uint48 updatedDeadline, bytes26 updatedHash) =
+            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+        assertTrue(updatedHash != bytes26(0), "Updated aggregated record stored");
+        assertTrue(updatedHash != firstHash, "Record hash should change when span increases");
+        assertTrue(updatedDeadline > firstDeadline, "Deadline should refresh on overwrite");
+    }
+
+    /// @notice Ensures span upgrades revert when the new record is not a strict prefix extension.
+    function test_storeTransitionRecord_spanExtension_revertsOnPrefixMismatch() public {
+        // Create three consecutive proposals
+        IInbox.Proposal memory proposal1 = _proposeAndGetProposal();
+        IInbox.Proposal memory proposal2 = _proposeConsecutiveProposal(proposal1);
+        IInbox.Proposal memory proposal3 = _proposeConsecutiveProposal(proposal2);
+        uint48 provingWindow = inbox.getConfig().provingWindow;
+
+        // Store the initial aggregated record for the first two proposals
+        IInbox.Proposal[] memory firstTwo = new IInbox.Proposal[](2);
+        firstTwo[0] = proposal1;
+        firstTwo[1] = proposal2;
+
+        vm.warp(block.timestamp + provingWindow + 1);
+        vm.prank(currentProver);
+        inbox.prove(_createProveInputForProposals(firstTwo), _createValidProof());
+
+        bytes memory proveData;
+        uint48 firstDeadline;
+        bytes26 storedHash;
+
+        {
+            // Build a new aggregated input for three proposals but tamper with the first transition
+            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](3);
+            proposals[0] = proposal1;
+            proposals[1] = proposal2;
+            proposals[2] = proposal3;
+
+            IInbox.Transition[] memory transitions = new IInbox.Transition[](3);
+            IInbox.TransitionMetadata[] memory metadata =
+                new IInbox.TransitionMetadata[](3);
+
+            bytes32 parentHash = _getGenesisTransitionHash();
+            for (uint256 i; i < proposals.length; ++i) {
+                transitions[i] = _createTransitionForProposal(proposals[i]);
+                transitions[i].parentTransitionHash = parentHash;
+                metadata[i] = _createMetadataForTransition(currentProver, Alice);
+                parentHash = keccak256(abi.encode(transitions[i]));
+            }
+
+            // Mutate the last transition within the stored span to break the prefix hash
+            transitions[1].checkpoint.stateRoot = bytes32(uint256(123456));
+
+            IInbox.ProveInput memory input = IInbox.ProveInput({
+                proposals: proposals, transitions: transitions, metadata: metadata
+            });
+
+            (firstDeadline, storedHash) =
+                inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+            assertTrue(storedHash != bytes26(0), "Stored hash should be set");
+
+            proveData = _codec().encodeProveInput(input);
+        }
+
+        vm.expectRevert(Inbox.TransitionRecordHashMismatchWithStorage.selector);
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        (uint48 afterDeadline, bytes26 afterHash) =
+            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
+        assertEq(afterHash, storedHash, "Conflicting proof should not overwrite");
+        assertEq(afterDeadline, firstDeadline, "Deadline should remain unchanged on conflict");
+    }
+
+    // ---------------------------------------------------------------
     // Helper Functions
     // ---------------------------------------------------------------
+
+    function _createProveInputForProposals(IInbox.Proposal[] memory _proposals)
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](_proposals.length);
+        IInbox.TransitionMetadata[] memory metadata =
+            new IInbox.TransitionMetadata[](_proposals.length);
+
+        bytes32 parentHash = _getGenesisTransitionHash();
+        for (uint256 i; i < _proposals.length; ++i) {
+            transitions[i] = _createTransitionForProposal(_proposals[i]);
+            transitions[i].parentTransitionHash = parentHash;
+            metadata[i] = _createMetadataForTransition(currentProver, currentProver);
+            parentHash = keccak256(abi.encode(transitions[i]));
+        }
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: _proposals, transitions: transitions, metadata: metadata
+        });
+
+        return _codec().encodeProveInput(input);
+    }
+
+    function _computeAggregatedRecordHash(
+        IInbox.Proposal[] memory _proposals,
+        IInbox.Transition[] memory _transitions,
+        IInbox.TransitionMetadata[] memory _metadata,
+        uint256 _span,
+        uint256 _proofTimestamp
+    )
+        internal
+        view
+        returns (bytes26)
+    {
+        IInbox.TransitionRecord memory record;
+        record.span = 1;
+        record.bondInstructions = LibBondInstruction.calculateBondInstructionsAt(
+            inbox.getConfig().provingWindow,
+            inbox.getConfig().extendedProvingWindow,
+            _proposals[0],
+            _metadata[0],
+            _proofTimestamp
+        );
+        record.transitionHash = _codec().hashTransition(_transitions[0]);
+        record.checkpointHash = _codec().hashCheckpoint(_transitions[0].checkpoint);
+
+        for (uint256 i = 1; i < _span; ++i) {
+            IInbox.TransitionRecord memory nextRecord;
+            nextRecord.span = 1;
+            nextRecord.bondInstructions = LibBondInstruction.calculateBondInstructionsAt(
+                inbox.getConfig().provingWindow,
+                inbox.getConfig().extendedProvingWindow,
+                _proposals[i],
+                _metadata[i],
+                _proofTimestamp
+            );
+            nextRecord.transitionHash = _codec().hashTransition(_transitions[i]);
+            nextRecord.checkpointHash = _codec().hashCheckpoint(_transitions[i].checkpoint);
+
+            if (nextRecord.bondInstructions.length == 0) {
+                // keep existing instructions
+            } else if (record.bondInstructions.length == 0) {
+                record.bondInstructions = nextRecord.bondInstructions;
+            } else {
+                record.bondInstructions = LibBondInstruction.mergeBondInstructions(
+                    record.bondInstructions, nextRecord.bondInstructions
+                );
+            }
+
+            record.transitionHash = nextRecord.transitionHash;
+            record.checkpointHash = nextRecord.checkpointHash;
+            record.span++;
+        }
+
+        return _codec().hashTransitionRecord(record);
+    }
 
     function _proposeAndGetProposal() internal returns (IInbox.Proposal memory) {
         _setupBlobHashes();

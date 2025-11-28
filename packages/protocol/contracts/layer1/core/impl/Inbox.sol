@@ -50,7 +50,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition record hash and finalization deadline.
     struct TransitionRecordHashAndDeadline {
         bytes26 recordHash;
-        uint48 finalizationDeadline;
+        uint40 finalizationDeadline;
         uint8 span;
     }
 
@@ -635,9 +635,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (TransitionRecord memory record)
     {
+        record = _buildTransitionRecordAt(_proposal, _transition, _metadata, block.timestamp);
+    }
+
+    /// @dev Builds a transition record using an explicit proof timestamp. This allows reconstructing
+    /// previously stored records without relying on the current block timestamp.
+    function _buildTransitionRecordAt(
+        Proposal memory _proposal,
+        Transition memory _transition,
+        TransitionMetadata memory _metadata,
+        uint256 _proofTimestamp
+    )
+        internal
+        view
+        returns (TransitionRecord memory record)
+    {
         record.span = 1;
-        record.bondInstructions = LibBondInstruction.calculateBondInstructions(
-            _provingWindow, _extendedProvingWindow, _proposal, _metadata
+        record.bondInstructions = LibBondInstruction.calculateBondInstructionsAt(
+            _provingWindow, _extendedProvingWindow, _proposal, _metadata, _proofTimestamp
         );
         record.transitionHash = _hashTransition(_transition);
         record.checkpointHash = _hashCheckpoint(_transition.checkpoint);
@@ -655,7 +670,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             recordHash_ = _hashTransitionRecord(_transitionRecord);
             hashAndDeadline_ = TransitionRecordHashAndDeadline({
-                finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
+                finalizationDeadline: uint40(block.timestamp + _finalizationGracePeriod),
                 recordHash: recordHash_,
                 span: _transitionRecord.span
             });
