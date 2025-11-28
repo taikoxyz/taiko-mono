@@ -573,7 +573,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
     {
-
         if (_isOverwrittenByOwner) {
             emit TransitionOverwritten(_proposalId, _parentTransitionHash);
         } else {
