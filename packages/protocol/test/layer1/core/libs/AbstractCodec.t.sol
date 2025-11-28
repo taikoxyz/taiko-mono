@@ -282,10 +282,9 @@ abstract contract AbstractCodecTest is Test {
         });
 
         IInbox.TransitionRecord memory testTransitionRecord = IInbox.TransitionRecord({
-            span: 5,
+            bondInstructions: bondInstructions,
             transitionHash: bytes32(uint256(0xbbbb)),
-            checkpointHash: bytes32(uint256(0xcccc)),
-            bondInstructions: bondInstructions
+            checkpointHash: bytes32(uint256(0xcccc))
         });
 
         bytes26 hash = codec.hashTransitionRecord(testTransitionRecord);
@@ -298,10 +297,9 @@ abstract contract AbstractCodecTest is Test {
 
     function test_hashTransitionRecord_EmptyBondInstructions() public view {
         IInbox.TransitionRecord memory emptyRecord = IInbox.TransitionRecord({
-            span: 10,
+            bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: bytes32(uint256(0x1234)),
-            checkpointHash: bytes32(uint256(0x5678)),
-            bondInstructions: new LibBonds.BondInstruction[](0)
+            checkpointHash: bytes32(uint256(0x5678))
         });
 
         bytes26 hash = codec.hashTransitionRecord(emptyRecord);

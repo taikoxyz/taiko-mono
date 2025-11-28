@@ -167,12 +167,9 @@ library LibProposeInputDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        // Encode span
-        newPtr_ = P.packUint8(_ptr, _transitionRecord.span);
-
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
-        newPtr_ = P.packUint16(newPtr_, uint16(_transitionRecord.bondInstructions.length));
+        newPtr_ = P.packUint16(_ptr, uint16(_transitionRecord.bondInstructions.length));
         for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _transitionRecord.bondInstructions[i]);
         }
@@ -219,12 +216,9 @@ library LibProposeInputDecoder {
         pure
         returns (IInbox.TransitionRecord memory transitionRecord_, uint256 newPtr_)
     {
-        // Decode span
-        (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
-
         // Decode BondInstructions array
         uint16 bondInstructionsLength;
-        (bondInstructionsLength, newPtr_) = P.unpackUint16(newPtr_);
+        (bondInstructionsLength, newPtr_) = P.unpackUint16(_ptr);
         transitionRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
         for (uint256 i; i < bondInstructionsLength; ++i) {
             (transitionRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
@@ -289,10 +283,9 @@ library LibProposeInputDecoder {
             size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + array length(2) + transitionHash(32) +
-            // checkpointHash(32) = 67
+            // Fixed: array length(2) + transitionHash(32) + checkpointHash(32) = 66
             for (uint256 i; i < _transitionRecords.length; ++i) {
-                size_ += 67 + (_transitionRecords[i].bondInstructions.length * 47);
+                size_ += 66 + (_transitionRecords[i].bondInstructions.length * 47);
             }
         }
     }

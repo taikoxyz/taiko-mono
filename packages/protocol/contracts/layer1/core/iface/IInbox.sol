@@ -48,8 +48,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice Version identifier for composite key generation
-        uint16 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -114,13 +112,11 @@ interface IInbox {
 
     /// @notice Represents a record of a transition with additional metadata.
     struct TransitionRecord {
-        /// @notice The span indicating how many proposals this transition record covers.
-        uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the span.
+        /// @notice The hash of the transition.
         bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the span.
+        /// @notice The hash of the checkpoint.
         bytes32 checkpointHash;
     }
 
@@ -207,14 +203,6 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
-
-    /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
-    /// Proved event.
-    event TransitionConflictDetected();
-
-    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
-    /// event.
-    event TransitionDuplicateDetected();
 
     // ---------------------------------------------------------------
     // External Transactional Functions
