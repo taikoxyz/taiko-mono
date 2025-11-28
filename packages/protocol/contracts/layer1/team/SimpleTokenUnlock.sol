@@ -10,7 +10,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 
-/// @title TokenUnlock
+/// @title SimpleTokenUnlock
 /// @notice Manages the unlocking of Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals are permitted only at the 6 month mark.
@@ -109,7 +109,7 @@ contract SimpleTokenUnlock is EssentialContract {
     {
         if (_to == address(0)) _to = recipient;
         if (_amount == 0) _amount = amountWithdrawable();
-        if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
+        require(_amount <= amountWithdrawable(), NOT_WITHDRAWABLE());
 
         emit TokenWithdrawn(_to, _amount);
         IERC20(TAIKO_TOKEN).safeTransfer(_to, _amount);
