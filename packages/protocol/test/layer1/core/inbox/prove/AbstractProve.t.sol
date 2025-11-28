@@ -156,7 +156,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
         indices[1] = 3;
         IInbox.Proposal[] memory proposals = _createProposalsWithGaps(indices);
 
-        bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
+        bytes memory proveData = _createProveInputForGroupedProposals(proposals);
         bytes memory proof = _createValidProof();
 
         // Record events to verify count
@@ -224,20 +224,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
 
-        // Calculate expected events dynamically for mixed scenario [1,2,4,5,6]:
-        // Basic implementation: 5 events (one per proposal)
-        // Optimized implementations: 2 events (group 1-2 and group 4-6)
-        uint256 expectedEvents;
-        (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive
-        // behavior
-        if (consecutiveEvents == 1) {
-            // Optimized implementation: supports aggregation
-            // Mixed scenario has 2 consecutive groups: [1,2] and [4,5,6]
-            expectedEvents = 2;
-        } else {
-            // Basic implementation: no aggregation, one event per proposal
-            expectedEvents = proposals.length; // 5 events
-        }
+        // With parent-hash checks reinstated, gaps break aggregation; expect one event per proposal.
+        uint256 expectedEvents = proposals.length;
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, expectedEvents, "Unexpected event count for mixed scenario");
@@ -407,25 +395,49 @@ abstract contract AbstractProveTest is InboxTestHelper {
             new IInbox.TransitionMetadata[](proposals.length);
 
         // Build transitions with proper parent hash chaining
-        // For consecutive proposals, chain the transition hashes
-        // For non-consecutive, each starts from genesis (or their actual parent in real scenarios)
         bytes32 parentHash = _getGenesisTransitionHash();
 
         for (uint256 i = 0; i < proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(proposals[i]);
             transitions[i].parentTransitionHash = parentHash;
 
-            // Create metadata for each transition
             metadata[i] = _createMetadataForTransition(Alice, Alice);
 
             if (consecutive) {
-                // Chain transitions for consecutive proposals
-                parentHash = keccak256(abi.encode(transitions[i]));
+                parentHash = _codec().hashTransition(transitions[i]);
             } else {
-                // For non-consecutive, each transition starts from genesis
-                // This is simplified - in reality each would have its proper parent
                 parentHash = _getGenesisTransitionHash();
             }
+        }
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: proposals, transitions: transitions, metadata: metadata
+        });
+
+        return _codec().encodeProveInput(input);
+    }
+
+    /// @dev Builds prove input that chains parent hashes within consecutive ID groups and resets
+    /// at gaps. This matches span aggregation requirements.
+    function _createProveInputForGroupedProposals(IInbox.Proposal[] memory proposals)
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](proposals.length);
+        IInbox.TransitionMetadata[] memory metadata =
+            new IInbox.TransitionMetadata[](proposals.length);
+
+        bytes32 parentHash = _getGenesisTransitionHash();
+        for (uint256 i = 0; i < proposals.length; i++) {
+            transitions[i] = _createTransitionForProposal(proposals[i]);
+            transitions[i].parentTransitionHash = parentHash;
+            metadata[i] = _createMetadataForTransition(Alice, Alice);
+
+            bytes32 thisHash = _codec().hashTransition(transitions[i]);
+            bool nextIsConsecutive =
+                i + 1 < proposals.length && proposals[i + 1].id == proposals[i].id + 1;
+            parentHash = nextIsConsecutive ? thisHash : _getGenesisTransitionHash();
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -560,8 +572,7 @@ abstract contract AbstractProveTest is InboxTestHelper {
             transitions[i].parentTransitionHash = parentTransitionHash;
             metadata[i] = _createMetadataForTransition(currentProver, currentProver);
 
-            // Update parent hash for next iteration
-            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+            parentTransitionHash = _codec().hashTransition(transitions[i]);
         }
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
