@@ -74,18 +74,43 @@ library LibBondInstruction {
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
+        return calculateBondInstructionsAt(
+            _provingWindow, _extendedProvingWindow, _proposal, _metadata, block.timestamp
+        );
+    }
+
+    /// @notice Calculates bond instructions using an explicit proof timestamp.
+    /// @dev This helper allows deterministic recomputation of previously stored records by
+    ///      providing the original proof timestamp instead of relying on block.timestamp.
+    /// @param _provingWindow The proving window in seconds.
+    /// @param _extendedProvingWindow The extended proving window in seconds.
+    /// @param _proposal Proposal with timestamp and proposer address.
+    /// @param _metadata Metadata with designated and actual prover addresses.
+    /// @param _proofTimestamp The timestamp to treat as the proof time (stored when the record was
+    /// proven).
+    /// @return bondInstructions_ Array of bond transfer instructions (empty if none are needed).
+    function calculateBondInstructionsAt(
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
+        IInbox.Proposal memory _proposal,
+        IInbox.TransitionMetadata memory _metadata,
+        uint256 _proofTimestamp
+    )
+        internal
+        pure
+        returns (LibBonds.BondInstruction[] memory bondInstructions_)
+    {
         unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
+            uint256 windowEnd = uint256(_proposal.timestamp) + _provingWindow;
 
             // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
+            if (_proofTimestamp <= windowEnd) {
                 return new LibBonds.BondInstruction[](0);
             }
 
             // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
+            uint256 extendedWindowEnd = uint256(_proposal.timestamp) + _extendedProvingWindow;
+            bool isWithinExtendedWindow = _proofTimestamp <= extendedWindowEnd;
 
             // Check if bond instruction is needed
             bool needsBondInstruction = isWithinExtendedWindow
