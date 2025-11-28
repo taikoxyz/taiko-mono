@@ -478,7 +478,7 @@ func (p *Processor) sendProcessMessageCall(
 ) (*types.Receipt, error) {
 	defer p.logRelayerBalance(ctx)
 
-	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{Context: ctx}, event.Message, proof)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +556,7 @@ func (p *Processor) sendProcessMessageCall(
 			Data: data,
 		}
 
-		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
+		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
 		if err != nil {
 			return nil, err
 		}
