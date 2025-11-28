@@ -38,6 +38,7 @@ library LibBonds {
         pure
         returns (bytes32)
     {
+        // TODO (daniel): optimzie the keccak256 here.
         return _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE
             ? _bondInstructionsHash
             : keccak256(abi.encode(_bondInstructionsHash, _bondInstruction));
