@@ -119,11 +119,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
-    /// @notice Version identifier for composite key generation
-    /// @dev Used to invalidate all proved but unfinalized transition records to recover from
-    /// potential proof verifier bugs
-    uint16 internal immutable _compositeKeyVersion;
-
     /// @notice Checkpoint store responsible for checkpoints
     ICheckpointStore internal immutable _checkpointStore;
 
@@ -184,7 +179,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
-        _compositeKeyVersion = _config.compositeKeyVersion;
     }
 
     // ---------------------------------------------------------------
@@ -429,8 +423,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            compositeKeyVersion: _compositeKeyVersion
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 
@@ -627,13 +620,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 _parentTransitionHash
     )
         internal
-        view
+        pure
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.composeTransitionKey(
-            _proposalId, _compositeKeyVersion, _parentTransitionHash
-        );
+        return LibHashSimple.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     /// @dev Encodes the proposed event data

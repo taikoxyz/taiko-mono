@@ -31,8 +31,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 100,
                 minCheckpointDelay: 0,
-                permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                permissionlessInclusionMultiplier: 5
             }))
     { }
 }
