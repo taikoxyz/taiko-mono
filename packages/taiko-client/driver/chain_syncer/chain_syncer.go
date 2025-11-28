@@ -72,22 +72,21 @@ func New(
 
 // Sync performs a sync operation to L2 execution engine's local chain.
 func (s *L2ChainSyncer) Sync() error {
-	//blockIDToSync, needNewBeaconSyncTriggered, err := s.needNewBeaconSyncTriggered()
-	//if err != nil {
-	//	return fmt.Errorf("failed to check if beacon sync is needed: %w", err)
-	//}
-	//blockIDToSync = 1_399_220
-	//// If current L2 execution engine's chain is behind of the block head to sync, and the
-	//// `P2PSync` flag is set, try triggering a beacon sync in L2 execution engine to catch up the
-	//// head.
-	//if needNewBeaconSyncTriggered {
-	//	if err := s.beaconSyncer.TriggerBeaconSync(blockIDToSync); err != nil {
-	//		return fmt.Errorf("trigger beacon sync error: %w", err)
-	//	}
-	//
-	//	return nil
-	//}
-	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(1_399_220), common.HexToHash("0xc3734f03ba34b001e6a5f5d730469b90bfcb952130d47dcaef290c2151db533e"))
+	blockIDToSync, needNewBeaconSyncTriggered, err := s.needNewBeaconSyncTriggered()
+	if err != nil {
+		return fmt.Errorf("failed to check if beacon sync is needed: %w", err)
+	}
+	// If current L2 execution engine's chain is behind of the block head to sync, and the
+	// `P2PSync` flag is set, try triggering a beacon sync in L2 execution engine to catch up the
+	// head.
+	if needNewBeaconSyncTriggered {
+		if err := s.beaconSyncer.TriggerBeaconSync(blockIDToSync); err != nil {
+			return fmt.Errorf("trigger beacon sync error: %w", err)
+		}
+
+		return nil
+	}
+	//s.progressTracker.UpdateMeta(new(big.Int).SetUint64(1_399_220), common.HexToHash("0xc3734f03ba34b001e6a5f5d730469b90bfcb952130d47dcaef290c2151db533e"))
 
 	// Mark the beacon sync progress as finished, to make sure that
 	// we will only check and trigger P2P sync progress once right after the driver starts.
@@ -173,7 +172,6 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 		// `NewPayloadV1`.
 		heightToSync--
 	}
-	heightToSync = 1_399_220
 
 	// If the L2 execution engine's chain is behind of the block head to sync,
 	// we should keep the beacon sync.
@@ -213,17 +211,18 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
-	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
+	_, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to get L2 checkpoint head L1 origin: %w", err)
 	}
 
+	headBlockID := new(big.Int).SetUint64(1_399_220)
 	// If the protocol's block head is zero, we simply return false.
-	if head.BlockID.Cmp(common.Big0) == 0 {
+	if headBlockID.Cmp(common.Big0) == 0 {
 		return 0, false, nil
 	}
 
-	return head.BlockID.Uint64(), !s.AheadOfHeadToSync(head.BlockID.Uint64()) &&
+	return headBlockID.Uint64(), !s.AheadOfHeadToSync(headBlockID.Uint64()) &&
 		!s.progressTracker.OutOfSync(), nil
 }
 
