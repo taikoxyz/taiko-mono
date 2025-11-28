@@ -44,9 +44,12 @@ library LibBonds {
             ? _bondInstructionsHash
             : EfficientHashLib.hash(
                 _bondInstructionsHash,
-                bytes32(uint256(_bondInstruction.proposalId)),
-                bytes32(uint256(uint8(_bondInstruction.bondType))),
-                bytes32(uint256(uint160(_bondInstruction.payer))),
+                // Pack proposalId (48 bits) | bondType (8 bits) | payer (160 bits)
+                bytes32(
+                    uint256(_bondInstruction.proposalId) << 168
+                        | uint256(uint8(_bondInstruction.bondType)) << 160
+                        | uint256(uint160(_bondInstruction.payer))
+                ),
                 bytes32(uint256(uint160(_bondInstruction.payee)))
             );
     }
