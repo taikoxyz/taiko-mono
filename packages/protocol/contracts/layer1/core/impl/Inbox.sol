@@ -573,14 +573,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
     {
-        require(_entry.recordHash == 0 || _isOverwrittenByOwner, CannotOverwriteTransitionRecord());
-
-        _entry.recordHash = _hashAndDeadline.recordHash;
-        _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
 
         if (_isOverwrittenByOwner) {
             emit TransitionOverwritten(_proposalId, _parentTransitionHash);
+        } else {
+            require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
         }
+
+        _entry.recordHash = _hashAndDeadline.recordHash;
+        _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
     }
 
     /// @dev Loads transition record metadata from storage.
