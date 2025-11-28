@@ -40,17 +40,16 @@ library LibBonds {
         pure
         returns (bytes32)
     {
-        return _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE
-            ? _bondInstructionsHash
-            : EfficientHashLib.hash(
-                _bondInstructionsHash,
-                // Pack proposalId (48 bits) | bondType (8 bits) | payer (160 bits)
-                bytes32(
-                    uint256(_bondInstruction.proposalId) << 168
+        if ( _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE){
+            return _bondInstructionsHash;
+           } else {
+            uint256 packedFields =  uint256(_bondInstruction.proposalId) << 168
                         | uint256(uint8(_bondInstruction.bondType)) << 160
-                        | uint256(uint160(_bondInstruction.payer))
-                ),
+                        | uint256(uint160(_bondInstruction.payer));
+            return EfficientHashLib.hash(
+                _bondInstructionsHash,
+                bytes32(packedFields),
                 bytes32(uint256(uint160(_bondInstruction.payee)))
-            );
+            );}
     }
 }
