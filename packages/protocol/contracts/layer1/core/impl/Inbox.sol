@@ -129,9 +129,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public conflictingTransitionDetected;
-
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -280,7 +277,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 derivationHash: _hashDerivation(derivation)
             });
 
-            _setProposalHash(proposal.id, _hashProposal(proposal));
+            _storeProposalHash(proposal.id, _hashProposal(proposal));
             _emitProposedEvent(proposal, derivation, coreState, bondInstructions);
         }
     }
@@ -332,19 +329,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (refund > 0) {
             msg.sender.sendEtherAndVerify(refund);
         }
-    }
-
-    /// @notice Owner stores a transition record directly without proof verification, overwriting any existing record.
-    /// This allows the DAO to recover from potential proving/finalization bugs.
-    function setTransitionWithoutProof(
-        Proposal calldata _proposal,
-        Transition calldata _transition,
-        TransitionMetadata calldata _metadata
-    )
-        external
-        onlyOwner
-    {
-        _setTransitionRecordHashAndDeadline(_proposal, _transition, _metadata, true);
     }
 
     // ---------------------------------------------------------------
@@ -401,7 +385,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         (recordHash_, finalizationDeadline_) =
-            _getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            _loadTransitionRecord(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc IInbox
@@ -437,8 +421,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        conflictingTransitionDetected = false;
-
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -458,7 +440,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         Derivation memory derivation;
         proposal.derivationHash = _hashDerivation(derivation);
 
-        _setProposalHash(0, _hashProposal(proposal));
+        _storeProposalHash(0, _hashProposal(proposal));
 
         _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
@@ -468,15 +450,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal {
         for (uint256 i; i < _input.proposals.length; ++i) {
-            _setTransitionRecordHashAndDeadline(
-                _input.proposals[i], _input.transitions[i], _input.metadata[i], false
+            _buildAndStoreTransitionRecord(
+                _input.proposals[i], _input.transitions[i], _input.metadata[i]
             );
         }
     }
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
-    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
+    function _storeProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
@@ -485,13 +467,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _metadata The metadata containing prover information to include in the event
-    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
-    function _setTransitionRecordHashAndDeadline(
+    function _buildAndStoreTransitionRecord(
         Proposal memory _proposal,
         Transition memory _transition,
-        TransitionMetadata memory _metadata,
-        bool _isOverwrittenByOwner
-    )
+        TransitionMetadata memory _metadata    )
         internal
     {
         bytes32 proposalHash = _checkProposalHash(_proposal);
@@ -513,8 +492,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _storeTransitionRecord(
                 _proposal.id,
                 _transition.parentTransitionHash,
-                hashAndDeadline,
-                _isOverwrittenByOwner
+                hashAndDeadline
             );
 
             ProvedEventPayload memory payload = ProvedEventPayload({
@@ -527,51 +505,35 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Persists transition record metadata in storage.
+    /// @dev Stores transition record hash and deadline in storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
-    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline,
-        bool _isOverwrittenByOwner
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        _updateTransitionRecord(
-            _proposalId,
-            _parentTransitionHash,
+        _storeTransitionRecord(
             _transitionRecordHashAndDeadline[compositeKey],
-            _hashAndDeadline,
-            _isOverwrittenByOwner
+            _hashAndDeadline
         );
     }
 
-    /// @dev Updates a transition record in storage.
-    /// @param _proposalId The proposal identifier.
-    /// @param _parentTransitionHash Hash of the parent transition.
+    /// @dev Stores transition record hash and deadline in storage.
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
-    /// @param _isOverwrittenByOwner Whether this transaction is called by the owner.
-    function _updateTransitionRecord(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash,
+    function _storeTransitionRecord(
         TransitionRecordHashAndDeadline storage _entry,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline,
-        bool _isOverwrittenByOwner
+        TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
     {
-        if (_isOverwrittenByOwner) {
-            emit TransitionOverwritten(_proposalId, _parentTransitionHash);
-        } else {
-            require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
-        }
-
+        require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
         _entry.recordHash = _hashAndDeadline.recordHash;
         _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
     }
@@ -581,7 +543,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
     /// @return recordHash_ The hash of the transition record.
     /// @return finalizationDeadline_ The finalization deadline for the transition.
-    function _getTransitionRecordHashAndDeadline(
+    function _loadTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -797,9 +759,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
+            uint256 toProcess = _numForcedInclusionsRequested.min(available);
 
             // Allocate array with extra slot for normal source
             result_.sources = new IInbox.DerivationSource[](toProcess + 1);
@@ -929,7 +889,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                (bytes26 recordHash, uint48 finalizationDeadline) = _loadTransitionRecord(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 

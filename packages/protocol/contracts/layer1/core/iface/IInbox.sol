@@ -204,8 +204,6 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
-    event TransitionOverwritten(uint48 indexed proposalId, bytes32 indexed parentTransitionHash);
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
