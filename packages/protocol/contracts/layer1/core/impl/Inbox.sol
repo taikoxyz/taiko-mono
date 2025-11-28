@@ -8,6 +8,7 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
+import { LibManifest } from "../libs/LibManifest.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -304,6 +305,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(input.proposals.length == input.transitions.length, InconsistentParams());
         require(input.transitions.length == input.metadata.length, InconsistentParams());
 
+        // Validate bond processing proposal hashes with stored proposal hashes
+        _validateBondProcessingProposalHashes(input.proposals, input.metadata);
+
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
@@ -470,12 +474,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Reusable function for validating, building, and storing individual transitions
     /// @param _input The ProveInput containing all transition data
     /// @param _index The index of the transition to process
-    function _processSingleTransitionAtIndex(
-        ProveInput memory _input,
-        uint256 _index
-    )
-        internal
-    {
+    function _processSingleTransitionAtIndex(ProveInput memory _input, uint256 _index) internal {
         _validateTransition(_input.proposals[_index], _input.transitions[_index]);
 
         TransitionRecord memory transitionRecord = _buildTransitionRecord(
@@ -819,6 +818,31 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadata);
     }
 
+    /// @dev Ensures provided bond processing hashes match ancestor proposal hashes.
+    /// @param _proposals The proposals being proved.
+    /// @param _metadata The metadata containing bond processing hashes.
+    function _validateBondProcessingProposalHashes(
+        Proposal[] memory _proposals,
+        TransitionMetadata[] memory _metadata
+    )
+        internal
+        view
+    {
+        unchecked {
+            for (uint256 i; i < _metadata.length; ++i) {
+                bytes32 expectedHash = _proposals[i].id <= LibManifest.BOND_PROCESSING_DELAY
+                    ? bytes32(0)
+                    : _proposalHashes[(_proposals[i].id - LibManifest.BOND_PROCESSING_DELAY)
+                        % _ringBufferSize];
+
+                require(
+                    _metadata[i].bondProcessingProposalHash == expectedHash,
+                    BondProcessingProposalHashMismatch()
+                );
+            }
+        }
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
@@ -975,7 +999,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _getTransitionRecordHashAndDeadline(
+                (bytes26 recordHash, uint48 finalizationDeadline) =
+                _getTransitionRecordHashAndDeadline(
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
@@ -1032,7 +1057,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 for (uint256 i; i < finalizedCount; ++i) {
                     LibBonds.BondInstruction[] memory instructions =
-                    _input.transitionRecords[i].bondInstructions;
+                        _input.transitionRecords[i].bondInstructions;
                     uint256 instructionsLen = instructions.length;
 
                     for (uint256 j; j < instructionsLen; ++j) {
@@ -1135,6 +1160,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
+    error BondProcessingProposalHashMismatch();
     error DeadlineExceeded();
     error EmptyProposals();
     error InconsistentParams();
