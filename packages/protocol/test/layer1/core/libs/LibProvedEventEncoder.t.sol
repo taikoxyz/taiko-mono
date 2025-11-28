@@ -47,10 +47,7 @@ contract LibProvedEventEncoderTest is Test {
             proposalId: 10,
             transition: transition,
             transitionRecord: transitionRecord,
-            metadata: metadata,
-            isisOverwrittenByOwner: false,
-            isDuplicate: false,
-            isConflicting: false
+            metadata: metadata
         });
 
         // Test encoding
@@ -166,23 +163,11 @@ contract LibProvedEventEncoderTest is Test {
             }),
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x7777), actualProver: address(0x8888)
-            }),
-            isisOverwrittenByOwner: true,
-            isDuplicate: false,
-            isConflicting: true
+            })
         });
 
         bytes memory encoded = LibProvedEventEncoder.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
-
-        // Verify bool flags
-        assertEq(
-            decoded.isisOverwrittenByOwner,
-            payload.isisOverwrittenByOwner,
-            "isisOverwrittenByOwner mismatch"
-        );
-        assertEq(decoded.isDuplicate, payload.isDuplicate, "isDuplicate mismatch");
-        assertEq(decoded.isConflicting, payload.isConflicting, "isConflicting mismatch");
 
         // Verify multiple bond instructions
         assertEq(
@@ -240,10 +225,7 @@ contract LibProvedEventEncoderTest is Test {
             }),
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x9999), actualProver: address(0xAAAA)
-            }),
-            isisOverwrittenByOwner: false,
-            isDuplicate: true,
-            isConflicting: false
+            })
         });
 
         bytes memory encoded = LibProvedEventEncoder.encode(payload);
@@ -277,10 +259,7 @@ contract LibProvedEventEncoderTest is Test {
             }),
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0xDDDD), actualProver: address(0xEEEE)
-            }),
-            isisOverwrittenByOwner: false,
-            isDuplicate: false,
-            isConflicting: false
+            })
         });
 
         bytes memory encoded1 = LibProvedEventEncoder.encode(payload);

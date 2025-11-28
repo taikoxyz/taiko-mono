@@ -192,12 +192,6 @@ interface IInbox {
         TransitionRecord transitionRecord;
         /// @notice The metadata containing prover information.
         TransitionMetadata metadata;
-        /// @notice Whether the transition was saved by the owner (overwrite).
-        bool isisOverwrittenByOwner;
-        /// @notice Whether this is a duplicate transition (same hash already exists).
-        bool isDuplicate;
-        /// @notice Whether this is a conflicting transition (different hash for same key).
-        bool isConflicting;
     }
 
     // ---------------------------------------------------------------
@@ -211,6 +205,8 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
+
+    event TransitionOverwritten(uint48 indexed proposalId, bytes32 indexed parentTransitionHash);
 
     // ---------------------------------------------------------------
     // External Transactional Functions
