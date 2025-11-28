@@ -304,6 +304,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(input.proposals.length == input.transitions.length, InconsistentParams());
         require(input.transitions.length == input.metadata.length, InconsistentParams());
 
+        // Calculate aggregatedProvingHash before calling _buildAndSaveTransitionRecords which may modify `input.transitions`
+           bytes32 aggregatedProvingHash =
+            _hashTransitionsWithMetadata(input.transitions, input.metadata);
+
+
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
 
@@ -314,8 +319,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         }
 
-        bytes32 aggregatedProvingHash =
-            _hashTransitionsWithMetadata(input.transitions, input.metadata);
 
         _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
     }
@@ -459,6 +462,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Builds and persists transition records for batch proof submissions
     /// Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
+    /// @dev This function may mutate the _input object.
     /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         for (uint256 i; i < _input.proposals.length; ++i) {
