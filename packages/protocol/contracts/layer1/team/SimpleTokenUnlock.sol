@@ -11,7 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 
 /// @title SimpleTokenUnlock
-/// @notice Manages the unlocking of Taiko tokens 6 months after GRANT_TIMESTAMP.
+/// @notice Fully unlocks Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals are permitted only at the 6 month mark.
 /// A separate instance of this contract is deployed for each recipient.
@@ -73,6 +73,7 @@ contract SimpleTokenUnlock is EssentialContract {
     )
         external
         nonZeroAddr(_recipient)
+        nonZeroAddr(_owner)
         initializer
     {
         require(_owner != _recipient, INVALID_PARAM());
@@ -96,7 +97,7 @@ contract SimpleTokenUnlock is EssentialContract {
         );
     }
 
-    /// @notice Withdraws tokens by the recipient.
+    /// @notice Withdraws tokens by the recipient or owner.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
     function withdraw(
@@ -113,7 +114,9 @@ contract SimpleTokenUnlock is EssentialContract {
 
         emit TokenWithdrawn(_to, _amount);
         IERC20(TAIKO_TOKEN).safeTransfer(_to, _amount);
-        amountGranted -= _amount;
+        // only the portion coming from the grant bucket should reduce the grant counter; extra deposits don't touch amountGranted
+        uint256 grantedReduction = _amount.min(amountGranted);
+        amountGranted -= grantedReduction;
     }
 
     /// @notice Changes the recipient address.
@@ -136,8 +139,14 @@ contract SimpleTokenUnlock is EssentialContract {
     function amountWithdrawable() public view returns (uint256) {
         IERC20 tko = IERC20(TAIKO_TOKEN);
         uint256 balance = tko.balanceOf(address(this));
-        if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS){
-            return 0;
-        } else { return balance.min(amountGranted); }
+        uint256 locked = _getAmountLocked();
+        return balance.max(locked) - locked;
+    }
+
+    function _getAmountLocked() internal view returns (uint256) {
+        if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
+            return amountGranted;
+        }
+        return 0;
     }
 }

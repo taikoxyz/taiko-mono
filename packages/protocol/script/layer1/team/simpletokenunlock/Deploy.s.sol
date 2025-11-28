@@ -20,6 +20,7 @@ contract DeploySimpleTokenUnlock is BaseScript {
         );
 
         for (uint256 i; i < recipients.length; i++) {
+            require(recipients[i] != address(0), "zero recipient");
             address proxy = deploy({
                 name: "",
                 impl: SIMPLE_TOKEN_UNLOCK_IMPL,
