@@ -550,18 +550,23 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         _updateTransitionRecord(
-            _transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _isOverwrittenByOwner
+            _proposalId,
+            _parentTransitionHash,
+            _transitionRecordHashAndDeadline[compositeKey],
+            _hashAndDeadline,
+            _isOverwrittenByOwner
         );
-        if (_isOverwrittenByOwner) {
-            emit TransitionOverwritten(_proposalId, _parentTransitionHash);
-        }
     }
 
     /// @dev Updates a transition record in storage.
+    /// @param _proposalId The proposal identifier.
+    /// @param _parentTransitionHash Hash of the parent transition.
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
     /// @param _isOverwrittenByOwner Whether this transaction is called by the owner.
     function _updateTransitionRecord(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash,
         TransitionRecordHashAndDeadline storage _entry,
         TransitionRecordHashAndDeadline memory _hashAndDeadline,
         bool _isOverwrittenByOwner
@@ -572,6 +577,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _entry.recordHash = _hashAndDeadline.recordHash;
         _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+
+        if (_isOverwrittenByOwner) {
+            emit TransitionOverwritten(_proposalId, _parentTransitionHash);
+        }
     }
 
     /// @dev Loads transition record metadata from storage.
