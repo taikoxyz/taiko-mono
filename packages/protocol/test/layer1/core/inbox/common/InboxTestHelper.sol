@@ -404,12 +404,13 @@ abstract contract InboxTestHelper is CommonTest {
     // Additional Utility Functions
     // ---------------------------------------------------------------
 
-    /// @notice Check if current contract name indicates an optimized implementation
-    /// @return True if using optimized implementation
-    function _isOptimizedImplementation() internal view returns (bool) {
-        bytes32 nameHash = keccak256(bytes(inboxContractName));
-        return nameHash == keccak256(bytes("InboxOptimized2"));
-    }
+    // NOTE: InboxOptimized1/2 disabled - function commented out
+    // /// @notice Check if current contract name indicates an optimized implementation
+    // /// @return True if using optimized implementation
+    // function _isOptimizedImplementation() internal view returns (bool) {
+    //     bytes32 nameHash = keccak256(bytes(inboxContractName));
+    //     return nameHash == keccak256(bytes("InboxOptimized2"));
+    // }
 
     /// @notice Get contract-specific gas snapshot name
     /// @param _baseName Base name for the gas snapshot

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
@@ -11,7 +11,7 @@ import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is InboxOptimized2 {
+contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -37,7 +37,7 @@ contract DevnetInbox is InboxOptimized2 {
         address _taikoToken,
         address _checkpointStore
     )
-        InboxOptimized2(IInbox.Config({
+        Inbox(IInbox.Config({
                 bondToken: _taikoToken,
                 checkpointStore: _checkpointStore,
                 codec: _codec,
