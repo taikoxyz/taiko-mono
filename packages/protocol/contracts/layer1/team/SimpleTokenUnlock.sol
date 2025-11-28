@@ -116,6 +116,8 @@ contract SimpleTokenUnlock is EssentialContract {
         amountGranted -= _amount;
     }
 
+    /// @notice Changes the recipient address.
+    /// @param _newRecipient The new recipient address.
     function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
         require(_newRecipient != address(0) && _newRecipient != recipient, INVALID_PARAM());
 
