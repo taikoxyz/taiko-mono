@@ -517,7 +517,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            (bool isDuplicate, bool isConflicting) = _storeTransitionRecord(
+            _storeTransitionRecord(
                 _proposal.id,
                 _transition.parentTransitionHash,
                 hashAndDeadline,
@@ -528,10 +528,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 proposalId: _proposal.id,
                 transition: _transition,
                 transitionRecord: transitionRecord,
-                metadata: _metadata,
-                isisOverwrittenByOwner: _isOverwrittenByOwner,
-                isDuplicate: isDuplicate,
-                isConflicting: isConflicting
+                metadata: _metadata
             });
             emit Proved(_encodeProvedEventData(payload));
         }
@@ -542,9 +539,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
     /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
     /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
-    /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
-    /// @return isConflicting_ True if this is a conflicting transition (different hash for same
-    /// key).
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -553,41 +547,31 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
         virtual
-        returns (bool isDuplicate_, bool isConflicting_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _updateTransitionRecord(
+        _updateTransitionRecord(
             _transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline, _isOverwrittenByOwner
         );
+        if (_isOverwrittenByOwner) {
+            emit TransitionOverwritten(_proposalId, _parentTransitionHash);
+        }
     }
 
-    /// @dev Updates a transition record in storage and computes flags.
+    /// @dev Updates a transition record in storage.
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
     /// @param _isOverwrittenByOwner Whether this transaction is called by the owner.
-    /// @return isDuplicate_ True if this is a duplicate transition.
-    /// @return isConflicting_ True if this is a conflicting transition.
     function _updateTransitionRecord(
         TransitionRecordHashAndDeadline storage _entry,
         TransitionRecordHashAndDeadline memory _hashAndDeadline,
         bool _isOverwrittenByOwner
     )
         internal
-        returns (bool isDuplicate_, bool isConflicting_)
     {
-        bytes26 existingRecordHash = _entry.recordHash;
+        require(_entry.recordHash == 0 || _isOverwrittenByOwner, CannotOverwriteTransitionRecord());
 
-        if (existingRecordHash == 0) {
-            _entry.recordHash = _hashAndDeadline.recordHash;
-            _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (existingRecordHash == _hashAndDeadline.recordHash) {
-            isDuplicate_ = true; // Skip writing recordHash - it's already the same value
-        } else {
-            isConflicting_ = true;
-            _entry.recordHash = _hashAndDeadline.recordHash;
-            _entry.finalizationDeadline =
-                _isOverwrittenByOwner ? _hashAndDeadline.finalizationDeadline : type(uint48).max;
-        }
+        _entry.recordHash = _hashAndDeadline.recordHash;
+        _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -1097,6 +1081,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
+    error CannotOverwriteTransitionRecord();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();

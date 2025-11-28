@@ -56,15 +56,12 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores transition record hash with optimized slot reuse.
     ///      Storage strategy:
     ///      1. New proposal ID: overwrite the reusable slot.
-    ///      2. Same ID and parent: detect duplicates or conflicts and update accordingly.
+    ///      2. Same ID and parent: update accordingly.
     ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID for this transition record
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _hashAndDeadline The finalization metadata to persist
     /// @param _isOverwrittenByOwner Whether this transaction is called by the owner
-    /// @return isDuplicate_ True if this is a duplicate transition (same hash already exists).
-    /// @return isConflicting_ True if this is a conflicting transition (different hash for same
-    /// key).
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
@@ -73,7 +70,6 @@ contract InboxOptimized1 is Inbox {
     )
         internal
         override
-        returns (bool isDuplicate_, bool isConflicting_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -88,11 +84,14 @@ contract InboxOptimized1 is Inbox {
             record.partialParentTransitionHash = partialParentHash;
             record.hashAndDeadline = _hashAndDeadline;
         } else if (record.partialParentTransitionHash == partialParentHash) {
-            return _updateTransitionRecord(
+            _updateTransitionRecord(
                 record.hashAndDeadline, _hashAndDeadline, _isOverwrittenByOwner
             );
+            if (_isOverwrittenByOwner) {
+                emit TransitionOverwritten(_proposalId, _parentTransitionHash);
+            }
         } else {
-            return super._storeTransitionRecord(
+            super._storeTransitionRecord(
                 _proposalId, _parentTransitionHash, _hashAndDeadline, _isOverwrittenByOwner
             );
         }

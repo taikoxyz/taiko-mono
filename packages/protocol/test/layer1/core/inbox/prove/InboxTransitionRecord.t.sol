@@ -6,6 +6,7 @@ import { InboxDeployer } from "../deployers/InboxDeployer.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @title InboxTransitionRecord
 /// @notice Comprehensive test suite for _storeTransitionRecord functionality in standard Inbox
@@ -65,8 +66,7 @@ contract InboxTransitionRecord is InboxTestHelper {
     // ---------------------------------------------------------------
 
     /// @notice Tests duplicate transition record handling
-    /// @dev Second branch: recordHash == _recordHash, no event is emitted (duplicate is silently
-    /// accepted)
+    /// @dev Second branch: recordHash == _recordHash, reverts with INVALID
     function test_storeTransitionRecord_duplicateDetection() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
@@ -79,18 +79,10 @@ contract InboxTransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-
-        // Second prove with identical data - duplicate is silently accepted (no special event)
+        // Second prove with identical data should revert
         vm.prank(currentProver);
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
         inbox.prove(proveData, proof);
-
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
     }
 
     // ---------------------------------------------------------------
@@ -98,12 +90,10 @@ contract InboxTransitionRecord is InboxTestHelper {
     // ---------------------------------------------------------------
 
     /// @notice Tests conflicting transition record detection
-    /// @dev Third branch: recordHash != _recordHash, verifies isConflicting flag in Proved event
+    /// @dev Third branch: recordHash != _recordHash, reverts with CannotOverwriteTransitionRecord
     function test_storeTransitionRecord_conflictDetection() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
-        uint48 proposalId = proposal.id;
-        bytes32 genesisHash = _getGenesisTransitionHash();
 
         // First prove - should succeed
         {
@@ -111,9 +101,6 @@ contract InboxTransitionRecord is InboxTestHelper {
             vm.prank(currentProver);
             inbox.prove(proveData1, _createValidProof());
         }
-
-        // Get the stored deadline before conflict
-        (uint48 initialDeadline,) = inbox.getTransitionRecordHash(proposalId, genesisHash);
 
         // Create second prove input with different checkpoint (causes conflict)
         bytes memory proveData2;
@@ -137,26 +124,10 @@ contract InboxTransitionRecord is InboxTestHelper {
             proveData2 = _codec().encodeProveInput(input);
         }
 
-        // Record logs to capture the Proved event with isConflicting flag
-        vm.recordLogs();
-
-        // Second prove with conflicting data
+        // Second prove with conflicting data should revert
         vm.prank(currentProver);
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
         inbox.prove(proveData2, _createValidProof());
-
-        // Verify the Proved event was emitted with isConflicting=true
-        {
-            Vm.Log[] memory logs = vm.getRecordedLogs();
-            IInbox.ProvedEventPayload memory payload = _decodeLastProvedEvent(logs);
-            assertTrue(payload.isConflicting, "isConflicting should be true");
-        }
-
-        // Verify finalization deadline was set to max
-        (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposalId, genesisHash);
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
-        assertTrue(conflictRecordHash != bytes26(0), "Record hash should be set");
-        assertTrue(initialDeadline < type(uint48).max, "Initial deadline should not be max");
     }
 
     // ---------------------------------------------------------------
@@ -276,21 +247,10 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         bytes memory conflictingProveData = _codec().encodeProveInput(input);
 
-        // Record logs to capture the Proved event with isConflicting flag
-        vm.recordLogs();
-
+        // Second prove with conflicting data should revert
         vm.prank(currentProver);
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
         inbox.prove(conflictingProveData, _createValidProof());
-
-        // Verify the Proved event was emitted with isConflicting=true
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        IInbox.ProvedEventPayload memory payload = _decodeLastProvedEvent(logs);
-        assertTrue(payload.isConflicting, "isConflicting should be true");
-
-        // Verify conflict was detected by checking deadline is set to max
-        (uint48 conflictDeadline,) =
-            inbox.getTransitionRecordHash(proposal1.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Conflict should be detected via max deadline");
 
         // Verify proposal2's record is unaffected
         (, bytes26 proposal2RecordHash) =
