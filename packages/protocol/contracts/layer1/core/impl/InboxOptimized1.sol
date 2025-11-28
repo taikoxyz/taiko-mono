@@ -180,13 +180,13 @@ contract InboxOptimized1 is Inbox {
                 _input.proposals[0], _input.transitions[0], _input.metadata[0]
             );
 
-            uint48 currentGroupStartId = _input.proposals[0].id;
+            uint48 groupStartProposalId = _input.proposals[0].id;
             uint256 firstIndex;
 
             // Process remaining proposals with optimized loop
             for (uint256 i = 1; i < _input.proposals.length; ++i) {
                 // Check for consecutive proposal aggregation
-                if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
+                if (_input.proposals[i].id == groupStartProposalId + currentRecord.span) {
                     TransitionRecord memory nextRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
                     );
@@ -204,15 +204,12 @@ contract InboxOptimized1 is Inbox {
                     currentRecord.span++;
                 } else {
                     // Save current group and start new one
-                    _setTransitionRecordHashAndDeadline(
-                        currentGroupStartId,
-                        _input.transitions[firstIndex],
-                        _input.metadata[firstIndex],
-                        currentRecord
+                    _setAggregatedTransitionRecordHashAndDeadline(
+                        _input, groupStartProposalId, firstIndex, currentRecord
                     );
 
                     // Reset for new group
-                    currentGroupStartId = _input.proposals[i].id;
+                    groupStartProposalId = _input.proposals[i].id;
                     firstIndex = i;
                     currentRecord = _buildTransitionRecord(
                         _input.proposals[i], _input.transitions[i], _input.metadata[i]
@@ -220,12 +217,35 @@ contract InboxOptimized1 is Inbox {
                 }
             }
 
-            // Save the final aggregated record
+            // Save the final aggregation group
+            _setAggregatedTransitionRecordHashAndDeadline(
+                _input, groupStartProposalId, firstIndex, currentRecord
+            );
+        }
+    }
+
+    /// @dev Sets the aggregated transition record hash and deadline
+    /// @param _input Original prove input
+    /// @param _groupStartProposalId First proposal ID in the group
+    /// @param _firstIndex Index of first transition in the group
+    /// @param _record Aggregated transition record for the group
+    function _setAggregatedTransitionRecordHashAndDeadline(
+        ProveInput memory _input,
+        uint48 _groupStartProposalId,
+        uint256 _firstIndex,
+        TransitionRecord memory _record
+    )
+        private
+    {
+        unchecked {
+            Transition memory aggregatedTransition = _input.transitions[_firstIndex];
+            if (_record.span > 1) {
+                // Use first transition but replace checkpoint with the last one
+                uint256 lastIndex = _firstIndex + _record.span - 1;
+                aggregatedTransition.checkpoint = _input.transitions[lastIndex].checkpoint;
+            }
             _setTransitionRecordHashAndDeadline(
-                currentGroupStartId,
-                _input.transitions[firstIndex],
-                _input.metadata[firstIndex],
-                currentRecord
+                _groupStartProposalId, aggregatedTransition, _input.metadata[_firstIndex], _record
             );
         }
     }

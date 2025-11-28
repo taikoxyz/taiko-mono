@@ -70,8 +70,28 @@ abstract contract AbstractProveTest is InboxTestHelper {
         // Create 2 consecutive proposals
         IInbox.Proposal[] memory proposals = _createConsecutiveProposals(2);
 
-        // Create prove input
-        bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
+        // Build transitions manually so we can verify checkpoint usage
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
+
+        bytes32 parentHash = _getGenesisTransitionHash();
+
+        // First transition
+        transitions[0] = _createTransitionForProposal(proposals[0]);
+        transitions[0].parentTransitionHash = parentHash;
+        metadata[0] = _createMetadataForTransition(Alice, Alice);
+        parentHash = keccak256(abi.encode(transitions[0]));
+
+        // Second transition (for aggregated event, this checkpoint should be used)
+        transitions[1] = _createTransitionForProposal(proposals[1]);
+        transitions[1].parentTransitionHash = parentHash;
+        metadata[1] = _createMetadataForTransition(Alice, Alice);
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: proposals, transitions: transitions, metadata: metadata
+        });
+
+        bytes memory proveData = _codec().encodeProveInput(input);
         bytes memory proof = _createValidProof();
 
         // Check expected events based on implementation
@@ -93,6 +113,46 @@ abstract contract AbstractProveTest is InboxTestHelper {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, expectedEvents, "Unexpected number of Proved events");
+
+        // Verify the first Proved event payload structure
+        IInbox.ProvedEventPayload memory payload = _extractFirstProvedEventPayload(logs);
+
+        // Verify: proposalId should be the FIRST proposal's ID
+        assertEq(payload.proposalId, proposals[0].id, "ProposalId should match first proposal");
+
+        // Verify: transition.proposalHash should be the FIRST proposal's hash
+        assertEq(
+            payload.transition.proposalHash,
+            _codec().hashProposal(proposals[0]),
+            "Transition proposalHash should match first proposal"
+        );
+
+        // Verify: span should match expected aggregation behavior
+        (, uint256 expectedMaxSpan) = _getExpectedAggregationBehavior(2, true);
+        assertEq(
+            payload.transitionRecord.span,
+            expectedMaxSpan,
+            "TransitionRecord span should match expected aggregation"
+        );
+
+        // Verify: For InboxOptimized1, checkpoint should be from LAST transition (groupEndIndex)
+        // For regular Inbox, checkpoint should be from FIRST transition
+        uint256 expectedCheckpointIndex = expectedMaxSpan == 2 ? 1 : 0; // If span=2, use last; else first
+        assertEq(
+            payload.transition.checkpoint.blockNumber,
+            transitions[expectedCheckpointIndex].checkpoint.blockNumber,
+            "Checkpoint blockNumber should match expected transition"
+        );
+        assertEq(
+            payload.transition.checkpoint.blockHash,
+            transitions[expectedCheckpointIndex].checkpoint.blockHash,
+            "Checkpoint blockHash should match expected transition"
+        );
+        assertEq(
+            payload.transition.checkpoint.stateRoot,
+            transitions[expectedCheckpointIndex].checkpoint.stateRoot,
+            "Checkpoint stateRoot should match expected transition"
+        );
     }
 
     /// @dev Tests proving 3 consecutive proposals - demonstrates gas efficiency of aggregation
@@ -441,6 +501,22 @@ abstract contract AbstractProveTest is InboxTestHelper {
                 count++;
             }
         }
+    }
+
+    function _extractFirstProvedEventPayload(Vm.Log[] memory logs)
+        internal
+        view
+        returns (IInbox.ProvedEventPayload memory payload)
+    {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("Proved(bytes)")) {
+                bytes memory eventData = logs[i].data;
+                // Event data is already ABI encoded, decode the outer wrapper first
+                bytes memory innerData = abi.decode(eventData, (bytes));
+                return _codec().decodeProvedEvent(innerData);
+            }
+        }
+        revert("No Proved event found");
     }
 
     // ---------------------------------------------------------------
