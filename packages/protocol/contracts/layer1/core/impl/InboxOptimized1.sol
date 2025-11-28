@@ -81,7 +81,7 @@ contract InboxOptimized1 is Inbox {
             firstRecord.partialParentTransitionHash = partialParentHash;
             firstRecord.hashAndDeadline = _hashAndDeadline;
         } else if (firstRecord.partialParentTransitionHash == partialParentHash) {
-            _updateTransitionRecord(
+            _storeTransitionRecord(
                 firstRecord.hashAndDeadline,
                 _hashAndDeadline
             );
@@ -107,7 +107,7 @@ contract InboxOptimized1 is Inbox {
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return recordHash_ The hash of the transition record
     /// @return finalizationDeadline_ The finalization deadline for the transition
-    function _getTransitionRecordHashAndDeadline(
+    function _loadTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -124,7 +124,7 @@ contract InboxOptimized1 is Inbox {
         } else if (firstRecord.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
             return (firstRecord.hashAndDeadline.recordHash, firstRecord.hashAndDeadline.finalizationDeadline);
         } else {
-            return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
+            return super._loadTransitionRecord(_proposalId, _parentTransitionHash);
         }
     }
 }
