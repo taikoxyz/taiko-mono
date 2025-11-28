@@ -200,11 +200,13 @@ impl ShastaEnv {
 impl AsyncTestContext for ShastaEnv {
     /// Setup the ShastaEnv before each test.
     async fn setup() -> Self {
-        ShastaEnv::load_from_env().await.expect("failed to load ShastaEnv")
+        ShastaEnv::load_from_env()
+            .await
+            .unwrap_or_else(|err| panic!("failed to load ShastaEnv: {err:#}"))
     }
 
     /// Teardown the ShastaEnv after each test.
     async fn teardown(self) {
-        self.shutdown().await.expect("ShastaEnv teardown must succeed");
+        self.shutdown().await.unwrap_or_else(|err| panic!("ShastaEnv teardown failed: {err:?}"));
     }
 }
