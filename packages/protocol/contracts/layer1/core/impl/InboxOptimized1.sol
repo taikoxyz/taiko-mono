@@ -23,7 +23,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
-    struct ReusableTransitionRecord {
+    struct FirstTransitionRecord {
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
         TransitionRecordHashAndDeadline hashAndDeadline;
@@ -37,8 +37,8 @@ contract InboxOptimized1 is Inbox {
     /// @notice Stores one transition record per buffer slot for gas optimization
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
-    mapping(uint256 bufferSlot => ReusableTransitionRecord record) internal
-        _reusableTransitionRecords;
+    mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal
+        _firstTransitionRecord;
 
     uint256[49] private __gap;
 
@@ -72,22 +72,22 @@ contract InboxOptimized1 is Inbox {
         override
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        FirstTransitionRecord storage firstRecord = _firstTransitionRecord[bufferSlot];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
         bytes26 partialParentHash = bytes26(_parentTransitionHash);
 
-        if (record.proposalId != _proposalId) {
+        if (firstRecord.proposalId != _proposalId) {
             // New proposal ID - use reusable slot
-            record.proposalId = _proposalId;
-            record.partialParentTransitionHash = partialParentHash;
-            record.hashAndDeadline = _hashAndDeadline;
-        } else if (record.partialParentTransitionHash == partialParentHash) {
+            firstRecord.proposalId = _proposalId;
+            firstRecord.partialParentTransitionHash = partialParentHash;
+            firstRecord.hashAndDeadline = _hashAndDeadline;
+        } else if (firstRecord.partialParentTransitionHash == partialParentHash) {
             _updateTransitionRecord(
                 _proposalId,
                 _parentTransitionHash,
-                record.hashAndDeadline,
+                firstRecord.hashAndDeadline,
                 _hashAndDeadline,
                 _isOverwrittenByOwner
             );
@@ -123,12 +123,12 @@ contract InboxOptimized1 is Inbox {
         returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        FirstTransitionRecord storage firstRecord = _firstTransitionRecord[bufferSlot];
 
-        if (record.proposalId != _proposalId) {
+        if (firstRecord.proposalId != _proposalId) {
             return (0, 0);
-        } else if (record.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
-            return (record.hashAndDeadline.recordHash, record.hashAndDeadline.finalizationDeadline);
+        } else if (firstRecord.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
+            return (firstRecord.hashAndDeadline.recordHash, firstRecord.hashAndDeadline.finalizationDeadline);
         } else {
             return super._getTransitionRecordHashAndDeadline(_proposalId, _parentTransitionHash);
         }
