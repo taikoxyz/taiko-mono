@@ -519,28 +519,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         _updateTransitionRecord(
-            _proposalId,
-            _parentTransitionHash,
             _transitionRecordHashAndDeadline[compositeKey],
             _hashAndDeadline
         );
     }
 
     /// @dev Updates a transition record in storage.
-    /// @param _proposalId The proposal identifier.
-    /// @param _parentTransitionHash Hash of the parent transition.
     /// @param _entry Storage pointer to the transition record to update.
     /// @param _hashAndDeadline The new finalization metadata to store.
     function _updateTransitionRecord(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash,
         TransitionRecordHashAndDeadline storage _entry,
         TransitionRecordHashAndDeadline memory _hashAndDeadline
     )
         internal
     {
-            require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
-
+        require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
         _entry.recordHash = _hashAndDeadline.recordHash;
         _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
     }
