@@ -75,7 +75,7 @@ contract SimpleTokenUnlock is EssentialContract {
         nonZeroAddr(_recipient)
         initializer
     {
-        if (_owner == _recipient) revert INVALID_PARAM();
+        require(_owner != _recipient, INVALID_PARAM());
 
         __Essential_init(_owner);
 
@@ -86,7 +86,7 @@ contract SimpleTokenUnlock is EssentialContract {
     /// @notice Grants certain tokens to this contract.
     /// @param _amount The newly granted amount
     function grant(uint128 _amount) external nonReentrant {
-        if (_amount == 0) revert INVALID_PARAM();
+        require(_amount != 0, INVALID_PARAM());
 
         amountGranted += _amount;
         emit TokenGranted(_amount);
@@ -108,19 +108,16 @@ contract SimpleTokenUnlock is EssentialContract {
         nonReentrant
     {
         if (_to == address(0)) _to = recipient;
+        if (_amount == 0) _amount = amountWithdrawable();
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
-        if (_amount == 0) {
-            _amount = amountWithdrawable();
-        }
+
         emit TokenWithdrawn(_to, _amount);
         IERC20(TAIKO_TOKEN).safeTransfer(_to, _amount);
         amountGranted -= _amount;
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
-        if (_newRecipient == address(0) || _newRecipient == recipient) {
-            revert INVALID_PARAM();
-        }
+        require(_newRecipient != address(0) && _newRecipient != recipient, INVALID_PARAM());
 
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
