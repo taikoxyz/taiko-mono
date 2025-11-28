@@ -51,3 +51,4 @@ serial_test = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
+test-context = { workspace = true }

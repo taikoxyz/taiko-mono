@@ -15,16 +15,17 @@ use rpc::{
     client::{Client, ClientConfig},
 };
 use serial_test::serial;
+use test_context::test_context;
 use test_harness::{
     BlobServer, ShastaEnv, init_tracing, verify_anchor_block, wait_for_new_proposal,
 };
 
+#[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn syncs_shasta_proposal_into_l2() -> Result<()> {
+async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     init_tracing("info");
 
-    let env = ShastaEnv::load_from_env().await?;
     let indexer = env.event_indexer.clone();
 
     let previous_proposal_id =

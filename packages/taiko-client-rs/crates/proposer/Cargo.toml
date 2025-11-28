@@ -38,3 +38,4 @@ serde_json = { workspace = true }
 [dev-dependencies]
 serial_test = { workspace = true }
 test-harness = { path = "../test-harness" }
+test-context = { workspace = true }

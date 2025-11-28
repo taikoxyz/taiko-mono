@@ -26,43 +26,14 @@ use rpc::{
     client::{Client, ClientConfig},
     error::RpcClientError,
 };
-use tokio::{runtime::Builder, time::timeout};
+use test_context::AsyncTestContext;
+use tokio::time::timeout;
 use tracing::warn;
 
 type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
 const L1_BLOCK_TIME_SECONDS: u64 = 12;
-
-/// Owns a per-test L1 snapshot and reverts it on drop.
-#[derive(Clone)]
-struct SnapshotGuard {
-    cleanup_provider: RootProvider,
-    snapshot_id: String,
-}
-
-impl SnapshotGuard {
-    /// Take a fresh L1 snapshot after resetting the head so each test starts clean.
-    async fn new(client: RpcClient, cleanup_provider: RootProvider) -> Result<Self> {
-        reset_head_l1_origin(&client).await?;
-        let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
-        Ok(Self { cleanup_provider, snapshot_id })
-    }
-}
-
-impl Drop for SnapshotGuard {
-    /// Revert the L1 snapshot on drop.
-    fn drop(&mut self) {
-        let cleanup_provider = self.cleanup_provider.clone();
-        let snapshot_id = self.snapshot_id.clone();
-
-        // Use a dedicated runtime to avoid issues with dropping inside async contexts.
-        match Builder::new_current_thread().enable_all().build() {
-            Ok(runtime) => runtime.block_on(revert_snapshot(&cleanup_provider, &snapshot_id)).unwrap(),
-            Err(err) => warn!(error = %err, "failed to build runtime for snapshot revert"),
-        };
-    }
-}
 
 /// Advances L1 time and mines blocks to ensure the preconfigured operator whitelist is active.
 async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
@@ -121,7 +92,8 @@ pub struct ShastaEnv {
     pub client: Client<FillProvider<JoinedRecommendedFillers, RootProvider>>,
     pub event_indexer: Arc<ShastaEventIndexer>,
     pub proposer: Arc<Proposer>,
-    _cleanup: SnapshotGuard,
+    cleanup_provider: RootProvider,
+    snapshot_id: String,
 }
 
 impl fmt::Debug for ShastaEnv {
@@ -245,11 +217,9 @@ impl ShastaEnv {
         let client = Client::new(client_config.clone()).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup = SnapshotGuard::new(
-            client.clone(),
-            ProviderBuilder::default().connect_http(l1_http_url.clone()),
-        )
-        .await?;
+        reset_head_l1_origin(&client).await?;
+        let cleanup_provider = ProviderBuilder::default().connect_http(l1_http_url.clone());
+        let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
         // Start the inbox event indexer and wait for historical sync.
@@ -292,8 +262,28 @@ impl ShastaEnv {
             client,
             event_indexer,
             proposer,
-            _cleanup: cleanup,
+            cleanup_provider,
+            snapshot_id,
         })
+    }
+
+    /// Explicit async teardown to revert the L1 snapshot.
+    pub async fn shutdown(self) -> Result<()> {
+        revert_snapshot(&self.cleanup_provider, &self.snapshot_id).await
+    }
+}
+
+impl AsyncTestContext for ShastaEnv {
+    /// Setup the ShastaEnv before each test.
+    async fn setup() -> Self {
+        ShastaEnv::load_from_env().await.expect("failed to load ShastaEnv")
+    }
+
+    /// Teardown the ShastaEnv after each test.
+    async fn teardown(self) {
+        if let Err(err) = self.shutdown().await {
+            warn!(error = %err, "failed to teardown ShastaEnv");
+        }
     }
 }
 
