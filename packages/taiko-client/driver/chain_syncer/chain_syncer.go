@@ -171,6 +171,7 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 		// `NewPayloadV1`.
 		heightToSync--
 	}
+	heightToSync = 1_399_220
 
 	// If the L2 execution engine's chain is behind of the block head to sync,
 	// we should keep the beacon sync.
