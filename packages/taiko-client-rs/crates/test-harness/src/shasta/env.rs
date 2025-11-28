@@ -205,8 +205,6 @@ impl AsyncTestContext for ShastaEnv {
 
     /// Teardown the ShastaEnv after each test.
     async fn teardown(self) {
-        self.shutdown()
-            .await
-            .expect("ShastaEnv teardown must succeed");
+        self.shutdown().await.expect("ShastaEnv teardown must succeed");
     }
 }
