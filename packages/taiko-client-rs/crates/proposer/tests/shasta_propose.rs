@@ -1,7 +1,7 @@
-use alloy::primitives::{aliases::U48, B256};
+use alloy::primitives::{B256, aliases::U48};
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{evm_mine, shasta::get_proposal_hash, ShastaEnv};
+use test_harness::{ShastaEnv, evm_mine, shasta::get_proposal_hash};
 
 #[test_context(ShastaEnv)]
 #[serial]

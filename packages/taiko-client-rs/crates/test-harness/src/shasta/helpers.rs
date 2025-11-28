@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
-use alloy_primitives::{aliases::U48, Address, B256, FixedBytes, U256};
+use alloy_primitives::{Address, B256, FixedBytes, U256, aliases::U48};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
@@ -67,7 +67,7 @@ pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Re
 /// Fetch proposal hash from the inbox contract.
 pub async fn get_proposal_hash(client: &ClientWithWallet, proposal_id: U48) -> Result<B256> {
     let hash: FixedBytes<32> = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
-    Ok(hash.into())
+    Ok(hash)
 }
 
 /// Ensures the latest L2 block contains an Anchor `anchorV4` call.
