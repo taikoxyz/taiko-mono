@@ -470,7 +470,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _buildAndStoreTransitionRecord(
         Proposal memory _proposal,
         Transition memory _transition,
-        TransitionMetadata memory _metadata    )
+        TransitionMetadata memory _metadata
+    )
         internal
     {
         bytes32 proposalHash = _checkProposalHash(_proposal);
@@ -489,11 +490,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 recordHash: _hashTransitionRecord(transitionRecord)
             });
 
-            _storeTransitionRecord(
-                _proposal.id,
-                _transition.parentTransitionHash,
-                hashAndDeadline
-            );
+            _storeTransitionRecord(_proposal.id, _transition.parentTransitionHash, hashAndDeadline);
 
             ProvedEventPayload memory payload = ProvedEventPayload({
                 proposalId: _proposal.id,
@@ -518,10 +515,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        _storeTransitionRecord(
-            _transitionRecordHashAndDeadline[compositeKey],
-            _hashAndDeadline
-        );
+        _storeTransitionRecord(_transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline);
     }
 
     /// @dev Stores transition record hash and deadline in storage.
@@ -889,9 +883,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                (bytes26 recordHash, uint48 finalizationDeadline) = _loadTransitionRecord(
-                    proposalId, coreState.lastFinalizedTransitionHash
-                );
+                (bytes26 recordHash, uint48 finalizationDeadline) =
+                    _loadTransitionRecord(proposalId, coreState.lastFinalizedTransitionHash);
 
                 if (recordHash == 0) break;
 

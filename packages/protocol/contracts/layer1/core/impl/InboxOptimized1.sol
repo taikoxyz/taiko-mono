@@ -81,14 +81,9 @@ contract InboxOptimized1 is Inbox {
             firstRecord.partialParentTransitionHash = partialParentHash;
             firstRecord.hashAndDeadline = _hashAndDeadline;
         } else if (firstRecord.partialParentTransitionHash == partialParentHash) {
-            _storeTransitionRecord(
-                firstRecord.hashAndDeadline,
-                _hashAndDeadline
-            );
+            _storeTransitionRecord(firstRecord.hashAndDeadline, _hashAndDeadline);
         } else {
-            super._storeTransitionRecord(
-                _proposalId, _parentTransitionHash, _hashAndDeadline
-            );
+            super._storeTransitionRecord(_proposalId, _parentTransitionHash, _hashAndDeadline);
         }
     }
 
