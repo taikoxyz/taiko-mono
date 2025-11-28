@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.33.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.6...docs-site-v1.33.0) (2025-11-28)
+
+
+### Features
+
+* **repo, docs-site:** add auto-lint pre-commit step ([#20844](https://github.com/taikoxyz/taiko-mono/issues/20844)) ([3b21918](https://github.com/taikoxyz/taiko-mono/commit/3b219185fb6f55d3dd60bf5bb3bac63d7a7e52d0))
+
 ## [1.32.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.5...docs-site-v1.32.6) (2025-11-24)
 
 
