@@ -10,10 +10,7 @@ pub mod shasta;
 
 pub use blob_server::BlobServer;
 pub use helper::mine_l1_block;
-pub use shasta::{
-    env::ShastaEnv,
-    helpers::{verify_anchor_block, wait_for_new_proposal},
-};
+pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 
 /// Initialise tracing for tests using a single global subscriber.
 ///

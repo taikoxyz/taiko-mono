@@ -6,7 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alloy::transports::http::reqwest::Url as RpcUrl;
+use crate::init_tracing;
+use alloy::{eips::eip4844::BlobTransactionSidecar, transports::http::reqwest::Url as RpcUrl};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{ProviderBuilder, RootProvider};
 use anyhow::{Context, Result};
@@ -18,16 +19,17 @@ use rpc::{
 };
 use test_context::AsyncTestContext;
 use tracing::{error, info};
+use url::Url;
 
 use super::helpers::{
     RpcClient, create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin,
     revert_snapshot,
 };
+use crate::BlobServer;
 
 /// Environment configuration required to exercise Shasta fork integration tests against
 /// the Docker harness started by `tests/entrypoint.sh`.
 /// Holds resolved endpoints, credentials, and clients needed to drive Shasta integration flows.
-#[derive(Clone)]
 pub struct ShastaEnv {
     pub l1_source: SubscriptionSource,
     pub l2_http: RpcUrl,
@@ -43,6 +45,7 @@ pub struct ShastaEnv {
     pub proposer: Arc<Proposer>,
     cleanup_provider: RootProvider,
     snapshot_id: String,
+    blob_server: Option<BlobServer>,
 }
 
 impl fmt::Debug for ShastaEnv {
@@ -59,6 +62,7 @@ impl fmt::Debug for ShastaEnv {
             .field("taiko_anchor_address", &self.taiko_anchor_address)
             .field("client_config", &self.client_config)
             .field("client", &self.client)
+            .field("blob_server", &self.blob_server.as_ref().map(|server| server.base_url()))
             .finish()
     }
 }
@@ -67,6 +71,10 @@ impl ShastaEnv {
     /// Resolves required environment variables and builds a default RPC client bundle.
     pub async fn load_from_env() -> Result<Self> {
         let started = Instant::now();
+
+        // Initialize tracing for the test harness.
+        init_tracing("info");
+
         // Read all required endpoints, secrets, and addresses from the harness environment.
         let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
         let l1_http =
@@ -155,11 +163,36 @@ impl ShastaEnv {
             proposer,
             cleanup_provider,
             snapshot_id,
+            blob_server: None,
         })
+    }
+
+    /// Start a per-test blob server for serving the given sidecar.
+    pub async fn start_blob_server(&mut self, sidecar: BlobTransactionSidecar) -> Result<RpcUrl> {
+        let server = BlobServer::start(sidecar).await?;
+        let endpoint =
+            RpcUrl::parse(server.base_url().as_str()).context("parsing blob server URL")?;
+        self.blob_server = Some(server);
+        Ok(endpoint)
+    }
+
+    /// Return the blob server URL if it has been started.
+    pub fn blob_server_url(&self) -> Result<RpcUrl> {
+        let server = self.blob_server.as_ref().context("blob server not started")?;
+        RpcUrl::parse(server.base_url().as_str()).context("parsing blob server URL")
+    }
+
+    /// Return the blob server endpoint as a `url::Url`.
+    pub fn blob_server_endpoint(&self) -> Result<Url> {
+        let server = self.blob_server.as_ref().context("blob server not started")?;
+        Ok(server.endpoint().clone())
     }
 
     /// Explicit async teardown to revert the L1 snapshot.
     pub async fn shutdown(self) -> Result<()> {
+        if let Some(server) = self.blob_server {
+            server.shutdown().await?;
+        }
         revert_snapshot(&self.cleanup_provider, &self.snapshot_id).await
     }
 }

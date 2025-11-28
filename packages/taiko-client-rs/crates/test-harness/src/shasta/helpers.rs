@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc, time::Duration};
+use std::borrow::Cow;
 
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
@@ -9,15 +9,16 @@ use alloy_provider::{
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
-use event_indexer::indexer::{ProposedEventPayload, ShastaEventIndexer};
 use rpc::{client::Client, error::RpcClientError};
-use tokio::time::timeout;
 
 use crate::helper::{increase_l1_time, mine_l1_block};
 
+/// The RPC client type used in Shasta tests.
 pub type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
+/// Number of L1 blocks to mine to ensure preconfigured operator whitelist is active.
 const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
+/// L1 block time in seconds.
 const L1_BLOCK_TIME_SECONDS: u64 = 12;
 
 /// Advances L1 time and mines blocks to ensure the preconfigured operator whitelist is active.
@@ -93,26 +94,4 @@ where
     );
 
     Ok(())
-}
-
-/// Waits until the indexer observes a proposal with an ID greater than `previous_id`.
-pub async fn wait_for_new_proposal(
-    indexer: Arc<ShastaEventIndexer>,
-    previous_id: u64,
-) -> Result<ProposedEventPayload> {
-    let wait = async {
-        loop {
-            if let Some(payload) = indexer.get_last_proposal() {
-                let proposal_id = payload.proposal.id.to::<u64>();
-                if proposal_id > previous_id {
-                    return payload;
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    };
-
-    timeout(Duration::from_secs(15), wait)
-        .await
-        .map_err(|_| anyhow::anyhow!("timed out waiting for proposal to be indexed"))
 }

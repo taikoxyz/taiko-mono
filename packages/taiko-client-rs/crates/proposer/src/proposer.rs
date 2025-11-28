@@ -231,14 +231,12 @@ mod tests {
     };
     use serial_test::serial;
     use test_context::test_context;
-    use test_harness::{ShastaEnv, init_tracing};
+    use test_harness::ShastaEnv;
 
     #[test_context(ShastaEnv)]
     #[serial]
     #[tokio::test]
     async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
-        init_tracing("debug");
-
         let proposer = env.proposer.clone();
         let provider = proposer.rpc_client();
 
