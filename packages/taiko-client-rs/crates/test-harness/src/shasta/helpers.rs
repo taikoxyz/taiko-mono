@@ -49,10 +49,11 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
 
 /// Revert the L1 snapshot.
 pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
-    provider
+    let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
         .context("reverting L1 snapshot")?;
+    ensure!(reverted, "evm_revert returned false");
     Ok(())
 }
 
