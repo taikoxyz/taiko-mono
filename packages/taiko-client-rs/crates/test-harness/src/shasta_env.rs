@@ -3,8 +3,8 @@ use std::{
     env, fmt,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
-    time::Duration,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 
 use alloy::{
@@ -14,134 +14,57 @@ use alloy::{
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
+    Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use anyhow::{Context, Result, anyhow, ensure};
+use anyhow::{Context, Result};
 use bindings::anchor::Anchor::anchorV4Call;
 use event_indexer::indexer::{ProposedEventPayload, ShastaEventIndexer, ShastaEventIndexerConfig};
-use once_cell::sync::Lazy;
 use proposer::{config::ProposerConfigs, proposer::Proposer};
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig},
     error::RpcClientError,
 };
-use tokio::time::timeout;
+use tokio::{runtime::Builder, time::timeout};
 use tracing::warn;
 
 type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
-static SNAPSHOT_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-const CLEANUP_RPC_TIMEOUT: Duration = Duration::from_secs(5);
 const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
 const L1_BLOCK_TIME_SECONDS: u64 = 12;
 
-struct CleanupInner {
-    client: RpcClient,
+/// Owns a per-test L1 snapshot and reverts it on drop.
+#[derive(Clone)]
+struct SnapshotGuard {
+    cleanup_provider: RootProvider,
     snapshot_id: String,
 }
 
-impl CleanupInner {
-    async fn initialize(client: RpcClient) -> Result<Arc<Self>> {
-        if let Some(previous_snapshot) = {
-            let mut guard = SNAPSHOT_ID.lock().expect("snapshot mutex poisoned");
-            guard.take()
-        } && let Err(error) = Self::revert_snapshot(&client, &previous_snapshot).await
-        {
-            warn!(error = %error, "failed to revert previous L1 snapshot during setup");
-        }
-
-        reset_head_l1_origin(&client).await;
-
-        let snapshot_id = Self::create_snapshot(&client, "setup")
-            .await
-            .context("creating L1 snapshot during setup")?;
-
-        Ok(Arc::new(Self { client, snapshot_id }))
-    }
-
-    async fn teardown(client: RpcClient, snapshot_id: String) -> Result<String> {
-        Self::revert_snapshot(&client, &snapshot_id).await?;
-        reset_head_l1_origin(&client).await;
-
-        let snapshot_id = Self::create_snapshot(&client, "teardown")
-            .await
-            .context("creating L1 snapshot during teardown")?;
-
-        Ok(snapshot_id)
-    }
-
-    async fn revert_snapshot(client: &RpcClient, snapshot_id: &str) -> Result<()> {
-        let revert_call =
-            client.l1_provider.raw_request(Cow::Borrowed("evm_revert"), (snapshot_id.to_string(),));
-        let reverted: bool = match timeout(CLEANUP_RPC_TIMEOUT, revert_call).await {
-            Ok(result) => result.context("reverting L1 snapshot")?,
-            Err(_) => {
-                return Err(anyhow!(
-                    "timed out reverting L1 snapshot '{}' after {:?}",
-                    snapshot_id,
-                    CLEANUP_RPC_TIMEOUT
-                ));
-            }
-        };
-        ensure!(reverted, "evm_revert returned false");
-        Ok(())
-    }
-
-    async fn create_snapshot(client: &RpcClient, phase: &'static str) -> Result<String> {
-        let snapshot_call = client
-            .l1_provider
-            .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default());
-        match timeout(CLEANUP_RPC_TIMEOUT, snapshot_call).await {
-            Ok(result) => result.with_context(|| format!("creating L1 snapshot during {phase}")),
-            Err(_) => Err(anyhow!(
-                "timed out creating L1 snapshot during {phase} after {:?}",
-                CLEANUP_RPC_TIMEOUT
-            )),
-        }
+impl SnapshotGuard {
+    /// Take a fresh L1 snapshot after resetting the head so each test starts clean.
+    async fn new(client: RpcClient, cleanup_provider: RootProvider) -> Result<Self> {
+        reset_head_l1_origin(&client).await?;
+        let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
+        Ok(Self { cleanup_provider, snapshot_id })
     }
 }
 
-impl Drop for CleanupInner {
-    /// Revert to a fresh snapshot on drop, preserving the new snapshot ID for the next test.
+impl Drop for SnapshotGuard {
+    /// Revert the L1 snapshot on drop.
     fn drop(&mut self) {
-        let client = self.client.clone();
+        let cleanup_provider = self.cleanup_provider.clone();
         let snapshot_id = self.snapshot_id.clone();
-        let join_result = std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|err| anyhow!(err))
-                .and_then(|rt| {
-                    rt.block_on(async { CleanupInner::teardown(client, snapshot_id).await })
-                })
-        })
-        .join();
 
-        let result = match join_result {
-            Ok(res) => res,
-            Err(err) => Err(anyhow!("cleanup task panicked: {err:?}")),
+        // Use a dedicated runtime to avoid issues with dropping inside async contexts.
+        match Builder::new_current_thread().enable_all().build() {
+            Ok(runtime) => runtime.block_on(revert_snapshot(&cleanup_provider, &snapshot_id)).unwrap(),
+            Err(err) => warn!(error = %err, "failed to build runtime for snapshot revert"),
         };
-
-        persist_snapshot_result(result);
     }
 }
 
-fn persist_snapshot_result(result: Result<String>) {
-    match result {
-        Ok(new_snapshot) => {
-            let mut guard = SNAPSHOT_ID.lock().expect("snapshot mutex poisoned");
-            *guard = Some(new_snapshot);
-        }
-        Err(error) => {
-            warn!(error = %error, "failed to teardown Shasta test environment");
-            let mut guard = SNAPSHOT_ID.lock().expect("snapshot mutex poisoned");
-            *guard = None;
-        }
-    }
-}
-
+/// Advances L1 time and mines blocks to ensure the preconfigured operator whitelist is active.
 async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
     for _ in 0..PRECONF_OPERATOR_ACTIVATION_BLOCKS {
         increase_l1_time(client, L1_BLOCK_TIME_SECONDS).await?;
@@ -150,27 +73,35 @@ async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
     Ok(())
 }
 
+/// Checks if the RPC error indicates a "not found" condition.
 fn is_not_found_error(err: &RpcClientError) -> bool {
     matches!(err, RpcClientError::Rpc(message) if message.contains("not found"))
 }
 
-async fn reset_head_l1_origin(client: &RpcClient) {
-    let call = client.set_head_l1_origin(U256::from(1u64));
-    match timeout(CLEANUP_RPC_TIMEOUT, call).await {
-        Ok(result) => {
-            if let Err(err) = result &&
-                !is_not_found_error(&err)
-            {
-                warn!(error = %err, "failed to reset head l1 origin");
-            }
-        }
-        Err(_) => {
-            warn!(
-                timeout = ?CLEANUP_RPC_TIMEOUT,
-                "timed out resetting head l1 origin via authenticated RPC"
-            );
-        }
-    };
+/// Reset the authenticated L1 RPC head.
+async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
+    match client.set_head_l1_origin(U256::from(1u64)).await {
+        Ok(_) => Ok(()),
+        Err(err) if is_not_found_error(&err) => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Revert the L1 snapshot with retries.
+async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+    provider
+        .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
+        .await
+        .context("reverting L1 snapshot")?;
+    Ok(())
+}
+
+/// Create a new L1 snapshot to reuse across a single test run.
+async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Result<String> {
+    provider
+        .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
+        .await
+        .with_context(|| format!("creating L1 snapshot during {phase}"))
 }
 
 /// Environment configuration required to exercise Shasta fork integration tests against
@@ -190,7 +121,7 @@ pub struct ShastaEnv {
     pub client: Client<FillProvider<JoinedRecommendedFillers, RootProvider>>,
     pub event_indexer: Arc<ShastaEventIndexer>,
     pub proposer: Arc<Proposer>,
-    _cleanup: Arc<CleanupInner>,
+    _cleanup: SnapshotGuard,
 }
 
 impl fmt::Debug for ShastaEnv {
@@ -272,7 +203,11 @@ pub async fn wait_for_new_proposal(
 impl ShastaEnv {
     /// Resolves required environment variables and builds a default RPC client bundle.
     pub async fn load_from_env() -> Result<Self> {
+        let started = Instant::now();
+        // Read all required endpoints, secrets, and addresses from the harness environment.
         let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
+        let l1_http =
+            env::var("L1_HTTP").context("L1_HTTP env var is required for cleanup snapshots")?;
         let l2_http = env::var("L2_HTTP").context("L2_HTTP env var is required")?;
         let l2_auth = env::var("L2_AUTH").context("L2_AUTH env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
@@ -283,9 +218,11 @@ impl ShastaEnv {
             .context("L1_PROPOSER_PRIVATE_KEY env var is required")?;
         let anchor = env::var("TAIKO_ANCHOR").context("TAIKO_ANCHOR env var is required")?;
 
+        // Parse raw strings into URLs, paths, and addresses.
         let l1_source = SubscriptionSource::Ws(
             RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?,
         );
+        let l1_http_url = RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
         let l2_http_url = RpcUrl::parse(l2_http.as_str()).context("invalid L2_HTTP endpoint")?;
         let l2_auth_url = RpcUrl::parse(l2_auth.as_str()).context("invalid L2_AUTH endpoint")?;
         let jwt_secret_path = PathBuf::from(jwt_secret);
@@ -297,6 +234,7 @@ impl ShastaEnv {
         let taiko_anchor_address =
             Address::from_str(anchor.as_str()).context("invalid TAIKO_ANCHOR address")?;
 
+        // Build shared RPC client bundle and a dedicated HTTP provider for snapshots.
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http_url.clone(),
@@ -305,9 +243,16 @@ impl ShastaEnv {
             inbox_address,
         };
         let client = Client::new(client_config.clone()).await?;
-        let cleanup = CleanupInner::initialize(client.clone()).await?;
+
+        // Take a fresh snapshot and activate preconf whitelist before tests run.
+        let cleanup = SnapshotGuard::new(
+            client.clone(),
+            ProviderBuilder::default().connect_http(l1_http_url.clone()),
+        )
+        .await?;
         ensure_preconf_whitelist_active(&client).await?;
 
+        // Start the inbox event indexer and wait for historical sync.
         let indexer_config = ShastaEventIndexerConfig {
             l1_subscription_source: l1_source.clone(),
             inbox_address,
@@ -317,6 +262,7 @@ impl ShastaEnv {
         event_indexer.clone().spawn();
         event_indexer.wait_historical_indexing_finished().await;
 
+        // Build the proposer wired to the shared indexer and local codec.
         let proposer_config = ProposerConfigs {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http_url.clone(),
@@ -332,6 +278,7 @@ impl ShastaEnv {
         let proposer =
             Arc::new(Proposer::new_with_indexer(proposer_config, event_indexer.clone()).await?);
 
+        tracing::info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
             l1_source,
             l2_http: l2_http_url,
@@ -363,19 +310,12 @@ where
     Ok(())
 }
 
+/// Increases L1 time by the specified number of seconds.
 async fn increase_l1_time(client: &RpcClient, seconds: u64) -> Result<()> {
-    let increase_call =
-        client.l1_provider.raw_request::<_, i64>(Cow::Borrowed("evm_increaseTime"), (seconds,));
-    match timeout(CLEANUP_RPC_TIMEOUT, increase_call).await {
-        Ok(result) => {
-            result.context("increasing L1 time via evm_increaseTime")?;
-        }
-        Err(_) => {
-            return Err(anyhow!(
-                "timed out increasing L1 time via evm_increaseTime after {:?}",
-                CLEANUP_RPC_TIMEOUT
-            ));
-        }
-    }
+    client
+        .l1_provider
+        .raw_request::<_, i64>(Cow::Borrowed("evm_increaseTime"), (seconds,))
+        .await
+        .context("increasing L1 time via evm_increaseTime")?;
     Ok(())
 }
