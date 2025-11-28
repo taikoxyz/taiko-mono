@@ -48,7 +48,7 @@ proposer = { path = "../proposer" }
 rand = "0.8"
 serde_json = { workspace = true }
 serial_test = { workspace = true }
+test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
-test-context = { workspace = true }
