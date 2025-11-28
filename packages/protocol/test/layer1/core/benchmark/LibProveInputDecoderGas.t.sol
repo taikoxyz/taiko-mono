@@ -181,7 +181,8 @@ contract LibProveInputDecoderGas is Test {
                 timestamp: uint48(1_000_000 + i * 10),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: bytes32(0)
             });
         }
 

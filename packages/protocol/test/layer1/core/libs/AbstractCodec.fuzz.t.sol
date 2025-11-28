@@ -132,7 +132,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
             coreStateHash: coreStateHash,
-            derivationHash: derivationHash
+            derivationHash: derivationHash,
+            parentProposalHash: bytes32(0)
         });
 
         bytes32 hash1 = codec.hashProposal(proposal);
@@ -476,7 +477,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             endOfSubmissionWindowTimestamp: timestamp + 1000,
             proposer: proposer,
             coreStateHash: bytes32(uint256(0x1)),
-            derivationHash: bytes32(uint256(0x2))
+            derivationHash: bytes32(uint256(0x2)),
+            parentProposalHash: bytes32(0)
         });
 
         IInbox.Proposal memory proposal2 = IInbox.Proposal({
@@ -485,7 +487,8 @@ abstract contract AbstractCodecFuzzTest is Test {
             endOfSubmissionWindowTimestamp: timestamp + 1000,
             proposer: proposer,
             coreStateHash: bytes32(uint256(0x1)),
-            derivationHash: bytes32(uint256(0x2))
+            derivationHash: bytes32(uint256(0x2)),
+            parentProposalHash: bytes32(0)
         });
 
         bytes32 hash1 = codec.hashProposal(proposal1);

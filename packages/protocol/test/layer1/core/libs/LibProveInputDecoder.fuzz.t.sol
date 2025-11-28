@@ -47,7 +47,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: coreStateHash,
-            derivationHash: derivationHash
+            derivationHash: derivationHash,
+            parentProposalHash: bytes32(0)
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
@@ -116,7 +117,8 @@ contract LibProveInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: bytes32(0)
             });
 
             transitions[i] = IInbox.Transition({
@@ -205,7 +207,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: timestamp1,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core1")),
-            derivationHash: keccak256(abi.encode("deriv1"))
+            derivationHash: keccak256(abi.encode("deriv1")),
+            parentProposalHash: bytes32(0)
         });
         proposals[1] = IInbox.Proposal({
             id: id2,
@@ -213,7 +216,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: timestamp2,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core2")),
-            derivationHash: keccak256(abi.encode("deriv2"))
+            derivationHash: keccak256(abi.encode("deriv2")),
+            parentProposalHash: bytes32(0)
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
@@ -272,7 +276,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: type(uint48).max,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: bytes32(type(uint256).max),
-            derivationHash: bytes32(type(uint256).max)
+            derivationHash: bytes32(type(uint256).max),
+            parentProposalHash: bytes32(0)
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
@@ -320,7 +325,8 @@ contract LibProveInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i * 100),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 100 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core", i)),
-                derivationHash: keccak256(abi.encodePacked("deriv", i))
+                derivationHash: keccak256(abi.encodePacked("deriv", i)),
+                parentProposalHash: bytes32(0)
             });
         }
 

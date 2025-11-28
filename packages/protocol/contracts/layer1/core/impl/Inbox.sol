@@ -268,13 +268,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
+            uint48 id = coreState.nextProposalId++;
             Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
+                id: id,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 coreStateHash: _hashCoreState(coreState),
-                derivationHash: _hashDerivation(derivation)
+                derivationHash: _hashDerivation(derivation),
+                parentProposalHash: _proposalHashes[(id - 1) % _ringBufferSize]
             });
 
             _storeProposalHash(proposal.id, _hashProposal(proposal));
