@@ -16,7 +16,7 @@
 
   $: flipped = sideBarOpen;
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isBridgePage = $page.route.id === '/';
   $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
