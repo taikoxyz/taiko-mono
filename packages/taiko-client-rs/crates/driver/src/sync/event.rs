@@ -1,6 +1,9 @@
 //! Event sync logic.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
@@ -11,11 +14,15 @@ use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
+use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
-use tokio::spawn;
+use tokio::{
+    spawn,
+    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
@@ -24,7 +31,13 @@ use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    error::DriverError,
     metrics::DriverMetrics,
+    production::{
+        BlockProductionPath, PreconfPayload, PreconfirmationPath, ProductionError, ProductionInput,
+        ProductionPathKind, ProductionRouter,
+    },
+    sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
 use rpc::{blob::BlobDataSource, client::Client};
@@ -43,6 +56,57 @@ where
     cfg: DriverConfig,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
+    /// Optional preconfirmation ingress sender for external producers.
+    preconf_tx: Option<UnboundedSender<Arc<dyn PreconfPayload + Send + Sync>>>,
+    /// Optional preconfirmation ingress receiver consumed by the sync loop.
+    preconf_rx: Mutex<Option<UnboundedReceiver<Arc<dyn PreconfPayload + Send + Sync>>>>,
+}
+
+/// `BlockProductionPath` implementation for canonical L1 proposal logs.
+struct CanonicalL1ProductionPath<D>
+where
+    D: DerivationPipeline + ?Sized,
+{
+    derivation: Arc<D>,
+}
+
+impl<D> CanonicalL1ProductionPath<D>
+where
+    D: DerivationPipeline + ?Sized,
+{
+    fn new(derivation: Arc<D>) -> Self {
+        Self { derivation }
+    }
+}
+
+#[async_trait::async_trait]
+impl<D> BlockProductionPath for CanonicalL1ProductionPath<D>
+where
+    D: DerivationPipeline + Send + Sync + ?Sized + 'static,
+{
+    fn kind(&self) -> ProductionPathKind {
+        ProductionPathKind::L1Events
+    }
+
+    async fn produce(
+        &self,
+        input: ProductionInput<'_>,
+        applier: &(dyn PayloadApplier + Send + Sync),
+    ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+        match input {
+            ProductionInput::L1ProposalLog(log) => self
+                .derivation
+                .process_proposal(log, applier)
+                .await
+                .map_err(SyncError::from)
+                .map_err(DriverError::from),
+            ProductionInput::Preconfirmation(_) => Err(ProductionError::UnsupportedInput {
+                path: ProductionPathKind::L1Events,
+                input: ProductionPathKind::Preconfirmation,
+            }
+            .into()),
+        }
+    }
 }
 
 impl<P> EventSyncer<P>
@@ -61,7 +125,20 @@ where
             .await
             .map_err(|err| SyncError::Other(err.into()))?,
         );
-        Ok(Self { rpc, cfg: cfg.clone(), blob_source })
+        let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
+            let (tx, rx) = unbounded_channel();
+            (Some(tx), Mutex::new(Some(rx)))
+        } else {
+            (None, Mutex::new(None))
+        };
+        Ok(Self { rpc, cfg: cfg.clone(), blob_source, preconf_tx, preconf_rx })
+    }
+
+    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
+    pub fn preconfirmation_sender(
+        &self,
+    ) -> Option<UnboundedSender<Arc<dyn PreconfPayload + Send + Sync>>> {
+        self.preconf_tx.clone()
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -245,6 +322,19 @@ where
                 Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
             >,
         > = Arc::new(derivation_pipeline);
+        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
+        let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> =
+            Arc::new(CanonicalL1ProductionPath::new(derivation.clone()));
+        paths.push(canonical_path.clone());
+
+        // Preconfirmation path instantiation (not yet routed from the event loop).
+        if self.cfg.preconfirmation_enabled {
+            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
+                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+            paths.push(preconf_path);
+        }
+
+        let router = ProductionRouter::new(paths);
 
         let mut scanner = self
             .cfg
@@ -267,6 +357,24 @@ where
         });
 
         info!("event scanner started; listening for inbox proposals");
+
+        // Spawn preconfirmation ingress loop if enabled.
+        if self.cfg.preconfirmation_enabled &&
+            let Some(mut rx) = self.preconf_rx.lock().ok().and_then(|mut guard| guard.take())
+        {
+            let router = router.clone();
+            let rpc = self.rpc.clone();
+            spawn(async move {
+                while let Some(payload) = rx.recv().await {
+                    if let Err(err) = router
+                        .produce(ProductionInput::Preconfirmation(payload.as_ref()), &rpc)
+                        .await
+                    {
+                        warn!(?err, "preconfirmation processing failed");
+                    }
+                }
+            });
+        }
 
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
@@ -297,26 +405,33 @@ where
                 let retry_strategy =
                     ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
-                let derivation = derivation.clone();
+                let router = router.clone();
                 let rpc = self.rpc.clone();
                 let proposal_log = log.clone();
                 let outcomes = Retry::spawn(retry_strategy, move || {
-                    let derivation = derivation.clone();
+                    let router = router.clone();
                     let rpc = rpc.clone();
                     let log = proposal_log.clone();
                     async move {
-                        derivation.process_proposal(&log, &rpc).await.map_err(|err| {
-                            warn!(
-                                ?err,
-                                tx_hash = ?log.transaction_hash,
-                                block_number = log.block_number,
-                                "proposal derivation failed; retrying"
-                            );
-                            err
-                        })
+                        router.produce(ProductionInput::L1ProposalLog(&log), &rpc).await.map_err(
+                            |err| {
+                                warn!(
+                                    ?err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "proposal derivation failed; retrying"
+                                );
+                                err
+                            },
+                        )
                     }
                 })
-                .await?;
+                .await
+                .map_err(|err| match err {
+                    DriverError::Sync(sync_err) => sync_err,
+                    DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
+                    other => SyncError::Other(anyhow!(other)),
+                })?;
 
                 info!(
                     block_count = outcomes.len(),

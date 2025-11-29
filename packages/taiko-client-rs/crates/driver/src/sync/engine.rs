@@ -66,6 +66,19 @@ pub trait PayloadApplier {
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
+/// Trait that injects already-constructed execution payloads into the engine.
+#[async_trait]
+pub trait ExecutionPayloadInjector {
+    /// Submit a fully built execution payload to the engine and materialise the corresponding
+    /// block. Implementations should preserve the same engine interaction semantics used by
+    /// [`PayloadApplier`].
+    async fn apply_execution_payload(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        finalized_block_hash: Option<B256>,
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError>;
+}
+
 #[async_trait]
 impl<P> PayloadApplier for Client<P>
 where
@@ -123,6 +136,67 @@ where
             apply_payload_internal(self, payload, parent_hash, finalized_block_hash).await?;
         span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
         Ok(applied)
+    }
+}
+
+#[async_trait]
+impl<P> ExecutionPayloadInjector for Client<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    #[instrument(skip(self, payload))]
+    async fn apply_execution_payload(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        finalized_block_hash: Option<B256>,
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
+        let parent_hash = payload.execution_payload.parent_hash;
+        let block_hash = payload.execution_payload.block_hash;
+        let block_number = payload.execution_payload.block_number;
+
+        // Submit the provided payload directly to the execution engine.
+        let sidecar = derive_payload_sidecar(payload);
+        let status = self.engine_new_payload_v2(payload, &sidecar).await?;
+
+        match status.status {
+            PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
+            PayloadStatusEnum::Syncing => {
+                return Err(EngineSubmissionError::EngineSyncing(block_number));
+            }
+            PayloadStatusEnum::Invalid { validation_error } => {
+                return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
+            }
+        }
+
+        // Promote forkchoice to the newly inserted block.
+        let resolved_finalized_hash = finalized_block_hash.unwrap_or(B256::ZERO);
+        let promoted_state = ForkchoiceState {
+            head_block_hash: block_hash,
+            safe_block_hash: resolved_finalized_hash,
+            finalized_block_hash: resolved_finalized_hash,
+        };
+        self.engine_forkchoice_updated_v2(promoted_state, None).await?;
+
+        // Fetch the inserted block for the outcome description.
+        let block = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+            .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))?;
+
+        // No payload id is returned on this path; use a zeroed placeholder for bookkeeping.
+        let payload_id = PayloadId::new([0u8; 8]);
+
+        info!(
+            block_number,
+            block_hash = ?block_hash,
+            parent_hash = ?parent_hash,
+            "inserted l2 block via execution payload injector",
+        );
+
+        Ok(EngineBlockOutcome { block, payload_id })
     }
 }
 
