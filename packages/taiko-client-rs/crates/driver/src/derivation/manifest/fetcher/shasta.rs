@@ -32,6 +32,7 @@ fn decode_manifest_from_sidecars(
         .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
 }
 
+/// Fetcher for Shasta derivation source manifests from blob sidecars.
 #[derive(Clone)]
 pub struct ShastaSourceManifestFetcher {
     blob_source: Arc<BlobDataSource>,
@@ -46,6 +47,7 @@ impl ShastaSourceManifestFetcher {
 
 #[async_trait]
 impl ManifestFetcher for ShastaSourceManifestFetcher {
+    /// The type of manifest produced by this fetcher.
     type Manifest = DerivationSourceManifest;
 
     /// Access the underlying blob data source.

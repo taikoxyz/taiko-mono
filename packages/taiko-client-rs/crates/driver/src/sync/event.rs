@@ -9,13 +9,17 @@ use alloy::{
 };
 use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
-use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
+use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
-use tokio::spawn;
+use tokio::{
+    spawn,
+    sync::{Mutex as AsyncMutex, mpsc, oneshot},
+};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
@@ -23,8 +27,13 @@ use tracing::{debug, error, info, instrument, warn};
 use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
+    error::DriverError,
     metrics::DriverMetrics,
+    production::{
+        BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
+        ProductionInput, ProductionRouter,
+    },
 };
 
 use rpc::{blob::BlobDataSource, client::Client};
@@ -43,12 +52,152 @@ where
     cfg: DriverConfig,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
+    /// Optional preconfirmation ingress sender for external producers.
+    preconf_tx: Option<PreconfSender>,
+    /// Optional preconfirmation ingress receiver consumed by the sync loop.
+    preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+}
+
+/// Maximum number of buffered preconfirmation payloads before backpressure applies.
+const PRECONF_CHANNEL_CAPACITY: usize = 1024;
+
+/// Type aliases for preconfirmation payload channels.
+type PreconfSender = mpsc::Sender<PreconfJob>;
+type PreconfReceiver = mpsc::Receiver<PreconfJob>;
+
+/// A preconfirmation payload submission job.
+pub struct PreconfJob {
+    payload: Arc<dyn PreconfPayload + Send + Sync>,
+    respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
 impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Build the production router with the enabled paths.
+    fn build_router(
+        &self,
+        derivation: Arc<ShastaDerivationPipeline<P>>,
+    ) -> Arc<AsyncMutex<ProductionRouter>> {
+        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
+
+        // Add canonical L1 proposal path.
+        let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
+            CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
+        );
+        paths.push(canonical_path);
+
+        // Add preconfirmation path if enabled.
+        if self.cfg.preconfirmation_enabled {
+            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
+                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+            paths.push(preconf_path);
+        }
+
+        Arc::new(AsyncMutex::new(ProductionRouter::new(paths)))
+    }
+
+    /// Spawn the preconfirmation ingress processing loop.
+    fn spawn_preconf_ingress(
+        &self,
+        router: Arc<AsyncMutex<ProductionRouter>>,
+        rx: Arc<AsyncMutex<PreconfReceiver>>,
+    ) {
+        spawn(async move {
+            let mut rx = rx.lock().await;
+            while let Some(payload) = rx.recv().await {
+                let backoff =
+                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+                let router = router.clone();
+                let job = payload;
+
+                let result = Retry::spawn(backoff, move || {
+                    let router = router.clone();
+                    let payload = job.payload.clone();
+                    async move {
+                        router
+                            // Lock router so L1 proposals and preconf inputs cannot interleave.
+                            .lock()
+                            .await
+                            .produce(ProductionInput::Preconfirmation(payload.clone()))
+                            .await
+                    }
+                })
+                .await;
+
+                match result {
+                    Ok(_) => {
+                        let _ = job.respond_to.send(Ok(()));
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
+                        error!(?err, "preconfirmation processing failed after retries");
+                        let _ = job.respond_to.send(Err(err));
+                    }
+                }
+            }
+        });
+    }
+
+    /// Process a batch of proposal logs from the event scanner.
+    async fn process_log_batch(
+        &self,
+        router: Arc<AsyncMutex<ProductionRouter>>,
+        logs: Vec<Log>,
+    ) -> Result<(), SyncError> {
+        debug!(log_batch_size = logs.len(), "processing proposal log batch");
+        for log in logs {
+            debug!(
+                block_number = log.block_number,
+                transaction_hash = ?log.transaction_hash,
+                "dispatching proposal log to derivation pipeline"
+            );
+            // Retry proposal processing on transient errors.
+            let retry_strategy =
+                ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+
+            let router = router.clone();
+            let proposal_log = log.clone();
+            let outcomes = Retry::spawn(retry_strategy, move || {
+                let router = router.clone();
+                let log = proposal_log.clone();
+                async move {
+                    router
+                        // Lock router so L1 proposals and preconf inputs cannot interleave.
+                        .lock()
+                        .await
+                        .produce(ProductionInput::L1ProposalLog(log.clone()))
+                        .await
+                        .map_err(|err| {
+                            warn!(
+                                ?err,
+                                tx_hash = ?log.transaction_hash,
+                                block_number = log.block_number,
+                                "proposal derivation failed; retrying"
+                            );
+                            err
+                        })
+                }
+            })
+            .await
+            .map_err(|err| match err {
+                DriverError::Sync(sync_err) => sync_err,
+                DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
+                other => SyncError::Other(anyhow!(other)),
+            })?;
+
+            info!(
+                block_count = outcomes.len(),
+                last_block = outcomes.last().map(|outcome| outcome.block_number()),
+                last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
+                "successfully processed proposal into L2 blocks",
+            );
+            counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+        }
+        Ok(())
+    }
+
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
     pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
@@ -61,7 +210,38 @@ where
             .await
             .map_err(|err| SyncError::Other(err.into()))?,
         );
-        Ok(Self { rpc, cfg: cfg.clone(), blob_source })
+        let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
+            let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
+            (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
+        } else {
+            (None, None)
+        };
+        Ok(Self { rpc, cfg: cfg.clone(), blob_source, preconf_tx, preconf_rx })
+    }
+
+    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
+    pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
+        self.preconf_tx.clone()
+    }
+
+    /// Submit a preconfirmation payload and await the processing result.
+    pub async fn submit_preconfirmation_payload(
+        &self,
+        payload: Arc<dyn PreconfPayload + Send + Sync>,
+    ) -> Result<(), DriverError> {
+        let tx = self.preconf_tx.as_ref().ok_or_else(|| {
+            DriverError::Other(anyhow!("preconfirmation is not enabled in driver config"))
+        })?;
+
+        let (resp_tx, resp_rx) = oneshot::channel();
+        tx.send(PreconfJob { payload, respond_to: resp_tx }).await.map_err(|err| {
+            DriverError::Other(anyhow!("failed to enqueue preconfirmation: {err}"))
+        })?;
+
+        resp_rx.await.map_err(|err| {
+            DriverError::Other(anyhow!("preconfirmation response dropped: {err}"))
+        })??;
+        Ok(())
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -240,11 +420,8 @@ where
             initial_proposal_id,
         )
         .await?;
-        let derivation: Arc<
-            dyn DerivationPipeline<
-                Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
-            >,
-        > = Arc::new(derivation_pipeline);
+        let derivation = Arc::new(derivation_pipeline);
+        let router = self.build_router(derivation.clone());
 
         let mut scanner = self
             .cfg
@@ -268,6 +445,11 @@ where
 
         info!("event scanner started; listening for inbox proposals");
 
+        // Spawn preconfirmation ingress loop if enabled.
+        if let Some(rx) = self.preconf_rx.clone() {
+            self.spawn_preconf_ingress(router.clone(), rx);
+        }
+
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
@@ -287,46 +469,7 @@ where
                 }
             };
 
-            debug!(log_batch_size = logs.len(), "processing proposal log batch");
-            for log in logs {
-                debug!(
-                    block_number = log.block_number,
-                    transaction_hash = ?log.transaction_hash,
-                    "dispatching proposal log to derivation pipeline"
-                );
-                let retry_strategy =
-                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
-
-                let derivation = derivation.clone();
-                let rpc = self.rpc.clone();
-                let proposal_log = log.clone();
-                let outcomes = Retry::spawn(retry_strategy, move || {
-                    let derivation = derivation.clone();
-                    let rpc = rpc.clone();
-                    let log = proposal_log.clone();
-                    async move {
-                        derivation.process_proposal(&log, &rpc).await.map_err(|err| {
-                            warn!(
-                                ?err,
-                                tx_hash = ?log.transaction_hash,
-                                block_number = log.block_number,
-                                "proposal derivation failed; retrying"
-                            );
-                            err
-                        })
-                    }
-                })
-                .await?;
-
-                info!(
-                    block_count = outcomes.len(),
-                    last_block = outcomes.last().map(|outcome| outcome.block_number()),
-                    last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
-                    "successfully processed proposal into L2 blocks",
-                );
-                counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL)
-                    .increment(outcomes.len() as u64);
-            }
+            self.process_log_batch(router.clone(), logs).await?;
         }
         Ok(())
     }
