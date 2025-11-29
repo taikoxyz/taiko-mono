@@ -183,7 +183,6 @@ library LibProveInputDecoder {
 
         unchecked {
             // Array lengths: 2 + 2 = 4 bytes (proposals and transitions lengths only)
-            size_ = 4;
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
@@ -196,7 +195,8 @@ library LibProveInputDecoder {
             //
             // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40
             //
-            size_ += _proposals.length * (134 + 134 + 40);
+            // Calculate total size: proposals (134 bytes), transitions (134 bytes), metadata (40 bytes) per entry
+            size_ = 4 + _proposals.length * 308;
         }
     }
 
