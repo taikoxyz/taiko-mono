@@ -28,8 +28,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         public
         pure
     {
-        IInbox.ProveInput memory proveInput =
-            _createSingleProposalInput(proposalId, proposer, timestamp, endBlockNumber, designatedProver);
+        IInbox.ProveInput memory proveInput = _createSingleProposalInput(
+            proposalId, proposer, timestamp, endBlockNumber, designatedProver
+        );
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -47,16 +48,28 @@ contract LibProveInputDecoderFuzzTest is Test {
         assertEq(decoded.proposals[0].timestamp, proveInput.proposals[0].timestamp);
         assertEq(decoded.proposals[0].coreStateHash, proveInput.proposals[0].coreStateHash);
         assertEq(decoded.proposals[0].derivationHash, proveInput.proposals[0].derivationHash);
-        assertEq(decoded.proposals[0].parentProposalHash, proveInput.proposals[0].parentProposalHash);
+        assertEq(
+            decoded.proposals[0].parentProposalHash, proveInput.proposals[0].parentProposalHash
+        );
 
         // Verify transition fields
         assertEq(decoded.transitions[0].proposalHash, proveInput.transitions[0].proposalHash);
-        assertEq(decoded.transitions[0].parentTransitionHash, proveInput.transitions[0].parentTransitionHash);
         assertEq(
-            decoded.transitions[0].checkpoint.blockNumber, proveInput.transitions[0].checkpoint.blockNumber
+            decoded.transitions[0].parentTransitionHash,
+            proveInput.transitions[0].parentTransitionHash
         );
-        assertEq(decoded.transitions[0].checkpoint.blockHash, proveInput.transitions[0].checkpoint.blockHash);
-        assertEq(decoded.transitions[0].checkpoint.stateRoot, proveInput.transitions[0].checkpoint.stateRoot);
+        assertEq(
+            decoded.transitions[0].checkpoint.blockNumber,
+            proveInput.transitions[0].checkpoint.blockNumber
+        );
+        assertEq(
+            decoded.transitions[0].checkpoint.blockHash,
+            proveInput.transitions[0].checkpoint.blockHash
+        );
+        assertEq(
+            decoded.transitions[0].checkpoint.stateRoot,
+            proveInput.transitions[0].checkpoint.stateRoot
+        );
 
         // Verify metadata
         assertEq(decoded.metadata.length, 1);
@@ -109,7 +122,13 @@ contract LibProveInputDecoderFuzzTest is Test {
     }
 
     /// @notice Fuzz test for multiple proposals and transitions
-    function testFuzz_encodeDecodeMultiple(uint8 count, bytes32 parentProposalHashSeed) public pure {
+    function testFuzz_encodeDecodeMultiple(
+        uint8 count,
+        bytes32 parentProposalHashSeed
+    )
+        public
+        pure
+    {
         // Bound count to reasonable values
         count = uint8(bound(count, 1, 20));
 
