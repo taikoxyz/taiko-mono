@@ -67,11 +67,13 @@ where
         match input {
             ProductionInput::Preconfirmation(preconf) => {
                 let payload = preconf.to_execution_payload();
-                let outcome = self
-                    .injector
-                    .apply_execution_payload(&payload, None)
-                    .await
-                    .map_err(|err| DriverError::Other(err.into()))?;
+                let outcome =
+                    self.injector.apply_execution_payload(&payload, None).await.map_err(|err| {
+                        DriverError::PreconfInjectionFailed {
+                            block_number: payload.execution_payload.block_number,
+                            source: err,
+                        }
+                    })?;
                 Ok(vec![outcome])
             }
             ProductionInput::L1ProposalLog(_) => Err(ProductionError::UnsupportedInput {

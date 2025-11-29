@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::sync::SyncError;
+use crate::sync::{SyncError, error::EngineSubmissionError};
 
 /// Convenient result alias for driver operations.
 pub type Result<T> = std::result::Result<T, DriverError>;
@@ -29,6 +29,14 @@ pub enum DriverError {
     /// Engine API returned invalid payload.
     #[error("engine API returned INVALID: {0}")]
     EngineInvalidPayload(String),
+
+    /// Preconfirmation payload injection failed with context.
+    #[error("preconfirmation injection failed for block {block_number}: {source}")]
+    PreconfInjectionFailed {
+        block_number: u64,
+        #[source]
+        source: EngineSubmissionError,
+    },
 
     /// Generic boxed error.
     #[error(transparent)]

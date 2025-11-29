@@ -1,9 +1,6 @@
 //! Event sync logic.
 
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
@@ -21,10 +18,7 @@ use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::{
     spawn,
-    sync::{
-        Mutex as AsyncMutex,
-        mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    },
+    sync::{Mutex as AsyncMutex, mpsc},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -59,10 +53,17 @@ where
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
     /// Optional preconfirmation ingress sender for external producers.
-    preconf_tx: Option<UnboundedSender<Arc<dyn PreconfPayload + Send + Sync>>>,
+    preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
-    preconf_rx: Mutex<Option<UnboundedReceiver<Arc<dyn PreconfPayload + Send + Sync>>>>,
+    preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
 }
+
+/// Maximum number of buffered preconfirmation payloads before backpressure applies.
+const PRECONF_CHANNEL_CAPACITY: usize = 1024;
+
+/// Type aliases for preconfirmation payload channels.
+type PreconfSender = mpsc::Sender<Arc<dyn PreconfPayload + Send + Sync>>;
+type PreconfReceiver = mpsc::Receiver<Arc<dyn PreconfPayload + Send + Sync>>;
 
 impl<P> EventSyncer<P>
 where
@@ -81,10 +82,10 @@ where
             .map_err(|err| SyncError::Other(err.into()))?,
         );
         let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
-            let (tx, rx) = unbounded_channel();
-            (Some(tx), Mutex::new(Some(rx)))
+            let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
+            (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
         } else {
-            (None, Mutex::new(None))
+            (None, None)
         };
         Ok(Self { rpc, cfg: cfg.clone(), blob_source, preconf_tx, preconf_rx })
     }
@@ -92,7 +93,7 @@ where
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
     pub fn preconfirmation_sender(
         &self,
-    ) -> Option<UnboundedSender<Arc<dyn PreconfPayload + Send + Sync>>> {
+    ) -> Option<mpsc::Sender<Arc<dyn PreconfPayload + Send + Sync>>> {
         self.preconf_tx.clone()
     }
 
@@ -312,11 +313,10 @@ where
         info!("event scanner started; listening for inbox proposals");
 
         // Spawn preconfirmation ingress loop if enabled.
-        if self.cfg.preconfirmation_enabled &&
-            let Some(mut rx) = self.preconf_rx.lock().ok().and_then(|mut guard| guard.take())
-        {
+        if let Some(rx) = self.preconf_rx.clone() {
             let router = router.clone();
             spawn(async move {
+                let mut rx = rx.lock().await;
                 while let Some(payload) = rx.recv().await {
                     if let Err(err) = router
                         // Lock router so L1 proposals and preconf inputs cannot interleave.
@@ -325,6 +325,7 @@ where
                         .produce(ProductionInput::Preconfirmation(payload.clone()))
                         .await
                     {
+                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
                         error!(?err, "preconfirmation processing failed");
                     }
                 }
