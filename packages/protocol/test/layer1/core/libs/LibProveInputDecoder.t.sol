@@ -19,7 +19,7 @@ contract LibProveInputDecoderTest is Test {
             proposer: address(0x1234),
             coreStateHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(0xAABB))
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
@@ -87,7 +87,7 @@ contract LibProveInputDecoderTest is Test {
             proposer: address(0x1111),
             coreStateHash: bytes32(uint256(11)),
             derivationHash: bytes32(uint256(12)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(0xCCDD01))
         });
         proposals[1] = IInbox.Proposal({
             id: 2,
@@ -96,7 +96,7 @@ contract LibProveInputDecoderTest is Test {
             proposer: address(0x2222),
             coreStateHash: bytes32(uint256(21)),
             derivationHash: bytes32(uint256(22)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(0xCCDD02))
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
@@ -177,7 +177,7 @@ contract LibProveInputDecoderTest is Test {
             proposer: address(0x1234),
             coreStateHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(0xEEFF))
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
