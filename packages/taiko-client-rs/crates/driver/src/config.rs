@@ -19,7 +19,7 @@ pub struct DriverConfig {
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
     /// Enable preconfirmation handling (disabled by default).
-    /// NOTE: will be changed to decided by flag in future.
+    /// NOTE: will be changed to be decided by flag in future.
     pub preconfirmation_enabled: bool,
 }
 

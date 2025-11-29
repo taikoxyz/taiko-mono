@@ -27,7 +27,7 @@ pub trait BlockProductionPath: Send + Sync {
     /// Turn the given production input into one or more execution engine blocks.
     async fn produce(
         &self,
-        input: ProductionInput<'_>,
+        input: ProductionInput,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError>;
 }
@@ -63,7 +63,7 @@ where
     /// Produce blocks by injecting the preconfirmation payloads.
     async fn produce(
         &self,
-        input: ProductionInput<'_>,
+        input: ProductionInput,
         _applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
@@ -114,13 +114,13 @@ where
 
     async fn produce(
         &self,
-        input: ProductionInput<'_>,
+        input: ProductionInput,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::L1ProposalLog(log) => self
                 .derivation
-                .process_proposal(log, applier)
+                .process_proposal(&log, applier)
                 .await
                 .map_err(SyncError::from)
                 .map_err(DriverError::from),
@@ -247,7 +247,7 @@ mod tests {
 
         async fn produce(
             &self,
-            _input: ProductionInput<'_>,
+            _input: ProductionInput,
             _applier: &(dyn PayloadApplier + Send + Sync),
         ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
             let mut guard = self.calls.lock().unwrap();
@@ -267,7 +267,7 @@ mod tests {
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(router.produce(ProductionInput::L1ProposalLog(&log), &applier))
+            .block_on(router.produce(ProductionInput::L1ProposalLog(log), &applier))
             .expect("router should route to canonical path");
 
         assert_eq!(canonical.calls(), 1);
@@ -278,12 +278,12 @@ mod tests {
     fn router_routes_preconf_to_preconf_path() {
         let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
         let router = crate::production::ProductionRouter::new(vec![preconf.clone()]);
-        let payload = DummyPreconfPayload::default();
+        let payload = Arc::new(DummyPreconfPayload::default());
         let applier = NullApplier::default();
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(router.produce(ProductionInput::Preconfirmation(&payload), &applier))
+            .block_on(router.produce(ProductionInput::Preconfirmation(payload), &applier))
             .expect("router should route to preconfirmation path");
 
         assert_eq!(preconf.calls(), 1);
@@ -294,12 +294,12 @@ mod tests {
     fn preconfirmation_path_delegates_to_injector() {
         let injector = MockInjector::default();
         let path = PreconfirmationPath::new(injector.clone());
-        let payload = DummyPreconfPayload::default();
+        let payload = Arc::new(DummyPreconfPayload::default());
         let applier = NullApplier::default();
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(path.produce(ProductionInput::Preconfirmation(&payload), &applier))
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload), &applier))
             .expect("preconfirmation path should succeed");
 
         assert_eq!(injector.calls(), 1);

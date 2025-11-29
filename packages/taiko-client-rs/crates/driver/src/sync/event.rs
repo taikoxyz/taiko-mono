@@ -319,7 +319,7 @@ where
             spawn(async move {
                 while let Some(payload) = rx.recv().await {
                     if let Err(err) = router
-                        .produce(ProductionInput::Preconfirmation(payload.as_ref()), &rpc)
+                        .produce(ProductionInput::Preconfirmation(payload.clone()), &rpc)
                         .await
                     {
                         warn!(?err, "preconfirmation processing failed");
@@ -365,8 +365,10 @@ where
                     let rpc = rpc.clone();
                     let log = proposal_log.clone();
                     async move {
-                        router.produce(ProductionInput::L1ProposalLog(&log), &rpc).await.map_err(
-                            |err| {
+                        router
+                            .produce(ProductionInput::L1ProposalLog(log.clone()), &rpc)
+                            .await
+                            .map_err(|err| {
                                 warn!(
                                     ?err,
                                     tx_hash = ?log.transaction_hash,
@@ -374,8 +376,7 @@ where
                                     "proposal derivation failed; retrying"
                                 );
                                 err
-                            },
-                        )
+                            })
                     }
                 })
                 .await
