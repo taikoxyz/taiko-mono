@@ -108,10 +108,12 @@ impl<D> BlockProductionPath for CanonicalL1ProductionPath<D>
 where
     D: DerivationPipeline + Send + Sync + ?Sized + 'static,
 {
+    /// Identify this path as canonical L1 events.
     fn kind(&self) -> ProductionPathKind {
         ProductionPathKind::L1Events
     }
 
+    /// Produce blocks by processing L1 proposal logs via the derivation pipeline.
     async fn produce(
         &self,
         input: ProductionInput,
