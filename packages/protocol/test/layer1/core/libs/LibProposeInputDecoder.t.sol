@@ -135,7 +135,7 @@ contract LibProposeInputDecoderTest is Test {
             proposer: address(0x1234),
             coreStateHash: bytes32(uint256(111)),
             derivationHash: bytes32(uint256(222)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(333))
         });
 
         parentProposals[1] = IInbox.Proposal({
@@ -145,7 +145,7 @@ contract LibProposeInputDecoderTest is Test {
             proposer: address(0x5678),
             coreStateHash: bytes32(uint256(333)),
             derivationHash: bytes32(uint256(444)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(555))
         });
 
         IInbox.CoreState memory coreState = IInbox.CoreState({

@@ -719,9 +719,9 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             proposer: Alice,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12),
-            coreStateHash: keccak256("fake"),
-            derivationHash: keccak256("fake"),
-            parentProposalHash: bytes32(0)
+            coreStateHash: keccak256("coreStateHash"),
+            derivationHash: keccak256("derivationHash"),
+            parentProposalHash: keccak256("parentProposalHash")
         });
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
