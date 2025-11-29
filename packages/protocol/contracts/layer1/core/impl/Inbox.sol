@@ -1005,10 +1005,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
-    function _verifyChainHead(Proposal[] memory _parentProposals) private view returns (bytes32 parentProposalHash_) {
+    function _verifyChainHead(Proposal[] memory _parentProposals)
+        private
+        view
+        returns (bytes32 parentProposalHash_)
+    {
         unchecked {
             // First verify parentProposals[0] matches what's stored on-chain
-         parentProposalHash_ =   _checkProposalHash(_parentProposals[0]);
+            parentProposalHash_ = _checkProposalHash(_parentProposals[0]);
 
             // Then verify it's actually the chain head
             uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
