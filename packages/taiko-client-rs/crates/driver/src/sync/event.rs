@@ -34,10 +34,9 @@ use crate::{
     error::DriverError,
     metrics::DriverMetrics,
     production::{
-        BlockProductionPath, PreconfPayload, PreconfirmationPath, ProductionError, ProductionInput,
-        ProductionPathKind, ProductionRouter,
+        BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
+        ProductionInput, ProductionRouter,
     },
-    sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 
 use rpc::{blob::BlobDataSource, client::Client};
@@ -60,53 +59,6 @@ where
     preconf_tx: Option<UnboundedSender<Arc<dyn PreconfPayload + Send + Sync>>>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Mutex<Option<UnboundedReceiver<Arc<dyn PreconfPayload + Send + Sync>>>>,
-}
-
-/// `BlockProductionPath` implementation for canonical L1 proposal logs.
-struct CanonicalL1ProductionPath<D>
-where
-    D: DerivationPipeline + ?Sized,
-{
-    derivation: Arc<D>,
-}
-
-impl<D> CanonicalL1ProductionPath<D>
-where
-    D: DerivationPipeline + ?Sized,
-{
-    fn new(derivation: Arc<D>) -> Self {
-        Self { derivation }
-    }
-}
-
-#[async_trait::async_trait]
-impl<D> BlockProductionPath for CanonicalL1ProductionPath<D>
-where
-    D: DerivationPipeline + Send + Sync + ?Sized + 'static,
-{
-    fn kind(&self) -> ProductionPathKind {
-        ProductionPathKind::L1Events
-    }
-
-    async fn produce(
-        &self,
-        input: ProductionInput<'_>,
-        applier: &(dyn PayloadApplier + Send + Sync),
-    ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-        match input {
-            ProductionInput::L1ProposalLog(log) => self
-                .derivation
-                .process_proposal(log, applier)
-                .await
-                .map_err(SyncError::from)
-                .map_err(DriverError::from),
-            ProductionInput::Preconfirmation(_) => Err(ProductionError::UnsupportedInput {
-                path: ProductionPathKind::L1Events,
-                input: ProductionPathKind::Preconfirmation,
-            }
-            .into()),
-        }
-    }
 }
 
 impl<P> EventSyncer<P>

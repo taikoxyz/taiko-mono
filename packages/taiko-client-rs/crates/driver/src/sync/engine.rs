@@ -84,6 +84,8 @@ impl<P> PayloadApplier for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Submit the provided payload attributes to the execution engine, building canonical L2
+    /// blocks.
     #[instrument(skip(self, payloads))]
     async fn attributes_to_blocks(
         &self,
@@ -144,6 +146,9 @@ impl<P> ExecutionPayloadInjector for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Submit a fully built execution payload to the engine and materialise the corresponding
+    /// block. Implementations should preserve the same engine interaction semantics used by
+    /// [`PayloadApplier`].
     #[instrument(skip(self, payload))]
     async fn apply_execution_payload(
         &self,
@@ -295,6 +300,7 @@ where
     Ok(AppliedPayload { outcome: EngineBlockOutcome { block, payload_id }, payload: payload_input })
 }
 
+/// Derive the Taiko-specific execution data sidecar from the provided execution payload.
 fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {
     let tx_hash =
         ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
@@ -306,6 +312,7 @@ fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDa
     TaikoExecutionDataSidecar { tx_hash, withdrawals_hash, taiko_block: Some(true) }
 }
 
+/// Convert an execution payload envelope into the submission format expected by the engine.
 fn envelope_into_submission(
     envelope: ExecutionPayloadEnvelopeV2,
 ) -> (ExecutionPayloadInputV2, B256, u64) {
