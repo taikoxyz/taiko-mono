@@ -53,9 +53,8 @@ interface IForcedInclusionStore {
     /// @notice Returns the queue pointers for the forced inclusion store.
     /// @return head_ Index of the oldest forced inclusion in the queue.
     /// @return tail_ Index of the next free slot in the queue.
-    /// @return lastProcessedAt_ Timestamp when the last forced inclusion was processed.
     function getForcedInclusionState()
         external
         view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
+        returns (uint48 head_, uint48 tail_);
 }

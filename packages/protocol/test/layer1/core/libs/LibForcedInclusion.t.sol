@@ -48,7 +48,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         external
         view
         override
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+        returns (uint48 head_, uint48 tail_)
     {
         return _store.getForcedInclusionState();
     }
@@ -74,7 +74,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
 
     function isDue(uint16 _delay) external view returns (bool) {
         return _store.isOldestForcedInclusionDue(
-            _store.head, _store.tail, _store.lastProcessedAt, _delay
+            _store.head, _store.tail, _delay
         );
     }
 
@@ -110,9 +110,6 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         _store.head = _newHead;
     }
 
-    function setLastProcessedAt(uint48 _timestamp) external {
-        _store.lastProcessedAt = _timestamp;
-    }
 }
 
 contract LibForcedInclusionTest is Test {
@@ -606,12 +603,10 @@ contract LibForcedInclusionTest is Test {
         harness.save{ value: 2 gwei }(2, 100, _makeRef(1, 1, 0));
 
         harness.setHead(1);
-        harness.setLastProcessedAt(42);
 
-        (uint48 head_, uint48 tail_, uint48 lastProcessed_) = harness.getForcedInclusionState();
+        (uint48 head_, uint48 tail_) = harness.getForcedInclusionState();
         assertEq(head_, 1, "Head should reflect processed entries");
         assertEq(tail_, 2, "Tail should reflect total entries");
-        assertEq(lastProcessed_, 42, "Last processed timestamp should match");
     }
 
     // ---------------------------------------------------------------
