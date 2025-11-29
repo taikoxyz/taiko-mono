@@ -129,7 +129,7 @@ contract LibBondInstructionTest is Test {
             proposer: PROPOSER,
             coreStateHash: bytes32(uint256(0x11)),
             derivationHash: bytes32(uint256(0x22)),
-            parentProposalHash: bytes32(0)
+            parentProposalHash: bytes32(uint256(0x33))
         });
     }
 
