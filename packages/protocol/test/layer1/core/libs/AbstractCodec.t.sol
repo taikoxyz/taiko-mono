@@ -89,7 +89,8 @@ abstract contract AbstractCodecTest is Test {
             endOfSubmissionWindowTimestamp: 2_000_000,
             proposer: address(0x1234567890AbcdEF1234567890aBcdef12345678),
             coreStateHash: bytes32(uint256(0x5555)),
-            derivationHash: bytes32(uint256(0x6666))
+            derivationHash: bytes32(uint256(0x6666)),
+            parentProposalHash: bytes32(uint256(0x7777))
         });
 
         bytes32 hash = codec.hashProposal(testProposal);
@@ -317,7 +318,8 @@ abstract contract AbstractCodecTest is Test {
             endOfSubmissionWindowTimestamp: 2000,
             proposer: address(0x1),
             coreStateHash: bytes32(uint256(0x1)),
-            derivationHash: bytes32(uint256(0x1))
+            derivationHash: bytes32(uint256(0x1)),
+            parentProposalHash: bytes32(uint256(0xaaa1))
         });
 
         IInbox.Proposal memory proposal2 = IInbox.Proposal({
@@ -326,7 +328,8 @@ abstract contract AbstractCodecTest is Test {
             endOfSubmissionWindowTimestamp: 2000,
             proposer: address(0x1),
             coreStateHash: bytes32(uint256(0x1)),
-            derivationHash: bytes32(uint256(0x1))
+            derivationHash: bytes32(uint256(0x1)),
+            parentProposalHash: bytes32(uint256(0xaaa1)) // Same parent
         });
 
         bytes32 hash1 = codec.hashProposal(proposal1);
@@ -389,7 +392,8 @@ abstract contract AbstractCodecTest is Test {
             endOfSubmissionWindowTimestamp: 1_234_777,
             proposer: address(0xBEEF),
             coreStateHash: bytes32(uint256(0x1111)),
-            derivationHash: bytes32(uint256(0x2222))
+            derivationHash: bytes32(uint256(0x2222)),
+            parentProposalHash: bytes32(uint256(0x9999))
         });
 
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
@@ -430,6 +434,7 @@ abstract contract AbstractCodecTest is Test {
         assertEq(decoded.proposals[0].proposer, proposals[0].proposer);
         assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
         assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
+        assertEq(decoded.proposals[0].parentProposalHash, proposals[0].parentProposalHash);
 
         assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
         assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);

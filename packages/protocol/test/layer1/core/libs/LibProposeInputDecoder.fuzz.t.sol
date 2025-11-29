@@ -71,7 +71,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
         address proposer,
         uint48 timestamp,
         bytes32 coreStateHash,
-        bytes32 derivationHash
+        bytes32 derivationHash,
+        bytes32 parentProposalHash
     )
         public
         pure
@@ -83,7 +84,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: coreStateHash,
-            derivationHash: derivationHash
+            derivationHash: derivationHash,
+            parentProposalHash: parentProposalHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -200,7 +202,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
             });
         }
 
@@ -361,7 +364,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i * 10),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
             });
         }
 

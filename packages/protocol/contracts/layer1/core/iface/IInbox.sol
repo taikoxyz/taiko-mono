@@ -85,6 +85,8 @@ interface IInbox {
         bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
+        /// @notice The hash of the parent proposal
+        bytes32 parentProposalHash;
     }
 
     /// @notice Represents a transition about the state transition of a proposal.

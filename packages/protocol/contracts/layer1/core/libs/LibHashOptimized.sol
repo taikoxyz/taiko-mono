@@ -147,7 +147,8 @@ library LibHashOptimized {
                 packedFields,
                 bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
                 _proposal.coreStateHash,
-                _proposal.derivationHash
+                _proposal.derivationHash,
+                _proposal.parentProposalHash
             );
         }
     }

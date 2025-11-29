@@ -117,7 +117,8 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
             coreStateHash: _codec().hashCoreState(coreState),
-            derivationHash: _codec().hashDerivation(derivation)
+            derivationHash: _codec().hashDerivation(derivation),
+            parentProposalHash: bytes32(0)
         });
     }
 
@@ -215,6 +216,9 @@ abstract contract InboxTestHelper is CommonTest {
         });
 
         // Build the expected proposal
+        // Get the parent proposal hash from the inbox (the proposal at id - 1)
+        bytes32 parentProposalHash = inbox.getProposalHash(_proposalId - 1);
+
         IInbox.Proposal memory expectedProposal = IInbox.Proposal({
             id: _proposalId,
             proposer: _currentProposer,
@@ -222,7 +226,8 @@ abstract contract InboxTestHelper is CommonTest {
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
             // endOfSubmissionWindowTimestamp
             coreStateHash: _codec().hashCoreState(expectedCoreState),
-            derivationHash: _codec().hashDerivation(expectedDerivation)
+            derivationHash: _codec().hashDerivation(expectedDerivation),
+            parentProposalHash: parentProposalHash
         });
 
         return IInbox.ProposedEventPayload({

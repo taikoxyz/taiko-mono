@@ -156,6 +156,7 @@ library LibProposeInputDecoder {
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
     }
 
     /// @notice Encode a single TransitionRecord
@@ -208,6 +209,7 @@ library LibProposeInputDecoder {
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Decode a single TransitionRecord
@@ -279,8 +281,8 @@ library LibProposeInputDecoder {
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + timestamp(6) +
             // endOfSubmissionWindowTimestamp(6) + proposer(20) + coreStateHash(32) +
-            // derivationHash(32) = 102
-            size_ += _proposals.length * 102;
+            // derivationHash(32) + parentProposalHash(32) = 134
+            size_ += _proposals.length * 134;
 
             // TransitionRecords - each has fixed size + variable bond instructions
             // Fixed: array length(2) + transitionHash(32) + checkpointHash(32) = 66

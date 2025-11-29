@@ -96,6 +96,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
     }
 
     /// @notice Decode a single Proposal
@@ -110,6 +111,7 @@ library LibProveInputDecoder {
         (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single Transition
@@ -181,12 +183,11 @@ library LibProveInputDecoder {
 
         unchecked {
             // Array lengths: 2 + 2 = 4 bytes (proposals and transitions lengths only)
-            size_ = 4;
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
             // endOfSubmissionWindowTimestamp(6) + coreStateHash(32) +
-            // derivationHash(32) = 102
+            // derivationHash(32) + parentProposalHash(32) = 134
             //
             // Transitions - each has fixed size (no provers): proposalHash(32) +
             // parentTransitionHash(32) +
@@ -194,7 +195,8 @@ library LibProveInputDecoder {
             //
             // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40
             //
-            size_ += _proposals.length * (102 + 134 + 40);
+            // Calculate total size: proposals (134 bytes), transitions (134 bytes), metadata (40 bytes) per entry
+            size_ = 4 + _proposals.length * 308;
         }
     }
 
