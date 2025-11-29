@@ -21,7 +21,10 @@ use metrics::counter;
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::{
     spawn,
-    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    sync::{
+        Mutex as AsyncMutex,
+        mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    },
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -284,7 +287,7 @@ where
             paths.push(preconf_path);
         }
 
-        let router = ProductionRouter::new(paths);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(paths)));
 
         let mut scanner = self
             .cfg
@@ -315,8 +318,12 @@ where
             let router = router.clone();
             spawn(async move {
                 while let Some(payload) = rx.recv().await {
-                    if let Err(err) =
-                        router.produce(ProductionInput::Preconfirmation(payload.clone())).await
+                    if let Err(err) = router
+                        // Lock router so L1 proposals and preconf inputs cannot interleave.
+                        .lock()
+                        .await
+                        .produce(ProductionInput::Preconfirmation(payload.clone()))
+                        .await
                     {
                         error!(?err, "preconfirmation processing failed");
                     }
@@ -359,8 +366,13 @@ where
                     let router = router.clone();
                     let log = proposal_log.clone();
                     async move {
-                        router.produce(ProductionInput::L1ProposalLog(log.clone())).await.map_err(
-                            |err| {
+                        router
+                            // Lock router so L1 proposals and preconf inputs cannot interleave.
+                            .lock()
+                            .await
+                            .produce(ProductionInput::L1ProposalLog(log.clone()))
+                            .await
+                            .map_err(|err| {
                                 warn!(
                                     ?err,
                                     tx_hash = ?log.transaction_hash,
@@ -368,8 +380,7 @@ where
                                     "proposal derivation failed; retrying"
                                 );
                                 err
-                            },
-                        )
+                            })
                     }
                 })
                 .await
