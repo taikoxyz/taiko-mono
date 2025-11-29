@@ -30,7 +30,7 @@ use tracing::{debug, error, info, instrument, warn};
 use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
     production::{
@@ -269,21 +269,18 @@ where
             initial_proposal_id,
         )
         .await?;
-        let derivation: Arc<
-            dyn DerivationPipeline<
-                Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
-            >,
-        > = Arc::new(derivation_pipeline);
+        let derivation = Arc::new(derivation_pipeline);
+
         let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
-        let canonical_path = Arc::new(CanonicalL1ProductionPath::new(
-            derivation.clone(),
-            Arc::new(self.rpc.clone()),
-        ));
+        let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
+            CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
+        );
         paths.push(canonical_path.clone());
 
         // Preconfirmation path instantiation (not yet routed from the event loop).
         if self.cfg.preconfirmation_enabled {
-            let preconf_path = Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
+                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
             paths.push(preconf_path);
         }
 
@@ -321,7 +318,7 @@ where
                     if let Err(err) =
                         router.produce(ProductionInput::Preconfirmation(payload.clone())).await
                     {
-                        warn!(?err, "preconfirmation processing failed");
+                        error!(?err, "preconfirmation processing failed");
                     }
                 }
             });

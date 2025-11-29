@@ -159,16 +159,13 @@ where
         let block_hash = payload.execution_payload.block_hash;
         let block_number = payload.execution_payload.block_number;
 
-        // No payload id is returned on this path; use a zeroed placeholder for bookkeeping.
-        let payload_id = PayloadId::new([0u8; 8]);
-
         let outcome = submit_payload_to_engine(
             self,
             payload,
             block_hash,
             block_number,
             finalized_block_hash,
-            payload_id,
+            PayloadId::new([0u8; 8]),
         )
         .await?;
 
