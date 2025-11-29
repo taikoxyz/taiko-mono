@@ -44,12 +44,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
         return _store.getForcedInclusions(_start, _maxCount);
     }
 
-    function getForcedInclusionState()
-        external
-        view
-        override
-        returns (uint48 head_, uint48 tail_)
-    {
+    function getForcedInclusionState() external view override returns (uint48 head_, uint48 tail_) {
         return _store.getForcedInclusionState();
     }
 
@@ -73,9 +68,7 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
     }
 
     function isDue(uint16 _delay) external view returns (bool) {
-        return _store.isOldestForcedInclusionDue(
-            _store.head, _store.tail, _delay
-        );
+        return _store.isOldestForcedInclusionDue(_store.head, _store.tail, _delay);
     }
 
     function getCurrentForcedInclusionFee(
@@ -109,7 +102,6 @@ contract LibForcedInclusionHarness is IForcedInclusionStore {
     function setHead(uint48 _newHead) external {
         _store.head = _newHead;
     }
-
 }
 
 contract LibForcedInclusionTest is Test {
@@ -138,7 +130,9 @@ contract LibForcedInclusionTest is Test {
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: _singleHashArray(hashes[0]),
                     offset: ref.offset,
-                    timestamp: beforeCallTimestamp }) }));
+                    timestamp: beforeCallTimestamp
+                })
+            }));
 
         harness.save{ value: expectedFee }(baseFeeInGwei, thresholdInGwei, ref);
 
@@ -359,9 +353,9 @@ contract LibForcedInclusionTest is Test {
             while (harness.tail() - harness.head() < testSizes[i]) {
                 uint64 currentFee =
                     harness.getCurrentForcedInclusionFee(baseFeeInGwei, feeDoubleThreshold);
-                harness.save{
-                    value: uint256(currentFee) * 1 gwei
-                }(baseFeeInGwei, feeDoubleThreshold, ref);
+                harness.save{ value: uint256(currentFee) * 1 gwei }(
+                    baseFeeInGwei, feeDoubleThreshold, ref
+                );
             }
 
             uint64 actualFee =

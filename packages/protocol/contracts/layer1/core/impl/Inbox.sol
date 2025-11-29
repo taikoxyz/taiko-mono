@@ -363,11 +363,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function getForcedInclusionState()
-        external
-        view
-        returns (uint48 head_, uint48 tail_)
-    {
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
@@ -880,7 +876,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _sources Array to populate with derivation sources
     /// @param _head Current queue head position
     /// @param _toProcess Number of inclusions to process
-    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions. `type(uint48).max` if no inclusions were processed
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
+    /// `type(uint48).max` if no inclusions were processed
     /// @return head_ Updated head position
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
@@ -895,7 +892,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (_toProcess == 0) {
             return (type(uint48).max, _head);
         }
-        
+
         // Process inclusions and accumulate fees
         uint256 totalFees;
         unchecked {
