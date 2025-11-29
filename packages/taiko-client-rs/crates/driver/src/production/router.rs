@@ -1,10 +1,7 @@
 //! Router that dispatches production inputs to the appropriate path.
 
 use super::{BlockProductionPath, ProductionError, ProductionInput, ProductionPathKind};
-use crate::{
-    error::DriverError,
-    sync::engine::{EngineBlockOutcome, PayloadApplier},
-};
+use crate::{error::DriverError, sync::engine::EngineBlockOutcome};
 use std::sync::Arc;
 
 /// Routes `ProductionInput` to a compatible `BlockProductionPath`.
@@ -23,7 +20,6 @@ impl ProductionRouter {
     pub async fn produce(
         &self,
         input: ProductionInput,
-        applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         let target_kind = match &input {
             ProductionInput::L1ProposalLog(_) => ProductionPathKind::L1Events,
@@ -31,7 +27,7 @@ impl ProductionRouter {
         };
 
         if let Some(path) = self.paths.iter().find(|path| path.kind() == target_kind) {
-            return path.produce(input, applier).await;
+            return path.produce(input).await;
         }
 
         Err(ProductionError::MissingPath { kind: target_kind }.into())

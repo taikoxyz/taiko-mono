@@ -1,5 +1,7 @@
 //! Production paths that materialise inputs into execution blocks.
 
+use std::sync::Arc;
+
 use super::{ProductionError, ProductionPathKind, kind::ProductionInput};
 use crate::{
     derivation::DerivationPipeline,
@@ -25,11 +27,8 @@ pub trait BlockProductionPath: Send + Sync {
     }
 
     /// Turn the given production input into one or more execution engine blocks.
-    async fn produce(
-        &self,
-        input: ProductionInput,
-        applier: &(dyn PayloadApplier + Send + Sync),
-    ) -> Result<Vec<EngineBlockOutcome>, DriverError>;
+    async fn produce(&self, input: ProductionInput)
+    -> Result<Vec<EngineBlockOutcome>, DriverError>;
 }
 
 /// Path that materialises preconfirmation payloads directly into the execution engine.
@@ -64,7 +63,6 @@ where
     async fn produce(
         &self,
         input: ProductionInput,
-        _applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::Preconfirmation(preconf) => {
@@ -90,7 +88,8 @@ pub struct CanonicalL1ProductionPath<D>
 where
     D: DerivationPipeline + ?Sized,
 {
-    derivation: std::sync::Arc<D>,
+    derivation: Arc<D>,
+    applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 
 impl<D> CanonicalL1ProductionPath<D>
@@ -98,8 +97,8 @@ where
     D: DerivationPipeline + ?Sized,
 {
     /// Construct a new canonical path backed by the provided derivation pipeline.
-    pub fn new(derivation: std::sync::Arc<D>) -> Self {
-        Self { derivation }
+    pub fn new(derivation: Arc<D>, applier: Arc<dyn PayloadApplier + Send + Sync>) -> Self {
+        Self { derivation, applier }
     }
 }
 
@@ -117,12 +116,11 @@ where
     async fn produce(
         &self,
         input: ProductionInput,
-        applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::L1ProposalLog(log) => self
                 .derivation
-                .process_proposal(&log, applier)
+                .process_proposal(&log, self.applier.as_ref())
                 .await
                 .map_err(SyncError::from)
                 .map_err(DriverError::from),
@@ -138,11 +136,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        production::PreconfPayload,
-        sync::{engine::AppliedPayload, error::EngineSubmissionError},
-    };
-    use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
+    use crate::{production::PreconfPayload, sync::error::EngineSubmissionError};
     use alloy::rpc::types::Log;
     use alloy_consensus::TxEnvelope;
     use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
@@ -175,28 +169,6 @@ mod tests {
                 },
                 withdrawals: None,
             }
-        }
-    }
-
-    #[derive(Clone, Default)]
-    struct NullApplier;
-
-    #[async_trait]
-    impl PayloadApplier for NullApplier {
-        async fn attributes_to_blocks(
-            &self,
-            _payloads: &[TaikoPayloadAttributes],
-        ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
-            Ok(Vec::new())
-        }
-
-        async fn apply_payload(
-            &self,
-            _payload: &TaikoPayloadAttributes,
-            _parent_hash: B256,
-            _finalized_block_hash: Option<B256>,
-        ) -> Result<AppliedPayload, EngineSubmissionError> {
-            Err(EngineSubmissionError::MissingParent)
         }
     }
 
@@ -250,7 +222,6 @@ mod tests {
         async fn produce(
             &self,
             _input: ProductionInput,
-            _applier: &(dyn PayloadApplier + Send + Sync),
         ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
             let mut guard = self.calls.lock().unwrap();
             *guard += 1;
@@ -265,11 +236,10 @@ mod tests {
         let canonical = Arc::new(MockPath::new(ProductionPathKind::L1Events));
         let router = crate::production::ProductionRouter::new(vec![canonical.clone()]);
         let log = Log::default();
-        let applier = NullApplier::default();
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(router.produce(ProductionInput::L1ProposalLog(log), &applier))
+            .block_on(router.produce(ProductionInput::L1ProposalLog(log)))
             .expect("router should route to canonical path");
 
         assert_eq!(canonical.calls(), 1);
@@ -281,11 +251,10 @@ mod tests {
         let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
         let router = crate::production::ProductionRouter::new(vec![preconf.clone()]);
         let payload = Arc::new(DummyPreconfPayload::default());
-        let applier = NullApplier::default();
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(router.produce(ProductionInput::Preconfirmation(payload), &applier))
+            .block_on(router.produce(ProductionInput::Preconfirmation(payload)))
             .expect("router should route to preconfirmation path");
 
         assert_eq!(preconf.calls(), 1);
@@ -297,11 +266,10 @@ mod tests {
         let injector = MockInjector::default();
         let path = PreconfirmationPath::new(injector.clone());
         let payload = Arc::new(DummyPreconfPayload::default());
-        let applier = NullApplier::default();
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
-            .block_on(path.produce(ProductionInput::Preconfirmation(payload), &applier))
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
             .expect("preconfirmation path should succeed");
 
         assert_eq!(injector.calls(), 1);

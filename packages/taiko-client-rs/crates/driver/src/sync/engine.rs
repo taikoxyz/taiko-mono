@@ -215,6 +215,8 @@ pub struct AppliedPayload {
     pub payload: ExecutionPayloadInputV2,
 }
 
+/// Submit the provided payload attributes to the execution engine, building canonical L2
+/// blocks.
 #[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<P>(
     rpc: &Client<P>,

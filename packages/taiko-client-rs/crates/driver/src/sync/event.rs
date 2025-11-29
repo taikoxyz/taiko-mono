@@ -275,14 +275,15 @@ where
             >,
         > = Arc::new(derivation_pipeline);
         let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
-        let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> =
-            Arc::new(CanonicalL1ProductionPath::new(derivation.clone()));
+        let canonical_path = Arc::new(CanonicalL1ProductionPath::new(
+            derivation.clone(),
+            Arc::new(self.rpc.clone()),
+        ));
         paths.push(canonical_path.clone());
 
         // Preconfirmation path instantiation (not yet routed from the event loop).
         if self.cfg.preconfirmation_enabled {
-            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+            let preconf_path = Arc::new(PreconfirmationPath::new(self.rpc.clone()));
             paths.push(preconf_path);
         }
 
@@ -315,12 +316,10 @@ where
             let Some(mut rx) = self.preconf_rx.lock().ok().and_then(|mut guard| guard.take())
         {
             let router = router.clone();
-            let rpc = self.rpc.clone();
             spawn(async move {
                 while let Some(payload) = rx.recv().await {
-                    if let Err(err) = router
-                        .produce(ProductionInput::Preconfirmation(payload.clone()), &rpc)
-                        .await
+                    if let Err(err) =
+                        router.produce(ProductionInput::Preconfirmation(payload.clone())).await
                     {
                         warn!(?err, "preconfirmation processing failed");
                     }
@@ -358,17 +357,13 @@ where
                     ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
                 let router = router.clone();
-                let rpc = self.rpc.clone();
                 let proposal_log = log.clone();
                 let outcomes = Retry::spawn(retry_strategy, move || {
                     let router = router.clone();
-                    let rpc = rpc.clone();
                     let log = proposal_log.clone();
                     async move {
-                        router
-                            .produce(ProductionInput::L1ProposalLog(log.clone()), &rpc)
-                            .await
-                            .map_err(|err| {
+                        router.produce(ProductionInput::L1ProposalLog(log.clone())).await.map_err(
+                            |err| {
                                 warn!(
                                     ?err,
                                     tx_hash = ?log.transaction_hash,
@@ -376,7 +371,8 @@ where
                                     "proposal derivation failed; retrying"
                                 );
                                 err
-                            })
+                            },
+                        )
                     }
                 })
                 .await
