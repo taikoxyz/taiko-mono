@@ -25,8 +25,6 @@ interface IInbox {
         uint48 provingWindow;
         /// @notice The extended proving window in seconds
         uint48 extendedProvingWindow;
-        /// @notice The maximum number of finalized proposals in one block
-        uint256 maxFinalizationCount;
         /// @notice The finalization grace period in seconds
         uint48 finalizationGracePeriod;
         /// @notice The ring buffer size for storing proposal hashes
@@ -132,6 +130,8 @@ interface IInbox {
         uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last proposal was finalized.
+        uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
@@ -145,16 +145,8 @@ interface IInbox {
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
         uint48 deadline;
-        /// @notice The current core state before this proposal.
-        CoreState coreState;
-        /// @notice Array of existing proposals for validation (1-2 elements).
-        Proposal[] parentProposals;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
-        /// @notice Array of transition records for finalization.
-        TransitionRecord[] transitionRecords;
-        /// @notice The checkpoint for finalization.
-        ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
@@ -170,6 +162,8 @@ interface IInbox {
         /// @notice Array of metadata for prover information.
         /// @dev Must have same length as transitions array.
         TransitionMetadata[] metadata;
+        /// @notice The checkpoint corresponding to the last transition in the batch.
+        ICheckpointStore.Checkpoint checkpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -180,8 +174,6 @@ interface IInbox {
         Derivation derivation;
         /// @notice The core state after the proposal.
         CoreState coreState;
-        /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -194,6 +186,8 @@ interface IInbox {
         TransitionRecord transitionRecord;
         /// @notice The metadata containing prover information.
         TransitionMetadata metadata;
+        /// @notice The core state after finalization of this proof.
+        CoreState coreState;
     }
 
     // ---------------------------------------------------------------
@@ -232,21 +226,10 @@ interface IInbox {
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 
-    /// @notice Returns the transition record hash for a given proposal ID and parent transition
-    /// hash.
-    /// @param _proposalId The proposal ID.
-    /// @param _parentTransitionHash The parent transition hash.
-    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
-    /// @return recordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        external
-        view
-        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
-
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
+
+    /// @notice Returns the current core state snapshot.
+    function getState() external view returns (CoreState memory state_);
 }
