@@ -1,6 +1,9 @@
 //! Event sync logic.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
@@ -14,7 +17,7 @@ use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
-use metrics::counter;
+use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::{
     spawn,
@@ -105,34 +108,53 @@ where
         rx: Arc<AsyncMutex<PreconfReceiver>>,
     ) {
         spawn(async move {
+            // Start consuming externally supplied preconfirmation payloads.
+            info!(
+                queue_capacity = PRECONF_CHANNEL_CAPACITY,
+                "started preconfirmation ingress loop"
+            );
             let mut rx = rx.lock().await;
             while let Some(payload) = rx.recv().await {
-                let backoff =
-                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+                // Track current backlog before processing this job.
+                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                 let router = router.clone();
                 let job = payload;
+                let start = Instant::now();
+                let block_number = job.payload.execution_payload().execution_payload.block_number;
+                let block_hash = job.payload.execution_payload().execution_payload.block_hash;
 
-                let result = Retry::spawn(backoff, move || {
-                    let router = router.clone();
-                    let payload = job.payload.clone();
-                    async move {
-                        router
-                            // Lock router so L1 proposals and preconf inputs cannot interleave.
-                            .lock()
-                            .await
-                            .produce(ProductionInput::Preconfirmation(payload.clone()))
-                            .await
-                    }
-                })
-                .await;
+                // Single-shot injection; serialise via router lock to avoid interleaving.
+                let router_call = router
+                    .lock()
+                    .await
+                    .produce(ProductionInput::Preconfirmation(job.payload.clone()))
+                    .await;
 
-                match result {
+                let duration_secs = start.elapsed().as_secs_f64();
+                histogram!(DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS).record(duration_secs);
+
+                match router_call {
                     Ok(_) => {
+                        counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
+                        info!(
+                            block_number,
+                            block_hash = ?block_hash,
+                            duration_secs,
+                            "preconfirmation payload injected"
+                        );
+                        // Return success to the original sender.
                         let _ = job.respond_to.send(Ok(()));
                     }
                     Err(err) => {
                         counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
-                        error!(?err, "preconfirmation processing failed after retries");
+                        error!(
+                            ?err,
+                            block_number,
+                            block_hash = ?block_hash,
+                            duration_secs,
+                            "preconfirmation processing failed"
+                        );
+                        // Surface the error to the original sender.
                         let _ = job.respond_to.send(Err(err));
                     }
                 }
