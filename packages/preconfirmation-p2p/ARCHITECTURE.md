@@ -18,14 +18,15 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
 
 - **libp2p** (0.56.x): transport, gossipsub, request/response, ping, identify, allow/block list,
   connection limits.
-- **reth-discv5** (behind feature `reth-discovery`): wraps `discv5` for discovery so we reuse
-  upstream maintenance instead of hand-rolling UDP/ENR wiring.
-- **Kona presets** (feature `kona-presets`): optionally import gossipsub mesh/score parameter
-  presets from `kona-gossip`/`kona-peers` instead of local defaults.
+- **reth-discv5** (tag `v1.9.3`, behind feature `reth-discovery`): wraps `discv5` for discovery so
+  we reuse upstream maintenance instead of hand-rolling UDP/ENR wiring.
+- **Kona presets** (feature `kona-presets`, tag `kona-client/v1.2.4`): optionally import gossipsub
+  mesh/score parameter presets from `kona-gossip`/`kona-peers` instead of local defaults.
 - **reth peers** (feature `reth-peers`): optional adapter that stores reputation keyed by reth
   PeerId and mirrors bans back to libp2p; scoring deltas remain local.
-- **Kona gater** (feature `kona-gater`): optional connection gater reuse from `kona-gossip` to
-  apply Kona's rate limits and block/allow checks before dialing and when banning peers.
+- **Kona gater** (feature `kona-gater`, tag `kona-client/v1.2.4`): optional connection gater reuse
+  from `kona-gossip` to apply Kona's rate limits and block/allow checks before dialing and when
+  banning peers.
 
 ## Feature flags
 

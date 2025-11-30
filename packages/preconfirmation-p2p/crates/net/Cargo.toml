@@ -22,17 +22,17 @@ real-transport-test = []
 
 [dependencies]
 anyhow.workspace = true
-async-trait = "0.1"
+async-trait.workspace = true
 discv5.workspace = true
-futures = "0.3"
+futures.workspace = true
 libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "noise", "yamux", "macros", "tokio"] }
-libp2p-allow-block-list = "0.6"
-libp2p-connection-limits = "0.6"
-libp2p-request-response = "0.29"
+libp2p-allow-block-list.workspace = true
+libp2p-connection-limits.workspace = true
+libp2p-request-response.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }
-rand = "0.8"
+rand.workspace = true
 reth-discv5 = { workspace = true, optional = true }
 reth-network-peers = { workspace = true, optional = true }
 secp256k1.workspace = true
@@ -40,17 +40,17 @@ serde.workspace = true
 serde_json.workspace = true
 ssz_rs.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["full"] }
+tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dependencies.kona-gossip]
 optional = true
-path = "/Users/davidcai/Workspace/kona/crates/node/gossip"
+workspace = true
 
 [dependencies.kona-peers]
 optional = true
-path = "/Users/davidcai/Workspace/kona/crates/node/peers"
+workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

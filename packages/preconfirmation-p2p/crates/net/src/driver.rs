@@ -205,17 +205,13 @@ impl NetworkDriver {
                             metrics::counter!("p2p_gossip_valid", "kind" => "commitment")
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
-                            let _ =
-                                self.events_tx.try_send(NetworkEvent::GossipSignedCommitment {
-                                    from: propagation_source,
-                                    msg,
-                                });
+                            let _ = self.events_tx.try_send(NetworkEvent::GossipSignedCommitment {
+                                from: propagation_source,
+                                msg,
+                            });
                         } else {
                             metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "sig").increment(1);
-                            self.apply_reputation(
-                                propagation_source,
-                                PeerAction::GossipInvalid,
-                            );
+                            self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
                             let _ = self.events_tx.try_send(NetworkEvent::Error(
                                 "invalid signed commitment gossip".into(),
                             ));
@@ -242,13 +238,10 @@ impl NetworkDriver {
                             });
                         } else {
                             metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "validation").increment(1);
-                            self.apply_reputation(
-                                propagation_source,
-                                PeerAction::GossipInvalid,
-                            );
-                            let _ = self.events_tx.try_send(NetworkEvent::Error(
-                                "invalid raw txlist gossip".into(),
-                            ));
+                            self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
+                            let _ = self
+                                .events_tx
+                                .try_send(NetworkEvent::Error("invalid raw txlist gossip".into()));
                         }
                     }
                     Err(_) => {
@@ -639,17 +632,15 @@ mod tests {
             libp2p::gossipsub::IdentTopic::new(
                 preconfirmation_types::topic_preconfirmation_commitments(chain_id),
             ),
-            libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(
-                chain_id,
-            )),
+            libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(chain_id)),
         );
         let protocols = crate::codec::Protocols {
             commitments: crate::codec::SszProtocol(
                 preconfirmation_types::protocol_get_commitments_by_number(chain_id),
             ),
-            raw_txlists: crate::codec::SszProtocol(
-                preconfirmation_types::protocol_get_raw_txlist(chain_id),
-            ),
+            raw_txlists: crate::codec::SszProtocol(preconfirmation_types::protocol_get_raw_txlist(
+                chain_id,
+            )),
             head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(chain_id)),
         };
         let behaviour = NetBehaviour::new(keypair.public(), topics.clone(), protocols);

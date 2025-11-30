@@ -120,7 +120,7 @@ fn spawn_reth_discv5(
 
         let cfg = cfg_builder.build();
 
-        let (disc, mut updates) = match RethDiscv5::start(&secret_key, cfg).await {
+        let (disc, mut updates, _node_record) = match RethDiscv5::start(&secret_key, cfg).await {
             Ok(parts) => parts,
             Err(err) => {
                 let _ = tx

@@ -8,7 +8,7 @@ authors = ["Taiko Labs"]
 
 [dependencies]
 anyhow.workspace = true
-futures = "0.3"
+futures.workspace = true
 libp2p.workspace = true
 preconfirmation-net = { path = "../net" }
 preconfirmation-types = { path = "../types" }
@@ -18,6 +18,6 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-clap = { version = "4", features = ["derive", "env"] }
+clap = { workspace = true, features = ["derive", "env"] }
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber.workspace = true

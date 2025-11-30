@@ -13,13 +13,33 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 alloy-primitives = "1.4.1"
 anyhow = "1"
+async-trait = "0.1"
+clap = "4"
 discv5 = "0.10"
-libp2p = { version = "0.56", default-features = false, features = ["tcp", "quic", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay"] }
+futures = "0.3"
+kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
+kona-peers = { git = "https://github.com/op-rs/kona", package = "kona-peers", tag = "kona-client/v1.2.4", default-features = false }
+libp2p = { version = "0.56", default-features = false, features = [
+    "tcp",
+    "quic",
+    "dns",
+    "gossipsub",
+    "request-response",
+    "ping",
+    "identify",
+    "autonat",
+    "relay",
+] }
+libp2p-allow-block-list = "0.6"
+libp2p-connection-limits = "0.6"
+libp2p-request-response = "0.29"
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.15", default-features = false, features = ["http-listener"] }
-# Prefer the local reth checkout to avoid large git fetches; can be overridden to a git ref if needed.
-reth-discv5 = { path = "/Users/davidcai/Workspace/reth/crates/net/discv5" }
-reth-network-peers = { path = "/Users/davidcai/Workspace/reth/crates/net/peers" }
+metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
+    "http-listener",
+] }
+rand = "0.8"
+reth-discv5 = { git = "https://github.com/paradigmxyz/reth", package = "reth-discv5", tag = "v1.9.3" }
+reth-network-peers = { git = "https://github.com/paradigmxyz/reth", package = "reth-network-peers", tag = "v1.9.3" }
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

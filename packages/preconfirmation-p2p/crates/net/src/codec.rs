@@ -30,7 +30,8 @@ pub type RawTxListCodec = SszCodec<
     preconfirmation_types::GetRawTxListRequest,
     preconfirmation_types::GetRawTxListResponse,
 >;
-pub type HeadCodec = SszCodec<preconfirmation_types::GetHeadRequest, preconfirmation_types::PreconfHead>;
+pub type HeadCodec =
+    SszCodec<preconfirmation_types::GetHeadRequest, preconfirmation_types::PreconfHead>;
 
 #[derive(Clone)]
 pub struct Protocols {

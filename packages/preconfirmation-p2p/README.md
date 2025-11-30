@@ -28,11 +28,10 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 
 ## Upstream reuse and compatibility
 
-- Discovery is backed by `reth-discv5` (sigp/discv5 wrapper) behind the `reth-discovery` feature,
-  so we reuse upstream maintenance instead of rolling our own.
-- Direct reuse of Kona/Lighthouse gossipsub/scoring presets is currently blocked by libp2p version
-  mismatches; the `kona-presets` feature remains reserved until we align libp2p versions or add an
-  adapter layer.
+- Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature, so
+  we reuse upstream maintenance instead of rolling our own.
+- Kona gossipsub presets and gater come from `kona-gossip`/`kona-peers` at tag
+  `kona-client/v1.2.4` (feature-gated: `kona-presets`, `kona-gater`).
 - This package is library-only; runnable smoke testing lives in `crates/service/examples/p2p-node.rs`.
 
 ## Reputation & Scoring
