@@ -11,12 +11,20 @@ license = "MIT"
 repository = "https://github.com/taikoxyz/taiko-mono"
 
 [workspace.dependencies]
+# Core / error handling
 alloy-primitives = "1.4.1"
 anyhow = "1"
+thiserror = "2"
+
+# Async / runtime / utilities
+tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
-clap = "4"
-discv5 = "0.10"
 futures = "0.3"
+rand = "0.8"
+clap = "4"
+
+# Networking / P2P
+discv5 = "0.10"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
 kona-peers = { git = "https://github.com/op-rs/kona", package = "kona-peers", tag = "kona-client/v1.2.4", default-features = false }
 libp2p = { version = "0.56", default-features = false, features = [
@@ -33,19 +41,18 @@ libp2p = { version = "0.56", default-features = false, features = [
 libp2p-allow-block-list = "0.6"
 libp2p-connection-limits = "0.6"
 libp2p-request-response = "0.29"
-metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
-    "http-listener",
-] }
-rand = "0.8"
 reth-discv5 = { git = "https://github.com/paradigmxyz/reth", package = "reth-discv5", tag = "v1.9.3" }
 reth-network-peers = { git = "https://github.com/paradigmxyz/reth", package = "reth-network-peers", tag = "v1.9.3" }
+
+# Metrics / observability
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.15", default-features = false, features = ["http-listener"] }
+
+# Crypto / serialization / types
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha3 = "0.10"
 ssz_rs = "0.9"
-thiserror = "2"
-tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

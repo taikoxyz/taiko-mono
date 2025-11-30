@@ -8,10 +8,6 @@ authors = ["Taiko Labs"]
 
 [features]
 default = ["reth-discovery"]
-# Reuse Kona gossipsub mesh/score presets.
-kona-presets = ["dep:kona-gossip", "dep:kona-peers"]
-# Optional: reuse Kona connection gater for dial/ban path.
-kona-gater = ["dep:kona-gossip"]
 # Enable discovery via reth's discv5 wrapper; can be disabled for minimal builds or alternative
 # discovery providers.
 reth-discovery = ["dep:reth-discv5"]
@@ -45,11 +41,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dependencies.kona-gossip]
-optional = true
 workspace = true
 
 [dependencies.kona-peers]
-optional = true
 workspace = true
 
 [dev-dependencies]

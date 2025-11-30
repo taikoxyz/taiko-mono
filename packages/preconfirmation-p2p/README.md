@@ -31,7 +31,7 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 - Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature, so
   we reuse upstream maintenance instead of rolling our own.
 - Kona gossipsub presets and gater come from `kona-gossip`/`kona-peers` at tag
-  `kona-client/v1.2.4` (feature-gated: `kona-presets`, `kona-gater`).
+  `kona-client/v1.2.4`; these features (`kona-presets`, `kona-gater`) are enabled by default.
 - This package is library-only; runnable smoke testing lives in `crates/service/examples/p2p-node.rs`.
 
 ## Reputation & Scoring
@@ -60,9 +60,9 @@ types in `preconfirmation_p2p_types` (e.g., `SignedCommitment`, `RawTxListGossip
 
 Feature switches:
 - `reth-discovery`: use reth-discv5 wrapper for peer discovery (default on in p2p-net).
-- `kona-presets`: pull Kona gossipsub mesh/score presets.
+- `kona-presets`: pull Kona gossipsub mesh/score presets (enabled by default).
 - `kona-gater`: reuse Kona's connection gater (rate limits, block/allow lists) in the dial/ban
-  path; off by default to avoid extra deps.
+  path (enabled by default).
 - `reth-peers`: use reth peer IDs in the reputation backend (scoring still local).
 - `real-transport-test`: the real TCP integration test now runs by default with retries; enable
   this feature only to disable the test in constrained environments.

@@ -1,9 +1,7 @@
 use std::task::{Context, Poll};
 
-#[cfg(feature = "kona-gater")]
-use libp2p::Multiaddr;
 use libp2p::{
-    PeerId,
+    Multiaddr, PeerId,
     futures::StreamExt,
     gossipsub, request_response as rr,
     swarm::{Swarm, SwarmEvent},

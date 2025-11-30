@@ -38,14 +38,11 @@ impl NetBehaviour {
         gossipsub.subscribe(&topics.0).expect("subscribe commitments");
         gossipsub.subscribe(&topics.1).expect("subscribe raw txlists");
 
-        #[cfg(feature = "kona-presets")]
-        {
-            use kona_peers::PeerScoreLevel;
-            let topic_hashes = vec![topics.0.hash().clone(), topics.1.hash().clone()];
-            if let Some(params) = PeerScoreLevel::Light.to_params(topic_hashes, true, 2) {
-                let thresholds = PeerScoreLevel::thresholds();
-                let _ = gossipsub.with_peer_score(params, thresholds);
-            }
+        use kona_peers::PeerScoreLevel;
+        let topic_hashes = vec![topics.0.hash().clone(), topics.1.hash().clone()];
+        if let Some(params) = PeerScoreLevel::Light.to_params(topic_hashes, true, 2) {
+            let thresholds = PeerScoreLevel::thresholds();
+            let _ = gossipsub.with_peer_score(params, thresholds);
         }
 
         let commitments_rr = rr::Behaviour::with_codec(
@@ -81,8 +78,7 @@ impl NetBehaviour {
     }
 }
 
-/// Build a gossipsub config, optionally seeding parameters from Kona presets when the
-/// `kona-presets` feature is enabled.
+/// Build a gossipsub config using Kona presets for mesh sizing.
 fn build_gossipsub_config(_topics: &(IdentTopic, IdentTopic)) -> gossipsub::Config {
     let mut builder_base = gossipsub::ConfigBuilder::default();
     #[allow(unused_mut)]
@@ -90,20 +86,16 @@ fn build_gossipsub_config(_topics: &(IdentTopic, IdentTopic)) -> gossipsub::Conf
         .validation_mode(gossipsub::ValidationMode::Permissive)
         .heartbeat_interval(std::time::Duration::from_secs(1));
 
-    // Reuse Kona mesh/size presets when available, keeping our own libp2p types.
-    #[cfg(feature = "kona-presets")]
-    {
-        use kona_gossip::{
-            DEFAULT_MESH_D, DEFAULT_MESH_DHI, DEFAULT_MESH_DLAZY, DEFAULT_MESH_DLO, MAX_GOSSIP_SIZE,
-        };
+    use kona_gossip::{
+        DEFAULT_MESH_D, DEFAULT_MESH_DHI, DEFAULT_MESH_DLAZY, DEFAULT_MESH_DLO, MAX_GOSSIP_SIZE,
+    };
 
-        builder = builder
-            .mesh_n(DEFAULT_MESH_D)
-            .mesh_n_low(DEFAULT_MESH_DLO)
-            .mesh_n_high(DEFAULT_MESH_DHI)
-            .gossip_lazy(DEFAULT_MESH_DLAZY)
-            .max_transmit_size(MAX_GOSSIP_SIZE);
-    }
+    builder = builder
+        .mesh_n(DEFAULT_MESH_D)
+        .mesh_n_low(DEFAULT_MESH_DLO)
+        .mesh_n_high(DEFAULT_MESH_DHI)
+        .gossip_lazy(DEFAULT_MESH_DLAZY)
+        .max_transmit_size(MAX_GOSSIP_SIZE);
 
     builder.build().expect("gossipsub config")
 }
