@@ -126,6 +126,7 @@ where
         Ok(outcomes)
     }
 
+    /// Submit a single payload to the execution engine while internally managing forkchoice state.
     #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
@@ -165,6 +166,8 @@ where
             block_hash,
             block_number,
             finalized_block_hash,
+            // We keep the payload ID as zeroed since we won't check if it's known by the engine
+            // later.
             PayloadId::new([0u8; 8]),
         )
         .await?;
