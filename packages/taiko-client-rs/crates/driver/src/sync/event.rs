@@ -22,6 +22,7 @@ use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, mpsc, oneshot},
+    time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -43,6 +44,8 @@ use rpc::{blob::BlobDataSource, client::Client};
 
 /// Two Ethereum epochs as a buffer to avoid resuming on a block that can still be reorged.
 const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
+/// Default timeout for preconfirmation payload submission.
+const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(24);
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -251,18 +254,41 @@ where
         &self,
         payload: PreconfPayload,
     ) -> Result<(), DriverError> {
+        self.submit_preconfirmation_payload_with_timeout(
+            payload,
+            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
+        )
+        .await
+    }
+
+    /// Submit a preconfirmation payload with a caller-provided timeout for enqueue + response.
+    pub async fn submit_preconfirmation_payload_with_timeout(
+        &self,
+        payload: PreconfPayload,
+        timeout_duration: Duration,
+    ) -> Result<(), DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or_else(|| {
             DriverError::Other(anyhow!("preconfirmation is not enabled in driver config"))
         })?;
 
+        // Create oneshot channel for receiving the processing result.
         let (resp_tx, resp_rx) = oneshot::channel();
-        tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }).await.map_err(
-            |err| DriverError::Other(anyhow!("failed to enqueue preconfirmation: {err}")),
-        )?;
+        // Enqueue the preconfirmation job with timeout.
+        timeout(
+            timeout_duration,
+            tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }),
+        )
+        .await
+        .map_err(|_| DriverError::PreconfEnqueueTimeout { waited: timeout_duration })?
+        .map_err(|err| DriverError::PreconfEnqueueFailed(err.to_string()))?;
 
-        resp_rx.await.map_err(|err| {
-            DriverError::Other(anyhow!("preconfirmation response dropped: {err}"))
-        })??;
+        // Await the processing result with timeout.
+        timeout(timeout_duration, resp_rx)
+            .await
+            .map_err(|_| DriverError::PreconfResponseTimeout { waited: timeout_duration })?
+            .map_err(|err| {
+                DriverError::Other(anyhow!("preconfirmation response dropped: {err}"))
+            })??;
         Ok(())
     }
 

@@ -38,6 +38,18 @@ pub enum DriverError {
         source: EngineSubmissionError,
     },
 
+    /// Timed out while enqueuing a preconfirmation payload.
+    #[error("preconfirmation enqueue timed out after {waited:?}")]
+    PreconfEnqueueTimeout { waited: std::time::Duration },
+
+    /// Channel send failed when enqueueing a preconfirmation payload.
+    #[error("failed to enqueue preconfirmation: {0}")]
+    PreconfEnqueueFailed(String),
+
+    /// Timed out waiting for a preconfirmation processing response.
+    #[error("preconfirmation result timed out after {waited:?}")]
+    PreconfResponseTimeout { waited: std::time::Duration },
+
     /// Generic boxed error.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
