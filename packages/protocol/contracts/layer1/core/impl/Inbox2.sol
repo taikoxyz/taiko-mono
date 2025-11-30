@@ -31,7 +31,7 @@ import "./Inbox_Layout.sol"; // DO NOT DELETE
 ///      - Bond instruction calculation(but actual funds are managed on L2)
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox2 is IInbox, IForcedInclusionStore, EssentialContract {
+contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
