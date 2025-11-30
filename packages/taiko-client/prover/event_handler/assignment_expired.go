@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -74,7 +73,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 				log.Info(
 					"Valid Shasta proof already on-chain, skip submission",
 					"proposalID", proposalID,
-					"proposalHash", common.Hash(proposalHash),
+					"proposalHash", proposalHash,
 					"blockNumber", record.Transition.Checkpoint.BlockNumber,
 					"blockHash", record.Transition.Checkpoint.BlockHash,
 				)
