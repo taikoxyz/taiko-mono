@@ -228,7 +228,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateProposeInput(input);
 
             // Verify parentProposals[0] is actually the last proposal stored on-chain.
-            _verifyChainHead(input.parentProposals);
+            bytes32 headProposalHash = _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
@@ -274,7 +274,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 coreStateHash: _hashCoreState(coreState),
-                derivationHash: _hashDerivation(derivation)
+                derivationHash: _hashDerivation(derivation),
+                parentProposalHash: headProposalHash
             });
 
             _storeProposalHash(proposal.id, _hashProposal(proposal));
@@ -1004,10 +1005,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
-    function _verifyChainHead(Proposal[] memory _parentProposals) private view {
+    /// @return headProposalHash_ The hash of the head proposal
+    function _verifyChainHead(Proposal[] memory _parentProposals)
+        private
+        view
+        returns (bytes32 headProposalHash_)
+    {
         unchecked {
             // First verify parentProposals[0] matches what's stored on-chain
-            _checkProposalHash(_parentProposals[0]);
+            headProposalHash_ = _checkProposalHash(_parentProposals[0]);
 
             // Then verify it's actually the chain head
             uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;

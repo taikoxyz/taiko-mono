@@ -181,7 +181,8 @@ contract LibProposedEventEncoderGas is Test {
             timestamp: 1_700_000_000,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256("coreState"),
-            derivationHash: keccak256("derivation")
+            derivationHash: keccak256("derivation"),
+            parentProposalHash: keccak256("parentProposalHash")
         });
 
         // Create single DerivationSource for the new sources array structure

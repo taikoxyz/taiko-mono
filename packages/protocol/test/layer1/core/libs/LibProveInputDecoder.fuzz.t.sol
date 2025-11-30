@@ -28,46 +28,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         public
         pure
     {
-        // Derive other values to avoid stack too deep
-        bytes32 coreStateHash = keccak256(abi.encode("core", proposalId));
-        bytes32 derivationHash = keccak256(abi.encode("deriv", proposalId));
-        bytes32 proposalHash = keccak256(abi.encode("proposal", proposalId));
-        bytes32 parentTransitionHash = keccak256(abi.encode("parent", proposalId));
-        bytes32 endBlockHash = keccak256(abi.encode("block", endBlockNumber));
-        bytes32 endStateRoot = keccak256(abi.encode("state", endBlockNumber));
-        uint160 designated = uint160(designatedProver);
-        // avoid overflow
-        address actualProver =
-            designated == type(uint160).max ? address(designated - 1) : address(designated + 1);
-
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = IInbox.Proposal({
-            id: proposalId,
-            proposer: proposer,
-            timestamp: timestamp,
-            endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: coreStateHash,
-            derivationHash: derivationHash
-        });
-
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
-        transitions[0] = IInbox.Transition({
-            proposalHash: proposalHash,
-            parentTransitionHash: parentTransitionHash,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: endBlockNumber, blockHash: endBlockHash, stateRoot: endStateRoot
-            })
-        });
-
-        // Create metadata array
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
-        metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: designatedProver, actualProver: actualProver
-        });
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: proposals, transitions: transitions, metadata: metadata
-        });
+        IInbox.ProveInput memory proveInput = _createSingleProposalInput(
+            proposalId, proposer, timestamp, endBlockNumber, designatedProver
+        );
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -80,29 +43,92 @@ contract LibProveInputDecoderFuzzTest is Test {
         assertEq(decoded.transitions.length, 1);
 
         // Verify proposal fields
-        assertEq(decoded.proposals[0].id, proposals[0].id);
-        assertEq(decoded.proposals[0].proposer, proposals[0].proposer);
-        assertEq(decoded.proposals[0].timestamp, proposals[0].timestamp);
-        assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
-        assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
+        assertEq(decoded.proposals[0].id, proveInput.proposals[0].id);
+        assertEq(decoded.proposals[0].proposer, proveInput.proposals[0].proposer);
+        assertEq(decoded.proposals[0].timestamp, proveInput.proposals[0].timestamp);
+        assertEq(decoded.proposals[0].coreStateHash, proveInput.proposals[0].coreStateHash);
+        assertEq(decoded.proposals[0].derivationHash, proveInput.proposals[0].derivationHash);
+        assertEq(
+            decoded.proposals[0].parentProposalHash, proveInput.proposals[0].parentProposalHash
+        );
 
         // Verify transition fields
-        assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
-        assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
+        assertEq(decoded.transitions[0].proposalHash, proveInput.transitions[0].proposalHash);
         assertEq(
-            decoded.transitions[0].checkpoint.blockNumber, transitions[0].checkpoint.blockNumber
+            decoded.transitions[0].parentTransitionHash,
+            proveInput.transitions[0].parentTransitionHash
         );
-        assertEq(decoded.transitions[0].checkpoint.blockHash, transitions[0].checkpoint.blockHash);
-        assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
+        assertEq(
+            decoded.transitions[0].checkpoint.blockNumber,
+            proveInput.transitions[0].checkpoint.blockNumber
+        );
+        assertEq(
+            decoded.transitions[0].checkpoint.blockHash,
+            proveInput.transitions[0].checkpoint.blockHash
+        );
+        assertEq(
+            decoded.transitions[0].checkpoint.stateRoot,
+            proveInput.transitions[0].checkpoint.stateRoot
+        );
 
         // Verify metadata
         assertEq(decoded.metadata.length, 1);
-        assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver);
-        assertEq(decoded.metadata[0].actualProver, metadata[0].actualProver);
+        assertEq(decoded.metadata[0].designatedProver, proveInput.metadata[0].designatedProver);
+        assertEq(decoded.metadata[0].actualProver, proveInput.metadata[0].actualProver);
+    }
+
+    /// @notice Helper to create single proposal input
+    function _createSingleProposalInput(
+        uint48 proposalId,
+        address proposer,
+        uint48 timestamp,
+        uint48 endBlockNumber,
+        address designatedProver
+    )
+        private
+        pure
+        returns (IInbox.ProveInput memory proveInput)
+    {
+        uint160 designated = uint160(designatedProver);
+        address actualProver =
+            designated == type(uint160).max ? address(designated - 1) : address(designated + 1);
+
+        proveInput.proposals = new IInbox.Proposal[](1);
+        proveInput.proposals[0] = IInbox.Proposal({
+            id: proposalId,
+            proposer: proposer,
+            timestamp: timestamp,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
+            coreStateHash: keccak256(abi.encode("core", proposalId)),
+            derivationHash: keccak256(abi.encode("deriv", proposalId)),
+            parentProposalHash: keccak256(abi.encode("parentProposal", proposalId))
+        });
+
+        proveInput.transitions = new IInbox.Transition[](1);
+        proveInput.transitions[0] = IInbox.Transition({
+            proposalHash: keccak256(abi.encode("proposal", proposalId)),
+            parentTransitionHash: keccak256(abi.encode("parent", proposalId)),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: endBlockNumber,
+                blockHash: keccak256(abi.encode("block", endBlockNumber)),
+                stateRoot: keccak256(abi.encode("state", endBlockNumber))
+            })
+        });
+
+        proveInput.metadata = new IInbox.TransitionMetadata[](1);
+        proveInput.metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: designatedProver, actualProver: actualProver
+        });
     }
 
     /// @notice Fuzz test for multiple proposals and transitions
-    function testFuzz_encodeDecodeMultiple(uint8 count) public pure {
+    function testFuzz_encodeDecodeMultiple(
+        uint8 count,
+        bytes32 parentProposalHashSeed
+    )
+        public
+        pure
+    {
         // Bound count to reasonable values
         count = uint8(bound(count, 1, 20));
 
@@ -116,7 +142,8 @@ contract LibProveInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked(parentProposalHashSeed, i))
             });
 
             transitions[i] = IInbox.Transition({
@@ -198,6 +225,10 @@ contract LibProveInputDecoderFuzzTest is Test {
         public
         pure
     {
+        // Derive parentProposalHash from other fuzz inputs to avoid stack too deep
+        bytes32 parentProposalHash1 = keccak256(abi.encode("parent", id1, proposer1));
+        bytes32 parentProposalHash2 = keccak256(abi.encode("parent", id2, proposer2));
+
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = IInbox.Proposal({
             id: id1,
@@ -205,7 +236,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: timestamp1,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core1")),
-            derivationHash: keccak256(abi.encode("deriv1"))
+            derivationHash: keccak256(abi.encode("deriv1")),
+            parentProposalHash: parentProposalHash1
         });
         proposals[1] = IInbox.Proposal({
             id: id2,
@@ -213,7 +245,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: timestamp2,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core2")),
-            derivationHash: keccak256(abi.encode("deriv2"))
+            derivationHash: keccak256(abi.encode("deriv2")),
+            parentProposalHash: parentProposalHash2
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
@@ -272,7 +305,8 @@ contract LibProveInputDecoderFuzzTest is Test {
             timestamp: type(uint48).max,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: bytes32(type(uint256).max),
-            derivationHash: bytes32(type(uint256).max)
+            derivationHash: bytes32(type(uint256).max),
+            parentProposalHash: bytes32(type(uint256).max)
         });
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
@@ -320,7 +354,8 @@ contract LibProveInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i * 100),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 100 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core", i)),
-                derivationHash: keccak256(abi.encodePacked("deriv", i))
+                derivationHash: keccak256(abi.encodePacked("deriv", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
             });
         }
 
