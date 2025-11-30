@@ -1,0 +1,70 @@
+//! Minimal example showing how to start two P2P services, publish a commitment, and issue a
+//! req/resp query. This is intentionally simple and uses random local TCP ports; it is meant as
+//! scaffolding for higher-level clients (e.g., taiko-client-rs) rather than a production node.
+
+use preconfirmation_service::{NetworkConfig, P2pService};
+use preconfirmation_types::{
+    Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+};
+use tokio::time::{Duration, sleep};
+
+// Helper to build a dummy signed commitment (signature bytes zeroed for demo only).
+fn dummy_commitment() -> SignedCommitment {
+    SignedCommitment {
+        commitment: PreconfCommitment {
+            preconf: Preconfirmation {
+                eop: false,
+                block_number: Uint256::from(1u64),
+                timestamp: Uint256::from(1u64),
+                gas_limit: Uint256::from(1u64),
+                coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                anchor_block_number: Uint256::from(1u64),
+                raw_tx_list_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+                parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+                submission_window_end: Uint256::from(1u64),
+                prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                proposal_id: Uint256::from(1u64),
+            },
+            slasher_address: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+        },
+        signature: Bytes65::try_from(vec![0u8; 65]).unwrap(),
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Two services on random localhost ports.
+    let mut cfg1 = NetworkConfig::default();
+    cfg1.listen_addr.set_port(0);
+    cfg1.enable_discovery = false;
+
+    let cfg2 = cfg1.clone();
+
+    let mut svc1 = P2pService::start(cfg1)?;
+    let mut svc2 = P2pService::start(cfg2)?;
+
+    // Publish a commitment from svc1 (it will also receive it locally).
+    let commit = dummy_commitment();
+    svc1.publish_commitment(commit.clone()).await?;
+
+    // Drive a bit to let gossip propagate.
+    sleep(Duration::from_millis(200)).await;
+
+    // Issue a req/resp from svc1 (no peer specified; driver picks a connected one when available).
+    let _ = svc1.request_commitments(Uint256::from(0u64), 1, None).await;
+
+    // Consume a couple of events just to show flow.
+    for _ in 0..5 {
+        if let Some(ev) = svc2.next_event().await {
+            println!("svc2 event: {ev:?}");
+        }
+        if let Some(ev) = svc1.next_event().await {
+            println!("svc1 event: {ev:?}");
+        }
+        sleep(Duration::from_millis(100)).await;
+    }
+
+    svc1.shutdown().await;
+    svc2.shutdown().await;
+    Ok(())
+}

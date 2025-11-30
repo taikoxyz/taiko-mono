@@ -1,0 +1,56 @@
+[package]
+name = "preconfirmation-net"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+authors = ["Taiko Labs"]
+
+[features]
+default = ["reth-discovery"]
+# Reuse Kona gossipsub mesh/score presets.
+kona-presets = ["dep:kona-gossip", "dep:kona-peers"]
+# Optional: reuse Kona connection gater for dial/ban path.
+kona-gater = ["dep:kona-gossip"]
+# Enable discovery via reth's discv5 wrapper; can be disabled for minimal builds or alternative
+# discovery providers.
+reth-discovery = ["dep:reth-discv5"]
+# Optional: future delegation of peer id/types to reth-network-peers.
+reth-peers = ["dep:reth-network-peers"]
+# Optional: run the real TCP transport integration test.
+real-transport-test = []
+
+[dependencies]
+anyhow.workspace = true
+async-trait = "0.1"
+discv5.workspace = true
+futures = "0.3"
+libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "noise", "yamux", "macros", "tokio"] }
+libp2p-allow-block-list = "0.6"
+libp2p-connection-limits = "0.6"
+libp2p-request-response = "0.29"
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+preconfirmation-types = { path = "../types" }
+rand = "0.8"
+reth-discv5 = { workspace = true, optional = true }
+reth-network-peers = { workspace = true, optional = true }
+secp256k1.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ssz_rs.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dependencies.kona-gossip]
+optional = true
+path = "/Users/davidcai/Workspace/kona/crates/node/gossip"
+
+[dependencies.kona-peers]
+optional = true
+path = "/Users/davidcai/Workspace/kona/crates/node/peers"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
