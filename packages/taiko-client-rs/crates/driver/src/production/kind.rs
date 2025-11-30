@@ -2,6 +2,7 @@
 
 use alloy::rpc::types::Log;
 use alloy_rpc_types_engine::ExecutionPayloadInputV2;
+use std::sync::Arc;
 
 /// Marker for the source of a block-production request.
 ///
@@ -22,8 +23,9 @@ pub enum ProductionPathKind {
 pub enum ProductionInput {
     /// Standard path: an L1 proposal log emitted by the inbox contract.
     L1ProposalLog(Log),
-    /// Preconfirmation path: an externally supplied payload.
-    Preconfirmation(PreconfPayload),
+    /// Preconfirmation path: an externally supplied payload, we use `Arc` to avoid cloning large
+    /// payloads.
+    Preconfirmation(Arc<PreconfPayload>),
 }
 
 /// Concrete preconfirmation payload wrapper used for injection.

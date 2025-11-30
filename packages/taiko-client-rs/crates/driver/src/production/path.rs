@@ -245,7 +245,7 @@ mod tests {
     fn router_routes_preconf_to_preconf_path() {
         let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
         let router = crate::production::ProductionRouter::new(vec![preconf.clone()]);
-        let payload = PreconfPayload::new(sample_payload(0));
+        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
@@ -260,7 +260,7 @@ mod tests {
     fn preconfirmation_path_delegates_to_injector() {
         let injector = MockInjector::default();
         let path = PreconfirmationPath::new(injector.clone());
-        let payload = PreconfPayload::new(sample_payload(0));
+        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt

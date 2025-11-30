@@ -70,7 +70,7 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 
 /// A preconfirmation payload submission job.
 pub struct PreconfJob {
-    payload: PreconfPayload,
+    payload: Arc<PreconfPayload>,
     respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
@@ -256,9 +256,9 @@ where
         })?;
 
         let (resp_tx, resp_rx) = oneshot::channel();
-        tx.send(PreconfJob { payload, respond_to: resp_tx }).await.map_err(|err| {
-            DriverError::Other(anyhow!("failed to enqueue preconfirmation: {err}"))
-        })?;
+        tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }).await.map_err(
+            |err| DriverError::Other(anyhow!("failed to enqueue preconfirmation: {err}")),
+        )?;
 
         resp_rx.await.map_err(|err| {
             DriverError::Other(anyhow!("preconfirmation response dropped: {err}"))
