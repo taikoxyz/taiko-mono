@@ -66,13 +66,11 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::Preconfirmation(preconf) => {
-                let payload = preconf.to_execution_payload();
+                let payload = preconf.execution_payload().clone();
+                let block_number = payload.execution_payload.block_number;
                 let outcome =
                     self.injector.apply_execution_payload(&payload, None).await.map_err(|err| {
-                        DriverError::PreconfInjectionFailed {
-                            block_number: payload.execution_payload.block_number,
-                            source: err,
-                        }
+                        DriverError::PreconfInjectionFailed { block_number, source: err }
                     })?;
                 Ok(vec![outcome])
             }
@@ -147,30 +145,25 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
 
-    #[derive(Default, Debug)]
-    struct DummyPreconfPayload;
-
-    impl PreconfPayload for DummyPreconfPayload {
-        fn to_execution_payload(&self) -> ExecutionPayloadInputV2 {
-            ExecutionPayloadInputV2 {
-                execution_payload: ExecutionPayloadV1 {
-                    parent_hash: B256::ZERO,
-                    fee_recipient: Address::ZERO,
-                    state_root: B256::ZERO,
-                    receipts_root: B256::ZERO,
-                    logs_bloom: Bloom::default(),
-                    prev_randao: B256::ZERO,
-                    block_number: 0,
-                    gas_limit: 0,
-                    gas_used: 0,
-                    timestamp: 0,
-                    extra_data: Bytes::new(),
-                    base_fee_per_gas: U256::ZERO,
-                    block_hash: B256::ZERO,
-                    transactions: Vec::new(),
-                },
-                withdrawals: None,
-            }
+    fn sample_payload(block_number: u64) -> ExecutionPayloadInputV2 {
+        ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::ZERO,
+                fee_recipient: Address::ZERO,
+                state_root: B256::ZERO,
+                receipts_root: B256::ZERO,
+                logs_bloom: Bloom::default(),
+                prev_randao: B256::ZERO,
+                block_number,
+                gas_limit: 0,
+                gas_used: 0,
+                timestamp: 0,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::ZERO,
+                block_hash: B256::ZERO,
+                transactions: Vec::new(),
+            },
+            withdrawals: None,
         }
     }
 
@@ -252,7 +245,7 @@ mod tests {
     fn router_routes_preconf_to_preconf_path() {
         let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
         let router = crate::production::ProductionRouter::new(vec![preconf.clone()]);
-        let payload = Arc::new(DummyPreconfPayload::default());
+        let payload = PreconfPayload::new(sample_payload(0));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
@@ -267,7 +260,7 @@ mod tests {
     fn preconfirmation_path_delegates_to_injector() {
         let injector = MockInjector::default();
         let path = PreconfirmationPath::new(injector.clone());
-        let payload = Arc::new(DummyPreconfPayload::default());
+        let payload = PreconfPayload::new(sample_payload(0));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt

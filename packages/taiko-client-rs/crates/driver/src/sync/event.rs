@@ -67,7 +67,7 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 
 /// A preconfirmation payload submission job.
 pub struct PreconfJob {
-    payload: Arc<dyn PreconfPayload + Send + Sync>,
+    payload: PreconfPayload,
     respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
@@ -227,7 +227,7 @@ where
     /// Submit a preconfirmation payload and await the processing result.
     pub async fn submit_preconfirmation_payload(
         &self,
-        payload: Arc<dyn PreconfPayload + Send + Sync>,
+        payload: PreconfPayload,
     ) -> Result<(), DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or_else(|| {
             DriverError::Other(anyhow!("preconfirmation is not enabled in driver config"))
