@@ -72,8 +72,8 @@ contract SimpleTokenUnlock is EssentialContract {
         address _recipient
     )
         external
-        nonZeroAddr(_recipient)
         nonZeroAddr(_owner)
+        nonZeroAddr(_recipient)
         initializer
     {
         require(_owner != _recipient, INVALID_PARAM());
@@ -97,7 +97,7 @@ contract SimpleTokenUnlock is EssentialContract {
         );
     }
 
-    /// @notice Withdraws tokens by the recipient or owner.
+    /// @notice Withdraws tokens by the recipient.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
     function withdraw(
@@ -105,7 +105,7 @@ contract SimpleTokenUnlock is EssentialContract {
         uint256 _amount
     )
         external
-        onlyRecipientOrOwner
+        onlyRecipient
         nonReentrant
     {
         if (_to == address(0)) _to = recipient;

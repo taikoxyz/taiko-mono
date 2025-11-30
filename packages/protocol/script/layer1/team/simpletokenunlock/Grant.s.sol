@@ -46,7 +46,8 @@ contract GrantSimpleTokenUnlock is Script {
         console2.log("total:", total / 1e18);
 
         vm.startBroadcast();
-        require(tko.balanceOf(msg.sender) >= total, "insufficient TKO balance");
+        address sender = msg.sender; // admin.taiko.eth
+        require(tko.balanceOf(sender) >= total, "insufficient TKO balance");
         for (uint256 i; i < items.length; i++) {
             uint128 grantAmount = uint128(items[i].grantAmount * 1e18);
             tko.approve(items[i].proxy, grantAmount);
