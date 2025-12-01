@@ -883,22 +883,16 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
-                Transition memory lastFinalizedTransition =
-                    _input.transitions[lastFinalizedRecordIdx];
-                _syncCheckpointIfNeeded(
+                Transition memory lastFinalizedTransition =   _input.transitions[lastFinalizedRecordIdx];
+                 coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
+
+                 
+                _syncCheckpoint(
                     _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
                 );
 
-                coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-                if (
-                    coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew
-                        && coreState.lastFinalizedProposalId % 128 == 0
-                ) {
-                    // Send signal to L2 to sync bond instructions
-                    coreState.bondInstructionsHashOld = coreState.bondInstructionsHashNew;
-                }
-            }
+                _sendBondInstructionSignal(coreState);}
 
             return (coreState, bondInstructions_);
         }
@@ -909,7 +903,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @param _checkpoint The checkpoint data to sync.
     /// @param _expectedCheckpointHash The expected hash to validate against.
     /// @param _coreState Core state to update with new checkpoint timestamp.
-    function _syncCheckpointIfNeeded(
+    function _syncCheckpoint(
         ICheckpointStore.Checkpoint memory _checkpoint,
         bytes32 _expectedCheckpointHash,
         CoreState memory _coreState
@@ -931,6 +925,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 CheckpointNotProvided()
             );
         }
+    }
+
+    function _sendBondInstructionSignal(CoreState memory _coreState) private {
+        if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
+        if (_coreState.lastFinalizedProposalId % 128!=0) return;
+            _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
+       
     }
 
     /// @dev Calculates remaining capacity for new proposals
