@@ -23,6 +23,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -53,6 +54,8 @@ func (s *ProposerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
 		nil,
+		flags.BackOffMaxRetries.Value,
+		flags.BackOffRetryInterval.Value,
 	)
 	s.Nil(err)
 	s.s = syncer

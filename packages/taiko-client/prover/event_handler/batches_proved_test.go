@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
@@ -69,6 +70,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		tracker,
 		nil,
 		nil,
+		flags.BackOffMaxRetries.Value,
+		flags.BackOffRetryInterval.Value,
 	)
 	s.Nil(err)
 
