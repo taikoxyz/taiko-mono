@@ -221,6 +221,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 // Validate proposal input data
              require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
         require(input.parentProposals.length > 0, EmptyProposals());
+
+          // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // deplete the ring buffer
         require(block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
         require(
             _hashCoreState(input.coreState) == input.parentProposals[0].coreStateHash,
@@ -228,15 +231,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         );
 
 
-            // Verify parentProposals[0] is actually the last proposal stored on-chain.
+            // Verify parentProposals[0] is the last proposal stored on-chain.
             bytes32 headProposalHash = _verifyHeadProposal(input.parentProposals);
 
-            // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
+            // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
                 _finalize(input);
 
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the ring buffer
+          
             coreState.lastProposalBlockId = uint40(block.number);
 
             // Verify capacity for new proposals
