@@ -784,47 +784,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Emits the Proposed event with stack-optimized approach
-    /// @param _proposal The proposal data
-    /// @param _derivation The derivation data
-    /// @param _coreState The core state data
-    function _emitProposedEvent(
-        Proposal memory _proposal,
-        Derivation memory _derivation,
-        CoreState memory _coreState,
-        LibBonds2.BondInstruction[] memory _bondInstructions
-    )
-        private
-    {
-        ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal,
-            derivation: _derivation,
-            coreState: _coreState,
-            bondInstructions: _bondInstructions
-        });
-        emit Proposed(_encodeProposedEventData(payload));
-    }
 
-    function _emitProvedEvent(
-        uint40 _startProposalId,
-        bytes32 _parentTransitionHash,
-        uint8 _span,
-        uint40 _finalizationDeadline,
-        ICheckpointStore.Checkpoint memory _checkpoint,
-        LibBonds2.BondInstruction[] memory _bondInstructions
-    )
-        private
-    {
-        ProvedEventPayload memory payload = ProvedEventPayload({
-            startProposalId: _startProposalId,
-            parentTransitionHash: _parentTransitionHash,
-            span: _span,
-            finalizationDeadline: _finalizationDeadline,
-            checkpoint: _checkpoint,
-            bondInstructions: _bondInstructions
-        });
-        emit Proved(_encodeProvedEventData(payload));
-    }
 
     /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
     /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
@@ -837,26 +797,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         private
         returns (CoreState memory coreState_, LibBonds2.BondInstruction[] memory bondInstructions_)
     {
-        //       /// @notice Input data for the propose function
-        // struct ProposeInput {
-        //     /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
-        //     uint48 deadline;
-        //     /// @notice The current core state before this proposal.
-        //     CoreState coreState;
-        //     /// @notice Array of existing proposals for validation (1-2 elements).
-        //     Proposal[] parentProposals;
-        //     /// @notice Blob reference for proposal data.
-        //     LibBlobs.BlobReference blobReference;
-        //     /// @notice Array of transition records for finalization.
-        //     Transition[] transitionRecords;
-        //     /// @notice The checkpoint for finalization.
-        //     ICheckpointStore.Checkpoint checkpoint;
-        //     /// @notice The number of forced inclusions that the proposer wants to process.
-        //     /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
-        //     /// that he wants to include.
-        //     uint8 numForcedInclusions;
-        // }
-
         unchecked {
             CoreState memory coreState = _input.coreState;
             uint40 proposalId = coreState.lastFinalizedProposalId + 1;
@@ -945,12 +885,55 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
+// TODO:
     function _sendBondInstructionSignal(CoreState memory _coreState) private {
         if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
         if (_coreState.lastFinalizedProposalId % 128!=0) return;
 
         _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
        
+    }
+
+        /// @dev Emits the Proposed event with stack-optimized approach
+    /// @param _proposal The proposal data
+    /// @param _derivation The derivation data
+    /// @param _coreState The core state data
+    function _emitProposedEvent(
+        Proposal memory _proposal,
+        Derivation memory _derivation,
+        CoreState memory _coreState,
+        LibBonds2.BondInstruction[] memory _bondInstructions
+    )
+        private
+    {
+        ProposedEventPayload memory payload = ProposedEventPayload({
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState,
+            bondInstructions: _bondInstructions
+        });
+        emit Proposed(_encodeProposedEventData(payload));
+    }
+
+    function _emitProvedEvent(
+        uint40 _startProposalId,
+        bytes32 _parentTransitionHash,
+        uint8 _span,
+        uint40 _finalizationDeadline,
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        LibBonds2.BondInstruction[] memory _bondInstructions
+    )
+        private
+    {
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            startProposalId: _startProposalId,
+            parentTransitionHash: _parentTransitionHash,
+            span: _span,
+            finalizationDeadline: _finalizationDeadline,
+            checkpoint: _checkpoint,
+            bondInstructions: _bondInstructions
+        });
+        emit Proved(_encodeProvedEventData(payload));
     }
 
     /// @dev Calculates remaining capacity for new proposals
