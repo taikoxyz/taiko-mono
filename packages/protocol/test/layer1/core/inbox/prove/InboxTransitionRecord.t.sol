@@ -14,7 +14,7 @@ contract InboxTransitionRecord is InboxTestHelper {
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
     bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
-    
+
     // State variable to track last proposal's coreState
     IInbox.CoreState internal lastCoreState;
 
@@ -316,10 +316,10 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Decode and return the actual proposal from the event
         IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
-        
+
         // Store the coreState for consecutive proposals
         lastCoreState = actualPayload.coreState;
-        
+
         return actualPayload.proposal;
     }
 
@@ -337,9 +337,7 @@ contract InboxTransitionRecord is InboxTestHelper {
         // Use the actual coreState from the last proposal
         bytes memory proposeData = _codec()
             .encodeProposeInput(
-                _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), lastCoreState
-                )
+                _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), lastCoreState)
             );
 
         // Record logs to capture the Proposed event
@@ -349,10 +347,10 @@ contract InboxTransitionRecord is InboxTestHelper {
 
         // Decode and return the actual proposal from the event
         IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
-        
+
         // Store the new coreState for the next consecutive proposal
         lastCoreState = actualPayload.coreState;
-        
+
         return actualPayload.proposal;
     }
 

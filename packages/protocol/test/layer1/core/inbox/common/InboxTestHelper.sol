@@ -288,9 +288,7 @@ abstract contract InboxTestHelper is CommonTest {
     {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
-        return _createProposeInputWithCustomParams(
-            _deadline, _createBlobRef(0, 1, 0), coreState
-        );
+        return _createProposeInputWithCustomParams(_deadline, _createBlobRef(0, 1, 0), coreState);
     }
 
     /// @notice Create a proposal input with custom blob configuration
@@ -440,8 +438,6 @@ abstract contract InboxTestHelper is CommonTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        return _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), coreState
-        );
+        return _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), coreState);
     }
 }

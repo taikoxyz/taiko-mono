@@ -101,7 +101,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
         // by checking some basic fields
         assertEq(decoded.deadline, 1_000_000);
         assertEq(decoded.coreState.nextProposalId, 100);
-        
+
         // Silence unused variable warnings
         proposalId;
         proposer;
@@ -250,7 +250,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
         assertEq(
             decoded.transitionRecords.length, transitionCount, "TransitionRecords length mismatch"
         );
-        
+
         // Silence unused variable warnings
         proposalCount;
         proposals;

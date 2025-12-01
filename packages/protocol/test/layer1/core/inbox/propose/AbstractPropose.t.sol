@@ -433,9 +433,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
-        IInbox.ProposeInput memory nextInput = _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), fill.last.coreState
-        );
+        IInbox.ProposeInput memory nextInput =
+            _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), fill.last.coreState);
         bytes memory proposeData = _codec().encodeProposeInput(nextInput);
 
         vm.expectRevert(Inbox.NotEnoughCapacity.selector);
@@ -668,9 +667,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes memory wrongProposeData = _codec()
             .encodeProposeInput(
-                _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), wrongCoreState
-                )
+                _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), wrongCoreState)
             );
 
         // Should revert because parent proposal hash doesn't match
@@ -706,9 +703,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
         bytes memory proposeData = _codec()
             .encodeProposeInput(
-                _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), coreState
-                )
+                _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), coreState)
             );
 
         // Should revert because parent proposal doesn't exist

@@ -277,7 +277,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
             uint48 proposalId = coreState.nextProposalId++;
-            
+
             // Update and store the core state hash AFTER incrementing nextProposalId
             coreStateHash = _hashCoreState(coreState);
 
@@ -1096,12 +1096,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
-        require(
-            _hashCoreState(_input.coreState) == coreStateHash,
-            InvalidState()
-        );
+        require(_hashCoreState(_input.coreState) == coreStateHash, InvalidState());
     }
-
 
     // ---------------------------------------------------------------
     // Errors

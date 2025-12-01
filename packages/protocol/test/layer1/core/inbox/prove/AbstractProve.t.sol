@@ -479,10 +479,10 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
         // Decode and return the actual proposal from the event
         IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
-        
+
         // Store the coreState for consecutive proposals
         lastCoreState = actualPayload.coreState;
-        
+
         return actualPayload.proposal;
     }
 
@@ -521,10 +521,10 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
         // Decode and return the actual proposal from the event
         IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
-        
+
         // Store the new coreState for the next consecutive proposal
         lastCoreState = actualPayload.coreState;
-        
+
         return actualPayload.proposal;
     }
 

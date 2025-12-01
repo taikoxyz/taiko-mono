@@ -157,7 +157,7 @@ contract LibProposeInputDecoderTest is Test {
             }),
             numForcedInclusions: 1
         });
-        
+
         // Silence unused variable warning
         parentProposals;
 

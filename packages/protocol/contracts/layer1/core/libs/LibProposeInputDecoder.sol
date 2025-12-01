@@ -23,9 +23,7 @@ library LibProposeInputDecoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = _calculateProposeDataSize(
-            _input.transitionRecords, _input.checkpoint
-        );
+        uint256 bufferSize = _calculateProposeDataSize(_input.transitionRecords, _input.checkpoint);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)

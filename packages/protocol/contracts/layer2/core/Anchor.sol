@@ -425,7 +425,6 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
     function _validateBlock(BlockParams calldata _blockParams) private {
-
         _blockState.bondInstructionsHash = _processBondInstructions(
             _blockState.bondInstructionsHash,
             _blockParams.bondInstructions,
