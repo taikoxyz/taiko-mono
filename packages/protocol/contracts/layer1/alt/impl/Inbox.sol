@@ -20,7 +20,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
-import "src/layer1/core/impl/Inbox_Layout.sol"; // DO NOT DELETE
+import "src/layer1/alt/impl/Inbox_Layout.sol"; // DO NOT DELETE
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proof verification, and forced inclusion in
