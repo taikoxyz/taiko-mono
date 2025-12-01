@@ -225,13 +225,17 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             require(
                 block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock()
             );
+
+              // Verify parentProposals[0] is the last proposal stored on-chain.
+            bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
+
+            
             require(
-                _hashCoreState(input.coreState) == input.parentProposals[0].coreStateHash,
+                _hashCoreState(input.coreState) == input.headProposalAndProof[0].coreStateHash,
                 InvalidState()
             );
 
-            // Verify parentProposals[0] is the last proposal stored on-chain.
-            bytes32 headProposalHash = _verifyHeadProposal(input.parentProposals);
+          
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds2.BondInstruction[] memory bondInstructions) =
@@ -963,32 +967,32 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// Requires 1 element if next slot empty, 2 if occupied with older proposal
-    /// @param _parentProposals Array of 1-2 proposals to verify chain head
+    /// @param _headProposalAndProof Array of 1-2 proposals to verify chain head
     /// @return headProposalHash_ The hash of the head proposal
-    function _verifyHeadProposal(Proposal[] memory _parentProposals)
+    function _verifyHeadProposal(Proposal[] memory _headProposalAndProof)
         private
         view
         returns (bytes32 headProposalHash_)
     {
         unchecked {
-            require(_parentProposals.length != 0, EmptyProposals());
+            require(_headProposalAndProof.length != 0, EmptyProposals());
             // First verify parentProposals[0] matches what's stored on-chain
-            headProposalHash_ = _checkProposalHash(_parentProposals[0]);
+            headProposalHash_ = _checkProposalHash(_headProposalAndProof[0]);
 
             // Then verify it's actually the chain head
-            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
+            uint256 nextBufferSlot = (_headProposalAndProof[0].id + 1) % _ringBufferSize;
             bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
             if (storedNextProposalHash == bytes32(0)) {
                 // Next slot in the ring buffer is empty, only one proposal expected
-                require(_parentProposals.length == 1, IncorrectProposalCount());
+                require(_headProposalAndProof.length == 1, IncorrectProposalCount());
             } else {
                 // Next slot in the ring buffer is occupied, need to prove it contains a
                 // proposal with a smaller id
-                require(_parentProposals.length == 2, IncorrectProposalCount());
-                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
+                require(_headProposalAndProof.length == 2, IncorrectProposalCount());
+                require(_headProposalAndProof[1].id < _headProposalAndProof[0].id, InvalidLastProposalProof());
                 require(
-                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                    storedNextProposalHash == _hashProposal(_headProposalAndProof[1]),
                     NextProposalHashMismatch()
                 );
             }
