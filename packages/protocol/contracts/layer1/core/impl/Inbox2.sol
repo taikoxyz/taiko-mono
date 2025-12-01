@@ -62,7 +62,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @notice The codec used for encoding and hashing.
     address private immutable _codec;
 
-
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
 
@@ -182,7 +181,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash, ICheckpointStore.Checkpoint memory _checkpoint) external onlyOwner {
+    function activate(
+        bytes32 _lastPacayaBlockHash,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
+        external
+        onlyOwner
+    {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (activationTimestamp == 0) {
             activationTimestamp = uint48(block.timestamp);
@@ -432,7 +437,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     /// @param _checkpoint The checkpoint of the last Pacaya block
-    function _activateInbox(bytes32 _lastPacayaBlockHash, ICheckpointStore.Checkpoint memory _checkpoint) internal {
+    function _activateInbox(
+        bytes32 _lastPacayaBlockHash,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
+        internal
+    {
         Transition memory transitionRecord;
         transitionRecord.endCheckpointHash = _hashCheckpoint(_checkpoint);
 
@@ -462,8 +472,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     function _storeProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
-
-  
 
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
@@ -839,16 +847,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (record.transitionHash == 0) break;
 
                 if (i >= transitionCount) {
-                    require(
-                        currentTimestamp < record.finalizationDeadline,
-                        TransitionNotProvided()
-                    );
+                    require(currentTimestamp < record.finalizationDeadline, TransitionNotProvided());
                     break;
                 }
 
                 require(
-                    _hashTransition(_input.transitions[i])
-                        == record.transitionHash,
+                    _hashTransition(_input.transitions[i]) == record.transitionHash,
                     TransitionHashMismatchWithStorage()
                 );
 

@@ -94,6 +94,7 @@ interface IInbox2 {
         uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
         uint8 span;
     }
+
     /// @notice Metadata about the proving of a transition
     /// @dev Separated from Transition to enable out-of-order proving
     struct ProofMetadata {
