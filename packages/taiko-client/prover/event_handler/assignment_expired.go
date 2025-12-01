@@ -32,16 +32,6 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 ) error {
-	if meta.IsShasta() {
-		log.Info(
-			"Proof assignment window expired",
-			"proposalID", meta.Shasta().GetProposal().Id,
-			"assignedProver", meta.GetProposer(),
-		)
-		go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
-		return nil
-	}
-
 	var (
 		proofStatus *rpc.BatchProofStatus
 		err         error
