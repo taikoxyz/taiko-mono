@@ -298,7 +298,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         unchecked {
             ProveInput[] memory inputs = _decodeProveInput(_data);
             require(inputs.length != 0, EmptyProveInputs());
-                uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
+            uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
             ProveInput memory input;
             uint8 span;
@@ -325,14 +325,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     checkpointHash: _hashCheckpoint(input.checkpoint)
                 });
 
-
                 TransitionRecord storage existing =
                     _transitionMetadataFor(startProposalId, input.parentTransitionHash);
 
                 if (existing.span >= span) continue; // TODO: emit an event?
 
                 bytes26 transitionHash = _hashTransition(transition);
-            
 
                 existing.transitionHash = transitionHash;
                 existing.span = span;
@@ -885,19 +883,22 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
-                Transition memory lastFinalizedTransition =   _input.transitions[lastFinalizedRecordIdx];
+                Transition memory lastFinalizedTransition =
+                    _input.transitions[lastFinalizedRecordIdx];
                 _syncCheckpointIfNeeded(
-                    _input.checkpoint,
-                    lastFinalizedTransition.checkpointHash,
-                    coreState
+                    _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
                 );
 
                 coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-            if (coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew && coreState.lastFinalizedProposalId % 128==0) {
-                // Send signal to L2 to sync bond instructions
-                coreState.bondInstructionsHashOld = coreState.bondInstructionsHashNew;
-            }}
+                if (
+                    coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew
+                        && coreState.lastFinalizedProposalId % 128 == 0
+                ) {
+                    // Send signal to L2 to sync bond instructions
+                    coreState.bondInstructionsHashOld = coreState.bondInstructionsHashNew;
+                }
+            }
 
             return (coreState, bondInstructions_);
         }

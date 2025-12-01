@@ -87,7 +87,7 @@ interface IInbox2 {
         bytes32 parentProposalHash;
     }
 
-   /// @notice Represents a record of a transition with additional metadata.
+    /// @notice Represents a record of a transition with additional metadata.
     struct Transition {
         /// @notice The hash of the bond instructions
         bytes32 bondInstructionsHash;
@@ -114,7 +114,7 @@ interface IInbox2 {
         address actualProver;
     }
 
-     /// @notice Represents the core state of the inbox.
+    /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint40 nextProposalId;

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { IInbox2 } from "../iface/IInbox2.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashSimple2
 /// @notice Simple hashing functions using standard keccak256(abi.encode(...))
