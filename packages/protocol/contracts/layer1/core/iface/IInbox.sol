@@ -25,8 +25,6 @@ interface IInbox {
         uint48 provingWindow;
         /// @notice The extended proving window in seconds
         uint48 extendedProvingWindow;
-        /// @notice The finalization grace period in seconds
-        uint48 finalizationGracePeriod;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
@@ -46,8 +44,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice Version identifier for composite key generation
-        uint16 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation

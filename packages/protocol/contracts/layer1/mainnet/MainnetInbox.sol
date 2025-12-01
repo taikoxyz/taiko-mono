@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
@@ -12,7 +12,7 @@ import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation and efficient hashing.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxOptimized2 {
+contract MainnetInbox is InboxOptimized {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -32,19 +32,18 @@ contract MainnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _codec,
         address _proofVerifier,
-        address _proposerChecker
+        address _proposerChecker,
+        address _codec
     )
-        InboxOptimized2(IInbox.Config({
+        InboxOptimized(IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
-                checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
                 codec: _codec,
+                checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
-                finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
@@ -52,8 +51,7 @@ contract MainnetInbox is InboxOptimized2 {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                permissionlessInclusionMultiplier: 5
             }))
     { }
 

@@ -7,6 +7,7 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
+import { LibHashSimple } from "../libs/LibHashSimple.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -15,7 +16,6 @@ import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 
 import "./Inbox_Layout.sol"; // DO NOT DELETE
 
@@ -80,9 +80,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The extended proving window in seconds.
     uint48 internal immutable _extendedProvingWindow;
 
-    /// @notice The finalization grace period in seconds (kept for config compatibility).
-    uint48 internal immutable _finalizationGracePeriod;
-
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
 
@@ -108,9 +105,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
-
-    /// @notice Version identifier retained for compatibility.
-    uint16 internal immutable _compositeKeyVersion;
 
     /// @notice Checkpoint store responsible for checkpoints
     ICheckpointStore internal immutable _checkpointStore;
@@ -153,7 +147,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _checkpointStore = ICheckpointStore(_config.checkpointStore);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
-        _finalizationGracePeriod = _config.finalizationGracePeriod;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
@@ -162,12 +155,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
-        _compositeKeyVersion = _config.compositeKeyVersion;
-
-        require(
-            _minCheckpointDelay <= _finalizationGracePeriod || _finalizationGracePeriod == 0,
-            InvalidConfig()
-        );
     }
 
     // ---------------------------------------------------------------
@@ -210,6 +197,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = _decodeProposeInput(_data);
             _validateProposeInput(input);
 
+            // TODO: only load the necessary fields
             CoreState memory state = _state;
             require(state.nextProposalId != 0, ActivationRequired());
             // Enforce one propose call per Ethereun block to prevent span attacks that could
@@ -235,7 +223,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Create single proposal with multi-source derivation
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
-
             Derivation memory derivation = Derivation({
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
@@ -286,11 +273,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 aggregatedProvingHash =
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
 
+        _state = newState;
+        record.bondInstructions = bondInstructions;
+
         _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
 
-        _state = newState;
-
-        record.bondInstructions = bondInstructions;
 
         // TODO: Needs attention
         ProvedEventPayload memory payload = ProvedEventPayload({
@@ -365,23 +352,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
-            codec: _codec,
             bondToken: address(_bondToken),
             checkpointStore: address(_checkpointStore),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
-            finalizationGracePeriod: _finalizationGracePeriod,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
+            codec: _codec,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            compositeKeyVersion: _compositeKeyVersion
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 
@@ -408,11 +393,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         CoreState memory state;
         state.nextProposalId = 1;
         state.lastProposalBlockId = 1;
-        state.lastFinalizedProposalId = 0;
         state.lastFinalizedTimestamp = uint48(block.timestamp);
-        state.lastCheckpointTimestamp = 0;
         state.lastFinalizedTransitionHash = _hashTransition(transition);
-        state.bondInstructionsHash = bytes32(0);
 
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(state);
@@ -427,6 +409,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
+    /// @param _stateBefore The state before the proof is processed
+    /// @param _input The input containing the proposals, transitions, and metadata
+    /// @return newState_ The new state after the proof is processed
+    /// @return record_ The transition record containing the span, bond instructions, and hashes
+    /// @return bondInstructions_ The bond instructions for the proof
+    /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
     function _processProof(CoreState memory _stateBefore, ProveInput memory _input)
         private
         returns (
@@ -439,6 +427,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             newState_ = _stateBefore;
 
+            // The expected ID of the first proposal to be proven
             uint48 expectedId = _stateBefore.lastFinalizedProposalId + 1;
             bytes32 parentHash = _stateBefore.lastFinalizedTransitionHash;
             uint48 priorFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
@@ -448,6 +437,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bondInstructions_ = new LibBonds.BondInstruction[](_input.proposals.length);
 
             uint256 count = _input.proposals.length;
+
+            //TODO: Should we keep this restriction of span being a `uint8` now that is  not stored?
+            // Limit the amount of proofs to 255 to avoid span overflow
             require(count <= type(uint8).max, SpanOutOfBounds());
             record_.span = uint8(count);
 
@@ -461,8 +453,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 require(transition.parentTransitionHash == parentHash, InvalidParentTransition());
 
                 uint48 readyTimestamp = _computeReadyTimestamp(proposal.timestamp, priorFinalizedTimestamp);
-                if (i == 0) firstReadyTimestamp_ = readyTimestamp;
+                if (i == 0) {
+                    firstReadyTimestamp_ = readyTimestamp;
+                    // After the first proposal, all subsequent proposals in this batch
+                    // have their parent finalized at block.timestamp
+                    priorFinalizedTimestamp = uint48(block.timestamp);
+                }
 
+                // TODO: The way we are calculating and merging bond instructions seems very wasteful now
                 LibBonds.BondInstruction[] memory instructions =
                     LibBondInstruction.calculateBondInstructions(
                         _provingWindow, _extendedProvingWindow, proposal, _input.metadata[i], readyTimestamp
@@ -477,7 +475,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 }
 
                 parentHash = _hashTransition(transition);
-                priorFinalizedTimestamp = uint48(block.timestamp);
                 ++expectedId;
             }
 
@@ -494,12 +491,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             newState_.lastFinalizedTransitionHash = parentHash;
             newState_.lastFinalizedTimestamp = uint48(block.timestamp);
 
-            bytes32 expectedCheckpointHash =
+            bytes32 checkpointHash =
                 _hashCheckpoint(_input.transitions[_input.transitions.length - 1].checkpoint);
-            _syncCheckpointIfNeeded(_input.checkpoint, expectedCheckpointHash, newState_);
+            _syncCheckpointIfNeeded(_input.checkpoint, checkpointHash, newState_);
 
             record_.transitionHash = parentHash;
-            record_.checkpointHash = expectedCheckpointHash;
+            record_.checkpointHash = checkpointHash;
         }
     }
 
@@ -509,7 +506,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Calculates a ready timestamp for a proposal relative to prior finalization time.
+    /// @dev Calculates the timestamp when a proposal was ready to be proven.
+    /// This is used for bond calculation.
+    /// @param _proposalTimestamp The timestamp of the proposal
+    /// @param _priorFinalizedTimestamp The timestamp of the last finalized proposal
     function _computeReadyTimestamp(uint48 _proposalTimestamp, uint48 _priorFinalizedTimestamp)
         private
         pure
@@ -591,14 +591,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
-        return ICodec(_codec).hashCheckpoint(_checkpoint);
+        return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
     function _hashCoreState(CoreState memory _coreState) internal view virtual returns (bytes32) {
-        return ICodec(_codec).hashCoreState(_coreState);
+        return LibHashSimple.hashCoreState(_coreState);
     }
 
     /// @dev Hashes a Derivation struct.
@@ -610,14 +610,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
-        return ICodec(_codec).hashDerivation(_derivation);
+        return LibHashSimple.hashDerivation(_derivation);
     }
 
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
     function _hashProposal(Proposal memory _proposal) internal view virtual returns (bytes32) {
-        return ICodec(_codec).hashProposal(_proposal);
+        return LibHashSimple.hashProposal(_proposal);
     }
 
     /// @dev Hashes a Transition struct.
@@ -629,7 +629,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
-        return ICodec(_codec).hashTransition(_transition);
+        return LibHashSimple.hashTransition(_transition);
     }
 
     /// @dev Hashes a TransitionRecord struct.
@@ -641,7 +641,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes26)
     {
-        return ICodec(_codec).hashTransitionRecord(_transitionRecord);
+        return LibHashSimple.hashTransitionRecord(_transitionRecord);
     }
 
     /// @dev Hashes an array of Transitions.
@@ -657,7 +657,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
-        return ICodec(_codec).hashTransitionsWithMetadata(_transitions, _metadata);
+        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadata);
     }
 
     // ---------------------------------------------------------------
@@ -819,7 +819,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error EmptyProposals();
     error InconsistentParams();
     error IncorrectProposalCount();
-    error InvalidConfig();
     error InvalidLastPacayaBlockHash();
     error InvalidParentTransition();
     error InvalidProposalId();

@@ -75,14 +75,9 @@ library LibHashOptimized {
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastProposalBlockId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            bytes32(uint256(_coreState.lastCheckpointTimestamp)),
-            _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
-        );
+        // Struct fields are encoded directly to keep compatibility if ordering changes.
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_coreState));
     }
 
     /// @notice Optimized hashing for Derivation structs
@@ -263,32 +258,6 @@ library LibHashOptimized {
             EfficientHashLib.free(buffer);
             return result;
         }
-    }
-
-    // ---------------------------------------------------------------
-    // Utility Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Computes optimized composite key for transition record storage
-    /// @dev Creates unique identifier using efficient hashing
-    /// @param _proposalId The ID of the proposal
-    /// @param _compositeKeyVersion Version identifier for key generation
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
-    function composeTransitionKey(
-        uint48 _proposalId,
-        uint16 _compositeKeyVersion,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)),
-            bytes32(uint256(_compositeKeyVersion)),
-            _parentTransitionHash
-        );
     }
 
     // ---------------------------------------------------------------
