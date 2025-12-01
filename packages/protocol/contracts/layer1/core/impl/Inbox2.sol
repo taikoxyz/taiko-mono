@@ -323,7 +323,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 );
              Transition    memory transition = Transition({
                     bondInstructions: bondInstructions,
-                    endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
+                    checkpointHash: _hashCheckpoint(input.checkpoint)
                 });
 
                 TransitionRecord storage record =
@@ -460,7 +460,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         internal
     {
         Transition memory transitionRecord;
-        transitionRecord.endCheckpointHash = _hashCheckpoint(_checkpoint);
+        transitionRecord.checkpointHash = _hashCheckpoint(_checkpoint);
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -863,7 +863,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
                     _input.checkpoint,
-                    _input.transitions[lastFinalizedRecordIdx].endCheckpointHash,
+                    _input.transitions[lastFinalizedRecordIdx].checkpointHash,
                     coreState
                 );
             }

@@ -111,7 +111,7 @@ interface IInbox2 {
         /// @notice The bond instructions.
         LibBonds2.BondInstruction[] bondInstructions;
         /// @notice The hash of the checkpoint.
-        bytes32 endCheckpointHash;
+        bytes32 checkpointHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -154,7 +154,7 @@ interface IInbox2 {
 
     struct ProveInput {
         Proposal endProposal;
-        ICheckpointStore.Checkpoint endCheckpoint;
+        ICheckpointStore.Checkpoint checkpoint;
         ProposalProofMetadata[] prposalProofMetadatas;
         bytes32 parentTransitionHash;
     }
