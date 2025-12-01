@@ -916,6 +916,15 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     bondInstructions_[k++] = _input.transitionRecords[i].bondInstructions[j];
                 }
                 }
+
+                bytes32 bondInstructionHash = keccak256(abi.encode(bondInstructions_));
+                coreState.bondInstructionsHashNew = keccak256(abi.encode(coreState.bondInstructionsHashNew, bondInstructionHash));
+                
+                if ( coreState.lastFinalizedProposalId % 128 == 0 && coreState.bondInstructionsHashOld !=coreState.bondInstructionsHashNew) {
+                    // Send signal to L2 to sync bond instructions
+                   coreState.bondInstructionsHashOld == coreState.bondInstructionsHashNew; 
+                   
+                }
                
             }
 
