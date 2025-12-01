@@ -66,11 +66,26 @@ pub trait PayloadApplier {
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
+/// Trait that injects already-constructed execution payloads into the engine.
+#[async_trait]
+pub trait ExecutionPayloadInjector {
+    /// Submit a fully built execution payload to the engine and materialise the corresponding
+    /// block. Implementations should preserve the same engine interaction semantics used by
+    /// [`PayloadApplier`].
+    async fn apply_execution_payload(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        finalized_block_hash: Option<B256>,
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError>;
+}
+
 #[async_trait]
 impl<P> PayloadApplier for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Submit the provided payload attributes to the execution engine, building canonical L2
+    /// blocks.
     #[instrument(skip(self, payloads))]
     async fn attributes_to_blocks(
         &self,
@@ -111,6 +126,7 @@ where
         Ok(outcomes)
     }
 
+    /// Submit a single payload to the execution engine while internally managing forkchoice state.
     #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
@@ -126,6 +142,47 @@ where
     }
 }
 
+#[async_trait]
+impl<P> ExecutionPayloadInjector for Client<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Submit a fully built execution payload to the engine and materialise the corresponding
+    /// block. Implementations should preserve the same engine interaction semantics used by
+    /// [`PayloadApplier`].
+    #[instrument(skip(self, payload))]
+    async fn apply_execution_payload(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        finalized_block_hash: Option<B256>,
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
+        let parent_hash = payload.execution_payload.parent_hash;
+        let block_hash = payload.execution_payload.block_hash;
+        let block_number = payload.execution_payload.block_number;
+
+        let outcome = submit_payload_to_engine(
+            self,
+            payload,
+            block_hash,
+            block_number,
+            finalized_block_hash,
+            // We keep the payload ID as zeroed since we won't check if it's known by the engine
+            // later.
+            PayloadId::new([0u8; 8]),
+        )
+        .await?;
+
+        info!(
+            block_number,
+            block_hash = ?block_hash,
+            parent_hash = ?parent_hash,
+            "inserted l2 block via execution payload injector",
+        );
+
+        Ok(outcome)
+    }
+}
+
 /// Description of a payload inserted into the execution engine, including the constructed
 /// execution payload.
 #[derive(Debug, Clone)]
@@ -136,6 +193,8 @@ pub struct AppliedPayload {
     pub payload: ExecutionPayloadInputV2,
 }
 
+/// Submit the provided payload attributes to the execution engine, building canonical L2
+/// blocks.
 #[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<P>(
     rpc: &Client<P>,
@@ -170,20 +229,7 @@ where
     // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
     let envelope = rpc.engine_get_payload_v2(payload_id).await?;
     let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
-    let sidecar = derive_payload_sidecar(&payload_input);
 
-    // Submit the new block to the execution engine and bail out on unrecoverable statuses.
-    let payload_status = rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
-
-    match payload_status.status {
-        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
-        PayloadStatusEnum::Syncing => {
-            return Err(EngineSubmissionError::EngineSyncing(block_number));
-        }
-        PayloadStatusEnum::Invalid { validation_error } => {
-            return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
-        }
-    }
     debug!(
         block_number,
         block_hash = ?block_hash,
@@ -191,36 +237,27 @@ where
         "engine accepted execution payload"
     );
 
-    // If we cannot resolve a finalized block hash, keep the forkchoice-safe/finalized hashes zeroed
-    // instead of failing payload application.
-    let resolved_finalized_hash = finalized_block_hash.unwrap_or(B256::ZERO);
-
-    // Update forkchoice to promote the freshly inserted block as the new head and safe block.
-    let promoted_state = ForkchoiceState {
-        head_block_hash: block_hash,
-        safe_block_hash: resolved_finalized_hash,
-        finalized_block_hash: resolved_finalized_hash,
-    };
-    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
-
-    let block = rpc
-        .l2_provider
-        .get_block_by_number(BlockNumberOrTag::Number(block_number))
-        .await
-        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
-        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))?;
+    let outcome = submit_payload_to_engine(
+        rpc,
+        &payload_input,
+        block_hash,
+        block_number,
+        finalized_block_hash,
+        payload_id,
+    )
+    .await?;
 
     info!(
         block_number,
-        block_hash = ?block.hash(),
-        payload_id = %payload_id,
+        block_hash = ?outcome.block.hash(),
+        payload_id = %outcome.payload_id,
         "inserted l2 block via payload applier",
     );
 
-    Ok(AppliedPayload { outcome: EngineBlockOutcome { block, payload_id }, payload: payload_input })
+    Ok(AppliedPayload { outcome, payload: payload_input })
 }
 
+/// Derive the Taiko-specific execution data sidecar from the provided execution payload.
 fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {
     let tx_hash =
         ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
@@ -232,6 +269,7 @@ fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDa
     TaikoExecutionDataSidecar { tx_hash, withdrawals_hash, taiko_block: Some(true) }
 }
 
+/// Convert an execution payload envelope into the submission format expected by the engine.
 fn envelope_into_submission(
     envelope: ExecutionPayloadEnvelopeV2,
 ) -> (ExecutionPayloadInputV2, B256, u64) {
@@ -250,6 +288,73 @@ fn envelope_into_submission(
             payload.payload_inner.block_number,
         ),
     }
+}
+
+/// Map engine payload status into submission errors, rejecting syncing/invalid statuses.
+fn ensure_valid_payload_status(
+    block_number: u64,
+    status: PayloadStatusEnum,
+) -> Result<(), EngineSubmissionError> {
+    match status {
+        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => Ok(()),
+        PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
+        PayloadStatusEnum::Invalid { validation_error } => {
+            Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
+        }
+    }
+}
+
+/// Build a forkchoice state pointing head/safe/finalized to the provided hashes.
+fn promotion_forkchoice_state(
+    block_hash: B256,
+    finalized_block_hash: Option<B256>,
+) -> ForkchoiceState {
+    let resolved_finalized_hash = finalized_block_hash.unwrap_or(B256::ZERO);
+    ForkchoiceState {
+        head_block_hash: block_hash,
+        safe_block_hash: resolved_finalized_hash,
+        finalized_block_hash: resolved_finalized_hash,
+    }
+}
+
+/// Fetch the inserted block by number and map provider errors into submission errors.
+async fn fetch_block_by_number<P>(
+    rpc: &Client<P>,
+    block_number: u64,
+) -> Result<RpcBlock<TxEnvelope>, EngineSubmissionError>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    rpc.l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))
+}
+
+/// Common flow to submit a payload to the engine, promote forkchoice, and read back the block.
+async fn submit_payload_to_engine<P>(
+    rpc: &Client<P>,
+    payload_input: &ExecutionPayloadInputV2,
+    block_hash: B256,
+    block_number: u64,
+    finalized_block_hash: Option<B256>,
+    payload_id: PayloadId,
+) -> Result<EngineBlockOutcome, EngineSubmissionError>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    let sidecar = derive_payload_sidecar(payload_input);
+    let status = rpc.engine_new_payload_v2(payload_input, &sidecar).await?;
+    ensure_valid_payload_status(block_number, status.status)?;
+
+    let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
+    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+
+    let block = fetch_block_by_number(rpc, block_number).await?;
+
+    Ok(EngineBlockOutcome { block, payload_id })
 }
 
 #[cfg(test)]
