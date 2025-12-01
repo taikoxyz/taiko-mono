@@ -1,14 +1,171 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxDeployer } from "../deployers/InboxDeployer.sol";
-import { AbstractProposeTest } from "./AbstractPropose.t.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { InboxOptimizedBase, InboxSimpleBase, InboxTestBase } from "../common/InboxTestBase.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
-/// @title InboxPropose
-/// @notice Test suite for propose functionality on standard Inbox implementation
-contract InboxPropose is AbstractProposeTest {
-    function setUp() public virtual override {
-        setDeployer(new InboxDeployer());
-        super.setUp();
+abstract contract ProposeTestBase is InboxTestBase {
+    function test_propose_happyPath() public {
+        _setBlobHashes(3);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        IInbox.CoreState memory stateBefore = inbox.getState();
+
+        IInbox.ProposedEventPayload memory expected = _buildExpectedProposedPayload(stateBefore, input);
+
+        IInbox.ProposedEventPayload memory actual = _proposeAndDecode(input);
+        _assertPayloadEqual(actual, expected);
+
+        IInbox.CoreState memory stateAfter = inbox.getState();
+        assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
+        assertEq(inbox.getProposalHash(expected.proposal.id), _hashProposal(expected.proposal), "proposal hash");
+    }
+
+    function test_propose_RevertWhen_DeadlinePassed() public {
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.deadline = uint48(block.timestamp - 1);
+
+        vm.prank(proposer);
+        vm.expectRevert(Inbox.DeadlineExceeded.selector);
+        inbox.propose(bytes(""), _encodeProposeInput(input));
+    }
+
+    function test_propose_RevertWhen_SameBlock() public {
+        _setBlobHashes(2);
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+
+        vm.prank(proposer);
+        inbox.propose(bytes(""), _encodeProposeInput(input));
+
+        vm.prank(proposer);
+        vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
+        inbox.propose(bytes(""), _encodeProposeInput(input));
+    }
+
+    function _buildExpectedProposedPayload(
+        IInbox.CoreState memory _stateBefore,
+        IInbox.ProposeInput memory _input
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
+
+        payload_.derivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: config.basefeeSharingPctg,
+            sources: new IInbox.DerivationSource[](1)
+        });
+        payload_.derivation.sources[0] = IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+
+        payload_.coreState.nextProposalId = _stateBefore.nextProposalId + 1;
+        payload_.coreState.lastProposalBlockId = uint48(block.number);
+        payload_.coreState.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
+        payload_.coreState.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
+        payload_.coreState.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
+        payload_.coreState.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
+        payload_.coreState.bondInstructionsHash = _stateBefore.bondInstructionsHash;
+
+        payload_.proposal = IInbox.Proposal({
+            id: _stateBefore.nextProposalId,
+            timestamp: uint48(block.timestamp),
+            endOfSubmissionWindowTimestamp: 0,
+            proposer: proposer,
+            coreStateHash: bytes32(0),
+            derivationHash: bytes32(0)
+        });
+
+        payload_.proposal.coreStateHash = _hashCoreState(payload_.coreState);
+        payload_.proposal.derivationHash = _hashDerivation(payload_.derivation);
+    }
+
+    function _assertPayloadEqual(
+        IInbox.ProposedEventPayload memory _actual,
+        IInbox.ProposedEventPayload memory _expected
+    )
+        internal
+        view
+    {
+        assertEq(_actual.proposal.id, _expected.proposal.id, "proposal id");
+        assertEq(_actual.proposal.timestamp, _expected.proposal.timestamp, "proposal timestamp");
+        assertEq(
+            _actual.proposal.endOfSubmissionWindowTimestamp,
+            _expected.proposal.endOfSubmissionWindowTimestamp,
+            "proposal deadline"
+        );
+        assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
+        assertEq(_actual.proposal.coreStateHash, _expected.proposal.coreStateHash, "proposal core hash");
+        assertEq(_actual.proposal.derivationHash, _expected.proposal.derivationHash, "proposal derivation hash");
+
+        assertEq(
+            _actual.derivation.originBlockNumber, _expected.derivation.originBlockNumber, "origin block number"
+        );
+        assertEq(_actual.derivation.originBlockHash, _expected.derivation.originBlockHash, "origin block hash");
+        assertEq(
+            _actual.derivation.basefeeSharingPctg, _expected.derivation.basefeeSharingPctg, "basefee sharing"
+        );
+        assertEq(_actual.derivation.sources.length, _expected.derivation.sources.length, "sources length");
+        if (_actual.derivation.sources.length != 0) {
+            assertEq(
+                _actual.derivation.sources[0].isForcedInclusion,
+                _expected.derivation.sources[0].isForcedInclusion,
+                "source forced"
+            );
+            assertEq(
+                _actual.derivation.sources[0].blobSlice.blobHashes,
+                _expected.derivation.sources[0].blobSlice.blobHashes,
+                "blob hashes"
+            );
+            assertEq(
+                _actual.derivation.sources[0].blobSlice.offset,
+                _expected.derivation.sources[0].blobSlice.offset,
+                "blob offset"
+            );
+            assertEq(
+                _actual.derivation.sources[0].blobSlice.timestamp,
+                _expected.derivation.sources[0].blobSlice.timestamp,
+                "blob timestamp"
+            );
+        }
+
+        assertEq(_actual.coreState.nextProposalId, _expected.coreState.nextProposalId, "state nextProposalId");
+        assertEq(_actual.coreState.lastProposalBlockId, _expected.coreState.lastProposalBlockId, "state last block");
+        assertEq(
+            _actual.coreState.lastFinalizedProposalId,
+            _expected.coreState.lastFinalizedProposalId,
+            "state finalized id"
+        );
+        assertEq(
+            _actual.coreState.lastFinalizedTimestamp,
+            _expected.coreState.lastFinalizedTimestamp,
+            "state finalized ts"
+        );
+        assertEq(
+            _actual.coreState.lastCheckpointTimestamp,
+            _expected.coreState.lastCheckpointTimestamp,
+            "state checkpoint ts"
+        );
+        assertEq(
+            _actual.coreState.lastFinalizedTransitionHash,
+            _expected.coreState.lastFinalizedTransitionHash,
+            "state transition hash"
+        );
+        assertEq(
+            _actual.coreState.bondInstructionsHash,
+            _expected.coreState.bondInstructionsHash,
+            "state bond hash"
+        );
+    }
+}
+
+contract InboxProposeTest is ProposeTestBase, InboxSimpleBase { }
+
+contract InboxOptimizedProposeTest is ProposeTestBase, InboxOptimizedBase {
+    function _isOptimized() internal view override(InboxOptimizedBase, InboxTestBase) returns (bool) {
+        return true;
     }
 }
