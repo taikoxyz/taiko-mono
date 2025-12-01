@@ -300,7 +300,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             require(inputs.length != 0, EmptyProveInputs());
 
             ProveInput memory input;
-            Transition memory transition;
             uint8 span;
 
             for (uint256 i; i < inputs.length; ++i) {
@@ -319,10 +318,11 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 uint40 startProposalId = input.endProposal.id - span;
 
-                transition = Transition({
-                    bondInstructions: LibBondInstruction2.calculateBondInstructions(
-                        _provingWindow, _extendedProvingWindow, startProposalId, input.proofMetadatas
-                    ),
+                LibBonds2.BondInstruction[] memory bondInstructions = LibBondInstruction2.calculateBondInstructions(
+                    _provingWindow, _extendedProvingWindow, startProposalId, input.proofMetadatas
+                );
+             Transition    memory transition = Transition({
+                    bondInstructions: bondInstructions,
                     endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
                 });
 
