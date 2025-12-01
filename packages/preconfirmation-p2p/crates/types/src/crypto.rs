@@ -1,4 +1,5 @@
-//! Cryptographic utilities for hashing, signing, and signature recovery within the preconfirmation P2P layer.
+//! Cryptographic utilities for hashing, signing, and signature recovery within the preconfirmation
+//! P2P layer.
 //!
 //! This module provides functions for:
 //! - Keccak-256 hashing of byte arrays and SSZ-serialized values.

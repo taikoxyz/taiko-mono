@@ -37,7 +37,7 @@ impl NetBehaviour {
     ///
     /// * `local_public_key` - The public key of the local peer, used for identification.
     /// * `topics` - A tuple containing the `IdentTopic` for commitments and raw transaction lists,
-    ///              used to subscribe to gossipsub topics.
+    ///   used to subscribe to gossipsub topics.
     /// * `protocols` - The `Protocols` configuration, defining the request-response protocol IDs.
     ///
     /// # Returns

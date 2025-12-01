@@ -22,15 +22,18 @@ pub struct NetworkConfig {
     pub enable_quic: bool,
     /// Enable TCP transport. If true, the network will attempt to use TCP.
     pub enable_tcp: bool,
-    /// Gossipsub heartbeat interval. Determines how often gossipsub peers exchange keep-alive messages.
+    /// Gossipsub heartbeat interval. Determines how often gossipsub peers exchange keep-alive
+    /// messages.
     pub gossipsub_heartbeat: Duration,
     /// Request/response request timeout. How long to wait for a response to a request.
     pub request_timeout: Duration,
     /// Toggle discv5 discovery. If true, discv5 will be used for peer discovery.
     pub enable_discovery: bool,
-    /// Greylist threshold applied by the reputation engine. Peers with scores below this will be greylisted.
+    /// Greylist threshold applied by the reputation engine. Peers with scores below this will be
+    /// greylisted.
     pub reputation_greylist: f64,
-    /// Ban threshold applied by the reputation engine. Peers with scores below this will be banned.
+    /// Ban threshold applied by the reputation engine. Peers with scores below this will be
+    /// banned.
     pub reputation_ban: f64,
     /// Exponential-decay halflife for scores. Determines how quickly peer scores decay over time.
     pub reputation_halflife: Duration,

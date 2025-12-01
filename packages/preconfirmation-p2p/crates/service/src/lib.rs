@@ -221,7 +221,8 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Requests a peer's preconfirmation head using the `get_head` request-response protocol (spec §11).
+    /// Requests a peer's preconfirmation head using the `get_head` request-response protocol (spec
+    /// §11).
     ///
     /// If `peer` is `None`, the network driver selects a suitable peer.
     /// This sends a `RequestHead` command to the network driver.
@@ -287,7 +288,8 @@ impl P2pService {
     ///
     /// # Panics
     ///
-    /// Panics if the events receiver has already been taken (e.g., by a previous call to this method).
+    /// Panics if the events receiver has already been taken (e.g., by a previous call to this
+    /// method).
     ///
     /// # Returns
     ///
@@ -330,7 +332,8 @@ impl P2pService {
         })
     }
 
-    /// Triggers a graceful shutdown of the network driver and waits for its background task to finish.
+    /// Triggers a graceful shutdown of the network driver and waits for its background task to
+    /// finish.
     ///
     /// This method sends a shutdown signal to the driver's task and then awaits
     /// its completion, ensuring all resources are properly released.

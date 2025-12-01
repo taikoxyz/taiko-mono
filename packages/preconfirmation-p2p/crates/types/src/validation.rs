@@ -2,8 +2,10 @@
 //!
 //! This module defines:
 //! - `ValidationError` for issues related to message size, count limits, and invalid parameters.
-//! - `CryptoError` for cryptographic operation failures (e.g., SSZ serialization, signature recovery).
-//! - Functions to validate various P2P messages and parameters against protocol-defined constraints.
+//! - `CryptoError` for cryptographic operation failures (e.g., SSZ serialization, signature
+//!   recovery).
+//! - Functions to validate various P2P messages and parameters against protocol-defined
+//!   constraints.
 
 use thiserror::Error;
 
@@ -20,7 +22,8 @@ pub enum ValidationError {
     /// Indicates that a transaction list is too large, exceeding `MAX_TXLIST_BYTES`.
     #[error("txlist too large: {0} bytes (max {1})")]
     TxListTooLarge(usize, usize),
-    /// Indicates that the number of commitments in a response exceeds `MAX_COMMITMENTS_PER_RESPONSE`.
+    /// Indicates that the number of commitments in a response exceeds
+    /// `MAX_COMMITMENTS_PER_RESPONSE`.
     #[error("commitments per response exceeds cap: {0} > {1}")]
     TooManyCommitments(usize, usize),
     /// Indicates that a requested `max_count` exceeds the allowed cap.
@@ -50,7 +53,8 @@ pub enum CryptoError {
 ///
 /// # Returns
 ///
-/// `Ok(())` if the txlist is within the size limit, otherwise `Err(ValidationError::TxListTooLarge)`.
+/// `Ok(())` if the txlist is within the size limit, otherwise
+/// `Err(ValidationError::TxListTooLarge)`.
 pub fn validate_txlist(txlist: &TxListBytes) -> Result<(), ValidationError> {
     let len = txlist.len();
     if len > MAX_TXLIST_BYTES {

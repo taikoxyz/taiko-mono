@@ -3,17 +3,16 @@
 //! This module provides mechanisms for scoring and managing the reputation of peers
 //! in the preconfirmation P2P network. It includes:
 //! - `PeerAction`: Discrete events that influence a peer's score.
-//! - `PeerReputationStore`: A core component that tracks peer scores and manages
-//!   greylisting and banning based on configurable thresholds.
-//! - `RequestRateLimiter`: Prevents individual peers from overwhelming the service
-//!   with requests.
+//! - `RequestRateLimiter`: Prevents individual peers from overwhelming the service with requests.
 //! - `ReputationBackend` trait: Allows for pluggable reputation systems.
-//! - `reth_adapter`: Integrates with `reth-network-peers` for using reth-style PeerIds.
+//! - `RethReputationAdapter`: Sole backend, reusing reth reputation weights/thresholds and
+//!   mirroring ban/greylist state to libp2p `PeerId`s.
 //!
 //! The Kona connection gater from `kona_gossip` is used for low-level connection
 //! management, while this module focuses on application-level reputation.
 
 use libp2p::PeerId;
+use reth_network_types::peers::reputation::{BANNED_REPUTATION, ReputationChangeWeights};
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, Instant},
@@ -37,9 +36,12 @@ pub enum PeerAction {
 }
 
 pub type PeerScore = f64;
+const DEFAULT_BAN_THRESHOLD: PeerScore = BANNED_REPUTATION as PeerScore;
+const DEFAULT_GREYLIST_THRESHOLD: PeerScore = DEFAULT_BAN_THRESHOLD / 2.0;
+const SUCCESS_REWARD: PeerScore = 1.0;
 
 /// Represents the current reputation score of a peer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PeerReputation {
     /// The numerical score of the peer. Higher is better.
     score: PeerScore,
@@ -68,7 +70,7 @@ impl PeerReputation {
 }
 
 /// Configuration for the peer reputation system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ReputationConfig {
     /// Score at or below which a peer is greylisted (soft drop).
     pub greylist_threshold: PeerScore,
@@ -76,13 +78,15 @@ pub struct ReputationConfig {
     pub ban_threshold: PeerScore,
     /// Exponential decay halflife applied to scores. Scores decay towards zero.
     pub halflife: Duration,
+    /// Weights mapping actions into reputation deltas (reth defaults).
+    pub weights: ReputationChangeWeights,
 }
 
 /// Stores and manages the reputation of peers.
 ///
 /// This struct keeps track of individual peer scores, applies actions to update
 /// these scores, and maintains lists of banned and greylisted peers.
-pub struct PeerReputationStore {
+pub(crate) struct PeerReputationStore {
     /// Mapping of `PeerId` to their `PeerReputation`.
     scores: HashMap<PeerId, PeerReputation>,
     /// Set of `PeerId`s that are currently banned.
@@ -96,9 +100,10 @@ pub struct PeerReputationStore {
 impl Default for PeerReputationStore {
     fn default() -> Self {
         Self::new(ReputationConfig {
-            greylist_threshold: -5.0,
-            ban_threshold: -10.0,
+            greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
+            ban_threshold: DEFAULT_BAN_THRESHOLD,
             halflife: Duration::from_secs(600),
+            weights: ReputationChangeWeights::default(),
         })
     }
 }
@@ -140,7 +145,7 @@ impl PeerReputationStore {
         // Decay ensures older infractions fade so recent behavior dominates decisions.
         let mut score = entry.score;
         score = Self::decayed(score, entry.last_updated, now, self.cfg.halflife);
-        score += action_delta(action);
+        score += action_delta(action, &self.cfg.weights);
         entry.score = score;
         entry.last_updated = now;
         self.update_lists(peer, score);
@@ -264,12 +269,21 @@ pub struct ReputationEvent {
     pub was_greylisted: bool,
 }
 
-fn action_delta(action: PeerAction) -> PeerScore {
+fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerScore {
     match action {
-        PeerAction::GossipValid | PeerAction::ReqRespSuccess => 1.0,
-        PeerAction::GossipInvalid | PeerAction::ReqRespError => -2.0,
-        PeerAction::Timeout => -0.5,
-        PeerAction::DialFailure => -1.0,
+        // Gossip scoring is handled by Kona gossipsub; ignore locally to avoid double-counting.
+        PeerAction::GossipValid | PeerAction::GossipInvalid => 0.0,
+        // Reward successful RPCs modestly so decay can heal peers.
+        PeerAction::ReqRespSuccess => SUCCESS_REWARD,
+        PeerAction::ReqRespError => weights
+            .change(reth_network_types::peers::reputation::ReputationChangeKind::BadMessage)
+            .as_i32() as PeerScore,
+        PeerAction::Timeout => weights
+            .change(reth_network_types::peers::reputation::ReputationChangeKind::Timeout)
+            .as_i32() as PeerScore,
+        PeerAction::DialFailure => weights
+            .change(reth_network_types::peers::reputation::ReputationChangeKind::FailedToConnect)
+            .as_i32() as PeerScore,
     }
 }
 
@@ -397,16 +411,6 @@ pub trait ReputationBackend: Send {
     }
 }
 
-impl ReputationBackend for PeerReputationStore {
-    fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent {
-        PeerReputationStore::apply(self, peer, action)
-    }
-
-    fn is_banned(&self, peer: &PeerId) -> bool {
-        PeerReputationStore::is_banned(self, peer)
-    }
-}
-
 /// Reth-network-peers adapter surface.
 ///
 /// This module provides an adapter to integrate the reputation system with
@@ -472,8 +476,9 @@ pub mod reth_adapter {
         ///
         /// A new `RethReputationAdapter` instance.
         pub fn new(cfg: ReputationConfig) -> Self {
+            let inner_cfg = cfg.clone();
             Self {
-                inner: PeerReputationStore::new(cfg),
+                inner: PeerReputationStore::new(inner_cfg),
                 reth_scores: HashMap::new(),
                 banned_l2p: HashSet::new(),
                 cfg,
@@ -501,7 +506,7 @@ pub mod reth_adapter {
             let entry = self.reth_scores.entry(rid).or_insert_with(|| PeerReputation::new(now));
             let mut score = entry.score;
             score = super::decayed(score, entry.last_updated, now, self.cfg.halflife);
-            score += super::action_delta(action);
+            score += super::action_delta(action, &self.cfg.weights);
             entry.score = score;
             entry.last_updated = now;
 
@@ -565,20 +570,21 @@ mod tests {
 
     fn cfg() -> ReputationConfig {
         ReputationConfig {
-            greylist_threshold: -5.0,
-            ban_threshold: -10.0,
+            greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
+            ban_threshold: DEFAULT_BAN_THRESHOLD,
             halflife: Duration::from_secs(600),
+            weights: ReputationChangeWeights::default(),
         }
     }
 
     #[test]
     fn peer_store_reaches_ban_threshold() {
-        let mut store = PeerReputationStore::new(cfg());
+        let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
         let peer = PeerId::random();
         for _ in 0..20 {
-            let ev = store.apply(peer, PeerAction::ReqRespError);
+            let ev = adapter.apply(peer, PeerAction::ReqRespError);
             if ev.is_banned {
-                assert!(store.is_banned(&peer));
+                assert!(adapter.is_banned(&peer));
                 return;
             }
         }
@@ -603,19 +609,24 @@ mod tests {
     fn reth_adapter_uses_reth_key_when_convertible() {
         // Directly exercise the reth-keyed path by applying with an explicit reth peer id.
         let cfg = ReputationConfig {
-            greylist_threshold: -1.0,
-            ban_threshold: -2.0,
+            greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
+            ban_threshold: DEFAULT_BAN_THRESHOLD,
             halflife: Duration::from_secs(600),
+            weights: ReputationChangeWeights::default(),
         };
         let mut adapter = reth_adapter::RethReputationAdapter::new(cfg);
         let rid = reth_adapter::RethPeerId::from_slice(&[0u8; 64]);
         let peer = PeerId::random();
 
-        let ev = adapter.apply_reth_for_test(peer, rid, PeerAction::ReqRespError);
-        assert!(
-            ev.is_banned || adapter.is_banned(&peer),
-            "reth-keyed path should ban and mirror to libp2p"
-        );
+        let mut banned = false;
+        for _ in 0..20 {
+            let ev = adapter.apply_reth_for_test(peer, rid, PeerAction::ReqRespError);
+            if ev.is_banned || adapter.is_banned(&peer) {
+                banned = true;
+                break;
+            }
+        }
+        assert!(banned, "reth-keyed path should ban and mirror to libp2p");
     }
 
     #[test]
@@ -631,18 +642,18 @@ mod tests {
 
     #[test]
     fn allow_dial_respects_ban() {
-        let mut store = PeerReputationStore::new(cfg());
+        let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
         let peer = PeerId::random();
         // Fresh peer allowed.
-        assert!(store.allow_dial(&peer, None));
+        assert!(adapter.allow_dial(&peer, None));
         // Ban via repeated errors.
         for _ in 0..20 {
-            let ev = store.apply(peer, PeerAction::ReqRespError);
+            let ev = adapter.apply(peer, PeerAction::ReqRespError);
             if ev.is_banned {
                 break;
             }
         }
-        assert!(!store.allow_dial(&peer, None));
+        assert!(!adapter.allow_dial(&peer, None));
     }
 
     #[test]

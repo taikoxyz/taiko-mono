@@ -31,7 +31,7 @@ use crate::{
 };
 
 use crate::reputation::{
-    PeerAction, PeerReputationStore, ReputationBackend, ReputationConfig, RequestRateLimiter,
+    PeerAction, ReputationBackend, ReputationConfig, RequestRateLimiter,
     reth_adapter::RethReputationAdapter,
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
@@ -123,7 +123,6 @@ pub struct NetworkDriver {
 
 // Legacy alias kept for clarity when reading older code; no longer used directly.
 #[allow(dead_code)]
-type ReputationStore = PeerReputationStore;
 
 impl NetworkDriver {
     /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
@@ -177,6 +176,8 @@ impl NetworkDriver {
                     greylist_threshold: cfg.reputation_greylist,
                     ban_threshold: cfg.reputation_ban,
                     halflife: cfg.reputation_halflife,
+                    weights:
+                        reth_network_types::peers::reputation::ReputationChangeWeights::default(),
                 }),
                 request_limiter: RequestRateLimiter::new(
                     cfg.request_window,
@@ -632,7 +633,8 @@ impl NetworkDriver {
         match event {
             DiscoveryEvent::MultiaddrFound(addr) => {
                 if self.allow_dial_addr(&addr) {
-                    // Discovery feed can surface many addresses; defer actual connect to libp2p dialer.
+                    // Discovery feed can surface many addresses; defer actual connect to libp2p
+                    // dialer.
                     let _ = self.swarm.dial(addr);
                 }
             }
@@ -698,13 +700,12 @@ impl NetworkDriver {
             return false;
         }
 
-        if let Some(peer) = Self::peer_id_from_multiaddr(addr) {
-            if !self.reputation.allow_dial(&peer, Some(addr)) {
+        if let Some(peer) = Self::peer_id_from_multiaddr(addr)
+            && !self.reputation.allow_dial(&peer, Some(addr)) {
                 // Reputation gate: refuse outbound dial to banned/grey peers.
                 metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
                 return false;
             }
-        }
 
         true
     }
@@ -871,6 +872,8 @@ mod tests {
                     greylist_threshold: cfg.reputation_greylist,
                     ban_threshold: cfg.reputation_ban,
                     halflife: cfg.reputation_halflife,
+                    weights:
+                        reth_network_types::peers::reputation::ReputationChangeWeights::default(),
                 }),
                 request_limiter: RequestRateLimiter::new(
                     cfg.request_window,
@@ -1115,11 +1118,11 @@ mod tests {
         }
         assert!(got_resp, "did not receive req/resp reply over memory transport");
 
-        // Reputation ban: apply enough invalid actions to ban peer2, ensure disconnect and no
+        // Reputation ban: apply enough req/resp errors to ban peer2, ensure disconnect and no
         // reconnect.
         let peer2 = *driver2.swarm.local_peer_id();
         for _ in 0..6 {
-            driver1.apply_reputation(peer2, PeerAction::GossipInvalid);
+            driver1.apply_reputation(peer2, PeerAction::ReqRespError);
         }
         for _ in 0..50 {
             pump_sync(&mut driver1);
@@ -1172,11 +1175,12 @@ mod tests {
         }
         assert!(connected, "peers should connect before ban test");
 
-        // Force a ban on peer2 from driver1.
-        let ev = driver1.reputation.apply(peer2_id, PeerAction::GossipInvalid);
+        // Force a ban on peer2 from driver1 via req/resp errors (gossip scoring is handled in
+        // Kona).
+        let ev = driver1.reputation.apply(peer2_id, PeerAction::ReqRespError);
         assert!(ev.is_banned);
         // Mirror to gater/block list via apply_reputation path.
-        driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
+        driver1.apply_reputation(peer2_id, PeerAction::ReqRespError);
 
         // Unified dial gating (Kona gater + reputation) should deny dials.
         assert!(!driver1.allow_dial_addr(&addr2_full));

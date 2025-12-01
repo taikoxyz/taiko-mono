@@ -4317,6 +4317,7 @@ dependencies = [
  "rand 0.8.5",
  "reth-discv5",
  "reth-network-peers",
+ "reth-network-types",
  "secp256k1 0.30.0",
  "serde",
  "serde_json",
@@ -4815,6 +4816,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-net-banlist"
+version = "1.9.3"
+source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
+dependencies = [
+ "alloy-primitives",
+]
+
+[[package]]
 name = "reth-network-peers"
 version = "1.9.3"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
@@ -4826,6 +4835,18 @@ dependencies = [
  "serde_with",
  "thiserror 2.0.17",
  "url",
+]
+
+[[package]]
+name = "reth-network-types"
+version = "1.9.3"
+source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
+dependencies = [
+ "alloy-eip2124",
+ "reth-net-banlist",
+ "reth-network-peers",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

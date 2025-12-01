@@ -63,16 +63,12 @@ types in `preconfirmation_p2p_types` (e.g., `SignedCommitment`, `RawTxListGossip
 Feature switches:
 - `reth-discovery`: use reth-discv5 wrapper for peer discovery (default on in p2p-net).
 - `kona-presets`: (removed, always on).
-- `kona-gater`: (removed, always on).
+- `kona-gater`: (removed, always on). Gossip scoring/gating is handled by Kona gossipsub; the
+  local reputation backend focuses on request/response and dial behaviour.
 - `real-transport-test`: the real TCP integration test now runs by default with retries; enable
   this feature only to disable the test in constrained environments.
 
 ## Future work
-- Upstream scoring/gating reuse: Kona gater, Kona gossipsub presets, reth-keyed reputation,
-  request limiting, and per-peer/inbound connection caps (via libp2p connection-limits) are
-  already reused here (with local scoring fallback). Lighthouse-style gating/peer scoring remains
-  blocked until a compatible Lighthouse P2P/scoring crate is available on crates.io or with
-  libp2p 0.56; the upstream repo currently does not expose a `lighthouse-network` crate.
 - Real TCP integration: stabilize the real-transport integration test so it can run by default
   (instead of being gated behind `real-transport-test`).
 
