@@ -13,9 +13,7 @@
 - Checks/tests:
   - `cargo check`
   - `cargo test -p preconfirmation-types`
-  - `cargo test -p preconfirmation-net`
-- `cargo test -p preconfirmation-net`
-- `cargo test -p preconfirmation-net` (reth backend always on)
+  - `cargo test -p preconfirmation-net` (reth backend always on)
   - `cargo test -p preconfirmation-service`
 - Real TCP integration test runs by default with retries; use feature `real-transport-test` only to disable it in constrained environments.
 
@@ -35,7 +33,10 @@
 - PRs: include summary, affected features, and test commands run; link issues when applicable.
 
 ## Architecture & Extensibility
-- Upstream reuse via features: `reth-discovery` (discv5). Reth peer-id keyed backend is now always on (scoring still local with libp2p fallback). Kona presets and gater are always on; `NetworkConfig` exposes `gater_blocked_subnets`, `gater_peer_redialing`, and `gater_dial_period` to tune the Kona gater.
-- Reputation is pluggable via `ReputationBackend`; default remains the local store. Real TCP test is default-on with retries.
+- Upstream reuse via features: `reth-discovery` (discv5). Reth peer-id keyed backend is always on
+  and is the sole reputation backend; it mirrors bans/greylist to libp2p `PeerId`. Kona presets and
+  gater are always on; `NetworkConfig` exposes `gater_blocked_subnets`, `gater_peer_redialing`, and
+  `gater_dial_period` to tune the Kona gater.
 - Request rate limiting stays local (no compatible upstream rate-limit module for libp2p 0.56).
-- Lighthouse-style scoring/gating reuse remains blocked until a published crate matches our libp2p version.
+- Lighthouse-style scoring/gating reuse remains blocked until a published crate matches our
+  libp2p version.

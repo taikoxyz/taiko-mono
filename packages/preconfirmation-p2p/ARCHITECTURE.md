@@ -40,21 +40,17 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   feature only to disable it in constrained environments. In-memory transport tests always run.
 - Lighthouse-style peer scoring/gating: blocked (no published crate compatible with libp2p 0.56).
 
-Note: Reth peer-id keyed reputation is always enabled; it mirrors bans to libp2p `PeerId` while
-still using the local scoring logic. IP colocation protection today relies on libp2p connection
-limits (per-peer/incoming caps) plus request limiting; Lighthouse-style gating/scoring remains
-blocked until upstream publishes a compatible crate/API for libp2p 0.56.
+Note: Reth peer-id keyed reputation is always enabled and is the sole backend; it mirrors bans to
+libp2p `PeerId` while using reth weights/thresholds for scoring. IP colocation protection today
+relies on libp2p connection limits (per-peer/incoming caps) plus request limiting; Lighthouse-style
+gating/scoring remains blocked until upstream publishes a compatible crate/API for libp2p 0.56.
 
 ## Typical usage flow
 
 1. Build a `NetworkConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
+   The driver binds the libp2p swarm to `listen_addr` automatically; use port `0` for an ephemeral
+   bind.
 2. Start `P2pService::start(config)`; keep the returned command sender and event receiver.
 3. Publish via `NetworkCommand::Publish*` or helper methods; request via `NetworkCommand::Request*`.
 4. Consume `NetworkEvent` stream directly or via a `P2pHandler` using `run_with_handler`.
 
-## Future work
-
-- Deeper upstream reuse for gating/scoring (e.g., Kona connection gater or Lighthouse-style
-  reputation) once libp2p/dependency versions align and adapters are practical.
-- Stabilize the real TCP integration test so it can run by default instead of behind
-  `real-transport-test`.

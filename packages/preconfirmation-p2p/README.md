@@ -68,12 +68,10 @@ Feature switches:
 - `real-transport-test`: the real TCP integration test now runs by default with retries; enable
   this feature only to disable the test in constrained environments.
 
-## Future work
-- Real TCP integration: stabilize the real-transport integration test so it can run by default
-  (instead of being gated behind `real-transport-test`).
-
 Typical flow:
-1. Build a `NetworkConfig` (set listen/discovery, chain_id, reputation knobs as needed).
+1. Build a `NetworkConfig` (set listen/discovery, chain_id, reputation knobs as needed). The
+   driver now binds the libp2p swarm to `listen_addr` automatically; use port `0` to request an
+   ephemeral port.
 2. Start `P2pService::start(cfg)`; use `publish_*`/`request_*` helpers or send `NetworkCommand`s.
 3. Receive `NetworkEvent`s via `next_event()` or `run_with_handler`.
 
@@ -94,8 +92,3 @@ just fmt
 just clippy
 just test
 ```
-
-## Status
-
-- Networking and service layers are scaffolds; protocol logic, discovery wiring, and scoring are
-  intentionally stubbed until the spec stabilises.
