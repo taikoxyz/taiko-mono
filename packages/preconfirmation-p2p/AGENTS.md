@@ -14,8 +14,8 @@
   - `cargo check`
   - `cargo test -p preconfirmation-types`
   - `cargo test -p preconfirmation-net`
-  - `cargo test -p preconfirmation-net --features kona-gater`
-  - `cargo test -p preconfirmation-net --features "kona-gater,kona-presets,reth-peers"`
+- `cargo test -p preconfirmation-net`
+- `cargo test -p preconfirmation-net --features reth-peers`
   - `cargo test -p preconfirmation-service`
 - Real TCP integration test runs by default with retries; use feature `real-transport-test` only to disable it in constrained environments.
 
@@ -35,5 +35,5 @@
 - PRs: include summary, affected features, and test commands run; link issues when applicable.
 
 ## Architecture & Extensibility
-- Optional upstream reuse via features: `reth-discovery` (discv5), `kona-presets` (gossipsub presets), `kona-gater` (connection gater), `reth-peers` (reth peer-id backend).
+- Upstream reuse via features: `reth-discovery` (discv5) and `reth-peers` (reth peer-id backend). Kona presets and gater are always on.
 - Reputation is pluggable via `ReputationBackend`; default remains the local store. Real TCP test is default-on with retries.

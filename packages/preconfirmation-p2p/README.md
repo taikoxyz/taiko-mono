@@ -8,10 +8,9 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
   topic/protocol ID helpers used by the network.
 - `crates/net`: libp2p transport + behaviours (ping, identify, gossipsub, req/resp) and
   scaffolds for discovery (`discovery`, now backed by `reth-discv5` behind the `reth-discovery`
-  feature) and peer reputation. When the `kona-presets` feature is enabled, gossipsub mesh and
-  scoring presets are imported directly from `kona-gossip`/`kona-peers` instead of local defaults.
-  (`reputation`). Public API: `NetworkConfig`, `NetworkCommand` (publish/request), `NetworkEvent`
-  (gossip/req-resp/lifecycle), `NetworkDriver`/`NetworkHandle`.
+  feature) and peer reputation. Kona gossipsub presets and gater are always applied. Public API:
+  `NetworkConfig`, `NetworkCommand` (publish/request), `NetworkEvent` (gossip/req-resp/lifecycle),
+  `NetworkDriver`/`NetworkHandle`.
 - `crates/service`: Async façade owning the network driver. Exposes a small channel-based API:
   `P2pService::start(cfg)` -> command sender + event stream; `shutdown()` for graceful stop.
 - `crates/service/examples/p2p-node.rs`: Minimal CLI example that starts the service and logs
@@ -31,15 +30,14 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 - Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature, so
   we reuse upstream maintenance instead of rolling our own.
 - Kona gossipsub presets and gater come from `kona-gossip`/`kona-peers` at tag
-  `kona-client/v1.2.4`; these features (`kona-presets`, `kona-gater`) are enabled by default.
+  `kona-client/v1.2.4` and are always enabled.
 - This package is library-only; runnable smoke testing lives in `crates/service/examples/p2p-node.rs`.
 
 ## Reputation & Scoring
 
 - Default: local `PeerReputationStore` with decay/thresholds, libp2p block-list enforcement, and
   rate limiting.
-- `kona-presets` (optional): imports Kona gossipsub mesh/size presets and peer score params for
-  light scoring.
+- `kona-presets`: (removed, always on).
 - `reth-peers` (optional): switches reputation storage to reth `PeerId` keys and mirrors bans back
   to libp2p; core scoring logic remains local until a reth scoring module is available.
 - Deeper Kona/Lighthouse gating (e.g., Kona connection gater) is not wired yet: Kona’s gating stack
@@ -60,9 +58,8 @@ types in `preconfirmation_p2p_types` (e.g., `SignedCommitment`, `RawTxListGossip
 
 Feature switches:
 - `reth-discovery`: use reth-discv5 wrapper for peer discovery (default on in p2p-net).
-- `kona-presets`: pull Kona gossipsub mesh/score presets (enabled by default).
-- `kona-gater`: reuse Kona's connection gater (rate limits, block/allow lists) in the dial/ban
-  path (enabled by default).
+- `kona-presets`: (removed, always on).
+- `kona-gater`: (removed, always on).
 - `reth-peers`: use reth peer IDs in the reputation backend (scoring still local).
 - `real-transport-test`: the real TCP integration test now runs by default with retries; enable
   this feature only to disable the test in constrained environments.

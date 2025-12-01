@@ -1,12 +1,7 @@
 //! Peer reputation and rate limiting.
 //!
-//! Note on upstream reuse: Kona exposes a [`ConnectionGater`] and related structs in
-//! `kona_gossip`, but direct reuse is not yet practical here because that implementation pulls
-//! in extra deps (`libp2p-stream`, `openssl`) and is coupled to Kona-specific metrics/RPC wiring
-//! and libp2p executor assumptions. Once libp2p and dependency versions converge we can revisit
-//! a `kona-gater` feature that swaps our lightweight gating for Kona's fuller gate; for now we
-//! keep the local, minimal gating to avoid dragging those transitive requirements into
-//! taiko-client-rs.
+//! Kona connection gater from `kona_gossip` is now always enabled; this module still hosts the
+//! reputation engine and rate limiting logic used by the driver.
 
 use libp2p::PeerId;
 use std::{
@@ -232,10 +227,8 @@ impl ReputationBackend for PeerReputationStore {
     }
 }
 
-/// Optional reth-network-peers adapter surface. When the `reth-peers` feature is enabled we expose
-/// peer/node record types from reth so downstreams can bridge libp2p `PeerId` to reth’s peer
-/// representation. This keeps reuse opt-in without changing our public API.
-#[cfg(feature = "reth-peers")]
+/// Reth-network-peers adapter surface; always enabled. Exposes peer/node record types from reth so
+/// downstreams can bridge libp2p `PeerId` to reth’s peer representation.
 pub mod reth_adapter {
     use super::*;
 

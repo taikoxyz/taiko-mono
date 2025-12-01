@@ -62,6 +62,7 @@ pub struct SignedCommitment {
     pub signature: Bytes65, // secp256k1 signature over SSZ(commitment)
 }
 
+#[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct RawTxListGossip {
     /// Hash of the raw tx list payload.
@@ -82,6 +83,7 @@ pub struct PreconfHead {
 
 /// Empty container used as the request body for `get_head` req/resp. Kept as an SSZ container
 /// with a zero-capacity list to satisfy SSZ shape requirements while carrying no data.
+#[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetHeadRequest {
     /// Reserved for future extensions; always empty.
@@ -96,6 +98,7 @@ pub struct GetCommitmentsByNumberRequest {
     pub max_count: u32,
 }
 
+#[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetCommitmentsByNumberResponse {
     /// List of commitments in the requested range.
@@ -108,6 +111,7 @@ pub struct GetRawTxListRequest {
     pub raw_tx_list_hash: Bytes32,
 }
 
+#[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetRawTxListResponse {
     pub raw_tx_list_hash: Bytes32,

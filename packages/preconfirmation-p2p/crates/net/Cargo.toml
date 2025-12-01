@@ -11,8 +11,6 @@ default = ["reth-discovery"]
 # Enable discovery via reth's discv5 wrapper; can be disabled for minimal builds or alternative
 # discovery providers.
 reth-discovery = ["dep:reth-discv5"]
-# Optional: future delegation of peer id/types to reth-network-peers.
-reth-peers = ["dep:reth-network-peers"]
 # Optional: run the real TCP transport integration test.
 real-transport-test = []
 
@@ -30,7 +28,7 @@ metrics-exporter-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }
 rand.workspace = true
 reth-discv5 = { workspace = true, optional = true }
-reth-network-peers = { workspace = true, optional = true }
+reth-network-peers = { workspace = true }
 secp256k1.workspace = true
 serde.workspace = true
 serde_json.workspace = true

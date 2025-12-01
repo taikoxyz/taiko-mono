@@ -157,9 +157,11 @@ impl P2pService {
             while let Some(ev) = rx.recv().await {
                 match ev {
                     NetworkEvent::GossipSignedCommitment { from, msg } => {
-                        handler.on_signed_commitment(from, msg)
+                        handler.on_signed_commitment(from, *msg)
                     }
-                    NetworkEvent::GossipRawTxList { from, msg } => handler.on_raw_txlist(from, msg),
+                    NetworkEvent::GossipRawTxList { from, msg } => {
+                        handler.on_raw_txlist(from, *msg)
+                    }
                     NetworkEvent::ReqRespCommitments { from, msg } => {
                         handler.on_commitments_response(from, msg)
                     }

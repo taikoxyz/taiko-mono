@@ -20,14 +20,10 @@ use crate::{
     event::NetworkEvent,
 };
 
-#[cfg(not(feature = "reth-peers"))]
-use crate::reputation::PeerReputationStore;
-#[cfg(feature = "reth-peers")]
-use crate::reputation::PeerReputationStore;
-#[cfg(feature = "reth-peers")]
-use crate::reputation::reth_adapter::RethReputationAdapter;
-use crate::reputation::{PeerAction, ReputationBackend, ReputationConfig, RequestRateLimiter};
-#[cfg(feature = "kona-gater")]
+use crate::reputation::{
+    PeerAction, PeerReputationStore, ReputationBackend, ReputationConfig, RequestRateLimiter,
+    reth_adapter::RethReputationAdapter,
+};
 use kona_gossip::{ConnectionGate as KonaConnectionGate, GaterConfig as KonaGaterConfig};
 use preconfirmation_types::{
     GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
@@ -36,14 +32,8 @@ use preconfirmation_types::{
 };
 use ssz_rs::Deserialize;
 
-#[cfg(feature = "reth-peers")]
 fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend> {
     Box::new(RethReputationAdapter::new(cfg))
-}
-
-#[cfg(not(feature = "reth-peers"))]
-fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend> {
-    Box::new(PeerReputationStore::new(cfg))
 }
 
 /// Handle returned to service layer; exposes the event receiver and command sender endpoints.
@@ -67,11 +57,9 @@ pub struct NetworkDriver {
     _discovery_task: Option<JoinHandle<()>>,
     connected_peers: i64,
     head: PreconfHead,
-    #[cfg(feature = "kona-gater")]
     kona_gater: kona_gossip::ConnectionGater,
 }
 
-// Active reputation backend selected via feature flag.
 // Legacy alias kept for clarity when reading older code; no longer used directly.
 #[allow(dead_code)]
 type ReputationStore = PeerReputationStore;
@@ -124,7 +112,6 @@ impl NetworkDriver {
                 _discovery_task: discovery_task,
                 connected_peers: 0,
                 head: PreconfHead::default(),
-                #[cfg(feature = "kona-gater")]
                 kona_gater: kona_gossip::ConnectionGater::new(KonaGaterConfig::default()),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
@@ -205,7 +192,7 @@ impl NetworkDriver {
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
                             let _ = self.events_tx.try_send(NetworkEvent::GossipSignedCommitment {
                                 from: propagation_source,
-                                msg,
+                                msg: Box::new(msg),
                             });
                         } else {
                             metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "sig").increment(1);
@@ -232,7 +219,7 @@ impl NetworkDriver {
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
                             let _ = self.events_tx.try_send(NetworkEvent::GossipRawTxList {
                                 from: propagation_source,
-                                msg,
+                                msg: Box::new(msg),
                             });
                         } else {
                             metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "validation").increment(1);
@@ -491,7 +478,6 @@ impl NetworkDriver {
             DiscoveryEvent::MultiaddrFound(addr) => {
                 // Avoid dialing peers we already banned (if multiaddr contains peer ID we could
                 // extract; for now just dial and let libp2p dedup).
-                #[cfg(feature = "kona-gater")]
                 {
                     if let Some(peer) = Self::peer_id_from_multiaddr(&addr) {
                         if self.kona_gater.can_dial(&addr).is_err() {
@@ -524,7 +510,6 @@ impl NetworkDriver {
         self.swarm.connected_peers().find(|p| !self.reputation.is_banned(p)).cloned()
     }
 
-    #[cfg(feature = "kona-gater")]
     fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
         use libp2p::multiaddr::Protocol;
         addr.iter().find_map(|p| match p {
@@ -554,7 +539,6 @@ impl NetworkDriver {
             // Update block list behaviour so new dials/inbounds are rejected and existing
             // connections closed.
             self.swarm.behaviour_mut().block_list.block_peer(ev.peer);
-            #[cfg(feature = "kona-gater")]
             {
                 self.kona_gater.block_peer(&ev.peer);
             }
@@ -675,7 +659,6 @@ mod tests {
                 _discovery_task: None,
                 connected_peers: 0,
                 head: PreconfHead::default(),
-                #[cfg(feature = "kona-gater")]
                 kona_gater: kona_gossip::ConnectionGater::new(KonaGaterConfig::default()),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
@@ -775,7 +758,7 @@ mod tests {
                 pump_async(&mut driver2).await;
                 if let Ok(ev) = handle2.events.try_recv() {
                     if let NetworkEvent::GossipSignedCommitment { msg, .. } = ev {
-                        assert_eq!(msg, commit);
+                        assert_eq!(*msg, commit);
                         received = true;
                         break;
                     }
@@ -874,7 +857,7 @@ mod tests {
             pump_sync(&mut driver2);
             if let Ok(NetworkEvent::GossipSignedCommitment { msg, .. }) = handle2.events.try_recv()
             {
-                assert_eq!(msg, signed);
+                assert_eq!(*msg, signed);
                 got_gossip = true;
                 break;
             }

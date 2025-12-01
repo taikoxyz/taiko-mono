@@ -20,18 +20,17 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   connection limits.
 - **reth-discv5** (tag `v1.9.3`, behind feature `reth-discovery`): wraps `discv5` for discovery so
   we reuse upstream maintenance instead of hand-rolling UDP/ENR wiring.
-- **Kona presets** (feature `kona-presets`, tag `kona-client/v1.2.4`, default-on): import gossipsub
-  mesh/score parameter presets from `kona-gossip`/`kona-peers` instead of local defaults.
+- **Kona presets** (tag `kona-client/v1.2.4`, always on): import gossipsub mesh/score parameter
+  presets from `kona-gossip`/`kona-peers` instead of local defaults.
 - **reth peers** (feature `reth-peers`): optional adapter that stores reputation keyed by reth
   PeerId and mirrors bans back to libp2p; scoring deltas remain local.
-- **Kona gater** (feature `kona-gater`, tag `kona-client/v1.2.4`, default-on): connection gater reuse
-  from `kona-gossip` to apply Kona's rate limits and block/allow checks before dialing and when
-  banning peers.
+- **Kona gater** (tag `kona-client/v1.2.4`, always on): connection gater reuse from `kona-gossip`
+  to apply Kona's rate limits and block/allow checks before dialing and when banning peers.
 
 ## Feature flags
 
 - `reth-discovery` (default on): enable discovery via `reth-discv5` wrapper.
-- `kona-presets`: use Kona gossipsub mesh/score presets.
+- `kona-presets`: always on (Kona gossipsub mesh/score presets).
 - `kona-gater`: enable Kona connection gater in the dial/ban path (adds Kona deps).
 - `reth-peers`: use reth peer-id keyed reputation backend (API surface unchanged).
 - `real-transport-test`: real TCP integration test now runs by default with retries; use this

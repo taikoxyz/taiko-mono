@@ -12,12 +12,12 @@ pub enum NetworkEvent {
     /// Inbound gossipsub message carrying a signed commitment.
     GossipSignedCommitment {
         from: libp2p::PeerId,
-        msg: SignedCommitment,
+        msg: Box<SignedCommitment>,
     },
     /// Inbound gossipsub message carrying a raw tx list blob.
     GossipRawTxList {
         from: libp2p::PeerId,
-        msg: RawTxListGossip,
+        msg: Box<RawTxListGossip>,
     },
     /// Response to our commitment range request.
     ReqRespCommitments {
