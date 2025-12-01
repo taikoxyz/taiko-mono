@@ -8,8 +8,6 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction2 } from "../libs/LibBondInstruction2.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashSimple2 } from "../libs/LibHashSimple2.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -35,7 +33,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
     // Constants
@@ -65,8 +62,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @notice The codec used for encoding and hashing.
     address private immutable _codec;
 
-    /// @notice The token used for bonds.
-    IERC20 internal immutable _bondToken;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -152,7 +147,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
-        _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _checkpointStore = ICheckpointStore(_config.checkpointStore);
@@ -410,7 +404,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox2.Config memory config_) {
         config_ = IInbox2.Config({
             codec: _codec,
-            bondToken: address(_bondToken),
             checkpointStore: address(_checkpointStore),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
