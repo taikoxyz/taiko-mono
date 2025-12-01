@@ -92,7 +92,7 @@ library LibHashSimple2 {
     /// @param _metadata The metadata array to hash
     /// @return The hash of the transitions array
     function hashTransitionsWithMetadata(
-            IInbox2.Transition[] memory _transitions,
+        IInbox2.Transition[] memory _transitions,
         IInbox2.TransitionMetadata[] memory _metadata
     )
         internal

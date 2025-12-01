@@ -284,7 +284,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
     /// @inheritdoc IInbox2
     /// @notice Proves the validity of proposed L2 blocks
     /// @dev Validates transitions, calculates bond instructions, and verifies proofs
@@ -293,47 +292,51 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// if the proposal is too old(e.g. this can serve as a signal that a prover killer proposal was produced)
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-       ProveInput[] memory inputs = _decodeProveInput(_data);
-       require(inputs.length != 0, "InputsIsEmpty");
+            ProveInput[] memory inputs = _decodeProveInput(_data);
+            require(inputs.length != 0, "InputsIsEmpty");
 
-        ProveInput memory input;
-       TransitionRecord memory transitionRecord;
-       uint8 span;
-       for (uint i; i < inputs.length; ++i) {
-        input = inputs[i];
-          require(input.transitionMetadata.length !=0 && input.transitionMetadata.length <= 24, "SpanIsZero");
-          span = uint8(input.transitionMetadata.length);
-          require(input.endProposal.id >= span, "EndProposalIdIsZero");
-          _checkProposalHash(input.endProposal);
+            ProveInput memory input;
+            TransitionRecord memory transitionRecord;
+            uint8 span;
+            for (uint256 i; i < inputs.length; ++i) {
+                input = inputs[i];
+                require(
+                    input.transitionMetadata.length != 0 && input.transitionMetadata.length <= 24,
+                    "SpanIsZero"
+                );
+                span = uint8(input.transitionMetadata.length);
+                require(input.endProposal.id >= span, "EndProposalIdIsZero");
+                _checkProposalHash(input.endProposal);
 
-           uint48 startProposalId = input.endProposal.id - span;
+                uint48 startProposalId = input.endProposal.id - span;
 
-        transitionRecord  = TransitionRecord({
-            bondInstructions: new LibBonds.BondInstruction[](0),
-            endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
-        });
+                transitionRecord = TransitionRecord({
+                    bondInstructions: new LibBonds.BondInstruction[](0),
+                    endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
+                });
 
-        bytes32 compositeKey = _composeTransitionKey(startProposalId, input.parentTransitionHash);
-        TransitionRecordHashAndDeadline storage hashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
+                bytes32 compositeKey =
+                    _composeTransitionKey(startProposalId, input.parentTransitionHash);
+                TransitionRecordHashAndDeadline storage hashAndDeadline =
+                    _transitionRecordHashAndDeadline[compositeKey];
 
+                if (hashAndDeadline.span >= span) continue; // TODO: emit an event?
 
-        if(hashAndDeadline.span >= span) continue; // TODO: emit an event?
-        
-            hashAndDeadline.recordHash  = _hashTransitionRecord(transitionRecord);
-            hashAndDeadline.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
-            hashAndDeadline.span = span;
+                hashAndDeadline.recordHash = _hashTransitionRecord(transitionRecord);
+                hashAndDeadline.finalizationDeadline =
+                    uint40(block.timestamp + _finalizationGracePeriod);
+                hashAndDeadline.span = span;
 
- // emit Proved(_encodeProvedEventData(payload));
+                // emit Proved(_encodeProvedEventData(payload));
+            }
 
-       }
-       
-        uint256 proposalAge;
-        if (inputs.length == 1 && span == 0) {
-            proposalAge = block.timestamp - input.endProposal.timestamp;
+            uint256 proposalAge;
+            if (inputs.length == 1 && span == 0) {
+                proposalAge = block.timestamp - input.endProposal.timestamp;
+            }
+
+            _proofVerifier.verifyProof(proposalAge, _hashProveInput(inputs), _proof);
         }
-
-        _proofVerifier.verifyProof(proposalAge,  _hashProveInput(inputs), _proof);}
     }
 
     function _hashProveInput(ProveInput[] memory _inputs) internal pure returns (bytes32) {
@@ -474,15 +477,11 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
 
-  
-
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
     function _storeProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
-
-   
 
     /// @dev Stores transition record hash and deadline in storage.
     /// @param _proposalId The proposal identifier.
@@ -852,26 +851,25 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
     {
 
-    //       /// @notice Input data for the propose function
-    // struct ProposeInput {
-    //     /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
-    //     uint48 deadline;
-    //     /// @notice The current core state before this proposal.
-    //     CoreState coreState;
-    //     /// @notice Array of existing proposals for validation (1-2 elements).
-    //     Proposal[] parentProposals;
-    //     /// @notice Blob reference for proposal data.
-    //     LibBlobs.BlobReference blobReference;
-    //     /// @notice Array of transition records for finalization.
-    //     TransitionRecord[] transitionRecords;
-    //     /// @notice The checkpoint for finalization.
-    //     ICheckpointStore.Checkpoint checkpoint;
-    //     /// @notice The number of forced inclusions that the proposer wants to process.
-    //     /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
-    //     /// that he wants to include.
-    //     uint8 numForcedInclusions;
-    // }
-
+        //       /// @notice Input data for the propose function
+        // struct ProposeInput {
+        //     /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
+        //     uint48 deadline;
+        //     /// @notice The current core state before this proposal.
+        //     CoreState coreState;
+        //     /// @notice Array of existing proposals for validation (1-2 elements).
+        //     Proposal[] parentProposals;
+        //     /// @notice Blob reference for proposal data.
+        //     LibBlobs.BlobReference blobReference;
+        //     /// @notice Array of transition records for finalization.
+        //     TransitionRecord[] transitionRecords;
+        //     /// @notice The checkpoint for finalization.
+        //     ICheckpointStore.Checkpoint checkpoint;
+        //     /// @notice The number of forced inclusions that the proposer wants to process.
+        //     /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
+        //     /// that he wants to include.
+        //     uint8 numForcedInclusions;
+        // }
 
         // unchecked {
         //     CoreState memory coreState = _input.coreState;
