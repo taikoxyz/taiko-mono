@@ -24,7 +24,10 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.headProposalAndProof, _input.transitions, _input.bondInstructions, _input.checkpoint
+            _input.headProposalAndProof,
+            _input.transitions,
+            _input.bondInstructions,
+            _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
 

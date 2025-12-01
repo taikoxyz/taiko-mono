@@ -39,11 +39,7 @@ library LibProveInputDecoder {
     /// @notice Decodes prove input data using optimized operations
     /// @param _data The encoded data
     /// @return inputs_ The decoded ProveInput array
-    function decode(bytes memory _data)
-        internal
-        pure
-        returns (IInbox.ProveInput[] memory inputs_)
-    {
+    function decode(bytes memory _data) internal pure returns (IInbox.ProveInput[] memory inputs_) {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
+import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
+import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { IProposerChecker2 } from "src/layer1/core/iface/IProposerChecker.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
-import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -53,7 +53,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         IInbox.DerivationSource[] sources;
         bool allowsPermissionless;
     }
-
 
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
@@ -153,14 +152,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-
     /// @dev Storage for default transition records to optimize gas usage
     /// @notice Stores one transition record per buffer slot for gas optimization
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
     mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal
         _firstTransitionRecord;
-
 
     uint256[36] private __gap;
 
@@ -424,8 +421,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
         } else {
             // Collision: fallback to composite key mapping
-            TransitionRecord storage record =
-                _recordFor(_startProposalId, _parentTransitionHash);
+            TransitionRecord storage record = _recordFor(_startProposalId, _parentTransitionHash);
 
             if (record.span >= _record.span) return;
 

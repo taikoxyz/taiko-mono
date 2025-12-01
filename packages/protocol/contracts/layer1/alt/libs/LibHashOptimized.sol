@@ -126,9 +126,8 @@ library LibHashOptimized {
     /// @param _transition The transition to hash
     /// @return The hash truncated to bytes26 for storage optimization
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes26) {
-        bytes32 fullHash = EfficientHashLib.hash(
-            _transition.bondInstructionsHash, _transition.checkpointHash
-        );
+        bytes32 fullHash =
+            EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash);
         return bytes26(fullHash);
     }
 
@@ -309,7 +308,9 @@ library LibHashOptimized {
         );
 
         return
-            EfficientHashLib.hash(bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash);
+            EfficientHashLib.hash(
+                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
+            );
     }
 
     /// @notice Hashes a single ProveInput efficiently
@@ -342,9 +343,10 @@ library LibHashOptimized {
             }
 
             if (length == 1) {
-                return EfficientHashLib.hash(
-                    bytes32(length), _hashProposalProofMetadata(_metadatas[0])
-                );
+                return
+                    EfficientHashLib.hash(
+                        bytes32(length), _hashProposalProofMetadata(_metadatas[0])
+                    );
             }
 
             if (length == 2) {
