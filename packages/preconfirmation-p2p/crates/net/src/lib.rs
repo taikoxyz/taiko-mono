@@ -4,7 +4,8 @@
 //! - Transport/builder for libp2p (TCP/QUIC-ready) and a combined behaviour (ping, identify,
 //!   gossipsub, request-response, gating).
 //! - Discovery scaffold (backed by `reth-discv5` when enabled).
-//! - Reputation + basic rate limiting (optional reth peer IDs; optional Kona mesh/score presets).
+//! - Reputation + per-peer fixed-window request rate limiting (default 10s window / 8 requests;
+//!   optional reth peer IDs; optional Kona mesh/score presets).
 //! - Driver emitting `NetworkEvent`s and receiving `NetworkCommand`s for the service facade.
 
 mod behaviour;

@@ -37,7 +37,7 @@ pub struct NetworkConfig {
     pub reputation_ban: f64,
     /// Exponential-decay halflife for scores. Determines how quickly peer scores decay over time.
     pub reputation_halflife: Duration,
-    /// Sliding window size for req/resp rate limiting.
+    /// Fixed (tumbling) window size for req/resp rate limiting.
     pub request_window: Duration,
     /// Maximum number of requests allowed per peer within the `request_window`.
     pub max_requests_per_window: u32,
@@ -75,5 +75,13 @@ impl Default for NetworkConfig {
             gater_peer_redialing: None,
             gater_dial_period: Duration::from_secs(60 * 60),
         }
+    }
+}
+
+impl NetworkConfig {
+    /// Ensure rate-limit parameters are sane before constructing a limiter.
+    pub(crate) fn validate_request_rate_limits(&self) {
+        debug_assert!(self.request_window > Duration::ZERO, "request_window must be > 0");
+        debug_assert!(self.max_requests_per_window > 0, "max_requests_per_window must be > 0");
     }
 }

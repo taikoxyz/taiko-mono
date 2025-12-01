@@ -159,6 +159,8 @@ impl NetworkDriver {
         // Best-effort lifecycle notification.
         let _ = events_tx.try_send(NetworkEvent::Started);
 
+        cfg.validate_request_rate_limits();
+
         let mut discovery_rx = None;
         let mut discovery_task = None;
         if cfg.enable_discovery {
@@ -536,6 +538,15 @@ impl NetworkDriver {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "head", "reason" => "banned").increment(1);
                         return;
                     }
+                    if !self.request_limiter.allow(peer, std::time::Instant::now()) {
+                        metrics::counter!("p2p_reqresp_rate_limited", "kind" => "head")
+                            .increment(1);
+                        let _ = self
+                            .events_tx
+                            .try_send(NetworkEvent::Error("head request rate-limited".into()));
+                        self.apply_reputation(peer, PeerAction::Timeout);
+                        return;
+                    }
                     let _ =
                         self.events_tx.try_send(NetworkEvent::InboundHeadRequest { from: peer });
                     let _ = self
@@ -866,6 +877,8 @@ mod tests {
         let peer_id = parts.keypair.public().to_peer_id();
         let config = libp2p::swarm::Config::with_tokio_executor();
         let swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
+
+        cfg.validate_request_rate_limits();
 
         let (events_tx, events_rx) = mpsc::channel(256);
         let (cmd_tx, cmd_rx) = mpsc::channel(256);
@@ -1287,5 +1300,85 @@ mod tests {
             1,
             "second dial from same peer should be limited"
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn head_reqresp_rate_limited_single_peer() {
+        let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+        // Use a generous window to ensure all requests land within one period.
+        cfg.request_window = Duration::from_secs(5);
+        cfg.max_requests_per_window = 2;
+
+        let parts1 = build_memory_parts(cfg.chain_id);
+        let parts2 = build_memory_parts(cfg.chain_id);
+        let (mut driver1, mut handle1) = driver_from_parts(parts1, &cfg);
+        let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg);
+
+        let addr1: Multiaddr = "/memory/3001".parse().unwrap();
+        let addr2: Multiaddr = "/memory/3002".parse().unwrap();
+        driver1.swarm.listen_on(addr1).unwrap();
+        driver2.swarm.listen_on(addr2.clone()).unwrap();
+
+        driver1.swarm.dial(addr2.clone()).unwrap();
+
+        let mut connected = 0;
+        for _ in 0..200 {
+            pump_sync(&mut driver1);
+            pump_sync(&mut driver2);
+            while let Ok(ev) = handle1.events.try_recv() {
+                if matches!(ev, NetworkEvent::PeerConnected(_)) {
+                    connected |= 1;
+                }
+            }
+            if driver2.swarm.network_info().num_peers() > 0 {
+                connected |= 2;
+            }
+            if connected == 3 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        assert_eq!(connected, 3, "memory peers failed to connect for head req/resp test");
+
+        let peer2 = *driver2.swarm.local_peer_id();
+
+        // Allow protocol negotiation to settle before issuing requests.
+        for _ in 0..20 {
+            pump_sync(&mut driver1);
+            pump_sync(&mut driver2);
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        // Send more head requests than allowed within one window.
+        for _ in 0..5 {
+            handle1.commands.send(NetworkCommand::RequestHead { peer: Some(peer2) }).await.unwrap();
+        }
+
+        let mut heads = 0usize;
+        let mut rate_limited = 0usize;
+        for _ in 0..600 {
+            pump_sync(&mut driver1);
+            pump_sync(&mut driver2);
+            while let Ok(ev) = handle1.events.try_recv() {
+                match ev {
+                    NetworkEvent::ReqRespHead { .. } => heads += 1,
+                    _ => {}
+                }
+            }
+            while let Ok(ev) = handle2.events.try_recv() {
+                if let NetworkEvent::Error(msg) = ev {
+                    if msg.contains("head request rate-limited") {
+                        rate_limited += 1;
+                    }
+                }
+            }
+            if heads >= cfg.max_requests_per_window as usize && rate_limited > 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+
+        assert_eq!(heads, cfg.max_requests_per_window as usize);
+        assert!(rate_limited >= 1, "expected at least one head request to be rate-limited");
     }
 }

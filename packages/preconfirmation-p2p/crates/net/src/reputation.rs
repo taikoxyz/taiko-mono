@@ -302,18 +302,28 @@ pub(crate) fn decayed(
     score * (-lambda * dt).exp()
 }
 
-/// Sliding-window request limiter per peer.
+/// Per-peer fixed (tumbling) window request limiter.
 ///
-/// This struct limits the number of requests a peer can make within a
-/// defined time window to prevent abuse.
+/// Each peer gets its own windowed counter. The first request after a full window elapses
+/// resets the counter (fixed/tumbling window rather than a rolling/sliding window). Idle
+/// peers are opportunistically evicted to keep memory bounded.
 #[derive(Default)]
 pub struct RequestRateLimiter {
-    /// The duration of the sliding window.
+    /// Duration of each tumbling window.
     window: Duration,
-    /// The maximum number of requests allowed within the `window`.
+    /// Maximum number of requests allowed per peer within `window`.
     max_requests: u32,
-    /// Stores the last request time and count for each peer.
-    state: HashMap<PeerId, (Instant, u32)>,
+    /// Stores the last window start and count for each peer.
+    state: HashMap<PeerId, WindowState>,
+}
+
+/// Drop idle peers after this many whole windows without activity.
+const IDLE_EVICTION_WINDOWS: u32 = 4;
+
+#[derive(Debug)]
+struct WindowState {
+    window_start: Instant,
+    count: u32,
 }
 
 impl RequestRateLimiter {
@@ -328,7 +338,15 @@ impl RequestRateLimiter {
     ///
     /// A new `RequestRateLimiter` instance.
     pub fn new(window: Duration, max_requests: u32) -> Self {
+        debug_assert!(window > Duration::ZERO, "RequestRateLimiter window must be > 0");
+        debug_assert!(max_requests > 0, "RequestRateLimiter max_requests must be > 0");
         Self { window, max_requests, state: HashMap::new() }
+    }
+
+    fn evict_idle(&mut self, now: Instant) {
+        // Remove peers that have been idle longer than N windows.
+        let horizon = self.window * IDLE_EVICTION_WINDOWS;
+        self.state.retain(|_, entry| now.saturating_duration_since(entry.window_start) < horizon);
     }
 
     /// Determines if a request from a given peer is allowed based on the rate limit.
@@ -345,16 +363,18 @@ impl RequestRateLimiter {
     ///
     /// `true` if the request is allowed, `false` if rate-limited.
     pub fn allow(&mut self, peer: PeerId, now: Instant) -> bool {
-        let entry = self.state.entry(peer).or_insert((now, 0));
-        let (start, count) = entry;
-        if now.duration_since(*start) >= self.window {
-            *start = now;
-            *count = 0;
+        // Opportunistically prune idle peers to keep the map bounded.
+        self.evict_idle(now);
+
+        let entry = self.state.entry(peer).or_insert(WindowState { window_start: now, count: 0 });
+        if now.saturating_duration_since(entry.window_start) >= self.window {
+            entry.window_start = now;
+            entry.count = 0;
         }
-        if *count >= self.max_requests {
+        if entry.count >= self.max_requests {
             return false;
         }
-        *count += 1;
+        entry.count += 1;
         true
     }
 }
@@ -682,5 +702,39 @@ mod tests {
         // after window passes we can serve again
         let later = now + Duration::from_millis(1500);
         assert!(rl.allow(peer, later));
+    }
+
+    #[test]
+    fn request_rate_limiter_is_per_peer() {
+        let mut rl = RequestRateLimiter::new(Duration::from_secs(5), 1);
+        let now = Instant::now();
+        let a = PeerId::random();
+        let b = PeerId::random();
+
+        assert!(rl.allow(a, now));
+        assert!(!rl.allow(a, now));
+        // Second peer tracks its own window independently.
+        assert!(rl.allow(b, now));
+    }
+
+    #[test]
+    fn request_rate_limiter_evicts_idle_entries() {
+        let window = Duration::from_millis(100);
+        let mut rl = RequestRateLimiter::new(window, 2);
+        let a = PeerId::random();
+        let b = PeerId::random();
+        let start = Instant::now();
+
+        assert!(rl.allow(a, start));
+        assert!(rl.allow(b, start));
+        assert_eq!(rl.state.len(), 2);
+
+        // Advance beyond the idle horizon; eviction occurs on next allow.
+        let after_horizon = start + window * (IDLE_EVICTION_WINDOWS + 1);
+        assert!(rl.allow(b, after_horizon));
+
+        assert_eq!(rl.state.len(), 1);
+        assert!(!rl.state.contains_key(&a));
+        assert!(rl.state.contains_key(&b));
     }
 }
