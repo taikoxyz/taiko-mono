@@ -143,7 +143,16 @@ impl NetworkDriver {
         let parts = build_transport_and_behaviour(&cfg)?;
         let peer_id = parts.keypair.public().to_peer_id();
         let config = libp2p::swarm::Config::with_tokio_executor();
-        let swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
+        let mut swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
+
+        // Bind the swarm to the configured listen address so inbound gossip/req-resp can reach us.
+        let listen_addr_str = if cfg.listen_addr.is_ipv4() {
+            format!("/ip4/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
+        } else {
+            format!("/ip6/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
+        };
+        let listen_addr: Multiaddr = listen_addr_str.parse()?;
+        swarm.listen_on(listen_addr)?;
 
         let (events_tx, events_rx) = mpsc::channel(256);
         let (cmd_tx, cmd_rx) = mpsc::channel(256);
@@ -1188,6 +1197,23 @@ mod tests {
 
         // The peer should remain banned; even if an existing connection lingers, future dials are
         // disallowed by reputation gating.
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn driver_binds_listen_addr_on_start() {
+        let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+        cfg.listen_addr.set_port(0);
+        cfg.discv5_listen.set_port(0);
+
+        let (mut driver, _) = NetworkDriver::new(cfg).unwrap();
+
+        // Drive the swarm a few times to ensure the listener is registered.
+        for _ in 0..5 {
+            pump_sync(&mut driver);
+        }
+
+        let listeners: Vec<_> = driver.swarm.listeners().cloned().collect();
+        assert!(!listeners.is_empty(), "swarm should bind to configured listen_addr");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
