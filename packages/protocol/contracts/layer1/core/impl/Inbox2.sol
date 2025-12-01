@@ -336,16 +336,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 existing.span = span;
                 existing.finalizationDeadline = finalizationDeadline;
 
-                ProvedEventPayload memory payload = ProvedEventPayload({
-                    startProposalId: startProposalId,
-                    parentTransitionHash: input.parentTransitionHash,
-                    span: span,
-                    finalizationDeadline: finalizationDeadline,
-                    checkpoint: input.checkpoint,
-                    bondInstructions: bondInstructions
-                });
+                _emitProvedEvent(startProposalId, input.parentTransitionHash, span, finalizationDeadline, input.checkpoint, bondInstructions);
 
-                emit Proved(_encodeProvedEventData(payload));
+
             }
 
             uint256 proposalAge;
@@ -807,6 +800,27 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             bondInstructions: _bondInstructions
         });
         emit Proposed(_encodeProposedEventData(payload));
+    }
+
+    function _emitProvedEvent(
+        uint40 _startProposalId,
+        bytes32 _parentTransitionHash,
+        uint8 _span,
+        uint40 _finalizationDeadline,
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        LibBonds2.BondInstruction[] memory _bondInstructions
+    )
+        private
+    {
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            startProposalId: _startProposalId,
+            parentTransitionHash: _parentTransitionHash,
+            span: _span,
+            finalizationDeadline: _finalizationDeadline,
+            checkpoint: _checkpoint,
+            bondInstructions: _bondInstructions
+        });
+        emit Proved(_encodeProvedEventData(payload));
     }
 
     /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
