@@ -105,6 +105,7 @@ interface IInbox2 {
 
     /// @notice Metadata about the proving of a transition
     /// @dev Separated from Transition to enable out-of-order proving
+    /// TODO(daniel): rename to ProofMetadata?
     struct TransitionMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
@@ -116,10 +117,8 @@ interface IInbox2 {
     struct TransitionRecord {
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the transition.
-        bytes32 transitionHash;
         /// @notice The hash of the checkpoint.
-        bytes32 checkpointHash;
+        bytes32 endCheckpointHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -159,15 +158,11 @@ interface IInbox2 {
         uint8 numForcedInclusions;
     }
 
-    /// @notice Input data for the prove function
     struct ProveInput {
-        /// @notice Array of proposals to prove.
-        Proposal[] proposals;
-        /// @notice Array of transitions containing proof details.
-        Transition[] transitions;
-        /// @notice Array of metadata for prover information.
-        /// @dev Must have same length as transitions array.
-        TransitionMetadata[] metadata;
+        Proposal endProposal;
+        ICheckpointStore.Checkpoint endCheckpoint;
+        TransitionMetadata[] transitionMetadata;
+        bytes32 parentTransitionHash;
     }
 
     /// @notice Payload data emitted in the Proposed event
