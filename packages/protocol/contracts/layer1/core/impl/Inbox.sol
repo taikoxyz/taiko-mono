@@ -260,10 +260,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory newState;
         TransitionRecord memory record;
-        LibBonds.BondInstruction[] memory bondInstructions;
         uint48 firstReadyTimestamp;
-        (newState, record, bondInstructions, firstReadyTimestamp) =
-            _processProof(_state, input);
+        (newState, record, firstReadyTimestamp) = _processProof(_state, input);
 
         uint256 proposalAge;
         if (input.proposals.length == 1) {
@@ -274,12 +272,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _hashTransitionsWithMetadata(input.transitions, input.metadata);
 
         _state = newState;
-        record.bondInstructions = bondInstructions;
 
         _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
 
 
-        // TODO: Needs attention
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: input.proposals[0].id,
             transition: input.transitions[0],
@@ -413,14 +409,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The input containing the proposals, transitions, and metadata
     /// @return newState_ The new state after the proof is processed
     /// @return record_ The transition record containing the span, bond instructions, and hashes
-    /// @return bondInstructions_ The bond instructions for the proof
     /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
     function _processProof(CoreState memory _stateBefore, ProveInput memory _input)
         private
         returns (
             CoreState memory newState_,
             TransitionRecord memory record_,
-            LibBonds.BondInstruction[] memory bondInstructions_,
             uint48 firstReadyTimestamp_
         )
     {
@@ -430,11 +424,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // The expected ID of the first proposal to be proven
             uint48 expectedId = _stateBefore.lastFinalizedProposalId + 1;
             bytes32 parentHash = _stateBefore.lastFinalizedTransitionHash;
-            uint48 priorFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
-            uint256 instructionCount;
-
-            // One bond instruction at most per proposal
-            bondInstructions_ = new LibBonds.BondInstruction[](_input.proposals.length);
 
             uint256 count = _input.proposals.length;
 
@@ -452,39 +441,33 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 require(proposalHash == transition.proposalHash, ProposalHashMismatchWithTransition());
                 require(transition.parentTransitionHash == parentHash, InvalidParentTransition());
 
-                uint48 readyTimestamp = _computeReadyTimestamp(proposal.timestamp, priorFinalizedTimestamp);
                 if (i == 0) {
-                    firstReadyTimestamp_ = readyTimestamp;
-                    // After the first proposal, all subsequent proposals in this batch
-                    // have their parent finalized at block.timestamp
-                    priorFinalizedTimestamp = uint48(block.timestamp);
-                }
-
-                // TODO: The way we are calculating and merging bond instructions seems very wasteful now
-                LibBonds.BondInstruction[] memory instructions =
-                    LibBondInstruction.calculateBondInstructions(
-                        _provingWindow, _extendedProvingWindow, proposal, _input.metadata[i], readyTimestamp
+                    firstReadyTimestamp_ = _computeReadyTimestamp(
+                        proposal.timestamp, _stateBefore.lastFinalizedTimestamp
                     );
-
-                if (instructions.length != 0) {
-                    bondInstructions_[instructionCount] = instructions[0];
-                    newState_.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        newState_.bondInstructionsHash, instructions[0]
-                    );
-                    ++instructionCount;
                 }
 
                 parentHash = _hashTransition(transition);
                 ++expectedId;
             }
 
-            if (instructionCount != bondInstructions_.length) {
-                LibBonds.BondInstruction[] memory trimmed =
-                    new LibBonds.BondInstruction[](instructionCount);
-                for (uint256 i; i < instructionCount; ++i) {
-                    trimmed[i] = bondInstructions_[i];
-                }
-                bondInstructions_ = trimmed;
+            // Only the first proposal in a sequential prove can be late; later proposals
+            // become proveable when the previous one finalizes within this transaction.
+            LibBonds.BondInstruction[] memory bondInstructions =
+                LibBondInstruction.calculateBondInstructions(
+                    _provingWindow,
+                    _extendedProvingWindow,
+                    _input.proposals[0],
+                    _input.metadata[0],
+                    firstReadyTimestamp_
+                );
+
+            record_.bondInstructions = bondInstructions;
+
+            if (bondInstructions.length != 0) {
+                newState_.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                    newState_.bondInstructionsHash, bondInstructions[0]
+                );
             }
 
             newState_.lastFinalizedProposalId = expectedId - 1;
