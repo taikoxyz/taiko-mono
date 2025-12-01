@@ -324,13 +324,11 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 proposalAge = block.timestamp - input.endProposal.timestamp;
             }
 
-            _proofVerifier.verifyProof(proposalAge, _hashProveInput(inputs), _proof);
+            _proofVerifier.verifyProof(proposalAge, _hashProveInputArray(inputs), _proof);
         }
     }
 
-    function _hashProveInput(ProveInput[] memory _inputs) internal pure returns (bytes32) {
-        // TODO
-    }
+
 
     /// @inheritdoc IForcedInclusionStore
     /// @dev This function will revert if called before the first non-activation proposal is submitted
@@ -623,7 +621,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashProposal(_proposal);
     }
 
-
+    function _hashProveInputArray(ProveInput[] memory _inputs) internal pure virtual returns (bytes32) {
+        return LibHashSimple2.hashProveInputArray(_inputs);
+    }
 
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition record to hash.
