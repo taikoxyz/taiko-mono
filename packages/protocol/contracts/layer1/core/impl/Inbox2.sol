@@ -226,16 +226,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock()
             );
 
-              // Verify parentProposals[0] is the last proposal stored on-chain.
+            // Verify parentProposals[0] is the last proposal stored on-chain.
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
-
 
             require(
                 _hashCoreState(input.coreState) == input.headProposalAndProof[0].coreStateHash,
                 InvalidState()
             );
-
-          
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds2.BondInstruction[] memory bondInstructions) =
@@ -339,9 +336,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 existing.span = span;
                 existing.finalizationDeadline = finalizationDeadline;
 
-                _emitProvedEvent(startProposalId, input.parentTransitionHash, span, finalizationDeadline, input.checkpoint, bondInstructions);
-
-
+                _emitProvedEvent(
+                    startProposalId,
+                    input.parentTransitionHash,
+                    span,
+                    finalizationDeadline,
+                    input.checkpoint,
+                    bondInstructions
+                );
             }
 
             uint256 proposalAge;
@@ -784,8 +786,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
-
     /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
     /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
@@ -840,13 +840,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
-                Transition memory lastFinalizedTransition =   _input.transitions[lastFinalizedRecordIdx];
-                 coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
+                Transition memory lastFinalizedTransition =
+                    _input.transitions[lastFinalizedRecordIdx];
+                coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
                 _syncCheckpoint(
-                    _input.checkpoint,
-                    lastFinalizedTransition.checkpointHash,
-                    coreState
+                    _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
                 );
 
                 _sendBondInstructionSignal(coreState);
@@ -885,16 +884,15 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-// TODO:
+    // TODO:
     function _sendBondInstructionSignal(CoreState memory _coreState) private {
         if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
-        if (_coreState.lastFinalizedProposalId % 128!=0) return;
+        if (_coreState.lastFinalizedProposalId % 128 != 0) return;
 
         _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
-       
     }
 
-        /// @dev Emits the Proposed event with stack-optimized approach
+    /// @dev Emits the Proposed event with stack-optimized approach
     /// @param _proposal The proposal data
     /// @param _derivation The derivation data
     /// @param _coreState The core state data
@@ -976,10 +974,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 require(_headProposalAndProof.length == 2, IncorrectProposalCount());
                 Proposal memory nextProposal = _headProposalAndProof[1];
                 require(headProposal.id < nextProposal.id, InvalidLastProposalProof());
-                require(
-                    nextProposalHash == _hashProposal(nextProposal),
-                    NextProposalHashMismatch()
-                );
+                require(nextProposalHash == _hashProposal(nextProposal), NextProposalHashMismatch());
             }
         }
     }
