@@ -37,7 +37,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    uint256 private constant ACTIVATION_WINDOW = 2 hours;
+    uint256 private constant _ACTIVATION_WINDOW = 2 hours;
 
     // ---------------------------------------------------------------
     // Structs
@@ -114,7 +114,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice The timestamp when the first activation occurred.
-    uint48 public activationTimestamp;
+    uint40 public activationTimestamp;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -175,12 +175,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev The `propose` function implicitly checks that activation has occurred by verifying
-    ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
+    ///      the genesis proposal (ID 0) exists in storage via `_verifyHeadProposal` →
     ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
     ///      exist and `propose` will revert with `ProposalHashMismatch()`.
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
+    // TODO:
     function activate(
         bytes32 _lastPacayaBlockHash,
         ICheckpointStore.Checkpoint memory _checkpoint
@@ -190,10 +191,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (activationTimestamp == 0) {
-            activationTimestamp = uint48(block.timestamp);
+            activationTimestamp = uint40(block.timestamp);
         } else {
             require(
-                block.timestamp <= ACTIVATION_WINDOW + activationTimestamp,
+                block.timestamp <= _ACTIVATION_WINDOW + activationTimestamp,
                 ActivationPeriodExpired()
             );
         }
@@ -216,10 +217,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
 
-            _validateProposeInput(input);
+
+// Validate proposal input data
+             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
+        require(input.parentProposals.length > 0, EmptyProposals());
+        require(block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
+        require(
+            _hashCoreState(input.coreState) == input.parentProposals[0].coreStateHash,
+            InvalidState()
+        );
+
 
             // Verify parentProposals[0] is actually the last proposal stored on-chain.
-            bytes32 headProposalHash = _verifyChainHead(input.parentProposals);
+            bytes32 headProposalHash = _verifyHeadProposal(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
@@ -918,24 +928,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Validates propose function inputs
-    /// Checks deadline, proposal array, and state consistency
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-        require(_input.parentProposals.length > 0, EmptyProposals());
-        require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
-        require(
-            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
-            InvalidState()
-        );
-    }
+
 
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
     /// @return headProposalHash_ The hash of the head proposal
-    function _verifyChainHead(Proposal[] memory _parentProposals)
+    function _verifyHeadProposal(Proposal[] memory _parentProposals)
         private
         view
         returns (bytes32 headProposalHash_)
