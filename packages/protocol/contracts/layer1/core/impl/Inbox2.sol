@@ -305,21 +305,21 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
                 require(
-                    input.proofMetadatas.length != 0,
+                    input.prposalProofMetadatas.length != 0,
                     EmptyProofMetadata()
                 );
                  require(
-                   input.proofMetadatas.length <= 24,
+                   input.prposalProofMetadatas.length <= 24,
                     TooManyProofMetadata()
                 );
-                span = uint8(input.proofMetadatas.length);
+                span = uint8(input.prposalProofMetadatas.length);
                 require(input.endProposal.id >= span, InvalidEndProposalId());
                 _checkProposalHash(input.endProposal);
 
                 uint40 startProposalId = input.endProposal.id - span;
 
                 LibBonds2.BondInstruction[] memory bondInstructions = LibBondInstruction2.calculateBondInstructions(
-                    _provingWindow, _extendedProvingWindow, startProposalId, input.proofMetadatas
+                    _provingWindow, _extendedProvingWindow, startProposalId, input.prposalProofMetadatas
                 );
              Transition    memory transition = Transition({
                     bondInstructions: bondInstructions,

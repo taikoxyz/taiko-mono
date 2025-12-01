@@ -28,24 +28,23 @@ library LibBondInstruction2 {
         uint40 _provingWindow,
         uint40 _extendedProvingWindow,
         uint40 _startProposalId,
-        IInbox2.ProofMetadata[] memory _proofMetadatas
+        IInbox2.ProposalProofMetadata[] memory _prposalProofMetadatas
     )
         internal
         view
         returns (LibBonds2.BondInstruction[] memory bondInstructions_)
     {
-        bondInstructions_ = new LibBonds2.BondInstruction[](_proofMetadatas.length);
-         uint256 proofTimestamp = block.timestamp;
+        bondInstructions_ = new LibBonds2.BondInstruction[](_prposalProofMetadatas.length);
         uint count;
 
-        for (uint256 i; i < _proofMetadatas.length; ++i) {
-            IInbox2.ProofMetadata memory proofMetadata = _proofMetadatas[i];
+        for (uint256 i; i < _prposalProofMetadatas.length; ++i) {
+            IInbox2.ProposalProofMetadata memory proofMetadata = _prposalProofMetadatas[i];
              uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
-              if (proofTimestamp <= windowEnd) continue;
+              if (block.timestamp <= windowEnd) continue;
             
 
               uint256 extendedWindowEnd = proofMetadata.proposalTimestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
+            bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
 
              bool needsBondInstruction = isWithinExtendedWindow
