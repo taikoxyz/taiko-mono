@@ -568,11 +568,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads proposal hash from storage.
     /// @param _proposalId The proposal identifier.
     /// @return proposalHash_ The proposal hash.
-    function _loadProposalHash(uint48 _proposalId)
-        internal
-        view
-        returns (bytes32 proposalHash_)
-    {
+    function _loadProposalHash(uint48 _proposalId) internal view returns (bytes32 proposalHash_) {
         return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
@@ -664,22 +660,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Decodes proposal input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput struct containing all proposal data
-    function _decodeProposeInput(bytes calldata _data)
-        internal
-        pure
-        returns (ProposeInput memory)
-    {
+    function _decodeProposeInput(bytes calldata _data) internal pure returns (ProposeInput memory) {
         return LibProposeInputDecoder.decode(_data);
     }
 
     /// @dev Decodes prove input data
     /// @param _data The encoded data
     /// @return _ The decoded ProveInput struct containing proposals and transitions
-    function _decodeProveInput(bytes calldata _data)
-        internal
-        pure
-        returns (ProveInput[] memory)
-    {
+    function _decodeProveInput(bytes calldata _data) internal pure returns (ProveInput[] memory) {
         return LibProveInputDecoder.decode(_data);
     }
 
@@ -701,36 +689,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState) internal pure  returns (bytes32) {
+    function _hashCoreState(CoreState memory _coreState) internal pure returns (bytes32) {
         return LibHashOptimized.hashCoreState(_coreState);
     }
 
     /// @dev Hashes a Derivation struct.
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function _hashDerivation(Derivation memory _derivation) internal pure returns (bytes32) {
         return LibHashOptimized.hashDerivation(_derivation);
     }
 
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) internal pure  returns (bytes32) {
+    function _hashProposal(Proposal memory _proposal) internal pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
     }
 
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition record to hash.
     /// @return _ The hash of the transition record.
-    function _hashTransition(Transition memory _transition)
-        internal
-        pure
-        returns (bytes26)
-    {
+    function _hashTransition(Transition memory _transition) internal pure returns (bytes26) {
         return LibHashOptimized.hashTransition(_transition);
     }
 
@@ -752,22 +732,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes blob hashes array.
     /// @param _blobHashes The blob hashes array to hash.
     /// @return _ The hash of the blob hashes array.
-    function _hashBlobHashesArray(bytes32[] memory _blobHashes)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function _hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
         return LibHashOptimized.hashBlobHashesArray(_blobHashes);
     }
 
     /// @dev Hashes ProveInput array for proof verification.
     /// @param _inputs The prove inputs to hash.
     /// @return _ The hash of the prove inputs.
-    function _hashProveInputArray(ProveInput[] memory _inputs)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function _hashProveInputArray(ProveInput[] memory _inputs) internal pure returns (bytes32) {
         return LibHashOptimized.hashProveInputArray(_inputs);
     }
 
@@ -932,7 +904,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
 
                 proposalId += record.span;
-                finalizedCount +=1;
+                finalizedCount += 1;
                 lastFinalizedIdx = i;
             }
 
