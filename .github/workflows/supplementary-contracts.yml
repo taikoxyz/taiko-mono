@@ -23,7 +23,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
