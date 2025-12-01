@@ -219,7 +219,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Validate proposal input data
             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
-            require(input.parentProposals.length > 0, EmptyProposals());
 
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
@@ -972,6 +971,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (bytes32 headProposalHash_)
     {
         unchecked {
+            require(_parentProposals.length != 0, EmptyProposals());
             // First verify parentProposals[0] matches what's stored on-chain
             headProposalHash_ = _checkProposalHash(_parentProposals[0]);
 
