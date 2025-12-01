@@ -81,6 +81,9 @@ func (i *Pacaya) InsertBlocks(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, rpc.DefaultRpcTimeout)
+	defer cancel()
+
 	var (
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
