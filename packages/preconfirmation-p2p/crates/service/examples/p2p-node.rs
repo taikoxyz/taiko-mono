@@ -6,7 +6,7 @@
 
 use clap::Parser;
 use libp2p::PeerId;
-use preconfirmation_service::{NetworkConfig, P2pHandler, P2pService};
+use preconfirmation_service::{NetworkConfig, NetworkError, P2pHandler, P2pService};
 use std::net::SocketAddr;
 
 /// Minimal CLI arguments.
@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     let listen_addr: SocketAddr = args.listen_addr.parse()?;
     let discv5_listen: SocketAddr = args.discv5_listen.parse()?;
 
-    let mut cfg = NetworkConfig::default();
+    let mut cfg = NetworkConfig::for_chain(167_000);
     cfg.chain_id = args.chain_id;
     cfg.listen_addr = listen_addr;
     cfg.discv5_listen = discv5_listen;
@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut service = P2pService::start(cfg)?;
     let handler = LoggingHandler;
-    let handler_task = service.run_with_handler(handler);
+    let handler_task = service.run_with_handler(handler)?;
 
     tracing::info!(
         listen = %args.listen_addr,
@@ -141,7 +141,12 @@ impl P2pHandler for LoggingHandler {
         tracing::info!(target = "p2p-node", %peer, "peer disconnected");
     }
 
-    fn on_error(&self, err: &str) {
-        tracing::warn!(target = "p2p-node", "network error: {err}");
+    fn on_error(&self, err: &NetworkError) {
+        tracing::warn!(
+            target = "p2p-node",
+            kind = %err.kind.as_str(),
+            detail = %err.detail,
+            "network error"
+        );
     }
 }

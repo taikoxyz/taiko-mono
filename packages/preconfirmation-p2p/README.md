@@ -8,7 +8,8 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
   topic/protocol ID helpers used by the network.
 - `crates/net`: libp2p transport + behaviours (ping, identify, gossipsub, req/resp) and
   scaffolds for discovery (`discovery`, now backed by `reth-discv5` behind the `reth-discovery`
-  feature) and peer reputation. Kona gossipsub presets and gater are always applied. Public API:
+  feature) and peer reputation. Kona gossipsub presets + connection gater are always applied;
+  req/resp uses SSZ with libp2p varint framing and per-message size caps. Public API:
   `NetworkConfig`, `NetworkCommand` (publish/request), `NetworkEvent` (gossip/req-resp/lifecycle),
   `NetworkDriver`/`NetworkHandle`.
 - `crates/service`: Async façade owning the network driver. Exposes a small channel-based API:
@@ -28,10 +29,14 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 
 ## Upstream reuse and compatibility
 
-- Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature, so
-  we reuse upstream maintenance instead of rolling our own.
-- Kona gossipsub presets and gater come from `kona-gossip`/`kona-peers` at tag
-  `kona-client/v1.2.4` and are always enabled.
+- Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature.
+- Gossip and gating reuse Kona (`kona-client/v1.2.4`): gossipsub presets (mesh/score/heartbeat,
+  max transmit size tied to `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`) and the connection
+  gater (blocked subnets/redial limits).
+- Reputation weights come from reth (`ReputationChangeWeights`); bans mirror to libp2p IDs with a
+  fallback local store when ID conversion fails.
+- Req/resp: SSZ messages framed with libp2p unsigned-varint lengths, protocol IDs and size caps
+  from `preconfirmation_types`; per-peer fixed-window rate limiting lives in `NetworkConfig`.
 - This package is library-only; runnable smoke testing lives in `crates/service/examples/p2p-node.rs`.
 
 ## Reputation & Scoring

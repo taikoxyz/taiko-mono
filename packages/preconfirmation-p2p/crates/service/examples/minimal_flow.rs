@@ -34,7 +34,7 @@ fn dummy_commitment() -> SignedCommitment {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Two services on random localhost ports.
-    let mut cfg1 = NetworkConfig::default();
+    let mut cfg1 = NetworkConfig::for_chain(167_000);
     cfg1.listen_addr.set_port(0);
     cfg1.enable_discovery = false;
 
@@ -50,11 +50,15 @@ async fn main() -> anyhow::Result<()> {
     // Drive a bit to let gossip propagate.
     sleep(Duration::from_millis(200)).await;
 
-    // Issue a req/resp from svc1 (no peer specified; driver picks a connected one when available).
-    let _ = svc1.request_commitments(Uint256::from(0u64), 1, None).await;
+    // Issue blocking req/resp helpers from svc1 (driver picks a connected peer).
+    let commitments = svc1.request_commitments_blocking(Uint256::from(0u64), 1, None).await?;
+    println!("commitments response: {commitments:?}");
 
-    // Consume a couple of events just to show flow.
-    for _ in 0..5 {
+    let head = svc1.request_head_blocking(None).await?;
+    println!("head response: {head:?}");
+
+    // Consume a couple of remaining events just to show flow.
+    for _ in 0..3 {
         if let Some(ev) = svc2.next_event().await {
             println!("svc2 event: {ev:?}");
         }

@@ -2,70 +2,84 @@ use preconfirmation_types::{
     GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkErrorKind {
+    GossipInvalid,
+    ReqRespValidation,
+    ReqRespRateLimited,
+    ReqRespFailure,
+    ReqRespTimeout,
+    Discovery,
+    Gater,
+    PublishFailure,
+    SendCommandFailed,
+    Other,
+}
+
+impl NetworkErrorKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NetworkErrorKind::GossipInvalid => "gossip_invalid",
+            NetworkErrorKind::ReqRespValidation => "reqresp_validation",
+            NetworkErrorKind::ReqRespRateLimited => "reqresp_rate_limited",
+            NetworkErrorKind::ReqRespFailure => "reqresp_failure",
+            NetworkErrorKind::ReqRespTimeout => "reqresp_timeout",
+            NetworkErrorKind::Discovery => "discovery",
+            NetworkErrorKind::Gater => "gater",
+            NetworkErrorKind::PublishFailure => "publish_failure",
+            NetworkErrorKind::SendCommandFailed => "send_command_failed",
+            NetworkErrorKind::Other => "other",
+        }
+    }
+}
+
+/// Categorized network error surfaced to callers.
+#[derive(Debug, Clone)]
+pub struct NetworkError {
+    pub kind: NetworkErrorKind,
+    pub detail: String,
+}
+
+impl NetworkError {
+    pub fn new(kind: NetworkErrorKind, detail: impl Into<String>) -> Self {
+        Self { kind, detail: detail.into() }
+    }
+}
+
+impl From<String> for NetworkError {
+    fn from(detail: String) -> Self {
+        Self { kind: NetworkErrorKind::Other, detail }
+    }
+}
+
+impl From<&str> for NetworkError {
+    fn from(detail: &str) -> Self {
+        Self { kind: NetworkErrorKind::Other, detail: detail.to_owned() }
+    }
+}
+
+impl std::fmt::Display for NetworkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.kind.as_str(), self.detail)
+    }
+}
+
+impl std::error::Error for NetworkError {}
+
 /// High-level events emitted by the network driver for consumption by the service.
-///
-/// These events abstract away the underlying libp2p details and provide a clean
-/// interface for the network service to react to network activities.
 #[derive(Debug)]
 pub enum NetworkEvent {
-    /// A peer successfully established a connection with the local node.
     PeerConnected(libp2p::PeerId),
-    /// A peer disconnected from the local node.
     PeerDisconnected(libp2p::PeerId),
-    /// An inbound gossipsub message carrying a signed preconfirmation commitment.
-    GossipSignedCommitment {
-        /// The `PeerId` of the peer from which the message was propagated.
-        from: libp2p::PeerId,
-        /// The boxed `SignedCommitment` message.
-        msg: Box<SignedCommitment>,
-    },
-    /// An inbound gossipsub message carrying a raw transaction list blob.
-    GossipRawTxList {
-        /// The `PeerId` of the peer from which the message was propagated.
-        from: libp2p::PeerId,
-        /// The boxed `RawTxListGossip` message.
-        msg: Box<RawTxListGossip>,
-    },
-    /// A response to our request for a range of commitments.
-    ReqRespCommitments {
-        /// The `PeerId` of the peer that sent the response.
-        from: libp2p::PeerId,
-        /// The `GetCommitmentsByNumberResponse` message.
-        msg: GetCommitmentsByNumberResponse,
-    },
-    /// A response to our request for a raw transaction list.
-    ReqRespRawTxList {
-        /// The `PeerId` of the peer that sent the response.
-        from: libp2p::PeerId,
-        /// The `GetRawTxListResponse` message.
-        msg: GetRawTxListResponse,
-    },
-    /// A response to our request for a peer's preconfirmation head.
-    ReqRespHead {
-        /// The `PeerId` of the peer that sent the response.
-        from: libp2p::PeerId,
-        /// The `PreconfHead` message.
-        head: preconfirmation_types::PreconfHead,
-    },
-    /// An inbound request from a peer for commitments.
-    InboundCommitmentsRequest {
-        /// The `PeerId` of the peer that sent the request.
-        from: libp2p::PeerId,
-    },
-    /// An inbound request from a peer for a raw transaction list.
-    InboundRawTxListRequest {
-        /// The `PeerId` of the peer that sent the request.
-        from: libp2p::PeerId,
-    },
-    /// An inbound request from a peer for our preconfirmation head.
-    InboundHeadRequest {
-        /// The `PeerId` of the peer that sent the request.
-        from: libp2p::PeerId,
-    },
-    /// The network driver has started successfully.
+    GossipSignedCommitment { from: libp2p::PeerId, msg: Box<SignedCommitment> },
+    GossipRawTxList { from: libp2p::PeerId, msg: Box<RawTxListGossip> },
+    ReqRespCommitments { from: libp2p::PeerId, msg: GetCommitmentsByNumberResponse },
+    ReqRespRawTxList { from: libp2p::PeerId, msg: GetRawTxListResponse },
+    ReqRespHead { from: libp2p::PeerId, head: preconfirmation_types::PreconfHead },
+    InboundCommitmentsRequest { from: libp2p::PeerId },
+    InboundRawTxListRequest { from: libp2p::PeerId },
+    InboundHeadRequest { from: libp2p::PeerId },
     Started,
-    /// The network driver has stopped.
     Stopped,
-    /// An error occurred within the network driver.
-    Error(String),
+    Error(NetworkError),
 }

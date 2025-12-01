@@ -15,12 +15,12 @@ mod command;
 mod config;
 mod discovery;
 mod driver;
-mod event;
+pub mod event;
 mod reputation;
 
 pub use command::NetworkCommand;
 pub use config::NetworkConfig;
 pub use discovery::{Discovery, DiscoveryConfig, DiscoveryEvent};
 pub use driver::{NetworkDriver, NetworkHandle};
-pub use event::NetworkEvent;
+pub use event::{NetworkError, NetworkErrorKind, NetworkEvent};
 pub use reputation::{PeerAction, PeerReputation, PeerScore, ReputationEvent};

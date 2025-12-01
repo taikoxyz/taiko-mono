@@ -39,6 +39,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+unsigned-varint = { version = "0.8", features = ["futures"] }
 
 [dependencies.kona-gossip]
 workspace = true

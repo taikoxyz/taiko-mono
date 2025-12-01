@@ -13,8 +13,8 @@ libp2p + discv5 networking layer for Taiko preconfirmation P2P. It wires gossip 
 ## Data flow (high level)
 - Commands/events: the driver owns the swarm; callers send `NetworkCommand` and receive `NetworkEvent` (channels are surfaced via the service crate’s `P2pService`).
 - Gossip: topics built from `preconfirmation_types::topic_*` for commitments and raw txlists.
-- Req/Resp: protocol IDs from `preconfirmation_types::protocol_get_*`; SSZ + libp2p varint framing; handlers in `driver.rs` with validation + rate/reputation checks.
-- Gating/DoS: Kona gater for dial decisions, per-peer req/resp rate limit, reputation decay/ban/greylist, txlist size caps.
+- Req/Resp: protocol IDs from `preconfirmation_types::protocol_get_*`; SSZ + libp2p varint framing with per-message size caps; handlers in `driver.rs` with validation + rate/reputation checks.
+- Gating/DoS: Kona gater for dial decisions (subnet/redial limits), per-peer req/resp rate limit, reputation decay/ban/greylist (reth weights), txlist size caps.
 
 ## Spec & integration
 - Protocol spec: `docs/specification.md` (authoritative P2P specification).

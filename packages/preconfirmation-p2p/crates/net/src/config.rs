@@ -41,6 +41,20 @@ pub struct NetworkConfig {
     pub request_window: Duration,
     /// Maximum number of requests allowed per peer within the `request_window`.
     pub max_requests_per_window: u32,
+    /// Maximum concurrent inbound+outbound req/resp streams (libp2p request-response config).
+    pub max_reqresp_concurrent_streams: usize,
+    /// Maximum pending inbound connections (None = unlimited).
+    pub max_pending_incoming: Option<u32>,
+    /// Maximum pending outbound connections (None = unlimited).
+    pub max_pending_outgoing: Option<u32>,
+    /// Maximum established inbound connections (None = unlimited).
+    pub max_established_incoming: Option<u32>,
+    /// Maximum established outbound connections (None = unlimited).
+    pub max_established_outgoing: Option<u32>,
+    /// Maximum total established connections (None = unlimited).
+    pub max_established_total: Option<u32>,
+    /// Maximum established connections per peer (None = unlimited).
+    pub max_established_per_peer: Option<u32>,
     /// Kona gater: blocked CIDR subnets (strings parsed as IpNet) applied before dialing.
     /// Connections to peers within these subnets will be rejected.
     pub gater_blocked_subnets: Vec<String>,
@@ -63,7 +77,7 @@ impl Default for NetworkConfig {
             bootnodes: Vec::new(),
             enable_quic: true,
             enable_tcp: true,
-            gossipsub_heartbeat: Duration::from_millis(700),
+            gossipsub_heartbeat: *kona_gossip::GOSSIP_HEARTBEAT,
             request_timeout: Duration::from_secs(10),
             enable_discovery: true,
             reputation_greylist: -5.0,
@@ -71,6 +85,13 @@ impl Default for NetworkConfig {
             reputation_halflife: Duration::from_secs(600),
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
+            max_reqresp_concurrent_streams: 100,
+            max_pending_incoming: Some(64),
+            max_pending_outgoing: Some(64),
+            max_established_incoming: Some(128),
+            max_established_outgoing: Some(128),
+            max_established_total: Some(256),
+            max_established_per_peer: Some(4),
             gater_blocked_subnets: Vec::new(),
             gater_peer_redialing: None,
             gater_dial_period: Duration::from_secs(60 * 60),
@@ -79,6 +100,11 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
+    /// Convenience constructor that sets `chain_id` and keeps all other defaults.
+    pub fn for_chain(chain_id: u64) -> Self {
+        Self { chain_id, ..Default::default() }
+    }
+
     /// Ensure rate-limit parameters are sane before constructing a limiter.
     pub(crate) fn validate_request_rate_limits(&self) {
         debug_assert!(self.request_window > Duration::ZERO, "request_window must be > 0");

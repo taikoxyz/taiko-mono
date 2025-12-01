@@ -1,43 +1,65 @@
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p_request_response::Codec;
+use preconfirmation_types::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES};
 use ssz_rs::prelude::*;
 use std::io;
+use unsigned_varint as uvar;
 
-/// SSZ codec that can encode and decode distinct request/response types for a protocol.
+/// SSZ codec that can encode and decode distinct request/response types for a protocol with
+/// bounded frame sizes.
 ///
-/// This generic codec uses SSZ (Simple Serialize) for serializing and deserializing
-/// messages over a request-response protocol. It's parameterized by the request and
-/// response types, both of which must implement `SimpleSerialize`.
-pub struct SszCodec<Req, Resp> {
+/// Each codec instance enforces a maximum encoded length for requests and responses to avoid
+/// unbounded frame allocations. The bounds are derived from protocol-level caps in
+/// `preconfirmation_types::constants` and tuned per message type.
+pub struct SszCodec<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> {
     _marker: std::marker::PhantomData<(Req, Resp)>,
 }
 
-impl<Req, Resp> Clone for SszCodec<Req, Resp> {
+impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
+    for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
+{
     fn clone(&self) -> Self {
         Self { _marker: std::marker::PhantomData }
     }
 }
 
-impl<Req, Resp> Default for SszCodec<Req, Resp> {
+impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
+    for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
+{
     fn default() -> Self {
         Self { _marker: std::marker::PhantomData }
     }
 }
 
 /// Type alias for the `SszCodec` handling commitments requests and responses.
+const COMMIT_REQ_MAX_BYTES: usize = 512; // block number + small fields
+const COMMIT_RESP_MAX_BYTES: usize = MAX_COMMITMENTS_PER_RESPONSE * 4096; // ~1 MiB upper bound
 pub type CommitmentsCodec = SszCodec<
     preconfirmation_types::GetCommitmentsByNumberRequest,
     preconfirmation_types::GetCommitmentsByNumberResponse,
+    COMMIT_REQ_MAX_BYTES,
+    COMMIT_RESP_MAX_BYTES,
 >;
 /// Type alias for the `SszCodec` handling raw transaction list requests and responses.
 pub type RawTxListCodec = SszCodec<
     preconfirmation_types::GetRawTxListRequest,
     preconfirmation_types::GetRawTxListResponse,
+    RAW_TXLIST_REQ_MAX_BYTES,
+    RAW_TXLIST_RESP_MAX_BYTES,
 >;
 /// Type alias for the `SszCodec` handling head requests and responses.
-pub type HeadCodec =
-    SszCodec<preconfirmation_types::GetHeadRequest, preconfirmation_types::PreconfHead>;
+pub type HeadCodec = SszCodec<
+    preconfirmation_types::GetHeadRequest,
+    preconfirmation_types::PreconfHead,
+    HEAD_REQ_MAX_BYTES,
+    HEAD_RESP_MAX_BYTES,
+>;
+
+const RAW_TXLIST_REQ_MAX_BYTES: usize = 256; // hash + small fields
+const RAW_TXLIST_RESP_MAX_BYTES: usize = MAX_TXLIST_BYTES + 4096; // payload + slack
+const HEAD_REQ_MAX_BYTES: usize = 128;
+const HEAD_RESP_MAX_BYTES: usize = 64 * 1024;
 
 #[derive(Clone)]
 /// Holds the protocol IDs for various request-response protocols.
@@ -63,7 +85,8 @@ impl AsRef<str> for SszProtocol {
 }
 
 #[async_trait]
-impl<Req, Resp> Codec for SszCodec<Req, Resp>
+impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Codec
+    for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
 where
     Req: SimpleSerialize + Clone + Send + Sync + 'static,
     Resp: SimpleSerialize + Clone + Send + Sync + 'static,
@@ -76,14 +99,14 @@ where
     where
         R: AsyncRead + Unpin + Send,
     {
-        read_ssz(io).await
+        read_ssz(io, MAX_REQ).await
     }
 
     async fn read_response<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Response>
     where
         R: AsyncRead + Unpin + Send,
     {
-        read_ssz(io).await
+        read_ssz(io, MAX_RESP).await
     }
 
     async fn write_request<W>(
@@ -95,7 +118,7 @@ where
     where
         W: AsyncWrite + Unpin + Send,
     {
-        write_ssz(io, req).await
+        write_ssz(io, req, MAX_REQ).await
     }
 
     async fn write_response<W>(
@@ -107,70 +130,58 @@ where
     where
         W: AsyncWrite + Unpin + Send,
     {
-        write_ssz(io, res).await
+        write_ssz(io, res, MAX_RESP).await
     }
 }
 
-/// Reads an SSZ-serialized value from an asynchronous reader.
+/// Reads an SSZ-serialized value from an asynchronous reader with a defensive length cap using
+/// libp2p-style unsigned-varint framing.
 ///
-/// The function first reads a 4-byte length prefix (little-endian `u32`),
-/// then reads that many bytes to deserialize the SSZ value.
-///
-/// # Type Parameters
-///
-/// * `T` - The type to deserialize, must implement `SimpleSerialize + Default`.
-/// * `R` - The asynchronous reader, must implement `AsyncRead + Unpin + Send`.
-///
-/// # Arguments
-///
-/// * `io` - A mutable reference to the asynchronous reader.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(T)` on successful deserialization, or `Err(io::Error)`
-/// if reading fails or SSZ decoding encounters an error.
+/// The function reads a u32 length encoded as unsigned-varint, rejects frames larger than
+/// `max_len`, then reads the payload and attempts SSZ deserialization.
 async fn read_ssz<T: SimpleSerialize + Default, R: AsyncRead + Unpin + Send>(
     io: &mut R,
+    max_len: usize,
 ) -> io::Result<T> {
     use futures::io::AsyncReadExt;
-    let mut len_bytes = [0u8; 4];
-    io.read_exact(&mut len_bytes).await?;
-    let len = u32::from_le_bytes(len_bytes) as usize;
+    let len = uvar::aio::read_u32(&mut *io)
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("varint len: {e}")))?
+        as usize;
+    if len > max_len {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("frame too large: {len} > {max_len}"),
+        ));
+    }
     let mut buf = vec![0u8; len];
     io.read_exact(&mut buf).await?;
     T::deserialize(&buf)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("ssz decode: {e}")))
 }
 
-/// Writes an SSZ-serializable value to an asynchronous writer.
-///
-/// The function first serializes the value using SSZ, then writes a 4-byte
-/// length prefix (little-endian `u32`) followed by the serialized bytes.
-///
-/// # Type Parameters
-///
-/// * `T` - The type to serialize, must implement `SimpleSerialize`.
-/// * `W` - The asynchronous writer, must implement `AsyncWrite + Unpin + Send`.
-///
-/// # Arguments
-///
-/// * `io` - A mutable reference to the asynchronous writer.
-/// * `value` - The value to serialize and write.
-///
-/// # Returns
-///
-/// `Ok(())` on successful write, or `Err(io::Error)` if SSZ serialization fails
-/// or writing to the stream encounters an error.
+/// Writes an SSZ-serializable value to an asynchronous writer with a defensive length cap using
+/// libp2p-style unsigned-varint framing.
 async fn write_ssz<T: SimpleSerialize, W: AsyncWrite + Unpin + Send>(
     io: &mut W,
     value: T,
+    max_len: usize,
 ) -> io::Result<()> {
     use futures::io::AsyncWriteExt;
     let bytes = ssz_rs::serialize(&value)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("ssz encode: {e}")))?;
+    if bytes.len() > max_len {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("frame too large: {} > {max_len}", bytes.len()),
+        ));
+    }
     let len = bytes.len() as u32;
-    // Prefix with little-endian length so the receiver can bound reads and avoid framing ambiguity.
-    io.write_all(&len.to_le_bytes()).await?;
+    // Prefix with unsigned-varint length so the receiver can bound reads and avoid framing
+    // ambiguity; matches docs/specification.md req/resp framing.
+    let mut buf = uvar::encode::u32_buffer();
+    let len_bytes = uvar::encode::u32(len, &mut buf);
+    io.write_all(len_bytes).await?;
     io.write_all(&bytes).await
 }
 
@@ -179,7 +190,8 @@ mod tests {
     use super::*;
     use futures::io::Cursor;
     use preconfirmation_types::{
-        GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, Uint256,
+        Bytes32, GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse,
+        GetRawTxListResponse, Uint256,
     };
 
     #[tokio::test]
@@ -201,5 +213,47 @@ mod tests {
         buf.set_position(0);
         let decoded = codec.read_response(&proto, &mut buf).await.unwrap();
         assert_eq!(resp, decoded);
+    }
+
+    #[tokio::test]
+    async fn oversized_response_is_rejected_on_read() {
+        let mut codec = RawTxListCodec::default();
+        let proto = SszProtocol("/taiko/test/rawtx/1".into());
+
+        // Craft a frame with a length one byte over the allowed bound.
+        let over = RAW_TXLIST_RESP_MAX_BYTES + 1;
+        let mut buf = Cursor::new(Vec::new());
+        let mut len_buf = uvar::encode::u32_buffer();
+        let len_bytes = uvar::encode::u32(over as u32, &mut len_buf);
+        buf.get_mut().extend_from_slice(len_bytes);
+        buf.get_mut().resize(len_bytes.len() + over, 0u8);
+        buf.set_position(0);
+
+        let err = codec.read_response(&proto, &mut buf).await.unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[tokio::test]
+    async fn write_errors_when_frame_exceeds_cap() {
+        // Use a deliberately tiny cap to force an error on write.
+        type TinyCodec = SszCodec<
+            preconfirmation_types::GetRawTxListRequest,
+            preconfirmation_types::GetRawTxListResponse,
+            64,
+            16,
+        >;
+        let mut codec = TinyCodec::default();
+        let proto = SszProtocol("/taiko/test/rawtx/1".into());
+
+        let txlist = preconfirmation_types::TxListBytes::try_from(vec![0u8; 32]).unwrap();
+        let resp = GetRawTxListResponse {
+            raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
+            anchor_block_number: Uint256::from(1u64),
+            txlist,
+        };
+
+        let mut buf = Cursor::new(Vec::new());
+        let err = codec.write_response(&proto, &mut buf, resp).await.unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
     }
 }

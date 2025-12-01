@@ -103,7 +103,8 @@ pub fn sign_commitment(
     let mut out = [0u8; 65];
     out[..64].copy_from_slice(&compact);
     out[64] = i32::from(rec_id) as u8;
-    Ok(Vector::try_from(out.to_vec()).expect("sig length 65"))
+    Vector::try_from(out.to_vec())
+        .map_err(|_| CryptoError::SignatureFormat(secp256k1::Error::InvalidSignature))
 }
 
 /// Recover the signer address from a signature over SSZ(commitment).

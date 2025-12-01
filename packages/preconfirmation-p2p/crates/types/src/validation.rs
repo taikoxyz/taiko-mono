@@ -11,8 +11,10 @@ use thiserror::Error;
 
 use crate::{
     constants::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES},
+    crypto::keccak256_bytes,
     types::{
-        GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, RawTxListGossip, TxListBytes,
+        Bytes32, GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
+        GetRawTxListResponse, PreconfHead, RawTxListGossip, TxListBytes,
     },
 };
 
@@ -29,6 +31,9 @@ pub enum ValidationError {
     /// Indicates that a requested `max_count` exceeds the allowed cap.
     #[error("max_count exceeds cap: {0} > {1}")]
     MaxCountExceeded(u32, u32),
+    /// Indicates that a txlist hash does not match the advertised hash.
+    #[error("txlist hash mismatch: expected {expected}, got {actual}")]
+    TxListHashMismatch { expected: String, actual: String },
 }
 
 /// Errors raised during crypto/hash/sign operations.
@@ -76,7 +81,36 @@ pub fn validate_txlist(txlist: &TxListBytes) -> Result<(), ValidationError> {
 ///
 /// `Ok(())` if the message is valid, otherwise `Err(ValidationError)`.
 pub fn validate_raw_txlist_gossip(msg: &RawTxListGossip) -> Result<(), ValidationError> {
-    validate_txlist(&msg.txlist)
+    validate_raw_txlist_parts(&msg.raw_tx_list_hash, &msg.txlist)
+}
+
+/// Validates a raw-txlist request/response payload.
+///
+/// This mirrors the gossip validation by enforcing the txlist size cap.
+pub fn validate_raw_txlist_response(msg: &GetRawTxListResponse) -> Result<(), ValidationError> {
+    validate_raw_txlist_parts(&msg.raw_tx_list_hash, &msg.txlist)
+}
+
+fn validate_raw_txlist_parts(hash: &Bytes32, txlist: &TxListBytes) -> Result<(), ValidationError> {
+    validate_txlist(txlist)?;
+    let actual = keccak256_bytes(txlist.as_ref());
+    if actual.as_slice() != hash.as_ref() {
+        return Err(ValidationError::TxListHashMismatch {
+            expected: format!("{:02x?}", hash.as_ref()),
+            actual: format!("{:02x?}", actual.as_slice()),
+        });
+    }
+    Ok(())
+}
+
+/// Validates a head request (currently a no-op; kept for symmetry and future fields).
+pub fn validate_head_request(_req: &GetHeadRequest) -> Result<(), ValidationError> {
+    Ok(())
+}
+
+/// Validates a head response (currently a no-op; kept for symmetry and future fields).
+pub fn validate_head_response(_resp: &PreconfHead) -> Result<(), ValidationError> {
+    Ok(())
 }
 
 /// Validates a `GetCommitmentsByNumberResponse` against the per-message commitment cap.
@@ -140,6 +174,18 @@ mod tests {
     }
 
     #[test]
+    fn raw_txlist_response_cap() {
+        let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES]).unwrap();
+        let hash = crate::crypto::keccak256_bytes(txlist.as_ref());
+        let resp = GetRawTxListResponse {
+            raw_tx_list_hash: crate::Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
+            anchor_block_number: crate::Uint256::from(0u64),
+            txlist,
+        };
+        assert!(validate_raw_txlist_response(&resp).is_ok());
+    }
+
+    #[test]
     fn commitments_response_cap() {
         let resp = GetCommitmentsByNumberResponse { commitments: Default::default() };
         assert!(validate_commitments_response(&resp).is_ok());
@@ -155,5 +201,13 @@ mod tests {
             validate_commitments_request(&req, 256),
             Err(ValidationError::MaxCountExceeded(_, _))
         ));
+    }
+
+    #[test]
+    fn head_validation_noop() {
+        let req = GetHeadRequest::default();
+        let resp = PreconfHead::default();
+        assert!(validate_head_request(&req).is_ok());
+        assert!(validate_head_response(&resp).is_ok());
     }
 }

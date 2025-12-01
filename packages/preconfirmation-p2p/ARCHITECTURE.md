@@ -16,20 +16,18 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
 
 ## Upstream reuse (how pieces fit)
 
-- **libp2p** (0.56.x): transport, gossipsub, request/response, ping, identify, allow/block list,
-  connection limits.
-- **reth-discv5** (tag `v1.9.3`, behind feature `reth-discovery`): wraps `discv5` for discovery so
-  we reuse upstream maintenance instead of hand-rolling UDP/ENR wiring.
-- **Kona presets** (tag `kona-client/v1.2.4`, always on): gossipsub config now built via
-  `kona-gossip`'s preset builder instead of local defaults.
-- **reth peers**: always on. Reputation is keyed by reth `PeerId` when conversion succeeds and bans
-  are mirrored back to libp2p; scoring deltas remain local and fall back to the local store if
-  conversion fails.
-- **Kona gater** (tag `kona-client/v1.2.4`, always on): connection gater reuse from `kona-gossip`
-  now shares a single dial decision path with `ReputationBackend::allow_dial`; minimal knobs are
-  exposed on `NetworkConfig` (`gater_blocked_subnets`, `gater_peer_redialing`, `gater_dial_period`).
-- **Request rate limiting**: remains the local sliding-window limiter; no upstream drop-in for
-  libp2p 0.56/reth/Lighthouse is available yet.
+- **libp2p** (0.56.x): transport, gossipsub, request/response (now varint-framed per spec), ping,
+  identify, allow/block list, connection limits.
+- **reth-discv5** (tag `v1.9.3`, feature `reth-discovery`): discovery wrapper; reused to avoid
+  custom ENR/UDP wiring.
+- **Kona gossipsub presets** (tag `kona-client/v1.2.4`, always on): mesh/score defaults +
+  heartbeat; we override only spec-required bits (max transmit size, validation mode).
+- **Reputation via reth**: `ReputationChangeWeights` defaults come from reth; `RethReputationAdapter`
+  mirrors bans to libp2p IDs, falling back to the local store on ID conversion failure.
+- **Kona connection gater**: dial path first consults Kona gater (blocked subnets/redial limits),
+  then local reputation; knobs exposed on `NetworkConfig`.
+- **Rate limiting**: local fixed-window per-peer limiter (no upstream module compatible with our
+  libp2p/reth versions yet).
 
 ## Feature flags
 
@@ -45,6 +43,15 @@ libp2p `PeerId` while using reth weights/thresholds for scoring. IP colocation p
 relies on libp2p connection limits (per-peer/incoming caps) plus request limiting; Lighthouse-style
 gating/scoring remains blocked until upstream publishes a compatible crate/API for libp2p 0.56.
 
+## Protocol details (current implementation)
+
+- Gossip: Kona gossipsub presets with max transmit size = `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`.
+- Req/Resp: SSZ payloads framed with unsigned-varint length (libp2p style), protocol IDs from
+  `preconfirmation_types`, per-message size caps enforced in codecs.
+- Rate limits: fixed (tumbling) per-peer window (`NetworkConfig.request_window` and
+  `max_requests_per_window`), rate-limit errors surface as NetworkEvent errors and reputation
+  timeouts.
+
 ## Typical usage flow
 
 1. Build a `NetworkConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
@@ -54,3 +61,19 @@ gating/scoring remains blocked until upstream publishes a compatible crate/API f
 3. Publish via `NetworkCommand::Publish*` or helper methods; request via `NetworkCommand::Request*`.
 4. Consume `NetworkEvent` stream directly or via a `P2pHandler` using `run_with_handler`.
 
+## Operations / Tuning (quick reference)
+
+- Metrics to watch:
+  - `p2p_gossip_invalid` / `p2p_reqresp_error` (reason labels: validation, timeout, io, rate_limited).
+  - `p2p_reqresp_rate_limited`, `p2p_dial_blocked` (source labels: kona_gater, reputation, missing_peer_id).
+  - Connection limits (denials via `p2p_dial_blocked` and libp2p connection-limits behaviour).
+- Config knobs (all on `NetworkConfig`):
+  - Rate limit: `request_window`, `max_requests_per_window` (per-peer fixed window).
+  - Size caps: enforced in `preconfirmation_types` (txlist, commitments, head) and codecs.
+  - Connection caps: `max_pending_{in,out}`, `max_established_{in,out,total,per_peer}`.
+  - Kona gater: `gater_blocked_subnets`, `gater_peer_redialing`, `gater_dial_period`.
+- Typical failure modes & reactions:
+  - Many `reqresp_validation` / gossip invalid: inspect payloads/logs; tighten size caps or reject offending peers; check producer correctness.
+  - Frequent `reqresp_rate_limited`: raise window/count if benign load, or leave as-is to throttle abuse.
+  - Dial blocks (`kona_gater`/`reputation`/`missing_peer_id`): verify bootnodes/addrs, adjust blocked subnets or redial limits; ensure peer IDs are included in multiaddrs.
+  - Timeouts: check `request_timeout`, network connectivity, and peer availability; consider increasing timeout conservatively.

@@ -4326,6 +4326,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unsigned-varint 0.8.0",
 ]
 
 [[package]]
@@ -6310,6 +6311,10 @@ name = "unsigned-varint"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb066959b24b5196ae73cb057f45598450d2c5f71460e98c49b738086eff9c06"
+dependencies = [
+ "futures-io",
+ "futures-util",
+]
 
 [[package]]
 name = "untrusted"

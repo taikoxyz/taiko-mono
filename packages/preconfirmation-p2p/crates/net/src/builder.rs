@@ -59,7 +59,7 @@ pub fn build_transport_and_behaviour(_cfg: &NetworkConfig) -> anyhow::Result<Bui
         )),
         head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(_cfg.chain_id)),
     };
-    let behaviour = NetBehaviour::new(keypair.public(), topics.clone(), protocols);
+    let behaviour = NetBehaviour::new(keypair.public(), topics.clone(), protocols, _cfg)?;
 
     Ok(BuiltParts { keypair, transport, behaviour, topics })
 }
