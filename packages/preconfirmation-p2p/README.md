@@ -15,6 +15,7 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
   `P2pService::start(cfg)` -> command sender + event stream; `shutdown()` for graceful stop.
 - `crates/service/examples/p2p-node.rs`: Minimal CLI example that starts the service and logs
   network events (replaces the previous standalone `bin/p2p-node`).
+- `docs/specification.md`: Authoritative specification for the permissionless preconfirmation P2P protocol.
 
 ## API mapping to the preconfirmation spec
 

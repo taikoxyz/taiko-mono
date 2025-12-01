@@ -6,7 +6,7 @@
   - `crates/types`: Spec-driven SSZ types, hashing/signing/validation helpers.
   - `crates/net`: libp2p + discv5 networking, reputation, discovery, behaviours, tests.
   - `crates/service`: Async façade over the network driver; examples in `crates/service/examples/`.
-- Key docs: `README.md`, `ARCHITECTURE.md`, `AGENTS.md`.
+- Key docs: `README.md`, `ARCHITECTURE.md`, `AGENTS.md`, `docs/specification.md` (authoritative P2P protocol spec).
 
 ## Build, Test, and Development Commands
 - Format/lint: `just fmt`, `just clippy` (uses rustfmt/clippy; keep edits minimal).
