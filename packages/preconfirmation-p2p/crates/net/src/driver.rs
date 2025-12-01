@@ -1,4 +1,14 @@
-use std::{str::FromStr, task::{Context, Poll}};
+//! Main network driver for the preconfirmation P2P layer.
+//!
+//! This module contains the `NetworkDriver` which is responsible for managing the
+//! libp2p `Swarm`, handling incoming `NetworkCommand`s, processing `SwarmEvent`s,
+//! and integrating with discovery, reputation, and connection gating mechanisms.
+//! It also provides the `NetworkHandle` for external interaction with the driver.
+
+use std::{
+    str::FromStr,
+    task::{Context, Poll},
+};
 
 use libp2p::{
     Multiaddr, PeerId,
@@ -36,6 +46,18 @@ fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend>
     Box::new(RethReputationAdapter::new(cfg))
 }
 
+/// Builds a `ConnectionGater` instance based on the provided `NetworkConfig`.
+///
+/// This function initializes Kona's `ConnectionGater` and configures it with
+/// blocked subnets and redialing parameters from the `NetworkConfig`.
+///
+/// # Arguments
+///
+/// * `cfg` - A reference to the `NetworkConfig`.
+///
+/// # Returns
+///
+/// A configured `ConnectionGater` instance.
 fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
     let mut gater = ConnectionGater::new(KonaGaterConfig {
         peer_redialing: cfg.gater_peer_redialing,
@@ -56,7 +78,11 @@ fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
     gater
 }
 
-/// Handle returned to service layer; exposes the event receiver and command sender endpoints.
+/// Handle returned to the service layer; exposes the event receiver and command sender endpoints.
+///
+/// This struct provides a way for external components to send commands to the
+/// `NetworkDriver` and receive events from it, facilitating communication
+/// without direct access to the `Swarm` internals.
 #[derive(Debug)]
 pub struct NetworkHandle {
     /// Receiver for network events emitted by the driver.
@@ -66,17 +92,32 @@ pub struct NetworkHandle {
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
+///
+/// The `NetworkDriver` is the core component that drives the libp2p network.
+/// It continuously polls the `Swarm` for events, processes incoming commands,
+/// and manages peer reputation and discovery.
 pub struct NetworkDriver {
+    /// The underlying libp2p swarm that manages connections, protocols, and events.
     swarm: Swarm<crate::behaviour::NetBehaviour>,
+    /// Sender for network events to be consumed by the service layer.
     events_tx: Sender<NetworkEvent>,
+    /// Receiver for commands from the service layer to control the network.
     commands_rx: Receiver<NetworkCommand>,
+    /// Gossip topics for commitments and raw transaction lists.
     topics: (gossipsub::IdentTopic, gossipsub::IdentTopic),
+    /// Backend for managing peer reputation.
     reputation: Box<dyn ReputationBackend>,
+    /// Rate limiter for incoming requests.
     request_limiter: RequestRateLimiter,
+    /// Optional receiver for discovery events.
     discovery_rx: Option<Receiver<DiscoveryEvent>>,
+    /// Handle to the spawned discovery task.
     _discovery_task: Option<JoinHandle<()>>,
+    /// Counter for currently connected peers.
     connected_peers: i64,
+    /// The current local preconfirmation head, served to peers on request.
     head: PreconfHead,
+    /// Kona connection gater for managing inbound and outbound connections.
     kona_gater: kona_gossip::ConnectionGater,
 }
 
@@ -85,7 +126,20 @@ pub struct NetworkDriver {
 type ReputationStore = PeerReputationStore;
 
 impl NetworkDriver {
-    /// Construct a driver and its handle using the provided network config.
+    /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
+    ///
+    /// This is the entry point for creating the network stack. It initializes
+    /// the libp2p swarm, sets up the communication channels, and optionally
+    /// starts the discovery service.
+    ///
+    /// # Arguments
+    ///
+    /// * `cfg` - The `NetworkConfig` used to configure all aspects of the network driver.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` which is `Ok((NetworkDriver, NetworkHandle))` on success, or an
+    /// `anyhow::Error` if the network stack fails to initialize.
     pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkHandle)> {
         let parts = build_transport_and_behaviour(&cfg)?;
         let peer_id = parts.keypair.public().to_peer_id();
@@ -138,7 +192,19 @@ impl NetworkDriver {
         ))
     }
 
-    /// Run one poll of the swarm; intended to be driven by an async loop in service.
+    /// Polls the swarm for events and processes commands.
+    ///
+    /// This method should be called repeatedly in an asynchronous loop to drive
+    /// the network. It handles outbound commands, discovery events, and swarm events.
+    ///
+    /// # Arguments
+    ///
+    /// * `cx` - The `Context` for polling.
+    ///
+    /// # Returns
+    ///
+    /// A `Poll` indicating whether the driver is ready to be polled again or if
+    /// it is pending on an asynchronous operation.
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         // Process outbound commands first so we don't starve the swarm.
         while let Ok(cmd) = self.commands_rx.try_recv() {
@@ -165,6 +231,14 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `SwarmEvent`s emitted by the libp2p swarm.
+    ///
+    /// This function processes various swarm events, such as connection
+    /// establishment and closure, and dispatches them to appropriate handlers.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The `SwarmEvent` to handle.
     fn handle_swarm_event(&mut self, event: SwarmEvent<NetBehaviourEvent>) {
         match event {
             SwarmEvent::Behaviour(ev) => self.handle_behaviour_event(ev),
@@ -185,6 +259,14 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `NetBehaviourEvent`s generated by the combined network behaviour.
+    ///
+    /// This function dispatches specific behaviour events (e.g., from Gossipsub,
+    /// or Request/Response protocols) to their dedicated handlers.
+    ///
+    /// # Arguments
+    ///
+    /// * `ev` - The `NetBehaviourEvent` to handle.
     fn handle_behaviour_event(&mut self, ev: NetBehaviourEvent) {
         match ev {
             NetBehaviourEvent::Gossipsub(ev) => self.handle_gossipsub_event(ev),
@@ -195,6 +277,16 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `gossipsub::Event`s.
+    ///
+    /// This function processes incoming gossip messages, validates them (e.g., signature
+    /// verification for signed commitments, size validation for raw transaction lists),
+    /// updates peer reputation based on message validity, and forwards valid messages
+    /// as `NetworkEvent`s to the service layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `ev` - The `gossipsub::Event` to handle.
     fn handle_gossipsub_event(&mut self, ev: gossipsub::Event) {
         if let gossipsub::Event::Message { propagation_source, message, .. } = ev {
             if self.reputation.is_banned(&propagation_source) {
@@ -261,6 +353,15 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `request_response::Event`s for commitments.
+    ///
+    /// This function processes inbound requests for commitments, checks peer reputation
+    /// and rate limits, and sends responses. It also handles outbound responses
+    /// and any failures during the request-response exchange.
+    ///
+    /// # Arguments
+    ///
+    /// * `ev` - The `rr::Event` for commitments to handle.
     fn handle_commitments_rr_event(
         &mut self,
         ev: rr::Event<GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse>,
@@ -328,6 +429,15 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `request_response::Event`s for raw transaction lists.
+    ///
+    /// This function processes inbound requests for raw transaction lists, checks
+    /// peer reputation and rate limits, and sends responses. It also handles
+    /// outbound responses and any failures during the request-response exchange.
+    ///
+    /// # Arguments
+    ///
+    /// * `ev` - The `rr::Event` for raw transaction lists to handle.
     fn handle_raw_txlists_rr_event(
         &mut self,
         ev: rr::Event<GetRawTxListRequest, GetRawTxListResponse>,
@@ -400,6 +510,15 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `request_response::Event`s for preconfirmation head requests.
+    ///
+    /// This function processes inbound requests for the current preconfirmation head,
+    /// and sends responses containing the driver's current `head`. It also handles
+    /// outbound responses and any failures during the request-response exchange.
+    ///
+    /// # Arguments
+    ///
+    /// * `ev` - The `rr::Event` for head requests to handle.
     fn handle_head_rr_event(&mut self, ev: rr::Event<GetHeadRequest, PreconfHead>) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
@@ -444,6 +563,14 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles incoming `NetworkCommand`s from the service layer.
+    ///
+    /// This function dispatches commands to the appropriate libp2p behaviour
+    /// or updates the internal state of the driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmd` - The `NetworkCommand` to handle.
     fn handle_command(&mut self, cmd: NetworkCommand) {
         match cmd {
             NetworkCommand::PublishCommitment(msg) => {
@@ -493,10 +620,19 @@ impl NetworkDriver {
         }
     }
 
+    /// Handles `DiscoveryEvent`s from the discovery layer.
+    ///
+    /// This function processes multiaddresses found by the discovery service
+    /// and attempts to dial them, subject to connection gating rules.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The `DiscoveryEvent` to handle.
     fn handle_discovery_event(&mut self, event: DiscoveryEvent) {
         match event {
             DiscoveryEvent::MultiaddrFound(addr) => {
                 if self.allow_dial_addr(&addr) {
+                    // Discovery feed can surface many addresses; defer actual connect to libp2p dialer.
                     let _ = self.swarm.dial(addr);
                 }
             }
@@ -509,6 +645,18 @@ impl NetworkDriver {
         }
     }
 
+    /// Chooses a peer to send a request to.
+    ///
+    /// If a `preferred` peer is provided, it is used. Otherwise, a random
+    /// connected peer that is not banned is selected.
+    ///
+    /// # Arguments
+    ///
+    /// * `preferred` - An optional `PeerId` of a preferred peer.
+    ///
+    /// # Returns
+    ///
+    /// The `PeerId` of the chosen peer, or `None` if no suitable peer is found.
     fn choose_peer(&mut self, preferred: Option<PeerId>) -> Option<PeerId> {
         if preferred.is_some() {
             return preferred;
@@ -516,6 +664,15 @@ impl NetworkDriver {
         self.swarm.connected_peers().find(|p| !self.reputation.is_banned(p)).cloned()
     }
 
+    /// Extracts the `PeerId` from a `Multiaddr` if present.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - A reference to the `Multiaddr`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<PeerId>` containing the extracted `PeerId` if found, otherwise `None`.
     fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
         use libp2p::multiaddr::Protocol;
         addr.iter().find_map(|p| match p {
@@ -526,14 +683,24 @@ impl NetworkDriver {
 
     /// Unified dial gating: consult Kona's connection gater first, then reputation bans/greylist
     /// via `ReputationBackend::allow_dial`. This keeps a single decision path for outbound dials.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The `Multiaddr` of the peer attempting to dial.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the dial is allowed, `false` otherwise.
     fn allow_dial_addr(&mut self, addr: &Multiaddr) -> bool {
         if self.kona_gater.can_dial(addr).is_err() {
+            // Kona gater enforces IP/CIDR and redial policies before any reputation checks.
             metrics::counter!("p2p_dial_blocked", "source" => "kona_gater").increment(1);
             return false;
         }
 
         if let Some(peer) = Self::peer_id_from_multiaddr(addr) {
             if !self.reputation.allow_dial(&peer, Some(addr)) {
+                // Reputation gate: refuse outbound dial to banned/grey peers.
                 metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
                 return false;
             }
@@ -542,6 +709,23 @@ impl NetworkDriver {
         true
     }
 
+    /// Publishes an SSZ-serializable message over a given gossipsub topic.
+    ///
+    /// The message is first serialized using SSZ, then published to the network.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The type of the message, must implement `ssz_rs::prelude::SimpleSerialize`.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The `gossipsub::IdentTopic` to publish the message to.
+    /// * `msg` - The message to be published.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on successful publication, or an `anyhow::Error` if serialization
+    /// or publishing fails.
     fn publish_gossip<T: ssz_rs::prelude::SimpleSerialize>(
         &mut self,
         topic: &gossipsub::IdentTopic,
@@ -553,9 +737,20 @@ impl NetworkDriver {
             .gossipsub
             .publish(topic.clone(), bytes)
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        // Publication failures surface back to caller via Result; metrics on caller side.
         Ok(())
     }
 
+    /// Applies a reputation action to a given peer.
+    ///
+    /// This function updates the peer's score based on the `PeerAction`. If the
+    /// peer's score falls below the ban threshold, they are banned, disconnected,
+    /// and added to the block list.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - The `PeerId` of the peer to apply the action to.
+    /// * `action` - The `PeerAction` to apply.
     fn apply_reputation(&mut self, peer: PeerId, action: PeerAction) {
         let ev = self.reputation.apply(peer, action);
         if ev.is_banned && !ev.was_banned {
@@ -564,6 +759,7 @@ impl NetworkDriver {
             // connections closed.
             self.swarm.behaviour_mut().block_list.block_peer(ev.peer);
             {
+                // Mirror to Kona gater to keep gating decisions consistent across layers.
                 self.kona_gater.block_peer(&ev.peer);
             }
             let _ = self.swarm.disconnect_peer_id(ev.peer);
@@ -575,6 +771,7 @@ impl NetworkDriver {
 }
 
 impl Drop for NetworkDriver {
+    /// Sends a `NetworkEvent::Stopped` event when the `NetworkDriver` is dropped.
     fn drop(&mut self) {
         let _ = self.events_tx.try_send(NetworkEvent::Stopped);
     }

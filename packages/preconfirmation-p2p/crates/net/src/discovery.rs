@@ -1,5 +1,9 @@
-//! Discovery adapter backed by `reth-discv5` so we reuse upstream maintenance instead of
-//! hand-rolling discv5 wiring. Public surface stays identical to the prior scaffold.
+//! Discovery adapter backed by `reth-discv5`.
+//!
+//! This module provides the interface for peer discovery using Discv5,
+//! leveraging `reth-discv5` for its implementation. It defines the
+//! configuration for discovery, the events it can emit, and a function
+//! to spawn the discovery service.
 
 use std::net::SocketAddr;
 
@@ -8,16 +12,19 @@ use libp2p::{Multiaddr, PeerId};
 use rand::RngCore;
 use tokio::{sync::mpsc, task::JoinHandle};
 
-/// Configuration for discovery; mirrors common discv5 knobs but keeps defaults simple.
+/// Configuration for discovery.
+///
+/// Mirrors common discv5 knobs but keeps defaults simple.
 #[derive(Debug, Clone)]
 pub struct DiscoveryConfig {
-    /// UDP listen socket for discv5.
+    /// UDP listen socket for discv5. This is the address Discv5 will bind to.
     pub listen: SocketAddr,
-    /// Bootnodes encoded as ENR strings.
-    pub bootnodes: Vec<String>, // ENR strings
-    /// Optional UDP port to advertise in ENR.
+    /// Bootnodes encoded as ENR (Ethereum Node Record) strings. These are initial
+    /// nodes used to bootstrap the discovery process.
+    pub bootnodes: Vec<String>,
+    /// Optional UDP port to advertise in the ENR. If `None`, the listen port will be used.
     pub enr_udp_port: Option<u16>,
-    /// Optional TCP port to advertise in ENR.
+    /// Optional TCP port to advertise in the ENR. If `None`, the listen port will be used.
     pub enr_tcp_port: Option<u16>,
 }
 
@@ -33,34 +40,80 @@ impl Default for DiscoveryConfig {
 }
 
 /// Events emitted by the discovery layer.
+///
+/// These events inform the network service about significant occurrences
+/// during the peer discovery process.
 #[derive(Debug, Clone)]
 pub enum DiscoveryEvent {
+    /// A new peer has been discovered.
     PeerDiscovered(PeerId),
+    /// An error occurred while trying to connect to or parse a bootnode.
     BootnodeFailed(String),
+    /// A multiaddress for a discovered peer has been found.
     MultiaddrFound(Multiaddr),
 }
 
 /// Lightweight handle for a discovery instance.
+///
+/// This struct acts as a placeholder or a simplified interface for the discovery
+/// mechanism. In this specific implementation, it's primarily for compatibility
+/// with previous designs.
 pub struct Discovery;
 
 impl Discovery {
-    /// Construct a discovery scaffold. For compatibility only.
+    /// Constructs a discovery scaffold.
+    ///
+    /// For compatibility only; the actual discovery logic is handled by `spawn_discovery`.
+    ///
+    /// # Arguments
+    ///
+    /// * `_config` - The `DiscoveryConfig` (currently unused in this simplified handle).
+    ///
+    /// # Returns
+    ///
+    /// A new `Discovery` instance.
     pub fn new(_config: DiscoveryConfig) -> Self {
         Self
     }
 
-    /// Poll for the next discovery event (unused with the async task model).
+    /// Polls for the next discovery event.
+    ///
+    /// This method is part of a polling interface, but with the current async task model,
+    /// events are typically received via a channel, making this method effectively
+    /// unused and always returning `None`.
+    ///
+    /// # Returns
+    ///
+    /// Always returns `None` in the current implementation.
     pub fn poll(&mut self) -> Option<DiscoveryEvent> {
         None
     }
 }
 
-/// Spawn a discv5 instance in the background and forward discovered multiaddrs via channel.
+/// Spawns a Discv5 instance in the background and forwards discovered multiaddrs via a channel.
+///
+/// This function starts the Discv5 service, which actively searches for other peers
+/// and reports their multiaddrs through the returned channel. This is conditionally
+/// compiled based on the `reth-discovery` feature.
+///
+/// # Arguments
+///
+/// * `config` - The `DiscoveryConfig` specifying how Discv5 should be set up.
+///
+/// # Returns
+///
+/// A `Result` containing:
+/// - `mpsc::Receiver<DiscoveryEvent>`: A channel receiver for `DiscoveryEvent`s.
+/// - `JoinHandle<()>`: A handle to the spawned Discv5 background task.
+///
+/// Returns an `anyhow::Error` if the `reth-discovery` feature is not enabled
+/// or if Discv5 fails to start.
 pub fn spawn_discovery(
     config: DiscoveryConfig,
 ) -> anyhow::Result<(mpsc::Receiver<DiscoveryEvent>, JoinHandle<()>)> {
     #[cfg(feature = "reth-discovery")]
     {
+        // Keep the async side-effect hidden behind a small, testable surface.
         spawn_reth_discv5(config)
     }
     #[cfg(not(feature = "reth-discovery"))]
@@ -70,6 +123,25 @@ pub fn spawn_discovery(
 }
 
 #[cfg(feature = "reth-discovery")]
+/// Spawns a `reth-discv5` instance.
+///
+/// This internal function handles the actual setup and execution of the `reth-discv5`
+/// discovery service. It generates a random secp256k1 key for the discovery identity,
+/// configures the Discv5 listener, adds bootnodes, and then starts the Discv5 process.
+/// Discovered peers' multiaddrs are sent through the provided `mpsc::Sender`.
+///
+/// # Arguments
+///
+/// * `config` - The `DiscoveryConfig` containing settings for the Discv5 instance.
+///
+/// # Returns
+///
+/// A `Result` containing:
+/// - `mpsc::Receiver<DiscoveryEvent>`: A channel receiver for `DiscoveryEvent`s.
+/// - `JoinHandle<()>`: A handle to the spawned Discv5 background task.
+///
+/// Returns an `anyhow::Error` if key generation fails, Discv5 fails to start,
+/// or an initial `DiscoveryEvent` cannot be sent.
 fn spawn_reth_discv5(
     config: DiscoveryConfig,
 ) -> anyhow::Result<(mpsc::Receiver<DiscoveryEvent>, JoinHandle<()>)> {

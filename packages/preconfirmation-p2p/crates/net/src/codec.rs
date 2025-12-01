@@ -4,7 +4,11 @@ use libp2p_request_response::Codec;
 use ssz_rs::prelude::*;
 use std::io;
 
-/// SSZ codec that can encode distinct request/response types for a protocol.
+/// SSZ codec that can encode and decode distinct request/response types for a protocol.
+///
+/// This generic codec uses SSZ (Simple Serialize) for serializing and deserializing
+/// messages over a request-response protocol. It's parameterized by the request and
+/// response types, both of which must implement `SimpleSerialize`.
 #[allow(dead_code)]
 pub struct SszCodec<Req, Resp> {
     _marker: std::marker::PhantomData<(Req, Resp)>,
@@ -22,28 +26,35 @@ impl<Req, Resp> Default for SszCodec<Req, Resp> {
     }
 }
 
+/// Type alias for the `SszCodec` handling commitments requests and responses.
 pub type CommitmentsCodec = SszCodec<
     preconfirmation_types::GetCommitmentsByNumberRequest,
     preconfirmation_types::GetCommitmentsByNumberResponse,
 >;
+/// Type alias for the `SszCodec` handling raw transaction list requests and responses.
 pub type RawTxListCodec = SszCodec<
     preconfirmation_types::GetRawTxListRequest,
     preconfirmation_types::GetRawTxListResponse,
 >;
+/// Type alias for the `SszCodec` handling head requests and responses.
 pub type HeadCodec =
     SszCodec<preconfirmation_types::GetHeadRequest, preconfirmation_types::PreconfHead>;
 
 #[derive(Clone)]
+/// Holds the protocol IDs for various request-response protocols.
 pub struct Protocols {
-    /// Protocol ID for commitments req/resp.
+    /// Protocol ID for commitments request-response.
     pub commitments: SszProtocol,
-    /// Protocol ID for raw-txlist req/resp.
+    /// Protocol ID for raw transaction list request-response.
     pub raw_txlists: SszProtocol,
-    /// Protocol ID for get_head req/resp.
+    /// Protocol ID for get_head request-response.
     pub head: SszProtocol,
 }
 
 #[derive(Clone)]
+/// A wrapper for a protocol ID string.
+///
+/// Implements `AsRef<str>` to allow easy conversion to `&str`.
 pub struct SszProtocol(pub String);
 
 impl AsRef<str> for SszProtocol {
@@ -102,6 +113,24 @@ where
 }
 
 #[allow(dead_code)]
+/// Reads an SSZ-serialized value from an asynchronous reader.
+///
+/// The function first reads a 4-byte length prefix (little-endian `u32`),
+/// then reads that many bytes to deserialize the SSZ value.
+///
+/// # Type Parameters
+///
+/// * `T` - The type to deserialize, must implement `SimpleSerialize + Default`.
+/// * `R` - The asynchronous reader, must implement `AsyncRead + Unpin + Send`.
+///
+/// # Arguments
+///
+/// * `io` - A mutable reference to the asynchronous reader.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(T)` on successful deserialization, or `Err(io::Error)`
+/// if reading fails or SSZ decoding encounters an error.
 async fn read_ssz<T: SimpleSerialize + Default, R: AsyncRead + Unpin + Send>(
     io: &mut R,
 ) -> io::Result<T> {
@@ -116,6 +145,25 @@ async fn read_ssz<T: SimpleSerialize + Default, R: AsyncRead + Unpin + Send>(
 }
 
 #[allow(dead_code)]
+/// Writes an SSZ-serializable value to an asynchronous writer.
+///
+/// The function first serializes the value using SSZ, then writes a 4-byte
+/// length prefix (little-endian `u32`) followed by the serialized bytes.
+///
+/// # Type Parameters
+///
+/// * `T` - The type to serialize, must implement `SimpleSerialize`.
+/// * `W` - The asynchronous writer, must implement `AsyncWrite + Unpin + Send`.
+///
+/// # Arguments
+///
+/// * `io` - A mutable reference to the asynchronous writer.
+/// * `value` - The value to serialize and write.
+///
+/// # Returns
+///
+/// `Ok(())` on successful write, or `Err(io::Error)` if SSZ serialization fails
+/// or writing to the stream encounters an error.
 async fn write_ssz<T: SimpleSerialize, W: AsyncWrite + Unpin + Send>(
     io: &mut W,
     value: T,
@@ -124,6 +172,7 @@ async fn write_ssz<T: SimpleSerialize, W: AsyncWrite + Unpin + Send>(
     let bytes = ssz_rs::serialize(&value)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("ssz encode: {e}")))?;
     let len = bytes.len() as u32;
+    // Prefix with little-endian length so the receiver can bound reads and avoid framing ambiguity.
     io.write_all(&len.to_le_bytes()).await?;
     io.write_all(&bytes).await
 }

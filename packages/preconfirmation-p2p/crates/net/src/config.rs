@@ -5,6 +5,9 @@ use std::{
 
 /// Network configuration (libp2p + discv5) with conservative defaults used by the preconfirmation
 /// P2P stack.
+///
+/// This struct consolidates all network-related settings, from listen addresses
+/// and bootnodes to various protocol tunings and reputation parameters.
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
     /// Chain ID used to derive gossip topics and protocol IDs.
@@ -13,38 +16,42 @@ pub struct NetworkConfig {
     pub listen_addr: SocketAddr,
     /// discv5 listen address (UDP).
     pub discv5_listen: SocketAddr,
-    /// Bootnodes as ENR or multiaddr strings.
-    pub bootnodes: Vec<String>, // ENR or multiaddr strings
-    /// Enable QUIC transport.
+    /// Bootnodes as ENR or multiaddr strings. These are used for initial peer discovery.
+    pub bootnodes: Vec<String>,
+    /// Enable QUIC transport. If true, the network will attempt to use QUIC.
     pub enable_quic: bool,
-    /// Enable TCP transport.
+    /// Enable TCP transport. If true, the network will attempt to use TCP.
     pub enable_tcp: bool,
-    /// Gossipsub heartbeat interval.
+    /// Gossipsub heartbeat interval. Determines how often gossipsub peers exchange keep-alive messages.
     pub gossipsub_heartbeat: Duration,
-    /// Req/resp request timeout.
+    /// Request/response request timeout. How long to wait for a response to a request.
     pub request_timeout: Duration,
-    /// Toggle discv5 discovery.
+    /// Toggle discv5 discovery. If true, discv5 will be used for peer discovery.
     pub enable_discovery: bool,
-    // Reputation/DoS tuning
-    /// Greylist threshold applied by the reputation engine.
+    /// Greylist threshold applied by the reputation engine. Peers with scores below this will be greylisted.
     pub reputation_greylist: f64,
-    /// Ban threshold applied by the reputation engine.
+    /// Ban threshold applied by the reputation engine. Peers with scores below this will be banned.
     pub reputation_ban: f64,
-    /// Exponential-decay halflife for scores.
+    /// Exponential-decay halflife for scores. Determines how quickly peer scores decay over time.
     pub reputation_halflife: Duration,
     /// Sliding window size for req/resp rate limiting.
     pub request_window: Duration,
-    /// Max requests per peer per window.
+    /// Maximum number of requests allowed per peer within the `request_window`.
     pub max_requests_per_window: u32,
     /// Kona gater: blocked CIDR subnets (strings parsed as IpNet) applied before dialing.
+    /// Connections to peers within these subnets will be rejected.
     pub gater_blocked_subnets: Vec<String>,
-    /// Kona gater: maximum redials per peer within a dial period (None = Kona default unlimited).
+    /// Kona gater: maximum redials per peer within a dial period.
+    /// `None` implies Kona's default unlimited redials.
     pub gater_peer_redialing: Option<u64>,
     /// Kona gater: dial period window for redial limiting.
     pub gater_dial_period: Duration,
 }
 
 impl Default for NetworkConfig {
+    /// Provides a default, conservative configuration for the network.
+    ///
+    /// These defaults can be overridden by user-provided configurations.
     fn default() -> Self {
         Self {
             chain_id: 167_000, // placeholder, override via CLI/config

@@ -1,3 +1,12 @@
+//! Cryptographic utilities for hashing, signing, and signature recovery within the preconfirmation P2P layer.
+//!
+//! This module provides functions for:
+//! - Keccak-256 hashing of byte arrays and SSZ-serialized values.
+//! - Signing preconfirmation commitments using secp256k1.
+//! - Recovering the signer's address from a secp256k1 signature.
+//! - Verifying signed commitments.
+//! - Converting public keys to Ethereum addresses.
+
 use alloy_primitives::{Address, B256};
 use secp256k1::{
     Message, PublicKey, Secp256k1, SecretKey,
@@ -12,17 +21,50 @@ use crate::{
 };
 
 /// Keccak-256 hash of arbitrary bytes.
+///
+/// # Arguments
+///
+/// * `data` - The input data to be hashed.
+///
+/// # Returns
+///
+/// A `B256` (32-byte array) representing the Keccak-256 hash.
 pub fn keccak256_bytes(data: impl AsRef<[u8]>) -> B256 {
     let digest = Keccak256::digest(data);
     B256::from_slice(&digest)
 }
 
 /// Keccak-256 hash of an SSZ-serializable value using the default preconfirmation domain.
+///
+/// This function serializes the given value using SSZ and then computes the Keccak-256 hash
+/// prepended with `DOMAIN_PRECONF`.
+///
+/// # Arguments
+///
+/// * `value` - A reference to the SSZ-serializable value.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(B256)` containing the hash on success, or `Err(CryptoError)`
+/// if SSZ serialization fails.
 pub fn keccak256_ssz<T: SimpleSerialize>(value: &T) -> Result<B256, CryptoError> {
     keccak256_ssz_with_domain(value, &crate::constants::DOMAIN_PRECONF)
 }
 
 /// Keccak-256 hash of SSZ bytes with an explicit 32-byte domain separator.
+///
+/// This function serializes the given value using SSZ and then computes the Keccak-256 hash
+/// prepended with the provided `domain`.
+///
+/// # Arguments
+///
+/// * `value` - A reference to the SSZ-serializable value.
+/// * `domain` - A 32-byte array used as a domain separator.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(B256)` containing the hash on success, or `Err(CryptoError)`
+/// if SSZ serialization fails.
 pub fn keccak256_ssz_with_domain<T: SimpleSerialize>(
     value: &T,
     domain: &[u8; 32],
@@ -33,7 +75,20 @@ pub fn keccak256_ssz_with_domain<T: SimpleSerialize>(
     Ok(keccak256_bytes(bytes))
 }
 
-/// Sign the SSZ-serialized commitment with a secp256k1 key, returning 65-byte (r,s,v).
+/// Sign the SSZ-serialized commitment with a secp256k1 key, returning a 65-byte (r,s,v) signature.
+///
+/// The message to be signed is the Keccak-256 hash of the commitment, prefixed by the
+/// `DOMAIN_PRECONF`.
+///
+/// # Arguments
+///
+/// * `commitment` - A reference to the `PreconfCommitment` to be signed.
+/// * `sk` - A reference to the `SecretKey` used for signing.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(Bytes65)` containing the 65-byte signature on success,
+/// or `Err(CryptoError)` if hashing or signing fails.
 pub fn sign_commitment(
     commitment: &PreconfCommitment,
     sk: &SecretKey,
@@ -51,6 +106,19 @@ pub fn sign_commitment(
 }
 
 /// Recover the signer address from a signature over SSZ(commitment).
+///
+/// The message used for recovery is the Keccak-256 hash of the commitment, prefixed by the
+/// `DOMAIN_PRECONF`.
+///
+/// # Arguments
+///
+/// * `commitment` - A reference to the `PreconfCommitment` that was signed.
+/// * `signature` - A reference to the 65-byte `Bytes65` signature.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(Address)` containing the recovered Ethereum address on success,
+/// or `Err(CryptoError)` if message parsing or recovery fails.
 pub fn recover_signer(
     commitment: &PreconfCommitment,
     signature: &Bytes65,
@@ -69,12 +137,34 @@ pub fn recover_signer(
     Ok(public_key_to_address(&pubkey))
 }
 
-/// Verify a SignedCommitment, returning the recovered address on success.
+/// Verify a `SignedCommitment`, returning the recovered address on success.
+///
+/// This function acts as a convenience wrapper around `recover_signer`.
+///
+/// # Arguments
+///
+/// * `signed` - A reference to the `SignedCommitment` to be verified.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(Address)` containing the recovered Ethereum address on success,
+/// or `Err(CryptoError)` if verification fails.
 pub fn verify_signed_commitment(signed: &SignedCommitment) -> Result<Address, CryptoError> {
     recover_signer(&signed.commitment, &signed.signature)
 }
 
-/// Convert a public key into an Ethereum address (keccak256 of uncompressed pubkey sans 0x04).
+/// Convert a secp256k1 public key into an Ethereum address.
+///
+/// The Ethereum address is derived by taking the Keccak-256 hash of the uncompressed
+/// public key (excluding the 0x04 prefix) and taking the last 20 bytes.
+///
+/// # Arguments
+///
+/// * `pk` - A reference to the `PublicKey` to convert.
+///
+/// # Returns
+///
+/// An `Address` representing the corresponding Ethereum address.
 pub fn public_key_to_address(pk: &PublicKey) -> Address {
     let uncompressed = pk.serialize_uncompressed();
     debug_assert_eq!(uncompressed[0], 0x04);

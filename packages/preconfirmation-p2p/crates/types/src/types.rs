@@ -5,21 +5,22 @@ use crate::constants::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES};
 
 // ---------- SSZ aliases ----------
 
-/// 20-byte fixed vector used for addresses.
+/// 20-byte fixed vector used for Ethereum addresses.
 pub type Bytes20 = Vector<u8, 20>;
-/// 32-byte fixed vector used for hashes.
+/// 32-byte fixed vector used for cryptographic hashes (e.g., Keccak-256).
 pub type Bytes32 = Vector<u8, 32>;
-/// 65-byte fixed vector used for secp256k1 signatures (r,s,v).
+/// 65-byte fixed vector used for secp256k1 signatures, including recovery ID (r,s,v).
 pub type Bytes65 = Vector<u8, 65>;
-/// Variable-length txlist bytes capped by `MAX_TXLIST_BYTES`.
+/// Variable-length raw transaction list bytes, capped by `MAX_TXLIST_BYTES`.
 pub type TxListBytes = List<u8, MAX_TXLIST_BYTES>;
-/// List of commitments capped by `MAX_COMMITMENTS_PER_RESPONSE`.
+/// List of `SignedCommitment`s, capped by `MAX_COMMITMENTS_PER_RESPONSE`.
 pub type CommitmentList = List<SignedCommitment, MAX_COMMITMENTS_PER_RESPONSE>;
-/// SSZ 256-bit integer alias.
+/// SSZ 256-bit unsigned integer alias, compatible with `alloy_primitives::U256`.
 pub type Uint256 = SSZU256;
 
 // ---------- Core containers (spec §3) ----------
 
+/// Core preconfirmation data structure (spec §3.1).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct Preconfirmation {
     /// Whether the preconfirmation marks end-of-proposal.
@@ -46,22 +47,26 @@ pub struct Preconfirmation {
     pub proposal_id: Uint256,
 }
 
+/// Represents a commitment to a `Preconfirmation` (spec §3.2).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct PreconfCommitment {
     /// The preconfirmation body being committed to.
     pub preconf: Preconfirmation,
-    /// Address permitted to slash in case of fraud.
+    /// Address permitted to slash in case of fraud related to this commitment.
     pub slasher_address: Bytes20,
 }
 
+/// Represents a `PreconfCommitment` signed by a sequencer (spec §3.3).
+/// The signature covers the SSZ serialization of the `PreconfCommitment`.
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct SignedCommitment {
-    /// Commitment payload.
+    /// The commitment payload.
     pub commitment: PreconfCommitment,
-    /// secp256k1 signature over SSZ(commitment).
+    /// The secp256k1 signature over the SSZ-serialized `commitment`.
     pub signature: Bytes65, // secp256k1 signature over SSZ(commitment)
 }
 
+/// Represents a raw transaction list gossip message (spec §3.4).
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct RawTxListGossip {
@@ -75,14 +80,19 @@ pub struct RawTxListGossip {
 
 // ---------- Req/Resp (spec §11, §12) ----------
 
+/// Represents the current head of preconfirmations, used in `get_head` response (spec §11.2).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct PreconfHead {
+    /// The block number of the current preconfirmation head.
     pub block_number: Uint256,
+    /// The submission window end timestamp of the current preconfirmation head.
     pub submission_window_end: Uint256,
 }
 
-/// Empty container used as the request body for `get_head` req/resp. Kept as an SSZ container
-/// with a zero-capacity list to satisfy SSZ shape requirements while carrying no data.
+/// Empty container used as the request body for `get_head` req/resp (spec §11.1).
+///
+/// Kept as an SSZ container with a zero-capacity list to satisfy SSZ shape requirements
+/// while carrying no data.
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetHeadRequest {
@@ -90,14 +100,16 @@ pub struct GetHeadRequest {
     pub reserved: List<u8, 0>,
 }
 
+/// Request for commitments by block number (spec §12.1).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetCommitmentsByNumberRequest {
-    /// Starting block number to request commitments from.
+    /// Starting block number from which to request commitments.
     pub start_block_number: Uint256,
     /// Maximum number of commitments to return.
     pub max_count: u32,
 }
 
+/// Response for commitments by block number (spec §12.2).
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetCommitmentsByNumberResponse {
@@ -105,28 +117,49 @@ pub struct GetCommitmentsByNumberResponse {
     pub commitments: CommitmentList,
 }
 
+/// Request for a raw transaction list by hash (spec §12.3).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetRawTxListRequest {
-    /// Hash of the raw tx list being requested.
+    /// Hash of the raw transaction list being requested.
     pub raw_tx_list_hash: Bytes32,
 }
 
+/// Response for a raw transaction list (spec §12.4).
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetRawTxListResponse {
+    /// Hash of the raw transaction list payload.
     pub raw_tx_list_hash: Bytes32,
+    /// Anchor block number tied to the transaction list.
     pub anchor_block_number: Uint256,
+    /// Compressed RLP-encoded transaction list bytes.
     pub txlist: TxListBytes,
 }
 
 // ---------- Convenience conversions between alloy U256 and SSZ Uint256 ----------
 
 /// Convert an `alloy_primitives::U256` into the SSZ `Uint256` wrapper.
+///
+/// # Arguments
+///
+/// * `value` - The `U256` value to convert.
+///
+/// # Returns
+///
+/// The corresponding SSZ `Uint256` value.
 pub fn u256_to_uint256(value: U256) -> Uint256 {
     Uint256::from_bytes_le(value.to_le_bytes())
 }
 
 /// Convert an SSZ `Uint256` back to `alloy_primitives::U256`.
+///
+/// # Arguments
+///
+/// * `value` - A reference to the SSZ `Uint256` value to convert.
+///
+/// # Returns
+///
+/// The corresponding `alloy_primitives::U256` value.
 pub fn uint256_to_u256(value: &Uint256) -> U256 {
     let bytes = value.to_bytes_le();
     let mut buf = [0u8; 32];
@@ -136,17 +169,41 @@ pub fn uint256_to_u256(value: &Uint256) -> U256 {
 
 // ---------- Helpers for address/hash bridging ----------
 
-/// Convert an Ethereum address into an SSZ fixed `Bytes20`.
+/// Convert an Ethereum `Address` into an SSZ fixed `Bytes20`.
+///
+/// # Arguments
+///
+/// * `addr` - The `Address` to convert.
+///
+/// # Returns
+///
+/// The corresponding SSZ `Bytes20` value.
 pub fn address_to_bytes20(addr: Address) -> Bytes20 {
     Vector::try_from(addr.0.to_vec()).expect("addr length 20")
 }
 
 /// Convert a `B256` hash into an SSZ fixed `Bytes32`.
+///
+/// # Arguments
+///
+/// * `value` - The `B256` hash to convert.
+///
+/// # Returns
+///
+/// The corresponding SSZ `Bytes32` value.
 pub fn b256_to_bytes32(value: B256) -> Bytes32 {
     Vector::try_from(value.to_vec()).expect("hash length 32")
 }
 
 /// Convert an SSZ `Bytes32` hash back into a `B256`.
+///
+/// # Arguments
+///
+/// * `value` - A reference to the SSZ `Bytes32` hash to convert.
+///
+/// # Returns
+///
+/// The corresponding `B256` hash.
 pub fn bytes32_to_b256(value: &Bytes32) -> B256 {
     B256::from_slice(value.as_ref())
 }

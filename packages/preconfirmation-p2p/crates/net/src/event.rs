@@ -3,52 +3,69 @@ use preconfirmation_types::{
 };
 
 /// High-level events emitted by the network driver for consumption by the service.
+///
+/// These events abstract away the underlying libp2p details and provide a clean
+/// interface for the network service to react to network activities.
 #[derive(Debug)]
 pub enum NetworkEvent {
-    /// A peer successfully established a connection.
+    /// A peer successfully established a connection with the local node.
     PeerConnected(libp2p::PeerId),
-    /// A peer disconnected.
+    /// A peer disconnected from the local node.
     PeerDisconnected(libp2p::PeerId),
-    /// Inbound gossipsub message carrying a signed commitment.
+    /// An inbound gossipsub message carrying a signed preconfirmation commitment.
     GossipSignedCommitment {
+        /// The `PeerId` of the peer from which the message was propagated.
         from: libp2p::PeerId,
+        /// The boxed `SignedCommitment` message.
         msg: Box<SignedCommitment>,
     },
-    /// Inbound gossipsub message carrying a raw tx list blob.
+    /// An inbound gossipsub message carrying a raw transaction list blob.
     GossipRawTxList {
+        /// The `PeerId` of the peer from which the message was propagated.
         from: libp2p::PeerId,
+        /// The boxed `RawTxListGossip` message.
         msg: Box<RawTxListGossip>,
     },
-    /// Response to our commitment range request.
+    /// A response to our request for a range of commitments.
     ReqRespCommitments {
+        /// The `PeerId` of the peer that sent the response.
         from: libp2p::PeerId,
+        /// The `GetCommitmentsByNumberResponse` message.
         msg: GetCommitmentsByNumberResponse,
     },
-    /// Response to our raw-txlist request.
+    /// A response to our request for a raw transaction list.
     ReqRespRawTxList {
+        /// The `PeerId` of the peer that sent the response.
         from: libp2p::PeerId,
+        /// The `GetRawTxListResponse` message.
         msg: GetRawTxListResponse,
     },
-    /// Response to our get_head request.
+    /// A response to our request for a peer's preconfirmation head.
     ReqRespHead {
+        /// The `PeerId` of the peer that sent the response.
         from: libp2p::PeerId,
+        /// The `PreconfHead` message.
         head: preconfirmation_types::PreconfHead,
     },
-    /// Peer asked us for commitments (payload currently defaulted).
+    /// An inbound request from a peer for commitments.
     InboundCommitmentsRequest {
+        /// The `PeerId` of the peer that sent the request.
         from: libp2p::PeerId,
     },
-    /// Peer asked us for a raw tx list (payload currently defaulted).
+    /// An inbound request from a peer for a raw transaction list.
     InboundRawTxListRequest {
+        /// The `PeerId` of the peer that sent the request.
         from: libp2p::PeerId,
     },
-    /// Peer asked us for our preconfirmation head.
+    /// An inbound request from a peer for our preconfirmation head.
     InboundHeadRequest {
+        /// The `PeerId` of the peer that sent the request.
         from: libp2p::PeerId,
     },
-    /// Driver lifecycle events.
+    /// The network driver has started successfully.
     Started,
+    /// The network driver has stopped.
     Stopped,
-    /// Driver-level error surfaced for observability.
+    /// An error occurred within the network driver.
     Error(String),
 }

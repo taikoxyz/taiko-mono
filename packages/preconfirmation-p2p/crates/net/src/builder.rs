@@ -7,6 +7,9 @@ use libp2p::{
 use crate::{behaviour::NetBehaviour, config::NetworkConfig};
 
 /// Transport + behaviour bundle used by the driver to construct a libp2p swarm.
+///
+/// This struct holds all the necessary components configured for the libp2p swarm
+/// before it is started.
 pub struct BuiltParts {
     /// Identity keypair for the local node.
     pub keypair: identity::Keypair,
@@ -18,7 +21,19 @@ pub struct BuiltParts {
     pub topics: (libp2p::gossipsub::IdentTopic, libp2p::gossipsub::IdentTopic),
 }
 
-/// Build the TCP/noise/yamux transport and base behaviours for a network instance.
+/// Builds the TCP/noise/yamux transport and base behaviours for a network instance.
+///
+/// This function sets up the libp2p transport and initializes the `NetBehaviour`
+/// with the specified network configuration.
+///
+/// # Arguments
+///
+/// * `_cfg` - The `NetworkConfig` used to configure the network components.
+///
+/// # Returns
+///
+/// A `Result` which is `Ok(BuiltParts)` on successful construction, or an `anyhow::Error`
+/// if any part of the setup fails (e.g., noise key generation).
 pub fn build_transport_and_behaviour(_cfg: &NetworkConfig) -> anyhow::Result<BuiltParts> {
     let keypair = identity::Keypair::generate_ed25519();
     let noise_config = noise::Config::new(&keypair)?;

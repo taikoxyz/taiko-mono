@@ -17,34 +17,66 @@ use preconfirmation_types::{
     GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
 };
 
-/// Application-facing callbacks for P2P events. Implementors can plug business logic while the
-/// service hides libp2p details.
+/// Application-facing callbacks for P2P events.
+///
+/// Implementors can plug business logic into these methods, allowing the
+/// `P2pService` to hide libp2p details and dispatch high-level events.
 pub trait P2pHandler: Send + Sync + 'static {
+    /// Called when a signed commitment gossip message is received.
     fn on_signed_commitment(&self, _from: PeerId, _msg: SignedCommitment) {}
+    /// Called when a raw transaction list gossip message is received.
     fn on_raw_txlist(&self, _from: PeerId, _msg: RawTxListGossip) {}
+    /// Called when a response to a commitment request is received.
     fn on_commitments_response(&self, _from: PeerId, _msg: GetCommitmentsByNumberResponse) {}
+    /// Called when a response to a raw transaction list request is received.
     fn on_raw_txlist_response(&self, _from: PeerId, _msg: GetRawTxListResponse) {}
+    /// Called when a response to a head request is received.
     fn on_head_response(&self, _from: PeerId, _head: preconfirmation_types::PreconfHead) {}
+    /// Called when an inbound request for commitments is received.
     fn on_inbound_commitments_request(&self, _from: PeerId) {}
+    /// Called when an inbound request for a raw transaction list is received.
     fn on_inbound_raw_txlist_request(&self, _from: PeerId) {}
+    /// Called when an inbound request for the preconfirmation head is received.
     fn on_inbound_head_request(&self, _from: PeerId) {}
+    /// Called when a new peer connects.
     fn on_peer_connected(&self, _peer: PeerId) {}
+    /// Called when a peer disconnects.
     fn on_peer_disconnected(&self, _peer: PeerId) {}
+    /// Called when a network-level error occurs.
     fn on_error(&self, _err: &str) {}
 }
 
-/// Owned service wrapper. It spawns the libp2p driver onto the tokio runtime and provides
+/// Owned service wrapper.
+///
+/// It spawns the libp2p driver onto the tokio runtime and provides
 /// convenience helpers to publish gossip, send requests, and consume events.
 pub struct P2pService {
+    /// Sender for `NetworkCommand`s to the `NetworkDriver`.
     command_tx: mpsc::Sender<NetworkCommand>,
+    /// Receiver for `NetworkEvent`s from the `NetworkDriver`. This is an `Option`
+    /// because it can be `take`n by `run_with_handler`.
     events_rx: Option<mpsc::Receiver<NetworkEvent>>,
+    /// Sender for the shutdown signal to the `NetworkDriver` task.
     shutdown_tx: Option<oneshot::Sender<()>>,
+    /// Handle to the `NetworkDriver`'s background task.
     join_handle: Option<JoinHandle<()>>,
 }
 
 impl P2pService {
-    /// Start the P2P service by constructing a `NetworkDriver` and spawning it in the
-    /// background using tokio. Returns a handle for sending commands and receiving events.
+    /// Starts the P2P service by constructing a `NetworkDriver` and spawning it
+    /// as a background task on the tokio runtime.
+    ///
+    /// This function initializes the entire network stack and provides a handle
+    /// for sending commands and receiving events.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The `NetworkConfig` used to configure the underlying network driver.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` which is `Ok(Self)` on successful startup, or an `anyhow::Error`
+    /// if the network driver fails to initialize.
     pub fn start(config: NetworkConfig) -> Result<Self> {
         let (mut driver, handle) = NetworkDriver::new(config)?;
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
@@ -52,7 +84,7 @@ impl P2pService {
         let events_rx = Some(handle.events);
         let command_tx = handle.commands;
 
-        // Spawn the driver loop. It waits on swarm activity or shutdown.
+        // Spawn the driver loop so callers interact via channels without owning the swarm task.
         let join_handle = tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -73,12 +105,28 @@ impl P2pService {
         })
     }
 
-    /// Get a clone of the command sender so callers can enqueue network actions.
+    /// Returns a clone of the command sender.
+    ///
+    /// This allows multiple callers to enqueue network actions to the `P2pService`.
+    ///
+    /// # Returns
+    ///
+    /// An `mpsc::Sender<NetworkCommand>` that can be used to send commands.
     pub fn command_sender(&self) -> mpsc::Sender<NetworkCommand> {
         self.command_tx.clone()
     }
 
-    /// Publish a signed commitment over gossipsub.
+    /// Publishes a signed commitment over gossipsub.
+    ///
+    /// This sends a `PublishCommitment` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The `SignedCommitment` to publish.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn publish_commitment(&self, msg: SignedCommitment) -> Result<()> {
         self.command_tx
             .send(NetworkCommand::PublishCommitment(msg))
@@ -86,7 +134,17 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Publish a raw tx list gossip message over gossipsub.
+    /// Publishes a raw transaction list gossip message over gossipsub.
+    ///
+    /// This sends a `PublishRawTxList` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The `RawTxListGossip` message to publish.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn publish_raw_txlist(&self, msg: RawTxListGossip) -> Result<()> {
         self.command_tx
             .send(NetworkCommand::PublishRawTxList(msg))
@@ -94,7 +152,20 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Request a commitment range via req/resp. If `peer` is `None`, the driver selects a peer.
+    /// Requests a range of commitments via the request-response protocol.
+    ///
+    /// If `peer` is `None`, the network driver selects a suitable peer.
+    /// This sends a `RequestCommitments` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_block` - The starting block number for the commitment range.
+    /// * `max_count` - The maximum number of commitments to request.
+    /// * `peer` - An optional `PeerId` to target the request to a specific peer.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn request_commitments(
         &self,
         start_block: preconfirmation_types::Uint256,
@@ -107,7 +178,19 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Request a raw tx list by hash via req/resp. If `peer` is `None`, the driver selects a peer.
+    /// Requests a raw transaction list by its hash via the request-response protocol.
+    ///
+    /// If `peer` is `None`, the network driver selects a suitable peer.
+    /// This sends a `RequestRawTxList` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The `Bytes32` hash of the raw transaction list to request.
+    /// * `peer` - An optional `PeerId` to target the request to a specific peer.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn request_raw_txlist(
         &self,
         hash: preconfirmation_types::Bytes32,
@@ -119,7 +202,18 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Update the locally served preconfirmation head for answering inbound get_head requests.
+    /// Updates the locally served preconfirmation head.
+    ///
+    /// This head is used to answer inbound `get_head` requests from other peers.
+    /// This sends an `UpdateHead` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `head` - The new `PreconfHead` to be served.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn update_head(&self, head: preconfirmation_types::PreconfHead) -> Result<()> {
         self.command_tx
             .send(NetworkCommand::UpdateHead { head })
@@ -127,7 +221,18 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Request the peer's preconfirmation head (spec §11 get_head).
+    /// Requests a peer's preconfirmation head using the `get_head` request-response protocol (spec §11).
+    ///
+    /// If `peer` is `None`, the network driver selects a suitable peer.
+    /// This sends a `RequestHead` command to the network driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - An optional `PeerId` to target the request to a specific peer.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of sending the command.
     pub async fn request_head(&self, peer: Option<PeerId>) -> Result<()> {
         self.command_tx
             .send(NetworkCommand::RequestHead { peer })
@@ -135,7 +240,14 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Receive the next network event. Convenience wrapper around `mpsc::Receiver::recv`.
+    /// Receives the next network event.
+    ///
+    /// This is a convenience wrapper around `mpsc::Receiver::recv`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<NetworkEvent>` which is `Some` if an event is received,
+    /// or `None` if the event channel has been closed.
     pub async fn next_event(&mut self) -> Option<NetworkEvent> {
         match self.events_rx.as_mut() {
             Some(rx) => rx.recv().await,
@@ -143,14 +255,43 @@ impl P2pService {
         }
     }
 
-    /// Access the underlying event receiver if callers prefer manual polling/streaming.
+    /// Provides mutable access to the underlying event receiver.
+    ///
+    /// Callers can use this if they prefer manual polling or streaming of events.
+    /// Note that once `run_with_handler` is called, the receiver is moved,
+    /// and this method will panic if called afterwards.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the events receiver has already been taken (e.g., by `run_with_handler`).
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `mpsc::Receiver<NetworkEvent>`.
     pub fn events(&mut self) -> &mut mpsc::Receiver<NetworkEvent> {
         self.events_rx.as_mut().expect("events receiver already taken")
     }
 
-    /// Spawn a background task that consumes network events and invokes the provided handler.
-    /// Once invoked, the internal events receiver is moved and `events()` / `next_event()`
-    /// become unavailable.
+    /// Spawns a background task that consumes network events and invokes the provided handler.
+    ///
+    /// Once invoked, the internal events receiver is moved out of the `P2pService`,
+    /// making `events()` and `next_event()` unavailable.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `H` - A type that implements the `P2pHandler` trait.
+    ///
+    /// # Arguments
+    ///
+    /// * `handler` - An instance of `P2pHandler` that will process network events.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the events receiver has already been taken (e.g., by a previous call to this method).
+    ///
+    /// # Returns
+    ///
+    /// A `JoinHandle` for the spawned event processing task.
     pub fn run_with_handler<H: P2pHandler>(&mut self, handler: H) -> JoinHandle<()> {
         let mut rx = self.events_rx.take().expect("events receiver already taken");
         tokio::spawn(async move {
@@ -189,9 +330,13 @@ impl P2pService {
         })
     }
 
-    /// Trigger a graceful shutdown and wait for the background task to finish.
+    /// Triggers a graceful shutdown of the network driver and waits for its background task to finish.
+    ///
+    /// This method sends a shutdown signal to the driver's task and then awaits
+    /// its completion, ensuring all resources are properly released.
     pub async fn shutdown(&mut self) {
         if let Some(tx) = self.shutdown_tx.take() {
+            // If the driver is still alive, request a graceful stop; ignore if already dropped.
             let _ = tx.send(());
         }
         if let Some(handle) = self.join_handle.take() {
@@ -201,6 +346,10 @@ impl P2pService {
 }
 
 impl Drop for P2pService {
+    /// Implements the `Drop` trait to ensure proper shutdown of the `P2pService`.
+    ///
+    /// If `shutdown` was not explicitly called, this will send a shutdown signal
+    /// and abort the driver's background task to prevent resource leaks.
     fn drop(&mut self) {
         if self.shutdown_tx.is_some() {
             // Fire and forget shutdown if user didn't call it.

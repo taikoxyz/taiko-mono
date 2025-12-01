@@ -1,8 +1,17 @@
 //! Peer reputation and rate limiting.
 //!
-//! Kona connection gater from `kona_gossip` is now always enabled; this module still hosts the
-//! reputation engine and rate limiting logic used by the driver. A reth-keyed reputation backend is
-//! always available; local scoring remains the fallback when conversion fails.
+//! This module provides mechanisms for scoring and managing the reputation of peers
+//! in the preconfirmation P2P network. It includes:
+//! - `PeerAction`: Discrete events that influence a peer's score.
+//! - `PeerReputationStore`: A core component that tracks peer scores and manages
+//!   greylisting and banning based on configurable thresholds.
+//! - `RequestRateLimiter`: Prevents individual peers from overwhelming the service
+//!   with requests.
+//! - `ReputationBackend` trait: Allows for pluggable reputation systems.
+//! - `reth_adapter`: Integrates with `reth-network-peers` for using reth-style PeerIds.
+//!
+//! The Kona connection gater from `kona_gossip` is used for low-level connection
+//! management, while this module focuses on application-level reputation.
 
 use libp2p::PeerId;
 use std::{
@@ -13,46 +22,74 @@ use std::{
 /// Discrete actions that affect peer score.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PeerAction {
+    /// Peer provided a valid gossip message.
     GossipValid,
+    /// Peer provided an invalid gossip message.
     GossipInvalid,
+    /// Peer responded successfully to a request.
     ReqRespSuccess,
+    /// Peer responded with an error or invalid response to a request.
     ReqRespError,
+    /// A request to the peer timed out.
     Timeout,
+    /// A dial attempt to the peer failed.
     DialFailure,
 }
 
 pub type PeerScore = f64;
 
+/// Represents the current reputation score of a peer.
 #[derive(Debug, Clone, Copy)]
 pub struct PeerReputation {
+    /// The numerical score of the peer. Higher is better.
     score: PeerScore,
+    /// The last `Instant` at which the score was updated. Used for decay calculation.
     last_updated: Instant,
 }
 
 impl PeerReputation {
+    /// Creates a new `PeerReputation` with a default score of 0.0 at the given `now` timestamp.
+    ///
+    /// # Arguments
+    ///
+    /// * `now` - The current `Instant`.
+    ///
+    /// # Returns
+    ///
+    /// A new `PeerReputation` instance.
     pub fn new(now: Instant) -> Self {
         Self { score: 0.0, last_updated: now }
     }
 
+    /// Returns the current score of the peer.
     pub fn score(&self) -> PeerScore {
         self.score
     }
 }
 
+/// Configuration for the peer reputation system.
 #[derive(Debug, Clone, Copy)]
 pub struct ReputationConfig {
     /// Score at or below which a peer is greylisted (soft drop).
     pub greylist_threshold: PeerScore,
     /// Score at or below which a peer is banned (hard drop).
     pub ban_threshold: PeerScore,
-    /// Exponential decay halflife applied to scores.
+    /// Exponential decay halflife applied to scores. Scores decay towards zero.
     pub halflife: Duration,
 }
 
+/// Stores and manages the reputation of peers.
+///
+/// This struct keeps track of individual peer scores, applies actions to update
+/// these scores, and maintains lists of banned and greylisted peers.
 pub struct PeerReputationStore {
+    /// Mapping of `PeerId` to their `PeerReputation`.
     scores: HashMap<PeerId, PeerReputation>,
+    /// Set of `PeerId`s that are currently banned.
     banned: HashSet<PeerId>,
+    /// Set of `PeerId`s that are currently greylisted.
     greylisted: HashSet<PeerId>,
+    /// Configuration for reputation thresholds and decay.
     cfg: ReputationConfig,
 }
 
@@ -67,16 +104,40 @@ impl Default for PeerReputationStore {
 }
 
 impl PeerReputationStore {
+    /// Creates a new `PeerReputationStore` with the given configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `cfg` - The `ReputationConfig` to use.
+    ///
+    /// # Returns
+    ///
+    /// A new `PeerReputationStore` instance.
     pub fn new(cfg: ReputationConfig) -> Self {
         Self { scores: HashMap::new(), banned: HashSet::new(), greylisted: HashSet::new(), cfg }
     }
 
+    /// Applies a `PeerAction` to a specific peer, updating its score and ban status.
+    ///
+    /// This is the primary method for updating a peer's reputation. It calculates
+    /// score decay, applies the action delta, and then updates the internal
+    /// banned/greylisted sets.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - The `PeerId` of the peer to apply the action to.
+    /// * `action` - The `PeerAction` to apply.
+    ///
+    /// # Returns
+    ///
+    /// A `ReputationEvent` describing the outcome of the action.
     pub fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent {
         let now = Instant::now();
         let was_banned = self.banned.contains(&peer);
         let was_grey = self.greylisted.contains(&peer);
         let entry = self.scores.entry(peer).or_insert_with(|| PeerReputation::new(now));
         // Split borrows: compute new score then update.
+        // Decay ensures older infractions fade so recent behavior dominates decisions.
         let mut score = entry.score;
         score = Self::decayed(score, entry.last_updated, now, self.cfg.halflife);
         score += action_delta(action);
@@ -96,20 +157,62 @@ impl PeerReputationStore {
         }
     }
 
+    /// Checks if a peer is currently banned.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the `PeerId` to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the peer is banned, `false` otherwise.
     pub fn is_banned(&self, peer: &PeerId) -> bool {
         self.banned.contains(peer)
     }
 
+    /// Checks if a peer is currently greylisted.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the `PeerId` to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the peer is greylisted, `false` otherwise.
     #[allow(dead_code)]
     pub fn is_greylisted(&self, peer: &PeerId) -> bool {
         self.greylisted.contains(peer)
     }
 
+    /// Returns the current score of a peer, if available.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the `PeerId` to check.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<PeerScore>` containing the score if the peer is known, otherwise `None`.
     #[allow(dead_code)]
     pub fn score_of(&self, peer: &PeerId) -> Option<PeerScore> {
         self.scores.get(peer).map(|p| p.score)
     }
 
+    /// Calculates the decayed score of a peer.
+    ///
+    /// Applies an exponential decay to the score based on the time elapsed
+    /// since the last update and the configured halflife.
+    ///
+    /// # Arguments
+    ///
+    /// * `score` - The current raw score.
+    /// * `last` - The `Instant` of the last score update.
+    /// * `now` - The current `Instant`.
+    /// * `halflife` - The `Duration` representing the decay halflife.
+    ///
+    /// # Returns
+    ///
+    /// The decayed `PeerScore`.
     fn decayed(score: PeerScore, last: Instant, now: Instant, halflife: Duration) -> PeerScore {
         let dt = now.saturating_duration_since(last).as_secs_f64();
         if dt == 0.0 {
@@ -119,14 +222,23 @@ impl PeerReputationStore {
         score * (-lambda * dt).exp()
     }
 
+    /// Updates the internal banned and greylisted sets based on the peer's score.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - The `PeerId` of the peer to update.
+    /// * `score` - The peer's current score.
     fn update_lists(&mut self, peer: PeerId, score: PeerScore) {
         if score <= self.cfg.ban_threshold {
+            // Ban takes precedence: ensure greylist entry is cleared to avoid conflicting states.
             self.banned.insert(peer);
             self.greylisted.remove(&peer);
         } else if score <= self.cfg.greylist_threshold {
+            // Greylist allows recovery via decay while still throttling interaction.
             self.greylisted.insert(peer);
             self.banned.remove(&peer);
         } else {
+            // Score healed: clear any prior penalties so the peer can fully participate again.
             self.greylisted.remove(&peer);
             self.banned.remove(&peer);
         }
@@ -134,13 +246,21 @@ impl PeerReputationStore {
 }
 
 #[derive(Debug, Clone)]
+/// Represents an event generated by the reputation system after an action is applied.
 pub struct ReputationEvent {
+    /// The `PeerId` of the peer affected by the action.
     pub peer: PeerId,
+    /// The peer's new score after the action and decay.
     pub new_score: PeerScore,
+    /// The `PeerAction` that was applied.
     pub action: PeerAction,
+    /// `true` if the peer is currently banned after this event.
     pub is_banned: bool,
+    /// `true` if the peer is currently greylisted after this event.
     pub is_greylisted: bool,
+    /// `true` if the peer was banned *before* this event.
     pub was_banned: bool,
+    /// `true` if the peer was greylisted *before* this event.
     pub was_greylisted: bool,
 }
 
@@ -169,19 +289,47 @@ pub(crate) fn decayed(
 }
 
 /// Sliding-window request limiter per peer.
+///
+/// This struct limits the number of requests a peer can make within a
+/// defined time window to prevent abuse.
 #[derive(Default)]
 pub struct RequestRateLimiter {
+    /// The duration of the sliding window.
     window: Duration,
+    /// The maximum number of requests allowed within the `window`.
     max_requests: u32,
+    /// Stores the last request time and count for each peer.
     state: HashMap<PeerId, (Instant, u32)>,
 }
 
 impl RequestRateLimiter {
+    /// Creates a new `RequestRateLimiter` with a specified window and maximum requests.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The time duration for the sliding window.
+    /// * `max_requests` - The maximum number of requests allowed per peer within the window.
+    ///
+    /// # Returns
+    ///
+    /// A new `RequestRateLimiter` instance.
     pub fn new(window: Duration, max_requests: u32) -> Self {
         Self { window, max_requests, state: HashMap::new() }
     }
 
-    /// Returns true if the request is allowed; false if rate limited.
+    /// Determines if a request from a given peer is allowed based on the rate limit.
+    ///
+    /// If the peer has exceeded the `max_requests` within the `window`, the request is
+    /// disallowed. Otherwise, the request is counted, and `true` is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - The `PeerId` making the request.
+    /// * `now` - The current `Instant`.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the request is allowed, `false` if rate-limited.
     pub fn allow(&mut self, peer: PeerId, now: Instant) -> bool {
         let entry = self.state.entry(peer).or_insert((now, 0));
         let (start, count) = entry;
@@ -203,16 +351,47 @@ pub const REQUEST_WINDOW: Duration = Duration::from_secs(10);
 #[allow(dead_code)]
 pub const MAX_REQUESTS_PER_WINDOW: u32 = 8;
 
-/// Pluggable scoring/gating backend used by the network driver. Implement this to delegate
-/// scoring, bans, and optional dial gating to a custom engine without changing public APIs.
+/// Pluggable scoring/gating backend used by the network driver.
+///
+/// Implement this trait to delegate scoring, bans, and optional dial gating
+/// to a custom engine without changing public APIs.
 #[allow(dead_code)]
 pub trait ReputationBackend: Send {
-    /// Apply an action and return the resulting event (with score delta and ban flags).
+    /// Applies an action to a peer and returns the resulting `ReputationEvent`.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - The `PeerId` of the peer.
+    /// * `action` - The `PeerAction` to apply.
+    ///
+    /// # Returns
+    ///
+    /// A `ReputationEvent` describing the outcome.
     fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent;
-    /// True if the peer is currently banned.
+
+    /// Checks if a peer is currently banned.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the `PeerId` to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the peer is banned, `false` otherwise.
     fn is_banned(&self, peer: &PeerId) -> bool;
-    /// Optional dial gating hook; defaults to banning check. Override to enforce subnet/IP rules
-    /// or external allow/deny lists.
+
+    /// Optional dial gating hook; defaults to checking if the peer is banned.
+    ///
+    /// Override this method to enforce subnet/IP rules or external allow/deny lists.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the `PeerId` of the peer to dial.
+    /// * `_addr` - An optional `Multiaddr` of the peer.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the dial is allowed, `false` otherwise.
     fn allow_dial(&mut self, peer: &PeerId, _addr: Option<&libp2p::Multiaddr>) -> bool {
         !self.is_banned(peer)
     }
@@ -228,8 +407,11 @@ impl ReputationBackend for PeerReputationStore {
     }
 }
 
-/// Reth-network-peers adapter surface. Exposes peer/node record types from reth so downstreams can
-/// bridge libp2p `PeerId` to reth’s peer representation.
+/// Reth-network-peers adapter surface.
+///
+/// This module provides an adapter to integrate the reputation system with
+/// `reth-network-peers`, allowing the use of reth's peer identifiers and
+/// node records while retaining the local scoring logic.
 pub mod reth_adapter {
     use super::*;
 
@@ -239,8 +421,19 @@ pub mod reth_adapter {
     #[allow(dead_code)]
     pub type RethNodeRecord = reth_network_peers::NodeRecord;
 
-    /// Convert a libp2p `PeerId` (multihash) into an optional reth peer id by extracting the
-    /// multihash digest. Returns `None` if the digest is not 64 bytes (reth expects 512-bit keys).
+    /// Converts a libp2p `PeerId` (multihash) into an optional reth peer id.
+    ///
+    /// This conversion extracts the multihash digest. It returns `None` if the digest
+    /// is not 64 bytes, as reth expects 512-bit keys.
+    ///
+    /// # Arguments
+    ///
+    /// * `peer` - A reference to the libp2p `PeerId`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<RethPeerId>` containing the reth peer ID if conversion is successful,
+    /// otherwise `None`.
     #[allow(dead_code)]
     pub fn libp2p_to_reth(peer: &libp2p::PeerId) -> Option<RethPeerId> {
         let digest = peer.as_ref().digest();
@@ -251,19 +444,33 @@ pub mod reth_adapter {
         Some(RethPeerId::from_slice(bytes))
     }
 
-    /// Reth-flavoured reputation backend: stores scores keyed by reth `PeerId` while mirroring ban
-    /// state onto libp2p `PeerId`s for gating. The upstream `reth-network-peers` crate currently
-    /// exposes peer identity/records but no scoring model, so we reuse the local decay/threshold
-    /// logic and only swap the key type; if conversion fails we fall back to the local store to
-    /// preserve behaviour.
+    /// Reth-flavoured reputation backend.
+    ///
+    /// This adapter stores scores keyed by reth `PeerId` while mirroring ban
+    /// state onto libp2p `PeerId`s for gating. It reuses the local decay/threshold
+    /// logic. If conversion to `RethPeerId` fails, it falls back to the inner
+    /// `PeerReputationStore` to preserve behaviour.
     pub struct RethReputationAdapter {
+        /// The inner `PeerReputationStore` used as a fallback.
         inner: PeerReputationStore,
+        /// Stores scores keyed by `RethPeerId`.
         reth_scores: HashMap<RethPeerId, PeerReputation>,
+        /// A set of libp2p `PeerId`s that are currently banned.
         banned_l2p: HashSet<PeerId>,
+        /// Configuration for reputation thresholds and decay.
         cfg: ReputationConfig,
     }
 
     impl RethReputationAdapter {
+        /// Creates a new `RethReputationAdapter` with the given configuration.
+        ///
+        /// # Arguments
+        ///
+        /// * `cfg` - The `ReputationConfig` to use.
+        ///
+        /// # Returns
+        ///
+        /// A new `RethReputationAdapter` instance.
         pub fn new(cfg: ReputationConfig) -> Self {
             Self {
                 inner: PeerReputationStore::new(cfg),
@@ -273,6 +480,17 @@ pub mod reth_adapter {
             }
         }
 
+        /// Applies a `PeerAction` to a reth peer ID, updating its score and ban status.
+        ///
+        /// # Arguments
+        ///
+        /// * `peer` - The libp2p `PeerId` associated with the reth peer.
+        /// * `rid` - The `RethPeerId` of the peer.
+        /// * `action` - The `PeerAction` to apply.
+        ///
+        /// # Returns
+        ///
+        /// A `ReputationEvent` describing the outcome of the action.
         fn apply_reth(
             &mut self,
             peer: PeerId,
