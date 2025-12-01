@@ -37,13 +37,16 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 
 - Default: local `PeerReputationStore` with decay/thresholds, libp2p block-list enforcement, and
   rate limiting.
-- `kona-presets`: (removed, always on).
+- Upstream request-rate limiter swap: still local; no compatible upstream rate-limit module is
+  published for our libp2p/reth/Lighthouse versions, so no code change here yet.
+- `kona-presets`: (removed, always on). Gossipsub config now comes from Kona’s preset helper.
 - `reth-peers`: always on. Reputation is keyed by reth `PeerId` when conversion succeeds; bans are
   mirrored to libp2p `PeerId`. Scoring still uses the local decay/threshold logic and falls back to
   the local store if conversion fails.
-- Deeper Kona/Lighthouse gating (e.g., Kona connection gater) is not wired yet: Kona’s gating stack
-  pulls in additional crates (libp2p-stream/openssl) and diverging APIs. We keep local gating for
-  now and will revisit once libp2p and dependency versions align cleanly.
+- Kona connection gater is always on and now consulted in the same dial path as reputation
+  (`allow_dial`); NetworkConfig exposes minimal knobs (`gater_blocked_subnets`,
+  `gater_peer_redialing`, `gater_dial_period`). Lighthouse-style gating remains blocked until a
+  compatible crate is published.
 
 ## Using from taiko-client-rs (quickstart)
 
@@ -65,11 +68,11 @@ Feature switches:
   this feature only to disable the test in constrained environments.
 
 ## Future work
-- Upstream scoring/gating reuse: Kona gater, reth-keyed reputation, request limiting, and per-peer/
-  inbound connection caps (via libp2p connection-limits) are already reused here (with local
-  scoring fallback). Lighthouse-style gating/peer scoring remains blocked until a compatible
-  Lighthouse P2P/scoring crate is available on crates.io or with libp2p 0.56; the upstream repo
-  currently does not expose a `lighthouse-network` crate.
+- Upstream scoring/gating reuse: Kona gater, Kona gossipsub presets, reth-keyed reputation,
+  request limiting, and per-peer/inbound connection caps (via libp2p connection-limits) are
+  already reused here (with local scoring fallback). Lighthouse-style gating/peer scoring remains
+  blocked until a compatible Lighthouse P2P/scoring crate is available on crates.io or with
+  libp2p 0.56; the upstream repo currently does not expose a `lighthouse-network` crate.
 - Real TCP integration: stabilize the real-transport integration test so it can run by default
   (instead of being gated behind `real-transport-test`).
 

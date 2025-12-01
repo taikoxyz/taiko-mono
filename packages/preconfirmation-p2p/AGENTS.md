@@ -35,5 +35,7 @@
 - PRs: include summary, affected features, and test commands run; link issues when applicable.
 
 ## Architecture & Extensibility
-- Upstream reuse via features: `reth-discovery` (discv5). Reth peer-id keyed backend is now always on (scoring still local with libp2p fallback). Kona presets and gater are always on. Remaining upstream reuse: Lighthouse-style gating/peer scoring when APIs converge.
+- Upstream reuse via features: `reth-discovery` (discv5). Reth peer-id keyed backend is now always on (scoring still local with libp2p fallback). Kona presets and gater are always on; `NetworkConfig` exposes `gater_blocked_subnets`, `gater_peer_redialing`, and `gater_dial_period` to tune the Kona gater.
 - Reputation is pluggable via `ReputationBackend`; default remains the local store. Real TCP test is default-on with retries.
+- Request rate limiting stays local (no compatible upstream rate-limit module for libp2p 0.56).
+- Lighthouse-style scoring/gating reuse remains blocked until a published crate matches our libp2p version.

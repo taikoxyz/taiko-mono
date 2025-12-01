@@ -4304,6 +4304,7 @@ dependencies = [
  "async-trait",
  "discv5 0.10.2",
  "futures",
+ "ipnet",
  "kona-gossip",
  "kona-peers",
  "libp2p",

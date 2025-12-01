@@ -23,6 +23,7 @@ libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-res
 libp2p-allow-block-list.workspace = true
 libp2p-connection-limits.workspace = true
 libp2p-request-response.workspace = true
+ipnet.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }

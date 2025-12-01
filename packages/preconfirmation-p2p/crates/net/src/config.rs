@@ -36,6 +36,12 @@ pub struct NetworkConfig {
     pub request_window: Duration,
     /// Max requests per peer per window.
     pub max_requests_per_window: u32,
+    /// Kona gater: blocked CIDR subnets (strings parsed as IpNet) applied before dialing.
+    pub gater_blocked_subnets: Vec<String>,
+    /// Kona gater: maximum redials per peer within a dial period (None = Kona default unlimited).
+    pub gater_peer_redialing: Option<u64>,
+    /// Kona gater: dial period window for redial limiting.
+    pub gater_dial_period: Duration,
 }
 
 impl Default for NetworkConfig {
@@ -55,6 +61,9 @@ impl Default for NetworkConfig {
             reputation_halflife: Duration::from_secs(600),
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
+            gater_blocked_subnets: Vec::new(),
+            gater_peer_redialing: None,
+            gater_dial_period: Duration::from_secs(60 * 60),
         }
     }
 }

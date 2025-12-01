@@ -1,4 +1,4 @@
-use std::task::{Context, Poll};
+use std::{str::FromStr, task::{Context, Poll}};
 
 use libp2p::{
     Multiaddr, PeerId,
@@ -24,7 +24,7 @@ use crate::reputation::{
     PeerAction, PeerReputationStore, ReputationBackend, ReputationConfig, RequestRateLimiter,
     reth_adapter::RethReputationAdapter,
 };
-use kona_gossip::{ConnectionGate as KonaConnectionGate, GaterConfig as KonaGaterConfig};
+use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
 use preconfirmation_types::{
     GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
     GetRawTxListRequest, GetRawTxListResponse, PreconfHead, RawTxListGossip, SignedCommitment,
@@ -34,6 +34,26 @@ use ssz_rs::Deserialize;
 
 fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend> {
     Box::new(RethReputationAdapter::new(cfg))
+}
+
+fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
+    let mut gater = ConnectionGater::new(KonaGaterConfig {
+        peer_redialing: cfg.gater_peer_redialing,
+        dial_period: cfg.gater_dial_period,
+    });
+
+    for cidr in &cfg.gater_blocked_subnets {
+        match ipnet::IpNet::from_str(cidr) {
+            Ok(net) => {
+                gater.blocked_subnets.insert(net);
+            }
+            Err(_) => {
+                tracing::warn!(target: "p2p", cidr, "invalid blocked subnet, ignoring");
+            }
+        }
+    }
+
+    gater
 }
 
 /// Handle returned to service layer; exposes the event receiver and command sender endpoints.
@@ -112,7 +132,7 @@ impl NetworkDriver {
                 _discovery_task: discovery_task,
                 connected_peers: 0,
                 head: PreconfHead::default(),
-                kona_gater: kona_gossip::ConnectionGater::new(KonaGaterConfig::default()),
+                kona_gater: build_kona_gater(&cfg),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         ))
@@ -476,23 +496,9 @@ impl NetworkDriver {
     fn handle_discovery_event(&mut self, event: DiscoveryEvent) {
         match event {
             DiscoveryEvent::MultiaddrFound(addr) => {
-                // Avoid dialing peers we already banned (if multiaddr contains peer ID we could
-                // extract; for now just dial and let libp2p dedup).
-                {
-                    if let Some(peer) = Self::peer_id_from_multiaddr(&addr) {
-                        if self.kona_gater.can_dial(&addr).is_err() {
-                            metrics::counter!("p2p_dial_blocked", "source" => "kona_gater")
-                                .increment(1);
-                            return;
-                        }
-                        if self.reputation.is_banned(&peer) {
-                            metrics::counter!("p2p_dial_blocked", "source" => "reputation")
-                                .increment(1);
-                            return;
-                        }
-                    }
+                if self.allow_dial_addr(&addr) {
+                    let _ = self.swarm.dial(addr);
                 }
-                let _ = self.swarm.dial(addr);
             }
             DiscoveryEvent::BootnodeFailed(err) => {
                 let _ = self
@@ -516,6 +522,24 @@ impl NetworkDriver {
             Protocol::P2p(mh) => PeerId::from_multihash(mh.into()).ok(),
             _ => None,
         })
+    }
+
+    /// Unified dial gating: consult Kona's connection gater first, then reputation bans/greylist
+    /// via `ReputationBackend::allow_dial`. This keeps a single decision path for outbound dials.
+    fn allow_dial_addr(&mut self, addr: &Multiaddr) -> bool {
+        if self.kona_gater.can_dial(addr).is_err() {
+            metrics::counter!("p2p_dial_blocked", "source" => "kona_gater").increment(1);
+            return false;
+        }
+
+        if let Some(peer) = Self::peer_id_from_multiaddr(addr) {
+            if !self.reputation.allow_dial(&peer, Some(addr)) {
+                metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
+                return false;
+            }
+        }
+
+        true
     }
 
     fn publish_gossip<T: ssz_rs::prelude::SimpleSerialize>(
@@ -659,7 +683,7 @@ mod tests {
                 _discovery_task: None,
                 connected_peers: 0,
                 head: PreconfHead::default(),
-                kona_gater: kona_gossip::ConnectionGater::new(KonaGaterConfig::default()),
+                kona_gater: build_kona_gater(cfg),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         )
@@ -957,11 +981,25 @@ mod tests {
         // Mirror to gater/block list via apply_reputation path.
         driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
 
-        // ReputationBackend gating should deny dials.
-        assert!(!driver1.reputation.allow_dial(&peer2_id, Some(&addr2_full)));
+        // Unified dial gating (Kona gater + reputation) should deny dials.
+        assert!(!driver1.allow_dial_addr(&addr2_full));
 
         // The peer should remain banned; even if an existing connection lingers, future dials are
         // disallowed by reputation gating.
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn blocked_subnet_denies_dial() {
+        let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+        cfg.gater_blocked_subnets = vec!["127.0.0.0/8".to_string()];
+
+        let parts = build_memory_parts(cfg.chain_id);
+        let (mut driver, _) = driver_from_parts(parts, &cfg);
+
+        let peer = libp2p::identity::Keypair::generate_ed25519().public().to_peer_id();
+        let addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/9000/p2p/{peer}").parse().unwrap();
+
+        assert!(!driver.allow_dial_addr(&addr));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

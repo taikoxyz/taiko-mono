@@ -31,7 +31,10 @@ impl NetBehaviour {
             local_public_key,
         ));
 
-        let gs_config = build_gossipsub_config(&topics);
+        let gs_config = kona_gossip::default_config_builder()
+            .validation_mode(gossipsub::ValidationMode::Permissive)
+            .build()
+            .expect("gossipsub config");
         let mut gossipsub =
             gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, gs_config)
                 .expect("gossipsub behaviour");
@@ -76,26 +79,4 @@ impl NetBehaviour {
             conn_limits,
         }
     }
-}
-
-/// Build a gossipsub config using Kona presets for mesh sizing.
-fn build_gossipsub_config(_topics: &(IdentTopic, IdentTopic)) -> gossipsub::Config {
-    let mut builder_base = gossipsub::ConfigBuilder::default();
-    #[allow(unused_mut)]
-    let mut builder = builder_base
-        .validation_mode(gossipsub::ValidationMode::Permissive)
-        .heartbeat_interval(std::time::Duration::from_secs(1));
-
-    use kona_gossip::{
-        DEFAULT_MESH_D, DEFAULT_MESH_DHI, DEFAULT_MESH_DLAZY, DEFAULT_MESH_DLO, MAX_GOSSIP_SIZE,
-    };
-
-    builder = builder
-        .mesh_n(DEFAULT_MESH_D)
-        .mesh_n_low(DEFAULT_MESH_DLO)
-        .mesh_n_high(DEFAULT_MESH_DHI)
-        .gossip_lazy(DEFAULT_MESH_DLAZY)
-        .max_transmit_size(MAX_GOSSIP_SIZE);
-
-    builder.build().expect("gossipsub config")
 }
