@@ -127,8 +127,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// from it
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
-    /// - value: The struct contains the finalization deadline and the hash of the TransitionRecord
-    mapping(bytes32 compositeKey => TransitionMetadata recordHDS) internal _TransitionMetadata;
+    /// - value: The struct contains the finalization deadline and the hash of the Transition
+    mapping(bytes32 compositeKey => TransitionRecord record) internal _TransitionRecord;
 
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
@@ -281,7 +281,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             require(inputs.length != 0, "InputsIsEmpty");
 
             ProveInput memory input;
-            TransitionRecord memory transitionRecord;
+            Transition memory transitionRecord;
             uint8 span;
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
@@ -295,19 +295,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 uint48 startProposalId = input.endProposal.id - span;
 
-                transitionRecord = TransitionRecord({
+                transitionRecord = Transition({
                     bondInstructions: new LibBonds.BondInstruction[](0),
                     endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
                 });
 
-                TransitionMetadata storage recordHDS =
+                TransitionRecord storage record =
                     _transitionMetadataFor(startProposalId, input.parentTransitionHash);
 
-                if (recordHDS.span >= span) continue; // TODO: emit an event?
+                if (record.span >= span) continue; // TODO: emit an event?
 
-                recordHDS.recordHash = _hashTransitionRecord(transitionRecord);
-                recordHDS.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
-                recordHDS.span = span;
+                record.transitionHash = _hashTransition(transitionRecord);
+                record.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
+                record.span = span;
 
                 // emit Proved(_encodeProvedEventData(payload));
             }
@@ -388,14 +388,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
     /// @param _proposalId The ID of the proposal containing the transition
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
-    /// @return recordHDS_ The transition record metadata.
-    function getTransitionMetadata(
+    /// @return record_ The transition record metadata.
+    function getTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (TransitionMetadata memory recordHDS_)
+        returns (TransitionRecord memory record_)
     {
         return _transitionMetadataFor(_proposalId, _parentTransitionHash);
     }
@@ -433,7 +433,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     /// @param _checkpoint The checkpoint of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash, ICheckpointStore.Checkpoint memory _checkpoint) internal {
-        TransitionRecord memory transitionRecord;
+        Transition memory transitionRecord;
         transitionRecord.endCheckpointHash = _hashCheckpoint(_checkpoint);
 
         CoreState memory coreState;
@@ -444,7 +444,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.lastProposalBlockId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransitionRecord(transitionRecord);
+        coreState.lastFinalizedTransitionHash = _hashTransition(transitionRecord);
 
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
@@ -463,40 +463,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Stores transition record hash and deadline in storage.
-    /// @param _proposalId The proposal identifier.
-    /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
-    /// @param _recordHDS The finalization metadata to store alongside the hash.
-    function _storeTransitionRecord(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash,
-        TransitionMetadata memory _recordHDS
-    )
-        internal
-        virtual
-    {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        _storeTransitionRecord(_TransitionMetadata[compositeKey], _recordHDS);
-    }
-
-    /// @dev Stores transition record hash and deadline in storage.
-    /// @param _entry Storage pointer to the transition record to update.
-    /// @param _recordHDS The new finalization metadata to store.
-    function _storeTransitionRecord(
-        TransitionMetadata storage _entry,
-        TransitionMetadata memory _recordHDS
-    )
-        internal
-    {
-        require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
-        _entry.recordHash = _recordHDS.recordHash;
-        _entry.finalizationDeadline = _recordHDS.finalizationDeadline;
-    }
+  
 
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
-    /// @return recordHDS_ The transition record metadata.
+    /// @return record_ The transition record metadata.
     function _transitionMetadataFor(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -504,10 +476,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionMetadata storage recordHDS_)
+        returns (TransitionRecord storage record_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _TransitionMetadata[compositeKey];
+        return _TransitionRecord[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value
@@ -659,16 +631,16 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     //     return LibHashSimple2.hashTransition(_transition);
     // }
 
-    /// @dev Hashes a TransitionRecord struct.
+    /// @dev Hashes a Transition struct.
     /// @param _transitionRecord The transition record to hash.
     /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
+    function _hashTransition(Transition memory _transitionRecord)
         internal
         pure
         virtual
         returns (bytes26)
     {
-        return LibHashSimple2.hashTransitionRecord(_transitionRecord);
+        return LibHashSimple2.hashTransition(_transitionRecord);
     }
 
     // /// @dev Hashes an array of Transitions.
@@ -838,7 +810,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         //     /// @notice Blob reference for proposal data.
         //     LibBlobs.BlobReference blobReference;
         //     /// @notice Array of transition records for finalization.
-        //     TransitionRecord[] transitionRecords;
+        //     Transition[] transitionRecords;
         //     /// @notice The checkpoint for finalization.
         //     ICheckpointStore.Checkpoint checkpoint;
         //     /// @notice The number of forced inclusions that the proposer wants to process.
@@ -852,7 +824,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             uint48 proposalId = coreState.lastFinalizedProposalId + 1;
             uint256 lastFinalizedRecordIdx;
             uint256 finalizedCount;
-            uint256 transitionCount = _input.transitionRecords.length;
+            uint256 transitionCount = _input.transitions.length;
             uint256 currentTimestamp = block.timestamp;
             uint256 totalBondInstructionCount;
 
@@ -861,29 +833,29 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                TransitionMetadata memory transitionMetadata =
+                TransitionRecord memory record =
                     _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
 
-                if (transitionMetadata.recordHash == 0) break;
+                if (record.transitionHash == 0) break;
 
                 if (i >= transitionCount) {
                     require(
-                        currentTimestamp < transitionMetadata.finalizationDeadline,
-                        TransitionRecordNotProvided()
+                        currentTimestamp < record.finalizationDeadline,
+                        TransitionNotProvided()
                     );
                     break;
                 }
 
                 require(
-                    _hashTransitionRecord(_input.transitionRecords[i])
-                        == transitionMetadata.recordHash,
-                    TransitionRecordHashMismatchWithStorage()
+                    _hashTransition(_input.transitions[i])
+                        == record.transitionHash,
+                    TransitionHashMismatchWithStorage()
                 );
 
-                totalBondInstructionCount += _input.transitionRecords[i].bondInstructions.length;
+                totalBondInstructionCount += _input.transitions[i].bondInstructions.length;
 
                 coreState.lastFinalizedProposalId = proposalId;
-                coreState.lastFinalizedTransitionHash = transitionMetadata.recordHash;
+                coreState.lastFinalizedTransitionHash = record.transitionHash;
 
                 ++proposalId;
 
@@ -896,7 +868,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             if (finalizedCount > 0) {
                 _syncCheckpointIfNeeded(
                     _input.checkpoint,
-                    _input.transitionRecords[lastFinalizedRecordIdx].endCheckpointHash,
+                    _input.transitions[lastFinalizedRecordIdx].endCheckpointHash,
                     coreState
                 );
             }
@@ -906,8 +878,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 uint256 k;
                 for (uint256 i; i < lastFinalizedRecordIdx; ++i) {
-                    for (uint256 j; j < _input.transitionRecords[i].bondInstructions.length; ++j) {
-                        bondInstructions_[k++] = _input.transitionRecords[i].bondInstructions[j];
+                    for (uint256 j; j < _input.transitions[i].bondInstructions.length; ++j) {
+                        bondInstructions_[k++] = _input.transitions[i].bondInstructions[j];
                     }
                 }
 
@@ -1020,7 +992,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
-    error CannotOverwriteTransitionRecord();
+    error CannotOverwriteTransition();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
@@ -1037,7 +1009,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
-    error TransitionRecordHashMismatchWithStorage();
-    error TransitionRecordNotProvided();
+    error TransitionHashMismatchWithStorage();
+    error TransitionNotProvided();
     error UnprocessedForcedInclusionIsDue();
 }

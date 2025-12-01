@@ -89,8 +89,8 @@ interface IInbox2 {
 
     /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
     /// @dev Stores transition record hash, finalization deadline, and span.
-    struct TransitionMetadata {
-        bytes26 recordHash;
+    struct TransitionRecord {
+        bytes26 transitionHash;
         uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
         uint8 span;
     }
@@ -104,7 +104,7 @@ interface IInbox2 {
     }
 
     /// @notice Represents a record of a transition with additional metadata.
-    struct TransitionRecord {
+    struct Transition {
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
         /// @notice The hash of the checkpoint.
@@ -140,7 +140,7 @@ interface IInbox2 {
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
-        TransitionRecord[] transitionRecords;
+        Transition[] transitions;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
@@ -152,7 +152,7 @@ interface IInbox2 {
     struct ProveInput {
         Proposal endProposal;
         ICheckpointStore.Checkpoint endCheckpoint;
-        TransitionMetadata[] transitionMetadata;
+        TransitionRecord[] transitionMetadata;
         bytes32 parentTransitionHash;
     }
 
@@ -173,9 +173,9 @@ interface IInbox2 {
         /// @notice The proposal ID that was proven.
         uint48 proposalId;
         /// @notice The transition record containing additional metadata.
-        TransitionRecord transitionRecord;
+        Transition transitionRecord;
         /// @notice The metadata containing prover information.
-        TransitionMetadata metadata;
+        TransitionRecord metadata;
     }
 
     // ---------------------------------------------------------------
@@ -219,13 +219,13 @@ interface IInbox2 {
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
     /// @return transitionMetadata_ The transition record metadata.
-    function getTransitionMetadata(
+    function getTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (TransitionMetadata memory transitionMetadata_);
+        returns (TransitionRecord memory transitionMetadata_);
 
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
