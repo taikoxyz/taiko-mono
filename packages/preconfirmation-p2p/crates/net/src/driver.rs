@@ -700,12 +700,13 @@ impl NetworkDriver {
             return false;
         }
 
-        if let Some(peer) = Self::peer_id_from_multiaddr(addr)
-            && !self.reputation.allow_dial(&peer, Some(addr)) {
-                // Reputation gate: refuse outbound dial to banned/grey peers.
-                metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
-                return false;
-            }
+        if let Some(peer) = Self::peer_id_from_multiaddr(addr) &&
+            !self.reputation.allow_dial(&peer, Some(addr))
+        {
+            // Reputation gate: refuse outbound dial to banned/grey peers.
+            metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
+            return false;
+        }
 
         true
     }
