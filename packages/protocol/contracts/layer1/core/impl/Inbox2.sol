@@ -46,8 +46,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-  
-
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
         IInbox2.DerivationSource[] sources;
@@ -308,7 +306,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
                 });
 
-                TransitionMetadata storage recordHDS = _transitionMetadataFor(startProposalId, input.parentTransitionHash);
+                TransitionMetadata storage recordHDS =
+                    _transitionMetadataFor(startProposalId, input.parentTransitionHash);
 
                 if (recordHDS.span >= span) continue; // TODO: emit an event?
 
@@ -514,7 +513,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (TransitionMetadata storage recordHDS_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return  _TransitionMetadata[compositeKey];
+        return _TransitionMetadata[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value

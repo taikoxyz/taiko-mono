@@ -65,7 +65,9 @@ library LibBondInstruction2 {
                 bondType: isWithinExtendedWindow
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _proofMetadata.designatedProver : _proposal.proposer,
+                payer: isWithinExtendedWindow
+                    ? _proofMetadata.designatedProver
+                    : _proposal.proposer,
                 payee: _proofMetadata.actualProver
             });
         }

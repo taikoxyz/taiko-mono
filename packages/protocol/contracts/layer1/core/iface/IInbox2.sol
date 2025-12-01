@@ -89,7 +89,7 @@ interface IInbox2 {
         bytes32 parentProposalHash;
     }
 
-      /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
+    /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
     /// @dev Stores transition record hash, finalization deadline, and span.
     struct TransitionMetadata {
         bytes26 recordHash;
