@@ -157,7 +157,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
     mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal
-        _firstTransitionRecord;
+        _firstTransitionRecords;
 
     uint256[36] private __gap;
 
@@ -403,7 +403,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         FirstTransitionRecord storage firstRecord =
-            _firstTransitionRecord[_startProposalId % _ringBufferSize];
+            _firstTransitionRecords[_startProposalId % _ringBufferSize];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
@@ -597,7 +597,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (TransitionRecord memory record_)
     {
         FirstTransitionRecord storage firstRecord =
-            _firstTransitionRecord[_proposalId % _ringBufferSize];
+            _firstTransitionRecords[_proposalId % _ringBufferSize];
 
         if (firstRecord.proposalId != _proposalId) {
             return TransitionRecord({ transitionHash: 0, span: 0, finalizationDeadline: 0 });
