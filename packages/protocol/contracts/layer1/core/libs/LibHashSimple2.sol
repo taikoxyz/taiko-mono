@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox2 } from "../iface/IInbox2.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
 
 /// @title LibHashSimple2
 /// @notice Simple hashing functions using standard keccak256(abi.encode(...))
@@ -71,6 +72,19 @@ library LibHashSimple2 {
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_inputs));
+    }
+
+    /// @notice Simple hashing for BondInstruction array
+    /// @dev Uses standard keccak256(abi.encode(...)) for the bond instructions
+    /// @param _bondInstructions The bond instructions array to hash
+    /// @return The hash of the bond instructions
+    function hashBondInstructions(LibBonds2.BondInstruction[] memory _bondInstructions)
+        internal
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_bondInstructions));
     }
 
     /// @notice Simple hashing for TransitionRecord structs

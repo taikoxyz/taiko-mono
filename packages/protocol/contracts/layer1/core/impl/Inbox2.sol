@@ -298,6 +298,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         unchecked {
             ProveInput[] memory inputs = _decodeProveInput(_data);
             require(inputs.length != 0, EmptyProveInputs());
+                uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
             ProveInput memory input;
             uint8 span;
@@ -320,20 +321,33 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                         input.prposalProofMetadatas
                     );
                 Transition memory transition = Transition({
-                    bondInstructions: bondInstructions,
+                    bondInstructionsHash: _hashBondInstructions(bondInstructions),
                     checkpointHash: _hashCheckpoint(input.checkpoint)
                 });
 
-                TransitionRecord storage record =
+
+                TransitionRecord storage existing =
                     _transitionMetadataFor(startProposalId, input.parentTransitionHash);
 
-                if (record.span >= span) continue; // TODO: emit an event?
+                if (existing.span >= span) continue; // TODO: emit an event?
 
-                record.transitionHash = _hashTransition(transition);
-                record.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
-                record.span = span;
+                bytes26 transitionHash = _hashTransition(transition);
+            
 
-                // emit Proved(_encodeProvedEventData(payload));
+                existing.transitionHash = transitionHash;
+                existing.finalizationDeadline = finalizationDeadline;
+                existing.span = span;
+
+                ProvedEventPayload memory payload = ProvedEventPayload({
+                    startProposalId: startProposalId,
+                    parentTransitionHash: input.parentTransitionHash,
+                    finalizationDeadline: finalizationDeadline,
+                    span: span,
+                    checkpoint: input.checkpoint,
+                    bondInstructions: bondInstructions
+                });
+
+                emit Proved(_encodeProvedEventData(payload));
             }
 
             uint256 proposalAge;
@@ -656,6 +670,18 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashTransition(_transition);
     }
 
+    /// @dev Hashes bond instructions array.
+    /// @param _bondInstructions The bond instructions to hash.
+    /// @return _ The hash of the bond instructions.
+    function _hashBondInstructions(LibBonds2.BondInstruction[] memory _bondInstructions)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return LibHashSimple2.hashBondInstructions(_bondInstructions);
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
@@ -845,7 +871,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     TransitionHashMismatchWithStorage()
                 );
 
-                totalBondInstructionCount += _input.transitions[i].bondInstructions.length;
+                totalBondInstructionCount += _input.bondInstructions[i].length;
 
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
@@ -859,35 +885,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
+                Transition memory lastFinalizedTransition =   _input.transitions[lastFinalizedRecordIdx];
                 _syncCheckpointIfNeeded(
                     _input.checkpoint,
-                    _input.transitions[lastFinalizedRecordIdx].checkpointHash,
+                    lastFinalizedTransition.checkpointHash,
                     coreState
                 );
-            }
 
-            if (totalBondInstructionCount > 0) {
-                bondInstructions_ = new LibBonds2.BondInstruction[](totalBondInstructionCount);
+                coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-                uint256 k;
-                for (uint256 i; i < lastFinalizedRecordIdx; ++i) {
-                    for (uint256 j; j < _input.transitions[i].bondInstructions.length; ++j) {
-                        bondInstructions_[k++] = _input.transitions[i].bondInstructions[j];
-                    }
-                }
-
-                bytes32 bondInstructionHash = keccak256(abi.encode(bondInstructions_));
-                coreState.bondInstructionsHashNew =
-                    keccak256(abi.encode(coreState.bondInstructionsHashNew, bondInstructionHash));
-
-                if (
-                    coreState.lastFinalizedProposalId % 128 == 0
-                        && coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew
-                ) {
-                    // Send signal to L2 to sync bond instructions
-                    coreState.bondInstructionsHashOld == coreState.bondInstructionsHashNew;
-                }
-            }
+            if (coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew && coreState.lastFinalizedProposalId % 128==0) {
+                // Send signal to L2 to sync bond instructions
+                coreState.bondInstructionsHashOld = coreState.bondInstructionsHashNew;
+            }}
 
             return (coreState, bondInstructions_);
         }

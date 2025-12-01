@@ -87,6 +87,14 @@ interface IInbox2 {
         bytes32 parentProposalHash;
     }
 
+   /// @notice Represents a record of a transition with additional metadata.
+    struct Transition {
+        /// @notice The hash of the bond instructions
+        bytes32 bondInstructionsHash;
+        /// @notice The hash of the checkpoint
+        bytes32 checkpointHash;
+    }
+
     /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
     /// @dev Stores transition record hash, finalization deadline, and span.
     struct TransitionRecord {
@@ -106,15 +114,7 @@ interface IInbox2 {
         address actualProver;
     }
 
-    /// @notice Represents a record of a transition with additional metadata.
-    struct Transition {
-        /// @notice The bond instructions.
-        LibBonds2.BondInstruction[] bondInstructions;
-        /// @notice The hash of the checkpoint.
-        bytes32 checkpointHash;
-    }
-
-    /// @notice Represents the core state of the inbox.
+     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint40 nextProposalId;
@@ -144,6 +144,8 @@ interface IInbox2 {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         Transition[] transitions;
+        /// @notice Array of bond instructions for finalization (parallel to transitions).
+        LibBonds2.BondInstruction[][] bondInstructions;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
@@ -174,11 +176,13 @@ interface IInbox2 {
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
         /// @notice The proposal ID that was proven.
-        uint40 proposalId;
+        uint40 startProposalId;
+        bytes32 parentTransitionHash;
         /// @notice The transition record containing additional metadata.
-        Transition transition;
-        /// @notice The metadata containing prover information.
-        TransitionRecord record;
+        uint40 finalizationDeadline;
+        uint8 span;
+        ICheckpointStore.Checkpoint checkpoint;
+        LibBonds2.BondInstruction[] bondInstructions;
     }
 
     // ---------------------------------------------------------------
