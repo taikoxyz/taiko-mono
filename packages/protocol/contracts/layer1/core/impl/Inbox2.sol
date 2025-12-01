@@ -325,16 +325,16 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     checkpointHash: _hashCheckpoint(input.checkpoint)
                 });
 
-                TransitionRecord storage existing =
-                    _loadTransitionRecord(startProposalId, input.parentTransitionHash);
+                TransitionRecord memory transitionRecord = TransitionRecord({
+                    transitionHash: _hashTransition(transition),
+                    span: span,
+                    finalizationDeadline: finalizationDeadline
+                });
 
-                if (existing.span >= span) continue; // TODO: emit an event?
+               
 
-                bytes26 transitionHash = _hashTransition(transition);
 
-                existing.transitionHash = transitionHash;
-                existing.span = span;
-                existing.finalizationDeadline = finalizationDeadline;
+                _storeTransitionRecord(startProposalId, input.parentTransitionHash, transitionRecord);
 
                 _emitProvedEvent(
                     startProposalId,
@@ -353,6 +353,17 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             _proofVerifier.verifyProof(proposalAge, _hashProveInputArray(inputs), _proof);
         }
+    }
+
+    function _storeTransitionRecord(uint48 _startProposalId, bytes32 _parentTransitionHash, TransitionRecord memory _transitionRecord) internal virtual {
+         TransitionRecord storage record = _transitionRecordFor(_startProposalId, _parentTransitionHash);
+
+        if (record.span >= _transitionRecord.span) 
+            return;
+
+        record.transitionHash = _transitionRecord.transitionHash;
+        record.span = _transitionRecord.span;
+        record.finalizationDeadline = _transitionRecord.finalizationDeadline;
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -512,10 +523,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         internal
         view
         virtual
-        returns (TransitionRecord storage record_)
+        returns (TransitionRecord memory record_)
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecords[compositeKey];
+        return _transitionRecordFor(_proposalId, _parentTransitionHash);
     }
 
     /// @dev Validates proposal hash against stored value
@@ -1013,6 +1023,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 require(nextSlotHash == _hashProposal(proofProposal), NextProposalHashMismatch());
             }
         }
+    }
+
+
+       function _transitionRecordFor(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        private
+        view
+        returns (TransitionRecord storage )
+    {
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        return _transitionRecords[compositeKey];
     }
 
     // ---------------------------------------------------------------
