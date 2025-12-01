@@ -335,14 +335,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             
 
                 existing.transitionHash = transitionHash;
-                existing.finalizationDeadline = finalizationDeadline;
                 existing.span = span;
+                existing.finalizationDeadline = finalizationDeadline;
 
                 ProvedEventPayload memory payload = ProvedEventPayload({
                     startProposalId: startProposalId,
                     parentTransitionHash: input.parentTransitionHash,
-                    finalizationDeadline: finalizationDeadline,
                     span: span,
+                    finalizationDeadline: finalizationDeadline,
                     checkpoint: input.checkpoint,
                     bondInstructions: bondInstructions
                 });

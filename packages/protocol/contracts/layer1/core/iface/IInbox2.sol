@@ -99,8 +99,8 @@ interface IInbox2 {
     /// @dev Stores transition record hash, finalization deadline, and span.
     struct TransitionRecord {
         bytes26 transitionHash;
-        uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
         uint8 span;
+        uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
     }
 
     /// @notice Metadata about the proving of a transition
@@ -179,8 +179,8 @@ interface IInbox2 {
         uint40 startProposalId;
         bytes32 parentTransitionHash;
         /// @notice The transition record containing additional metadata.
-        uint40 finalizationDeadline;
         uint8 span;
+        uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
         LibBonds2.BondInstruction[] bondInstructions;
     }
