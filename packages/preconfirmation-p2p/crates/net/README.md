@@ -23,4 +23,3 @@ libp2p + discv5 networking layer for Taiko preconfirmation P2P. It wires gossip 
 ## Testing
 - Unit + integration: `cargo test -p preconfirmation-net` (includes memory-transport and real TCP tests with retries).
 - Default real TCP test runs; if needed in constrained environments, see crate docs/feature notes for disabling.
-
