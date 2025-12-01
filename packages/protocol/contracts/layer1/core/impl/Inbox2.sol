@@ -217,19 +217,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             // Decode and validate input data
             ProposeInput memory input = _decodeProposeInput(_data);
 
+            // Validate proposal input data
+            require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
+            require(input.parentProposals.length > 0, EmptyProposals());
 
-// Validate proposal input data
-             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
-        require(input.parentProposals.length > 0, EmptyProposals());
-
-          // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-        require(block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
-        require(
-            _hashCoreState(input.coreState) == input.parentProposals[0].coreStateHash,
-            InvalidState()
-        );
-
+            require(
+                block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock()
+            );
+            require(
+                _hashCoreState(input.coreState) == input.parentProposals[0].coreStateHash,
+                InvalidState()
+            );
 
             // Verify parentProposals[0] is the last proposal stored on-chain.
             bytes32 headProposalHash = _verifyHeadProposal(input.parentProposals);
@@ -238,7 +238,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
                 _finalize(input);
 
-          
             coreState.lastProposalBlockId = uint40(block.number);
 
             // Verify capacity for new proposals
@@ -306,14 +305,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
-                require(
-                    input.proofMetadata.length != 0,
-                    EmptyProofMetadata()
-                );
-                 require(
-                   input.proofMetadata.length <= 24,
-                    TooManyProofMetadata()
-                );
+                require(input.proofMetadata.length != 0, EmptyProofMetadata());
+                require(input.proofMetadata.length <= 24, TooManyProofMetadata());
                 span = uint8(input.proofMetadata.length);
                 require(input.endProposal.id >= span, InvalidEndProposalId());
                 _checkProposalHash(input.endProposal);
@@ -934,8 +927,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
-
-
 
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// Requires 1 element if next slot empty, 2 if occupied with older proposal
