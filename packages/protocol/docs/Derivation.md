@@ -165,17 +165,15 @@ struct BlockManifest {
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
-  /// @notice Prover authentication data (proposal-level).
+  /// @notice Prover authentication data (proposal-level, shared across all sources).
   bytes proverAuthBytes;
-  /// @notice Array of derivation source manifests (one per derivation source).
+  /// @notice Array of derivation source manifests (one per DerivationSource).
   DerivationSourceManifest[] sources;
 }
 
 /// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
-  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
-  bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
@@ -370,7 +368,6 @@ struct ProverAuth {
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
-
   - Validates the `ProverAuth` struct from the provided bytes
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
@@ -530,12 +527,10 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
-
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state
