@@ -326,7 +326,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 });
 
                 TransitionRecord storage existing =
-                    _transitionMetadataFor(startProposalId, input.parentTransitionHash);
+                    _loadTransitionRecord(startProposalId, input.parentTransitionHash);
 
                 if (existing.span >= span) continue; // TODO: emit an event?
 
@@ -421,7 +421,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         view
         returns (TransitionRecord memory record_)
     {
-        return _transitionMetadataFor(_proposalId, _parentTransitionHash);
+        return _loadTransitionRecord(_proposalId, _parentTransitionHash);
     }
 
     /// @inheritdoc IInbox2
@@ -490,7 +490,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
     /// @return record_ The transition record metadata.
-    function _transitionMetadataFor(
+    function _loadTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -869,7 +869,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 // Try to finalize the current proposal
                 TransitionRecord memory record =
-                    _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                    _loadTransitionRecord(proposalId, coreState.lastFinalizedTransitionHash);
 
                 if (record.transitionHash == 0) break;
 
