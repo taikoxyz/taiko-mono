@@ -188,7 +188,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
+    function activate(bytes32 _lastPacayaBlockHash, ICheckpointStore.Checkpoint memory _checkpoint) external onlyOwner {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (activationTimestamp == 0) {
             activationTimestamp = uint48(block.timestamp);
@@ -198,7 +198,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 ActivationPeriodExpired()
             );
         }
-        _activateInbox(_lastPacayaBlockHash);
+        _activateInbox(_lastPacayaBlockHash, _checkpoint);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -438,9 +438,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        Transition memory transition;
-        transition.checkpoint.blockHash = _lastPacayaBlockHash;
+    /// @param _checkpoint The checkpoint of the last Pacaya block
+    function _activateInbox(bytes32 _lastPacayaBlockHash, ICheckpointStore.Checkpoint memory _checkpoint) internal {
+        TransitionRecord memory transitionRecord;
+        transitionRecord.endCheckpointHash = _hashCheckpoint(_checkpoint);
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -450,7 +451,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.lastProposalBlockId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
+        coreState.lastFinalizedTransitionHash = _hashTransitionRecord(transitionRecord);
 
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
@@ -653,17 +654,17 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashProposal(_proposal);
     }
 
-    /// @dev Hashes a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple2.hashTransition(_transition);
-    }
+    // /// @dev Hashes a Transition struct.
+    // /// @param _transition The transition to hash.
+    // /// @return _ The hash of the transition.
+    // function _hashTransition(Transition memory _transition)
+    //     internal
+    //     pure
+    //     virtual
+    //     returns (bytes32)
+    // {
+    //     return LibHashSimple2.hashTransition(_transition);
+    // }
 
     /// @dev Hashes a TransitionRecord struct.
     /// @param _transitionRecord The transition record to hash.
@@ -677,21 +678,21 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashTransitionRecord(_transitionRecord);
     }
 
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @param _proofMetadata The proof metadata array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitionsWithMetadata(
-        Transition[] memory _transitions,
-        ProofMetadata[] memory _proofMetadata
-    )
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple2.hashTransitionsWithMetadata(_transitions, _proofMetadata);
-    }
+    // /// @dev Hashes an array of Transitions.
+    // /// @param _transitions The transitions array to hash.
+    // /// @param _proofMetadata The proof metadata array to hash.
+    // /// @return _ The hash of the transitions array.
+    // function _hashTransitionsWithMetadata(
+    //     Transition[] memory _transitions,
+    //     ProofMetadata[] memory _proofMetadata
+    // )
+    //     internal
+    //     pure
+    //     virtual
+    //     returns (bytes32)
+    // {
+    //     return LibHashSimple2.hashTransitionsWithMetadata(_transitions, _proofMetadata);
+    // }
 
     // ---------------------------------------------------------------
     // Private Functions

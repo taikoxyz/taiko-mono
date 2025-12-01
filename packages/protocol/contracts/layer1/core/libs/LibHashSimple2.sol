@@ -64,16 +64,7 @@ library LibHashSimple2 {
         return keccak256(abi.encode(_proposal));
     }
 
-    /// @notice Simple hashing for Transition structs
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transition
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox2.Transition memory _transition) internal pure returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
-    }
-
-    /// @notice Simple hashing for TransitionRecord structs
+        /// @notice Simple hashing for TransitionRecord structs
     /// @dev Uses standard keccak256(abi.encode(...)) for the transition record
     /// @param _transitionRecord The transition record to hash
     /// @return The hash truncated to bytes26 for storage optimization
@@ -84,35 +75,6 @@ library LibHashSimple2 {
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return bytes26(keccak256(abi.encode(_transitionRecord)));
-    }
-
-    /// @notice Simple hashing for arrays of Transitions with metadata
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
-    /// @param _transitions The transitions array to hash
-    /// @param _proofMetadata The proof metadata array to hash
-    /// @return The hash of the transitions array
-    function hashTransitionsWithMetadata(
-        IInbox2.Transition[] memory _transitions,
-        IInbox2.ProofMetadata[] memory _proofMetadata
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        require(_transitions.length == _proofMetadata.length, InconsistentLengths());
-        bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
-
-        for (uint256 i; i < _transitions.length; ++i) {
-            transitionHashes[i] = keccak256(
-                abi.encodePacked(
-                    hashTransition(_transitions[i]),
-                    _proofMetadata[i].designatedProver,
-                    _proofMetadata[i].actualProver
-                )
-            );
-        }
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(transitionHashes));
     }
 
     // ---------------------------------------------------------------
