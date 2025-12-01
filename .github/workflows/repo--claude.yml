@@ -19,7 +19,7 @@ jobs:
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # SECURITY: Pin to exact commit at comment time to prevent TOCTOU attacks
           ref: ${{ steps.comment-branch.outputs.head_sha }}

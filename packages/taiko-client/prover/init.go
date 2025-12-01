@@ -489,6 +489,7 @@ func (p *Prover) initEventHandlers() error {
 	// ------- AssignmentExpired -------
 	p.eventHandlers.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
+		p.shastaIndexer,
 		p.proofSubmissionCh,
 	)
 	// ------- BatchesVerified -------

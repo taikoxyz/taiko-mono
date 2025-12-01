@@ -73,6 +73,10 @@ export L1_PROVER_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a841
 export TEST_ACCOUNT_PRIVATE_KEY=0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
 export TREASURY=0x1670010000000000000000000000000000010001
 
-cargo nextest -v run \
-    -j 1 \
-    --workspace --exclude bindings --all-features
+if [[ -n "${TEST_CRATE:-}" ]]; then
+    echo "Running tests for crate: ${TEST_CRATE}"
+    cargo nextest -v run -p "${TEST_CRATE}" --all-features --config-file nextest.toml
+else
+    echo "Running full test suite (default)"
+    cargo nextest -v run --workspace --exclude bindings --all-features --config-file nextest.toml
+fi
