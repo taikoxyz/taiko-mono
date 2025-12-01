@@ -355,9 +355,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             }
 
             uint256 proposalAge;
-            // if (inputs.length == 1 && span == 1) {
-            //     proposalAge = block.timestamp - input.endProposal.timestamp;
-            // }
+            if (inputs.length == 1 && span == 1) {
+                proposalAge = block.timestamp - input.endProposal.timestamp;
+            }
 
             _proofVerifier.verifyProof(proposalAge, _hashProveInputArray(inputs), _proof);
         }
