@@ -46,8 +46,6 @@ contract Anchor is EssentialContract {
         uint48 proposalId; // Unique identifier of the proposal
         address proposer; // Address of the entity that proposed this batch
         bytes proverAuth; // Encoded ProverAuth for prover designation
-        bytes32 bondInstructionsHash; // Expected hash of bond instructions
-        LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
     }
 
     /// @notice Block-level data specific to a single block within a proposal.
@@ -58,11 +56,12 @@ contract Anchor is EssentialContract {
         bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
         bytes32 rawTxListHash; // Keccak256 hash of the block's unprocessed transaction list
+        bytes32 bondInstructionsHash; // Expected hash of bond instructions
+        LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
     struct ProposalState {
-        bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
         uint48 proposalId;
@@ -71,6 +70,7 @@ contract Anchor is EssentialContract {
     /// @notice Stored block-level state for the latest anchor.
     /// @dev 2 slots
     struct BlockState {
+        bytes32 bondInstructionsHash;
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
     }
@@ -264,7 +264,7 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _proposalState.bondInstructionsHash,
+            _blockState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
             isNewProposal,
@@ -419,18 +419,19 @@ contract Anchor is EssentialContract {
             bondManager.creditBond(_proposalState.designatedProver, proverFee);
         }
 
-        _proposalState.bondInstructionsHash = _processBondInstructions(
-            _proposalState.bondInstructionsHash,
-            _proposalParams.bondInstructions,
-            _proposalParams.bondInstructionsHash
-        );
-
         _proposalState.proposalId = _proposalParams.proposalId;
     }
 
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Block-level parameters containing anchor data.
     function _validateBlock(BlockParams calldata _blockParams) private {
+
+        _blockState.bondInstructionsHash = _processBondInstructions(
+            _blockState.bondInstructionsHash,
+            _blockParams.bondInstructions,
+            _blockParams.bondInstructionsHash
+        );
+
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         if (_blockState.ancestorsHash != bytes32(0)) {
