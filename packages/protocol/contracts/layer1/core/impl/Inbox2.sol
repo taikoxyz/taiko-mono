@@ -127,7 +127,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - value: The struct contains the finalization deadline and the hash of the Transition
-    mapping(bytes32 compositeKey => TransitionRecord record) internal _transitionRecord;
+    mapping(bytes32 compositeKey => TransitionRecord record) internal _transitionRecords;
 
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
@@ -483,7 +483,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (TransitionRecord storage record_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecord[compositeKey];
+        return _transitionRecords[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value
