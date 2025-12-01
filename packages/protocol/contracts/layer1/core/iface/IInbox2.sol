@@ -61,7 +61,7 @@ interface IInbox2 {
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint40 originBlockNumber;
-            /// @notice The percentage of base fee paid to coinbase.
+        /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;

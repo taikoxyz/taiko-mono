@@ -21,7 +21,6 @@ interface IProposerChecker {
         returns (uint48 endOfSubmissionWindowTimestamp_);
 }
 
-
 interface IProposerChecker2 {
     error InvalidProposer();
 

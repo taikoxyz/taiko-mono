@@ -64,7 +64,11 @@ library LibHashSimple2 {
         return keccak256(abi.encode(_proposal));
     }
 
-    function hashProveInputArray(IInbox2.ProveInput[] memory _inputs) internal pure returns (bytes32) {
+    function hashProveInputArray(IInbox2.ProveInput[] memory _inputs)
+        internal
+        pure
+        returns (bytes32)
+    {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_inputs));
     }

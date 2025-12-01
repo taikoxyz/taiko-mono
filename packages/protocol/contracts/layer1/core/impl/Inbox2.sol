@@ -246,7 +246,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             uint40 endOfSubmissionWindowTimestamp;
 
             if (!result.allowsPermissionless) {
-                 endOfSubmissionWindowTimestamp =  _proposerChecker.checkProposer(msg.sender, _lookahead);
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
 
             // Create single proposal with multi-source derivation
@@ -328,8 +329,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
-
     /// @inheritdoc IForcedInclusionStore
     /// @dev This function will revert if called before the first non-activation proposal is submitted
     /// to make sure blocks have been produced already and the derivation can use the parent's block timestamp.
@@ -386,7 +385,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint40 _proposalId) external view returns (bytes32 proposalHash_) {
-       return _proposalHashes[_proposalId % _ringBufferSize];
+        return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
@@ -461,11 +460,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         Derivation memory derivation;
         proposal.derivationHash = _hashDerivation(derivation);
 
-         _proposalHashes[0] = _hashProposal(proposal);
+        _proposalHashes[0] = _hashProposal(proposal);
 
         _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
     }
-
 
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
@@ -621,7 +619,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashProposal(_proposal);
     }
 
-    function _hashProveInputArray(ProveInput[] memory _inputs) internal pure virtual returns (bytes32) {
+    function _hashProveInputArray(ProveInput[] memory _inputs)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
         return LibHashSimple2.hashProveInputArray(_inputs);
     }
 
