@@ -124,7 +124,6 @@ contract LibProposeInputDecoderTest is Test {
             timestamp: 900,
             endOfSubmissionWindowTimestamp: 1000,
             proposer: address(0x1234),
-            coreStateHash: bytes32(uint256(111)),
             derivationHash: bytes32(uint256(222))
         });
 
@@ -133,7 +132,6 @@ contract LibProposeInputDecoderTest is Test {
             timestamp: 950,
             endOfSubmissionWindowTimestamp: 1050,
             proposer: address(0x5678),
-            coreStateHash: bytes32(uint256(333)),
             derivationHash: bytes32(uint256(444))
         });
 

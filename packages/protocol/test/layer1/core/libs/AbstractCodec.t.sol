@@ -88,7 +88,6 @@ abstract contract AbstractCodecTest is Test {
             timestamp: 1_000_000,
             endOfSubmissionWindowTimestamp: 2_000_000,
             proposer: address(0x1234567890AbcdEF1234567890aBcdef12345678),
-            coreStateHash: bytes32(uint256(0x5555)),
             derivationHash: bytes32(uint256(0x6666))
         });
 
@@ -318,7 +317,6 @@ abstract contract AbstractCodecTest is Test {
             timestamp: 1000,
             endOfSubmissionWindowTimestamp: 2000,
             proposer: address(0x1),
-            coreStateHash: bytes32(uint256(0x1)),
             derivationHash: bytes32(uint256(0x1))
         });
 
@@ -327,7 +325,6 @@ abstract contract AbstractCodecTest is Test {
             timestamp: 1000,
             endOfSubmissionWindowTimestamp: 2000,
             proposer: address(0x1),
-            coreStateHash: bytes32(uint256(0x1)),
             derivationHash: bytes32(uint256(0x1))
         });
 
@@ -390,7 +387,6 @@ abstract contract AbstractCodecTest is Test {
             timestamp: 1_234_567,
             endOfSubmissionWindowTimestamp: 1_234_777,
             proposer: address(0xBEEF),
-            coreStateHash: bytes32(uint256(0x1111)),
             derivationHash: bytes32(uint256(0x2222))
         });
 
@@ -430,7 +426,6 @@ abstract contract AbstractCodecTest is Test {
             proposals[0].endOfSubmissionWindowTimestamp
         );
         assertEq(decoded.proposals[0].proposer, proposals[0].proposer);
-        assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
         assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
 
         assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);

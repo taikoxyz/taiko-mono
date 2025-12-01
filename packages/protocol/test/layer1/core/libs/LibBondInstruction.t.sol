@@ -124,7 +124,6 @@ contract LibBondInstructionTest is Test {
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: _timestamp + 1,
             proposer: PROPOSER,
-            coreStateHash: bytes32(uint256(0x11)),
             derivationHash: bytes32(uint256(0x22))
         });
     }

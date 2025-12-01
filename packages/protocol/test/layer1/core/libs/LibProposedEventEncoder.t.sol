@@ -17,7 +17,6 @@ contract LibProposedEventEncoderTest is Test {
             timestamp: 1000,
             endOfSubmissionWindowTimestamp: 1500,
             proposer: address(0x1234567890123456789012345678901234567890),
-            coreStateHash: bytes32(uint256(111)),
             derivationHash: bytes32(uint256(222))
         });
 
@@ -83,11 +82,6 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.id, original.proposal.id, "Proposal ID mismatch");
         assertEq(decoded.proposal.proposer, original.proposal.proposer, "Proposer mismatch");
         assertEq(decoded.proposal.timestamp, original.proposal.timestamp, "Timestamp mismatch");
-        assertEq(
-            decoded.proposal.coreStateHash,
-            original.proposal.coreStateHash,
-            "Core state hash mismatch"
-        );
 
         // Verify derivation fields
         assertEq(
@@ -180,7 +174,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 5000,
                 endOfSubmissionWindowTimestamp: 6000,
                 proposer: address(0x9999),
-                coreStateHash: bytes32(uint256(777)),
                 derivationHash: bytes32(uint256(888))
             }),
             derivation: IInbox.Derivation({
@@ -236,7 +229,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 2500,
                 endOfSubmissionWindowTimestamp: 3000,
                 proposer: address(0xABCD),
-                coreStateHash: bytes32(uint256(1313)),
                 derivationHash: bytes32(uint256(1414))
             }),
             derivation: IInbox.Derivation({
@@ -291,7 +283,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 1000,
                 endOfSubmissionWindowTimestamp: 2000,
                 proposer: address(0x1111),
-                coreStateHash: bytes32(uint256(2222)),
                 derivationHash: bytes32(uint256(3333))
             }),
             derivation: IInbox.Derivation({
@@ -325,7 +316,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 2000,
                 endOfSubmissionWindowTimestamp: 3000,
                 proposer: address(0xABCD),
-                coreStateHash: bytes32(uint256(4444)),
                 derivationHash: bytes32(uint256(5555))
             }),
             derivation: IInbox.Derivation({
@@ -389,7 +379,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 1000,
                 endOfSubmissionWindowTimestamp: 2000,
                 proposer: address(0x1234),
-                coreStateHash: bytes32(uint256(1111)),
                 derivationHash: bytes32(uint256(2222))
             }),
             derivation: IInbox.Derivation({

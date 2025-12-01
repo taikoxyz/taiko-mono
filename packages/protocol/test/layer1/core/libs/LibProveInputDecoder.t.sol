@@ -17,7 +17,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 1000,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             proposer: address(0x1234),
-            coreStateHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2))
         });
 
@@ -52,9 +51,6 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.proposals[0].id, 10, "Proposal ID mismatch");
         assertEq(decoded.proposals[0].proposer, address(0x1234), "Proposer mismatch");
         assertEq(decoded.proposals[0].timestamp, 1000, "Timestamp mismatch");
-        assertEq(
-            decoded.proposals[0].coreStateHash, bytes32(uint256(1)), "Core state hash mismatch"
-        );
 
         // Verify transitions array
         assertEq(decoded.transitions.length, 1, "Transitions length mismatch");
@@ -84,7 +80,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 100,
             endOfSubmissionWindowTimestamp: 200,
             proposer: address(0x1111),
-            coreStateHash: bytes32(uint256(11)),
             derivationHash: bytes32(uint256(12))
         });
         proposals[1] = IInbox.Proposal({
@@ -92,7 +87,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 300,
             endOfSubmissionWindowTimestamp: 400,
             proposer: address(0x2222),
-            coreStateHash: bytes32(uint256(21)),
             derivationHash: bytes32(uint256(22))
         });
 
@@ -172,7 +166,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 100,
             endOfSubmissionWindowTimestamp: 200,
             proposer: address(0x1234),
-            coreStateHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2))
         });
 

@@ -197,7 +197,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
-                coreStateHash: keccak256(abi.encodePacked("state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
         }

@@ -689,7 +689,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             proposer: Alice,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12),
-            coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });
 

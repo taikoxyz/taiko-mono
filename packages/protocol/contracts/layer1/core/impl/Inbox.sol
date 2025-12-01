@@ -286,7 +286,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: coreStateHash,
                 derivationHash: _hashDerivation(derivation)
             });
 
@@ -448,8 +447,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         coreStateHash = _hashCoreState(coreState);
 
         Proposal memory proposal;
-        proposal.coreStateHash = coreStateHash;
-
         Derivation memory derivation;
         proposal.derivationHash = _hashDerivation(derivation);
 

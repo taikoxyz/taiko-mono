@@ -116,7 +116,6 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _codec().hashCoreState(coreState),
             derivationHash: _codec().hashDerivation(derivation)
         });
     }
@@ -221,7 +220,6 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
             // endOfSubmissionWindowTimestamp
-            coreStateHash: _codec().hashCoreState(expectedCoreState),
             derivationHash: _codec().hashDerivation(expectedDerivation)
         });
 
