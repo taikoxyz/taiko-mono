@@ -416,7 +416,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint40 _proposalId) external view returns (bytes32 proposalHash_) {
-        return _proposalHashes[_proposalId % _ringBufferSize];
+        return _loadProposalHash(_proposalId);
     }
 
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
@@ -497,6 +497,21 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _emitProposedEvent(proposal, derivation, coreState, new LibBonds2.BondInstruction[](0));
     }
 
+
+    /// @dev Loads proposal hash from storage.
+    /// @param _proposalId The proposal identifier.
+    /// @return proposalHash_ The proposal hash.
+    function _loadProposalHash(
+        uint48 _proposalId
+    )
+        internal
+        view
+        virtual
+        returns (bytes32 proposalHash_)
+    {
+        return _proposalHashes[_proposalId % _ringBufferSize];
+    }
+
     /// @dev Loads transition record metadata from storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition used as lookup key.
@@ -524,7 +539,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (bytes32 proposalHash_)
     {
         proposalHash_ = _hashProposal(_proposal);
-        bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
+        bytes32 storedProposalHash = _loadProposalHash(_proposal.id);
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
@@ -1004,8 +1019,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             headProposalHash_ = _checkProposalHash(headProposal);
 
             // Check the next buffer slot to confirm this is truly the chain head
-            uint256 nextBufferSlot = (headProposal.id + 1) % _ringBufferSize;
-            bytes32 nextSlotHash = _proposalHashes[nextBufferSlot];
+            bytes32 nextSlotHash = _loadProposalHash(headProposal.id + 1);
 
             if (nextSlotHash == 0) {
                 // Next slot is empty, so head proposal is definitely the latest
