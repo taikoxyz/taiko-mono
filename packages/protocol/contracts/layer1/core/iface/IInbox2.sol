@@ -153,7 +153,7 @@ interface IInbox2 {
     struct ProveInput {
         Proposal endProposal;
         ICheckpointStore.Checkpoint endCheckpoint;
-        TransitionRecord[] transitionMetadata;
+        ProofMetadata[] proofMetadata;
         bytes32 parentTransitionHash;
     }
 

@@ -298,24 +298,29 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
             ProveInput[] memory inputs = _decodeProveInput(_data);
-            require(inputs.length != 0, "InputsIsEmpty");
+            require(inputs.length != 0, EmptyProveInputs());
 
             ProveInput memory input;
-            Transition memory transitionRecord;
+            Transition memory transition;
             uint8 span;
+
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
                 require(
-                    input.transitionMetadata.length != 0 && input.transitionMetadata.length <= 24,
-                    "SpanIsZero"
+                    input.proofMetadata.length != 0,
+                    EmptyProofMetadata()
                 );
-                span = uint8(input.transitionMetadata.length);
-                require(input.endProposal.id >= span, "EndProposalIdIsZero");
+                 require(
+                   input.proofMetadata.length <= 24,
+                    TooManyProofMetadata()
+                );
+                span = uint8(input.proofMetadata.length);
+                require(input.endProposal.id >= span, InvalidEndProposalId());
                 _checkProposalHash(input.endProposal);
 
-                uint48 startProposalId = input.endProposal.id - span;
+                uint40 startProposalId = input.endProposal.id - span;
 
-                transitionRecord = Transition({
+                transition = Transition({
                     bondInstructions: new LibBonds.BondInstruction[](0),
                     endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
                 });
@@ -325,7 +330,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 if (record.span >= span) continue; // TODO: emit an event?
 
-                record.transitionHash = _hashTransition(transitionRecord);
+                record.transitionHash = _hashTransition(transition);
                 record.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
                 record.span = span;
 
@@ -333,9 +338,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             }
 
             uint256 proposalAge;
-            if (inputs.length == 1 && span == 0) {
-                proposalAge = block.timestamp - input.endProposal.timestamp;
-            }
+            // if (inputs.length == 1 && span == 1) {
+            //     proposalAge = block.timestamp - input.endProposal.timestamp;
+            // }
 
             _proofVerifier.verifyProof(proposalAge, _hashProveInputArray(inputs), _proof);
         }
@@ -970,22 +975,23 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
-    error CannotOverwriteTransition();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
     error DeadlineExceeded();
     error EmptyProposals();
-    error InconsistentParams();
+    error EmptyProveInputs();
+    error EmptyProofMetadata();
+    error TooManyProofMetadata();
     error IncorrectProposalCount();
+    error InvalidEndProposalId();
     error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
+    error InvalidSpan();
     error InvalidState();
     error NextProposalHashMismatch();
-    error NoBondToWithdraw();
     error NotEnoughCapacity();
     error ProposalHashMismatch();
-    error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
     error TransitionHashMismatchWithStorage();
     error TransitionNotProvided();
