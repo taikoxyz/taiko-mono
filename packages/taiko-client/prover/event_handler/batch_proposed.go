@@ -292,18 +292,31 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	if reorgCheckResult.IsReorged {
+		lastHandledOld := h.sharedState.GetLastHandledPacayaBatchID()
+		if meta.IsShasta() {
+			lastHandledOld = h.sharedState.GetLastHandledShastaBatchID()
+		}
+
 		log.Info(
 			"Reset L1Current cursor due to reorg",
 			"l1CurrentHeightOld", h.sharedState.GetL1Current().Number,
 			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-			"lastHandledBatchIDOld", h.sharedState.GetLastHandledPacayaBatchID(),
+			"lastHandledBatchIDOld", lastHandledOld,
 			"lastHandledBatchIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 		)
 		h.sharedState.SetL1Current(reorgCheckResult.L1CurrentToReset)
-		if reorgCheckResult.LastHandledBatchIDToReset == nil {
-			h.sharedState.SetLastHandledPacayaBatchID(0)
+		if meta.IsShasta() {
+			if reorgCheckResult.LastHandledBatchIDToReset == nil {
+				h.sharedState.SetLastHandledShastaBatchID(0)
+			} else {
+				h.sharedState.SetLastHandledShastaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			}
 		} else {
-			h.sharedState.SetLastHandledPacayaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			if reorgCheckResult.LastHandledBatchIDToReset == nil {
+				h.sharedState.SetLastHandledPacayaBatchID(0)
+			} else {
+				h.sharedState.SetLastHandledPacayaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			}
 		}
 		return errL1Reorged
 	}
