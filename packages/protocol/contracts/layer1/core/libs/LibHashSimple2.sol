@@ -13,17 +13,8 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibHashSimple2 {
     // ---------------------------------------------------------------
-    // Core Structure Hashing Functions
+    // Singular Hashing Functions
     // ---------------------------------------------------------------
-
-    /// @notice Simple hashing for blob hashes array
-    /// @dev Uses standard keccak256(abi.encode(...)) for the blob hashes array
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_blobHashes));
-    }
 
     /// @notice Simple hashing for Checkpoint structs
     /// @dev Uses standard keccak256(abi.encode(...)) for the checkpoint
@@ -65,6 +56,45 @@ library LibHashSimple2 {
         return keccak256(abi.encode(_proposal));
     }
 
+    /// @notice Simple hashing for TransitionRecord structs
+    /// @dev Uses standard keccak256(abi.encode(...)) for the transition record
+    /// @param _transition The transition to hash
+    /// @return The hash truncated to bytes26 for storage optimization
+    function hashTransition(IInbox2.Transition memory _transition) internal pure returns (bytes26) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return bytes26(keccak256(abi.encode(_transition)));
+    }
+
+    /// @notice Simple hashing for BondInstructionHashChange structs
+    /// @dev Uses standard keccak256(abi.encode(...)) for the hash change
+    /// @param _hashChange The bond instruction hash change to hash
+    /// @return The hash of the bond instruction hash change
+    function hashBondInstructionHashChange(IInbox2.BondInstructionHashChange memory _hashChange)
+        internal
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_hashChange));
+    }
+
+    // ---------------------------------------------------------------
+    // Array Hashing Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Simple hashing for blob hashes array
+    /// @dev Uses standard keccak256(abi.encode(...)) for the blob hashes array
+    /// @param _blobHashes The blob hashes array to hash
+    /// @return The hash of the blob hashes array
+    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_blobHashes));
+    }
+
+    /// @notice Simple hashing for ProveInput array
+    /// @dev Uses standard keccak256(abi.encode(...)) for the prove inputs
+    /// @param _inputs The prove inputs array to hash
+    /// @return The hash of the prove inputs array
     function hashProveInputArray(IInbox2.ProveInput[] memory _inputs)
         internal
         pure
@@ -78,22 +108,13 @@ library LibHashSimple2 {
     /// @dev Uses standard keccak256(abi.encode(...)) for the bond instructions
     /// @param _bondInstructions The bond instructions array to hash
     /// @return The hash of the bond instructions
-    function hashBondInstructions(LibBonds2.BondInstruction[] memory _bondInstructions)
+    function hashBondInstructionArray(LibBonds2.BondInstruction[] memory _bondInstructions)
         internal
         pure
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_bondInstructions));
-    }
-
-    /// @notice Simple hashing for TransitionRecord structs
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transition record
-    /// @param _transition The transition to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransition(IInbox2.Transition memory _transition) internal pure returns (bytes26) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transition)));
     }
 
     // ---------------------------------------------------------------

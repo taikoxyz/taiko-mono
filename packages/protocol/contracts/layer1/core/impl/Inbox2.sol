@@ -14,6 +14,7 @@ import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./Inbox_Layout.sol"; // DO NOT DELETE
 
@@ -68,6 +69,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker2 internal immutable _proposerChecker;
 
+    /// @notice Checkpoint store responsible for checkpoints
+    ICheckpointStore internal immutable _checkpointStore;
+
+    /// @notice Signal service for cross-chain messaging
+    ISignalService internal immutable _signalService;
+
     /// @notice The proving window in seconds.
     uint40 internal immutable _provingWindow;
 
@@ -99,15 +106,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @notice Queue size at which the fee doubles. See IInbox.Config for formula details.
     uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
 
-    /// @notice The minimum delay between checkpoints in seconds.
-    uint16 internal immutable _minCheckpointDelay;
+    /// @notice The minimum delay between syncs in seconds.
+    uint16 internal immutable _minSyncDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
-
-    /// @notice Checkpoint store responsible for checkpoints
-    ICheckpointStore internal immutable _checkpointStore;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -149,6 +153,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker2(_config.proposerChecker);
         _checkpointStore = ICheckpointStore(_config.checkpointStore);
+        _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
@@ -159,7 +164,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
-        _minCheckpointDelay = _config.minCheckpointDelay;
+        _minSyncDelay = _config.minSyncDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
     }
 
@@ -321,7 +326,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                         input.prposalProofMetadatas
                     );
                 Transition memory transition = Transition({
-                    bondInstructionsHash: _hashBondInstructions(bondInstructions),
+                    bondInstructionsHash: _hashBondInstructionArray(bondInstructions),
                     checkpointHash: _hashCheckpoint(input.checkpoint)
                 });
 
@@ -433,9 +438,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox2.Config memory config_) {
         config_ = IInbox2.Config({
             codec: _codec,
-            checkpointStore: address(_checkpointStore),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
+            checkpointStore: address(_checkpointStore),
+            signalService: address(_signalService),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
             maxFinalizationCount: _maxFinalizationCount,
@@ -446,7 +452,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
-            minCheckpointDelay: _minCheckpointDelay,
+            minSyncDelay: _minSyncDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
@@ -538,6 +544,12 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     {
         return LibHashSimple2.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
+       
+   // ---------------------------------------------------------------
+    // Encoder and Decoder Functions
+    // ---------------------------------------------------------------
+
+
 
     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
@@ -563,9 +575,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return abi.encode(_payload);
     }
 
-    // ---------------------------------------------------------------
-    // Decoder Functions
-    // ---------------------------------------------------------------
 
     /// @dev Decodes proposal input data
     /// @param _data The encoded data
@@ -592,20 +601,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Hashing Functions
+    // Singular Hashing Functions (synced with LibHashSimple2 order)
     // ---------------------------------------------------------------
-
-    /// @dev Optimized hashing for blob hashes array to reduce stack depth
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function _hashBlobHashesArray(bytes32[] memory _blobHashes)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple2.hashBlobHashesArray(_blobHashes);
-    }
 
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
@@ -645,15 +642,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashProposal(_proposal);
     }
 
-    function _hashProveInputArray(ProveInput[] memory _inputs)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple2.hashProveInputArray(_inputs);
-    }
-
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition record to hash.
     /// @return _ The hash of the transition record.
@@ -666,16 +654,56 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         return LibHashSimple2.hashTransition(_transition);
     }
 
-    /// @dev Hashes bond instructions array.
-    /// @param _bondInstructions The bond instructions to hash.
-    /// @return _ The hash of the bond instructions.
-    function _hashBondInstructions(LibBonds2.BondInstruction[] memory _bondInstructions)
+    /// @dev Hashes a BondInstructionHashChange struct.
+    /// @param _hashChange The bond instruction hash change to hash.
+    /// @return _ The hash of the bond instruction hash change.
+    function _hashBondInstructionHashChange(BondInstructionHashChange memory _hashChange)
         internal
         pure
         virtual
         returns (bytes32)
     {
-        return LibHashSimple2.hashBondInstructions(_bondInstructions);
+        return LibHashSimple2.hashBondInstructionHashChange(_hashChange);
+    }
+
+    // ---------------------------------------------------------------
+    // Array Hashing Functions (synced with LibHashSimple2 order)
+    // ---------------------------------------------------------------
+
+    /// @dev Hashes blob hashes array.
+    /// @param _blobHashes The blob hashes array to hash.
+    /// @return _ The hash of the blob hashes array.
+    function _hashBlobHashesArray(bytes32[] memory _blobHashes)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return LibHashSimple2.hashBlobHashesArray(_blobHashes);
+    }
+
+    /// @dev Hashes ProveInput array for proof verification.
+    /// @param _inputs The prove inputs to hash.
+    /// @return _ The hash of the prove inputs.
+    function _hashProveInputArray(ProveInput[] memory _inputs)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return LibHashSimple2.hashProveInputArray(_inputs);
+    }
+
+    /// @dev Hashes bond instructions array.
+    /// @param _bondInstructions The bond instructions to hash.
+    /// @return _ The hash of the bond instructions.
+    function _hashBondInstructionArray(LibBonds2.BondInstruction[] memory _bondInstructions)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return LibHashSimple2.hashBondInstructionArray(_bondInstructions);
     }
 
     // ---------------------------------------------------------------
@@ -787,9 +815,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
-    /// Checkpoints are only saved if minCheckpointDelay seconds have passed since the last save,
+    /// Checkpoints are only saved if minSyncDelay seconds have passed since the last save,
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
-    /// Set minCheckpointDelay to 0 to disable rate limiting.
+    /// Set minSyncDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
     /// @return coreState_ Updated core state with new finalization counters.
     /// @return bondInstructions_ Array of bond instructions from finalized proposals.
@@ -800,11 +828,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         unchecked {
             CoreState memory coreState = _input.coreState;
             uint40 proposalId = coreState.lastFinalizedProposalId + 1;
-            uint256 lastFinalizedRecordIdx;
+            uint256 lastFinalizedIdx;
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitions.length;
-            uint256 currentTimestamp = block.timestamp;
-            uint256 totalBondInstructionCount;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
@@ -817,7 +843,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (record.transitionHash == 0) break;
 
                 if (i >= transitionCount) {
-                    require(currentTimestamp < record.finalizationDeadline, TransitionNotProvided());
+                    require(block.timestamp < record.finalizationDeadline, TransitionNotProvided());
                     break;
                 }
 
@@ -826,7 +852,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     TransitionHashMismatchWithStorage()
                 );
 
-                totalBondInstructionCount += _input.bondInstructions[i].length;
 
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
@@ -834,68 +859,74 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 ++proposalId;
 
                 // Update state for successful finalization
-                lastFinalizedRecordIdx = i;
+                lastFinalizedIdx = i;
                 ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 Transition memory lastFinalizedTransition =
-                    _input.transitions[lastFinalizedRecordIdx];
+                    _input.transitions[lastFinalizedIdx];
                 coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-                _syncCheckpoint(
+                _syncToLayer2(
                     _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
                 );
 
-                _sendBondInstructionSignal(coreState);
             }
 
             return (coreState, bondInstructions_);
         }
     }
 
-    /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
-    ///      Validates the checkpoint hash, persists it, and refreshes the timestamp in core state.
-    /// @param _checkpoint The checkpoint data to sync.
-    /// @param _expectedCheckpointHash The expected hash to validate against.
-    /// @param _coreState Core state to update with new checkpoint timestamp.
-    function _syncCheckpoint(
+    /// @dev Syncs checkpoint to L1 storage and signals bond instruction changes to L2.
+    ///      Rate-limited by minSyncDelay to reduce SSTORE operations.
+    ///      When sync occurs:
+    ///      1. Updates lastSyncTimestamp in core state
+    ///      2. Validates and persists checkpoint to checkpoint store
+    ///      3. If bond instructions changed, sends signal to L2 via signal service
+    /// @param _checkpoint The checkpoint data to persist
+    /// @param _lastVerifiedCheckpointHash Expected hash for checkpoint validation
+    /// @param _coreState Core state to update (lastSyncTimestamp, bondInstructionsHashOld)
+    function _syncToLayer2(
         ICheckpointStore.Checkpoint memory _checkpoint,
-        bytes32 _expectedCheckpointHash,
+        bytes32 _lastVerifiedCheckpointHash,
         CoreState memory _coreState
     )
         private
     {
-        // Check if checkpoint sync should occur:
-        // 1. Voluntary: proposer provided a checkpoint (blockHash != 0)
-        // 2. Forced: minimum delay elapsed since last checkpoint
-        if (_checkpoint.blockHash != 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
-            require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
+        // Rate limit: skip if minimum delay hasn't elapsed since last sync
+        if (block.timestamp < uint(_coreState.lastSyncTimestamp) + _minSyncDelay) return;
 
-            _checkpointStore.saveCheckpoint(_checkpoint);
-            _coreState.lastCheckpointTimestamp = uint40(block.timestamp);
-        } else {
-            require(
-                block.timestamp < _coreState.lastCheckpointTimestamp + _minCheckpointDelay,
-                CheckpointNotProvided()
-            );
-        }
-    }
+        _coreState.lastSyncTimestamp = uint40(block.timestamp);
 
-    // TODO:
-    function _sendBondInstructionSignal(CoreState memory _coreState) private {
+        // Validate and persist checkpoint
+        bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
+        require(checkpointHash == _lastVerifiedCheckpointHash, CheckpointMismatch());
+        _checkpointStore.saveCheckpoint(_checkpoint);
+
+        // Signal bond instruction changes to L2 if any occurred
         if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
-        if (_coreState.lastFinalizedProposalId % 128 != 0) return;
+
+        BondInstructionHashChange memory hashChange = BondInstructionHashChange({
+            lastFinalizedProposalId: _coreState.lastFinalizedProposalId,
+            bondInstructionsHashOld: _coreState.bondInstructionsHashOld,
+            bondInstructionsHashNew: _coreState.bondInstructionsHashNew
+        });
+
+        _signalService.sendSignal(_hashBondInstructionHashChange(hashChange));
 
         _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
     }
 
-    /// @dev Emits the Proposed event with stack-optimized approach
-    /// @param _proposal The proposal data
-    /// @param _derivation The derivation data
-    /// @param _coreState The core state data
+
+
+    /// @dev Emits a Proposed event when a new proposal is submitted.
+    ///      Packs all proposal data into a ProposedEventPayload struct to avoid stack depth issues.
+    /// @param _proposal The newly created proposal containing ID, timestamps, proposer, and hashes
+    /// @param _derivation The derivation data specifying origin block and data sources
+    /// @param _coreState The updated core state after this proposal
+    /// @param _bondInstructions Bond instructions from finalized proposals during this call
     function _emitProposedEvent(
         Proposal memory _proposal,
         Derivation memory _derivation,
@@ -913,6 +944,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         emit Proposed(_encodeProposedEventData(payload));
     }
 
+    /// @dev Emits a Proved event when a transition proof is submitted.
+    ///      Contains all data needed by off-chain indexers to track proof status.
+    /// @param _startProposalId The first proposal ID in the proven range
+    /// @param _parentTransitionHash The hash of the parent transition this proof builds upon
+    /// @param _span Number of consecutive proposals covered by this proof
+    /// @param _finalizationDeadline Timestamp after which this transition can be finalized
+    /// @param _checkpoint The L2 checkpoint state being proven
+    /// @param _bondInstructions Calculated bond instructions for the proven proposals
     function _emitProvedEvent(
         uint40 _startProposalId,
         bytes32 _parentTransitionHash,
@@ -934,15 +973,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         emit Proved(_encodeProvedEventData(payload));
     }
 
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _coreState Current state with proposal counters
-    /// @return _ Number of additional proposals that can be submitted
+    /// @dev Calculates remaining ring buffer capacity for new proposals.
+    ///      Ring buffer reserves one slot to distinguish full from empty state.
+    ///      Formula: capacity = ringBufferSize + lastFinalizedProposalId - nextProposalId
+    /// @param _coreState Current state containing proposal counters
+    /// @return _ Number of additional proposals that can be submitted before buffer is full
     function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
         unchecked {
-            uint256 numUnfinalizedProposals =
-                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
+            return _ringBufferSize + _coreState.lastFinalizedProposalId - _coreState.nextProposalId;
         }
     }
 
@@ -991,7 +1029,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     error ActivationPeriodExpired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
-    error CheckpointNotProvided();
     error DeadlineExceeded();
     error EmptyProofMetadata();
     error EmptyProposals();

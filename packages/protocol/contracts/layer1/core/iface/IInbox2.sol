@@ -13,12 +13,14 @@ interface IInbox2 {
     struct Config {
         /// @notice The codec used for encoding and hashing
         address codec;
-        /// @notice The signal service contract address
-        address checkpointStore;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The checkpoint store contract address
+        address checkpointStore;
+        /// @notice The signal service contract address
+        address signalService;
         /// @notice The proving window in seconds
         uint40 provingWindow;
         /// @notice The extended proving window in seconds
@@ -40,9 +42,9 @@ interface IInbox2 {
         uint64 forcedInclusionFeeInGwei;
         /// @notice Queue size at which the fee doubles
         uint64 forcedInclusionFeeDoubleThreshold;
-        /// @notice The minimum delay between checkpoints in seconds
+        /// @notice The minimum delay between syncs in seconds
         /// @dev Must be less than or equal to finalization grace period
-        uint16 minCheckpointDelay;
+        uint16 minSyncDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
@@ -122,13 +124,23 @@ interface IInbox2 {
         uint40 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint40 lastFinalizedProposalId;
-        /// @notice The timestamp when the last checkpoint was saved.
-        /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
-        uint40 lastCheckpointTimestamp;
+        /// @notice The timestamp when the last sync occurred.
+        /// @dev In genesis block, this is set to 0 to allow the first sync.
+        uint40 lastSyncTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 bondInstructionsHashOld;
+        bytes32 bondInstructionsHashNew;
+    }
+
+    /// @notice Represents a change in bond instruction hashes for signaling.
+    struct BondInstructionHashChange {
+        /// @notice The last finalized proposal ID when the change occurred.
+        uint40 lastFinalizedProposalId;
+        /// @notice The previous bond instructions hash.
+        bytes32 bondInstructionsHashOld;
+        /// @notice The new bond instructions hash.
         bytes32 bondInstructionsHashNew;
     }
 
