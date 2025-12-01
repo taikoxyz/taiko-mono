@@ -20,13 +20,13 @@ interface IInbox2 {
         /// @notice The proposer checker contract
         address proposerChecker;
         /// @notice The proving window in seconds
-        uint48 provingWindow;
+        uint40 provingWindow;
         /// @notice The extended proving window in seconds
-        uint48 extendedProvingWindow;
+        uint40 extendedProvingWindow;
         /// @notice The maximum number of finalized proposals in one block
         uint256 maxFinalizationCount;
         /// @notice The finalization grace period in seconds
-        uint48 finalizationGracePeriod;
+        uint40 finalizationGracePeriod;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
@@ -60,11 +60,11 @@ interface IInbox2 {
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
-        uint48 originBlockNumber;
+        uint40 originBlockNumber;
+            /// @notice The percentage of base fee paid to coinbase.
+        uint8 basefeeSharingPctg;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice The percentage of base fee paid to coinbase.
-        uint8 basefeeSharingPctg;
         /// @notice Array of derivation sources, where each can be regular or forced inclusion.
         DerivationSource[] sources;
     }
@@ -72,11 +72,11 @@ interface IInbox2 {
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
-        uint48 id;
+        uint40 id;
         /// @notice The L1 block timestamp when the proposal was accepted.
-        uint48 timestamp;
+        uint40 timestamp;
         /// @notice The timestamp of the last slot where the current preconfer can propose.
-        uint48 endOfSubmissionWindowTimestamp;
+        uint40 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
         /// @notice The current hash of coreState
@@ -115,14 +115,14 @@ interface IInbox2 {
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
-        uint48 nextProposalId;
+        uint40 nextProposalId;
         /// @notice The last L1 block ID where a proposal was made.
-        uint48 lastProposalBlockId;
+        uint40 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
-        uint48 lastFinalizedProposalId;
+        uint40 lastFinalizedProposalId;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
-        uint48 lastCheckpointTimestamp;
+        uint40 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
@@ -133,7 +133,7 @@ interface IInbox2 {
     /// @notice Input data for the propose function
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
-        uint48 deadline;
+        uint40 deadline;
         /// @notice The current core state before this proposal.
         CoreState coreState;
         /// @notice Array of existing proposals for validation (1-2 elements).
@@ -172,7 +172,7 @@ interface IInbox2 {
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
         /// @notice The proposal ID that was proven.
-        uint48 proposalId;
+        uint40 proposalId;
         /// @notice The transition record containing additional metadata.
         Transition transitionRecord;
         /// @notice The metadata containing prover information.
@@ -213,20 +213,20 @@ interface IInbox2 {
     /// @notice Returns the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+    function getProposalHash(uint40 _proposalId) external view returns (bytes32 proposalHash_);
 
     /// @notice Returns the transition record hash for a given proposal ID and parent transition
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return transitionMetadata_ The transition record metadata.
+    /// @return transitionRecord_ The transition record metadata.
     function getTransitionRecord(
-        uint48 _proposalId,
+        uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (TransitionRecord memory transitionMetadata_);
+        returns (TransitionRecord memory transitionRecord_);
 
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
