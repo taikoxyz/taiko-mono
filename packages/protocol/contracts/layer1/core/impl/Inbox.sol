@@ -137,6 +137,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Flag indicating whether a conflicting transition record has been detected
     bool public conflictingTransitionDetected;
 
+    /// @notice The hash of the current core state
+    bytes32 public coreStateHash;
+
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -155,7 +158,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[37] private __gap;
+    uint256[36] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -199,9 +202,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev The `propose` function implicitly checks that activation has occurred by verifying
-    ///      the genesis proposal (ID 0) exists in storage via `_verifyChainHead` →
-    ///      `_checkProposalHash`. If `activate` hasn't been called, the genesis proposal won't
-    ///      exist and `propose` will revert with `ProposalHashMismatch()`.
+    ///      the coreStateHash is non-zero. If `activate` hasn't been called, the coreStateHash
+    ///      will be zero and `propose` will revert with `InvalidState()`.
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
@@ -235,9 +237,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = _decodeProposeInput(_data);
 
             _validateProposeInput(input);
-
-            // Verify parentProposals[0] is actually the last proposal stored on-chain.
-            _verifyChainHead(input.parentProposals);
 
             // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
             (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
@@ -277,12 +276,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Increment nextProposalId (lastProposalBlockId was already set above)
+            uint48 proposalId = coreState.nextProposalId++;
+            
+            // Update and store the core state hash AFTER incrementing nextProposalId
+            coreStateHash = _hashCoreState(coreState);
+
             Proposal memory proposal = Proposal({
-                id: coreState.nextProposalId++,
+                id: proposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(coreState),
+                coreStateHash: coreStateHash,
                 derivationHash: _hashDerivation(derivation)
             });
 
@@ -440,8 +444,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         coreState.lastProposalBlockId = 1;
         coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
+        // Store the initial core state hash
+        coreStateHash = _hashCoreState(coreState);
+
         Proposal memory proposal;
-        proposal.coreStateHash = _hashCoreState(coreState);
+        proposal.coreStateHash = coreStateHash;
 
         Derivation memory derivation;
         proposal.derivationHash = _hashDerivation(derivation);
@@ -1087,45 +1094,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Validates propose function inputs
-    /// Checks deadline, proposal array, and state consistency
+    /// Checks deadline and state consistency
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-        require(_input.parentProposals.length > 0, EmptyProposals());
         require(block.number > _input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock());
         require(
-            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
+            _hashCoreState(_input.coreState) == coreStateHash,
             InvalidState()
         );
     }
 
-    /// @dev Verifies that parentProposals[0] is the current chain head
-    /// Requires 1 element if next slot empty, 2 if occupied with older proposal
-    /// @param _parentProposals Array of 1-2 proposals to verify chain head
-    function _verifyChainHead(Proposal[] memory _parentProposals) private view {
-        unchecked {
-            // First verify parentProposals[0] matches what's stored on-chain
-            _checkProposalHash(_parentProposals[0]);
-
-            // Then verify it's actually the chain head
-            uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
-            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
-
-            if (storedNextProposalHash == bytes32(0)) {
-                // Next slot in the ring buffer is empty, only one proposal expected
-                require(_parentProposals.length == 1, IncorrectProposalCount());
-            } else {
-                // Next slot in the ring buffer is occupied, need to prove it contains a
-                // proposal with a smaller id
-                require(_parentProposals.length == 2, IncorrectProposalCount());
-                require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
-                require(
-                    storedNextProposalHash == _hashProposal(_parentProposals[1]),
-                    NextProposalHashMismatch()
-                );
-            }
-        }
-    }
 
     // ---------------------------------------------------------------
     // Errors
@@ -1138,12 +1117,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error DeadlineExceeded();
     error EmptyProposals();
     error InconsistentParams();
-    error IncorrectProposalCount();
     error InvalidLastPacayaBlockHash();
-    error InvalidLastProposalProof();
     error InvalidSpan();
     error InvalidState();
-    error NextProposalHashMismatch();
     error NoBondToWithdraw();
     error NotEnoughCapacity();
     error ProposalHashMismatch();

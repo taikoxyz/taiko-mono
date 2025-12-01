@@ -19,6 +19,8 @@ abstract contract AbstractProveTest is InboxTestHelper {
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
+    bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
+
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
@@ -471,67 +473,60 @@ abstract contract AbstractProveTest is InboxTestHelper {
         }
         bytes memory proposeData = _codec().encodeProposeInput(_createFirstProposeInput());
 
+        // Record logs to capture the Proposed event
+        vm.recordLogs();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        // Build and return the expected proposal
-        IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(1, 1, 0, currentProposer);
-
-        return expectedPayload.proposal;
+        // Decode and return the actual proposal from the event
+        IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
+        
+        // Store the coreState for consecutive proposals
+        lastCoreState = actualPayload.coreState;
+        
+        return actualPayload.proposal;
     }
+
+    // State variable to track last proposal's coreState
+    IInbox.CoreState internal lastCoreState;
 
     function _proposeConsecutiveProposal(IInbox.Proposal memory _parent)
         internal
         returns (IInbox.Proposal memory)
     {
-        // Build state for consecutive proposal
-        // Each proposal sets lastProposalBlockId = block.number
         // Need to roll 1 block forward from the last proposal
-        uint48 expectedLastBlockId;
         if (_parent.id == 0) {
-            expectedLastBlockId = 1; // Genesis value - last proposal was made at block 1
             // For first proposal after genesis, roll to block 2
             vm.roll(2);
         } else {
             // For subsequent proposals, need 1-block gap
             // Roll forward by 1 block from current position
             vm.roll(block.number + 1);
-            // lastProposalBlockId should be the block where the last proposal was made (current -
-            // 1)
-            expectedLastBlockId = uint48(block.number - 1);
         }
 
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: _parent.id + 1,
-            lastProposalBlockId: expectedLastBlockId,
-            lastFinalizedProposalId: 0,
-            lastCheckpointTimestamp: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _parent;
-
+        // Use the actual coreState from the last proposal (stored by _proposeAndGetProposal or previous call)
+        // This coreState was emitted in the Proposed event and matches what's stored in the contract
         bytes memory proposeData = _codec()
             .encodeProposeInput(
                 _createProposeInputWithCustomParams(
                     0, // no deadline
                     _createBlobRef(0, 1, 0),
-                    parentProposals,
-                    coreState
+                    lastCoreState
                 )
             );
 
+        // Record logs to capture the Proposed event
+        vm.recordLogs();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        // Build and return the expected proposal
-        IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(_parent.id + 1, 1, 0, currentProposer);
-
-        return expectedPayload.proposal;
+        // Decode and return the actual proposal from the event
+        IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
+        
+        // Store the new coreState for the next consecutive proposal
+        lastCoreState = actualPayload.coreState;
+        
+        return actualPayload.proposal;
     }
 
     function _createProveInput(IInbox.Proposal memory _proposal)
@@ -603,5 +598,19 @@ abstract contract AbstractProveTest is InboxTestHelper {
     function _createValidProof() internal pure returns (bytes memory) {
         // MockProofVerifier always accepts, so return any non-empty proof
         return abi.encode("valid_proof");
+    }
+
+    function _decodeLastProposedEvent() internal returns (IInbox.ProposedEventPayload memory) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint256 i = logs.length; i > 0; --i) {
+            Vm.Log memory entry = logs[i - 1];
+            if (entry.topics.length > 0 && entry.topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(entry.data, (bytes));
+                return _codec().decodeProposedEvent(eventData);
+            }
+        }
+
+        revert("Proposed event not found");
     }
 }

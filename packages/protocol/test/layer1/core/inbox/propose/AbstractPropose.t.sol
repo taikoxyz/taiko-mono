@@ -212,7 +212,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
                 _createProposeInputWithCustomParams(
                     0, // no deadline
                     blobRef,
-                    parentProposals,
                     coreState
                 )
             );
@@ -434,12 +433,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
-        parentProposals[0] = fill.last.proposal;
-        parentProposals[1] = _createGenesisProposal();
-
         IInbox.ProposeInput memory nextInput = _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), parentProposals, fill.last.coreState
+            0, _createBlobRef(0, 1, 0), fill.last.coreState
         );
         bytes memory proposeData = _codec().encodeProposeInput(nextInput);
 
@@ -495,7 +490,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             IInbox.ProposeInput memory firstInput;
             firstInput.deadline = 0;
             firstInput.coreState = fill.last.coreState;
-            firstInput.parentProposals = firstParents;
             firstInput.blobReference = _createBlobRef(0, 1, 0);
             firstInput.transitionRecords = finalizeRecords;
             firstInput.checkpoint = secondCheckpoint;
@@ -521,7 +515,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
             IInbox.ProposeInput memory reuseInput;
             reuseInput.deadline = 0;
             reuseInput.coreState = firstNewPayload.coreState;
-            reuseInput.parentProposals = reuseParents;
             reuseInput.blobReference = _createBlobRef(0, 1, 0);
             reuseInput.transitionRecords = new IInbox.TransitionRecord[](0);
             reuseInput.checkpoint = ICheckpointStore.Checkpoint({
@@ -618,7 +611,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
                 _createProposeInputWithCustomParams(
                     0, // no deadline
                     _createBlobRef(0, 1, 0),
-                    secondParentProposals,
                     secondCoreState
                 )
             );
@@ -677,7 +669,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bytes memory wrongProposeData = _codec()
             .encodeProposeInput(
                 _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
+                    0, _createBlobRef(0, 1, 0), wrongCoreState
                 )
             );
 
@@ -716,7 +708,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bytes memory proposeData = _codec()
             .encodeProposeInput(
                 _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), parentProposals, coreState
+                    0, _createBlobRef(0, 1, 0), coreState
                 )
             );
 
@@ -776,11 +768,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         view
         returns (IInbox.ProposeInput memory)
     {
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = parentPayload.proposal;
-
         return _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), parentProposals, parentPayload.coreState
+            0, _createBlobRef(0, 1, 0), parentPayload.coreState
         );
     }
 
@@ -804,10 +793,12 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         pure
         returns (IInbox.ProposeInput memory)
     {
+        // Silence unused variable warning
+        parentProposals;
+
         return IInbox.ProposeInput({
             deadline: 0,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: _createBlobRef(0, 1, 0),
             transitionRecords: records,
             checkpoint: checkpoint,

@@ -44,7 +44,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({
                 blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
             }),
@@ -76,16 +75,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
         public
         pure
     {
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = IInbox.Proposal({
-            id: proposalId,
-            proposer: proposer,
-            timestamp: timestamp,
-            endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: coreStateHash,
-            derivationHash: derivationHash
-        });
-
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
@@ -96,7 +85,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
-            parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
@@ -109,10 +97,14 @@ contract LibProposeInputDecoderFuzzTest is Test {
         bytes memory encoded = LibProposeInputDecoder.encode(input);
         IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
 
-        // Verify
-        assertEq(decoded.parentProposals.length, 1);
-        assertEq(decoded.parentProposals[0].id, proposalId);
-        assertEq(decoded.parentProposals[0].proposer, proposer);
+        // Verify - test that the input was encoded and decoded successfully
+        // by checking some basic fields
+        assertEq(decoded.deadline, 1_000_000);
+        assertEq(decoded.coreState.nextProposalId, 100);
+        
+        // Silence unused variable warnings
+        proposalId;
+        proposer;
     }
 
     /// @notice Fuzz test for transition records with bond instructions
@@ -152,7 +144,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
             checkpoint: ICheckpointStore.Checkpoint({
@@ -239,7 +230,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 999_999,
             coreState: coreState,
-            parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
             checkpoint: ICheckpointStore.Checkpoint({
@@ -258,31 +248,13 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         // Verify basic properties
         assertEq(decoded.deadline, 999_999, "Deadline mismatch");
-        assertEq(decoded.parentProposals.length, proposalCount, "Proposals length mismatch");
         assertEq(
             decoded.transitionRecords.length, transitionCount, "TransitionRecords length mismatch"
         );
-
-        // Verify proposal details
-        for (uint256 i = 0; i < proposalCount; i++) {
-            assertEq(decoded.parentProposals[i].id, proposals[i].id, "Proposal id mismatch");
-            assertEq(
-                decoded.parentProposals[i].proposer, proposals[i].proposer, "Proposer mismatch"
-            );
-            assertEq(
-                decoded.parentProposals[i].timestamp, proposals[i].timestamp, "Timestamp mismatch"
-            );
-            assertEq(
-                decoded.parentProposals[i].coreStateHash,
-                proposals[i].coreStateHash,
-                "Core state hash mismatch"
-            );
-            assertEq(
-                decoded.parentProposals[i].derivationHash,
-                proposals[i].derivationHash,
-                "Derivation hash mismatch"
-            );
-        }
+        
+        // Silence unused variable warnings
+        proposalCount;
+        proposals;
 
         // Verify transition record details
         for (uint256 i = 0; i < transitionCount; i++) {
@@ -334,11 +306,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
             decoded.coreState.nextProposalId, input.coreState.nextProposalId, "CoreState mismatch"
         );
         assertEq(
-            decoded.parentProposals.length,
-            input.parentProposals.length,
-            "Proposals length mismatch"
-        );
-        assertEq(
             decoded.transitionRecords.length,
             input.transitionRecords.length,
             "TransitionRecords length mismatch"
@@ -365,18 +332,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
-
-        input.parentProposals = new IInbox.Proposal[](_proposalCount);
-        for (uint256 i = 0; i < _proposalCount; i++) {
-            input.parentProposals[i] = IInbox.Proposal({
-                id: uint48(96 + i),
-                proposer: address(uint160(0x1000 + i)),
-                timestamp: uint48(1_000_000 + i * 10),
-                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
-                coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
-            });
-        }
 
         input.blobReference = LibBlobs.BlobReference({
             blobStartIndex: 1, numBlobs: uint16(_proposalCount * 2), offset: 512
@@ -443,7 +398,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({

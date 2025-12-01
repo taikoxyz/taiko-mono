@@ -147,8 +147,6 @@ interface IInbox {
         uint48 deadline;
         /// @notice The current core state before this proposal.
         CoreState coreState;
-        /// @notice Array of existing proposals for validation (1-2 elements).
-        Proposal[] parentProposals;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.

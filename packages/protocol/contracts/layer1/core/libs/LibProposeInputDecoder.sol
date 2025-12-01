@@ -24,7 +24,7 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.parentProposals, _input.transitionRecords, _input.checkpoint
+            _input.transitionRecords, _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
 
@@ -42,26 +42,19 @@ library LibProposeInputDecoder {
         ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
-        // 3. Encode parent proposals array
-        P.checkArrayLength(_input.parentProposals.length);
-        ptr = P.packUint16(ptr, uint16(_input.parentProposals.length));
-        for (uint256 i; i < _input.parentProposals.length; ++i) {
-            ptr = _encodeProposal(ptr, _input.parentProposals[i]);
-        }
-
-        // 4. Encode BlobReference
+        // 3. Encode BlobReference
         ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
 
-        // 5. Encode TransitionRecords array
+        // 4. Encode TransitionRecords array
         P.checkArrayLength(_input.transitionRecords.length);
         ptr = P.packUint16(ptr, uint16(_input.transitionRecords.length));
         for (uint256 i; i < _input.transitionRecords.length; ++i) {
             ptr = _encodeTransitionRecord(ptr, _input.transitionRecords[i]);
         }
 
-        // 6. Encode Checkpoint with optimization for empty header
+        // 5. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
         bool isEmpty = _input.checkpoint.blockNumber == 0
             && _input.checkpoint.blockHash == bytes32(0)
@@ -77,7 +70,7 @@ library LibProposeInputDecoder {
             ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
 
-        // 7. Encode numForcedInclusions
+        // 6. Encode numForcedInclusions
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
@@ -99,20 +92,12 @@ library LibProposeInputDecoder {
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
-        // 3. Decode parent proposals array
-        uint16 proposalsLength;
-        (proposalsLength, ptr) = P.unpackUint16(ptr);
-        input_.parentProposals = new IInbox.Proposal[](proposalsLength);
-        for (uint256 i; i < proposalsLength; ++i) {
-            (input_.parentProposals[i], ptr) = _decodeProposal(ptr);
-        }
-
-        // 4. Decode BlobReference
+        // 3. Decode BlobReference
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
 
-        // 5. Decode TransitionRecords array
+        // 4. Decode TransitionRecords array
         uint16 transitionRecordsLength;
         (transitionRecordsLength, ptr) = P.unpackUint16(ptr);
         input_.transitionRecords = new IInbox.TransitionRecord[](transitionRecordsLength);
@@ -120,7 +105,7 @@ library LibProposeInputDecoder {
             (input_.transitionRecords[i], ptr) = _decodeTransitionRecord(ptr);
         }
 
-        // 6. Decode Checkpoint with optimization for empty header
+        // 5. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
         (headerFlag, ptr) = P.unpackUint8(ptr);
 
@@ -133,30 +118,13 @@ library LibProposeInputDecoder {
         }
 
         // else: checkpoint remains as default (all zeros)
-        // 7. Decode numForcedInclusions
+        // 6. Decode numForcedInclusions
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @notice Encode a single Proposal
-    function _encodeProposal(
-        uint256 _ptr,
-        IInbox.Proposal memory _proposal
-    )
-        private
-        pure
-        returns (uint256 newPtr_)
-    {
-        newPtr_ = P.packUint48(_ptr, _proposal.id);
-        newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
-        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
-    }
 
     /// @notice Encode a single TransitionRecord
     function _encodeTransitionRecord(
@@ -197,20 +165,6 @@ library LibProposeInputDecoder {
         newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payee);
-    }
-
-    /// @notice Decode a single Proposal
-    function _decodeProposal(uint256 _ptr)
-        private
-        pure
-        returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
-    {
-        (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
-        (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
-        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Decode a single TransitionRecord
@@ -255,7 +209,6 @@ library LibProposeInputDecoder {
 
     /// @notice Calculate the size needed for encoding
     function _calculateProposeDataSize(
-        IInbox.Proposal[] memory _proposals,
         IInbox.TransitionRecord[] memory _transitionRecords,
         ICheckpointStore.Checkpoint memory _checkpoint
     )
@@ -268,7 +221,7 @@ library LibProposeInputDecoder {
             // deadline: 6 bytes (uint48)
             // CoreState: 6 + 6 + 6 + 6 + 32 + 32 = 88 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
-            // Arrays lengths: 2 + 2 = 4 bytes
+            // Array length for TransitionRecords: 2 bytes
             // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
             size_ = 107;
@@ -281,12 +234,6 @@ library LibProposeInputDecoder {
                 // Checkpoint when not empty: 6 + 32 + 32 = 70 bytes
                 size_ += 70;
             }
-
-            // Proposals - each has fixed size
-            // Fixed proposal fields: id(6) + timestamp(6) +
-            // endOfSubmissionWindowTimestamp(6) + proposer(20) + coreStateHash(32) +
-            // derivationHash(32) = 102
-            size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
             // Fixed: span(1) + array length(2) + transitionHash(32) +

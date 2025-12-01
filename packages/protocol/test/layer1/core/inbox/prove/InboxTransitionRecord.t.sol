@@ -13,6 +13,10 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 contract InboxTransitionRecord is InboxTestHelper {
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
+    bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(bytes)");
+    
+    // State variable to track last proposal's coreState
+    IInbox.CoreState internal lastCoreState;
 
     function setUp() public virtual override {
         setDeployer(new InboxDeployer());
@@ -305,54 +309,51 @@ contract InboxTransitionRecord is InboxTestHelper {
         }
         bytes memory proposeData = _codec().encodeProposeInput(_createFirstProposeInput());
 
+        // Record logs to capture the Proposed event
+        vm.recordLogs();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(1, 1, 0, currentProposer);
-
-        return expectedPayload.proposal;
+        // Decode and return the actual proposal from the event
+        IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
+        
+        // Store the coreState for consecutive proposals
+        lastCoreState = actualPayload.coreState;
+        
+        return actualPayload.proposal;
     }
 
     function _proposeConsecutiveProposal(IInbox.Proposal memory _parent)
         internal
         returns (IInbox.Proposal memory)
     {
-        uint48 expectedLastBlockId;
+        // Need to roll 1 block forward from the last proposal
         if (_parent.id == 0) {
-            expectedLastBlockId = 1;
             vm.roll(2);
         } else {
             vm.roll(block.number + 1);
-            expectedLastBlockId = uint48(block.number - 1);
         }
 
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: _parent.id + 1,
-            lastProposalBlockId: expectedLastBlockId,
-            lastFinalizedProposalId: 0,
-            lastCheckpointTimestamp: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _parent;
-
+        // Use the actual coreState from the last proposal
         bytes memory proposeData = _codec()
             .encodeProposeInput(
                 _createProposeInputWithCustomParams(
-                    0, _createBlobRef(0, 1, 0), parentProposals, coreState
+                    0, _createBlobRef(0, 1, 0), lastCoreState
                 )
             );
 
+        // Record logs to capture the Proposed event
+        vm.recordLogs();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(_parent.id + 1, 1, 0, currentProposer);
-
-        return expectedPayload.proposal;
+        // Decode and return the actual proposal from the event
+        IInbox.ProposedEventPayload memory actualPayload = _decodeLastProposedEvent();
+        
+        // Store the new coreState for the next consecutive proposal
+        lastCoreState = actualPayload.coreState;
+        
+        return actualPayload.proposal;
     }
 
     function _createProveInput(IInbox.Proposal memory _proposal)
@@ -461,5 +462,19 @@ contract InboxTransitionRecord is InboxTestHelper {
                 count++;
             }
         }
+    }
+
+    function _decodeLastProposedEvent() internal returns (IInbox.ProposedEventPayload memory) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint256 i = logs.length; i > 0; --i) {
+            Vm.Log memory entry = logs[i - 1];
+            if (entry.topics.length > 0 && entry.topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(entry.data, (bytes));
+                return _codec().decodeProposedEvent(eventData);
+            }
+        }
+
+        revert("Proposed event not found");
     }
 }

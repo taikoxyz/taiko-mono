@@ -430,13 +430,9 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
             bondInstructionsHash: bytes32(0)
         });
 
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = parent;
-
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 0,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: _createBlobRef(0, 1, 0),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
@@ -513,10 +509,12 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         pure
         returns (IInbox.ProposeInput memory)
     {
+        // Silence unused variable warning
+        parentProposals;
+
         return IInbox.ProposeInput({
             deadline: 0,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: _createBlobRef(0, 1, 0),
             transitionRecords: records,
             checkpoint: checkpoint,

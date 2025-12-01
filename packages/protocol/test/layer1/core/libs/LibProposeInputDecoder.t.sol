@@ -20,9 +20,6 @@ contract LibProposeInputDecoderTest is Test {
             bondInstructionsHash: bytes32(0)
         });
 
-        // Create empty parent proposals array
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](0);
-
         // Create blob reference
         LibBlobs.BlobReference memory blobReference =
             LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
@@ -39,7 +36,6 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 12_345,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: blobReference,
             transitionRecords: transitionRecords,
             checkpoint: checkpoint,
@@ -86,11 +82,6 @@ contract LibProposeInputDecoderTest is Test {
             "BondInstructionsHash mismatch"
         );
 
-        assertEq(
-            decoded.parentProposals.length,
-            input.parentProposals.length,
-            "Parent proposals length mismatch"
-        );
         assertEq(
             decoded.blobReference.blobStartIndex,
             input.blobReference.blobStartIndex,
@@ -161,7 +152,6 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 67_890,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: blobReference,
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
@@ -169,25 +159,13 @@ contract LibProposeInputDecoderTest is Test {
             }),
             numForcedInclusions: 1
         });
+        
+        // Silence unused variable warning
+        parentProposals;
 
         // Test encoding/decoding
         bytes memory encoded = LibProposeInputDecoder.encode(input);
         IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
-
-        // Verify parent proposals
-        assertEq(decoded.parentProposals.length, 2, "Parent proposals length mismatch");
-        assertEq(decoded.parentProposals[0].id, 8, "Parent proposal 0 ID mismatch");
-        assertEq(
-            decoded.parentProposals[0].proposer,
-            address(0x1234),
-            "Parent proposal 0 proposer mismatch"
-        );
-        assertEq(decoded.parentProposals[1].id, 9, "Parent proposal 1 ID mismatch");
-        assertEq(
-            decoded.parentProposals[1].proposer,
-            address(0x5678),
-            "Parent proposal 1 proposer mismatch"
-        );
 
         // Verify blob reference
         assertEq(decoded.blobReference.blobStartIndex, 1, "BlobStartIndex mismatch");
@@ -229,7 +207,6 @@ contract LibProposeInputDecoderTest is Test {
                 lastFinalizedTransitionHash: bytes32(uint256(999)),
                 bondInstructionsHash: bytes32(uint256(1010))
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: transitionRecords,
             checkpoint: ICheckpointStore.Checkpoint({
@@ -286,7 +263,6 @@ contract LibProposeInputDecoderTest is Test {
                 lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 0, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
@@ -316,7 +292,6 @@ contract LibProposeInputDecoderTest is Test {
                 lastFinalizedTransitionHash: bytes32(uint256(6666)),
                 bondInstructionsHash: bytes32(uint256(7777))
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
@@ -373,7 +348,6 @@ contract LibProposeInputDecoderTest is Test {
                 lastFinalizedTransitionHash: bytes32(uint256(3333)),
                 bondInstructionsHash: bytes32(uint256(4444))
             }),
-            parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
             checkpoint: ICheckpointStore.Checkpoint({
