@@ -11,7 +11,7 @@ import { LibHashSimple2 } from "../libs/LibHashSimple2.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
@@ -235,7 +235,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             bytes32 headProposalHash = _verifyHeadProposal(input.parentProposals);
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
-            (CoreState memory coreState, LibBonds.BondInstruction[] memory bondInstructions) =
+            (CoreState memory coreState, LibBonds2.BondInstruction[] memory bondInstructions) =
                 _finalize(input);
 
             coreState.lastProposalBlockId = uint40(block.number);
@@ -305,16 +305,24 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
-                require(input.proofMetadata.length != 0, EmptyProofMetadata());
-                require(input.proofMetadata.length <= 24, TooManyProofMetadata());
-                span = uint8(input.proofMetadata.length);
+                require(
+                    input.proofMetadatas.length != 0,
+                    EmptyProofMetadata()
+                );
+                 require(
+                   input.proofMetadatas.length <= 24,
+                    TooManyProofMetadata()
+                );
+                span = uint8(input.proofMetadatas.length);
                 require(input.endProposal.id >= span, InvalidEndProposalId());
                 _checkProposalHash(input.endProposal);
 
                 uint40 startProposalId = input.endProposal.id - span;
 
                 transition = Transition({
-                    bondInstructions: new LibBonds.BondInstruction[](0),
+                    bondInstructions: LibBondInstruction2.calculateBondInstructions(
+                        _provingWindow, _extendedProvingWindow, startProposalId, input.proofMetadatas
+                    ),
                     endCheckpointHash: _hashCheckpoint(input.endCheckpoint)
                 });
 
@@ -472,7 +480,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
         _proposalHashes[0] = _hashProposal(proposal);
 
-        _emitProposedEvent(proposal, derivation, coreState, new LibBonds.BondInstruction[](0));
+        _emitProposedEvent(proposal, derivation, coreState, new LibBonds2.BondInstruction[](0));
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -766,7 +774,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         Proposal memory _proposal,
         Derivation memory _derivation,
         CoreState memory _coreState,
-        LibBonds.BondInstruction[] memory _bondInstructions
+        LibBonds2.BondInstruction[] memory _bondInstructions
     )
         private
     {
@@ -788,7 +796,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @return bondInstructions_ Array of bond instructions from finalized proposals.
     function _finalize(ProposeInput memory _input)
         private
-        returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
+        returns (CoreState memory coreState_, LibBonds2.BondInstruction[] memory bondInstructions_)
     {
         //       /// @notice Input data for the propose function
         // struct ProposeInput {
@@ -861,7 +869,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             }
 
             if (totalBondInstructionCount > 0) {
-                bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
+                bondInstructions_ = new LibBonds2.BondInstruction[](totalBondInstructionCount);
 
                 uint256 k;
                 for (uint256 i; i < lastFinalizedRecordIdx; ++i) {

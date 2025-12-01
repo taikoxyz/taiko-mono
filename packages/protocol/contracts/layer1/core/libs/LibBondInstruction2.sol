@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox2 } from "../iface/IInbox2.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
 
 /// @title LibBondInstruction
 /// @notice Library for L1-specific bond instruction calculations
@@ -22,54 +22,53 @@ library LibBondInstruction2 {
     ///           differs from proposer
     /// @param _provingWindow The proving window in seconds
     /// @param _extendedProvingWindow The extended proving window in seconds
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _proofMetadata Proof metadata with designated and actual prover addresses
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function calculateBondInstructions(
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        IInbox2.Proposal memory _proposal,
-        IInbox2.ProofMetadata memory _proofMetadata
+        uint40 _provingWindow,
+        uint40 _extendedProvingWindow,
+        uint40 _startProposalId,
+        IInbox2.ProofMetadata[] memory _proofMetadatas
     )
         internal
         view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
+        returns (LibBonds2.BondInstruction[] memory bondInstructions_)
     {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
+        bondInstructions_ = new LibBonds2.BondInstruction[](_proofMetadatas.length);
+         uint256 proofTimestamp = block.timestamp;
+        uint count;
 
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
+        for (uint256 i; i < _proofMetadatas.length; ++i) {
+            IInbox2.ProofMetadata memory proofMetadata = _proofMetadatas[i];
+             uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
+              if (proofTimestamp <= windowEnd) continue;
+            
 
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
+              uint256 extendedWindowEnd = proofMetadata.proposalTimestamp + _extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_proofMetadata.designatedProver != _proofMetadata.actualProver)
-                : (_proposal.proposer != _proofMetadata.actualProver);
 
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
+             bool needsBondInstruction = isWithinExtendedWindow
+                ? (proofMetadata.actualProver != proofMetadata.designatedProver)
+                : (proofMetadata.actualProver != proofMetadata.proposer);
 
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
+            if (!needsBondInstruction) continue;
+
+
+            bondInstructions_[count++] = LibBonds2.BondInstruction({
+                proposalId: uint40(_startProposalId + i),
                 bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
+                    ? LibBonds2.BondType.LIVENESS
+                    : LibBonds2.BondType.PROVABILITY,
                 payer: isWithinExtendedWindow
-                    ? _proofMetadata.designatedProver
-                    : _proposal.proposer,
-                payee: _proofMetadata.actualProver
+                    ? proofMetadata.designatedProver
+                    : proofMetadata.proposer,
+                payee: proofMetadata.actualProver
             });
         }
+        assembly {
+            mstore(bondInstructions_, count)
+        }
+
     }
 }

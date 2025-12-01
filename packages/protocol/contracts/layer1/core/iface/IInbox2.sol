@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
@@ -98,6 +98,8 @@ interface IInbox2 {
     /// @notice Metadata about the proving of a transition
     /// @dev Separated from Transition to enable out-of-order proving
     struct ProofMetadata {
+        address proposer;
+        uint40 proposalTimestamp;
         /// @notice The designated prover for this transition.
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
@@ -107,7 +109,7 @@ interface IInbox2 {
     /// @notice Represents a record of a transition with additional metadata.
     struct Transition {
         /// @notice The bond instructions.
-        LibBonds.BondInstruction[] bondInstructions;
+        LibBonds2.BondInstruction[] bondInstructions;
         /// @notice The hash of the checkpoint.
         bytes32 endCheckpointHash;
     }
@@ -153,7 +155,7 @@ interface IInbox2 {
     struct ProveInput {
         Proposal endProposal;
         ICheckpointStore.Checkpoint endCheckpoint;
-        ProofMetadata[] proofMetadata;
+        ProofMetadata[] proofMetadatas;
         bytes32 parentTransitionHash;
     }
 
@@ -166,7 +168,7 @@ interface IInbox2 {
         /// @notice The core state after the proposal.
         CoreState coreState;
         /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds.BondInstruction[] bondInstructions;
+        LibBonds2.BondInstruction[] bondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -174,9 +176,9 @@ interface IInbox2 {
         /// @notice The proposal ID that was proven.
         uint40 proposalId;
         /// @notice The transition record containing additional metadata.
-        Transition transitionRecord;
+        Transition transition;
         /// @notice The metadata containing prover information.
-        TransitionRecord metadata;
+        TransitionRecord record;
     }
 
     // ---------------------------------------------------------------
