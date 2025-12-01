@@ -22,8 +22,9 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   we reuse upstream maintenance instead of hand-rolling UDP/ENR wiring.
 - **Kona presets** (tag `kona-client/v1.2.4`, always on): import gossipsub mesh/score parameter
   presets from `kona-gossip`/`kona-peers` instead of local defaults.
-- **reth peers** (feature `reth-peers`): optional adapter that stores reputation keyed by reth
-  PeerId and mirrors bans back to libp2p; scoring deltas remain local.
+- **reth peers**: always on. Reputation is keyed by reth `PeerId` when conversion succeeds and bans
+  are mirrored back to libp2p; scoring deltas remain local and fall back to the local store if
+  conversion fails.
 - **Kona gater** (tag `kona-client/v1.2.4`, always on): connection gater reuse from `kona-gossip`
   to apply Kona's rate limits and block/allow checks before dialing and when banning peers.
 
@@ -32,9 +33,13 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
 - `reth-discovery` (default on): enable discovery via `reth-discv5` wrapper.
 - `kona-presets`: always on (Kona gossipsub mesh/score presets).
 - `kona-gater`: enable Kona connection gater in the dial/ban path (adds Kona deps).
-- `reth-peers`: use reth peer-id keyed reputation backend (API surface unchanged).
 - `real-transport-test`: real TCP integration test now runs by default with retries; use this
   feature only to disable it in constrained environments. In-memory transport tests always run.
+
+Note: Reth peer-id keyed reputation is always enabled; it mirrors bans to libp2p `PeerId` while
+still using the local scoring logic. IP colocation protection today relies on libp2p connection
+limits (per-peer/incoming caps) plus request limiting; Lighthouse-style gating/scoring remains
+blocked until upstream publishes a compatible crate/API for libp2p 0.56.
 
 ## Typical usage flow
 

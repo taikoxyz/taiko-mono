@@ -15,7 +15,7 @@
   - `cargo test -p preconfirmation-types`
   - `cargo test -p preconfirmation-net`
 - `cargo test -p preconfirmation-net`
-- `cargo test -p preconfirmation-net --features reth-peers`
+- `cargo test -p preconfirmation-net` (reth backend always on)
   - `cargo test -p preconfirmation-service`
 - Real TCP integration test runs by default with retries; use feature `real-transport-test` only to disable it in constrained environments.
 
@@ -35,5 +35,5 @@
 - PRs: include summary, affected features, and test commands run; link issues when applicable.
 
 ## Architecture & Extensibility
-- Upstream reuse via features: `reth-discovery` (discv5) and `reth-peers` (reth peer-id backend). Kona presets and gater are always on.
+- Upstream reuse via features: `reth-discovery` (discv5). Reth peer-id keyed backend is now always on (scoring still local with libp2p fallback). Kona presets and gater are always on. Remaining upstream reuse: Lighthouse-style gating/peer scoring when APIs converge.
 - Reputation is pluggable via `ReputationBackend`; default remains the local store. Real TCP test is default-on with retries.

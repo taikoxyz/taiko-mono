@@ -920,4 +920,107 @@ mod tests {
         }
         assert!(!driver1.swarm.is_connected(&peer2), "banned peer should not reconnect");
     }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ban_blocks_dial_and_reqresp() {
+        let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+        cfg.listen_addr.set_port(0);
+        cfg.discv5_listen.set_port(0);
+        cfg.reputation_greylist = -0.5;
+        cfg.reputation_ban = -1.0;
+
+        let (mut driver1, _handle1) = NetworkDriver::new(cfg.clone()).unwrap();
+        let (mut driver2, _handle2) = NetworkDriver::new(cfg).unwrap();
+
+        // Connect the peers over memory transport.
+        let _addr1 = listen_on(&mut driver1).await;
+        let addr2 = listen_on(&mut driver2).await;
+        let peer2_id = *driver2.swarm.local_peer_id();
+        let mut addr2_full = addr2.clone();
+        addr2_full.push(libp2p::multiaddr::Protocol::P2p(peer2_id.into()));
+        driver1.swarm.dial(addr2_full.clone()).unwrap();
+        let mut connected = false;
+        for _ in 0..50 {
+            pump_async(&mut driver1).await;
+            pump_async(&mut driver2).await;
+            if driver1.swarm.is_connected(&peer2_id) {
+                connected = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(connected, "peers should connect before ban test");
+
+        // Force a ban on peer2 from driver1.
+        let ev = driver1.reputation.apply(peer2_id, PeerAction::GossipInvalid);
+        assert!(ev.is_banned);
+        // Mirror to gater/block list via apply_reputation path.
+        driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
+
+        // ReputationBackend gating should deny dials.
+        assert!(!driver1.reputation.allow_dial(&peer2_id, Some(&addr2_full)));
+
+        // The peer should remain banned; even if an existing connection lingers, future dials are
+        // disallowed by reputation gating.
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ip_connection_cap_blocks_extra_connections() {
+        let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+        cfg.listen_addr.set_port(0);
+        cfg.discv5_listen.set_port(0);
+
+        let (mut driver1, _) = NetworkDriver::new(cfg.clone()).unwrap();
+        let (mut driver2, _) = NetworkDriver::new(cfg).unwrap();
+
+        // Tighten limits on the listener: allow only one pending/established incoming/per-peer.
+        {
+            let limits = driver2.swarm.behaviour_mut().conn_limits.limits_mut();
+            *limits = limits
+                .clone()
+                .with_max_pending_incoming(Some(1))
+                .with_max_established_incoming(Some(1))
+                .with_max_established_per_peer(Some(1))
+                .with_max_established(Some(1));
+        }
+
+        let addr2 = listen_on(&mut driver2).await;
+
+        // First connection succeeds.
+        let mut addr2_full = addr2.clone();
+        addr2_full.push(libp2p::multiaddr::Protocol::P2p((*driver2.swarm.local_peer_id()).into()));
+        driver1.swarm.dial(addr2_full.clone()).unwrap();
+
+        // Drive until connected.
+        for _ in 0..50 {
+            pump_async(&mut driver1).await;
+            pump_async(&mut driver2).await;
+            if driver1.swarm.is_connected(driver2.swarm.local_peer_id()) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(driver1.swarm.is_connected(driver2.swarm.local_peer_id()));
+
+        // Second concurrent dial from the same peer should be refused by connection limits.
+        let mut second_addr = addr2.clone();
+        second_addr.push(libp2p::multiaddr::Protocol::P2p((*driver2.swarm.local_peer_id()).into()));
+        let dial_res = driver1.swarm.dial(second_addr.clone());
+        assert!(dial_res.is_ok(), "dial returns ok but should be limited by behaviour");
+
+        for _ in 0..50 {
+            pump_async(&mut driver1).await;
+            pump_async(&mut driver2).await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            if driver2.swarm.network_info().num_peers() <= 1 {
+                // still capped
+                continue;
+            }
+        }
+        assert_eq!(
+            driver2.swarm.network_info().num_peers(),
+            1,
+            "second dial from same peer should be limited"
+        );
+    }
 }

@@ -1,7 +1,8 @@
 //! Peer reputation and rate limiting.
 //!
 //! Kona connection gater from `kona_gossip` is now always enabled; this module still hosts the
-//! reputation engine and rate limiting logic used by the driver.
+//! reputation engine and rate limiting logic used by the driver. A reth-keyed reputation backend is
+//! always available; local scoring remains the fallback when conversion fails.
 
 use libp2p::PeerId;
 use std::{
@@ -227,8 +228,8 @@ impl ReputationBackend for PeerReputationStore {
     }
 }
 
-/// Reth-network-peers adapter surface; always enabled. Exposes peer/node record types from reth so
-/// downstreams can bridge libp2p `PeerId` to reth’s peer representation.
+/// Reth-network-peers adapter surface. Exposes peer/node record types from reth so downstreams can
+/// bridge libp2p `PeerId` to reth’s peer representation.
 pub mod reth_adapter {
     use super::*;
 
@@ -309,6 +310,16 @@ pub mod reth_adapter {
                 was_greylisted: false,
             }
         }
+
+        #[cfg(test)]
+        pub(crate) fn apply_reth_for_test(
+            &mut self,
+            peer: PeerId,
+            rid: RethPeerId,
+            action: PeerAction,
+        ) -> ReputationEvent {
+            self.apply_reth(peer, rid, action)
+        }
     }
 
     impl ReputationBackend for RethReputationAdapter {
@@ -326,5 +337,121 @@ pub mod reth_adapter {
             }
             self.inner.is_banned(peer)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libp2p::{PeerId, identity};
+
+    fn cfg() -> ReputationConfig {
+        ReputationConfig {
+            greylist_threshold: -5.0,
+            ban_threshold: -10.0,
+            halflife: Duration::from_secs(600),
+        }
+    }
+
+    #[test]
+    fn peer_store_reaches_ban_threshold() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        for _ in 0..20 {
+            let ev = store.apply(peer, PeerAction::ReqRespError);
+            if ev.is_banned {
+                assert!(store.is_banned(&peer));
+                return;
+            }
+        }
+        panic!("peer was not banned after repeated errors");
+    }
+
+    #[test]
+    fn reth_adapter_falls_back_when_conversion_fails() {
+        let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
+        let peer = identity::Keypair::generate_ed25519().public().to_peer_id();
+        // Conversion fails -> falls back to inner store; ban after repeated errors.
+        for _ in 0..20 {
+            let ev = adapter.apply(peer, PeerAction::ReqRespError);
+            if ev.is_banned {
+                break;
+            }
+        }
+        assert!(adapter.is_banned(&peer));
+    }
+
+    #[test]
+    fn reth_adapter_uses_reth_key_when_convertible() {
+        // Directly exercise the reth-keyed path by applying with an explicit reth peer id.
+        let cfg = ReputationConfig {
+            greylist_threshold: -1.0,
+            ban_threshold: -2.0,
+            halflife: Duration::from_secs(600),
+        };
+        let mut adapter = reth_adapter::RethReputationAdapter::new(cfg);
+        let rid = reth_adapter::RethPeerId::from_slice(&[0u8; 64]);
+        let peer = PeerId::random();
+
+        let ev = adapter.apply_reth_for_test(peer, rid, PeerAction::ReqRespError);
+        assert!(
+            ev.is_banned || adapter.is_banned(&peer),
+            "reth-keyed path should ban and mirror to libp2p"
+        );
+    }
+
+    #[test]
+    fn decay_heals_greylist_over_time() {
+        // Start well below greylist and ensure decay moves score toward zero.
+        let score = -5.0;
+        let last = Instant::now() - Duration::from_secs(600);
+        let halflife = Duration::from_secs(60);
+        let healed = decayed(score, last, Instant::now(), halflife);
+        assert!(healed > score, "decay should move score toward zero");
+        assert!(healed > -1.0, "should clear greylist over long decay period");
+    }
+
+    #[test]
+    fn allow_dial_respects_ban() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        // Fresh peer allowed.
+        assert!(store.allow_dial(&peer, None));
+        // Ban via repeated errors.
+        for _ in 0..20 {
+            let ev = store.apply(peer, PeerAction::ReqRespError);
+            if ev.is_banned {
+                break;
+            }
+        }
+        assert!(!store.allow_dial(&peer, None));
+    }
+
+    #[test]
+    fn request_rate_limiter_under_and_over_limit() {
+        let mut rl = RequestRateLimiter::new(Duration::from_secs(10), 2);
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        assert!(rl.allow(peer, now));
+        assert!(rl.allow(peer, now));
+        // Third request in window should be blocked.
+        assert!(!rl.allow(peer, now));
+
+        // Advance past window; counter resets.
+        let later = now + Duration::from_secs(11);
+        assert!(rl.allow(peer, later));
+    }
+
+    #[test]
+    fn request_rate_limiter_resets_after_window() {
+        let mut rl = RequestRateLimiter::new(Duration::from_secs(1), 1);
+        let peer = PeerId::random();
+        let now = Instant::now();
+        assert!(rl.allow(peer, now));
+        assert!(!rl.allow(peer, now));
+        // after window passes we can serve again
+        let later = now + Duration::from_millis(1500);
+        assert!(rl.allow(peer, later));
     }
 }
