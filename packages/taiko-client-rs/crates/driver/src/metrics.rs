@@ -37,6 +37,19 @@ impl DriverMetrics {
     /// Gauge tracking the last finalized proposal id advertised by the inbox core state.
     pub const DERIVATION_LAST_FINALIZED_PROPOSAL_ID: &'static str =
         "driver_derivation_last_finalized_proposal_id";
+    /// Counter tracking failed preconfirmation payload injections.
+    pub const PRECONF_INJECTION_FAILURES_TOTAL: &'static str =
+        "driver_preconf_injection_failures_total";
+    /// Counter tracking successful preconfirmation payload injections.
+    pub const PRECONF_INJECTION_SUCCESS_TOTAL: &'static str =
+        "driver_preconf_injection_success_total";
+    /// Histogram tracking end-to-end latency per preconfirmation payload (seconds).
+    pub const PRECONF_INJECTION_DURATION_SECONDS: &'static str =
+        "driver_preconf_injection_duration_seconds";
+    /// Gauge tracking buffered preconfirmation jobs awaiting processing.
+    pub const PRECONF_QUEUE_DEPTH: &'static str = "driver_preconf_queue_depth";
+    /// Histogram tracking retry attempts per preconfirmation payload.
+    pub const PRECONF_RETRY_ATTEMPTS: &'static str = "driver_preconf_retry_attempts";
 
     /// Register metric descriptors and initialise gauges/counters.
     pub fn init() {
@@ -105,6 +118,31 @@ impl DriverMetrics {
             Unit::Count,
             "Last finalized proposal id observed from the core state"
         );
+        metrics::describe_counter!(
+            Self::PRECONF_INJECTION_FAILURES_TOTAL,
+            Unit::Count,
+            "Preconfirmation payload injections that failed"
+        );
+        metrics::describe_counter!(
+            Self::PRECONF_INJECTION_SUCCESS_TOTAL,
+            Unit::Count,
+            "Preconfirmation payload injections that succeeded"
+        );
+        metrics::describe_histogram!(
+            Self::PRECONF_INJECTION_DURATION_SECONDS,
+            Unit::Seconds,
+            "Wall-clock time to process a preconfirmation payload"
+        );
+        metrics::describe_gauge!(
+            Self::PRECONF_QUEUE_DEPTH,
+            Unit::Count,
+            "Buffered preconfirmation jobs awaiting processing"
+        );
+        metrics::describe_histogram!(
+            Self::PRECONF_RETRY_ATTEMPTS,
+            Unit::Count,
+            "Retry attempts per preconfirmation payload"
+        );
 
         // Reset counters to zero.
         metrics::counter!(Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).absolute(0);
@@ -115,5 +153,8 @@ impl DriverMetrics {
         metrics::counter!(Self::EVENT_DERIVED_BLOCKS_TOTAL).absolute(0);
         metrics::counter!(Self::DERIVATION_CANONICAL_HITS_TOTAL).absolute(0);
         metrics::counter!(Self::DERIVATION_L1_ORIGIN_UPDATES_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_INJECTION_FAILURES_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_INJECTION_SUCCESS_TOTAL).absolute(0);
+        metrics::gauge!(Self::PRECONF_QUEUE_DEPTH).set(0.0);
     }
 }

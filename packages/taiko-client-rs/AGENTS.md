@@ -22,8 +22,8 @@
 - Respect the shared `rustfmt.toml`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
 
 ## Testing Guidelines
-- Run `just test` before submitting changes; it launches the Dockerized L1/L2 stack and executes `cargo nextest` across the workspace.
-- For focused suites, use `cargo nextest run -p <crate> --all-features` after exporting required RPC endpoints.
+- Always run tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- To scope to a single Rust crate, set `TEST_CRATE=<crate-name>` when invoking `just test`; leaving it unset runs the full workspace (default).
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
 
 ## Event Scanner Integration
