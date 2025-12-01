@@ -867,7 +867,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                TransitionMetadata memory transitionMetadata = _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                TransitionMetadata memory transitionMetadata =
+                    _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
 
                 if (transitionMetadata.recordHash == 0) break;
 
@@ -884,7 +885,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                         == transitionMetadata.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
-
 
                 totalBondInstructionCount += _input.transitionRecords[i].bondInstructions.length;
 
@@ -910,22 +910,24 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
             if (totalBondInstructionCount > 0) {
                 bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
 
-                uint k;
-                for (uint i; i < lastFinalizedRecordIdx; ++i) {
-                    for (uint j; j < _input.transitionRecords[i].bondInstructions.length; ++j) {
-                    bondInstructions_[k++] = _input.transitionRecords[i].bondInstructions[j];
-                }
+                uint256 k;
+                for (uint256 i; i < lastFinalizedRecordIdx; ++i) {
+                    for (uint256 j; j < _input.transitionRecords[i].bondInstructions.length; ++j) {
+                        bondInstructions_[k++] = _input.transitionRecords[i].bondInstructions[j];
+                    }
                 }
 
                 bytes32 bondInstructionHash = keccak256(abi.encode(bondInstructions_));
-                coreState.bondInstructionsHashNew = keccak256(abi.encode(coreState.bondInstructionsHashNew, bondInstructionHash));
-                
-                if ( coreState.lastFinalizedProposalId % 128 == 0 && coreState.bondInstructionsHashOld !=coreState.bondInstructionsHashNew) {
+                coreState.bondInstructionsHashNew =
+                    keccak256(abi.encode(coreState.bondInstructionsHashNew, bondInstructionHash));
+
+                if (
+                    coreState.lastFinalizedProposalId % 128 == 0
+                        && coreState.bondInstructionsHashOld != coreState.bondInstructionsHashNew
+                ) {
                     // Send signal to L2 to sync bond instructions
-                   coreState.bondInstructionsHashOld == coreState.bondInstructionsHashNew; 
-                   
+                    coreState.bondInstructionsHashOld == coreState.bondInstructionsHashNew;
                 }
-               
             }
 
             return (coreState, bondInstructions_);
