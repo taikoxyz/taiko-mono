@@ -948,7 +948,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
     /// @dev Verifies that the first element of _headProposalAndProof is the current chain head.
     ///      Uses ring buffer semantics: if the next slot is occupied, it must contain a proposal
-    ///      with a larger ID (meaning the buffer wrapped around and we're at the true head).
+    ///      with a small ID (meaning the buffer wrapped around and we're at the true head).
     /// @param _headProposalAndProof Array of 1-2 proposals:
     ///        - [0]: The claimed head proposal (must match on-chain storage)
     ///        - [1]: Optional proof proposal (required only if next slot is occupied)
