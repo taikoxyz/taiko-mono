@@ -161,6 +161,7 @@ where
                         let _ = job.respond_to.send(Err(err));
                     }
                 }
+                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
             }
         });
     }
@@ -286,9 +287,7 @@ where
         timeout(timeout_duration, resp_rx)
             .await
             .map_err(|_| DriverError::PreconfResponseTimeout { waited: timeout_duration })?
-            .map_err(|err| {
-                DriverError::Other(anyhow!("preconfirmation response dropped: {err}"))
-            })??;
+            .map_err(|err| DriverError::PreconfResponseDropped { recv_error: err })??;
         Ok(())
     }
 
