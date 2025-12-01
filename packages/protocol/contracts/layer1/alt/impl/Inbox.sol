@@ -154,7 +154,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
 
-        /// @dev Storage for default transition records to optimize gas usage
+    /// @dev Storage for default transition records to optimize gas usage
     /// @notice Stores one transition record per buffer slot for gas optimization
     /// @dev Ring buffer implementation with collision handling that falls back to the composite key
     /// mapping from the parent contract
