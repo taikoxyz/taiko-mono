@@ -16,7 +16,9 @@ use libp2p::{
     gossipsub, request_response as rr,
     swarm::{Swarm, SwarmEvent},
 };
+use std::{collections::VecDeque, num::NonZeroU8};
 use tokio::{
+    sync::mpsc::error::TrySendError,
     sync::mpsc::{self, Receiver, Sender},
     task::JoinHandle,
 };
@@ -28,19 +30,18 @@ use crate::{
     config::NetworkConfig,
     discovery::{DiscoveryConfig, DiscoveryEvent, spawn_discovery},
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
+    validation::{LocalValidationAdapter, ValidationAdapter},
 };
 
 use crate::reputation::{
-    PeerAction, ReputationBackend, ReputationConfig, RequestRateLimiter,
+    PeerAction, ReputationBackend, ReputationConfig, ReqRespKind, RequestRateLimiter,
     reth_adapter::RethReputationAdapter,
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
 use preconfirmation_types::{
     GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
     GetRawTxListRequest, GetRawTxListResponse, MAX_COMMITMENTS_PER_RESPONSE, PreconfHead,
-    RawTxListGossip, SignedCommitment, validate_commitments_request, validate_commitments_response,
-    validate_head_response, validate_raw_txlist_gossip, validate_raw_txlist_response,
-    verify_signed_commitment,
+    RawTxListGossip, SignedCommitment, validate_commitments_request,
 };
 use ssz_rs::Deserialize;
 
@@ -111,6 +112,12 @@ pub struct NetworkDriver {
     reputation: Box<dyn ReputationBackend>,
     /// Rate limiter for incoming requests.
     request_limiter: RequestRateLimiter,
+    /// Pending outbound req/resp timestamps for latency metrics.
+    commitments_out: VecDeque<tokio::time::Instant>,
+    raw_txlists_out: VecDeque<tokio::time::Instant>,
+    head_out: VecDeque<tokio::time::Instant>,
+    /// Validator adapter (swap in upstream implementation here).
+    validator: Box<dyn ValidationAdapter>,
     /// Optional receiver for discovery events.
     discovery_rx: Option<Receiver<DiscoveryEvent>>,
     /// Handle to the spawned discovery task.
@@ -124,6 +131,51 @@ pub struct NetworkDriver {
 }
 
 impl NetworkDriver {
+    fn push_outbound_start(&mut self, kind: ReqRespKind) {
+        let now = tokio::time::Instant::now();
+        match kind {
+            ReqRespKind::Commitments => self.commitments_out.push_back(now),
+            ReqRespKind::RawTxList => self.raw_txlists_out.push_back(now),
+            ReqRespKind::Head => self.head_out.push_back(now),
+        }
+    }
+
+    fn pop_outbound_start(&mut self, kind: ReqRespKind) -> Option<tokio::time::Instant> {
+        match kind {
+            ReqRespKind::Commitments => self.commitments_out.pop_front(),
+            ReqRespKind::RawTxList => self.raw_txlists_out.pop_front(),
+            ReqRespKind::Head => self.head_out.pop_front(),
+        }
+    }
+
+    fn record_reqresp_rtt(
+        &mut self,
+        kind: ReqRespKind,
+        outcome: &'static str,
+        start: tokio::time::Instant,
+    ) {
+        let elapsed = start.elapsed().as_secs_f64();
+        let proto = match kind {
+            ReqRespKind::Commitments => "commitments",
+            ReqRespKind::RawTxList => "raw_txlists",
+            ReqRespKind::Head => "head",
+        };
+        metrics::histogram!("p2p_reqresp_rtt_seconds", "protocol" => proto, "outcome" => outcome)
+            .record(elapsed);
+    }
+    fn emit_error(&mut self, kind: NetworkErrorKind, detail: impl Into<String>) {
+        let err = NetworkError::new(kind, detail);
+        match self.events_tx.try_send(NetworkEvent::Error(err.clone())) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => {
+                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "full", "kind" => err.kind.as_str()).increment(1);
+            }
+            Err(TrySendError::Closed(_)) => {
+                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "closed", "kind" => err.kind.as_str()).increment(1);
+            }
+        }
+    }
+
     /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
     ///
     /// This is the entry point for creating the network stack. It initializes
@@ -139,9 +191,15 @@ impl NetworkDriver {
     /// A `Result` which is `Ok((NetworkDriver, NetworkHandle))` on success, or an
     /// `anyhow::Error` if the network stack fails to initialize.
     pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkHandle)> {
+        let dial_factor = {
+            let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
+            NonZeroU8::new(dial).unwrap_or_else(|| NonZeroU8::new(1).unwrap())
+        };
+
         let parts = build_transport_and_behaviour(&cfg)?;
         let peer_id = parts.keypair.public().to_peer_id();
-        let config = libp2p::swarm::Config::with_tokio_executor();
+        let config =
+            libp2p::swarm::Config::with_tokio_executor().with_dial_concurrency_factor(dial_factor);
         let mut swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
 
         // Bind the swarm to the configured listen address so inbound gossip/req-resp can reach us.
@@ -170,7 +228,7 @@ impl NetworkDriver {
                 enr_udp_port: None,
                 enr_tcp_port: None,
             };
-            if let Ok((rx, task)) = spawn_discovery(disc_cfg) {
+            if let Ok((rx, task)) = spawn_discovery(disc_cfg, cfg.discovery_preset) {
                 discovery_rx = Some(rx);
                 discovery_task = Some(task);
             }
@@ -193,6 +251,10 @@ impl NetworkDriver {
                     cfg.request_window,
                     cfg.max_requests_per_window,
                 ),
+                commitments_out: VecDeque::new(),
+                raw_txlists_out: VecDeque::new(),
+                head_out: VecDeque::new(),
+                validator: Box::new(LocalValidationAdapter),
                 discovery_rx,
                 _discovery_task: discovery_task,
                 connected_peers: 0,
@@ -234,7 +296,7 @@ impl NetworkDriver {
 
         match self.swarm.poll_next_unpin(cx) {
             Poll::Ready(Some(event)) => {
-                self.handle_swarm_event(event);
+                self.handle_swarm_event(event, cx);
                 Poll::Ready(())
             }
             Poll::Ready(None) => Poll::Ready(()),
@@ -250,9 +312,9 @@ impl NetworkDriver {
     /// # Arguments
     ///
     /// * `event` - The `SwarmEvent` to handle.
-    fn handle_swarm_event(&mut self, event: SwarmEvent<NetBehaviourEvent>) {
+    fn handle_swarm_event(&mut self, event: SwarmEvent<NetBehaviourEvent>, cx: &mut Context<'_>) {
         match event {
-            SwarmEvent::Behaviour(ev) => self.handle_behaviour_event(ev),
+            SwarmEvent::Behaviour(ev) => self.handle_behaviour_event(ev, cx),
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 self.connected_peers += 1;
                 metrics::gauge!("p2p_connected_peers").set(self.connected_peers as f64);
@@ -265,18 +327,37 @@ impl NetworkDriver {
                 self.connected_peers -= 1;
                 metrics::gauge!("p2p_connected_peers").set(self.connected_peers.max(0) as f64);
                 let _ = self.events_tx.try_send(NetworkEvent::PeerDisconnected(peer_id));
+                self.emit_error(
+                    NetworkErrorKind::Disconnect,
+                    format!("peer {peer_id} connection closed"),
+                );
             }
             SwarmEvent::IncomingConnectionError { error, .. } => {
                 let reason =
                     if error.to_string().contains("Exceeded") { "limit_exceeded" } else { "other" };
                 metrics::counter!("p2p_conn_error", "direction" => "in", "reason" => reason)
                     .increment(1);
+                if reason == "limit_exceeded" {
+                    metrics::counter!("p2p_conn_rejected_total", "direction" => "in", "reason" => reason)
+                        .increment(1);
+                }
+                self.emit_error(
+                    NetworkErrorKind::DialFailed,
+                    format!("incoming connection error: {error}"),
+                );
             }
             SwarmEvent::OutgoingConnectionError { error, .. } => {
                 let reason =
                     if error.to_string().contains("Exceeded") { "limit_exceeded" } else { "other" };
                 metrics::counter!("p2p_conn_error", "direction" => "out", "reason" => reason)
                     .increment(1);
+                if reason == "limit_exceeded" {
+                    metrics::counter!("p2p_dial_throttled_total", "reason" => reason).increment(1);
+                }
+                self.emit_error(
+                    NetworkErrorKind::DialFailed,
+                    format!("outgoing connection error: {error}"),
+                );
             }
             _ => {}
         }
@@ -290,12 +371,12 @@ impl NetworkDriver {
     /// # Arguments
     ///
     /// * `ev` - The `NetBehaviourEvent` to handle.
-    fn handle_behaviour_event(&mut self, ev: NetBehaviourEvent) {
+    fn handle_behaviour_event(&mut self, ev: NetBehaviourEvent, cx: &mut Context<'_>) {
         match ev {
             NetBehaviourEvent::Gossipsub(ev) => self.handle_gossipsub_event(ev),
-            NetBehaviourEvent::CommitmentsRr(ev) => self.handle_commitments_rr_event(ev),
-            NetBehaviourEvent::RawTxlistsRr(ev) => self.handle_raw_txlists_rr_event(ev),
-            NetBehaviourEvent::HeadRr(ev) => self.handle_head_rr_event(ev),
+            NetBehaviourEvent::CommitmentsRr(ev) => self.handle_commitments_rr_event(ev, cx),
+            NetBehaviourEvent::RawTxlistsRr(ev) => self.handle_raw_txlists_rr_event(ev, cx),
+            NetBehaviourEvent::HeadRr(ev) => self.handle_head_rr_event(ev, cx),
             _ => {}
         }
     }
@@ -321,7 +402,11 @@ impl NetworkDriver {
             if topic == self.topics.0.hash() {
                 match SignedCommitment::deserialize(&message.data) {
                     Ok(msg) => {
-                        if verify_signed_commitment(&msg).is_ok() {
+                        if self
+                            .validator
+                            .validate_gossip_commitment(&propagation_source, &msg)
+                            .is_ok()
+                        {
                             metrics::counter!("p2p_gossip_valid", "kind" => "commitment")
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
@@ -330,28 +415,31 @@ impl NetworkDriver {
                                 msg: Box::new(msg),
                             });
                         } else {
-                            metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "sig").increment(1);
+                            metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "validation").increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                            let _ =
-                                self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                                    NetworkErrorKind::GossipInvalid,
-                                    "invalid signed commitment gossip",
-                                )));
+                            self.emit_error(
+                                NetworkErrorKind::GossipValidation,
+                                "invalid signed commitment gossip",
+                            );
                         }
                     }
                     Err(_) => {
                         metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "decode").increment(1);
                         self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                            NetworkErrorKind::GossipInvalid,
+                        self.emit_error(
+                            NetworkErrorKind::GossipDecode,
                             "invalid signed commitment gossip",
-                        )));
+                        );
                     }
                 }
             } else if topic == self.topics.1.hash() {
                 match RawTxListGossip::deserialize(&message.data) {
                     Ok(msg) => {
-                        if validate_raw_txlist_gossip(&msg).is_ok() {
+                        if self
+                            .validator
+                            .validate_gossip_raw_txlist(&propagation_source, &msg)
+                            .is_ok()
+                        {
                             metrics::counter!("p2p_gossip_valid", "kind" => "raw_txlists")
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
@@ -362,20 +450,19 @@ impl NetworkDriver {
                         } else {
                             metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "validation").increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                            let _ =
-                                self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                                    NetworkErrorKind::GossipInvalid,
-                                    "invalid raw txlist gossip",
-                                )));
+                            self.emit_error(
+                                NetworkErrorKind::GossipValidation,
+                                "invalid raw txlist gossip",
+                            );
                         }
                     }
                     Err(_) => {
                         metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "decode").increment(1);
                         self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                            NetworkErrorKind::GossipInvalid,
+                        self.emit_error(
+                            NetworkErrorKind::GossipDecode,
                             "invalid raw txlist gossip",
-                        )));
+                        );
                     }
                 }
             }
@@ -394,6 +481,7 @@ impl NetworkDriver {
     fn handle_commitments_rr_event(
         &mut self,
         ev: rr::Event<GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse>,
+        cx: &mut Context<'_>,
     ) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
@@ -402,15 +490,18 @@ impl NetworkDriver {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "commitments", "reason" => "banned").increment(1);
                         return;
                     }
-                    if !self.request_limiter.allow(peer, std::time::Instant::now()) {
-                        metrics::counter!("p2p_reqresp_rate_limited", "kind" => "commitments")
-                            .increment(1);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                            NetworkErrorKind::ReqRespRateLimited,
-                            "commitments request rate-limited",
-                        )));
-                        self.apply_reputation(peer, PeerAction::Timeout);
-                        return;
+                    match self.request_limiter.poll_allow(peer, ReqRespKind::Commitments, cx) {
+                        Poll::Ready(true) => {}
+                        _ => {
+                            metrics::counter!("p2p_reqresp_rate_limited", "kind" => "commitments")
+                                .increment(1);
+                            self.emit_error(
+                                NetworkErrorKind::ReqRespRateLimited,
+                                "commitments request rate-limited",
+                            );
+                            self.apply_reputation(peer, PeerAction::Timeout);
+                            return;
+                        }
                     }
 
                     let _ = self
@@ -425,9 +516,12 @@ impl NetworkDriver {
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
                 rr::Message::Response { response, .. } => {
-                    if validate_commitments_response(&response).is_ok() {
+                    if self.validator.validate_commitments_response(&peer, &response).is_ok() {
                         metrics::counter!("p2p_reqresp_success", "kind" => "commitments", "direction" => "outbound").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::Commitments) {
+                            self.record_reqresp_rtt(ReqRespKind::Commitments, "success", start);
+                        }
                         let _ = self.events_tx.try_send(NetworkEvent::ReqRespCommitments {
                             from: peer,
                             msg: response,
@@ -435,35 +529,41 @@ impl NetworkDriver {
                     } else {
                         metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "validation").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespError);
-                        let err = NetworkError::new(
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::Commitments) {
+                            self.record_reqresp_rtt(ReqRespKind::Commitments, "error", start);
+                        }
+                        self.emit_error(
                             NetworkErrorKind::ReqRespValidation,
                             "invalid commitments response",
                         );
-                        metrics::counter!("p2p_error_total", "kind" => err.kind.as_str())
-                            .increment(1);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(err));
                     }
                 }
             },
             rr::Event::OutboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "outbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let err = NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::Commitments) {
+                    let outcome = match error {
+                        rr::OutboundFailure::Timeout => "timeout",
+                        _ => "error",
+                    };
+                    self.record_reqresp_rtt(ReqRespKind::Commitments, outcome, start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp commitments with {peer}: {error}"),
                 );
-                metrics::counter!("p2p_error_total", "kind" => err.kind.as_str()).increment(1);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(err));
             }
             rr::Event::InboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "inbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let err = NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::Commitments) {
+                    self.record_reqresp_rtt(ReqRespKind::Commitments, "error", start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp commitments with {peer}: {error}"),
                 );
-                metrics::counter!("p2p_error_total", "kind" => err.kind.as_str()).increment(1);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(err));
             }
             rr::Event::ResponseSent { .. } => {}
         }
@@ -481,6 +581,7 @@ impl NetworkDriver {
     fn handle_raw_txlists_rr_event(
         &mut self,
         ev: rr::Event<GetRawTxListRequest, GetRawTxListResponse>,
+        cx: &mut Context<'_>,
     ) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
@@ -489,14 +590,18 @@ impl NetworkDriver {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "raw_txlists", "reason" => "banned").increment(1);
                         return;
                     }
-                    if !self.request_limiter.allow(peer, std::time::Instant::now()) {
-                        metrics::counter!("p2p_reqresp_rate_limited", "kind" => "raw_txlists")
-                            .increment(1);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(
-                            "raw txlist request rate-limited".into(),
-                        ));
-                        self.apply_reputation(peer, PeerAction::Timeout);
-                        return;
+                    match self.request_limiter.poll_allow(peer, ReqRespKind::RawTxList, cx) {
+                        Poll::Ready(true) => {}
+                        _ => {
+                            metrics::counter!("p2p_reqresp_rate_limited", "kind" => "raw_txlists")
+                                .increment(1);
+                            self.emit_error(
+                                NetworkErrorKind::ReqRespRateLimited,
+                                "raw txlist request rate-limited",
+                            );
+                            self.apply_reputation(peer, PeerAction::Timeout);
+                            return;
+                        }
                     }
 
                     let _ = self
@@ -511,37 +616,53 @@ impl NetworkDriver {
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
                 rr::Message::Response { response, .. } => {
-                    if validate_raw_txlist_response(&response).is_ok() {
+                    if self.validator.validate_raw_txlist_response(&peer, &response).is_ok() {
                         metrics::counter!("p2p_reqresp_success", "kind" => "raw_txlists", "direction" => "outbound").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::RawTxList) {
+                            self.record_reqresp_rtt(ReqRespKind::RawTxList, "success", start);
+                        }
                         let _ = self
                             .events_tx
                             .try_send(NetworkEvent::ReqRespRawTxList { from: peer, msg: response });
                     } else {
                         metrics::counter!("p2p_reqresp_error", "kind" => "raw_txlists", "reason" => "validation").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespError);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::RawTxList) {
+                            self.record_reqresp_rtt(ReqRespKind::RawTxList, "error", start);
+                        }
+                        self.emit_error(
                             NetworkErrorKind::ReqRespValidation,
                             "invalid raw txlist response",
-                        )));
+                        );
                     }
                 }
             },
             rr::Event::OutboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "raw_txlists", "reason" => "outbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::RawTxList) {
+                    let outcome = match error {
+                        rr::OutboundFailure::Timeout => "timeout",
+                        _ => "error",
+                    };
+                    self.record_reqresp_rtt(ReqRespKind::RawTxList, outcome, start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp raw-txlist with {peer}: {error}"),
-                )));
+                );
             }
             rr::Event::InboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "raw_txlists", "reason" => "inbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::RawTxList) {
+                    self.record_reqresp_rtt(ReqRespKind::RawTxList, "error", start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp raw-txlist with {peer}: {error}"),
-                )));
+                );
             }
             rr::Event::ResponseSent { .. } => {}
         }
@@ -556,7 +677,11 @@ impl NetworkDriver {
     /// # Arguments
     ///
     /// * `ev` - The `rr::Event` for head requests to handle.
-    fn handle_head_rr_event(&mut self, ev: rr::Event<GetHeadRequest, PreconfHead>) {
+    fn handle_head_rr_event(
+        &mut self,
+        ev: rr::Event<GetHeadRequest, PreconfHead>,
+        cx: &mut Context<'_>,
+    ) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
                 rr::Message::Request { channel, .. } => {
@@ -564,15 +689,18 @@ impl NetworkDriver {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "head", "reason" => "banned").increment(1);
                         return;
                     }
-                    if !self.request_limiter.allow(peer, std::time::Instant::now()) {
-                        metrics::counter!("p2p_reqresp_rate_limited", "kind" => "head")
-                            .increment(1);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                            NetworkErrorKind::ReqRespRateLimited,
-                            "head request rate-limited",
-                        )));
-                        self.apply_reputation(peer, PeerAction::Timeout);
-                        return;
+                    match self.request_limiter.poll_allow(peer, ReqRespKind::Head, cx) {
+                        Poll::Ready(true) => {}
+                        _ => {
+                            metrics::counter!("p2p_reqresp_rate_limited", "kind" => "head")
+                                .increment(1);
+                            self.emit_error(
+                                NetworkErrorKind::ReqRespRateLimited,
+                                "head request rate-limited",
+                            );
+                            self.apply_reputation(peer, PeerAction::Timeout);
+                            return;
+                        }
                     }
                     let _ =
                         self.events_tx.try_send(NetworkEvent::InboundHeadRequest { from: peer });
@@ -585,37 +713,53 @@ impl NetworkDriver {
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
                 rr::Message::Response { response, .. } => {
-                    if validate_head_response(&response).is_ok() {
+                    if self.validator.validate_head_response(&peer, &response).is_ok() {
                         metrics::counter!("p2p_reqresp_success", "kind" => "head", "direction" => "outbound").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::Head) {
+                            self.record_reqresp_rtt(ReqRespKind::Head, "success", start);
+                        }
                         let _ = self
                             .events_tx
                             .try_send(NetworkEvent::ReqRespHead { from: peer, head: response });
                     } else {
                         metrics::counter!("p2p_reqresp_error", "kind" => "head", "reason" => "validation").increment(1);
                         self.apply_reputation(peer, PeerAction::ReqRespError);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                        if let Some(start) = self.pop_outbound_start(ReqRespKind::Head) {
+                            self.record_reqresp_rtt(ReqRespKind::Head, "error", start);
+                        }
+                        self.emit_error(
                             NetworkErrorKind::ReqRespValidation,
                             "invalid head response",
-                        )));
+                        );
                     }
                 }
             },
             rr::Event::OutboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "head", "reason" => "outbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::Head) {
+                    let outcome = match error {
+                        rr::OutboundFailure::Timeout => "timeout",
+                        _ => "error",
+                    };
+                    self.record_reqresp_rtt(ReqRespKind::Head, outcome, start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp head with {peer}: {error}"),
-                )));
+                );
             }
             rr::Event::InboundFailure { peer, error, .. } => {
                 metrics::counter!("p2p_reqresp_error", "kind" => "head", "reason" => "inbound_failure").increment(1);
                 self.apply_reputation(peer, PeerAction::ReqRespError);
-                let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                if let Some(start) = self.pop_outbound_start(ReqRespKind::Head) {
+                    self.record_reqresp_rtt(ReqRespKind::Head, "error", start);
+                }
+                self.emit_error(
                     NetworkErrorKind::ReqRespFailure,
                     format!("req-resp head with {peer}: {error}"),
-                )));
+                );
             }
             rr::Event::ResponseSent { .. } => {}
         }
@@ -636,10 +780,10 @@ impl NetworkDriver {
                 if let Err(err) = self.publish_gossip(&topic, msg) {
                     metrics::counter!("p2p_gossip_publish_error", "kind" => "commitment")
                         .increment(1);
-                    let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                        NetworkErrorKind::Other,
+                    self.emit_error(
+                        NetworkErrorKind::PublishFailure,
                         format!("gossip commitment: {err}"),
-                    )));
+                    );
                 }
             }
             NetworkCommand::PublishRawTxList(msg) => {
@@ -647,10 +791,10 @@ impl NetworkDriver {
                 if let Err(err) = self.publish_gossip(&topic, msg) {
                     metrics::counter!("p2p_gossip_publish_error", "kind" => "raw_txlists")
                         .increment(1);
-                    let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                        NetworkErrorKind::Other,
+                    self.emit_error(
+                        NetworkErrorKind::PublishFailure,
                         format!("gossip raw-txlist: {err}"),
-                    )));
+                    );
                 }
             }
             NetworkCommand::RequestCommitments { start_block, max_count, peer } => {
@@ -664,6 +808,7 @@ impl NetworkDriver {
                     {
                         let _ =
                             self.swarm.behaviour_mut().commitments_rr.send_request(&target, req);
+                        self.push_outbound_start(ReqRespKind::Commitments);
                     } else {
                         metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "validation").increment(1);
                         let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
@@ -679,12 +824,14 @@ impl NetworkDriver {
                 if let Some(target) = self.choose_peer(peer) {
                     let req = GetRawTxListRequest { raw_tx_list_hash };
                     let _ = self.swarm.behaviour_mut().raw_txlists_rr.send_request(&target, req);
+                    self.push_outbound_start(ReqRespKind::RawTxList);
                 }
             }
             NetworkCommand::RequestHead { peer } => {
                 if let Some(target) = self.choose_peer(peer) {
                     let req = GetHeadRequest::default();
                     let _ = self.swarm.behaviour_mut().head_rr.send_request(&target, req);
+                    self.push_outbound_start(ReqRespKind::Head);
                 }
             }
             NetworkCommand::UpdateHead { head } => {
@@ -708,20 +855,15 @@ impl NetworkDriver {
                     // Discovery feed can surface many addresses; defer actual connect to libp2p
                     // dialer.
                     let _ = self.swarm.dial(addr);
-                    metrics::counter!("p2p_discovery_event", "kind" => "multiaddr_found")
-                        .increment(1);
                 }
             }
             DiscoveryEvent::BootnodeFailed(err) => {
-                metrics::counter!("p2p_discovery_event", "kind" => "bootnode_failed").increment(1);
                 let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
                     NetworkErrorKind::Discovery,
                     format!("discovery bootnode: {err}"),
                 )));
             }
-            DiscoveryEvent::PeerDiscovered(_) => {
-                metrics::counter!("p2p_discovery_event", "kind" => "peer_discovered").increment(1);
-            }
+            DiscoveryEvent::PeerDiscovered(_) => {}
         }
     }
 
@@ -965,6 +1107,10 @@ mod tests {
                     cfg.request_window,
                     cfg.max_requests_per_window,
                 ),
+                commitments_out: VecDeque::new(),
+                raw_txlists_out: VecDeque::new(),
+                head_out: VecDeque::new(),
+                validator: Box::new(LocalValidationAdapter),
                 discovery_rx: None,
                 _discovery_task: None,
                 connected_peers: 0,

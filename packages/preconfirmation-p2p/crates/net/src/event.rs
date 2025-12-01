@@ -4,30 +4,44 @@ use preconfirmation_types::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkErrorKind {
+    GossipDecode,
+    GossipValidation,
     GossipInvalid,
     ReqRespValidation,
+    ReqRespCodec,
     ReqRespRateLimited,
+    ReqRespBackpressure,
     ReqRespFailure,
     ReqRespTimeout,
     Discovery,
-    Gater,
+    DialFailed,
+    Disconnect,
+    GateBlocked,
     PublishFailure,
     SendCommandFailed,
+    ChannelBackpressure,
     Other,
 }
 
 impl NetworkErrorKind {
     pub fn as_str(&self) -> &'static str {
         match self {
+            NetworkErrorKind::GossipDecode => "gossip_decode",
+            NetworkErrorKind::GossipValidation => "gossip_validation",
             NetworkErrorKind::GossipInvalid => "gossip_invalid",
             NetworkErrorKind::ReqRespValidation => "reqresp_validation",
+            NetworkErrorKind::ReqRespCodec => "reqresp_codec",
             NetworkErrorKind::ReqRespRateLimited => "reqresp_rate_limited",
+            NetworkErrorKind::ReqRespBackpressure => "reqresp_backpressure",
             NetworkErrorKind::ReqRespFailure => "reqresp_failure",
             NetworkErrorKind::ReqRespTimeout => "reqresp_timeout",
             NetworkErrorKind::Discovery => "discovery",
-            NetworkErrorKind::Gater => "gater",
+            NetworkErrorKind::DialFailed => "dial_failed",
+            NetworkErrorKind::Disconnect => "disconnect",
+            NetworkErrorKind::GateBlocked => "gate_blocked",
             NetworkErrorKind::PublishFailure => "publish_failure",
             NetworkErrorKind::SendCommandFailed => "send_command_failed",
+            NetworkErrorKind::ChannelBackpressure => "channel_backpressure",
             NetworkErrorKind::Other => "other",
         }
     }
@@ -67,7 +81,7 @@ impl std::fmt::Display for NetworkError {
 impl std::error::Error for NetworkError {}
 
 /// High-level events emitted by the network driver for consumption by the service.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NetworkEvent {
     PeerConnected(libp2p::PeerId),
     PeerDisconnected(libp2p::PeerId),

@@ -6,9 +6,12 @@
 //! to spawn the discovery service.
 
 use std::net::SocketAddr;
+use std::time::Instant;
 
+use crate::config::DiscoveryPreset;
 use discv5::ListenConfig;
 use libp2p::{Multiaddr, PeerId};
+use metrics::{counter, histogram};
 use rand::RngCore;
 use tokio::{sync::mpsc, task::JoinHandle};
 
@@ -110,11 +113,12 @@ impl Discovery {
 /// or if Discv5 fails to start.
 pub fn spawn_discovery(
     config: DiscoveryConfig,
+    preset: DiscoveryPreset,
 ) -> anyhow::Result<(mpsc::Receiver<DiscoveryEvent>, JoinHandle<()>)> {
     #[cfg(feature = "reth-discovery")]
     {
         // Keep the async side-effect hidden behind a small, testable surface.
-        spawn_reth_discv5(config)
+        spawn_reth_discv5(config, preset)
     }
     #[cfg(not(feature = "reth-discovery"))]
     {
@@ -144,6 +148,7 @@ pub fn spawn_discovery(
 /// or an initial `DiscoveryEvent` cannot be sent.
 fn spawn_reth_discv5(
     config: DiscoveryConfig,
+    preset: DiscoveryPreset,
 ) -> anyhow::Result<(mpsc::Receiver<DiscoveryEvent>, JoinHandle<()>)> {
     use reth_discv5::{Config as RethDiscv5Config, Discv5 as RethDiscv5};
     use secp256k1::SecretKey;
@@ -190,6 +195,7 @@ fn spawn_reth_discv5(
             cfg_builder = cfg_builder.add_cl_serialized_signed_boot_nodes(enr);
         }
 
+        let cfg_builder = apply_preset(cfg_builder, preset);
         let cfg = cfg_builder.build();
 
         let (disc, mut updates, _node_record) = match RethDiscv5::start(&secret_key, cfg).await {
@@ -203,23 +209,52 @@ fn spawn_reth_discv5(
         };
 
         // Forward dialable addresses into the channel.
+        let loop_start = Instant::now();
         while let Some(event) = updates.recv().await {
-            if let Some(peer) = disc.on_discv5_update(event) {
-                let addr = peer.node_record.address;
-                let tcp = peer.node_record.tcp_port;
-                let maybe_multi = match addr {
-                    std::net::IpAddr::V4(ip4) => format!("/ip4/{}/tcp/{}", ip4, tcp),
-                    std::net::IpAddr::V6(ip6) => format!("/ip6/{}/tcp/{}", ip6, tcp),
-                }
-                .parse()
-                .ok();
+            let elapsed = loop_start.elapsed().as_secs_f64();
+            match disc.on_discv5_update(event) {
+                Some(peer) => {
+                    let addr = peer.node_record.address;
+                    let tcp = peer.node_record.tcp_port;
+                    let maybe_multi = match addr {
+                        std::net::IpAddr::V4(ip4) => format!("/ip4/{}/tcp/{}", ip4, tcp),
+                        std::net::IpAddr::V6(ip6) => format!("/ip6/{}/tcp/{}", ip6, tcp),
+                    }
+                    .parse()
+                    .ok();
 
-                if let Some(multi) = maybe_multi {
-                    let _ = tx.send(DiscoveryEvent::MultiaddrFound(multi)).await;
+                    if let Some(multi) = maybe_multi {
+                        counter!("p2p_discovery_event", "kind" => "lookup_success").increment(1);
+                        histogram!("p2p_discovery_lookup_latency_seconds", "outcome" => "success")
+                            .record(elapsed);
+                        let _ = tx.send(DiscoveryEvent::MultiaddrFound(multi)).await;
+                    }
+                }
+                None => {
+                    counter!("p2p_discovery_event", "kind" => "lookup_failure").increment(1);
+                    histogram!("p2p_discovery_lookup_latency_seconds", "outcome" => "error")
+                        .record(elapsed);
                 }
             }
         }
     });
 
     Ok((rx, handle))
+}
+
+#[cfg(feature = "reth-discovery")]
+fn apply_preset(
+    builder: reth_discv5::ConfigBuilder,
+    preset: DiscoveryPreset,
+) -> reth_discv5::ConfigBuilder {
+    let (lookup_interval, bootstrap_interval, bootstrap_count) = match preset {
+        DiscoveryPreset::Dev => (60, 10, 50),
+        DiscoveryPreset::Test => (30, 5, 100),
+        DiscoveryPreset::Prod => (20, 5, 200),
+    };
+
+    builder
+        .lookup_interval(lookup_interval)
+        .bootstrap_lookup_interval(bootstrap_interval)
+        .bootstrap_lookup_countdown(bootstrap_count)
 }

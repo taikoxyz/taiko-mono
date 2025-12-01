@@ -26,8 +26,12 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   mirrors bans to libp2p IDs, falling back to the local store on ID conversion failure.
 - **Kona connection gater**: dial path first consults Kona gater (blocked subnets/redial limits),
   then local reputation; knobs exposed on `NetworkConfig`.
-- **Rate limiting**: local fixed-window per-peer limiter (no upstream module compatible with our
-  libp2p/reth versions yet).
+- **Rate limiting**: per-peer/per-protocol token bucket built on `reth-tokio-util` (upstream),
+  replacing the old fixed window limiter.
+- **Presets**: discovery presets (dev/test/prod) adjust discv5 lookup cadence; connection presets
+  (dev/test/prod) set pending/established caps and dial concurrency (prod defaults: pending 40/40,
+  established 110/110, total 220, dial factor 16). Event fanout uses broadcast so handlers, blocking
+  helpers, and `next_event` can run concurrently.
 
 ## Feature flags
 
@@ -57,16 +61,16 @@ gating/scoring remains blocked until upstream publishes a compatible crate/API f
 1. Build a `NetworkConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
    The driver binds the libp2p swarm to `listen_addr` automatically; use port `0` for an ephemeral
    bind.
-2. Start `P2pService::start(config)`; keep the returned command sender and event receiver.
+2. Start `P2pService::start(config)`; keep the returned command sender and subscribe to events as needed.
 3. Publish via `NetworkCommand::Publish*` or helper methods; request via `NetworkCommand::Request*`.
-4. Consume `NetworkEvent` stream directly or via a `P2pHandler` using `run_with_handler`.
+4. Consume the `NetworkEvent` stream via `next_event`, `run_with_handler`, or your own subscription.
 
 ## Operations / Tuning (quick reference)
 
 - Metrics to watch:
-  - `p2p_gossip_invalid` / `p2p_reqresp_error` (reason labels: validation, timeout, io, rate_limited).
-  - `p2p_reqresp_rate_limited`, `p2p_dial_blocked` (source labels: kona_gater, reputation, missing_peer_id).
-  - Connection limits (denials via `p2p_dial_blocked` and libp2p connection-limits behaviour).
+  - `p2p_reqresp_rtt_seconds{protocol,outcome}`, `p2p_reqresp_error`, `p2p_reqresp_rate_limited`.
+  - `p2p_discovery_event{kind=lookup_success|lookup_failure}`, `p2p_discovery_lookup_latency_seconds{outcome}`.
+  - `p2p_conn_rejected_total`, `p2p_dial_throttled_total` for limit hits; `p2p_conn_error` for other transport errors.
 - Config knobs (all on `NetworkConfig`):
   - Rate limit: `request_window`, `max_requests_per_window` (per-peer fixed window).
   - Size caps: enforced in `preconfirmation_types` (txlist, commitments, head) and codecs.

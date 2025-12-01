@@ -17,6 +17,7 @@ mod discovery;
 mod driver;
 pub mod event;
 mod reputation;
+mod validation;
 
 pub use command::NetworkCommand;
 pub use config::NetworkConfig;

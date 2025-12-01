@@ -71,6 +71,9 @@ Feature switches:
 - `kona-presets`: (removed, always on).
 - `kona-gater`: (removed, always on). Gossip scoring/gating is handled by Kona gossipsub; the
   local reputation backend focuses on request/response and dial behaviour.
+- Req/resp rate limiting now uses upstream `reth-tokio-util` token buckets (per-peer, per-protocol).
+- Discovery presets (dev/test/prod) tune discv5 lookup cadence; connection presets (dev/test/prod)
+  set pending/established caps and dial concurrency.
 - `real-transport-test`: the real TCP integration test now runs by default with retries; enable
   this feature only to disable the test in constrained environments.
 
@@ -79,7 +82,8 @@ Typical flow:
    driver now binds the libp2p swarm to `listen_addr` automatically; use port `0` to request an
    ephemeral port.
 2. Start `P2pService::start(cfg)`; use `publish_*`/`request_*` helpers or send `NetworkCommand`s.
-3. Receive `NetworkEvent`s via `next_event()` or `run_with_handler`.
+3. Receive `NetworkEvent`s via `next_event()`, `run_with_handler`, or a custom `subscribe()`d
+   receiver (events are fanned out internally so multiple consumers are safe).
 
 ### Operational knobs (CLI flags in `p2p-node`)
 - `--listen-addr`, `--discv5-listen`, `--bootnode` (ENR): networking endpoints.
@@ -90,6 +94,16 @@ Typical flow:
   - `--reputation-halflife-secs` (default 600),
   - `--request-window-secs` (default 10), `--max-requests-per-window` (default 8).
   These feed `NetworkConfig` and drive score decay, greylist/ban, and req/resp rate limiting.
+- Discovery/connection presets:
+  - `discovery_preset` and `connection_preset` (dev/test/prod) adjust discv5 lookup intervals,
+    pending/established caps, and dial concurrency (prod defaults: pending 40/40, established
+    110/110, total 220, dial factor 16).
+- Metrics of interest:
+  - `p2p_reqresp_rtt_seconds{protocol,outcome}` (success|timeout|error)
+  - `p2p_reqresp_rate_limited`, `p2p_reqresp_error` counters
+  - `p2p_discovery_event{kind=lookup_success|lookup_failure}` and
+    `p2p_discovery_lookup_latency_seconds{outcome}`
+  - `p2p_conn_rejected_total`, `p2p_dial_throttled_total`
 
 ## Development
 

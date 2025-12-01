@@ -44,6 +44,7 @@ libp2p-request-response = "0.29"
 reth-discv5 = { git = "https://github.com/paradigmxyz/reth", package = "reth-discv5", tag = "v1.9.3" }
 reth-network-peers = { git = "https://github.com/paradigmxyz/reth", package = "reth-network-peers", tag = "v1.9.3" }
 reth-network-types = { git = "https://github.com/paradigmxyz/reth", package = "reth-network-types", tag = "v1.9.3" }
+reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", package = "reth-tokio-util", tag = "v1.9.3" }
 
 # Metrics / observability
 metrics = "0.24"

@@ -4318,6 +4318,7 @@ dependencies = [
  "reth-discv5",
  "reth-network-peers",
  "reth-network-types",
+ "reth-tokio-util",
  "secp256k1 0.30.0",
  "serde",
  "serde_json",
@@ -4869,6 +4870,16 @@ dependencies = [
  "revm-primitives",
  "revm-state",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "reth-tokio-util"
+version = "1.9.3"
+source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
+dependencies = [
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -6076,6 +6087,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

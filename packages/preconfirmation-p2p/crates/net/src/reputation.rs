@@ -273,80 +273,69 @@ pub(crate) fn decayed(
     score * (-lambda * dt).exp()
 }
 
-/// Per-peer fixed (tumbling) window request limiter.
-///
-/// Each peer gets its own windowed counter. The first request after a full window elapses
-/// resets the counter (fixed/tumbling window rather than a rolling/sliding window). Idle
-/// peers are opportunistically evicted to keep memory bounded.
-#[derive(Default)]
+/// Request/response rate limiter built on reth's `RateLimit` (token bucket, per peer/protocol).
 pub struct RequestRateLimiter {
-    /// Duration of each tumbling window.
-    window: Duration,
-    /// Maximum number of requests allowed per peer within `window`.
-    max_requests: u32,
-    /// Stores the last window start and count for each peer.
-    state: HashMap<PeerId, WindowState>,
+    rate: reth_tokio_util::ratelimit::Rate,
+    horizon: tokio::time::Duration,
+    // (peer, protocol) -> limiter state
+    state: HashMap<(PeerId, ReqRespKind), LimiterState>,
 }
 
-/// Drop idle peers after this many whole windows without activity.
-const IDLE_EVICTION_WINDOWS: u32 = 4;
-
 #[derive(Debug)]
-struct WindowState {
-    window_start: Instant,
-    count: u32,
+struct LimiterState {
+    limiter: reth_tokio_util::ratelimit::RateLimit,
+    last_used: tokio::time::Instant,
+}
+
+/// Req/resp protocol kind used for per-protocol buckets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReqRespKind {
+    Commitments,
+    RawTxList,
+    Head,
 }
 
 impl RequestRateLimiter {
-    /// Creates a new `RequestRateLimiter` with a specified window and maximum requests.
-    ///
-    /// # Arguments
-    ///
-    /// * `window` - The time duration for the sliding window.
-    /// * `max_requests` - The maximum number of requests allowed per peer within the window.
-    ///
-    /// # Returns
-    ///
-    /// A new `RequestRateLimiter` instance.
+    /// Creates a new `RequestRateLimiter` with a specified period and max requests.
     pub fn new(window: Duration, max_requests: u32) -> Self {
         debug_assert!(window > Duration::ZERO, "RequestRateLimiter window must be > 0");
         debug_assert!(max_requests > 0, "RequestRateLimiter max_requests must be > 0");
-        Self { window, max_requests, state: HashMap::new() }
+        let rate = reth_tokio_util::ratelimit::Rate::new(max_requests as u64, window);
+        let horizon = window * 4;
+        Self { rate, horizon, state: HashMap::new() }
     }
 
-    fn evict_idle(&mut self, now: Instant) {
-        // Remove peers that have been idle longer than N windows.
-        let horizon = self.window * IDLE_EVICTION_WINDOWS;
-        self.state.retain(|_, entry| now.saturating_duration_since(entry.window_start) < horizon);
+    fn evict_idle(&mut self, now: tokio::time::Instant) {
+        self.state.retain(|_, entry| now.saturating_duration_since(entry.last_used) < self.horizon);
     }
 
-    /// Determines if a request from a given peer is allowed based on the rate limit.
+    /// Polls whether a request is allowed for the given peer/protocol.
     ///
-    /// If the peer has exceeded the `max_requests` within the `window`, the request is
-    /// disallowed. Otherwise, the request is counted, and `true` is returned.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - The `PeerId` making the request.
-    /// * `now` - The current `Instant`.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the request is allowed, `false` if rate-limited.
-    pub fn allow(&mut self, peer: PeerId, now: Instant) -> bool {
-        // Opportunistically prune idle peers to keep the map bounded.
+    /// Returns `Poll::Ready(true)` when the request can proceed, `Poll::Ready(false)` when it
+    /// should be dropped as rate-limited, and `Poll::Pending` while waiting for the bucket to
+    /// refill (callers typically treat `Pending` as limited to avoid blocking the driver).
+    pub fn poll_allow(
+        &mut self,
+        peer: PeerId,
+        kind: ReqRespKind,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<bool> {
+        let now = tokio::time::Instant::now();
         self.evict_idle(now);
 
-        let entry = self.state.entry(peer).or_insert(WindowState { window_start: now, count: 0 });
-        if now.saturating_duration_since(entry.window_start) >= self.window {
-            entry.window_start = now;
-            entry.count = 0;
+        let entry = self.state.entry((peer, kind)).or_insert_with(|| LimiterState {
+            limiter: reth_tokio_util::ratelimit::RateLimit::new(self.rate),
+            last_used: now,
+        });
+        entry.last_used = now;
+
+        match entry.limiter.poll_ready(cx) {
+            std::task::Poll::Ready(()) => {
+                entry.limiter.tick();
+                std::task::Poll::Ready(true)
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
         }
-        if entry.count >= self.max_requests {
-            return false;
-        }
-        entry.count += 1;
-        true
     }
 }
 
@@ -545,7 +534,9 @@ pub mod reth_adapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::future::poll_fn;
     use libp2p::{PeerId, identity};
+    use std::task::Poll;
 
     fn cfg() -> ReputationConfig {
         ReputationConfig {
@@ -635,65 +626,87 @@ mod tests {
         assert!(!adapter.allow_dial(&peer, None));
     }
 
-    #[test]
-    fn request_rate_limiter_under_and_over_limit() {
-        let mut rl = RequestRateLimiter::new(Duration::from_secs(10), 2);
+    #[tokio::test]
+    async fn request_rate_limiter_under_and_over_limit() {
+        let mut rl = RequestRateLimiter::new(Duration::from_secs(1), 2);
         let peer = PeerId::random();
-        let now = Instant::now();
 
-        assert!(rl.allow(peer, now));
-        assert!(rl.allow(peer, now));
-        // Third request in window should be blocked.
-        assert!(!rl.allow(peer, now));
+        for _ in 0..2 {
+            poll_fn(|cx| {
+                assert!(matches!(
+                    rl.poll_allow(peer, ReqRespKind::Commitments, cx),
+                    Poll::Ready(true)
+                ));
+                Poll::Ready(())
+            })
+            .await;
+        }
 
-        // Advance past window; counter resets.
-        let later = now + Duration::from_secs(11);
-        assert!(rl.allow(peer, later));
+        poll_fn(|cx| match rl.poll_allow(peer, ReqRespKind::Commitments, cx) {
+            Poll::Ready(true) => panic!("should be limited"),
+            Poll::Ready(false) | Poll::Pending => Poll::Ready(()),
+        })
+        .await;
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        poll_fn(|cx| {
+            assert!(matches!(rl.poll_allow(peer, ReqRespKind::Commitments, cx), Poll::Ready(true)));
+            Poll::Ready(())
+        })
+        .await;
     }
 
-    #[test]
-    fn request_rate_limiter_resets_after_window() {
-        let mut rl = RequestRateLimiter::new(Duration::from_secs(1), 1);
-        let peer = PeerId::random();
-        let now = Instant::now();
-        assert!(rl.allow(peer, now));
-        assert!(!rl.allow(peer, now));
-        // after window passes we can serve again
-        let later = now + Duration::from_millis(1500);
-        assert!(rl.allow(peer, later));
-    }
-
-    #[test]
-    fn request_rate_limiter_is_per_peer() {
+    #[tokio::test]
+    async fn request_rate_limiter_is_per_peer() {
         let mut rl = RequestRateLimiter::new(Duration::from_secs(5), 1);
-        let now = Instant::now();
         let a = PeerId::random();
         let b = PeerId::random();
 
-        assert!(rl.allow(a, now));
-        assert!(!rl.allow(a, now));
-        // Second peer tracks its own window independently.
-        assert!(rl.allow(b, now));
+        poll_fn(|cx| {
+            assert!(matches!(rl.poll_allow(a, ReqRespKind::RawTxList, cx), Poll::Ready(true)));
+            Poll::Ready(())
+        })
+        .await;
+
+        poll_fn(|cx| match rl.poll_allow(a, ReqRespKind::RawTxList, cx) {
+            Poll::Ready(true) => panic!("peer a should be limited"),
+            _ => Poll::Ready(()),
+        })
+        .await;
+
+        poll_fn(|cx| {
+            assert!(matches!(rl.poll_allow(b, ReqRespKind::RawTxList, cx), Poll::Ready(true)));
+            Poll::Ready(())
+        })
+        .await;
     }
 
-    #[test]
-    fn request_rate_limiter_evicts_idle_entries() {
+    #[tokio::test]
+    async fn request_rate_limiter_evicts_idle_entries() {
         let window = Duration::from_millis(100);
         let mut rl = RequestRateLimiter::new(window, 2);
         let a = PeerId::random();
         let b = PeerId::random();
-        let start = Instant::now();
 
-        assert!(rl.allow(a, start));
-        assert!(rl.allow(b, start));
+        for peer in [a, b] {
+            poll_fn(|cx| {
+                assert!(matches!(rl.poll_allow(peer, ReqRespKind::Head, cx), Poll::Ready(true)));
+                Poll::Ready(())
+            })
+            .await;
+        }
         assert_eq!(rl.state.len(), 2);
 
-        // Advance beyond the idle horizon; eviction occurs on next allow.
-        let after_horizon = start + window * (IDLE_EVICTION_WINDOWS + 1);
-        assert!(rl.allow(b, after_horizon));
+        tokio::time::sleep(window * 5).await;
+
+        poll_fn(|cx| {
+            assert!(matches!(rl.poll_allow(b, ReqRespKind::Head, cx), Poll::Ready(true)));
+            Poll::Ready(())
+        })
+        .await;
 
         assert_eq!(rl.state.len(), 1);
-        assert!(!rl.state.contains_key(&a));
-        assert!(rl.state.contains_key(&b));
+        assert!(rl.state.contains_key(&(b, ReqRespKind::Head)));
     }
 }

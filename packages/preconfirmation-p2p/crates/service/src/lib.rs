@@ -1,16 +1,15 @@
 //! High-level async facade over the preconfirmation P2P networking layer.
 //!
 //! This crate owns the `preconfirmation-net` driver and exposes a small, ergonomic
-//! API for sending `NetworkCommand`s and receiving `NetworkEvent`s. You can consume
-//! events in one of three mutually exclusive ways per service instance: (1) pull from
-//! `next_event()` / `events()`; (2) hand the stream to `run_with_handler`; or (3) use
-//! the blocking helpers that temporarily drive the stream internally. Choose one style
-//! per service to avoid racing on the single `events_rx` receiver.
+//! API for sending `NetworkCommand`s and receiving `NetworkEvent`s. Events are fanned out
+//! internally so multiple consumers can subscribe concurrently: pull from `next_event()`
+//! (default subscription), hand a stream to `run_with_handler`, use the blocking helpers,
+//! or call `subscribe()` to obtain additional receivers.
 
 use anyhow::Result;
 use futures::future::poll_fn;
 use tokio::{
-    sync::{mpsc, oneshot},
+    sync::{broadcast, mpsc, oneshot},
     task::JoinHandle,
 };
 
@@ -60,13 +59,16 @@ pub trait P2pHandler: Send + Sync + 'static {
 pub struct P2pService {
     /// Sender for `NetworkCommand`s to the `NetworkDriver`.
     command_tx: mpsc::Sender<NetworkCommand>,
-    /// Receiver for `NetworkEvent`s from the `NetworkDriver`. This is an `Option`
-    /// because it can be `take`n by `run_with_handler`.
-    events_rx: Option<mpsc::Receiver<NetworkEvent>>,
+    /// Broadcast sender for fanned-out `NetworkEvent`s.
+    events_tx: broadcast::Sender<NetworkEvent>,
+    /// Default subscription used by `next_event()`.
+    primary_rx: broadcast::Receiver<NetworkEvent>,
     /// Sender for the shutdown signal to the `NetworkDriver` task.
     shutdown_tx: Option<oneshot::Sender<()>>,
     /// Handle to the `NetworkDriver`'s background task.
     join_handle: Option<JoinHandle<()>>,
+    /// Handle to the fanout task copying driver events into the broadcast channel.
+    fanout_handle: Option<JoinHandle<()>>,
 }
 
 impl P2pService {
@@ -88,8 +90,18 @@ impl P2pService {
         let (mut driver, handle) = NetworkDriver::new(config)?;
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 
-        let events_rx = Some(handle.events);
         let command_tx = handle.commands;
+
+        let (events_tx, primary_rx) = broadcast::channel(256);
+        let mut driver_events_rx = handle.events;
+        let fanout_handle = {
+            let events_tx = events_tx.clone();
+            tokio::spawn(async move {
+                while let Some(ev) = driver_events_rx.recv().await {
+                    let _ = events_tx.send(ev);
+                }
+            })
+        };
 
         // Spawn the driver loop so callers interact via channels without owning the swarm task.
         let join_handle = tokio::spawn(async move {
@@ -106,10 +118,27 @@ impl P2pService {
 
         Ok(Self {
             command_tx,
-            events_rx,
+            events_tx,
+            primary_rx,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
+            fanout_handle: Some(fanout_handle),
         })
+    }
+
+    /// Create a fresh subscription to the network event stream.
+    pub fn subscribe(&self) -> broadcast::Receiver<NetworkEvent> {
+        self.events_tx.subscribe()
+    }
+
+    async fn recv_broadcast(rx: &mut broadcast::Receiver<NetworkEvent>) -> Option<NetworkEvent> {
+        loop {
+            match rx.recv().await {
+                Ok(ev) => return Some(ev),
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => return None,
+            }
+        }
     }
 
     /// Returns a clone of the command sender.
@@ -141,10 +170,9 @@ impl P2pService {
                 format!("invalid commitment signature: {e}"),
             )
         })?;
-        self.command_tx
-            .send(NetworkCommand::PublishCommitment(msg))
-            .await
-            .map_err(|e| NetworkError::new(NetworkErrorKind::Other, format!("send command: {e}")))
+        self.command_tx.send(NetworkCommand::PublishCommitment(msg)).await.map_err(|e| {
+            NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
+        })
     }
 
     /// Publishes a raw transaction list gossip message over gossipsub.
@@ -165,31 +193,27 @@ impl P2pService {
                 format!("invalid raw txlist: {e}"),
             )
         })?;
-        self.command_tx
-            .send(NetworkCommand::PublishRawTxList(msg))
-            .await
-            .map_err(|e| NetworkError::new(NetworkErrorKind::Other, format!("send command: {e}")))
+        self.command_tx.send(NetworkCommand::PublishRawTxList(msg)).await.map_err(|e| {
+            NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
+        })
     }
 
     /// Convenience: request commitments and await a response (or error).
     pub async fn request_commitments_blocking(
-        &mut self,
+        &self,
         start_block: preconfirmation_types::Uint256,
         max_count: u32,
         peer: Option<PeerId>,
     ) -> Result<GetCommitmentsByNumberResponse, NetworkError> {
+        let mut rx = self.subscribe();
         self.command_tx
             .send(NetworkCommand::RequestCommitments { start_block, max_count, peer })
             .await
             .map_err(|e| {
-                NetworkError::new(NetworkErrorKind::Other, format!("send command: {e}"))
+                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
             })?;
 
-        let rx = self.events_rx.as_mut().ok_or_else(|| {
-            NetworkError::new(NetworkErrorKind::Other, "events receiver already taken")
-        })?;
-
-        while let Some(ev) = rx.recv().await {
+        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
                 NetworkEvent::ReqRespCommitments { msg, .. } => return Ok(msg),
                 NetworkEvent::Error(err) => return Err(err),
@@ -197,17 +221,18 @@ impl P2pService {
             }
         }
         Err(NetworkError::new(
-            NetworkErrorKind::Other,
+            NetworkErrorKind::ReqRespTimeout,
             "service stopped before commitments response",
         ))
     }
 
     /// Convenience: request a raw txlist and await a response (or error).
     pub async fn request_raw_txlist_blocking(
-        &mut self,
+        &self,
         raw_tx_list_hash: preconfirmation_types::Bytes32,
         peer: Option<PeerId>,
     ) -> Result<GetRawTxListResponse, NetworkError> {
+        let mut rx = self.subscribe();
         self.command_tx
             .send(NetworkCommand::RequestRawTxList {
                 raw_tx_list_hash: raw_tx_list_hash.clone(),
@@ -215,14 +240,10 @@ impl P2pService {
             })
             .await
             .map_err(|e| {
-                NetworkError::new(NetworkErrorKind::Other, format!("send command: {e}"))
+                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
             })?;
 
-        let rx = self.events_rx.as_mut().ok_or_else(|| {
-            NetworkError::new(NetworkErrorKind::Other, "events receiver already taken")
-        })?;
-
-        while let Some(ev) = rx.recv().await {
+        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
                 NetworkEvent::ReqRespRawTxList { msg, .. } => return Ok(msg),
                 NetworkEvent::Error(err) => return Err(err),
@@ -230,32 +251,32 @@ impl P2pService {
             }
         }
         Err(NetworkError::new(
-            NetworkErrorKind::Other,
+            NetworkErrorKind::ReqRespTimeout,
             "service stopped before raw-txlist response",
         ))
     }
 
     /// Convenience: request head and await a response (or error).
     pub async fn request_head_blocking(
-        &mut self,
+        &self,
         peer: Option<PeerId>,
     ) -> Result<preconfirmation_types::PreconfHead, NetworkError> {
+        let mut rx = self.subscribe();
         self.command_tx.send(NetworkCommand::RequestHead { peer }).await.map_err(|e| {
-            NetworkError::new(NetworkErrorKind::Other, format!("send command: {e}"))
+            NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
         })?;
 
-        let rx = self.events_rx.as_mut().ok_or_else(|| {
-            NetworkError::new(NetworkErrorKind::Other, "events receiver already taken")
-        })?;
-
-        while let Some(ev) = rx.recv().await {
+        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
                 NetworkEvent::ReqRespHead { head, .. } => return Ok(head),
                 NetworkEvent::Error(err) => return Err(err),
                 _ => continue,
             }
         }
-        Err(NetworkError::new(NetworkErrorKind::Other, "service stopped before head response"))
+        Err(NetworkError::new(
+            NetworkErrorKind::ReqRespTimeout,
+            "service stopped before head response",
+        ))
     }
 
     /// Requests a range of commitments via the request-response protocol.
@@ -347,33 +368,19 @@ impl P2pService {
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
 
-    /// Receives the next network event (pull mode).
-    ///
-    /// Mutually exclusive with `run_with_handler` and the blocking req/resp helpers
-    /// which also take ownership of the event stream. Use only one style per service
-    /// instance to avoid dropping events.
+    /// Receives the next network event from the default subscription (pull mode).
     pub async fn next_event(&mut self) -> Option<NetworkEvent> {
-        match self.events_rx.as_mut() {
-            Some(rx) => rx.recv().await,
-            None => None,
-        }
+        Self::recv_broadcast(&mut self.primary_rx).await
     }
 
-    /// Provides mutable access to the underlying event receiver.
-    ///
-    /// Use this for manual streaming; do not combine with `run_with_handler` or the
-    /// blocking helpers, since the stream is single-consumer.
-    pub fn events(&mut self) -> Option<&mut mpsc::Receiver<NetworkEvent>> {
-        self.events_rx.as_mut()
+    /// Returns a fresh subscription for manual streaming of network events.
+    pub fn events(&self) -> broadcast::Receiver<NetworkEvent> {
+        self.subscribe()
     }
 
     /// Spawns a background task that consumes network events and invokes the provided handler.
     ///
-    /// This takes ownership of the event stream; do not also call `next_event`, `events`,
-    /// or blocking req/resp helpers on the same service instance.
-    ///
-    /// Once invoked, the internal events receiver is moved out of the `P2pService`,
-    /// making `events()` and `next_event()` unavailable.
+    /// The handler receives its own subscription; other consumers can continue to pull events.
     ///
     /// # Type Parameters
     ///
@@ -391,16 +398,10 @@ impl P2pService {
     /// # Returns
     ///
     /// A `JoinHandle` for the spawned event processing task.
-    pub fn run_with_handler<H: P2pHandler>(
-        &mut self,
-        handler: H,
-    ) -> anyhow::Result<JoinHandle<()>> {
-        let mut rx = self
-            .events_rx
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("events receiver already taken"))?;
+    pub fn run_with_handler<H: P2pHandler>(&self, handler: H) -> anyhow::Result<JoinHandle<()>> {
+        let mut rx = self.subscribe();
         Ok(tokio::spawn(async move {
-            while let Some(ev) = rx.recv().await {
+            while let Some(ev) = Self::recv_broadcast(&mut rx).await {
                 match ev {
                     NetworkEvent::GossipSignedCommitment { from, msg } => {
                         handler.on_signed_commitment(from, *msg)
@@ -448,6 +449,9 @@ impl P2pService {
         if let Some(handle) = self.join_handle.take() {
             let _ = handle.await;
         }
+        if let Some(handle) = self.fanout_handle.take() {
+            let _ = handle.await;
+        }
     }
 }
 
@@ -467,6 +471,10 @@ impl Drop for P2pService {
         if let Some(handle) = self.join_handle.take() {
             handle.abort();
         }
+
+        if let Some(handle) = self.fanout_handle.take() {
+            handle.abort();
+        }
     }
 }
 
@@ -476,7 +484,7 @@ impl Drop for P2pService {
 mod tests {
     use super::*;
     use preconfirmation_types::{Bytes32, TxListBytes, Uint256, keccak256_bytes};
-    use tokio::task;
+    use tokio::{task, time::Duration};
 
     #[tokio::test]
     async fn service_starts_and_stops() {
@@ -494,22 +502,31 @@ mod tests {
     async fn blocking_helpers_return_responses() {
         // Build a manual service with test channels.
         let (cmd_tx, mut cmd_rx) = mpsc::channel(8);
-        let (ev_tx, ev_rx) = mpsc::channel(8);
+        let (ev_tx, primary_rx) = broadcast::channel(8);
         task::spawn(async move { while cmd_rx.recv().await.is_some() {} });
 
-        let mut svc = P2pService {
+        let svc = P2pService {
             command_tx: cmd_tx,
-            events_rx: Some(ev_rx),
+            events_tx: ev_tx.clone(),
+            primary_rx,
             shutdown_tx: None,
             join_handle: None,
+            fanout_handle: None,
         };
 
         // commitments response
         let resp = GetCommitmentsByNumberResponse { commitments: Default::default() };
-        ev_tx
-            .send(NetworkEvent::ReqRespCommitments { from: PeerId::random(), msg: resp.clone() })
-            .await
-            .unwrap();
+        let resp_for_task = resp.clone();
+        let commitments_sender = ev_tx.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            commitments_sender
+                .send(NetworkEvent::ReqRespCommitments {
+                    from: PeerId::random(),
+                    msg: resp_for_task,
+                })
+                .unwrap();
+        });
         let got = svc
             .request_commitments_blocking(Uint256::from(0u64), 1, None)
             .await
@@ -524,10 +541,17 @@ mod tests {
             anchor_block_number: Uint256::from(0u64),
             txlist: tx_bytes,
         };
-        ev_tx
-            .send(NetworkEvent::ReqRespRawTxList { from: PeerId::random(), msg: raw_resp.clone() })
-            .await
-            .unwrap();
+        let raw_resp_for_task = raw_resp.clone();
+        let raw_sender = ev_tx.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            raw_sender
+                .send(NetworkEvent::ReqRespRawTxList {
+                    from: PeerId::random(),
+                    msg: raw_resp_for_task,
+                })
+                .unwrap();
+        });
         let got_raw = svc
             .request_raw_txlist_blocking(raw_resp.raw_tx_list_hash.clone(), None)
             .await
@@ -536,11 +560,90 @@ mod tests {
 
         // head response
         let head = preconfirmation_types::PreconfHead::default();
-        ev_tx
-            .send(NetworkEvent::ReqRespHead { from: PeerId::random(), head: head.clone() })
-            .await
-            .unwrap();
+        let head_for_task = head.clone();
+        let head_sender = ev_tx.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            head_sender
+                .send(NetworkEvent::ReqRespHead { from: PeerId::random(), head: head_for_task })
+                .unwrap();
+        });
         let got_head = svc.request_head_blocking(None).await.expect("head resp");
         assert_eq!(got_head, head);
+    }
+
+    #[tokio::test]
+    async fn multiple_consumers_receive_events() {
+        let (cmd_tx, mut cmd_rx) = mpsc::channel(8);
+        let (ev_tx, primary_rx) = broadcast::channel(8);
+        task::spawn(async move { while cmd_rx.recv().await.is_some() {} });
+
+        let mut svc = P2pService {
+            command_tx: cmd_tx,
+            events_tx: ev_tx.clone(),
+            primary_rx,
+            shutdown_tx: None,
+            join_handle: None,
+            fanout_handle: None,
+        };
+
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct CountingHandler {
+            seen: Arc<AtomicUsize>,
+        }
+
+        impl P2pHandler for CountingHandler {
+            fn on_peer_connected(&self, _peer: PeerId) {
+                self.seen.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let handler_seen = Arc::new(AtomicUsize::new(0));
+        let handler = CountingHandler { seen: handler_seen.clone() };
+        let handler_task = svc.run_with_handler(handler).expect("handler task");
+
+        // Allow the handler task to subscribe before events are published.
+        tokio::task::yield_now().await;
+
+        // Independent subscription for a blocking helper.
+        let mut head_rx = svc.subscribe();
+        let head_resp_task = tokio::spawn(async move {
+            while let Ok(ev) = head_rx.recv().await {
+                if let NetworkEvent::ReqRespHead { head, .. } = ev {
+                    return Some(head);
+                }
+            }
+            None
+        });
+
+        // Push events: peer connected and a head response.
+        let peer = PeerId::random();
+        ev_tx.send(NetworkEvent::PeerConnected(peer)).unwrap();
+        let head = preconfirmation_types::PreconfHead::default();
+        ev_tx.send(NetworkEvent::ReqRespHead { from: peer, head: head.clone() }).unwrap();
+
+        // Default subscription should also see the peer connected event.
+        let next = svc.next_event().await.expect("default rx gets event");
+        match next {
+            NetworkEvent::PeerConnected(seen) => assert_eq!(seen, peer),
+            other => panic!("unexpected event: {:?}", other),
+        }
+
+        // Handler should have observed it.
+        tokio::time::timeout(Duration::from_millis(50), async {
+            while handler_seen.load(Ordering::SeqCst) == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("handler saw peer connected event");
+
+        // Blocking helper subscription gets the head response.
+        let got_head = head_resp_task.await.unwrap().expect("head via blocking helper sub");
+        assert_eq!(got_head, head);
+
+        handler_task.abort();
     }
 }

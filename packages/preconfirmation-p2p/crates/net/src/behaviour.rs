@@ -7,6 +7,7 @@ use libp2p::{
 use libp2p_allow_block_list::{Behaviour as BlockListBehaviour, BlockedPeers};
 use libp2p_connection_limits::{Behaviour as ConnectionLimitsBehaviour, ConnectionLimits};
 use preconfirmation_types::MAX_GOSSIP_SIZE_BYTES;
+use std::num::NonZeroU8;
 
 /// Combined libp2p behaviour: ping, identify, gossipsub, request-response, and gating behaviours.
 ///
@@ -102,13 +103,19 @@ impl NetBehaviour {
             reqresp_cfg,
         );
 
+        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, dial_factor) =
+            cfg.resolve_connection_caps();
+
         let mut limits = ConnectionLimits::default();
-        limits = limits.with_max_pending_incoming(cfg.max_pending_incoming);
-        limits = limits.with_max_pending_outgoing(cfg.max_pending_outgoing);
-        limits = limits.with_max_established_incoming(cfg.max_established_incoming);
-        limits = limits.with_max_established_outgoing(cfg.max_established_outgoing);
-        limits = limits.with_max_established(cfg.max_established_total);
-        limits = limits.with_max_established_per_peer(cfg.max_established_per_peer);
+        limits = limits.with_max_pending_incoming(pend_in);
+        limits = limits.with_max_pending_outgoing(pend_out);
+        limits = limits.with_max_established_incoming(est_in);
+        limits = limits.with_max_established_outgoing(est_out);
+        limits = limits.with_max_established(est_total);
+        limits = limits.with_max_established_per_peer(per_peer);
+
+        let _dial_factor =
+            NonZeroU8::new(dial_factor).unwrap_or_else(|| NonZeroU8::new(1).unwrap());
 
         let block_list = BlockListBehaviour::<BlockedPeers>::default();
         let conn_limits = ConnectionLimitsBehaviour::new(limits);

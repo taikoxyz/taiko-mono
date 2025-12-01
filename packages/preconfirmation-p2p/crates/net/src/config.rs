@@ -16,6 +16,10 @@ pub struct NetworkConfig {
     pub listen_addr: SocketAddr,
     /// discv5 listen address (UDP).
     pub discv5_listen: SocketAddr,
+    /// Discovery tuning preset (dev/test/prod) for discv5 intervals.
+    pub discovery_preset: DiscoveryPreset,
+    /// Connection tuning preset (dev/test/prod) for connection caps and dial concurrency.
+    pub connection_preset: ConnectionPreset,
     /// Bootnodes as ENR or multiaddr strings. These are used for initial peer discovery.
     pub bootnodes: Vec<String>,
     /// Enable QUIC transport. If true, the network will attempt to use QUIC.
@@ -55,6 +59,8 @@ pub struct NetworkConfig {
     pub max_established_total: Option<u32>,
     /// Maximum established connections per peer (None = unlimited).
     pub max_established_per_peer: Option<u32>,
+    /// Dial concurrency factor for libp2p swarm.
+    pub dial_concurrency_factor: u8,
     /// Kona gater: blocked CIDR subnets (strings parsed as IpNet) applied before dialing.
     /// Connections to peers within these subnets will be rejected.
     pub gater_blocked_subnets: Vec<String>,
@@ -63,6 +69,22 @@ pub struct NetworkConfig {
     pub gater_peer_redialing: Option<u64>,
     /// Kona gater: dial period window for redial limiting.
     pub gater_dial_period: Duration,
+}
+
+/// Discovery presets for common environments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiscoveryPreset {
+    Dev,
+    Test,
+    Prod,
+}
+
+/// Connection presets for common environments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionPreset {
+    Dev,
+    Test,
+    Prod,
 }
 
 impl Default for NetworkConfig {
@@ -74,6 +96,8 @@ impl Default for NetworkConfig {
             chain_id: 167_000, // placeholder, override via CLI/config
             listen_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9000),
             discv5_listen: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9001),
+            discovery_preset: DiscoveryPreset::Prod,
+            connection_preset: ConnectionPreset::Prod,
             bootnodes: Vec::new(),
             enable_quic: true,
             enable_tcp: true,
@@ -86,12 +110,13 @@ impl Default for NetworkConfig {
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
             max_reqresp_concurrent_streams: 100,
-            max_pending_incoming: Some(64),
-            max_pending_outgoing: Some(64),
-            max_established_incoming: Some(128),
-            max_established_outgoing: Some(128),
-            max_established_total: Some(256),
+            max_pending_incoming: Some(40),
+            max_pending_outgoing: Some(40),
+            max_established_incoming: Some(110),
+            max_established_outgoing: Some(110),
+            max_established_total: Some(220),
             max_established_per_peer: Some(4),
+            dial_concurrency_factor: 16,
             gater_blocked_subnets: Vec::new(),
             gater_peer_redialing: None,
             gater_dial_period: Duration::from_secs(60 * 60),
@@ -103,6 +128,33 @@ impl NetworkConfig {
     /// Convenience constructor that sets `chain_id` and keeps all other defaults.
     pub fn for_chain(chain_id: u64) -> Self {
         Self { chain_id, ..Default::default() }
+    }
+
+    /// Apply the connection preset, returning the resolved limits and dial factor.
+    pub(crate) fn resolve_connection_caps(
+        &self,
+    ) -> (Option<u32>, Option<u32>, Option<u32>, Option<u32>, Option<u32>, Option<u32>, u8) {
+        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, dial) = match self
+            .connection_preset
+        {
+            ConnectionPreset::Dev => (Some(10), Some(10), Some(20), Some(20), Some(40), Some(4), 4),
+            ConnectionPreset::Test => {
+                (Some(30), Some(30), Some(60), Some(60), Some(120), Some(4), 10)
+            }
+            ConnectionPreset::Prod => {
+                (Some(40), Some(40), Some(110), Some(110), Some(220), Some(4), 16)
+            }
+        };
+
+        (
+            self.max_pending_incoming.or(pend_in),
+            self.max_pending_outgoing.or(pend_out),
+            self.max_established_incoming.or(est_in),
+            self.max_established_outgoing.or(est_out),
+            self.max_established_total.or(est_total),
+            self.max_established_per_peer.or(per_peer),
+            self.dial_concurrency_factor.max(dial),
+        )
     }
 
     /// Ensure rate-limit parameters are sane before constructing a limiter.
