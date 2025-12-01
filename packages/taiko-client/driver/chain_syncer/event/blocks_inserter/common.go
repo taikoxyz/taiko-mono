@@ -228,7 +228,6 @@ func isKnownCanonicalBatchPacaya(
 
 	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
-		i := i
 		g.Go(func() error {
 			var (
 				header *types.Header
