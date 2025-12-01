@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz
-interface IInbox2 {
+interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
         /// @notice The codec used for encoding and hashing
@@ -48,6 +48,8 @@ interface IInbox2 {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
+        /// @notice The maximum number of head forwarding iterations during prove
+        uint8 maxHeadForwardingCount;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -157,7 +159,7 @@ interface IInbox2 {
         /// @notice Array of transition records for finalization.
         Transition[] transitions;
         /// @notice Array of bond instructions for finalization (parallel to transitions).
-        LibBonds2.BondInstruction[][] bondInstructions;
+        LibBonds.BondInstruction[][] bondInstructions;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
@@ -182,7 +184,7 @@ interface IInbox2 {
         /// @notice The core state after the proposal.
         CoreState coreState;
         /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds2.BondInstruction[] bondInstructions;
+        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -194,7 +196,7 @@ interface IInbox2 {
         uint8 span;
         uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
-        LibBonds2.BondInstruction[] bondInstructions;
+        LibBonds.BondInstruction[] bondInstructions;
     }
 
     // ---------------------------------------------------------------
@@ -237,14 +239,14 @@ interface IInbox2 {
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return transitionRecord_ The transition record metadata.
+    /// @return record_ The transition record metadata.
     function getTransitionRecord(
         uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (TransitionRecord memory transitionRecord_);
+        returns (TransitionRecord memory record_);
 
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters

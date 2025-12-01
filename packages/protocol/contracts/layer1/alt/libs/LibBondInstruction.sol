@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox2 } from "../iface/IInbox2.sol";
-import { LibBonds2 } from "src/shared/libs/LibBonds2.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibBondInstruction
 /// @notice Library for L1-specific bond instruction calculations
-/// @dev This library contains L1-specific bond logic that depends on IInbox2 interfaces
+/// @dev This library contains L1-specific bond logic that depends on IInbox interfaces
 /// @custom:security-contact security@taiko.xyz
-library LibBondInstruction2 {
+library LibBondInstruction {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -28,17 +28,17 @@ library LibBondInstruction2 {
         uint40 _provingWindow,
         uint40 _extendedProvingWindow,
         uint40 _startProposalId,
-        IInbox2.ProposalProofMetadata[] memory _prposalProofMetadatas
+        IInbox.ProposalProofMetadata[] memory _prposalProofMetadatas
     )
         internal
         view
-        returns (LibBonds2.BondInstruction[] memory bondInstructions_)
+        returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        bondInstructions_ = new LibBonds2.BondInstruction[](_prposalProofMetadatas.length);
+        bondInstructions_ = new LibBonds.BondInstruction[](_prposalProofMetadatas.length);
         uint256 count;
 
         for (uint256 i; i < _prposalProofMetadatas.length; ++i) {
-            IInbox2.ProposalProofMetadata memory proofMetadata = _prposalProofMetadatas[i];
+            IInbox.ProposalProofMetadata memory proofMetadata = _prposalProofMetadatas[i];
             uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
             if (block.timestamp <= windowEnd) continue;
 
@@ -51,11 +51,11 @@ library LibBondInstruction2 {
 
             if (!needsBondInstruction) continue;
 
-            bondInstructions_[count++] = LibBonds2.BondInstruction({
+            bondInstructions_[count++] = LibBonds.BondInstruction({
                 proposalId: uint40(_startProposalId + i),
                 bondType: isWithinExtendedWindow
-                    ? LibBonds2.BondType.LIVENESS
-                    : LibBonds2.BondType.PROVABILITY,
+                    ? LibBonds.BondType.LIVENESS
+                    : LibBonds.BondType.PROVABILITY,
                 payer: isWithinExtendedWindow
                     ? proofMetadata.designatedProver
                     : proofMetadata.proposer,
