@@ -854,82 +854,80 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         //     uint8 numForcedInclusions;
         // }
 
-        // unchecked {
-        //     CoreState memory coreState = _input.coreState;
-        //     uint48 proposalId = coreState.lastFinalizedProposalId + 1;
-        //     uint256 lastFinalizedRecordIdx;
-        //     uint256 finalizedCount;
-        //     uint256 transitionCount = _input.transitionRecords.length;
-        //     uint256 currentTimestamp = block.timestamp;
-        //     uint256 totalBondInstructionCount;
+        unchecked {
+            CoreState memory coreState = _input.coreState;
+            uint48 proposalId = coreState.lastFinalizedProposalId + 1;
+            uint256 lastFinalizedRecordIdx;
+            uint256 finalizedCount;
+            uint256 transitionCount = _input.transitionRecords.length;
+            uint256 currentTimestamp = block.timestamp;
+            uint256 totalBondInstructionCount;
 
-        //     for (uint256 i; i < _maxFinalizationCount; ++i) {
-        //         // Check if there are more proposals to finalize
-        //         if (proposalId >= coreState.nextProposalId) break;
+            for (uint256 i; i < _maxFinalizationCount; ++i) {
+                // Check if there are more proposals to finalize
+                if (proposalId >= coreState.nextProposalId) break;
 
-        //         // Try to finalize the current proposal
-        //         TransitionMetadata memory transitionMetadata =
-        //             _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                // Try to finalize the current proposal
+                TransitionMetadata memory transitionMetadata = _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                    _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
 
-        //         if (recordHash == 0) break;
+                if (transitionMetadata.recordHash == 0) break;
 
-        //         if (i >= transitionCount) {
-        //             require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());
-        //             break;
-        //         }
+                if (i >= transitionCount) {
+                    require(currentTimestamp < transitionMetadata.finalizationDeadline, TransitionRecordNotProvided());
+                    break;
+                }
 
-        //         TransitionRecord memory transitionRecord = _input.transitionRecords[i];
+                require(
+                    _hashTransitionRecord(_input.transitionRecords[i]) == transitionMetadata.recordHash,
+                    TransitionRecordHashMismatchWithStorage()
+                );
 
-        //         require(
-        //             _hashTransitionRecord(transitionRecord) == recordHash,
-        //             TransitionRecordHashMismatchWithStorage()
-        //         );
+                uint256 bondInstructionLen = _input.transitionRecords[i].bondInstructions.length;
+                for (uint256 j; j < bondInstructionLen; ++j) {
+                    coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
+                        coreState.bondInstructionsHash, _input.transitionRecords[i].bondInstructions[j]
+                    );
+                }
 
-        //         uint256 bondInstructionLen = transitionRecord.bondInstructions.length;
-        //         for (uint256 j; j < bondInstructionLen; ++j) {
-        //             coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-        //                 coreState.bondInstructionsHash, transitionRecord.bondInstructions[j]
-        //             );
-        //         }
+                totalBondInstructionCount += bondInstructionLen;
 
-        //         totalBondInstructionCount += bondInstructionLen;
+                coreState.lastFinalizedProposalId = proposalId;
+                coreState.lastFinalizedTransitionHash = transitionMetadata.recordHash;
 
-        //         coreState.lastFinalizedProposalId = proposalId;
-        //         coreState.lastFinalizedTransitionHash = transitionRecord.transitionHash;
+                ++proposalId;
 
-        //         ++proposalId;
+                // Update state for successful finalization
+                lastFinalizedRecordIdx = i;
+                ++finalizedCount;
+            }
 
-        //         // Update state for successful finalization
-        //         lastFinalizedRecordIdx = i;
-        //         ++finalizedCount;
-        //     }
+            // Update checkpoint if any proposals were finalized and minimum delay has passed
+            if (finalizedCount > 0) {
+                _syncCheckpointIfNeeded(
+                    _input.checkpoint,
+                    _input.transitionRecords[lastFinalizedRecordIdx].endCheckpointHash,
+                    coreState
+                );
+            }
 
-        //     // Update checkpoint if any proposals were finalized and minimum delay has passed
-        //     if (finalizedCount > 0) {
-        //         _syncCheckpointIfNeeded(
-        //             _input.checkpoint,
-        //             _input.transitionRecords[lastFinalizedRecordIdx].checkpointHash,
-        //             coreState
-        //         );
-        //     }
+            if (totalBondInstructionCount > 0) {
+                bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
+                uint256 bondInstructionIndex;
 
-        //     if (totalBondInstructionCount > 0) {
-        //         bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
-        //         uint256 bondInstructionIndex;
+                for (uint256 i; i < finalizedCount; ++i) {
+                    LibBonds.BondInstruction[] memory instructions =
+                    _input.transitionRecords[i].bondInstructions;
+                    uint256 instructionsLen = instructions.length;
 
-        //         for (uint256 i; i < finalizedCount; ++i) {
-        //             LibBonds.BondInstruction[] memory instructions =
-        //             _input.transitionRecords[i].bondInstructions;
-        //             uint256 instructionsLen = instructions.length;
+                    for (uint256 j; j < instructionsLen; ++j) {
+                        bondInstructions_[bondInstructionIndex++] = instructions[j];
+                    }
+                }
+            }
 
-        //             for (uint256 j; j < instructionsLen; ++j) {
-        //                 bondInstructions_[bondInstructionIndex++] = instructions[j];
-        //             }
-        //         }
-        //     }
-
-        //     return (coreState, bondInstructions_);
-        // }
+            return (coreState, bondInstructions_);
+        }
     }
 
     /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
