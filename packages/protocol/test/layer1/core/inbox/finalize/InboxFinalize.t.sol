@@ -2,12 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxOptimizedBase, InboxSimpleBase, InboxTestBase } from "../common/InboxTestBase.sol";
+import { InboxVariant } from "../common/InboxTestBase.sol";
 import { ProveTestBase } from "../prove/InboxProve.t.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 abstract contract FinalizeTestBase is ProveTestBase {
+    constructor(InboxVariant _variant) ProveTestBase(_variant) { }
+
     function test_finalize_updatesTimestamps() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
@@ -53,10 +55,10 @@ abstract contract FinalizeTestBase is ProveTestBase {
     }
 }
 
-contract InboxFinalizeTest is FinalizeTestBase, InboxSimpleBase { }
+contract InboxFinalizeTest is FinalizeTestBase {
+    constructor() FinalizeTestBase(InboxVariant.Simple) { }
+}
 
-contract InboxOptimizedFinalizeTest is FinalizeTestBase, InboxOptimizedBase {
-    function _isOptimized() internal view override(InboxOptimizedBase, InboxTestBase) returns (bool) {
-        return true;
-    }
+contract InboxOptimizedFinalizeTest is FinalizeTestBase {
+    constructor() FinalizeTestBase(InboxVariant.Optimized) { }
 }

@@ -2,12 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxOptimizedBase, InboxSimpleBase, InboxTestBase } from "../common/InboxTestBase.sol";
+import { InboxTestBase, InboxVariant } from "../common/InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 abstract contract ProposeTestBase is InboxTestBase {
-    function test_propose_happyPath() public {
+    constructor(InboxVariant _variant) InboxTestBase(_variant) { }
+
+    function test_propose() public {
         _setBlobHashes(3);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
@@ -15,7 +17,7 @@ abstract contract ProposeTestBase is InboxTestBase {
 
         IInbox.ProposedEventPayload memory expected = _buildExpectedProposedPayload(stateBefore, input);
 
-        IInbox.ProposedEventPayload memory actual = _proposeAndDecode(input);
+        IInbox.ProposedEventPayload memory actual = _proposeAndDecodeWithGas(input, "propose_single");
         _assertPayloadEqual(actual, expected);
 
         IInbox.CoreState memory stateAfter = inbox.getState();
@@ -42,6 +44,41 @@ abstract contract ProposeTestBase is InboxTestBase {
         vm.prank(proposer);
         vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
         inbox.propose(bytes(""), _encodeProposeInput(input));
+    }
+
+    function test_propose_processesForcedInclusion_andRecordsGas() public {
+        bytes32[] memory blobHashes = _getBlobHashes(3);
+        _setBlobHashes(3);
+
+        IInbox.ProposedEventPayload memory first = _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
+
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = 1;
+
+        IInbox.ProposedEventPayload memory payload =
+            _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
+
+        assertEq(payload.derivation.sources.length, 2, "sources length");
+        assertTrue(payload.derivation.sources[0].isForcedInclusion, "forced slot");
+        assertEq(payload.derivation.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash");
+        assertEq(payload.derivation.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash");
+        assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
+
+        (uint48 head, uint48 tail,) = inbox.getForcedInclusionState();
+        assertEq(head, 1, "queue head");
+        assertEq(tail, 1, "queue tail");
     }
 
     function _buildExpectedProposedPayload(
@@ -162,10 +199,10 @@ abstract contract ProposeTestBase is InboxTestBase {
     }
 }
 
-contract InboxProposeTest is ProposeTestBase, InboxSimpleBase { }
+contract InboxProposeTest is ProposeTestBase {
+    constructor() ProposeTestBase(InboxVariant.Simple) { }
+}
 
-contract InboxOptimizedProposeTest is ProposeTestBase, InboxOptimizedBase {
-    function _isOptimized() internal view override(InboxOptimizedBase, InboxTestBase) returns (bool) {
-        return true;
-    }
+contract InboxOptimizedProposeTest is ProposeTestBase {
+    constructor() ProposeTestBase(InboxVariant.Optimized) { }
 }

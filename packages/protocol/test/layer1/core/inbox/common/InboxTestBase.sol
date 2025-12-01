@@ -6,6 +6,7 @@ import { Vm } from "forge-std/src/Vm.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
 import { LibHashSimple } from "src/layer1/core/libs/LibHashSimple.sol";
@@ -13,14 +14,19 @@ import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDeco
 import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { MockCheckpointStore, MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { MockProposerChecker } from "../mocks/MockProposerChecker.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+enum InboxVariant {
+    Simple,
+    Optimized
+}
+
 /// @title InboxTestBase
-/// @notice Shared setup and helpers for Inbox tests.
+/// @notice Shared setup and helpers for Inbox tests with minimal duplication between variants.
 abstract contract InboxTestBase is CommonTest {
+    InboxVariant internal variant;
     Inbox internal inbox;
     IInbox.Config internal config;
 
@@ -32,6 +38,10 @@ abstract contract InboxTestBase is CommonTest {
     address internal proposer = Bob;
     address internal prover = Carol;
 
+    constructor(InboxVariant _variant) {
+        variant = _variant;
+    }
+
     function setUp() public virtual override {
         vm.deal(address(this), 100 ether);
         vm.deal(proposer, 100 ether);
@@ -42,9 +52,18 @@ abstract contract InboxTestBase is CommonTest {
         checkpointStore = new MockCheckpointStore();
         proposerChecker = new MockProposerChecker();
 
-        config = IInbox.Config({
+        config = _buildConfig();
+        inbox = _deployInbox();
+        inbox.activate(bytes32(uint256(1)));
+
+        vm.roll(100);
+        vm.warp(1_000);
+    }
+
+    function _buildConfig() internal virtual returns (IInbox.Config memory) {
+        return IInbox.Config({
             bondToken: address(token),
-            codec: address(new CodecOptimized()),
+            codec: address(new CodecOptimized()), // preserved for compatibility
             checkpointStore: address(checkpointStore),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
@@ -59,90 +78,127 @@ abstract contract InboxTestBase is CommonTest {
             minCheckpointDelay: 0,
             permissionlessInclusionMultiplier: 5
         });
-
-        inbox = _deployInbox();
-        inbox.activate(bytes32(uint256(1)));
-
-        vm.roll(100);
-        vm.warp(1_000);
     }
 
     // ---------------------------------------------------------------
     // Hooks
     // ---------------------------------------------------------------
 
-    function _deployInbox() internal virtual returns (Inbox);
+    function _deployInbox() internal virtual returns (Inbox) {
+        address impl = _isOptimized() ? address(new InboxOptimized(config)) : address(new Inbox(config));
+        return _deployProxy(impl);
+    }
 
     function _encodeProposeInput(IInbox.ProposeInput memory _input)
         internal
         view
         virtual
-        returns (bytes memory);
+        returns (bytes memory)
+    {
+        return _isOptimized() ? LibProposeInputDecoder.encode(_input) : abi.encode(_input);
+    }
 
     function _encodeProveInput(IInbox.ProveInput memory _input)
         internal
         view
         virtual
-        returns (bytes memory);
+        returns (bytes memory)
+    {
+        return _isOptimized() ? LibProveInputDecoder.encode(_input) : abi.encode(_input);
+    }
+
+    function _encodeProveInputExternal(IInbox.ProveInput memory _input)
+        public
+        pure
+        returns (bytes memory)
+    {
+        return LibProveInputDecoder.encode(_input);
+    }
 
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
         internal
         view
         virtual
-        returns (bytes memory);
+        returns (bytes memory)
+    {
+        return _isOptimized() ? LibProposedEventEncoder.encode(_payload) : abi.encode(_payload);
+    }
 
     function _encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
         internal
         view
         virtual
-        returns (bytes memory);
+        returns (bytes memory)
+    {
+        return _isOptimized() ? LibProvedEventEncoder.encode(_payload) : abi.encode(_payload);
+    }
 
     function _decodeProposedEvent(bytes memory _data)
         internal
         view
         virtual
-        returns (IInbox.ProposedEventPayload memory);
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _isOptimized() ? LibProposedEventEncoder.decode(_data) : abi.decode(_data, (IInbox.ProposedEventPayload));
+    }
 
     function _decodeProvedEvent(bytes memory _data)
         internal
         view
         virtual
-        returns (IInbox.ProvedEventPayload memory);
+        returns (IInbox.ProvedEventPayload memory)
+    {
+        return _isOptimized() ? LibProvedEventEncoder.decode(_data) : abi.decode(_data, (IInbox.ProvedEventPayload));
+    }
 
     function _hashProposal(IInbox.Proposal memory _proposal)
         internal
         view
         virtual
-        returns (bytes32);
+        returns (bytes32)
+    {
+        return _isOptimized() ? LibHashOptimized.hashProposal(_proposal) : LibHashSimple.hashProposal(_proposal);
+    }
 
     function _hashTransition(IInbox.Transition memory _transition)
         internal
         view
         virtual
-        returns (bytes32);
+        returns (bytes32)
+    {
+        return _isOptimized()
+            ? LibHashOptimized.hashTransition(_transition)
+            : LibHashSimple.hashTransition(_transition);
+    }
 
     function _hashCoreState(IInbox.CoreState memory _state)
         internal
         view
         virtual
-        returns (bytes32);
+        returns (bytes32)
+    {
+        return _isOptimized() ? LibHashOptimized.hashCoreState(_state) : LibHashSimple.hashCoreState(_state);
+    }
 
     function _hashDerivation(IInbox.Derivation memory _derivation)
         internal
         view
         virtual
-        returns (bytes32);
+        returns (bytes32)
+    {
+        return _isOptimized() ? LibHashOptimized.hashDerivation(_derivation) : LibHashSimple.hashDerivation(_derivation);
+    }
 
     function _isOptimized() internal view virtual returns (bool) {
-        return false;
+        return variant == InboxVariant.Optimized;
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
-    function _deployProxy(Inbox _impl) internal returns (Inbox) {
-        return Inbox(address(new ERC1967Proxy(address(_impl), abi.encodeCall(Inbox.init, (address(this))))));
+    function _deployProxy(address _impl) internal returns (Inbox) {
+        return Inbox(address(new ERC1967Proxy(_impl, abi.encodeCall(Inbox.init, (address(this))))));
     }
 
     function _setBlobHashes(uint256 _count) internal {
@@ -169,7 +225,22 @@ abstract contract InboxTestBase is CommonTest {
         vm.recordLogs();
         vm.prank(proposer);
         inbox.propose(bytes(""), _encodeProposeInput(_input));
+        payload_ = _readProposedEvent();
+    }
 
+    function _proposeAndDecodeWithGas(IInbox.ProposeInput memory _input, string memory _benchName)
+        internal
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        vm.recordLogs();
+        vm.prank(proposer);
+        vm.startSnapshotGas("shasta-propose", _benchLabel(_benchName));
+        inbox.propose(bytes(""), _encodeProposeInput(_input));
+        vm.stopSnapshotGas();
+        payload_ = _readProposedEvent();
+    }
+
+    function _readProposedEvent() private returns (IInbox.ProposedEventPayload memory payload_) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bytes32 proposedTopic = keccak256("Proposed(bytes)");
         for (uint256 i; i < logs.length; ++i) {
@@ -367,204 +438,8 @@ abstract contract InboxTestBase is CommonTest {
         metadata_[4] =
             IInbox.TransitionMetadata({ designatedProver: _d5, actualProver: _a5 });
     }
-}
 
-/// @notice Simple Inbox instantiation using ABI codecs.
-abstract contract InboxSimpleBase is InboxTestBase {
-    function _deployInbox() internal virtual override returns (Inbox) {
-        Inbox impl = new Inbox(config);
-        return _deployProxy(impl);
-    }
-
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
-
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
-
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    function _encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    function _decodeProposedEvent(bytes memory _data)
-        internal
-        view
-        override
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        return abi.decode(_data, (IInbox.ProposedEventPayload));
-    }
-
-    function _decodeProvedEvent(bytes memory _data)
-        internal
-        view
-        override
-        returns (IInbox.ProvedEventPayload memory)
-    {
-        return abi.decode(_data, (IInbox.ProvedEventPayload));
-    }
-
-    function _hashProposal(IInbox.Proposal memory _proposal)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashSimple.hashProposal(_proposal);
-    }
-
-    function _hashTransition(IInbox.Transition memory _transition)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashSimple.hashTransition(_transition);
-    }
-
-    function _hashCoreState(IInbox.CoreState memory _state)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashSimple.hashCoreState(_state);
-    }
-
-    function _hashDerivation(IInbox.Derivation memory _derivation)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashSimple.hashDerivation(_derivation);
-    }
-}
-
-/// @notice Optimized Inbox instantiation using compact codecs.
-abstract contract InboxOptimizedBase is InboxTestBase {
-    function _deployInbox() internal virtual override returns (Inbox) {
-        InboxOptimized impl = new InboxOptimized(config);
-        return _deployProxy(impl);
-    }
-
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return LibProposeInputDecoder.encode(_input);
-    }
-
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return LibProveInputDecoder.encode(_input);
-    }
-
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return LibProposedEventEncoder.encode(_payload);
-    }
-
-    function _encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
-        internal
-        view
-        override
-        returns (bytes memory)
-    {
-        return LibProvedEventEncoder.encode(_payload);
-    }
-
-    function _decodeProposedEvent(bytes memory _data)
-        internal
-        view
-        override
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        return LibProposedEventEncoder.decode(_data);
-    }
-
-    function _decodeProvedEvent(bytes memory _data)
-        internal
-        view
-        override
-        returns (IInbox.ProvedEventPayload memory)
-    {
-        return LibProvedEventEncoder.decode(_data);
-    }
-
-    function _hashProposal(IInbox.Proposal memory _proposal)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    function _hashTransition(IInbox.Transition memory _transition)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashTransition(_transition);
-    }
-
-    function _hashCoreState(IInbox.CoreState memory _state)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashCoreState(_state);
-    }
-
-    function _hashDerivation(IInbox.Derivation memory _derivation)
-        internal
-        view
-        override
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashDerivation(_derivation);
-    }
-
-    function _isOptimized() internal view virtual override returns (bool) {
-        return true;
+    function _benchLabel(string memory _base) internal view returns (string memory) {
+        return string.concat(_base, _isOptimized() ? "_InboxOptimized" : "_Inbox");
     }
 }
