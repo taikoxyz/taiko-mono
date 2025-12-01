@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -216,56 +218,105 @@ func isKnownCanonicalBatchPacaya(
 	metadata metadata.TaikoProposalMetaData,
 	allTxs []*types.Transaction,
 	parent *types.Header,
+	maxRetries uint64,
+	retryInterval time.Duration,
 ) (*types.Header, error) {
-	var (
-		headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
-		g       = new(errgroup.Group)
-	)
+	checkCanonical := func() (*types.Header, error) {
+		var (
+			headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
+			g       = new(errgroup.Group)
+		)
 
-	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
-	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
-		g.Go(func() error {
-			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
-			if err != nil {
-				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
-			}
+		// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
+		for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
+			i := i
+			g.Go(func() error {
+				parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+				if err != nil {
+					return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+				}
 
-			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
-				ctx,
-				rpc,
-				anchorConstructor,
-				metadata,
-				allTxs,
-				parentHeader,
-				i,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
-			}
+				createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
+					ctx,
+					rpc,
+					anchorConstructor,
+					metadata,
+					allTxs,
+					parentHeader,
+					i,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
+				}
 
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
-			if err != nil {
-				return fmt.Errorf("failed to RLP encode tx list: %w", err)
-			}
+				b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+				if err != nil {
+					return fmt.Errorf("failed to RLP encode tx list: %w", err)
+				}
 
-			if headers[i], err = isKnownCanonicalBlock(
-				ctx,
-				rpc,
-				&createPayloadAndSetHeadMetaData{
-					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-					Parent:                          parentHeader,
-				},
-				b,
-				anchorTx,
-			); err != nil {
-				return fmt.Errorf("block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err)
-			}
+				if headers[i], err = isKnownCanonicalBlock(
+					ctx,
+					rpc,
+					&createPayloadAndSetHeadMetaData{
+						createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+						Parent:                          parentHeader,
+					},
+					b,
+					anchorTx,
+				); err != nil {
+					return fmt.Errorf(
+						"block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err,
+					)
+				}
 
-			return nil
-		})
+				return nil
+			})
+		}
+
+		return headers[len(headers)-1], g.Wait()
 	}
 
-	return headers[len(headers)-1], g.Wait()
+	var (
+		lastBlockHeader *types.Header
+		err             error
+	)
+
+	bo := backoff.WithContext(
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryInterval), maxRetries),
+		ctx,
+	)
+
+	err = backoff.RetryNotify(
+		func() error {
+			lastBlockHeader, err = checkCanonical()
+			if err == nil {
+				return nil
+			}
+			if errors.Is(err, context.Canceled) {
+				return backoff.Permanent(err)
+			}
+			if !errors.Is(err, context.DeadlineExceeded) {
+				return backoff.Permanent(err)
+			}
+
+			return err
+		},
+		bo,
+		func(err error, d time.Duration) {
+			if !errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
+
+			log.Warn(
+				"Timed out checking Pacaya batch canonicality, retrying",
+				"batchID", metadata.Pacaya().GetBatchID(),
+				"nextRetryIn", d,
+				"maxAttempts", maxRetries,
+			)
+		},
+	)
+
+	return lastBlockHeader, err
 }
 
 // isKnownCanonicalBatchShasta checks if all blocks in the given Shasta batch are in the canonical chain already,

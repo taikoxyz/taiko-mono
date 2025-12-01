@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,6 +38,8 @@ type Pacaya struct {
 	blobFetcher          txlistFetcher.TxListFetcher
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	mutex                sync.Mutex
+	backOffMaxRetries    uint64
+	backOffRetryInterval time.Duration
 }
 
 // NewBlocksInserterPacaya creates a new Pacaya instance.
@@ -49,6 +52,8 @@ func NewBlocksInserterPacaya(
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
+	backOffMaxRetries uint64,
+	backOffRetryInterval time.Duration,
 ) *Pacaya {
 	return &Pacaya{
 		rpc:                  rpc,
@@ -59,6 +64,8 @@ func NewBlocksInserterPacaya(
 		calldataFetcher:      calldataFetcher,
 		blobFetcher:          blobFetcher,
 		latestSeenProposalCh: latestSeenProposalCh,
+		backOffMaxRetries:    backOffMaxRetries,
+		backOffRetryInterval: backOffRetryInterval,
 	}
 }
 
@@ -179,6 +186,8 @@ func (i *Pacaya) InsertBlocks(
 				metadata,
 				allTxs,
 				parent,
+				i.backOffMaxRetries,
+				i.backOffRetryInterval,
 			)
 			if err != nil {
 				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
