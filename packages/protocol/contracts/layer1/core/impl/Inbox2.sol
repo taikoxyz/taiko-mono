@@ -186,15 +186,17 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    // TODO:
     function activate(
-        bytes32 _lastPacayaBlockHash,
-        ICheckpointStore.Checkpoint memory _checkpoint
+        bytes32 _lastPacayaBlockHash
+      
     )
         external
         onlyOwner
     {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+
+        
+
         if (activationTimestamp == 0) {
             activationTimestamp = uint40(block.timestamp);
         } else {
@@ -203,7 +205,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 ActivationPeriodExpired()
             );
         }
-        _activateInbox(_lastPacayaBlockHash, _checkpoint);
+
+        _activateInbox(_lastPacayaBlockHash);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -466,15 +469,16 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    /// @param _checkpoint The checkpoint of the last Pacaya block
     function _activateInbox(
-        bytes32 _lastPacayaBlockHash,
-        ICheckpointStore.Checkpoint memory _checkpoint
+        bytes32 _lastPacayaBlockHash
     )
         internal
     {
-        Transition memory transitionRecord;
-        transitionRecord.checkpointHash = _hashCheckpoint(_checkpoint);
+        ICheckpointStore.Checkpoint memory checkpoint;
+        checkpoint.blockHash = _lastPacayaBlockHash;
+
+        Transition memory transition;
+        transition.checkpointHash = _hashCheckpoint(checkpoint);
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -484,7 +488,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.lastProposalBlockId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransition(transitionRecord);
+        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
