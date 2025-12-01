@@ -23,14 +23,14 @@ library LibBondInstruction2 {
     /// @param _provingWindow The proving window in seconds
     /// @param _extendedProvingWindow The extended proving window in seconds
     /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _metadata Metadata with designated and actual prover addresses
+    /// @param _proofMetadata Proof metadata with designated and actual prover addresses
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function calculateBondInstructions(
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         IInbox2.Proposal memory _proposal,
-        IInbox2.TransitionMetadata memory _metadata
+        IInbox2.ProofMetadata memory _proofMetadata
     )
         internal
         view
@@ -51,8 +51,8 @@ library LibBondInstruction2 {
 
             // Check if bond instruction is needed
             bool needsBondInstruction = isWithinExtendedWindow
-                ? (_metadata.designatedProver != _metadata.actualProver)
-                : (_proposal.proposer != _metadata.actualProver);
+                ? (_proofMetadata.designatedProver != _proofMetadata.actualProver)
+                : (_proposal.proposer != _proofMetadata.actualProver);
 
             if (!needsBondInstruction) {
                 return new LibBonds.BondInstruction[](0);
@@ -65,8 +65,8 @@ library LibBondInstruction2 {
                 bondType: isWithinExtendedWindow
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _metadata.designatedProver : _proposal.proposer,
-                payee: _metadata.actualProver
+                payer: isWithinExtendedWindow ? _proofMetadata.designatedProver : _proposal.proposer,
+                payee: _proofMetadata.actualProver
             });
         }
     }

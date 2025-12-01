@@ -89,25 +89,25 @@ library LibHashSimple2 {
     /// @notice Simple hashing for arrays of Transitions with metadata
     /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
     /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
+    /// @param _proofMetadata The proof metadata array to hash
     /// @return The hash of the transitions array
     function hashTransitionsWithMetadata(
         IInbox2.Transition[] memory _transitions,
-        IInbox2.TransitionMetadata[] memory _metadata
+        IInbox2.ProofMetadata[] memory _proofMetadata
     )
         internal
         pure
         returns (bytes32)
     {
-        require(_transitions.length == _metadata.length, InconsistentLengths());
+        require(_transitions.length == _proofMetadata.length, InconsistentLengths());
         bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
 
         for (uint256 i; i < _transitions.length; ++i) {
             transitionHashes[i] = keccak256(
                 abi.encodePacked(
                     hashTransition(_transitions[i]),
-                    _metadata[i].designatedProver,
-                    _metadata[i].actualProver
+                    _proofMetadata[i].designatedProver,
+                    _proofMetadata[i].actualProver
                 )
             );
         }

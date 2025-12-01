@@ -89,6 +89,14 @@ interface IInbox2 {
         bytes32 parentProposalHash;
     }
 
+      /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
+    /// @dev Stores transition record hash, finalization deadline, and span.
+    struct TransitionMetadata {
+        bytes26 recordHash;
+        uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
+        uint8 span;
+    }
+
     /// @notice Represents a transition about the state transition of a proposal.
     /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
     /// support
@@ -105,8 +113,7 @@ interface IInbox2 {
 
     /// @notice Metadata about the proving of a transition
     /// @dev Separated from Transition to enable out-of-order proving
-    /// TODO(daniel): rename to ProofMetadata?
-    struct TransitionMetadata {
+    struct ProofMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
@@ -229,15 +236,14 @@ interface IInbox2 {
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
-    /// @return recordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
+    /// @return transitionMetadata_ The transition record metadata.
+    function getTransitionMetadata(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
+        returns (TransitionMetadata memory transitionMetadata_);
 
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
