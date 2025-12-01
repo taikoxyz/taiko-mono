@@ -68,7 +68,8 @@ contract InboxOptimized1A is Inbox2 {
         internal
         override
     {
-        FirstTransitionRecord storage firstRecord = _firstTransitionRecord[_startProposalId % _ringBufferSize];
+        FirstTransitionRecord storage firstRecord =
+            _firstTransitionRecord[_startProposalId % _ringBufferSize];
         // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
         // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
@@ -112,14 +113,11 @@ contract InboxOptimized1A is Inbox2 {
         override
         returns (TransitionRecord memory record_)
     {
-        FirstTransitionRecord storage firstRecord = _firstTransitionRecord[_proposalId % _ringBufferSize];
+        FirstTransitionRecord storage firstRecord =
+            _firstTransitionRecord[_proposalId % _ringBufferSize];
 
         if (firstRecord.proposalId != _proposalId) {
-            return TransitionRecord({
-                transitionHash: 0,
-                span: 0,
-                finalizationDeadline: 0
-            });
+            return TransitionRecord({ transitionHash: 0, span: 0, finalizationDeadline: 0 });
         } else if (firstRecord.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
             return firstRecord.transitionRecord;
         } else {

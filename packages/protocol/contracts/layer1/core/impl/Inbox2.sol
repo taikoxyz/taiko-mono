@@ -331,10 +331,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     finalizationDeadline: finalizationDeadline
                 });
 
-               
-
-
-                _storeTransitionRecord(startProposalId, input.parentTransitionHash, transitionRecord);
+                _storeTransitionRecord(
+                    startProposalId, input.parentTransitionHash, transitionRecord
+                );
 
                 _emitProvedEvent(
                     startProposalId,
@@ -355,11 +354,20 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    function _storeTransitionRecord(uint48 _startProposalId, bytes32 _parentTransitionHash, TransitionRecord memory _transitionRecord) internal virtual {
-         TransitionRecord storage record = _transitionRecordFor(_startProposalId, _parentTransitionHash);
+    function _storeTransitionRecord(
+        uint48 _startProposalId,
+        bytes32 _parentTransitionHash,
+        TransitionRecord memory _transitionRecord
+    )
+        internal
+        virtual
+    {
+        TransitionRecord storage record =
+            _transitionRecordFor(_startProposalId, _parentTransitionHash);
 
-        if (record.span >= _transitionRecord.span) 
+        if (record.span >= _transitionRecord.span) {
             return;
+        }
 
         record.transitionHash = _transitionRecord.transitionHash;
         record.span = _transitionRecord.span;
@@ -1025,14 +1033,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
-       function _transitionRecordFor(
+    function _transitionRecordFor(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         private
         view
-        returns (TransitionRecord storage )
+        returns (TransitionRecord storage)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
         return _transitionRecords[compositeKey];
