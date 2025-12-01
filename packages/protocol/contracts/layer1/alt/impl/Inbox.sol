@@ -400,7 +400,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         TransitionRecord memory _record
     )
         internal
-        virtual
     {
         FirstTransitionRecord storage firstRecord =
             _firstTransitionRecords[_startProposalId % _ringBufferSize];
@@ -572,7 +571,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _loadProposalHash(uint48 _proposalId)
         internal
         view
-        virtual
         returns (bytes32 proposalHash_)
     {
         return _proposalHashes[_proposalId % _ringBufferSize];
@@ -593,7 +591,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
         view
-        virtual
         returns (TransitionRecord memory record_)
     {
         FirstTransitionRecord storage firstRecord =
@@ -633,7 +630,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
@@ -649,7 +645,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _encodeProposedEventData(ProposedEventPayload memory _payload)
         internal
         pure
-        virtual
         returns (bytes memory)
     {
         return LibProposedEventEncoder.encode(_payload);
@@ -661,7 +656,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _encodeProvedEventData(ProvedEventPayload memory _payload)
         internal
         pure
-        virtual
         returns (bytes memory)
     {
         return LibProvedEventEncoder.encode(_payload);
@@ -673,7 +667,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _decodeProposeInput(bytes calldata _data)
         internal
         pure
-        virtual
         returns (ProposeInput memory)
     {
         return LibProposeInputDecoder.decode(_data);
@@ -685,7 +678,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _decodeProveInput(bytes calldata _data)
         internal
         pure
-        virtual
         returns (ProveInput[] memory)
     {
         return LibProveInputDecoder.decode(_data);
@@ -701,7 +693,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashCheckpoint(_checkpoint);
@@ -710,7 +701,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState) internal pure virtual returns (bytes32) {
+    function _hashCoreState(CoreState memory _coreState) internal pure  returns (bytes32) {
         return LibHashOptimized.hashCoreState(_coreState);
     }
 
@@ -720,7 +711,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashDerivation(Derivation memory _derivation)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashDerivation(_derivation);
@@ -729,7 +719,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
+    function _hashProposal(Proposal memory _proposal) internal pure  returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
     }
 
@@ -739,7 +729,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashTransition(Transition memory _transition)
         internal
         pure
-        virtual
         returns (bytes26)
     {
         return LibHashOptimized.hashTransition(_transition);
@@ -751,7 +740,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashBondInstructionHashChange(BondInstructionHashChange memory _hashChange)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashBondInstructionHashChange(_hashChange);
@@ -767,7 +755,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashBlobHashesArray(bytes32[] memory _blobHashes)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashBlobHashesArray(_blobHashes);
@@ -779,7 +766,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashProveInputArray(ProveInput[] memory _inputs)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashProveInputArray(_inputs);
@@ -791,7 +777,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashBondInstructionArray(LibBonds.BondInstruction[] memory _bondInstructions)
         internal
         pure
-        virtual
         returns (bytes32)
     {
         return LibHashOptimized.hashBondInstructionArray(_bondInstructions);
