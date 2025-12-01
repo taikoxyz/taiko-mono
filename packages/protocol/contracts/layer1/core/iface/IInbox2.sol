@@ -142,7 +142,8 @@ interface IInbox2 {
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
+        bytes32 bondInstructionsHashOld;
+        bytes32 bondInstructionsHashNew;
     }
 
     /// @notice Input data for the propose function

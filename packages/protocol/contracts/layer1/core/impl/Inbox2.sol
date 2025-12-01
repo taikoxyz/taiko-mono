@@ -867,9 +867,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                TransitionMetadata memory transitionMetadata =
-                    _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
-                _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                TransitionMetadata memory transitionMetadata = _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
 
                 if (transitionMetadata.recordHash == 0) break;
 
@@ -887,15 +885,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     TransitionRecordHashMismatchWithStorage()
                 );
 
-                uint256 bondInstructionLen = _input.transitionRecords[i].bondInstructions.length;
-                for (uint256 j; j < bondInstructionLen; ++j) {
-                    coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        coreState.bondInstructionsHash,
-                        _input.transitionRecords[i].bondInstructions[j]
-                    );
-                }
 
-                totalBondInstructionCount += bondInstructionLen;
+                totalBondInstructionCount += _input.transitionRecords[i].bondInstructions.length;
 
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = transitionMetadata.recordHash;
@@ -918,17 +909,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             if (totalBondInstructionCount > 0) {
                 bondInstructions_ = new LibBonds.BondInstruction[](totalBondInstructionCount);
-                uint256 bondInstructionIndex;
 
-                for (uint256 i; i < finalizedCount; ++i) {
-                    LibBonds.BondInstruction[] memory instructions =
-                    _input.transitionRecords[i].bondInstructions;
-                    uint256 instructionsLen = instructions.length;
-
-                    for (uint256 j; j < instructionsLen; ++j) {
-                        bondInstructions_[bondInstructionIndex++] = instructions[j];
-                    }
+                uint k;
+                for (uint i; i < lastFinalizedRecordIdx; ++i) {
+                    for (uint j; j < _input.transitionRecords[i].bondInstructions.length; ++j) {
+                    bondInstructions_[k++] = _input.transitionRecords[i].bondInstructions[j];
                 }
+                }
+               
             }
 
             return (coreState, bondInstructions_);
