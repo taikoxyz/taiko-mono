@@ -229,7 +229,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
               // Verify parentProposals[0] is the last proposal stored on-chain.
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
 
-            
+
             require(
                 _hashCoreState(input.coreState) == input.headProposalAndProof[0].coreStateHash,
                 InvalidState()
@@ -976,23 +976,25 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     {
         unchecked {
             require(_headProposalAndProof.length != 0, EmptyProposals());
+            Proposal memory headProposal = _headProposalAndProof[0];
             // First verify parentProposals[0] matches what's stored on-chain
-            headProposalHash_ = _checkProposalHash(_headProposalAndProof[0]);
+            headProposalHash_ = _checkProposalHash(headProposal);
 
             // Then verify it's actually the chain head
-            uint256 nextBufferSlot = (_headProposalAndProof[0].id + 1) % _ringBufferSize;
-            bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
+            uint256 nextBufferSlot = (headProposal.id + 1) % _ringBufferSize;
+            bytes32 nextProposalHash = _proposalHashes[nextBufferSlot];
 
-            if (storedNextProposalHash == bytes32(0)) {
+            if (nextProposalHash == bytes32(0)) {
                 // Next slot in the ring buffer is empty, only one proposal expected
                 require(_headProposalAndProof.length == 1, IncorrectProposalCount());
             } else {
                 // Next slot in the ring buffer is occupied, need to prove it contains a
                 // proposal with a smaller id
                 require(_headProposalAndProof.length == 2, IncorrectProposalCount());
-                require(_headProposalAndProof[1].id < _headProposalAndProof[0].id, InvalidLastProposalProof());
+                Proposal memory nextProposal = _headProposalAndProof[1];
+                require(headProposal.id < nextProposal.id, InvalidLastProposalProof());
                 require(
-                    storedNextProposalHash == _hashProposal(_headProposalAndProof[1]),
+                    nextProposalHash == _hashProposal(nextProposal),
                     NextProposalHashMismatch()
                 );
             }
