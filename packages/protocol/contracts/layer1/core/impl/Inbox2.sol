@@ -186,16 +186,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     ///      This function can be called multiple times to handle L1 reorgs where the last Pacaya
     ///      block may change after this function is called.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function activate(
-        bytes32 _lastPacayaBlockHash
-      
-    )
-        external
-        onlyOwner
-    {
+    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
-
-        
 
         if (activationTimestamp == 0) {
             activationTimestamp = uint40(block.timestamp);
@@ -469,11 +461,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function _activateInbox(
-        bytes32 _lastPacayaBlockHash
-    )
-        internal
-    {
+    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
         ICheckpointStore.Checkpoint memory checkpoint;
         checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -501,13 +489,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         _emitProposedEvent(proposal, derivation, coreState, new LibBonds2.BondInstruction[](0));
     }
 
-
     /// @dev Loads proposal hash from storage.
     /// @param _proposalId The proposal identifier.
     /// @return proposalHash_ The proposal hash.
-    function _loadProposalHash(
-        uint48 _proposalId
-    )
+    function _loadProposalHash(uint48 _proposalId)
         internal
         view
         virtual
@@ -563,12 +548,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     {
         return LibHashSimple2.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
-       
-   // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
     // Encoder and Decoder Functions
     // ---------------------------------------------------------------
-
-
 
     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
@@ -593,7 +576,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     {
         return abi.encode(_payload);
     }
-
 
     /// @dev Decodes proposal input data
     /// @param _data The encoded data
@@ -871,7 +853,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                     TransitionHashMismatchWithStorage()
                 );
 
-
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
 
@@ -884,14 +865,10 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
-                Transition memory lastFinalizedTransition =
-                    _input.transitions[lastFinalizedIdx];
+                Transition memory lastFinalizedTransition = _input.transitions[lastFinalizedIdx];
                 coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-                _syncToLayer2(
-                    _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
-                );
-
+                _syncToLayer2(_input.checkpoint, lastFinalizedTransition.checkpointHash, coreState);
             }
 
             return (coreState, bondInstructions_);
@@ -915,7 +892,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         private
     {
         // Rate limit: skip if minimum delay hasn't elapsed since last sync
-        if (block.timestamp < uint(_coreState.lastSyncTimestamp) + _minSyncDelay) return;
+        if (block.timestamp < uint256(_coreState.lastSyncTimestamp) + _minSyncDelay) return;
 
         _coreState.lastSyncTimestamp = uint40(block.timestamp);
 
@@ -937,8 +914,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
         _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
     }
-
-
 
     /// @dev Emits a Proposed event when a new proposal is submitted.
     ///      Packs all proposal data into a ProposedEventPayload struct to avoid stack depth issues.
