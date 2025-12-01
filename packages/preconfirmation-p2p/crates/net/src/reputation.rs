@@ -175,34 +175,6 @@ impl PeerReputationStore {
         self.banned.contains(peer)
     }
 
-    /// Checks if a peer is currently greylisted.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - A reference to the `PeerId` to check.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the peer is greylisted, `false` otherwise.
-    #[allow(dead_code)]
-    pub fn is_greylisted(&self, peer: &PeerId) -> bool {
-        self.greylisted.contains(peer)
-    }
-
-    /// Returns the current score of a peer, if available.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - A reference to the `PeerId` to check.
-    ///
-    /// # Returns
-    ///
-    /// An `Option<PeerScore>` containing the score if the peer is known, otherwise `None`.
-    #[allow(dead_code)]
-    pub fn score_of(&self, peer: &PeerId) -> Option<PeerScore> {
-        self.scores.get(peer).map(|p| p.score)
-    }
-
     /// Calculates the decayed score of a peer.
     ///
     /// Applies an exponential decay to the score based on the time elapsed
@@ -287,7 +259,6 @@ fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerSc
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn decayed(
     score: PeerScore,
     last: Instant,
@@ -379,17 +350,10 @@ impl RequestRateLimiter {
     }
 }
 
-// Defaults for rate limiting
-#[allow(dead_code)]
-pub const REQUEST_WINDOW: Duration = Duration::from_secs(10);
-#[allow(dead_code)]
-pub const MAX_REQUESTS_PER_WINDOW: u32 = 8;
-
 /// Pluggable scoring/gating backend used by the network driver.
 ///
 /// Implement this trait to delegate scoring, bans, and optional dial gating
 /// to a custom engine without changing public APIs.
-#[allow(dead_code)]
 pub trait ReputationBackend: Send {
     /// Applies an action to a peer and returns the resulting `ReputationEvent`.
     ///
@@ -441,10 +405,6 @@ pub mod reth_adapter {
 
     /// Reth peer identifier type (B512-backed).
     pub type RethPeerId = reth_network_peers::PeerId;
-    /// Reth node record type (IP + ports + id).
-    #[allow(dead_code)]
-    pub type RethNodeRecord = reth_network_peers::NodeRecord;
-
     /// Converts a libp2p `PeerId` (multihash) into an optional reth peer id.
     ///
     /// This conversion extracts the multihash digest. It returns `None` if the digest
@@ -458,7 +418,6 @@ pub mod reth_adapter {
     ///
     /// An `Option<RethPeerId>` containing the reth peer ID if conversion is successful,
     /// otherwise `None`.
-    #[allow(dead_code)]
     pub fn libp2p_to_reth(peer: &libp2p::PeerId) -> Option<RethPeerId> {
         let digest = peer.as_ref().digest();
         let bytes = digest;

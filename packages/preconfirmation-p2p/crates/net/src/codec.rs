@@ -9,7 +9,6 @@ use std::io;
 /// This generic codec uses SSZ (Simple Serialize) for serializing and deserializing
 /// messages over a request-response protocol. It's parameterized by the request and
 /// response types, both of which must implement `SimpleSerialize`.
-#[allow(dead_code)]
 pub struct SszCodec<Req, Resp> {
     _marker: std::marker::PhantomData<(Req, Resp)>,
 }
@@ -112,7 +111,6 @@ where
     }
 }
 
-#[allow(dead_code)]
 /// Reads an SSZ-serialized value from an asynchronous reader.
 ///
 /// The function first reads a 4-byte length prefix (little-endian `u32`),
@@ -144,7 +142,6 @@ async fn read_ssz<T: SimpleSerialize + Default, R: AsyncRead + Unpin + Send>(
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("ssz decode: {e}")))
 }
 
-#[allow(dead_code)]
 /// Writes an SSZ-serializable value to an asynchronous writer.
 ///
 /// The function first serializes the value using SSZ, then writes a 4-byte

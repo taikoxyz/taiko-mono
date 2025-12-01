@@ -121,8 +121,6 @@ pub struct NetworkDriver {
     kona_gater: kona_gossip::ConnectionGater,
 }
 
-// Legacy alias kept for clarity when reading older code; no longer used directly.
-#[allow(dead_code)]
 impl NetworkDriver {
     /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
     ///
