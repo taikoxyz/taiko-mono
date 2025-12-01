@@ -946,10 +946,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Verifies that parentProposals[0] is the current chain head
-    /// Requires 1 element if next slot empty, 2 if occupied with older proposal
-    /// @param _headProposalAndProof Array of 1-2 proposals to verify chain head
-    /// @return headProposalHash_ The hash of the head proposal
+    /// @dev Verifies that the first element of _headProposalAndProof is the current chain head.
+    ///      Uses ring buffer semantics: if the next slot is occupied, it must contain a proposal
+    ///      with a larger ID (meaning the buffer wrapped around and we're at the true head).
+    /// @param _headProposalAndProof Array of 1-2 proposals:
+    ///        - [0]: The claimed head proposal (must match on-chain storage)
+    ///        - [1]: Optional proof proposal (required only if next slot is occupied)
+    /// @return headProposalHash_ The verified hash of the head proposal
     function _verifyHeadProposal(Proposal[] memory _headProposalAndProof)
         private
         view
@@ -958,23 +961,25 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         unchecked {
             require(_headProposalAndProof.length != 0, EmptyProposals());
             Proposal memory headProposal = _headProposalAndProof[0];
-            // First verify parentProposals[0] matches what's stored on-chain
+
+            // Verify the claimed head proposal matches on-chain storage
             headProposalHash_ = _checkProposalHash(headProposal);
 
-            // Then verify it's actually the chain head
+            // Check the next buffer slot to confirm this is truly the chain head
             uint256 nextBufferSlot = (headProposal.id + 1) % _ringBufferSize;
-            bytes32 nextProposalHash = _proposalHashes[nextBufferSlot];
+            bytes32 nextSlotHash = _proposalHashes[nextBufferSlot];
 
-            if (nextProposalHash == bytes32(0)) {
-                // Next slot in the ring buffer is empty, only one proposal expected
+            if (nextSlotHash == 0) {
+                // Next slot is empty, so head proposal is definitely the latest
                 require(_headProposalAndProof.length == 1, IncorrectProposalCount());
             } else {
-                // Next slot in the ring buffer is occupied, need to prove it contains a
-                // proposal with a smaller id
+                // Next slot is occupied due to ring buffer wrap-around.
+                // Must prove the occupant has a larger ID (i.e., it's an older proposal
+                // that wrapped around, not a newer one after our claimed head).
                 require(_headProposalAndProof.length == 2, IncorrectProposalCount());
-                Proposal memory nextProposal = _headProposalAndProof[1];
-                require(headProposal.id < nextProposal.id, InvalidLastProposalProof());
-                require(nextProposalHash == _hashProposal(nextProposal), NextProposalHashMismatch());
+                Proposal memory proofProposal = _headProposalAndProof[1];
+                require(headProposal.id > proofProposal.id, InvalidLastProposalProof());
+                require(nextSlotHash == _hashProposal(proofProposal), NextProposalHashMismatch());
             }
         }
     }
@@ -988,20 +993,19 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     error CheckpointMismatch();
     error CheckpointNotProvided();
     error DeadlineExceeded();
+    error EmptyProofMetadata();
     error EmptyProposals();
     error EmptyProveInputs();
-    error EmptyProofMetadata();
-    error TooManyProofMetadata();
     error IncorrectProposalCount();
     error InvalidEndProposalId();
     error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
-    error InvalidSpan();
     error InvalidState();
     error NextProposalHashMismatch();
     error NotEnoughCapacity();
     error ProposalHashMismatch();
     error RingBufferSizeZero();
+    error TooManyProofMetadata();
     error TransitionHashMismatchWithStorage();
     error TransitionNotProvided();
     error UnprocessedForcedInclusionIsDue();
