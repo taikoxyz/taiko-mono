@@ -46,9 +46,9 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Struct for storing transition effective timestamp and hash.
-    /// @dev Stores transition record hash and finalization deadline.
-    struct TransitionRecordHashAndDeadline {
+    /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
+    /// @dev Stores transition record hash, finalization deadline, and span.
+    struct TransitionRecordHDS {
         bytes26 recordHash;
         uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
         uint8 span;
@@ -141,8 +141,7 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - value: The struct contains the finalization deadline and the hash of the TransitionRecord
-    mapping(bytes32 compositeKey => TransitionRecordHashAndDeadline hashAndDeadline) internal
-        _transitionRecordHashAndDeadline;
+    mapping(bytes32 compositeKey => TransitionRecordHDS recordHDS) internal _transitionRecordHDS;
 
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
@@ -317,15 +316,13 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
 
                 bytes32 compositeKey =
                     _composeTransitionKey(startProposalId, input.parentTransitionHash);
-                TransitionRecordHashAndDeadline storage hashAndDeadline =
-                    _transitionRecordHashAndDeadline[compositeKey];
+                TransitionRecordHDS storage recordHDS = _transitionRecordHDS[compositeKey];
 
-                if (hashAndDeadline.span >= span) continue; // TODO: emit an event?
+                if (recordHDS.span >= span) continue; // TODO: emit an event?
 
-                hashAndDeadline.recordHash = _hashTransitionRecord(transitionRecord);
-                hashAndDeadline.finalizationDeadline =
-                    uint40(block.timestamp + _finalizationGracePeriod);
-                hashAndDeadline.span = span;
+                recordHDS.recordHash = _hashTransitionRecord(transitionRecord);
+                recordHDS.finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
+                recordHDS.span = span;
 
                 // emit Proved(_encodeProvedEventData(payload));
             }
@@ -486,31 +483,31 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition record hash and deadline in storage.
     /// @param _proposalId The proposal identifier.
     /// @param _parentTransitionHash Hash of the parent transition for uniqueness.
-    /// @param _hashAndDeadline The finalization metadata to store alongside the hash.
+    /// @param _recordHDS The finalization metadata to store alongside the hash.
     function _storeTransitionRecord(
         uint48 _proposalId,
         bytes32 _parentTransitionHash,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHDS memory _recordHDS
     )
         internal
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        _storeTransitionRecord(_transitionRecordHashAndDeadline[compositeKey], _hashAndDeadline);
+        _storeTransitionRecord(_transitionRecordHDS[compositeKey], _recordHDS);
     }
 
     /// @dev Stores transition record hash and deadline in storage.
     /// @param _entry Storage pointer to the transition record to update.
-    /// @param _hashAndDeadline The new finalization metadata to store.
+    /// @param _recordHDS The new finalization metadata to store.
     function _storeTransitionRecord(
-        TransitionRecordHashAndDeadline storage _entry,
-        TransitionRecordHashAndDeadline memory _hashAndDeadline
+        TransitionRecordHDS storage _entry,
+        TransitionRecordHDS memory _recordHDS
     )
         internal
     {
         require(_entry.recordHash == 0, CannotOverwriteTransitionRecord());
-        _entry.recordHash = _hashAndDeadline.recordHash;
-        _entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
+        _entry.recordHash = _recordHDS.recordHash;
+        _entry.finalizationDeadline = _recordHDS.finalizationDeadline;
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -528,9 +525,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         returns (bytes26 recordHash_, uint48 finalizationDeadline_)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        TransitionRecordHashAndDeadline storage hashAndDeadline =
-            _transitionRecordHashAndDeadline[compositeKey];
-        return (hashAndDeadline.recordHash, hashAndDeadline.finalizationDeadline);
+        TransitionRecordHDS storage recordHDS = _transitionRecordHDS[compositeKey];
+        return (recordHDS.recordHash, recordHDS.finalizationDeadline);
     }
 
     /// @dev Validates proposal hash against stored value
