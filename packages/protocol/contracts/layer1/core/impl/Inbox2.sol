@@ -886,13 +886,14 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 Transition memory lastFinalizedTransition =   _input.transitions[lastFinalizedRecordIdx];
                  coreState.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
-                 
                 _syncCheckpoint(
-                    _input.checkpoint, lastFinalizedTransition.checkpointHash, coreState
+                    _input.checkpoint,
+                    lastFinalizedTransition.checkpointHash,
+                    coreState
                 );
 
-
-                _sendBondInstructionSignal(coreState);}
+                _sendBondInstructionSignal(coreState);
+            }
 
             return (coreState, bondInstructions_);
         }
@@ -930,7 +931,8 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
     function _sendBondInstructionSignal(CoreState memory _coreState) private {
         if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
         if (_coreState.lastFinalizedProposalId % 128!=0) return;
-            _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
+
+        _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
        
     }
 
