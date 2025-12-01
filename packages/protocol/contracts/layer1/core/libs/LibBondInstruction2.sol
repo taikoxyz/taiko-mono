@@ -35,24 +35,21 @@ library LibBondInstruction2 {
         returns (LibBonds2.BondInstruction[] memory bondInstructions_)
     {
         bondInstructions_ = new LibBonds2.BondInstruction[](_prposalProofMetadatas.length);
-        uint count;
+        uint256 count;
 
         for (uint256 i; i < _prposalProofMetadatas.length; ++i) {
             IInbox2.ProposalProofMetadata memory proofMetadata = _prposalProofMetadatas[i];
-             uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
-              if (block.timestamp <= windowEnd) continue;
-            
+            uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
+            if (block.timestamp <= windowEnd) continue;
 
-              uint256 extendedWindowEnd = proofMetadata.proposalTimestamp + _extendedProvingWindow;
+            uint256 extendedWindowEnd = proofMetadata.proposalTimestamp + _extendedProvingWindow;
             bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
-
-             bool needsBondInstruction = isWithinExtendedWindow
+            bool needsBondInstruction = isWithinExtendedWindow
                 ? (proofMetadata.actualProver != proofMetadata.designatedProver)
                 : (proofMetadata.actualProver != proofMetadata.proposer);
 
             if (!needsBondInstruction) continue;
-
 
             bondInstructions_[count++] = LibBonds2.BondInstruction({
                 proposalId: uint40(_startProposalId + i),
@@ -68,6 +65,5 @@ library LibBondInstruction2 {
         assembly {
             mstore(bondInstructions_, count)
         }
-
     }
 }
