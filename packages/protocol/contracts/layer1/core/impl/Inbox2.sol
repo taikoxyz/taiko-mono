@@ -833,7 +833,6 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
         private
         returns (CoreState memory coreState_, LibBonds.BondInstruction[] memory bondInstructions_)
     {
-
         //       /// @notice Input data for the propose function
         // struct ProposeInput {
         //     /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
@@ -868,25 +867,31 @@ contract Inbox2 is IInbox2, IForcedInclusionStore, EssentialContract {
                 if (proposalId >= coreState.nextProposalId) break;
 
                 // Try to finalize the current proposal
-                TransitionMetadata memory transitionMetadata = _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                TransitionMetadata memory transitionMetadata =
                     _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
+                _transitionMetadataFor(proposalId, coreState.lastFinalizedTransitionHash);
 
                 if (transitionMetadata.recordHash == 0) break;
 
                 if (i >= transitionCount) {
-                    require(currentTimestamp < transitionMetadata.finalizationDeadline, TransitionRecordNotProvided());
+                    require(
+                        currentTimestamp < transitionMetadata.finalizationDeadline,
+                        TransitionRecordNotProvided()
+                    );
                     break;
                 }
 
                 require(
-                    _hashTransitionRecord(_input.transitionRecords[i]) == transitionMetadata.recordHash,
+                    _hashTransitionRecord(_input.transitionRecords[i])
+                        == transitionMetadata.recordHash,
                     TransitionRecordHashMismatchWithStorage()
                 );
 
                 uint256 bondInstructionLen = _input.transitionRecords[i].bondInstructions.length;
                 for (uint256 j; j < bondInstructionLen; ++j) {
                     coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        coreState.bondInstructionsHash, _input.transitionRecords[i].bondInstructions[j]
+                        coreState.bondInstructionsHash,
+                        _input.transitionRecords[i].bondInstructions[j]
                     );
                 }
 
