@@ -946,11 +946,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
 
-                ++proposalId;
-
-                // Update state for successful finalization
+                proposalId += record.span;
+                finalizedCount +=1;
                 lastFinalizedIdx = i;
-                ++finalizedCount;
             }
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
