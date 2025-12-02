@@ -11,9 +11,9 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 
 /// @title SimpleTokenUnlock
-/// @notice Fully unlocks Taiko tokens 6 months after GRANT_TIMESTAMP.
+/// @notice Fully unlocks granted Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
-/// address. Token withdrawals are permitted only at the 6 month mark.
+/// address. Token withdrawals from the grant bucket are permitted only at the 6 month mark.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
 contract SimpleTokenUnlock is EssentialContract {
@@ -100,24 +100,36 @@ contract SimpleTokenUnlock is EssentialContract {
     /// @notice Withdraws tokens by the recipient.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
-    function withdraw(
-        address _to,
-        uint256 _amount
-    )
-        external
-        onlyRecipient
-        nonReentrant
-    {
-        if (_to == address(0)) _to = recipient;
-        if (_amount == 0) _amount = amountWithdrawable();
-        require(_amount <= amountWithdrawable(), NOT_WITHDRAWABLE());
+    function withdraw(address _to, uint256 _amount)
+    external
+    onlyRecipient
+    nonReentrant
+{
+    if (_to == address(0)) _to = recipient;
+    if (_amount == 0) _amount = amountWithdrawable();
 
-        emit TokenWithdrawn(_to, _amount);
-        IERC20(TAIKO_TOKEN).safeTransfer(_to, _amount);
-        // only the portion coming from the grant bucket should reduce the grant counter; extra deposits don't touch amountGranted
-        uint256 grantedReduction = _amount.min(amountGranted);
-        amountGranted -= grantedReduction;
+    uint256 available = amountWithdrawable();
+    require(_amount <= available, NOT_WITHDRAWABLE());
+
+    IERC20 tko = IERC20(TAIKO_TOKEN);
+    uint256 balance = tko.balanceOf(address(this));
+
+    // extra = any balance above the grant bucket
+    uint256 extra = balance > amountGranted ? balance - amountGranted : 0;
+
+    // first consume from extra, then from the grant bucket
+    uint256 grantPortion = _amount > extra ? _amount - extra : 0;
+    if (grantPortion > 0) {
+        // Safety guard if something weird happened to balance/accounting
+        uint256 reduction = grantPortion > amountGranted
+            ? amountGranted
+            : grantPortion;
+        amountGranted -= reduction;
     }
+
+    emit TokenWithdrawn(_to, _amount);
+    tko.safeTransfer(_to, _amount);
+}
 
     /// @notice Changes the recipient address.
     /// @param _newRecipient The new recipient address.
@@ -137,11 +149,19 @@ contract SimpleTokenUnlock is EssentialContract {
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        IERC20 tko = IERC20(TAIKO_TOKEN);
-        uint256 balance = tko.balanceOf(address(this));
-        uint256 locked = _getAmountLocked();
-        return balance.max(locked) - locked;
+    IERC20 tko = IERC20(TAIKO_TOKEN);
+    uint256 balance = tko.balanceOf(address(this));
+
+    // pre-cliff: only tokens above the granted amount are withdrawable
+    if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
+        if (balance > amountGranted) {
+            return balance - amountGranted;
+        }
+        return 0;
     }
+    // post-cliff: all tokens in the contract are withdrawable
+    return balance;
+}
 
     function _getAmountLocked() internal view returns (uint256) {
         if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
