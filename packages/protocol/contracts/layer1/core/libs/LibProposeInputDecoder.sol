@@ -24,10 +24,8 @@ library LibProposeInputDecoder {
     }
 
     /// @notice Decodes propose data using compact packing.
-    /// @dev Copies calldata into memory to operate on packed bytes.
-    function decode(bytes calldata _data) internal pure returns (IInbox.ProposeInput memory input_) {
-        bytes memory data = _data;
-        uint256 ptr = P.dataPtr(data);
+    function decode(bytes memory _data) internal pure returns (IInbox.ProposeInput memory input_) {
+        uint256 ptr = P.dataPtr(_data);
         (input_.deadline, ptr) = P.unpackUint48(ptr);
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);

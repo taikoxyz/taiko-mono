@@ -42,10 +42,8 @@ library LibProveInputDecoder {
     }
 
     /// @notice Decodes prove input data using compact packing.
-    /// @dev Copies calldata into memory to operate on packed bytes.
-    function decode(bytes calldata _data) internal pure returns (IInbox.ProveInput memory input_) {
-        bytes memory data = _data;
-        uint256 ptr = P.dataPtr(data);
+    function decode(bytes memory _data) internal pure returns (IInbox.ProveInput memory input_) {
+        uint256 ptr = P.dataPtr(_data);
 
         uint16 proposalsLength;
         (proposalsLength, ptr) = P.unpackUint16(ptr);
