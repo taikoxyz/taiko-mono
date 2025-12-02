@@ -32,7 +32,9 @@ contract LibProveInputDecoderTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x5678), actualProver: address(0x9ABC)
+            designatedProver: address(0x5678),
+            actualProver: address(0x9ABC),
+            anchorAccessList: new uint64[](0)
         });
 
         // Create ProveInput (no endBlockHeader field)
@@ -114,10 +116,14 @@ contract LibProveInputDecoderTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x3333), actualProver: address(0x5555)
+            designatedProver: address(0x3333),
+            actualProver: address(0x5555),
+            anchorAccessList: new uint64[](0)
         });
         metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: address(0x4444), actualProver: address(0x6666)
+            designatedProver: address(0x4444),
+            actualProver: address(0x6666),
+            anchorAccessList: new uint64[](0)
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -187,7 +193,9 @@ contract LibProveInputDecoderTest is Test {
 
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(0x5678), actualProver: address(0x9DEF)
+            designatedProver: address(0x5678),
+            actualProver: address(0x9DEF),
+            anchorAccessList: new uint64[](0)
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({

@@ -153,6 +153,6 @@ interface ICodec {
         IInbox.TransitionMetadata[] calldata _metadata
     )
         external
-        pure
+        view
         returns (bytes32);
 }

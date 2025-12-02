@@ -110,6 +110,8 @@ interface IInbox {
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
+        /// @notice The anchor access list
+        uint64[] anchorAccessList;
     }
 
     /// @notice Represents a record of a transition with additional metadata.

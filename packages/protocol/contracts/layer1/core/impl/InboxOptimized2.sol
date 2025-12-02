@@ -171,7 +171,7 @@ contract InboxOptimized2 is InboxOptimized1 {
         TransitionMetadata[] memory _metadata
     )
         internal
-        pure
+        view
         override
         returns (bytes32)
     {

@@ -137,6 +137,10 @@ contract LibBondInstructionTest is Test {
         pure
         returns (IInbox.TransitionMetadata memory)
     {
-        return IInbox.TransitionMetadata({ designatedProver: _designated, actualProver: _actual });
+        return IInbox.TransitionMetadata({
+            designatedProver: _designated,
+            actualProver: _actual,
+            anchorAccessList: new uint64[](0)
+        });
     }
 }

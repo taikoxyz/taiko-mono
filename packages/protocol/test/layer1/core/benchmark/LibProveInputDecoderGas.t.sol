@@ -202,7 +202,8 @@ contract LibProveInputDecoderGas is Test {
         for (uint256 i = 0; i < _proposalCount; i++) {
             input.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
-                actualProver: address(uint160(0x3000 + i))
+                actualProver: address(uint160(0x3000 + i)),
+                anchorAccessList: new uint64[](0)
             });
         }
     }

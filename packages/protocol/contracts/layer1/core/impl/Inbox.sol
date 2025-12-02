@@ -812,7 +812,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         TransitionMetadata[] memory _metadata
     )
         internal
-        pure
+        view
         virtual
         returns (bytes32)
     {

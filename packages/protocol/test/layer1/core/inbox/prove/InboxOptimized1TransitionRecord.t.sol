@@ -527,7 +527,9 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         returns (IInbox.TransitionMetadata memory)
     {
         return IInbox.TransitionMetadata({
-            designatedProver: designatedProver, actualProver: actualProver
+            designatedProver: designatedProver,
+            actualProver: actualProver,
+            anchorAccessList: new uint64[](0)
         });
     }
 

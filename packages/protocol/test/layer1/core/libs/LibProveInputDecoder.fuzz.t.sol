@@ -62,7 +62,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: designatedProver, actualProver: actualProver
+            designatedProver: designatedProver,
+            actualProver: actualProver,
+            anchorAccessList: new uint64[](0)
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
@@ -135,7 +137,8 @@ contract LibProveInputDecoderFuzzTest is Test {
         for (uint256 i = 0; i < count; i++) {
             metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
-                actualProver: address(uint160(0x3000 + i))
+                actualProver: address(uint160(0x3000 + i)),
+                anchorAccessList: new uint64[](0)
             });
         }
 
@@ -238,10 +241,16 @@ contract LibProveInputDecoderFuzzTest is Test {
 
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
-        metadata[0] =
-            IInbox.TransitionMetadata({ designatedProver: proposer1, actualProver: proposer2 });
-        metadata[1] =
-            IInbox.TransitionMetadata({ designatedProver: proposer2, actualProver: proposer1 });
+        metadata[0] = IInbox.TransitionMetadata({
+            designatedProver: proposer1,
+            actualProver: proposer2,
+            anchorAccessList: new uint64[](0)
+        });
+        metadata[1] = IInbox.TransitionMetadata({
+            designatedProver: proposer2,
+            actualProver: proposer1,
+            anchorAccessList: new uint64[](0)
+        });
 
         IInbox.ProveInput memory original = IInbox.ProveInput({
             proposals: proposals, transitions: transitions, metadata: metadata
@@ -289,7 +298,9 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: address(type(uint160).max), actualProver: address(type(uint160).max)
+            designatedProver: address(type(uint160).max),
+            actualProver: address(type(uint160).max),
+            anchorAccessList: new uint64[](0)
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
@@ -342,7 +353,8 @@ contract LibProveInputDecoderFuzzTest is Test {
         for (uint256 i = 0; i < transitionCount; i++) {
             proveInput.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
-                actualProver: address(uint160(0x3000 + i))
+                actualProver: address(uint160(0x3000 + i)),
+                anchorAccessList: new uint64[](0)
             });
         }
     }

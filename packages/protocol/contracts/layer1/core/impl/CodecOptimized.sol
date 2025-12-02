@@ -158,7 +158,7 @@ contract CodecOptimized is ICodec {
         IInbox.TransitionMetadata[] calldata _metadata
     )
         external
-        pure
+        view
         returns (bytes32)
     {
         return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadata);

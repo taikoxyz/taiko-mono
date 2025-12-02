@@ -228,7 +228,7 @@ library LibHashOptimized {
         IInbox.TransitionMetadata[] memory _metadata
     )
         internal
-        pure
+        view
         returns (bytes32)
     {
         require(_transitions.length == _metadata.length, InconsistentLengths());
@@ -346,17 +346,60 @@ library LibHashOptimized {
         IInbox.Transition memory _transition,
         IInbox.TransitionMetadata memory _metadata
     )
-        private
-        pure
+        // private
+        internal
+        view
         returns (bytes32)
     {
+        bytes32 anchorAccessListHash = hashAnchorAccessList(_metadata.anchorAccessList);
         return EfficientHashLib.hash(
             _transition.proposalHash,
             _transition.parentTransitionHash,
             hashCheckpoint(_transition.checkpoint),
             bytes32(uint256(uint160(_metadata.designatedProver))),
-            bytes32(uint256(uint160(_metadata.actualProver)))
+            bytes32(uint256(uint160(_metadata.actualProver))),
+            anchorAccessListHash
         );
+    }
+
+    /// @notice Optimized hashing for anchor access list
+    /// @dev Efficiently hashes an array of anchor access list items with explicit length inclusion
+    /// @param _anchorAccessList The anchor access list to hash
+    /// @return The hash of the anchor access list
+    function hashAnchorAccessList(uint64[] memory _anchorAccessList)
+        internal
+        view
+        returns (bytes32)
+    {
+        unchecked {
+            uint256 length = _anchorAccessList.length;
+            if (length == 0) {
+                return EMPTY_BYTES_HASH;
+            }
+
+            if (length == 1) {
+                bytes32 anchorBlockHash = blockhash(_anchorAccessList[0]);
+                return EfficientHashLib.hash(bytes32(length), anchorBlockHash);
+            }
+
+            if (length == 2) {
+                bytes32 blockHash0 = blockhash(_anchorAccessList[0]);
+                bytes32 blockHash1 = blockhash(_anchorAccessList[1]);
+                return EfficientHashLib.hash(bytes32(length), blockHash0, blockHash1);
+            }
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(length));
+
+            for (uint256 i; i < length; ++i) {
+                bytes32 blockHash = blockhash(_anchorAccessList[i]);
+                EfficientHashLib.set(buffer, i + 1, blockHash);
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
     }
 
     // ---------------------------------------------------------------
