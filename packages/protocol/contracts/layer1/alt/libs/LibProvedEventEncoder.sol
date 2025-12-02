@@ -29,13 +29,10 @@ library LibProvedEventEncoder {
         uint256 ptr = P.dataPtr(encoded_);
 
         // Encode startProposalId (uint40)
-        ptr = P.packUint48(ptr, _payload.startProposalId);
+        ptr = P.packUint48(ptr, _payload.proposalId);
 
         // Encode parentTransitionHash
         ptr = P.packBytes32(ptr, _payload.parentTransitionHash);
-
-        // Encode span (uint8)
-        ptr = P.packUint8(ptr, _payload.span);
 
         // Encode finalizationDeadline (uint40)
         ptr = P.packUint48(ptr, _payload.finalizationDeadline);
@@ -72,13 +69,10 @@ library LibProvedEventEncoder {
         // Decode startProposalId (uint40)
         uint48 temp;
         (temp, ptr) = P.unpackUint48(ptr);
-        payload_.startProposalId = uint40(temp);
+        payload_.proposalId = uint40(temp);
 
         // Decode parentTransitionHash
         (payload_.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
-
-        // Decode span (uint8)
-        (payload_.span, ptr) = P.unpackUint8(ptr);
 
         // Decode finalizationDeadline (uint40)
         (temp, ptr) = P.unpackUint48(ptr);
@@ -121,7 +115,6 @@ library LibProvedEventEncoder {
             // Fixed size: 121 bytes
             // startProposalId: 6
             // parentTransitionHash: 32
-            // span: 1
             // finalizationDeadline: 6
             // Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // bondInstructions array length: 2

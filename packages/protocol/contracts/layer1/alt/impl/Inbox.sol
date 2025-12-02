@@ -323,24 +323,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
             ProveInput memory input;
-            uint8 span;
 
             for (uint256 i; i < inputs.length; ++i) {
                 input = inputs[i];
-                require(input.prposalProofMetadatas.length != 0, EmptyProofMetadata());
-                require(input.prposalProofMetadatas.length <= 24, TooManyProofMetadata());
-                span = uint8(input.prposalProofMetadatas.length);
-                require(input.endProposal.id >= span, InvalidEndProposalId());
-                _checkProposalHash(input.endProposal);
-
-                uint40 startProposalId = input.endProposal.id - span;
+                _checkProposalHash(input.proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
                     LibBondInstruction.calculateBondInstructions(
                         _provingWindow,
                         _extendedProvingWindow,
-                        startProposalId,
-                        input.prposalProofMetadatas
+                        input.proposal.id,
+                        input.proofMetadata
                     );
                 Transition memory transition = Transition({
                     bondInstructionsHash: _hashBondInstructionArray(bondInstructions),
@@ -349,37 +342,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 TransitionRecord memory record = TransitionRecord({
                     transitionHash: _hashTransition(transition),
-                    span: span,
                     finalizationDeadline: finalizationDeadline
                 });
 
-                // Aggressive head forwarding
-                uint40 endProposalId = input.endProposal.id;
-                for (uint256 j; j < _maxHeadForwardingCount; ++j) {
-                    TransitionRecord memory head =
-                        _loadTransitionRecord(endProposalId, record.transitionHash);
-                    if (head.span == 0) break;
 
-                    endProposalId += head.span;
-                    record.transitionHash = head.transitionHash;
-                    record.span += head.span;
-                }
-
-                _storeTransitionRecord(startProposalId, input.parentTransitionHash, record);
+                _storeTransitionRecord(input.proposal.id, input.parentTransitionHash, record);
 
                 _emitProvedEvent(
-                    startProposalId,
-                    input.parentTransitionHash,
-                    span,
+                    input,
                     finalizationDeadline,
-                    input.checkpoint,
                     bondInstructions
                 );
             }
 
             uint256 proposalAge;
-            if (inputs.length == 1 && span == 1) {
-                proposalAge = block.timestamp - input.endProposal.timestamp;
+            if (inputs.length == 1) {
+                proposalAge = block.timestamp - inputs[0].proposal.timestamp;
             }
 
             _proofVerifier.verifyProof(proposalAge, _hashProveInputArray(inputs), _proof);
@@ -413,20 +391,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.proposalId = _startProposalId;
             firstRecord.partialParentTransitionHash = partialParentHash;
             firstRecord.record = _record;
-        } else if (firstRecord.partialParentTransitionHash == partialParentHash) {
-            // Only update if new span is larger
-            if (_record.span > firstRecord.record.span) {
-                firstRecord.record = _record;
-            }
-        } else {
+        } else if (firstRecord.partialParentTransitionHash != partialParentHash) {
             // Collision: fallback to composite key mapping
             TransitionRecord storage record = _recordFor(_startProposalId, _parentTransitionHash);
 
-            if (record.span >= _record.span) return;
-
+            if (record.transitionHash !=0) {
             record.transitionHash = _record.transitionHash;
-            record.span = _record.span;
             record.finalizationDeadline = _record.finalizationDeadline;
+            }
         }
     }
 
@@ -593,7 +565,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _firstTransitionRecords[_proposalId % _ringBufferSize];
 
         if (firstRecord.proposalId != _proposalId) {
-            return TransitionRecord({ transitionHash: 0, span: 0, finalizationDeadline: 0 });
+            return TransitionRecord({ transitionHash: 0, finalizationDeadline: 0 });
         } else if (firstRecord.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
             return firstRecord.record;
         } else {
@@ -903,7 +875,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 coreState.lastFinalizedProposalId = proposalId;
                 coreState.lastFinalizedTransitionHash = record.transitionHash;
 
-                proposalId += record.span;
+                proposalId += 1;
                 finalizedCount += 1;
                 lastFinalizedIdx = i;
             }
@@ -985,28 +957,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Emits a Proved event when a transition proof is submitted.
     ///      Contains all data needed by off-chain indexers to track proof status.
-    /// @param _startProposalId The first proposal ID in the proven range
-    /// @param _parentTransitionHash The hash of the parent transition this proof builds upon
-    /// @param _span Number of consecutive proposals covered by this proof
+    /// @param _input The prove input
     /// @param _finalizationDeadline Timestamp after which this transition can be finalized
-    /// @param _checkpoint The L2 checkpoint state being proven
     /// @param _bondInstructions Calculated bond instructions for the proven proposals
     function _emitProvedEvent(
-        uint40 _startProposalId,
-        bytes32 _parentTransitionHash,
-        uint8 _span,
+        ProveInput memory _input,
         uint40 _finalizationDeadline,
-        ICheckpointStore.Checkpoint memory _checkpoint,
         LibBonds.BondInstruction[] memory _bondInstructions
     )
         private
     {
         ProvedEventPayload memory payload = ProvedEventPayload({
-            startProposalId: _startProposalId,
-            parentTransitionHash: _parentTransitionHash,
-            span: _span,
+            proposalId: _input.proposal.id,
+            parentTransitionHash: _input.parentTransitionHash,
             finalizationDeadline: _finalizationDeadline,
-            checkpoint: _checkpoint,
+            checkpoint: _input.checkpoint,
             bondInstructions: _bondInstructions
         });
         emit Proved(_encodeProvedEventData(payload));
@@ -1084,7 +1049,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error EmptyProposals();
     error EmptyProveInputs();
     error IncorrectProposalCount();
-    error InvalidEndProposalId();
+    error InvalidproposalId();
     error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
     error InvalidState();

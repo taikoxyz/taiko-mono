@@ -103,8 +103,7 @@ interface IInbox {
     /// @dev Stores transition record hash, finalization deadline, and span.
     struct TransitionRecord {
         bytes26 transitionHash;
-        uint8 span;
-        uint40 finalizationDeadline; // TODO(daniel): use uint40 for all timestamps
+        uint40 finalizationDeadline; 
     }
 
     /// @notice Metadata about the proving of a transition
@@ -169,9 +168,9 @@ interface IInbox {
     }
 
     struct ProveInput {
-        Proposal endProposal;
+        Proposal proposal;
         ICheckpointStore.Checkpoint checkpoint;
-        ProposalProofMetadata[] prposalProofMetadatas;
+        ProposalProofMetadata proofMetadata;
         bytes32 parentTransitionHash;
     }
 
@@ -190,10 +189,8 @@ interface IInbox {
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
         /// @notice The proposal ID that was proven.
-        uint40 startProposalId;
+        uint40 proposalId;
         bytes32 parentTransitionHash;
-        /// @notice The transition record containing additional metadata.
-        uint8 span;
         uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
         LibBonds.BondInstruction[] bondInstructions;

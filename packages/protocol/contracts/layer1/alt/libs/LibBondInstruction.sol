@@ -27,43 +27,37 @@ library LibBondInstruction {
     function calculateBondInstructions(
         uint40 _provingWindow,
         uint40 _extendedProvingWindow,
-        uint40 _startProposalId,
-        IInbox.ProposalProofMetadata[] memory _prposalProofMetadatas
+        uint40 _proposalId,
+        IInbox.ProposalProofMetadata memory _proofMetadata
     )
         internal
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        bondInstructions_ = new LibBonds.BondInstruction[](_prposalProofMetadatas.length);
-        uint256 count;
+        bondInstructions_ = new LibBonds.BondInstruction[](1);
 
-        for (uint256 i; i < _prposalProofMetadatas.length; ++i) {
-            IInbox.ProposalProofMetadata memory proofMetadata = _prposalProofMetadatas[i];
-            uint256 windowEnd = proofMetadata.proposalTimestamp + _provingWindow;
-            if (block.timestamp <= windowEnd) continue;
+            uint256 windowEnd = _proofMetadata.proposalTimestamp + _provingWindow;
+            if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-            uint256 extendedWindowEnd = proofMetadata.proposalTimestamp + _extendedProvingWindow;
+            uint256 extendedWindowEnd = _proofMetadata.proposalTimestamp + _extendedProvingWindow;
             bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
             bool needsBondInstruction = isWithinExtendedWindow
-                ? (proofMetadata.actualProver != proofMetadata.designatedProver)
-                : (proofMetadata.actualProver != proofMetadata.proposer);
+                ? (_proofMetadata.actualProver != _proofMetadata.designatedProver)
+                : (_proofMetadata.actualProver != _proofMetadata.proposer);
 
-            if (!needsBondInstruction) continue;
+            if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
-            bondInstructions_[count++] = LibBonds.BondInstruction({
-                proposalId: uint40(_startProposalId + i),
+ bondInstructions_ = new LibBonds.BondInstruction[](1);
+bondInstructions_[0] = LibBonds.BondInstruction({
+                proposalId: _proposalId,
                 bondType: isWithinExtendedWindow
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
                 payer: isWithinExtendedWindow
-                    ? proofMetadata.designatedProver
-                    : proofMetadata.proposer,
-                payee: proofMetadata.actualProver
+                    ? _proofMetadata.designatedProver
+                    : _proofMetadata.proposer,
+                payee: _proofMetadata.actualProver
             });
-        }
-        assembly {
-            mstore(bondInstructions_, count)
-        }
     }
 }
