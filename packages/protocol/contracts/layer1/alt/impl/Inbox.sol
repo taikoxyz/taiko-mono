@@ -371,7 +371,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 _parentTransitionHash,
         TransitionRecord memory _record
     )
-        internal
+        private
     {
         FirstTransitionRecord storage firstRecord =
             _firstTransitionRecords[_startProposalId % _ringBufferSize];
@@ -495,7 +495,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Internal Functions
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @notice Calculates bond instructions based on proof timing and prover identity
@@ -513,7 +513,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint40 _proposalId,
         IInbox.ProposalProofMetadata memory _proofMetadata
     )
-        internal
+        private
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
@@ -547,7 +547,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Can be called multiple times to handle L1 reorgs or correct incorrect values.
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
+    function _activateInbox(bytes32 _lastPacayaBlockHash) private {
         ICheckpointStore.Checkpoint memory checkpoint;
         checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -578,7 +578,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads proposal hash from storage.
     /// @param _proposalId The proposal identifier.
     /// @return proposalHash_ The proposal hash.
-    function _loadProposalHash(uint48 _proposalId) internal view returns (bytes32 proposalHash_) {
+    function _loadProposalHash(uint48 _proposalId) private view returns (bytes32 proposalHash_) {
         return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
@@ -595,7 +595,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
-        internal
+        private
         view
         returns (TransitionRecord memory record_)
     {
@@ -616,7 +616,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal to validate
     /// @return proposalHash_ The computed hash of the proposal
     function _checkProposalHash(Proposal memory _proposal)
-        internal
+        private
         view
         returns (bytes32 proposalHash_)
     {
@@ -634,22 +634,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
-        internal
+        private
         pure
         returns (bytes32)
     {
         return LibHashOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
-    // ---------------------------------------------------------------
-    // Encoder and Decoder Functions
-    // ---------------------------------------------------------------
-
     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
     function _encodeProposedEventData(ProposedEventPayload memory _payload)
-        internal
+        private
         pure
         returns (bytes memory)
     {
@@ -660,7 +656,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _payload The ProvedEventPayload object
     /// @return The encoded data
     function _encodeProvedEventData(ProvedEventPayload memory _payload)
-        internal
+        private
         pure
         returns (bytes memory)
     {
