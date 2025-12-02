@@ -19,7 +19,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -50,8 +49,8 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1*time.Hour,
 		s.BlobServer.URL(),
 		nil,
-		flags.BackOffMaxRetries.Value,
-		flags.BackOffRetryInterval.Value,
+		1,
+		time.Millisecond,
 	)
 	s.Nil(err)
 	s.s = syncer
