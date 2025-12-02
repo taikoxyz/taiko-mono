@@ -60,6 +60,7 @@ pub trait ValidationAdapter: Send + Sync {
 pub struct LocalValidationAdapter;
 
 impl ValidationAdapter for LocalValidationAdapter {
+    /// Validate a signed commitment gossip message using local signature checks.
     fn validate_gossip_commitment(
         &self,
         _from: &PeerId,
@@ -68,6 +69,7 @@ impl ValidationAdapter for LocalValidationAdapter {
         verify_signed_commitment(msg).map(|_| ()).map_err(|e| e.to_string())
     }
 
+    /// Validate a raw txlist gossip message using local SSZ/size rules.
     fn validate_gossip_raw_txlist(
         &self,
         _from: &PeerId,
@@ -76,6 +78,7 @@ impl ValidationAdapter for LocalValidationAdapter {
         validate_raw_txlist_gossip(msg).map_err(|e| e.to_string())
     }
 
+    /// Validate an inbound commitments response (SSZ + size caps).
     fn validate_commitments_response(
         &self,
         _from: &PeerId,
@@ -84,6 +87,7 @@ impl ValidationAdapter for LocalValidationAdapter {
         validate_commitments_response(resp).map_err(|e| e.to_string())
     }
 
+    /// Validate an inbound raw txlist response (hash match + size caps).
     fn validate_raw_txlist_response(
         &self,
         _from: &PeerId,
@@ -92,6 +96,7 @@ impl ValidationAdapter for LocalValidationAdapter {
         validate_raw_txlist_response(resp).map_err(|e| e.to_string())
     }
 
+    /// Validate an inbound head response (shape/limits only; no fork choice implied).
     fn validate_head_response(
         &self,
         _from: &PeerId,
