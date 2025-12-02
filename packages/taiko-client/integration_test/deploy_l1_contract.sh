@@ -12,6 +12,7 @@ cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
     --ffi \
     -vvvvv \
     --private-key "$PRIVATE_KEY" \
+    --timeout 60 \
     --block-gas-limit 200000000 &&
   cd -
 
@@ -35,4 +36,5 @@ cd ../protocol &&
     --ffi \
     -vvvvv \
     --private-key "$PRIVATE_KEY" \
+    --timeout 60 \
     --block-gas-limit 200000000
