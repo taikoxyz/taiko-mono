@@ -243,7 +243,6 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
         assertEq(state.bondInstructionsHash, bytes32(0), "bond hash");
-        assertEq(proved.transitionRecord.span, 3, "span");
     }
 
     /// forge-config: default.isolate = true
@@ -288,7 +287,6 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p5.proposal.id, "finalized id");
         assertEq(state.bondInstructionsHash, bytes32(0), "bond hash");
-        assertEq(proved.transitionRecord.span, 5, "span");
     }
 
     function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {

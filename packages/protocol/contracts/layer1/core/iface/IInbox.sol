@@ -108,13 +108,11 @@ interface IInbox {
 
     /// @notice Represents a record of a transition with additional metadata.
     struct TransitionRecord {
-        /// @notice The span indicating how many proposals this transition record covers.
-        uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the span.
+        /// @notice The hash of the last transition in the batch.
         bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the span.
+        /// @notice The hash of the last checkpoint in the batch.
         bytes32 checkpointHash;
     }
 

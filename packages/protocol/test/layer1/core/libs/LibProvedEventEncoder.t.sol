@@ -35,7 +35,6 @@ contract LibProvedEventEncoderTest is Test {
                 })
             }),
             transitionRecord: IInbox.TransitionRecord({
-                span: 2,
                 bondInstructions: instructions,
                 transitionHash: bytes32(uint256(5)),
                 checkpointHash: bytes32(uint256(6))
@@ -85,7 +84,6 @@ contract LibProvedEventEncoderTest is Test {
                 })
             }),
             transitionRecord: IInbox.TransitionRecord({
-                span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: bytes32(uint256(104)),
                 checkpointHash: bytes32(uint256(105))
@@ -112,7 +110,6 @@ contract LibProvedEventEncoderTest is Test {
 
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded1);
         assertEq(decoded.transitionRecord.bondInstructions.length, 0, "empty bond instructions");
-        assertEq(decoded.transitionRecord.span, 1, "span");
         assertEq(decoded.coreState.lastCheckpointTimestamp, payload.coreState.lastCheckpointTimestamp, "checkpoint ts");
     }
 }

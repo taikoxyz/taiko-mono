@@ -29,7 +29,6 @@ library LibProvedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
 
-        ptr = P.packUint8(ptr, _payload.transitionRecord.span);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
 
@@ -70,7 +69,6 @@ library LibProvedEventEncoder {
         (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
 
-        (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
         (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
 
@@ -110,17 +108,17 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 341 bytes
+            // Fixed size: 340 bytes
             // proposalId: 6
             // Transition: 134
-            // TransitionRecord (without bond instructions): span(1) + transitionHash(32) +
-            //   checkpointHash(32) = 65
+            // TransitionRecord (without bond instructions): transitionHash(32) +
+            //   checkpointHash(32) = 64
             // Metadata: 40
             // Bond instructions length: 2
             // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
             //            lastFinalizedTimestamp(6) + lastCheckpointTimestamp(6) +
             //            lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 94
-            size_ = 341 + (_bondInstructionsCount * 47);
+            size_ = 340 + (_bondInstructionsCount * 47);
         }
     }
 

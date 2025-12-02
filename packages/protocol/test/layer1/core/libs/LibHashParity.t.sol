@@ -69,7 +69,6 @@ contract LibHashParityTest is Test {
         });
 
         IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
-            span: 1,
             bondInstructions: instructions,
             transitionHash: bytes32(uint256(7)),
             checkpointHash: bytes32(uint256(8))

@@ -200,7 +200,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // TODO: only load the necessary fields
             CoreState memory state = _state;
             require(state.nextProposalId != 0, ActivationRequired());
-            // Enforce one propose call per Ethereun block to prevent span attacks that could
+            // Enforce one propose call per Ethereun block to prevent spam attacks that could
             // deplete the ring buffer
             require(block.number > state.lastProposalBlockId, CannotProposeInCurrentBlock());
             require(_getAvailableCapacity(state) > 0, NotEnoughCapacity());
@@ -408,7 +408,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _stateBefore The state before the proof is processed
     /// @param _input The input containing the proposals, transitions, and metadata
     /// @return newState_ The new state after the proof is processed
-    /// @return record_ The transition record containing the span, bond instructions, and hashes
+    /// @return record_ The transition record containing the bond instructions and hashes
     /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
     function _processProof(CoreState memory _stateBefore, ProveInput memory _input)
         private
@@ -426,11 +426,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 parentHash = _stateBefore.lastFinalizedTransitionHash;
 
             uint256 count = _input.proposals.length;
-
-            //TODO: Should we keep this restriction of span being a `uint8` now that is  not stored?
-            // Limit the amount of proofs to 255 to avoid span overflow
-            require(count <= type(uint8).max, SpanOutOfBounds());
-            record_.span = uint8(count);
 
             for (uint256 i; i < count; ++i) {
                 Proposal memory proposal = _input.proposals[i];
@@ -809,6 +804,5 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
-    error SpanOutOfBounds();
     error UnprocessedForcedInclusionIsDue();
 }

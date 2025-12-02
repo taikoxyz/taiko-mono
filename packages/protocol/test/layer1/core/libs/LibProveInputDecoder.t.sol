@@ -82,7 +82,7 @@ contract LibProveInputDecoderTest is Test {
         });
 
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
-        LibProveInputDecoder.encode(input);
+        this._encodeExternal(input);
     }
 
     function test_decode_RevertWhen_lengthsMismatch() public {
@@ -104,7 +104,7 @@ contract LibProveInputDecoderTest is Test {
         encoded[transitionsLengthOffset + 1] = 0x00; // set transitions length to zero to trigger mismatch
 
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
-        LibProveInputDecoder.decode(encoded);
+        this._decodeExternal(encoded);
     }
 
     function _singleProposalArray() private pure returns (IInbox.Proposal[] memory arr_) {
@@ -135,5 +135,14 @@ contract LibProveInputDecoderTest is Test {
     function _singleMetadataArray() private pure returns (IInbox.TransitionMetadata[] memory arr_) {
         arr_ = new IInbox.TransitionMetadata[](1);
         arr_[0] = IInbox.TransitionMetadata({ designatedProver: address(0xAAAA), actualProver: address(0xBBBB) });
+    }
+
+    // External wrappers to ensure vm.expectRevert catches the revert (call depth increases).
+    function _encodeExternal(IInbox.ProveInput memory _input) external pure returns (bytes memory) {
+        return LibProveInputDecoder.encode(_input);
+    }
+
+    function _decodeExternal(bytes calldata _data) external pure returns (IInbox.ProveInput memory) {
+        return LibProveInputDecoder.decode(_data);
     }
 }
