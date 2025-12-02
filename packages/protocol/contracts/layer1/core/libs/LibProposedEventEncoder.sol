@@ -46,16 +46,7 @@ library LibProposedEventEncoder {
             ptr = P.packUint48(ptr, source.blobSlice.timestamp);
         }
 
-        ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
         ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
-
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastProposalBlockId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedTimestamp);
-        ptr = P.packUint48(ptr, _payload.coreState.lastCheckpointTimestamp);
-        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding.
@@ -96,16 +87,7 @@ library LibProposedEventEncoder {
             (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
         }
 
-        (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
         (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
-
-        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTimestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastCheckpointTimestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEventPayload.
@@ -115,15 +97,12 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size without sources: 237 bytes
+            // Fixed size without sources: 111 bytes
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6)
             // Derivation base: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1)
             // Sources length: 2
-            // Proposal hashes: coreStateHash(32) + derivationHash(32)
-            // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6)
-            //            + lastFinalizedTimestamp(6) + lastCheckpointTimestamp(6)
-            //            + lastFinalizedTransitionHash(32) + bondInstructionsHash(32)
-            size_ = 237;
+            // Proposal hash: derivationHash(32)
+            size_ = 111;
 
             for (uint256 i; i < _sources.length; ++i) {
                 size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);

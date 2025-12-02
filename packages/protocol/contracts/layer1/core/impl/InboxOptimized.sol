@@ -63,15 +63,6 @@ contract InboxOptimized is Inbox {
         return LibHashOptimized.hashCheckpoint(_checkpoint);
     }
 
-    function _hashCoreState(CoreState memory _coreState)
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashCoreState(_coreState);
-    }
-
     function _hashDerivation(Derivation memory _derivation)
         internal
         pure

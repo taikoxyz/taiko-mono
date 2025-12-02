@@ -14,7 +14,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 10,
             endOfSubmissionWindowTimestamp: 11,
             proposer: address(0x1111),
-            coreStateHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2))
         });
         proposals[1] = IInbox.Proposal({
@@ -22,7 +21,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 20,
             endOfSubmissionWindowTimestamp: 21,
             proposer: address(0x2222),
-            coreStateHash: bytes32(uint256(3)),
             derivationHash: bytes32(uint256(4))
         });
 
@@ -99,7 +97,7 @@ contract LibProveInputDecoderTest is Test {
 
         bytes memory encoded = LibProveInputDecoder.encode(input);
 
-        uint256 transitionsLengthOffset = 2 + (input.proposals.length * 102);
+        uint256 transitionsLengthOffset = 2 + (input.proposals.length * 70);
         encoded[transitionsLengthOffset] = 0x00;
         encoded[transitionsLengthOffset + 1] = 0x00; // set transitions length to zero to trigger mismatch
 
@@ -114,7 +112,6 @@ contract LibProveInputDecoderTest is Test {
             timestamp: 70,
             endOfSubmissionWindowTimestamp: 75,
             proposer: address(0x1234),
-            coreStateHash: bytes32(uint256(77)),
             derivationHash: bytes32(uint256(78))
         });
     }

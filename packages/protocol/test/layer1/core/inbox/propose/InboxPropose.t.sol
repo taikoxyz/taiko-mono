@@ -22,6 +22,7 @@ abstract contract ProposeTestBase is InboxTestBase {
 
         IInbox.CoreState memory stateAfter = inbox.getState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
+        _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
         assertEq(inbox.getProposalHash(expected.proposal.id), _hashProposal(expected.proposal), "proposal hash");
     }
 
@@ -99,24 +100,14 @@ abstract contract ProposeTestBase is InboxTestBase {
         });
         payload_.derivation.sources[0] = IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
-        payload_.coreState.nextProposalId = _stateBefore.nextProposalId + 1;
-        payload_.coreState.lastProposalBlockId = uint48(block.number);
-        payload_.coreState.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
-        payload_.coreState.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
-        payload_.coreState.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
-        payload_.coreState.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
-        payload_.coreState.bondInstructionsHash = _stateBefore.bondInstructionsHash;
-
         payload_.proposal = IInbox.Proposal({
             id: _stateBefore.nextProposalId,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
             proposer: proposer,
-            coreStateHash: bytes32(0),
             derivationHash: bytes32(0)
         });
 
-        payload_.proposal.coreStateHash = _hashCoreState(payload_.coreState);
         payload_.proposal.derivationHash = _hashDerivation(payload_.derivation);
     }
 
@@ -135,7 +126,6 @@ abstract contract ProposeTestBase is InboxTestBase {
             "proposal deadline"
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(_actual.proposal.coreStateHash, _expected.proposal.coreStateHash, "proposal core hash");
         assertEq(_actual.proposal.derivationHash, _expected.proposal.derivationHash, "proposal derivation hash");
 
         assertEq(
@@ -168,34 +158,30 @@ abstract contract ProposeTestBase is InboxTestBase {
                 "blob timestamp"
             );
         }
+    }
 
-        assertEq(_actual.coreState.nextProposalId, _expected.coreState.nextProposalId, "state nextProposalId");
-        assertEq(_actual.coreState.lastProposalBlockId, _expected.coreState.lastProposalBlockId, "state last block");
-        assertEq(
-            _actual.coreState.lastFinalizedProposalId,
-            _expected.coreState.lastFinalizedProposalId,
-            "state finalized id"
-        );
-        assertEq(
-            _actual.coreState.lastFinalizedTimestamp,
-            _expected.coreState.lastFinalizedTimestamp,
-            "state finalized ts"
-        );
-        assertEq(
-            _actual.coreState.lastCheckpointTimestamp,
-            _expected.coreState.lastCheckpointTimestamp,
-            "state checkpoint ts"
-        );
-        assertEq(
-            _actual.coreState.lastFinalizedTransitionHash,
-            _expected.coreState.lastFinalizedTransitionHash,
-            "state transition hash"
-        );
-        assertEq(
-            _actual.coreState.bondInstructionsHash,
-            _expected.coreState.bondInstructionsHash,
-            "state bond hash"
-        );
+    function _expectedStateAfterProposal(IInbox.CoreState memory _stateBefore)
+        internal
+        view
+        returns (IInbox.CoreState memory state_)
+    {
+        state_.nextProposalId = _stateBefore.nextProposalId + 1;
+        state_.lastProposalBlockId = uint48(block.number);
+        state_.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
+        state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
+        state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
+        state_.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
+        state_.bondInstructionsHash = _stateBefore.bondInstructionsHash;
+    }
+
+    function _assertStateEqual(IInbox.CoreState memory _actual, IInbox.CoreState memory _expected) internal pure {
+        assertEq(_actual.nextProposalId, _expected.nextProposalId, "state nextProposalId");
+        assertEq(_actual.lastProposalBlockId, _expected.lastProposalBlockId, "state last block");
+        assertEq(_actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id");
+        assertEq(_actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts");
+        assertEq(_actual.lastCheckpointTimestamp, _expected.lastCheckpointTimestamp, "state checkpoint ts");
+        assertEq(_actual.lastFinalizedTransitionHash, _expected.lastFinalizedTransitionHash, "state transition hash");
+        assertEq(_actual.bondInstructionsHash, _expected.bondInstructionsHash, "state bond hash");
     }
 }
 

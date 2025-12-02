@@ -239,13 +239,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(state),
                 derivationHash: _hashDerivation(derivation)
             });
 
             _state = state;
             _setProposalHash(proposal.id, _hashProposal(proposal));
-            _emitProposedEvent(proposal, derivation, state);
+            _emitProposedEvent(proposal, derivation);
         }
     }
 
@@ -276,12 +275,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
 
 
+        // TODO: we removed span, should we still include a way for off-chain
+        // software to know how many proposals were proven?
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: input.proposals[0].id,
             transition: input.transitions[0],
             transitionRecord: record,
-            metadata: input.metadata[0],
-            coreState: newState
+            metadata: input.metadata[0]
         });
         emit Proved(_encodeProvedEventData(payload));
     }
@@ -393,15 +393,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         state.lastFinalizedTransitionHash = _hashTransition(transition);
 
         Proposal memory proposal;
-        proposal.coreStateHash = _hashCoreState(state);
-
         Derivation memory derivation;
         proposal.derivationHash = _hashDerivation(derivation);
 
         _state = state;
         _setProposalHash(0, _hashProposal(proposal));
 
-        _emitProposedEvent(proposal, derivation, state);
+        _emitProposedEvent(proposal, derivation);
     }
 
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
@@ -572,13 +570,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashSimple.hashCheckpoint(_checkpoint);
     }
 
-    /// @dev Hashes a CoreState struct.
-    /// @param _coreState The core state to hash.
-    /// @return _ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState) internal view virtual returns (bytes32) {
-        return LibHashSimple.hashCoreState(_coreState);
-    }
-
     /// @dev Hashes a Derivation struct.
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
@@ -728,15 +719,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Emits the Proposed event
     function _emitProposedEvent(
         Proposal memory _proposal,
-        Derivation memory _derivation,
-        CoreState memory _coreState
+        Derivation memory _derivation
     )
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
             proposal: _proposal,
-            derivation: _derivation,
-            coreState: _coreState
+            derivation: _derivation
         });
         emit Proposed(_encodeProposedEventData(payload));
     }

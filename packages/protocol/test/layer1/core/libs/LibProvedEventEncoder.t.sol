@@ -8,7 +8,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProvedEventEncoderTest is Test {
-    function test_encode_decode_with_bonds_and_core_state() public {
+    function test_encode_decode_with_bonds() public {
         LibBonds.BondInstruction[] memory instructions = new LibBonds.BondInstruction[](2);
         instructions[0] = LibBonds.BondInstruction({
             proposalId: 10,
@@ -42,15 +42,6 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x1111),
                 actualProver: address(0x2222)
-            }),
-            coreState: IInbox.CoreState({
-                nextProposalId: 12,
-                lastProposalBlockId: 42,
-                lastFinalizedProposalId: 6,
-                lastFinalizedTimestamp: 777,
-                lastCheckpointTimestamp: 700,
-                lastFinalizedTransitionHash: bytes32(uint256(7)),
-                bondInstructionsHash: bytes32(uint256(8))
             })
         });
 
@@ -66,9 +57,6 @@ contract LibProvedEventEncoderTest is Test {
             "bond type"
         );
         assertEq(decoded.metadata.designatedProver, payload.metadata.designatedProver, "designated prover");
-        assertEq(decoded.coreState.nextProposalId, payload.coreState.nextProposalId, "next proposal id");
-        assertEq(decoded.coreState.lastFinalizedTransitionHash, payload.coreState.lastFinalizedTransitionHash, "transition hash");
-        assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash, "bond hash");
     }
 
     function test_encode_decode_empty_bonds_is_deterministic() public {
@@ -91,15 +79,6 @@ contract LibProvedEventEncoderTest is Test {
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x3333),
                 actualProver: address(0x4444)
-            }),
-            coreState: IInbox.CoreState({
-                nextProposalId: 100,
-                lastProposalBlockId: 501,
-                lastFinalizedProposalId: 98,
-                lastFinalizedTimestamp: 900,
-                lastCheckpointTimestamp: 850,
-                lastFinalizedTransitionHash: bytes32(uint256(106)),
-                bondInstructionsHash: bytes32(uint256(107))
             })
         });
 
@@ -110,6 +89,5 @@ contract LibProvedEventEncoderTest is Test {
 
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded1);
         assertEq(decoded.transitionRecord.bondInstructions.length, 0, "empty bond instructions");
-        assertEq(decoded.coreState.lastCheckpointTimestamp, payload.coreState.lastCheckpointTimestamp, "checkpoint ts");
     }
 }

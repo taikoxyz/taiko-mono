@@ -32,7 +32,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 111,
                 endOfSubmissionWindowTimestamp: 0,
                 proposer: address(0x1234),
-                coreStateHash: bytes32(uint256(9)),
                 derivationHash: bytes32(uint256(10))
             }),
             derivation: IInbox.Derivation({
@@ -40,15 +39,6 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockHash: bytes32(uint256(7)),
                 basefeeSharingPctg: 3,
                 sources: sources
-            }),
-            coreState: IInbox.CoreState({
-                nextProposalId: 6,
-                lastProposalBlockId: 8,
-                lastFinalizedProposalId: 4,
-                lastFinalizedTimestamp: 100,
-                lastCheckpointTimestamp: 98,
-                lastFinalizedTransitionHash: bytes32(uint256(11)),
-                bondInstructionsHash: bytes32(uint256(12))
             })
         });
 
@@ -84,7 +74,6 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 200,
                 endOfSubmissionWindowTimestamp: 300,
                 proposer: address(0xBEEF),
-                coreStateHash: bytes32(uint256(13)),
                 derivationHash: bytes32(uint256(14))
             }),
             derivation: IInbox.Derivation({
@@ -92,15 +81,6 @@ contract LibProposedEventEncoderTest is Test {
                 originBlockHash: bytes32(uint256(151)),
                 basefeeSharingPctg: 9,
                 sources: sources
-            }),
-            coreState: IInbox.CoreState({
-                nextProposalId: 78,
-                lastProposalBlockId: 149,
-                lastFinalizedProposalId: 70,
-                lastFinalizedTimestamp: 175,
-                lastCheckpointTimestamp: 160,
-                lastFinalizedTransitionHash: bytes32(uint256(15)),
-                bondInstructionsHash: bytes32(uint256(16))
             })
         });
 
@@ -149,7 +129,6 @@ contract LibProposedEventEncoderTest is Test {
             "proposal submission window"
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(_actual.proposal.coreStateHash, _expected.proposal.coreStateHash, "core hash");
         assertEq(_actual.proposal.derivationHash, _expected.proposal.derivationHash, "derivation hash");
 
         assertEq(_actual.derivation.originBlockNumber, _expected.derivation.originBlockNumber, "origin block");
@@ -179,33 +158,5 @@ contract LibProposedEventEncoderTest is Test {
                 "timestamp"
             );
         }
-
-        assertEq(_actual.coreState.nextProposalId, _expected.coreState.nextProposalId, "next proposal id");
-        assertEq(_actual.coreState.lastProposalBlockId, _expected.coreState.lastProposalBlockId, "last proposal block");
-        assertEq(
-            _actual.coreState.lastFinalizedProposalId,
-            _expected.coreState.lastFinalizedProposalId,
-            "last finalized proposal id"
-        );
-        assertEq(
-            _actual.coreState.lastFinalizedTimestamp,
-            _expected.coreState.lastFinalizedTimestamp,
-            "last finalized timestamp"
-        );
-        assertEq(
-            _actual.coreState.lastCheckpointTimestamp,
-            _expected.coreState.lastCheckpointTimestamp,
-            "last checkpoint timestamp"
-        );
-        assertEq(
-            _actual.coreState.lastFinalizedTransitionHash,
-            _expected.coreState.lastFinalizedTransitionHash,
-            "last transition hash"
-        );
-        assertEq(
-            _actual.coreState.bondInstructionsHash,
-            _expected.coreState.bondInstructionsHash,
-            "bond instructions hash"
-        );
     }
 }

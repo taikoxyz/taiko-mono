@@ -77,8 +77,6 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice The current hash of coreState
-        bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
     }
@@ -166,8 +164,6 @@ interface IInbox {
         Proposal proposal;
         /// @notice The derivation data for the proposal.
         Derivation derivation;
-        /// @notice The core state after the proposal.
-        CoreState coreState;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -180,8 +176,6 @@ interface IInbox {
         TransitionRecord transitionRecord;
         /// @notice The metadata containing prover information.
         TransitionMetadata metadata;
-        /// @notice The core state after finalization of this proof.
-        CoreState coreState;
     }
 
     // ---------------------------------------------------------------

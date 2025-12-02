@@ -87,11 +87,11 @@ library LibProveInputDecoder {
         unchecked {
             // Array lengths: 2 + 2 = 4 bytes
             // Per item:
-            //   Proposal: 102 bytes
+            //   Proposal: 70 bytes
             //   Transition: 134 bytes
             //   Metadata: 40 bytes
             // Final checkpoint: 70 bytes
-            size_ = 4 + (_proposals.length * (102 + 134 + 40)) + 70;
+            size_ = 4 + (_proposals.length * (70 + 134 + 40)) + 70;
         }
     }
 
@@ -104,7 +104,6 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
         newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
 
@@ -117,7 +116,6 @@ library LibProveInputDecoder {
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
-        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 

@@ -162,14 +162,19 @@ library LibHashOptimized {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_proposal.id)),
-            bytes32(uint256(_proposal.timestamp)),
-            bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp)),
-            bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
-            _proposal.coreStateHash,
-            _proposal.derivationHash
+        bytes32[] memory buffer = EfficientHashLib.malloc(5);
+
+        EfficientHashLib.set(buffer, 0, bytes32(uint256(_proposal.id)));
+        EfficientHashLib.set(buffer, 1, bytes32(uint256(_proposal.timestamp)));
+        EfficientHashLib.set(
+            buffer, 2, bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp))
         );
+        EfficientHashLib.set(buffer, 3, bytes32(uint256(uint160(_proposal.proposer))));
+        EfficientHashLib.set(buffer, 4, _proposal.derivationHash);
+
+        bytes32 result = EfficientHashLib.hash(buffer);
+        EfficientHashLib.free(buffer);
+        return result;
     }
 
     /// @notice Optimized hashing for Transition structs

@@ -43,14 +43,6 @@ library LibProvedEventEncoder {
             ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
             ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payee);
         }
-
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastProposalBlockId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedTimestamp);
-        ptr = P.packUint48(ptr, _payload.coreState.lastCheckpointTimestamp);
-        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using compact encoding.
@@ -91,14 +83,6 @@ library LibProvedEventEncoder {
             (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
             (payload_.transitionRecord.bondInstructions[i].payee, ptr) = P.unpackAddress(ptr);
         }
-
-        (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTimestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastCheckpointTimestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload.
@@ -108,17 +92,14 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 340 bytes
+            // Fixed size: 246 bytes
             // proposalId: 6
             // Transition: 134
             // TransitionRecord (without bond instructions): transitionHash(32) +
             //   checkpointHash(32) = 64
             // Metadata: 40
             // Bond instructions length: 2
-            // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //            lastFinalizedTimestamp(6) + lastCheckpointTimestamp(6) +
-            //            lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 94
-            size_ = 340 + (_bondInstructionsCount * 47);
+            size_ = 246 + (_bondInstructionsCount * 47);
         }
     }
 

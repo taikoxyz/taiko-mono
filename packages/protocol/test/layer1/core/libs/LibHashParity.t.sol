@@ -44,7 +44,6 @@ contract LibHashParityTest is Test {
             timestamp: 123,
             endOfSubmissionWindowTimestamp: 130,
             proposer: address(0xABCD),
-            coreStateHash: LibHashSimple.hashCoreState(core),
             derivationHash: LibHashSimple.hashDerivation(derivation)
         });
 
