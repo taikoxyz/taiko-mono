@@ -663,6 +663,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    // -------------------------------  --------------------------------
+    // Private Functions - Forced Inclusion Flow
+    // ---------------------------------------------------------------
+
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
     /// @param _feeRecipient Address to receive accumulated fees
@@ -767,6 +771,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    // ---------------------------------------------------------------
+    // Private Functions - Finalization Flow
+    // ---------------------------------------------------------------
+
     /// @dev Finalizes proven proposals and updates checkpoints with rate limiting.
     /// Checkpoints are only saved if minSyncDelay seconds have passed since the last save,
     /// reducing SSTORE operations but making L2 checkpoints less frequently available on L1.
@@ -866,7 +874,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Private Functions - Proof Flow
+    // Private Functions - Proving Flow
     // ---------------------------------------------------------------
 
     /// @notice Calculates bond instructions based on proof timing and prover identity
@@ -1091,11 +1099,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error DeadlineExceeded();
-    error EmptyProofMetadata();
     error EmptyProposals();
     error EmptyProveInputs();
     error IncorrectProposalCount();
-    error InvalidproposalId();
     error InvalidLastPacayaBlockHash();
     error InvalidLastProposalProof();
     error InvalidState();
@@ -1103,7 +1109,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error NotEnoughCapacity();
     error ProposalHashMismatch();
     error RingBufferSizeZero();
-    error TooManyProofMetadata();
     error TransitionHashMismatchWithStorage();
     error TransitionNotProvided();
     error UnprocessedForcedInclusionIsDue();
