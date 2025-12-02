@@ -70,8 +70,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		tracker,
 		nil,
 		nil,
-		flags.BackOffMaxRetries.Value,
-		flags.BackOffRetryInterval.Value,
+		1,
+		time.Millisecond,
 	)
 	s.Nil(err)
 
