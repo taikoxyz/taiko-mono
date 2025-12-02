@@ -339,14 +339,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     finalizationDeadline: finalizationDeadline
                 });
 
-
                 _storeTransitionRecord(input.proposal.id, input.parentTransitionHash, record);
 
-                _emitProvedEvent(
-                    input,
-                    finalizationDeadline,
-                    bondInstructions
-                );
+                _emitProvedEvent(input, finalizationDeadline, bondInstructions);
             }
 
             uint256 proposalAge;
@@ -947,7 +942,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.record = _record;
         } else if (firstRecord.partialParentTransitionHash != partialParentHash) {
             // Collision: fallback to composite key mapping
-            TransitionRecord storage record = _transitionRecordFor(_startProposalId, _parentTransitionHash);
+            TransitionRecord storage record =
+                _transitionRecordFor(_startProposalId, _parentTransitionHash);
 
             if (record.transitionHash != 0) {
                 record.transitionHash = _record.transitionHash;
