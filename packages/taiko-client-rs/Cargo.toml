@@ -32,7 +32,7 @@ clap = { version = "4", features = ["derive", "env"] }
 # observability
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
-  "http-listener",
+    "http-listener",
 ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -46,7 +46,7 @@ tower = { version = "0.4", features = ["util"] }
 # ethereum
 alloy = "1.1.2"
 alloy-consensus = { version = "1.1.2", default-features = false, features = [
-  "serde",
+    "serde",
 ] }
 alloy-contract = { version = "1.1.2", default-features = false }
 alloy-eips = { version = "1.1.2", default-features = false }
@@ -63,7 +63,7 @@ alloy-rpc-types-engine = { version = "1.1.2", default-features = false }
 alloy-rpc-types-eth = { version = "1.1.2", default-features = false }
 alloy-signer-local = { version = "1.1.2", default-features = false }
 alloy-sol-macro = { version = "1.4.1", default-features = false, features = [
-  "json",
+    "json",
 ] }
 alloy-sol-types = { version = "1.4.1", default-features = false }
 alloy-transport = { version = "1.1.2", default-features = false }
@@ -71,12 +71,12 @@ alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
 event-scanner = "=0.6.0-alpha"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main" }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
 alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
-  "serde",
-] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main" }
+    "serde",
+], rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
+alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
 
 # types
 anyhow = "1"
