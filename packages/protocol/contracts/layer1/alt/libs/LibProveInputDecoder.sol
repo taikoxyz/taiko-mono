@@ -67,19 +67,15 @@ library LibProveInputDecoder {
         returns (uint256 newPtr_)
     {
         // Encode endProposal
-        newPtr_ = _encodeProposal(_ptr, _input.endProposal);
+        newPtr_ = _encodeProposal(_ptr, _input.proposal);
 
         // Encode checkpoint
         newPtr_ = P.packUint48(newPtr_, _input.checkpoint.blockNumber);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.stateRoot);
 
-        // Encode prposalProofMetadatas array
-        P.checkArrayLength(_input.prposalProofMetadatas.length);
-        newPtr_ = P.packUint16(newPtr_, uint16(_input.prposalProofMetadatas.length));
-        for (uint256 i; i < _input.prposalProofMetadatas.length; ++i) {
-            newPtr_ = _encodeProposalProofMetadata(newPtr_, _input.prposalProofMetadatas[i]);
-        }
+        // Encode proofMetadatas array
+        newPtr_ = _encodeProposalProofMetadata(newPtr_, _input.proofMetadata);
 
         // Encode parentTransitionHash
         newPtr_ = P.packBytes32(newPtr_, _input.parentTransitionHash);
@@ -125,20 +121,15 @@ library LibProveInputDecoder {
         returns (IInbox.ProveInput memory input_, uint256 newPtr_)
     {
         // Decode endProposal
-        (input_.endProposal, newPtr_) = _decodeProposal(_ptr);
+        (input_.proposal, newPtr_) = _decodeProposal(_ptr);
 
         // Decode checkpoint
         (input_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
         (input_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 
-        // Decode prposalProofMetadatas array
-        uint16 metadatasLength;
-        (metadatasLength, newPtr_) = P.unpackUint16(newPtr_);
-        input_.prposalProofMetadatas = new IInbox.ProposalProofMetadata[](metadatasLength);
-        for (uint256 i; i < metadatasLength; ++i) {
-            (input_.prposalProofMetadatas[i], newPtr_) = _decodeProposalProofMetadata(newPtr_);
-        }
+        // Decode proofMetadatas array
+        (input_.proofMetadata, newPtr_) = _decodeProposalProofMetadata(newPtr_);
 
         // Decode parentTransitionHash
         (input_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -194,15 +185,13 @@ library LibProveInputDecoder {
 
                 // Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70
 
-                // ProposalProofMetadata array length: 2
-                // Each metadata: proposer(20) + proposalTimestamp(6) + designatedProver(20) +
+                // ProposalProofMetadata: proposer(20) + proposalTimestamp(6) + designatedProver(20) +
                 // actualProver(20) = 66
 
                 // parentTransitionHash: 32
 
-                // Per ProveInput: 134 + 70 + 2 + 32 = 238 (fixed)
-                // Plus variable metadata: 66 per metadata
-                size_ += 238 + (_inputs[i].prposalProofMetadatas.length * 66);
+                // Per ProveInput: 134 + 70 + 66 + 32 = 302
+                size_ += 302;
             }
         }
     }

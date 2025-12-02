@@ -318,9 +318,9 @@ library LibHashOptimized {
     /// @param _input The prove input to hash
     /// @return The hash of the prove input
     function _hashProveInput(IInbox.ProveInput memory _input) private pure returns (bytes32) {
-        bytes32 proposalHash = hashProposal(_input.endProposal);
+        bytes32 proposalHash = hashProposal(_input.proposal);
         bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-        bytes32 metadataHash = _hashProposalProofMetadataArray(_input.prposalProofMetadatas);
+        bytes32 metadataHash = _hashProposalProofMetadata(_input.proofMetadata);
 
         return EfficientHashLib.hash(
             proposalHash, checkpointHash, metadataHash, _input.parentTransitionHash
