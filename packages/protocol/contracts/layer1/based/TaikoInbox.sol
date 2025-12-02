@@ -634,6 +634,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (nextTransitionId <= 1) break;
 
                 TransitionState storage ts = state.transitions[slot][1];
+
+                unchecked {
+                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
+                        break;
+                    }
+                }
+
                 if (ts.parentHash == blockHash) {
                     tid = 1;
                 } else if (nextTransitionId > 2) {
@@ -648,12 +655,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 bytes32 _blockHash = ts.blockHash;
                 // This transition has been invalidated due to conflicting proof
                 if (_blockHash == 0) break;
-
-                unchecked {
-                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
-                        break;
-                    }
-                }
 
                 blockHash = _blockHash;
 
