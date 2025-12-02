@@ -71,12 +71,12 @@ alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
 event-scanner = "=0.6.0-alpha"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", features = [
     "serde",
 ], rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
+alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "6ff4dea33acf33851d1c5d320d064c5bd4ad1d50" }
 
 # types
 anyhow = "1"
