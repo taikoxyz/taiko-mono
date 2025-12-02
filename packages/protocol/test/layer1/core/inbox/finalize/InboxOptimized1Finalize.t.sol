@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 import { AbstractOptimizedFinalize } from "./AbstractOptimizedFinalize.t.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 
 /// @title InboxOptimized1Finalize
 /// @notice Finalization tests for the InboxOptimized1 implementation
