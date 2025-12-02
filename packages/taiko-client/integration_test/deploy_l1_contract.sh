@@ -11,7 +11,6 @@ cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
     --broadcast \
     --ffi \
     -vvvvv \
-    --evm-version cancun \
     --private-key "$PRIVATE_KEY" \
     --block-gas-limit 200000000 &&
   cd -
