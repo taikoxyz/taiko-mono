@@ -1,10 +1,10 @@
 {
-  "prove_after_ring_buffer_fill_Inbox": "99722",
-  "prove_after_ring_buffer_fill_InboxOptimized": "96875",
-  "prove_consecutive_3_Inbox": "109543",
-  "prove_consecutive_3_InboxOptimized": "106621",
-  "prove_consecutive_5_Inbox": "119760",
-  "prove_consecutive_5_InboxOptimized": "116566",
-  "prove_single_Inbox": "99616",
-  "prove_single_InboxOptimized": "96842"
+  "prove_after_ring_buffer_fill_Inbox": "99710",
+  "prove_after_ring_buffer_fill_InboxOptimized": "96863",
+  "prove_consecutive_3_Inbox": "109531",
+  "prove_consecutive_3_InboxOptimized": "106609",
+  "prove_consecutive_5_Inbox": "119748",
+  "prove_consecutive_5_InboxOptimized": "116554",
+  "prove_single_Inbox": "99604",
+  "prove_single_InboxOptimized": "96830"
 }

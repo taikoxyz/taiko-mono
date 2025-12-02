@@ -197,13 +197,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = _decodeProposeInput(_data);
             _validateProposeInput(input);
 
-            // TODO: only load the necessary fields
-            CoreState memory state = _state;
-            require(state.nextProposalId != 0, ActivationRequired());
+            uint48 nextProposalId = _state.nextProposalId;
+            uint48 lastProposalBlockId = _state.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
+
             // Enforce one propose call per Ethereun block to prevent spam attacks that could
             // deplete the ring buffer
-            require(block.number > state.lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(_getAvailableCapacity(state) > 0, NotEnoughCapacity());
+            require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
+            require(_getAvailableCapacity(nextProposalId, lastFinalizedProposalId) > 0, NotEnoughCapacity());
 
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
@@ -230,20 +231,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-            uint48 proposalId = state.nextProposalId;
-            state.nextProposalId = proposalId + 1;
-            state.lastProposalBlockId = uint48(block.number);
-
             Proposal memory proposal = Proposal({
-                id: proposalId,
+                id: nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 derivationHash: _hashDerivation(derivation)
             });
 
-            _state = state;
+            _state.nextProposalId = nextProposalId + 1;
+            _state.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, _hashProposal(proposal));
+
             _emitProposedEvent(proposal, derivation);
         }
     }
@@ -757,12 +756,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
-    /// @param _coreState Current state with proposal counters
+    /// @param _nextProposalId The next proposal ID
+    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
     /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
+    function _getAvailableCapacity(uint48 _nextProposalId, uint48 _lastFinalizedProposalId) private view returns (uint256) {
         unchecked {
             uint256 numUnfinalizedProposals =
-                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+                _nextProposalId - _lastFinalizedProposalId - 1;
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
