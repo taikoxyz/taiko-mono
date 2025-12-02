@@ -103,6 +103,28 @@ contract TestSimpleTokenUnlock is Layer1Test {
         assertEq(target.amountWithdrawable(), 101 ether);
     }
 
+    function test_simpletokenunlock_precliff_withdrawal_attack() public {
+        vm.startPrank(Alice);
+        target.grant(100 ether);
+        taikoToken.transfer(address(target), 0.5 ether);
+        vm.stopPrank();
+
+        uint256 amt = target.amountWithdrawable();
+        vm.prank(Bob);
+        target.withdraw(Bob, amt);
+
+        assertEq(target.amountGranted(), 100 ether);
+        assertEq(taikoToken.balanceOf(address(target)), 100 ether);
+
+        vm.warp(grantTimestamp + target.SIX_MONTHS());
+        amt = target.amountWithdrawable();
+        vm.prank(Bob);
+        target.withdraw(Bob, amt);
+        assertEq(taikoToken.balanceOf(address(target)), 0 ether);
+        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.amountGranted(), 0 ether);
+    }
+
     function test_simpletokenunlock_delegate() public {
         vm.prank(Alice);
         target.grant(100 ether);
