@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
@@ -329,12 +328,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _checkProposalHash(input.proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
-                    LibBondInstruction.calculateBondInstructions(
-                        _provingWindow,
-                        _extendedProvingWindow,
-                        input.proposal.id,
-                        input.proofMetadata
-                    );
+                    _calculateBondInstructions(input.proposal.id, input.proofMetadata);
                 Transition memory transition = Transition({
                     bondInstructionsHash: _hashBondInstructionArray(bondInstructions),
                     checkpointHash: _hashCheckpoint(input.checkpoint)
@@ -503,6 +497,50 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @notice Calculates bond instructions based on proof timing and prover identity
+    /// @dev Bond instruction rules:
+    ///         - On-time (within provingWindow): No bond changes
+    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
+    ///           designated
+    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
+    ///           differs from proposer
+    /// @param _proposalId The proposal ID
+    /// @param _proofMetadata The proof metadata containing timing and prover info
+    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
+    /// prover)
+    function _calculateBondInstructions(
+        uint40 _proposalId,
+        IInbox.ProposalProofMetadata memory _proofMetadata
+    )
+        internal
+        view
+        returns (LibBonds.BondInstruction[] memory bondInstructions_)
+    {
+        uint256 windowEnd = _proofMetadata.proposalTimestamp + _provingWindow;
+        if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
+
+        uint256 extendedWindowEnd = _proofMetadata.proposalTimestamp + _extendedProvingWindow;
+        bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
+
+        bool needsBondInstruction = isWithinExtendedWindow
+            ? (_proofMetadata.actualProver != _proofMetadata.designatedProver)
+            : (_proofMetadata.actualProver != _proofMetadata.proposer);
+
+        if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
+
+        bondInstructions_ = new LibBonds.BondInstruction[](1);
+        bondInstructions_[0] = LibBonds.BondInstruction({
+            proposalId: _proposalId,
+            bondType: isWithinExtendedWindow
+                ? LibBonds.BondType.LIVENESS
+                : LibBonds.BondType.PROVABILITY,
+            payer: isWithinExtendedWindow
+                ? _proofMetadata.designatedProver
+                : _proofMetadata.proposer,
+            payee: _proofMetadata.actualProver
+        });
+    }
 
     /// @dev Activates the inbox with genesis state so that it can start accepting proposals.
     /// Sets up the initial proposal and core state with genesis block.
