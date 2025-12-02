@@ -20,7 +20,7 @@ library LibBondInstruction {
     /// @param _provingWindow The proving window in seconds.
     /// @param _extendedProvingWindow The extended proving window in seconds.
     /// @param _firstProposal The first proposal proven in the batch.
-    /// @param _firstMetadata The transition metadata for the first proposal.
+    /// @param _firstTransition The transition for the first proposal.
     /// @param _readyTimestamp Timestamp when the first proposal became proveable (max of the first
     ///        proposal timestamp and the parent finalization time).
     /// @return bondInstructions_ Array of bond transfer instructions (at most one entry). An array
@@ -29,7 +29,7 @@ library LibBondInstruction {
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         IInbox.Proposal memory _firstProposal,
-        IInbox.TransitionMetadata memory _firstMetadata,
+        IInbox.Transition memory _firstTransition,
         uint48 _readyTimestamp
     )
         internal
@@ -49,8 +49,8 @@ library LibBondInstruction {
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
             address payer =
-                isWithinExtendedWindow ? _firstMetadata.designatedProver : _firstProposal.proposer;
-            address payee = _firstMetadata.actualProver;
+                isWithinExtendedWindow ? _firstTransition.designatedProver : _firstProposal.proposer;
+            address payee = _firstTransition.actualProver;
 
             // If payer and payee are identical, there is no bond movement.
             if (payer == payee) {

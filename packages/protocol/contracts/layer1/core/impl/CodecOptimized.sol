@@ -153,14 +153,11 @@ contract CodecOptimized is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashTransitionsWithMetadata(
-        IInbox.Transition[] calldata _transitions,
-        IInbox.TransitionMetadata[] calldata _metadata
-    )
+    function hashTransitions(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadata);
+        return LibHashOptimized.hashTransitions(_transitions);
     }
 }

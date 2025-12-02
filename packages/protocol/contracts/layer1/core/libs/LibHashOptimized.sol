@@ -182,13 +182,8 @@ library LibHashOptimized {
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            bytes32(uint256(_transition.checkpoint.blockNumber)),
-            _transition.checkpoint.blockHash,
-            _transition.checkpoint.stateRoot
-        );
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transition));
     }
 
     /// @notice Optimized hashing for TransitionRecord structs
@@ -235,42 +230,17 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Memory-optimized hashing for arrays of Transitions with metadata
-    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
-    ///      Hashes each transition with its corresponding metadata first, then aggregates
+    /// @notice Memory-optimized hashing for arrays of Transitions
+    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions.
     /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
-    /// @return The hash of the transitions with metadata array
-    function hashTransitionsWithMetadata(
-        IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadata
-    )
+    /// @return The hash of the transitions array
+    function hashTransitions(IInbox.Transition[] memory _transitions)
         internal
         pure
         returns (bytes32)
     {
-        require(_transitions.length == _metadata.length, InconsistentLengths());
-        unchecked {
-            uint256 length = _transitions.length;
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 2);
-
-            // abi.encode(bytes32[] transitionHashes) layout:
-            // [0] offset to data (0x20)
-            // [1] array length
-            // [2..] hashed transitions with metadata
-            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
-            EfficientHashLib.set(buffer, 1, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(
-                    buffer, i + 2, _hashTransitionWithMetadata(_transitions[i], _metadata[i])
-                );
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transitions));
     }
 
     // ---------------------------------------------------------------
@@ -301,39 +271,4 @@ library LibHashOptimized {
             );
     }
 
-    /// @notice Gas-optimized hashing of a transition with its metadata
-    /// @dev Hashes transition first, then combines with metadata fields using packed encoding
-    /// @param _transition The transition to hash
-    /// @param _metadata The metadata to combine with the transition
-    /// @return The hash of the transition combined with metadata
-    function _hashTransitionWithMetadata(
-        IInbox.Transition memory _transition,
-        IInbox.TransitionMetadata memory _metadata
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        bytes32 transitionHash = hashTransition(_transition);
-        address designated = _metadata.designatedProver;
-        address actual = _metadata.actualProver;
-
-        /// @solidity memory-safe-assembly
-        assembly {
-            let m := mload(0x40)
-            mstore(m, transitionHash)
-            mstore(add(m, 0x20), shl(96, designated))
-            mstore(add(m, 0x34), shl(96, actual))
-            transitionHash := keccak256(m, 0x48)
-            mstore(0x40, add(m, 0x80)) // advance free memory pointer
-        }
-
-        return transitionHash;
-    }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InconsistentLengths();
 }

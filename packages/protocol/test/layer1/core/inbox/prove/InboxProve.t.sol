@@ -19,13 +19,14 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: _hashProposal(proposed.proposal),
             parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
-            checkpoint: checkpoint
+            checkpoint: checkpoint,
+            designatedProver: prover,
+            actualProver: prover
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            metadata: _metadata(prover, prover),
             checkpoint: checkpoint
         });
 
@@ -50,7 +51,6 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
             transitions: new IInbox.Transition[](0),
-            metadata: new IInbox.TransitionMetadata[](0),
             checkpoint: _checkpoint(bytes32(uint256(1)))
         });
 
@@ -67,13 +67,14 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: _hashProposal(wrong),
             parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
-            checkpoint: _checkpoint(bytes32(uint256(1)))
+            checkpoint: _checkpoint(bytes32(uint256(1))),
+            designatedProver: prover,
+            actualProver: prover
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(wrong),
             transitions: _transitions(transition),
-            metadata: _metadata(prover, prover),
             checkpoint: transition.checkpoint
         });
 
@@ -87,13 +88,14 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)));
-        IInbox.Transition memory t2 = _transitionFor(p2, bytes32(uint256(999)), bytes32(uint256(2)));
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t2 =
+            _transitionFor(p2, bytes32(uint256(999)), bytes32(uint256(2)), prover, prover);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
             transitions: _transitions(t1, t2),
-            metadata: _metadata(prover, prover, prover, prover),
             checkpoint: t2.checkpoint
         });
 
@@ -105,13 +107,12 @@ abstract contract ProveTestBase is InboxTestBase {
     function test_prove_RevertWhen_LengthMismatch() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1))
+            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: new IInbox.Transition[](0),
-            metadata: new IInbox.TransitionMetadata[](0),
             checkpoint: transition.checkpoint
         });
 
@@ -127,13 +128,12 @@ abstract contract ProveTestBase is InboxTestBase {
     function test_prove_RevertWhen_CheckpointMismatch() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1))
+            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            metadata: _metadata(prover, prover),
             checkpoint: _checkpoint(bytes32(uint256(999))) // wrong checkpoint hash
         });
 
@@ -148,20 +148,13 @@ abstract contract ProveTestBase is InboxTestBase {
 
         vm.warp(block.timestamp + 10 days);
 
-        IInbox.Transition memory t1 = _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)));
-        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)));
-
-        IInbox.TransitionMetadata[] memory metadata = _metadata(
-            p1.proposal.proposer,
-            prover,
-            p2.proposal.proposer,
-            prover
-        );
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)), prover, prover);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
             transitions: _transitions(t1, t2),
-            metadata: metadata,
             checkpoint: t2.checkpoint
         });
 
@@ -190,13 +183,14 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: _hashProposal(proposed.proposal),
             parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
-            checkpoint: checkpoint
+            checkpoint: checkpoint,
+            designatedProver: proposer,
+            actualProver: prover
         });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            metadata: _metadata(proposer, prover), // designated proposer, different prover
             checkpoint: checkpoint
         });
 
@@ -226,14 +220,14 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p3 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)));
-        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)));
-        IInbox.Transition memory t3 = _transitionFor(p3, _hashTransition(t2), bytes32(uint256(3)));
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)), prover, prover);
+        IInbox.Transition memory t3 = _transitionFor(p3, _hashTransition(t2), bytes32(uint256(3)), prover, prover);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
             transitions: _transitions(t1, t2, t3),
-            metadata: _metadata(prover, prover, prover, prover, prover, prover),
             checkpoint: t3.checkpoint
         });
 
@@ -257,27 +251,16 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)));
-        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)));
-        IInbox.Transition memory t3 = _transitionFor(p3, _hashTransition(t2), bytes32(uint256(3)));
-        IInbox.Transition memory t4 = _transitionFor(p4, _hashTransition(t3), bytes32(uint256(4)));
-        IInbox.Transition memory t5 = _transitionFor(p5, _hashTransition(t4), bytes32(uint256(5)));
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)), prover, prover);
+        IInbox.Transition memory t3 = _transitionFor(p3, _hashTransition(t2), bytes32(uint256(3)), prover, prover);
+        IInbox.Transition memory t4 = _transitionFor(p4, _hashTransition(t3), bytes32(uint256(4)), prover, prover);
+        IInbox.Transition memory t5 = _transitionFor(p5, _hashTransition(t4), bytes32(uint256(5)), prover, prover);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal, p3.proposal, p4.proposal, p5.proposal),
             transitions: _transitions(t1, t2, t3, t4, t5),
-            metadata: _metadata(
-                prover,
-                prover,
-                prover,
-                prover,
-                prover,
-                prover,
-                prover,
-                prover,
-                prover,
-                prover
-            ),
             checkpoint: t5.checkpoint
         });
 
@@ -305,7 +288,9 @@ abstract contract ProveTestBase is InboxTestBase {
     function _transitionFor(
         IInbox.ProposedEventPayload memory _proposal,
         bytes32 _parentTransitionHash,
-        bytes32 _stateRoot
+        bytes32 _stateRoot,
+        address _designatedProver,
+        address _actualProver
     )
         internal
         view
@@ -314,7 +299,9 @@ abstract contract ProveTestBase is InboxTestBase {
         return IInbox.Transition({
             proposalHash: _hashProposal(_proposal.proposal),
             parentTransitionHash: _parentTransitionHash,
-            checkpoint: _checkpoint(_stateRoot)
+            checkpoint: _checkpoint(_stateRoot),
+            designatedProver: _designatedProver,
+            actualProver: _actualProver
         });
     }
 
@@ -392,12 +379,11 @@ abstract contract RingBufferTestBase is ProveTestBase {
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1))
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal),
             transitions: _transitions(t1),
-            metadata: _metadata(prover, prover),
             checkpoint: t1.checkpoint
         });
 

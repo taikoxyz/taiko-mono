@@ -15,7 +15,7 @@ library LibProveInputDecoder {
         returns (bytes memory encoded_)
     {
         uint256 bufferSize =
-            _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
+            _calculateProveDataSize(_input.proposals, _input.transitions);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
@@ -30,10 +30,6 @@ library LibProveInputDecoder {
         ptr = P.packUint16(ptr, uint16(_input.transitions.length));
         for (uint256 i; i < _input.transitions.length; ++i) {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
-        }
-
-        for (uint256 i; i < _input.metadata.length; ++i) {
-            ptr = _encodeMetadata(ptr, _input.metadata[i]);
         }
 
         ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
@@ -61,11 +57,6 @@ library LibProveInputDecoder {
             (input_.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
-        input_.metadata = new IInbox.TransitionMetadata[](transitionsLength);
-        for (uint256 i; i < transitionsLength; ++i) {
-            (input_.metadata[i], ptr) = _decodeMetadata(ptr);
-        }
-
         (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
         (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
@@ -74,24 +65,21 @@ library LibProveInputDecoder {
     /// @notice Calculate the size needed for encoding.
     function _calculateProveDataSize(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadata
+        IInbox.Transition[] memory _transitions
     )
         private
         pure
         returns (uint256 size_)
     {
         require(_proposals.length == _transitions.length, ProposalTransitionLengthMismatch());
-        require(_metadata.length == _transitions.length, MetadataLengthMismatch());
 
         unchecked {
             // Array lengths: 2 + 2 = 4 bytes
             // Per item:
             //   Proposal: 70 bytes
-            //   Transition: 134 bytes
-            //   Metadata: 40 bytes
+            //   Transition: 174 bytes
             // Final checkpoint: 70 bytes
-            size_ = 4 + (_proposals.length * (70 + 134 + 40)) + 70;
+            size_ = 4 + (_proposals.length * (70 + 174)) + 70;
         }
     }
 
@@ -129,6 +117,8 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(newPtr_, _transition.checkpoint.blockNumber);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.stateRoot);
+        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
+        newPtr_ = P.packAddress(newPtr_, _transition.actualProver);
     }
 
     function _decodeTransition(uint256 _ptr)
@@ -141,24 +131,8 @@ library LibProveInputDecoder {
         (transition_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
         (transition_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (transition_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
-    }
-
-    function _encodeMetadata(uint256 _ptr, IInbox.TransitionMetadata memory _metadata)
-        private
-        pure
-        returns (uint256 newPtr_)
-    {
-        newPtr_ = P.packAddress(_ptr, _metadata.designatedProver);
-        newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
-    }
-
-    function _decodeMetadata(uint256 _ptr)
-        private
-        pure
-        returns (IInbox.TransitionMetadata memory metadata_, uint256 newPtr_)
-    {
-        (metadata_.designatedProver, newPtr_) = P.unpackAddress(_ptr);
-        (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
 
     // ---------------------------------------------------------------
@@ -166,5 +140,4 @@ library LibProveInputDecoder {
     // ---------------------------------------------------------------
 
     error ProposalTransitionLengthMismatch();
-    error MetadataLengthMismatch();
 }

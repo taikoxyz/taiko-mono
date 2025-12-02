@@ -254,7 +254,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory input = _decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
-        require(input.transitions.length == input.metadata.length, InconsistentParams());
 
         CoreState memory newState;
         TransitionRecord memory record;
@@ -266,8 +265,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proposalAge = block.timestamp - uint256(firstReadyTimestamp);
         }
 
-        bytes32 aggregatedProvingHash =
-            _hashTransitionsWithMetadata(input.transitions, input.metadata);
+        bytes32 aggregatedProvingHash = _hashTransitions(input.transitions);
 
         _state = newState;
 
@@ -279,8 +277,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: input.proposals[0].id,
             transition: input.transitions[0],
-            transitionRecord: record,
-            metadata: input.metadata[0]
+            transitionRecord: record
         });
         emit Proved(_encodeProvedEventData(payload));
     }
@@ -403,7 +400,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
     /// @param _stateBefore The state before the proof is processed
-    /// @param _input The input containing the proposals, transitions, and metadata
+    /// @param _input The input containing the proposals and transitions
     /// @return newState_ The new state after the proof is processed
     /// @return record_ The transition record containing the bond instructions and hashes
     /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
@@ -450,7 +447,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     _provingWindow,
                     _extendedProvingWindow,
                     _input.proposals[0],
-                    _input.metadata[0],
+                    _input.transitions[0],
                     firstReadyTimestamp_
                 );
 
@@ -614,18 +611,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
-    /// @param _metadata The metadata array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitionsWithMetadata(
-        Transition[] memory _transitions,
-        TransitionMetadata[] memory _metadata
-    )
+    function _hashTransitions(Transition[] memory _transitions)
         internal
         view
         virtual
         returns (bytes32)
     {
-        return LibHashSimple.hashTransitionsWithMetadata(_transitions, _metadata);
+        return LibHashSimple.hashTransitions(_transitions);
     }
 
     // ---------------------------------------------------------------

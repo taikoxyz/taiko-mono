@@ -16,13 +16,12 @@ abstract contract FinalizeTestBase is ProveTestBase {
         vm.warp(block.timestamp + 1 hours);
 
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1))
+            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            metadata: _metadata(prover, prover),
             checkpoint: transition.checkpoint
         });
 
@@ -39,13 +38,12 @@ abstract contract FinalizeTestBase is ProveTestBase {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1))
+            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            metadata: _metadata(prover, prover),
             checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0) })
         });
 

@@ -99,15 +99,12 @@ contract InboxOptimized is Inbox {
         return LibHashOptimized.hashTransitionRecord(_transitionRecord);
     }
 
-    function _hashTransitionsWithMetadata(
-        Transition[] memory _transitions,
-        TransitionMetadata[] memory _metadata
-    )
+    function _hashTransitions(Transition[] memory _transitions)
         internal
         pure
         override
         returns (bytes32)
     {
-        return LibHashOptimized.hashTransitionsWithMetadata(_transitions, _metadata);
+        return LibHashOptimized.hashTransitions(_transitions);
     }
 }

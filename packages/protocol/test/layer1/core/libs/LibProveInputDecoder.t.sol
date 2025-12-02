@@ -32,7 +32,9 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: 99,
                 blockHash: bytes32(uint256(13)),
                 stateRoot: bytes32(uint256(14))
-            })
+            }),
+            designatedProver: address(0xAAAA),
+            actualProver: address(0xBBBB)
         });
         transitions[1] = IInbox.Transition({
             proposalHash: bytes32(uint256(21)),
@@ -41,17 +43,14 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: 199,
                 blockHash: bytes32(uint256(23)),
                 stateRoot: bytes32(uint256(24))
-            })
+            }),
+            designatedProver: address(0xCCCC),
+            actualProver: address(0xDDDD)
         });
-
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
-        metadata[0] = IInbox.TransitionMetadata({ designatedProver: address(0xAAAA), actualProver: address(0xBBBB) });
-        metadata[1] = IInbox.TransitionMetadata({ designatedProver: address(0xCCCC), actualProver: address(0xDDDD) });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            metadata: metadata,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 250,
                 blockHash: bytes32(uint256(30)),
@@ -64,10 +63,9 @@ contract LibProveInputDecoderTest is Test {
 
         assertEq(decoded.proposals.length, 2, "proposal length");
         assertEq(decoded.transitions.length, 2, "transition length");
-        assertEq(decoded.metadata.length, 2, "metadata length");
         assertEq(decoded.proposals[1].proposer, proposals[1].proposer, "proposal proposer");
         assertEq(decoded.transitions[1].checkpoint.blockHash, transitions[1].checkpoint.blockHash, "checkpoint hash");
-        assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver, "designated prover");
+        assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver, "designated prover");
         assertEq(decoded.checkpoint.blockNumber, input.checkpoint.blockNumber, "checkpoint blockNumber");
     }
 
@@ -75,7 +73,6 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](1),
             transitions: new IInbox.Transition[](0),
-            metadata: new IInbox.TransitionMetadata[](1),
             checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0) })
         });
 
@@ -87,7 +84,6 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: _singleProposalArray(),
             transitions: _singleTransitionArray(),
-            metadata: _singleMetadataArray(),
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 1,
                 blockHash: bytes32(uint256(2)),
@@ -125,13 +121,10 @@ contract LibProveInputDecoderTest is Test {
                 blockNumber: 90,
                 blockHash: bytes32(uint256(82)),
                 stateRoot: bytes32(uint256(83))
-            })
+            }),
+            designatedProver: address(0xAAAA),
+            actualProver: address(0xBBBB)
         });
-    }
-
-    function _singleMetadataArray() private pure returns (IInbox.TransitionMetadata[] memory arr_) {
-        arr_ = new IInbox.TransitionMetadata[](1);
-        arr_[0] = IInbox.TransitionMetadata({ designatedProver: address(0xAAAA), actualProver: address(0xBBBB) });
     }
 
     // External wrappers to ensure vm.expectRevert catches the revert (call depth increases).

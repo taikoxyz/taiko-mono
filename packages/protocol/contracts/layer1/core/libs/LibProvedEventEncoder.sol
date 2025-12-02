@@ -28,12 +28,11 @@ library LibProvedEventEncoder {
         ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
+        ptr = P.packAddress(ptr, _payload.transition.designatedProver);
+        ptr = P.packAddress(ptr, _payload.transition.actualProver);
 
         ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
-
-        ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
-        ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
         P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
         ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
@@ -60,12 +59,11 @@ library LibProvedEventEncoder {
         (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+        (payload_.transition.designatedProver, ptr) = P.unpackAddress(ptr);
+        (payload_.transition.actualProver, ptr) = P.unpackAddress(ptr);
 
         (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
-
-        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
 
         uint16 arrayLength;
         (arrayLength, ptr) = P.unpackUint16(ptr);
@@ -94,10 +92,9 @@ library LibProvedEventEncoder {
         unchecked {
             // Fixed size: 246 bytes
             // proposalId: 6
-            // Transition: 134
+            // Transition: 174
             // TransitionRecord (without bond instructions): transitionHash(32) +
             //   checkpointHash(32) = 64
-            // Metadata: 40
             // Bond instructions length: 2
             size_ = 246 + (_bondInstructionsCount * 47);
         }

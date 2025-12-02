@@ -32,16 +32,14 @@ contract LibProvedEventEncoderTest is Test {
                     blockNumber: 50,
                     blockHash: bytes32(uint256(3)),
                     stateRoot: bytes32(uint256(4))
-                })
+                }),
+                designatedProver: address(0x1111),
+                actualProver: address(0x2222)
             }),
             transitionRecord: IInbox.TransitionRecord({
                 bondInstructions: instructions,
                 transitionHash: bytes32(uint256(5)),
                 checkpointHash: bytes32(uint256(6))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0x1111),
-                actualProver: address(0x2222)
             })
         });
 
@@ -56,7 +54,7 @@ contract LibProvedEventEncoderTest is Test {
             uint8(LibBonds.BondType.LIVENESS),
             "bond type"
         );
-        assertEq(decoded.metadata.designatedProver, payload.metadata.designatedProver, "designated prover");
+        assertEq(decoded.transition.designatedProver, payload.transition.designatedProver, "designated prover");
     }
 
     function test_encode_decode_empty_bonds_is_deterministic() public {
@@ -64,21 +62,19 @@ contract LibProvedEventEncoderTest is Test {
             proposalId: 99,
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(100)),
-                parentTransitionHash: bytes32(uint256(101)),
-                checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 500,
-                    blockHash: bytes32(uint256(102)),
-                    stateRoot: bytes32(uint256(103))
-                })
+            parentTransitionHash: bytes32(uint256(101)),
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 500,
+                blockHash: bytes32(uint256(102)),
+                stateRoot: bytes32(uint256(103))
             }),
+            designatedProver: address(0x3333),
+            actualProver: address(0x4444)
+        }),
             transitionRecord: IInbox.TransitionRecord({
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: bytes32(uint256(104)),
                 checkpointHash: bytes32(uint256(105))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0x3333),
-                actualProver: address(0x4444)
             })
         });
 

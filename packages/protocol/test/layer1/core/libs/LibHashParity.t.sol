@@ -56,7 +56,9 @@ contract LibHashParityTest is Test {
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: LibHashSimple.hashProposal(proposal),
             parentTransitionHash: bytes32(uint256(6)),
-            checkpoint: checkpoint
+            checkpoint: checkpoint,
+            designatedProver: address(0xAAAA),
+            actualProver: address(0xBBBB)
         });
 
         LibBonds.BondInstruction[] memory instructions = new LibBonds.BondInstruction[](1);
@@ -75,8 +77,6 @@ contract LibHashParityTest is Test {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = transition;
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
-        metadata[0] = IInbox.TransitionMetadata({ designatedProver: address(0xAAAA), actualProver: address(0xBBBB) });
 
         assertEq(LibHashSimple.hashCoreState(core), LibHashOptimized.hashCoreState(core), "core hash");
         assertEq(LibHashSimple.hashDerivation(derivation), LibHashOptimized.hashDerivation(derivation), "derivation hash");
@@ -88,9 +88,9 @@ contract LibHashParityTest is Test {
             "transition record hash"
         );
         assertEq(
-            LibHashSimple.hashTransitionsWithMetadata(transitions, metadata),
-            LibHashOptimized.hashTransitionsWithMetadata(transitions, metadata),
-            "transitions with metadata hash"
+            LibHashSimple.hashTransitions(transitions),
+            LibHashOptimized.hashTransitions(transitions),
+            "transitions hash"
         );
     }
 
