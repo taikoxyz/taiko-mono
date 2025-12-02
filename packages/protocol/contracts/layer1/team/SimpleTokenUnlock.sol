@@ -14,6 +14,7 @@ import "src/shared/libs/LibMath.sol";
 /// @notice Fully unlocks granted Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals from the grant bucket are permitted only at the 6 month mark.
+/// Any tokens sent directly to the contract in excess of amountGranted are immediately withdrawable.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
 contract SimpleTokenUnlock is EssentialContract {
