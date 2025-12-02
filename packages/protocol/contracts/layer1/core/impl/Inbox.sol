@@ -134,9 +134,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Flag indicating whether a conflicting transition record has been detected
-    bool public conflictingTransitionDetected;
-
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
@@ -430,8 +427,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Resets state variables to allow fresh start.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        conflictingTransitionDetected = false;
-
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
@@ -550,15 +545,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes26 recordHash = entry.recordHash;
 
         if (recordHash == 0) {
+            // No existing record - store this transition
             entry.recordHash = _recordHash;
             entry.finalizationDeadline = _hashAndDeadline.finalizationDeadline;
-        } else if (recordHash == _recordHash) {
-            emit TransitionDuplicateDetected();
-        } else {
-            emit TransitionConflictDetected();
-            conflictingTransitionDetected = true;
-            entry.finalizationDeadline = type(uint48).max;
+            return;
         }
+
+        // Same transition re-submitted - do nothing
+        if (recordHash == _recordHash) return;
+
+        // Conflict: different transition for same parent
+        emit TransitionConflictDetected(_proposalId, _parentTransitionHash, recordHash, _recordHash);
+        entry.finalizationDeadline = type(uint48).max;
     }
 
     /// @dev Loads transition record metadata from storage.
@@ -843,9 +841,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
+            uint256 toProcess = _numForcedInclusionsRequested.min(available);
 
             // Allocate array with extra slot for normal source
             result_.sources = new IInbox.DerivationSource[](toProcess + 1);
@@ -979,7 +975,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     proposalId, coreState.lastFinalizedTransitionHash
                 );
 
-                if (recordHash == 0) break;
+                if (recordHash == 0 || finalizationDeadline == type(uint48).max) break;
 
                 if (i >= transitionCount) {
                     require(currentTimestamp < finalizationDeadline, TransitionRecordNotProvided());

@@ -388,6 +388,103 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         inbox.propose(bytes(""), proposeData);
     }
 
+    function test_finalize_RevertWhen_TransitionInConflict() public {
+        // Propose and prove the first proposal
+        IInbox.ProposedEventPayload memory firstPayload = _proposeInitial();
+        ProvenProposal memory proven = _proveProposal(
+            firstPayload.proposal, _getGenesisTransitionHash(), currentProver, currentProver
+        );
+
+        // Submit a conflicting proof for the same proposal/parent to set deadline = type(uint48).max
+        IInbox.Transition memory conflictingTransition =
+            _createTransitionForProposal(firstPayload.proposal);
+        conflictingTransition.checkpoint.stateRoot = bytes32(uint256(999)); // force conflict
+
+        IInbox.ProveInput memory conflictInput = IInbox.ProveInput({
+            proposals: _wrapSingleProposal(firstPayload.proposal),
+            transitions: _wrapSingleTransition(conflictingTransition),
+            metadata: _wrapSingleMetadata(
+                _createMetadataForTransition(currentProver, currentProver)
+            )
+        });
+
+        vm.recordLogs();
+        vm.prank(currentProver);
+        inbox.prove(_codec().encodeProveInput(conflictInput), _createValidProof());
+
+        // Verify TransitionConflictDetected event was emitted with the proposal ID and record hashes
+        {
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            bool conflictEventFound = false;
+            for (uint256 i = 0; i < logs.length; i++) {
+                if (
+                    logs[i].topics.length > 0
+                        && logs[i].topics[0]
+                            == keccak256(
+                                "TransitionConflictDetected(uint48,bytes32,bytes26,bytes26)"
+                            )
+                ) {
+                    conflictEventFound = true;
+                    // topics[0] = event signature
+                    // topics[1] = indexed proposalId
+                    // topics[2] = indexed parentTransitionHash
+                    // data = previousRecordHash, newRecordHash
+                    (bytes26 previousRecordHash, bytes26 newRecordHash) =
+                        abi.decode(logs[i].data, (bytes26, bytes26));
+                    assertTrue(
+                        previousRecordHash != bytes26(0), "Previous record hash should not be zero"
+                    );
+                    assertTrue(newRecordHash != bytes26(0), "New record hash should not be zero");
+                    assertTrue(previousRecordHash != newRecordHash, "Hashes should be different");
+                    break;
+                }
+            }
+            assertTrue(conflictEventFound, "TransitionConflictDetected event not emitted");
+        }
+
+        // Verify the finalization deadline was set to max
+        {
+            (uint48 deadline, bytes26 recordHash) =
+                inbox.getTransitionRecordHash(firstPayload.proposal.id, _getGenesisTransitionHash());
+            assertEq(
+                deadline,
+                type(uint48).max,
+                "Deadline should be set to max for conflicting transition"
+            );
+            assertTrue(recordHash != bytes26(0), "Record hash should still exist");
+        }
+
+        // Attempt to finalize should stop early (not revert) when encountering the conflicting transition
+        _setupBlobHashes();
+        bytes memory proposeData = _codec()
+            .encodeProposeInput(
+                _buildFinalizeInput(
+                    firstPayload.coreState,
+                    _buildParentArray(firstPayload.proposal),
+                    _wrapSingleRecord(proven.record),
+                    proven.checkpoint
+                )
+            );
+
+        vm.recordLogs();
+        vm.roll(block.number + 1);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        // Verify that finalization did not proceed (lastFinalizedProposalId should remain 0)
+        IInbox.ProposedEventPayload memory finalizedPayload = _decodeLastProposedEvent();
+        assertEq(
+            finalizedPayload.coreState.lastFinalizedProposalId,
+            0,
+            "Finalization should not proceed when transition is in conflict"
+        );
+        assertEq(
+            finalizedPayload.coreState.lastFinalizedTransitionHash,
+            _getGenesisTransitionHash(),
+            "Last finalized transition hash should remain at genesis"
+        );
+    }
+
     // ---------------------------------------------------------------
     // Helper Functions
     // ---------------------------------------------------------------
@@ -534,6 +631,15 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         parents[0] = parent;
     }
 
+    function _wrapSingleProposal(IInbox.Proposal memory proposal)
+        internal
+        pure
+        returns (IInbox.Proposal[] memory parents)
+    {
+        parents = new IInbox.Proposal[](1);
+        parents[0] = proposal;
+    }
+
     function _wrapSingleRecord(IInbox.TransitionRecord memory record)
         internal
         pure
@@ -658,6 +764,26 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         return IInbox.TransitionMetadata({
             designatedProver: designatedProver, actualProver: actualProver
         });
+    }
+
+    function _wrapSingleTransition(IInbox.Transition memory transition)
+        internal
+        pure
+        returns (IInbox.Transition[] memory)
+    {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = transition;
+        return transitions;
+    }
+
+    function _wrapSingleMetadata(IInbox.TransitionMetadata memory metadata)
+        internal
+        pure
+        returns (IInbox.TransitionMetadata[] memory)
+    {
+        IInbox.TransitionMetadata[] memory arr = new IInbox.TransitionMetadata[](1);
+        arr[0] = metadata;
+        return arr;
     }
 
     function _labelForFinalizedCount(uint256 count) private pure returns (string memory) {
