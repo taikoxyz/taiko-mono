@@ -242,14 +242,10 @@ contract LibProveInputDecoderFuzzTest is Test {
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
         metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: proposer1,
-            actualProver: proposer2,
-            anchorAccessList: new uint64[](0)
+            designatedProver: proposer1, actualProver: proposer2, anchorAccessList: new uint64[](0)
         });
         metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: proposer2,
-            actualProver: proposer1,
-            anchorAccessList: new uint64[](0)
+            designatedProver: proposer2, actualProver: proposer1, anchorAccessList: new uint64[](0)
         });
 
         IInbox.ProveInput memory original = IInbox.ProveInput({
