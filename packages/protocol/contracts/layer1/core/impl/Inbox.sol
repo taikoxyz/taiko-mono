@@ -236,8 +236,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
 
             require(
-                H.hashCoreState(input.coreState)
-                    == input.headProposalAndProof[0].coreStateHash,
+                H.hashCoreState(input.coreState) == input.headProposalAndProof[0].coreStateHash,
                 InvalidState()
             );
 
@@ -325,7 +324,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     inputs[i].proposal.id, inputs[i].parentTransitionHash, record
                 );
 
-
                 _emitProvedEvent(inputs[i], finalizationDeadline, bondInstructions);
             }
 
@@ -334,9 +332,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 proposalAge = block.timestamp - inputs[0].proposal.timestamp;
             }
 
-            _proofVerifier.verifyProof(
-                proposalAge, H.hashProveInputArray(inputs), _proof
-            );
+            _proofVerifier.verifyProof(proposalAge, H.hashProveInputArray(inputs), _proof);
         }
     }
 
@@ -511,10 +507,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 require(_headProposalAndProof.length == 2, MissingProofProposal());
                 Proposal memory proofProposal = _headProposalAndProof[1];
                 require(headProposal.id > proofProposal.id, InvalidLastProposalProof());
-                require(
-                    nextSlotHash == H.hashProposal(proofProposal),
-                    NextProposalHashMismatch()
-                );
+                require(nextSlotHash == H.hashProposal(proofProposal), NextProposalHashMismatch());
             }
         }
     }
@@ -680,11 +673,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
-                    coreState_.aggregatedBondInstructionsHash =
-                        H.hashAggregatedBondInstructionsHash(
-                            coreState_.aggregatedBondInstructionsHash,
-                            _input.transitions[i].bondInstructionHash
-                        );
+                    coreState_.aggregatedBondInstructionsHash = H.hashAggregatedBondInstructionsHash(
+                        coreState_.aggregatedBondInstructionsHash,
+                        _input.transitions[i].bondInstructionHash
+                    );
                 }
 
                 proposalId += 1;
@@ -813,22 +805,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.proposalId = _proposalId;
             firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
-            return ;
+            return;
         }
-        
-         if (firstRecord.parentTransitionHash == _parentTransitionHash) return ;
+
+        if (firstRecord.parentTransitionHash == _parentTransitionHash) return;
 
         TransitionRecord storage existingRecord =
             _transitionRecordFor(_proposalId, _parentTransitionHash);
 
-        if (existingRecord.transitionHash == 0)  {
+        if (existingRecord.transitionHash == 0) {
             existingRecord.transitionHash = _record.transitionHash;
             existingRecord.finalizationDeadline = _record.finalizationDeadline;
         }
-        
     }
 
-     // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Private Functions - Storage Access
     // ---------------------------------------------------------------
 

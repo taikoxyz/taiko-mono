@@ -118,7 +118,7 @@ contract Codex is ICodex {
 
     /// @inheritdoc ICodex
     function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
-            return H.hashCoreState(_coreState);
+        return H.hashCoreState(_coreState);
     }
 
     /// @inheritdoc ICodex

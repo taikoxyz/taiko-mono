@@ -193,7 +193,9 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         IInbox.Transition memory transition;
         transition.checkpointHash = codex.hashCheckpoint(
-            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
+            })
         );
 
         return IInbox.CoreState({
@@ -209,7 +211,9 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisTransitionHash() internal view returns (bytes27) {
         IInbox.Transition memory transition;
         transition.checkpointHash = codex.hashCheckpoint(
-            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
+            })
         );
         return codex.hashTransition(transition);
     }
@@ -666,8 +670,9 @@ abstract contract InboxTestHelper is CommonTest {
         internal
         returns (IInbox.ProvedEventPayload memory)
     {
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputWithMetadata(_proposal, _parentTransitionHash, _designatedProver, _actualProver);
+        IInbox.ProveInput[] memory inputs = _createProveInputWithMetadata(
+            _proposal, _parentTransitionHash, _designatedProver, _actualProver
+        );
         bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.recordLogs();
