@@ -195,6 +195,11 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(uint40 indexed proposalId, bytes27 indexed parentTransitionHash, bytes data);
 
+    /// @notice Emitted when a conflicting transition record is detected
+    /// @param proposalId The ID of the proposal with conflicting transitions
+    /// @param parentTransitionHash The parent transition hash where the conflict occurred
+    event ConflictingTransition(uint40 indexed proposalId, bytes27 indexed parentTransitionHash, TransitionRecord existingRecord, TransitionRecord newRecord);
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

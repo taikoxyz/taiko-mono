@@ -808,6 +808,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     _loadTransitionRecord(proposalId, coreState_.finalizationHeadTransitionHash);
 
                 if (record.transitionHash == 0) break;
+                if (record.finalizationDeadline == type(uint40).max) break;
 
                 if (i >= transitionCount) {
                     require(block.timestamp < record.finalizationDeadline, TransitionNotProvided());
@@ -949,16 +950,39 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.proposalId = _proposalId;
             firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
-        } else if (firstRecord.parentTransitionHash != _parentTransitionHash) {
-            // Collision: fallback to composite key mapping
-            TransitionRecord storage record =
+        } else if (firstRecord.parentTransitionHash == _parentTransitionHash) {
+            _updateTransitionRecord(firstRecord.record, _record, _proposalId, _parentTransitionHash);
+        } else {
+            // The first record is used with a different parentTransitionHash
+            TransitionRecord storage existingRecord =
                 _transitionRecordFor(_proposalId, _parentTransitionHash);
-
-            if (record.transitionHash != 0) {
-                record.transitionHash = _record.transitionHash;
-                record.finalizationDeadline = _record.finalizationDeadline;
-            }
+            _updateTransitionRecord(existingRecord, _record, _proposalId, _parentTransitionHash);
         }
+    }
+
+    /// @dev Updates an existing transition record, handling conflict detection.
+    ///      If a conflict is detected (different transition hash), emits ConflictingTransition
+    ///      and sets finalizationDeadline to max to prevent finalization.
+    /// @param _existingRecord The storage pointer to the existing record
+    /// @param _newRecord The new record data to apply
+    /// @param _proposalId The proposal ID (for event emission)
+    /// @param _parentTransitionHash The parent transition hash (for event emission)
+    function _updateTransitionRecord(
+        TransitionRecord storage _existingRecord,
+        TransitionRecord memory _newRecord,
+        uint40 _proposalId,
+        bytes27 _parentTransitionHash
+    )
+        private
+    {
+        if (_existingRecord.transitionHash != _newRecord.transitionHash) {
+            emit ConflictingTransition(_proposalId, _parentTransitionHash, _existingRecord, _newRecord);
+            // Conflict detected - prevent finalization by setting deadline to max
+            _existingRecord.finalizationDeadline = type(uint40).max;
+        } else {
+            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
+        }
+        _existingRecord.transitionHash = _newRecord.transitionHash;
     }
 
     // ---------------------------------------------------------------

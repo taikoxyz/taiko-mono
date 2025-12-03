@@ -159,7 +159,7 @@ library LibHashOptimized {
         return EfficientHashLib.hash(
             bytes32(uint256(_change.startProposalId)),
             bytes32(uint256(_change.endProposalId)),
-            _change.bondInstructionsHash
+            _change.aggregatedBondInstructionsHash
         );
     }
 
