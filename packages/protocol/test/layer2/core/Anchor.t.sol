@@ -478,12 +478,12 @@ contract AnchorTest is Test {
         assertEq(fee, 0, "Should return zero fee when context mismatch");
     }
 
-    function test_validateProverAuth_Uses256ByteMinimumEncoding() external view {
+    function test_validateProverAuth_UsesMinimumEncodingLength() external view {
         uint48 proposalId = 77;
         uint256 provingFee = 2 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
-        assertEq(proverAuth.length, 256, "ABI-encoded ProverAuth should be 256 bytes");
+        assertEq(proverAuth.length, 288, "ABI-encoded ProverAuth should be 288 bytes");
 
         bytes memory trimmed = proverAuth;
         uint256 trimmedLength = proverAuth.length - 1;
