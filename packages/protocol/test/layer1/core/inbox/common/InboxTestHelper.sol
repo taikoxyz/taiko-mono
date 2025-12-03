@@ -11,8 +11,8 @@ import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
-import { CommonTest } from "test/shared/CommonTest.sol";
 import { MockProofVerifier, MockProposerChecker } from "../mocks/MockContracts.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxTestHelper
 /// @notice Base test contract with reusable helper functions for Inbox testing
@@ -189,7 +189,9 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         IInbox.Transition memory transition;
         transition.checkpointHash = inbox.hashCheckpoint(
-            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
+            })
         );
 
         return IInbox.CoreState({
@@ -205,7 +207,9 @@ abstract contract InboxTestHelper is CommonTest {
     function _getGenesisTransitionHash() internal view returns (bytes27) {
         IInbox.Transition memory transition;
         transition.checkpointHash = inbox.hashCheckpoint(
-            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
+            })
         );
         return inbox.hashTransition(transition);
     }
@@ -255,9 +259,7 @@ abstract contract InboxTestHelper is CommonTest {
         returns (LibBlobs.BlobReference memory)
     {
         return LibBlobs.BlobReference({
-            blobStartIndex: _blobStartIndex,
-            numBlobs: _numBlobs,
-            offset: _offset
+            blobStartIndex: _blobStartIndex, numBlobs: _numBlobs, offset: _offset
         });
     }
 
@@ -389,8 +391,7 @@ abstract contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(uint256(200))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: _parentTransitionHash
         });
@@ -416,8 +417,7 @@ abstract contract InboxTestHelper is CommonTest {
                 stateRoot: bytes32(uint256(200))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: _designatedProver,
-                actualProver: _actualProver
+                designatedProver: _designatedProver, actualProver: _actualProver
             }),
             parentTransitionHash: _parentTransitionHash
         });
@@ -447,8 +447,7 @@ abstract contract InboxTestHelper is CommonTest {
                 proposal: _proposals[i],
                 checkpoint: checkpoint,
                 metadata: IInbox.TransitionMetadata({
-                    designatedProver: currentProver,
-                    actualProver: currentProver
+                    designatedProver: currentProver, actualProver: currentProver
                 }),
                 parentTransitionHash: parentHash
             });
@@ -676,8 +675,9 @@ abstract contract InboxTestHelper is CommonTest {
         internal
         returns (IInbox.ProvedEventPayload memory)
     {
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputWithMetadata(_proposal, _parentTransitionHash, _designatedProver, _actualProver);
+        IInbox.ProveInput[] memory inputs = _createProveInputWithMetadata(
+            _proposal, _parentTransitionHash, _designatedProver, _actualProver
+        );
         bytes memory proveData = inbox.encodeProveInput(inputs);
 
         vm.recordLogs();
@@ -768,10 +768,7 @@ abstract contract InboxTestHelper is CommonTest {
         }
 
         result = RingBufferFillResult({
-            first: firstPayload,
-            second: secondPayload,
-            last: lastPayload,
-            proposals: proposals
+            first: firstPayload, second: secondPayload, last: lastPayload, proposals: proposals
         });
     }
 
@@ -796,9 +793,7 @@ abstract contract InboxTestHelper is CommonTest {
         bytes32[] memory blobHashes = _getBlobHashesForForcedInclusion(_ref);
 
         return LibBlobs.BlobSlice({
-            blobHashes: blobHashes,
-            offset: _ref.offset,
-            timestamp: timestampBefore
+            blobHashes: blobHashes, offset: _ref.offset, timestamp: timestampBefore
         });
     }
 
@@ -862,7 +857,14 @@ abstract contract InboxTestHelper is CommonTest {
         return string.concat(_baseName, "_Inbox");
     }
 
-    function _labelForCount(string memory _prefix, uint256 _count) internal pure returns (string memory) {
+    function _labelForCount(
+        string memory _prefix,
+        uint256 _count
+    )
+        internal
+        pure
+        returns (string memory)
+    {
         return string.concat(_prefix, "_", Strings.toString(_count));
     }
 }

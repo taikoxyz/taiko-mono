@@ -239,7 +239,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
 
-
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
                 _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
@@ -677,7 +676,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
     // -------------------------------  --------------------------------
     // Private Functions - Forced Inclusion Flow
     // ---------------------------------------------------------------
@@ -754,35 +752,35 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint40 oldestTimestamp_, uint40 head_, uint40 lastProcessedAt_)
     {
         unchecked {
-        if (_toProcess > 0) {
-            // Process inclusions and accumulate fees
-            uint256 totalFees;
+            if (_toProcess > 0) {
+                // Process inclusions and accumulate fees
+                uint256 totalFees;
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                     _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
                 }
 
-            // Transfer accumulated fees
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                // Transfer accumulated fees
+                if (totalFees > 0) {
+                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                }
+
+                // Oldest timestamp is max of first inclusion timestamp and last processed time
+                oldestTimestamp_ = uint40(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+                // Update queue position and last processed time
+                head_ = _head + uint40(_toProcess);
+                lastProcessedAt_ = uint40(block.timestamp);
+
+                // Write to storage once
+                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+            } else {
+                // No inclusions processed
+                oldestTimestamp_ = type(uint40).max;
+                head_ = _head;
+                lastProcessedAt_ = _lastProcessedAt;
             }
-
-            // Oldest timestamp is max of first inclusion timestamp and last processed time
-            oldestTimestamp_ = uint40(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-            // Update queue position and last processed time
-            head_ = _head + uint40(_toProcess);
-            lastProcessedAt_ = uint40(block.timestamp);
-
-            // Write to storage once
-            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-        } else {
-            // No inclusions processed
-            oldestTimestamp_ = type(uint40).max;
-            head_ = _head;
-            lastProcessedAt_ = _lastProcessedAt;
-        }
         }
     }
 
@@ -880,18 +878,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         unchecked {
-        _checkpointStore.saveCheckpoint(_checkpoint);
+            _checkpointStore.saveCheckpoint(_checkpoint);
 
-        // Signal bond instruction changes to L2 if any occurred
-        if (_coreState.aggregatedBondInstructionsHash != 0) {
-            BondInstructionMessage memory message = BondInstructionMessage({
-                firstProposalId: _coreState.synchronizationHead + 1,
-                lastProposalId: _coreState.finalizationHead,
-                aggregatedBondInstructionsHash: _coreState.aggregatedBondInstructionsHash
-            });
-            _signalService.sendSignal(hashBondInstructionMessage(message));
-            _coreState.aggregatedBondInstructionsHash = 0;
-        }
+            // Signal bond instruction changes to L2 if any occurred
+            if (_coreState.aggregatedBondInstructionsHash != 0) {
+                BondInstructionMessage memory message = BondInstructionMessage({
+                    firstProposalId: _coreState.synchronizationHead + 1,
+                    lastProposalId: _coreState.finalizationHead,
+                    aggregatedBondInstructionsHash: _coreState.aggregatedBondInstructionsHash
+                });
+                _signalService.sendSignal(hashBondInstructionMessage(message));
+                _coreState.aggregatedBondInstructionsHash = 0;
+            }
 
             _coreState.synchronizationHead = _coreState.finalizationHead;
         }
@@ -917,28 +915,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
         unchecked {
-        uint256 windowEnd = _input.proposal.timestamp + _provingWindow;
-        if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
+            uint256 windowEnd = _input.proposal.timestamp + _provingWindow;
+            if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-        uint256 extendedWindowEnd = _input.proposal.timestamp + _extendedProvingWindow;
-        bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
+            uint256 extendedWindowEnd = _input.proposal.timestamp + _extendedProvingWindow;
+            bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
-        bool needsBondInstruction = isWithinExtendedWindow
-            ? (_input.metadata.actualProver != _input.metadata.designatedProver)
-            : (_input.metadata.actualProver != _input.proposal.proposer);
+            bool needsBondInstruction = isWithinExtendedWindow
+                ? (_input.metadata.actualProver != _input.metadata.designatedProver)
+                : (_input.metadata.actualProver != _input.proposal.proposer);
 
-        if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
+            if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
-        bondInstructions_ = new LibBonds.BondInstruction[](1);
-        bondInstructions_[0] = LibBonds.BondInstruction({
-            proposalId: _input.proposal.id,
-            bondType: isWithinExtendedWindow
-                ? LibBonds.BondType.LIVENESS
-                : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow
-                ? _input.metadata.designatedProver
-                : _input.proposal.proposer,
-            payee: _input.metadata.actualProver
+            bondInstructions_ = new LibBonds.BondInstruction[](1);
+            bondInstructions_[0] = LibBonds.BondInstruction({
+                proposalId: _input.proposal.id,
+                bondType: isWithinExtendedWindow
+                    ? LibBonds.BondType.LIVENESS
+                    : LibBonds.BondType.PROVABILITY,
+                payer: isWithinExtendedWindow
+                    ? _input.metadata.designatedProver
+                    : _input.proposal.proposer,
+                payee: _input.metadata.actualProver
             });
         }
     }

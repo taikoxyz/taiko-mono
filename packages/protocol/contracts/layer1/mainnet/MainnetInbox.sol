@@ -36,8 +36,7 @@ contract MainnetInbox is Inbox {
         address _proposerChecker,
         address _signalService
     )
-        Inbox(
-            IInbox.Config({
+        Inbox(IInbox.Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
@@ -54,8 +53,7 @@ contract MainnetInbox is Inbox {
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minSyncDelay: 32, // minimum proposals between syncs
                 permissionlessInclusionMultiplier: 5
-            })
-        )
+            }))
     { }
 
     // ---------------------------------------------------------------

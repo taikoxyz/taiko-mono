@@ -107,7 +107,9 @@ contract InboxRingBufferTest is InboxTestHelper {
         }
 
         // Verify we're at the expected proposal ID (4 with size 5)
-        assertEq(payload.proposal.id, SMALL_RING_BUFFER_SIZE - 1, "Should be at expected proposal ID");
+        assertEq(
+            payload.proposal.id, SMALL_RING_BUFFER_SIZE - 1, "Should be at expected proposal ID"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -124,7 +126,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload4 = _proposeConsecutive(payload3);
 
         // Prove proposal 1 to allow finalization
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Now try to create proposal 5 - it goes to slot 0 (5 % 5 = 0)
         // Slot 0 contains genesis (id=0), so wrap-around is detected
@@ -171,7 +174,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload4 = _proposeConsecutive(payload3);
 
         // Prove proposal 1 to allow finalization
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Now try to create proposal 5 - it goes to slot 0 (5 % 5 = 0)
         // Slot 0 contains genesis (id=0), so wrap-around is detected
@@ -215,7 +219,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload4 = _proposeConsecutive(payload3);
 
         // Prove proposal 1 to allow finalization
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Now create proposal 5 - it goes to slot 0 (5 % 5 = 0)
         // Slot 0 contains genesis (id=0), so wrap-around is detected

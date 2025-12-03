@@ -378,7 +378,7 @@ contract LibPackUnpackTest is Test {
         // Test uint8 + uint16 + uint24
         uint8 val1 = 42;
         uint16 val2 = 1234;
-        uint24 val3 = 654321;
+        uint24 val3 = 654_321;
 
         uint256 writePtr = ptr;
         writePtr = LibPackUnpack.packUint8(writePtr, val1);

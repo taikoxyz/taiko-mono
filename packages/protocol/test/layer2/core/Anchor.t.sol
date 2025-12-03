@@ -119,10 +119,7 @@ contract AnchorTest is Test {
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
-        assertEq(
-            bondManager.getBondBalance(proposer),
-            INITIAL_PROPOSER_BOND - 1 ether
-        );
+        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 1 ether);
         assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
 
         ICheckpointStore.Checkpoint memory saved =
@@ -209,9 +206,7 @@ contract AnchorTest is Test {
         bytes memory proverAuth2 = _buildProverAuth(proposalId2, provingFee2);
 
         Anchor.ProposalParams memory proposalParams2 = Anchor.ProposalParams({
-            proposalId: proposalId2,
-            proposer: proposer,
-            proverAuth: proverAuth2
+            proposalId: proposalId2, proposer: proposer, proverAuth: proverAuth2
         });
 
         Anchor.BlockParams memory blockParams2 = Anchor.BlockParams({
@@ -297,9 +292,7 @@ contract AnchorTest is Test {
         });
 
         Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
-            proposalId: proposalId,
-            proposer: proposer,
-            proverAuth: abi.encode(invalidAuth)
+            proposalId: proposalId, proposer: proposer, proverAuth: abi.encode(invalidAuth)
         });
 
         Anchor.BlockParams memory blockParams = Anchor.BlockParams({
@@ -522,9 +515,7 @@ contract AnchorTest is Test {
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
         proposalParams = Anchor.ProposalParams({
-            proposalId: proposalId,
-            proposer: proposer,
-            proverAuth: proverAuth
+            proposalId: proposalId, proposer: proposer, proverAuth: proverAuth
         });
 
         blockParams = Anchor.BlockParams({

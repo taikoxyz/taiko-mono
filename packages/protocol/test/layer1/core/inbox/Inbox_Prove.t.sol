@@ -45,8 +45,9 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.ProposedEventPayload[] memory payloads = _createConsecutiveProposals(2);
 
         // Prove all proposals
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
+        IInbox.ProveInput[] memory inputs = _createProveInputForMultipleProposals(
+            _extractProposals(payloads), _getGenesisTransitionHash(), true
+        );
         bytes memory proveData = inbox.encodeProveInput(inputs);
 
         vm.prank(currentProver);
@@ -62,8 +63,9 @@ contract InboxProveTest is InboxTestHelper {
     function test_prove_threeConsecutiveProposals() public {
         IInbox.ProposedEventPayload[] memory payloads = _createConsecutiveProposals(3);
 
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
+        IInbox.ProveInput[] memory inputs = _createProveInputForMultipleProposals(
+            _extractProposals(payloads), _getGenesisTransitionHash(), true
+        );
         bytes memory proveData = inbox.encodeProveInput(inputs);
 
         vm.prank(currentProver);
@@ -125,7 +127,8 @@ contract InboxProveTest is InboxTestHelper {
             parentProposalHash: bytes32(uint256(333))
         });
 
-        IInbox.ProveInput[] memory inputs = _createProveInput(fakeProposal, _getGenesisTransitionHash());
+        IInbox.ProveInput[] memory inputs =
+            _createProveInput(fakeProposal, _getGenesisTransitionHash());
         bytes memory proveData = inbox.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
@@ -203,14 +206,10 @@ contract InboxProveTest is InboxTestHelper {
             "Bond type should be LIVENESS"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payer,
-            David,
-            "Payer should be designated prover"
+            provedPayload.bondInstructions[0].payer, David, "Payer should be designated prover"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payee,
-            currentProver,
-            "Payee should be actual prover"
+            provedPayload.bondInstructions[0].payee, currentProver, "Payee should be actual prover"
         );
     }
 
@@ -260,9 +259,7 @@ contract InboxProveTest is InboxTestHelper {
             "Payer should be proposer"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payee,
-            currentProver,
-            "Payee should be actual prover"
+            provedPayload.bondInstructions[0].payee, currentProver, "Payee should be actual prover"
         );
     }
 
@@ -297,7 +294,9 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.TransitionRecord memory record =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
-        assertTrue(record.transitionHash != bytes27(0), "Transition should be stored in ring buffer");
+        assertTrue(
+            record.transitionHash != bytes27(0), "Transition should be stored in ring buffer"
+        );
     }
 
     function test_prove_updatesExistingTransition_sameHash() public {
@@ -351,8 +350,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(888))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: _getGenesisTransitionHash()
         });
@@ -384,8 +382,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(888))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: _getGenesisTransitionHash()
         });
@@ -451,8 +448,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(666))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });
@@ -492,8 +488,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(666))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });
@@ -512,8 +507,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(999))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });
@@ -526,12 +520,17 @@ contract InboxProveTest is InboxTestHelper {
 
         // Verify ConflictingTransition event was emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertTrue(_hasConflictingTransitionEvent(logs), "Should emit ConflictingTransition event on fallback mapping");
+        assertTrue(
+            _hasConflictingTransitionEvent(logs),
+            "Should emit ConflictingTransition event on fallback mapping"
+        );
 
         // Verify max deadline is set
         IInbox.TransitionRecord memory record =
             inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
-        assertEq(record.finalizationDeadline, type(uint40).max, "Should set max deadline for conflict");
+        assertEq(
+            record.finalizationDeadline, type(uint40).max, "Should set max deadline for conflict"
+        );
     }
 
     // ---------------------------------------------------------------
