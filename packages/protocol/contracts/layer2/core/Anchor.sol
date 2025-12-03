@@ -86,9 +86,9 @@ contract Anchor is EssentialContract {
     ///   - uint256 provingFee: 32 bytes (padded)
     ///   - bytes offset: 32 bytes
     ///   - bytes length: 32 bytes
-    ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
-    /// Total: 32 + 32 + 32 + 32 + 32 + 65 = 225 bytes
-    uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
+    ///   - signature data padded to 32-byte word boundary: 96 bytes (65-byte ECDSA signature)
+    /// Total: 4 * 32 + 32 + 96 = 256 bytes
+    uint256 private constant MIN_PROVER_AUTH_LENGTH = 256;
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
@@ -353,7 +353,12 @@ contract Anchor is EssentialContract {
             return (_proposer, 0);
         }
 
-        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
+        ProverAuth memory proverAuth;
+        try _decodeProverAuth(_proverAuth) returns (ProverAuth memory decoded) {
+            proverAuth = decoded;
+        } catch {
+            return (_proposer, 0);
+        }
 
         if (!_isMatchingProverAuthContext(proverAuth, _proposalId, _proposer)) {
             return (_proposer, 0);
@@ -558,6 +563,15 @@ contract Anchor is EssentialContract {
             )
         );
         /// forge-lint: disable-end
+    }
+
+    /// @dev Decodes `ProverAuth` calldata; isolated for safe try/catch in `validateProverAuth`.
+    function _decodeProverAuth(bytes calldata _proverAuth)
+        public
+        pure
+        returns (ProverAuth memory)
+    {
+        return abi.decode(_proverAuth, (ProverAuth));
     }
 
     // ---------------------------------------------------------------

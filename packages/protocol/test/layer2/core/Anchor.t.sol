@@ -370,6 +370,26 @@ contract AnchorTest is Test {
         );
     }
 
+    function test_anchorV4_AllowsMalformedProverAuthEncoding() external {
+        (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
+            _prepareAnchorCall();
+
+        bytes memory malformed = proposalParams.proverAuth;
+        uint256 trimmedLength = malformed.length - 10;
+        assembly {
+            mstore(malformed, trimmedLength)
+        }
+        proposalParams.proverAuth = malformed;
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        Anchor.ProposalState memory proposalState = anchor.getProposalState();
+        assertEq(proposalState.designatedProver, proposer);
+        assertFalse(proposalState.isLowBondProposal);
+    }
+
     // ---------------------------------------------------------------
     // getDesignatedProver
     // ---------------------------------------------------------------
@@ -456,6 +476,40 @@ contract AnchorTest is Test {
 
         assertEq(signer, wrongProposer, "Should reject signature for wrong proposer");
         assertEq(fee, 0, "Should return zero fee when context mismatch");
+    }
+
+    function test_validateProverAuth_Uses256ByteMinimumEncoding() external view {
+        uint48 proposalId = 77;
+        uint256 provingFee = 2 ether;
+        bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
+
+        assertEq(proverAuth.length, 256, "ABI-encoded ProverAuth should be 256 bytes");
+
+        bytes memory trimmed = proverAuth;
+        uint256 trimmedLength = proverAuth.length - 1;
+        assembly {
+            mstore(trimmed, trimmedLength)
+        }
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, trimmed);
+
+        assertEq(signer, proposer, "Should fall back when below minimum encoding size");
+        assertEq(fee, 0, "Fee should be zero when below minimum encoding size");
+    }
+
+    function test_validateProverAuth_ReturnsFallbackWhenDecodingFails() external view {
+        uint48 proposalId = 42;
+        uint256 provingFee = 3 ether;
+        bytes memory malformed = _buildProverAuth(proposalId, provingFee);
+        uint256 trimmedLength = malformed.length - 10;
+        assembly {
+            mstore(malformed, trimmedLength)
+        }
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, malformed);
+
+        assertEq(signer, proposer, "Should fall back to proposer on malformed encoding");
+        assertEq(fee, 0, "Should not return proving fee when decoding fails");
     }
 
     // ---------------------------------------------------------------
