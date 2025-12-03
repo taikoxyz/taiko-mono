@@ -13,7 +13,7 @@ contract DeploySimpleTokenUnlock is BaseScript {
     function run() external broadcast {
         require(SIMPLE_TOKEN_UNLOCK_IMPL != address(0), "SIMPLE_TOKEN_UNLOCK_IMPL not set");
 
-        string memory path = "/script/simpletokenunlock/Deploy.data.json";
+        string memory path = "/script/layer1/team/simpletokenunlock/Deploy.data.json";
         address[] memory recipients = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (address[])
         );
