@@ -825,9 +825,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
                     coreState_.aggregatedBondInstructionsHash = hashAggregatedBondInstructionsHash(
-                            coreState_.aggregatedBondInstructionsHash,
-                            _input.transitions[i].bondInstructionHash
-                        );
+                        coreState_.aggregatedBondInstructionsHash,
+                        _input.transitions[i].bondInstructionHash
+                    );
                 }
 
                 proposalId += 1;
@@ -838,15 +838,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(finalizedCount == transitionCount, IncorrectTransitionCount());
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
-            if (finalizedCount == 0 ) {
-                require(_input.checkpoint.blockNumber == 0 && _input.checkpoint.blockHash ==0 && _input.checkpoint.stateRoot == 0, InvalidCheckpoint());
+            if (finalizedCount == 0) {
+                require(
+                    _input.checkpoint.blockNumber == 0 && _input.checkpoint.blockHash == 0
+                        && _input.checkpoint.stateRoot == 0,
+                    InvalidCheckpoint()
+                );
             } else {
                 // Validate and checkpoint
                 bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-                require(checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash, CheckpointMismatch());
-            
-                if ( coreState_.finalizationHead > coreState_.synchronizationHead + _minSyncDelay){
-                    _syncToLayer2(_input.checkpoint,  coreState_);
+                require(
+                    checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash,
+                    CheckpointMismatch()
+                );
+
+                if (coreState_.finalizationHead > coreState_.synchronizationHead + _minSyncDelay) {
+                    _syncToLayer2(_input.checkpoint, coreState_);
                 }
             }
         }
@@ -866,7 +873,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-     
         _checkpointStore.saveCheckpoint(_checkpoint);
 
         // Signal bond instruction changes to L2 if any occurred
@@ -976,7 +982,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         if (_existingRecord.transitionHash != _newRecord.transitionHash) {
-            emit ConflictingTransition(_proposalId, _parentTransitionHash, _existingRecord, _newRecord);
+            emit ConflictingTransition(
+                _proposalId, _parentTransitionHash, _existingRecord, _newRecord
+            );
             // Conflict detected - prevent finalization by setting deadline to max
             _existingRecord.finalizationDeadline = type(uint40).max;
         } else {
