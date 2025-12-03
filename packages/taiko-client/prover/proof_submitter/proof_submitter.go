@@ -111,7 +111,7 @@ func NewProofSubmitterPacaya(
 		proofPollingInterval:      proofPollingInterval,
 	}
 
-	proofSubmitter.startProofBufferMonitors(ctx)
+	proofSubmitter.StartProofBufferMonitors(ctx)
 
 	return proofSubmitter, nil
 }
@@ -282,37 +282,9 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	return false
 }
 
-func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
-	if s.forceBatchProvingInterval <= 0 {
-		return
-	}
-	for proofType, buffer := range s.proofBuffers {
-		proofType := proofType
-		buffer := buffer
-		go s.monitorProofBuffer(ctx, proofType, buffer)
-	}
-}
-
-func (s *ProofSubmitterPacaya) monitorProofBuffer(
-	ctx context.Context,
-	proofType proofProducer.ProofType,
-	buffer *proofProducer.ProofBuffer,
-) {
-	interval := s.forceBatchProvingInterval
-	if interval <= 0 {
-		interval = 30 * time.Minute
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.TryAggregate(buffer, proofType)
-		}
-	}
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation.
+func (s *ProofSubmitterPacaya) StartProofBufferMonitors(ctx context.Context) {
+	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.

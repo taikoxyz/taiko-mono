@@ -27,6 +27,7 @@ const rpcPollingInterval = 3 * time.Second
 // ProofSubmitterShasta is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterShasta struct {
+	ctx context.Context
 	rpc *rpc.Client
 	// Proof producers
 	baseLevelProofProducer proofProducer.ProofProducer
@@ -50,6 +51,7 @@ type ProofSubmitterShasta struct {
 
 // NewProofSubmitterShasta creates a new Shasta ProofSubmitter instance.
 func NewProofSubmitterShasta(
+	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -62,7 +64,8 @@ func NewProofSubmitterShasta(
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterShasta, error) {
-	return &ProofSubmitterShasta{
+	proofSubmitter := &ProofSubmitterShasta{
+		ctx:                    ctx,
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -82,7 +85,15 @@ func NewProofSubmitterShasta(
 		proofPollingInterval:      proofPollingInterval,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
-	}, nil
+	}
+
+	proofSubmitter.StartProofBufferMonitors(ctx)
+	return proofSubmitter, nil
+}
+
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation.
+func (s *ProofSubmitterShasta) StartProofBufferMonitors(ctx context.Context) {
+	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
 // RequestProof requests proof for the given Taiko batch.

@@ -1,0 +1,55 @@
+package submitter
+
+import (
+	"context"
+	"time"
+
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+)
+
+// startProofBufferMonitors launches a monitor goroutine per proof type so we can
+// enforce forced aggregation deadlines in the background.
+func startProofBufferMonitors(
+	ctx context.Context,
+	forceBatchProvingInterval time.Duration,
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
+	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
+) {
+	if forceBatchProvingInterval <= 0 {
+		return
+	}
+
+	for proofType, buffer := range proofBuffers {
+		proofType := proofType
+		buffer := buffer
+
+		go monitorProofBuffer(ctx, proofType, buffer, forceBatchProvingInterval, tryAggregate)
+	}
+}
+
+// monitorProofBuffer periodically attempts aggregation for a single proof
+// buffer until the context is canceled.
+func monitorProofBuffer(
+	ctx context.Context,
+	proofType proofProducer.ProofType,
+	buffer *proofProducer.ProofBuffer,
+	forceBatchProvingInterval time.Duration,
+	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
+) {
+	interval := forceBatchProvingInterval
+	if interval <= 0 {
+		interval = 30 * time.Minute
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			tryAggregate(buffer, proofType)
+		}
+	}
+}
