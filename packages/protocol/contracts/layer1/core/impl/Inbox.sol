@@ -227,7 +227,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 CannotProposeInCurrentBlock()
             );
 
-            // Verify parentProposals[0] is the head proposal. This will also veirfy there is at least one slot available in the ring buffer for a new proposal.
+            // Verify parentProposals[0] is the head proposal. This will also veirfy there is
+            // at least one slot available in the ring buffer for a new proposal.
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
 
             require(
