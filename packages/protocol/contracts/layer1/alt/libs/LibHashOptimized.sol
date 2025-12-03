@@ -49,8 +49,7 @@ library LibHashOptimized {
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
             bytes32(uint256(_coreState.lastSyncTimestamp)),
             _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHashOld,
-            _coreState.bondInstructionsHashNew
+            _coreState.bondInstructionsHash
         );
     }
 
@@ -127,25 +126,27 @@ library LibHashOptimized {
     /// @return The hash truncated to bytes27 for storage optimization
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes27) {
         return bytes27(
-            EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash)
+            EfficientHashLib.hash(_transition.bondInstructionHash, _transition.checkpointHash)
         );
     }
 
-    /// @notice Optimized hashing for BondInstructionHashChange structs
-    /// @dev Uses EfficientHashLib to hash the hash change fields
-    /// @param _hashChange The bond instruction hash change to hash
-    /// @return The hash of the bond instruction hash change
-    function hashBondInstructionHashChange(IInbox.BondInstructionHashChange memory _hashChange)
+    /// @notice Safely hashes a single bond instruction to avoid collisions
+    /// @dev Internal helper to avoid code duplication and prevent hash collisions
+    /// @param _instruction The bond instruction to hash
+    /// @return The hash of the bond instruction
+    function hashBondInstruction(LibBonds.BondInstruction memory _instruction)
         internal
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_hashChange.lastFinalizedProposalId)),
-            _hashChange.bondInstructionsHashOld,
-            _hashChange.bondInstructionsHashNew
+            bytes32(uint256(_instruction.proposalId)),
+            bytes32(uint256(uint8(_instruction.bondType))),
+            bytes32(uint256(uint160(_instruction.payer))),
+            bytes32(uint256(uint160(_instruction.payee)))
         );
     }
+
 
     // ---------------------------------------------------------------
     // Array Hashing Functions
@@ -221,50 +222,6 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Optimized hashing for BondInstruction array
-    /// @dev Efficiently hashes an array of bond instructions
-    /// @param _bondInstructions The bond instructions array to hash
-    /// @return The hash of the bond instructions array
-    function hashBondInstructionArray(LibBonds.BondInstruction[] memory _bondInstructions)
-        internal
-        pure
-        returns (bytes32)
-    {
-        unchecked {
-            uint256 length = _bondInstructions.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-
-            if (length == 1) {
-                return EfficientHashLib.hash(
-                    bytes32(length), _hashSingleBondInstruction(_bondInstructions[0])
-                );
-            }
-
-            if (length == 2) {
-                return EfficientHashLib.hash(
-                    bytes32(length),
-                    _hashSingleBondInstruction(_bondInstructions[0]),
-                    _hashSingleBondInstruction(_bondInstructions[1])
-                );
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(
-                    buffer, i + 1, _hashSingleBondInstruction(_bondInstructions[i])
-                );
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
-    }
-
     // ---------------------------------------------------------------
     // Utility Functions
     // ---------------------------------------------------------------
@@ -320,7 +277,7 @@ library LibHashOptimized {
     function _hashProveInput(IInbox.ProveInput memory _input) private pure returns (bytes32) {
         bytes32 proposalHash = hashProposal(_input.proposal);
         bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-        bytes32 metadataHash = _hashmetadata(_input.metadata);
+        bytes32 metadataHash = _hashTransitionMetadata(_input.metadata);
 
         return EfficientHashLib.hash(
             proposalHash, checkpointHash, metadataHash, bytes32(_input.parentTransitionHash)
@@ -332,7 +289,7 @@ library LibHashOptimized {
     /// @dev Internal helper to hash metadata struct
     /// @param _metadata The metadata to hash
     /// @return The hash of the metadata
-    function _hashmetadata(IInbox.metadata memory _metadata)
+    function _hashTransitionMetadata(IInbox.metadata memory _metadata)
         private
         pure
         returns (bytes32)
@@ -345,22 +302,7 @@ library LibHashOptimized {
         );
     }
 
-    /// @notice Safely hashes a single bond instruction to avoid collisions
-    /// @dev Internal helper to avoid code duplication and prevent hash collisions
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _hashSingleBondInstruction(LibBonds.BondInstruction memory _instruction)
-        private
-        pure
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_instruction.proposalId)),
-            bytes32(uint256(uint8(_instruction.bondType))),
-            bytes32(uint256(uint160(_instruction.payer))),
-            bytes32(uint256(uint160(_instruction.payee)))
-        );
-    }
+
 
     // ---------------------------------------------------------------
     // Errors

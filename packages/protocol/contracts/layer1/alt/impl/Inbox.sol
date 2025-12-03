@@ -18,6 +18,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 import "./Inbox_Layout.sol"; // DO NOT DELETE
 
@@ -302,8 +303,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 LibBonds.BondInstruction[] memory bondInstructions =
                     _calculateBondInstructions(inputs[i].proposal.id, inputs[i].metadata);
 
+
                 Transition memory transition = Transition({
-                    bondInstructionsHash: hashBondInstructionArray(bondInstructions),
+                    bondInstructionHash: bondInstructions.length ==0? bytes32(0): hashBondInstruction(bondInstructions[0]),
                     checkpointHash: hashCheckpoint(inputs[i].checkpoint)
                 });
 
@@ -510,14 +512,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Hashes a BondInstructionHashChange struct.
-    /// @param _hashChange The bond instruction hash change to hash.
-    /// @return The hash of the bond instruction hash change.
-    function hashBondInstructionHashChange(BondInstructionHashChange memory _hashChange)
+    /// @param _bondInstruction The bond instruction to hash.
+    /// @return The hash of the bond instruction.
+    function hashBondInstruction(LibBonds.BondInstruction memory _bondInstruction)
         public
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashBondInstructionHashChange(_hashChange);
+        return LibHashOptimized.hashBondInstruction(_bondInstruction);
     }
 
     /// @dev Hashes blob hashes array.
@@ -534,18 +536,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashOptimized.hashProveInputArray(_inputs);
     }
 
-    /// @dev Hashes bond instructions array.
-    /// @param _bondInstructions The bond instructions to hash.
-    /// @return The hash of the bond instructions.
-    function hashBondInstructionArray(LibBonds.BondInstruction[] memory _bondInstructions)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashBondInstructionArray(_bondInstructions);
-    }
-
-    // ---------------------------------------------------------------
+     // ---------------------------------------------------------------
     // Private Functions - Activation
     // ---------------------------------------------------------------
 
@@ -784,7 +775,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
 
                 coreState_.lastFinalizedProposalId = proposalId;
-                coreState_.lastFinalizedTransitionHash = record.transitionHash;
+
+                // Aggregate bond instruction hash
+                if (_input.transitions[i].bondInstructionHash != 0) {
+                coreState_.lastFinalizedTransitionHash = bytes27(EfficientHashLib.hash(
+                   bytes32(coreState_.lastFinalizedTransitionHash), 
+                    _input.transitions[i].bondInstructionHash
+                ));
+                }
 
                 proposalId += 1;
                 finalizedCount += 1;
@@ -794,7 +792,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Update checkpoint if any proposals were finalized and minimum delay has passed
             if (finalizedCount > 0) {
                 Transition memory lastFinalizedTransition = _input.transitions[lastFinalizedIdx];
-                coreState_.bondInstructionsHashNew = lastFinalizedTransition.bondInstructionsHash;
 
                 _syncToLayer2(_input.checkpoint, lastFinalizedTransition.checkpointHash, coreState_);
             }
@@ -827,18 +824,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(checkpointHash == _lastVerifiedCheckpointHash, CheckpointMismatch());
         _checkpointStore.saveCheckpoint(_checkpoint);
 
-        // Signal bond instruction changes to L2 if any occurred
-        if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
+        // // Signal bond instruction changes to L2 if any occurred
+        // if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
 
-        BondInstructionHashChange memory hashChange = BondInstructionHashChange({
-            lastFinalizedProposalId: _coreState.lastFinalizedProposalId,
-            bondInstructionsHashOld: _coreState.bondInstructionsHashOld,
-            bondInstructionsHashNew: _coreState.bondInstructionsHashNew
-        });
+        // BondInstructionHashChange memory hashChange = BondInstructionHashChange({
+        //     lastFinalizedProposalId: _coreState.lastFinalizedProposalId,
+        //     bondInstructionsHashOld: _coreState.bondInstructionsHashOld,
+        //     bondInstructionsHashNew: _coreState.bondInstructionsHashNew
+        // });
 
-        _signalService.sendSignal(hashBondInstructionHashChange(hashChange));
+        // _signalService.sendSignal(hashBondInstructionHashChange(hashChange));
 
-        _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
+        // _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
     }
 
     // ---------------------------------------------------------------

@@ -26,7 +26,6 @@ library LibProposeInputDecoder {
         uint256 bufferSize = _calculateProposeDataSize(
             _input.headProposalAndProof,
             _input.transitions,
-            _input.bondInstructions,
             _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
@@ -43,8 +42,7 @@ library LibProposeInputDecoder {
         ptr = P.packUint40(ptr, _input.coreState.lastFinalizedProposalId);
         ptr = P.packUint40(ptr, _input.coreState.lastSyncTimestamp);
         ptr = P.packBytes27(ptr, _input.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHashOld);
-        ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHashNew);
+        ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
         // 3. Encode head proposals array
         P.checkArrayLength(_input.headProposalAndProof.length);
@@ -65,18 +63,7 @@ library LibProposeInputDecoder {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
         }
 
-        // 6. Encode BondInstructions 2D array
-        P.checkArrayLength(_input.bondInstructions.length);
-        ptr = P.packUint16(ptr, uint16(_input.bondInstructions.length));
-        for (uint256 i; i < _input.bondInstructions.length; ++i) {
-            P.checkArrayLength(_input.bondInstructions[i].length);
-            ptr = P.packUint16(ptr, uint16(_input.bondInstructions[i].length));
-            for (uint256 j; j < _input.bondInstructions[i].length; ++j) {
-                ptr = _encodeBondInstruction(ptr, _input.bondInstructions[i][j]);
-            }
-        }
-
-        // 7. Encode Checkpoint with optimization for empty header
+        // 6. Encode Checkpoint with optimization for empty header
         bool isEmpty = _input.checkpoint.blockNumber == 0
             && _input.checkpoint.blockHash == bytes32(0)
             && _input.checkpoint.stateRoot == bytes32(0);
@@ -109,8 +96,7 @@ library LibProposeInputDecoder {
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
-        (input_.coreState.bondInstructionsHashOld, ptr) = P.unpackBytes32(ptr);
-        (input_.coreState.bondInstructionsHashNew, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode head proposals array
         uint16 proposalsLength;
@@ -136,15 +122,7 @@ library LibProposeInputDecoder {
         // 6. Decode BondInstructions 2D array
         uint16 bondInstructionsOuterLength;
         (bondInstructionsOuterLength, ptr) = P.unpackUint16(ptr);
-        input_.bondInstructions = new LibBonds.BondInstruction[][](bondInstructionsOuterLength);
-        for (uint256 i; i < bondInstructionsOuterLength; ++i) {
-            uint16 innerLength;
-            (innerLength, ptr) = P.unpackUint16(ptr);
-            input_.bondInstructions[i] = new LibBonds.BondInstruction[](innerLength);
-            for (uint256 j; j < innerLength; ++j) {
-                (input_.bondInstructions[i][j], ptr) = _decodeBondInstruction(ptr);
-            }
-        }
+
 
         // 7. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
@@ -191,7 +169,7 @@ library LibProposeInputDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packBytes32(_ptr, _transition.bondInstructionsHash);
+        newPtr_ = P.packBytes32(_ptr, _transition.bondInstructionHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpointHash);
     }
 
@@ -231,7 +209,7 @@ library LibProposeInputDecoder {
         pure
         returns (IInbox.Transition memory transition_, uint256 newPtr_)
     {
-        (transition_.bondInstructionsHash, newPtr_) = P.unpackBytes32(_ptr);
+        (transition_.bondInstructionHash, newPtr_) = P.unpackBytes32(_ptr);
         (transition_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
@@ -257,7 +235,6 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.Transition[] memory _transitions,
-        LibBonds.BondInstruction[][] memory _bondInstructions,
         ICheckpointStore.Checkpoint memory _checkpoint
     )
         private
@@ -293,13 +270,7 @@ library LibProposeInputDecoder {
             // bondInstructionsHash(32) + checkpointHash(32) = 64
             size_ += _transitions.length * 64;
 
-            // BondInstructions 2D array
-            for (uint256 i; i < _bondInstructions.length; ++i) {
-                // Inner array length: 2 bytes
-                size_ += 2;
-                // Each bond instruction: proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
-                size_ += _bondInstructions[i].length * 46;
-            }
+          
         }
     }
 }

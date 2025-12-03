@@ -69,8 +69,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint40(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packUint40(ptr, _payload.coreState.lastSyncTimestamp);
         ptr = P.packBytes27(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHashOld);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHashNew);
+        ptr = P.packBytes32(ptr,    _payload.coreState.bondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
@@ -128,8 +127,7 @@ library LibProposedEventEncoder {
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
-        (payload_.coreState.bondInstructionsHashOld, ptr) = P.unpackBytes32(ptr);
-        (payload_.coreState.bondInstructionsHashNew, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent

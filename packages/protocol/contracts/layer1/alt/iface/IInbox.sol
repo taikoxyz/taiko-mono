@@ -90,7 +90,7 @@ interface IInbox {
     /// @notice Represents a record of a transition with additional metadata.
     struct Transition {
         /// @notice The hash of the bond instructions
-        bytes32 bondInstructionsHash;
+        bytes32 bondInstructionHash;
         /// @notice The hash of the checkpoint
         bytes32 checkpointHash;
     }
@@ -127,8 +127,7 @@ interface IInbox {
         /// @notice The hash of the last finalized transition.
         bytes27 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHashOld;
-        bytes32 bondInstructionsHashNew;
+        bytes32 bondInstructionsHash;
     }
 
     /// @notice Represents a change in bond instruction hashes for signaling.
@@ -153,8 +152,6 @@ interface IInbox {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         Transition[] transitions;
-        /// @notice Array of bond instructions for finalization (parallel to transitions).
-        LibBonds.BondInstruction[][] bondInstructions;
         /// @notice The checkpoint for finalization.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
