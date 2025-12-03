@@ -74,7 +74,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.stateRoot);
 
-        // Encode metadata 
+        // Encode metadata
         newPtr_ = _encodeProofMetadata(newPtr_, _input.metadata);
 
         // Encode parentTransitionHash
@@ -128,7 +128,7 @@ library LibProveInputDecoder {
         (input_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 
-        // Decode metadata 
+        // Decode metadata
         (input_.metadata, newPtr_) = _decodeTransitionMetadata(newPtr_);
 
         // Decode parentTransitionHash

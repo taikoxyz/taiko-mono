@@ -69,7 +69,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint40(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packUint40(ptr, _payload.coreState.lastSyncTimestamp);
         ptr = P.packBytes27(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr,    _payload.coreState.bondInstructionsHash);
+        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding

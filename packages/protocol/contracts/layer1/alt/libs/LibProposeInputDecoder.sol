@@ -24,9 +24,7 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.headProposalAndProof,
-            _input.transitions,
-            _input.checkpoint
+            _input.headProposalAndProof, _input.transitions, _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
 
@@ -122,7 +120,6 @@ library LibProposeInputDecoder {
         // 6. Decode BondInstructions 2D array
         uint16 bondInstructionsOuterLength;
         (bondInstructionsOuterLength, ptr) = P.unpackUint16(ptr);
-
 
         // 7. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
@@ -269,8 +266,6 @@ library LibProposeInputDecoder {
             // Transitions - each has fixed size
             // bondInstructionsHash(32) + checkpointHash(32) = 64
             size_ += _transitions.length * 64;
-
-          
         }
     }
 }

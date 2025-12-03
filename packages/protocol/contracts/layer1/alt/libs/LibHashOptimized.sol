@@ -147,7 +147,6 @@ library LibHashOptimized {
         );
     }
 
-
     // ---------------------------------------------------------------
     // Array Hashing Functions
     // ---------------------------------------------------------------
@@ -284,7 +283,6 @@ library LibHashOptimized {
         );
     }
 
-
     /// @notice Hashes a single metadata efficiently
     /// @dev Internal helper to hash metadata struct
     /// @param _metadata The metadata to hash
@@ -301,8 +299,6 @@ library LibHashOptimized {
             bytes32(uint256(uint160(_metadata.actualProver)))
         );
     }
-
-
 
     // ---------------------------------------------------------------
     // Errors

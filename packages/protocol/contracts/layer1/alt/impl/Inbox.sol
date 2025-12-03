@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
-import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -18,7 +19,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 import "./Inbox_Layout.sol"; // DO NOT DELETE
 
@@ -135,10 +135,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// - proposalHash: The keccak256 hash of the Proposal struct
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-
     /// @dev Stores the first transition record for each proposal in a compact ring buffer.
     ///      This ring buffer approach optimizes gas by reusing storage slots.
-    mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal _firstTransitionRecords;
+    mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal
+        _firstTransitionRecords;
 
     /// @dev Stores all non-first transition records for proposals in dedicated, non-reusable storage slots.
     ///      No ring buffer is used here; each record is always stored in its unique slot.
@@ -147,7 +147,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
-
 
     uint256[44] private __gap;
 
@@ -296,16 +295,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(inputs.length != 0, EmptyProveInputs());
             uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
-
             for (uint256 i; i < inputs.length; ++i) {
                 _checkProposalHash(inputs[i].proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
                     _calculateBondInstructions(inputs[i].proposal.id, inputs[i].metadata);
 
-
                 Transition memory transition = Transition({
-                    bondInstructionHash: bondInstructions.length ==0? bytes32(0): hashBondInstruction(bondInstructions[0]),
+                    bondInstructionHash: bondInstructions.length == 0
+                        ? bytes32(0)
+                        : hashBondInstruction(bondInstructions[0]),
                     checkpointHash: hashCheckpoint(inputs[i].checkpoint)
                 });
 
@@ -314,7 +313,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     finalizationDeadline: finalizationDeadline
                 });
 
-                _storeTransitionRecord(inputs[i].proposal.id, inputs[i].parentTransitionHash, record);
+                _storeTransitionRecord(
+                    inputs[i].proposal.id, inputs[i].parentTransitionHash, record
+                );
 
                 _emitProvedEvent(inputs[i], finalizationDeadline, bondInstructions);
             }
@@ -536,7 +537,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashOptimized.hashProveInputArray(_inputs);
     }
 
-     // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Private Functions - Activation
     // ---------------------------------------------------------------
 
@@ -743,10 +744,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Set minSyncDelay to 0 to disable rate limiting.
     /// @param _input Contains transition records and the end block header.
     /// @return coreState_ Updated core state with new finalization counters.
-    function _finalize(ProposeInput memory _input)
-        private
-        returns (CoreState memory coreState_)
-    {
+    function _finalize(ProposeInput memory _input) private returns (CoreState memory coreState_) {
         unchecked {
             coreState_ = _input.coreState;
             uint40 proposalId = coreState_.lastFinalizedProposalId + 1;
@@ -778,10 +776,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
-                coreState_.lastFinalizedTransitionHash = bytes27(EfficientHashLib.hash(
-                   bytes32(coreState_.lastFinalizedTransitionHash), 
-                    _input.transitions[i].bondInstructionHash
-                ));
+                    coreState_.lastFinalizedTransitionHash = bytes27(
+                        EfficientHashLib.hash(
+                            bytes32(coreState_.lastFinalizedTransitionHash),
+                            _input.transitions[i].bondInstructionHash
+                        )
+                    );
                 }
 
                 proposalId += 1;
@@ -879,9 +879,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bondType: isWithinExtendedWindow
                 ? LibBonds.BondType.LIVENESS
                 : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow
-                ? _metadata.designatedProver
-                : _metadata.proposer,
+            payer: isWithinExtendedWindow ? _metadata.designatedProver : _metadata.proposer,
             payee: _metadata.actualProver
         });
     }
@@ -1020,9 +1018,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal,
-            derivation: _derivation,
-            coreState: _coreState        });
+            proposal: _proposal, derivation: _derivation, coreState: _coreState
+        });
         emit Proposed(_proposal.id, encodeProposedEventData(payload));
     }
 
