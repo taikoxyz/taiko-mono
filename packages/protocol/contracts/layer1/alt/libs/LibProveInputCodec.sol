@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProveInputDecoder
+/// @title LibProveInputCodec
 /// @notice Library for encoding and decoding prove input data for IInbox
 /// @custom:security-contact security@taiko.xyz
-library LibProveInputDecoder {
+library LibProveInputCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------

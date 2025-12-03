@@ -147,11 +147,11 @@ library LibHashOptimized {
         );
     }
 
-    /// @notice Hashes a BondInstructionHashMessage struct for L2 signaling
+    /// @notice Hashes a BondInstructionMessage struct for L2 signaling
     /// @dev Used to signal bond instruction changes to L2 via the signal service
     /// @param _change The bond instruction hash change to hash
     /// @return The hash of the change
-    function hashBondInstructionHashMessage(IInbox.BondInstructionHashMessage memory _change)
+    function hashBondInstructionMessage(IInbox.BondInstructionMessage memory _change)
         internal
         pure
         returns (bytes32)

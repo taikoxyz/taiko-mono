@@ -110,7 +110,7 @@ interface IInbox {
         address actualProver;
     }
 
-    struct BondInstructionHashMessage {
+    struct BondInstructionMessage {
         /// @notice The start proposal ID when the change occurred.
         uint40 startProposalId;
         /// @notice The end proposal ID when the change occurred.

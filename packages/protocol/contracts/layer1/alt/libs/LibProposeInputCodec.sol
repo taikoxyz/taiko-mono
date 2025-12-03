@@ -6,10 +6,10 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title LibProposeInputDecoder
+/// @title LibProposeInputCodec
 /// @notice Library for encoding and decoding propose input data for IInbox
 /// @custom:security-contact security@taiko.xyz
-library LibProposeInputDecoder {
+library LibProposeInputCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------

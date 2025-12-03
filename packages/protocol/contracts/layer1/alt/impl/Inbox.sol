@@ -7,10 +7,10 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
-import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
-import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
-import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
+import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
+import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
+import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
+import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -301,10 +301,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 LibBonds.BondInstruction[] memory bondInstructions =
                     _calculateBondInstructions(inputs[i]);
 
+                bytes32 bondInstructionHash = bondInstructions.length == 0
+                    ? bytes32(0)
+                    : hashBondInstruction(bondInstructions[0]);
+
                 Transition memory transition = Transition({
-                    bondInstructionHash: bondInstructions.length == 0
-                        ? bytes32(0)
-                        : hashBondInstruction(bondInstructions[0]),
+                    bondInstructionHash: bondInstructionHash,
                     checkpointHash: hashCheckpoint(inputs[i].checkpoint)
                 });
 
@@ -381,7 +383,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
-    /// @notice Retrieves the proposal hash for a given proposal ID
+    /// @notice Returns the stored hash at the proposal ring buffer slot for a given proposal ID.
+    /// @dev Does not verify the stored hash against the full Proposal struct.
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint40 _proposalId) external view returns (bytes32 proposalHash_) {
@@ -426,28 +429,37 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Public Pure Functions - Decoding
+    // External & Public Pure Functions - Codex 
     // ---------------------------------------------------------------
 
-    /// @dev Decodes proposal input data
+
+    function encodeProposeInput(ProposeInput memory _input) external pure returns (bytes memory) {
+        return LibProposeInputCodec.encode(_input);
+    }
+
+     /// @dev Decodes proposal input data
     /// @param _data The encoded data
     /// @return The decoded ProposeInput struct containing all proposal data
     function decodeProposeInput(bytes calldata _data) public pure returns (ProposeInput memory) {
-        return LibProposeInputDecoder.decode(_data);
+        return LibProposeInputCodec.decode(_data);
     }
+
+     function encodeProveInput(ProveInput[] memory _inputs) external pure returns (bytes memory) {
+        return LibProveInputCodec.encode(_inputs);
+    }
+
+
+   
+
 
     /// @dev Decodes prove input data
     /// @param _data The encoded data
     /// @return The decoded ProveInput struct containing proposals and transitions
     function decodeProveInput(bytes calldata _data) public pure returns (ProveInput[] memory) {
-        return LibProveInputDecoder.decode(_data);
+        return LibProveInputCodec.decode(_data);
     }
 
-    // ---------------------------------------------------------------
-    // Public Pure Functions - Encoding
-    // ---------------------------------------------------------------
-
-    /// @dev Encodes the proposed event data
+     /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
     function encodeProposedEventData(ProposedEventPayload memory _payload)
@@ -455,7 +467,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes memory)
     {
-        return LibProposedEventEncoder.encode(_payload);
+        return LibProposedEventCodec.encode(_payload);
+    }
+
+    function decodeProposedEventData(bytes calldata _data) external pure returns (ProposedEventPayload memory) {
+        return LibProposedEventCodec.decode(_data);
     }
 
     /// @dev Encodes the proved event data
@@ -466,7 +482,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes memory)
     {
-        return LibProvedEventEncoder.encode(_payload);
+        return LibProvedEventCodec.encode(_payload);
+    }
+
+    function decodeProvedEventData(bytes calldata _data) external pure returns (ProvedEventPayload memory) {
+        return LibProvedEventCodec.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -523,15 +543,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashOptimized.hashBondInstruction(_bondInstruction);
     }
 
-    /// @dev Hashes a BondInstructionHashMessage struct for L2 signaling.
+    /// @dev Hashes a BondInstructionMessage struct for L2 signaling.
     /// @param _change The bond instruction hash change to hash.
     /// @return The hash of the change.
-    function hashBondInstructionHashMessage(BondInstructionHashMessage memory _change)
+    function hashBondInstructionMessage(BondInstructionMessage memory _change)
         public
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashBondInstructionHashMessage(_change);
+        return LibHashOptimized.hashBondInstructionMessage(_change);
     }
 
     function hashAggregatedBondInstructionsHash(
@@ -851,12 +871,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Signal bond instruction changes to L2 if any occurred
         if (_coreState.aggregatedBondInstructionsHash != 0) {
-            BondInstructionHashMessage memory message = BondInstructionHashMessage({
+            BondInstructionMessage memory message = BondInstructionMessage({
                 startProposalId: _coreState.synchronizationHead + 1,
                 endProposalId: _coreState.finalizationHead,
                 bondInstructionsHash: _coreState.aggregatedBondInstructionsHash
             });
-            _signalService.sendSignal(hashBondInstructionHashMessage(message));
+            _signalService.sendSignal(hashBondInstructionMessage(message));
             _coreState.aggregatedBondInstructionsHash = bytes32(0);
         }
 

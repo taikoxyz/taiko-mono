@@ -5,10 +5,10 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
-/// @title LibProvedEventEncoder
+/// @title LibProvedEventCodec
 /// @notice Library for encoding and decoding ProvedEventPayload structures for IInbox
 /// @custom:security-contact security@taiko.xyz
-library LibProvedEventEncoder {
+library LibProvedEventCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------

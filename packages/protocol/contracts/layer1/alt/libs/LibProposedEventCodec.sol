@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProposedEventEncoder
+/// @title LibProposedEventCodec
 /// @notice Library for encoding and decoding ProposedEventPayload structures for IInbox
 /// @custom:security-contact security@taiko.xyz
-library LibProposedEventEncoder {
+library LibProposedEventCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
