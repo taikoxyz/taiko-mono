@@ -129,7 +129,7 @@ library LibProposedEventEncoder {
             }
 
             (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
-            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint40(ptr);
         }
 
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);

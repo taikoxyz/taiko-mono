@@ -7,10 +7,10 @@ import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
-import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
-import { IProposerChecker2 } from "src/layer1/core/iface/IProposerChecker.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
+import { IForcedInclusionStore } from "src/layer1/alt/iface/IForcedInclusionStore.sol";
+import { IProposerChecker } from "src/layer1/alt/iface/IProposerChecker.sol";
+import { LibBlobs } from "src/layer1/alt/libs/LibBlobs.sol";
+import { LibForcedInclusion } from "src/layer1/alt/libs/LibForcedInclusion.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -36,7 +36,6 @@ import "src/layer1/alt/impl/Inbox_Layout.sol"; // DO NOT DELETE
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint40;
-    using LibMath for uint48;
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
@@ -80,7 +79,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     IProofVerifier internal immutable _proofVerifier;
 
     /// @notice The proposer checker contract.
-    IProposerChecker2 internal immutable _proposerChecker;
+    IProposerChecker internal immutable _proposerChecker;
 
     /// @notice Checkpoint store responsible for checkpoints
     ICheckpointStore internal immutable _checkpointStore;
@@ -173,7 +172,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
-        _proposerChecker = IProposerChecker2(_config.proposerChecker);
+        _proposerChecker = IProposerChecker(_config.proposerChecker);
         _checkpointStore = ICheckpointStore(_config.checkpointStore);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
@@ -387,8 +386,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @inheritdoc IForcedInclusionStore
     function getForcedInclusions(
-        uint48 _start,
-        uint48 _maxCount
+        uint40 _start,
+        uint40 _maxCount
     )
         external
         view
@@ -401,7 +400,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function getForcedInclusionState()
         external
         view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+        returns (uint40 head_, uint40 tail_, uint40 lastProcessedAt_)
     {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
@@ -685,7 +684,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
             // Load storage once
-            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+            (uint40 head, uint40 tail, uint40 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
             uint256 available = tail - head;
             uint256 toProcess = _numForcedInclusionsRequested.min(available);
@@ -694,7 +693,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             result_.sources = new IInbox.DerivationSource[](toProcess + 1);
 
             // Process inclusions if any
-            uint48 oldestTimestamp;
+            uint40 oldestTimestamp;
             (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
                 $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
             );
@@ -732,12 +731,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         LibForcedInclusion.Storage storage $,
         address _feeRecipient,
         IInbox.DerivationSource[] memory _sources,
-        uint48 _head,
-        uint48 _lastProcessedAt,
+        uint40 _head,
+        uint40 _lastProcessedAt,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
+        returns (uint40 oldestTimestamp_, uint40 head_, uint40 lastProcessedAt_)
     {
         if (_toProcess > 0) {
             // Process inclusions and accumulate fees
@@ -759,7 +758,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             oldestTimestamp_ = uint40(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
 
             // Update queue position and last processed time
-            head_ = _head + uint48(_toProcess);
+            head_ = _head + uint40(_toProcess);
             lastProcessedAt_ = uint40(block.timestamp);
 
             // Write to storage once
