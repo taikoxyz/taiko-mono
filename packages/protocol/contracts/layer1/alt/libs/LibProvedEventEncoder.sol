@@ -28,9 +28,6 @@ library LibProvedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Encode parentTransitionHash
-        ptr = P.packBytes27(ptr, _payload.parentTransitionHash);
-
         // Encode finalizationDeadline (uint40)
         ptr = P.packUint40(ptr, _payload.finalizationDeadline);
 
@@ -62,9 +59,6 @@ library LibProvedEventEncoder {
     {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
-
-        // Decode parentTransitionHash
-        (payload_.parentTransitionHash, ptr) = P.unpackBytes27(ptr);
 
         // Decode finalizationDeadline (uint40)
         (payload_.finalizationDeadline, ptr) = P.unpackUint40(ptr);
@@ -114,7 +108,7 @@ library LibProvedEventEncoder {
 
             // Variable size: each bond instruction is 46 bytes
             // proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
-            size_ = 109 + (_bondInstructionsCount * 46);
+            size_ = 82 + _bondInstructionsCount * 46;
         }
     }
 

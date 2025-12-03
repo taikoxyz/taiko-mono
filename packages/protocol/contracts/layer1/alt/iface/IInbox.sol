@@ -182,7 +182,6 @@ interface IInbox {
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        bytes27 parentTransitionHash;
         uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
         LibBonds.BondInstruction[] bondInstructions;
@@ -199,8 +198,9 @@ interface IInbox {
 
     /// @notice Emitted when a proof is submitted
     /// @param proposalId The ID of the proven proposal
+    /// @param parentTransitionHash The hash of the parent transition
     /// @param data The encoded ProvedEventPayload
-    event Proved(uint40 indexed proposalId, bytes data);
+    event Proved(uint40 indexed proposalId, bytes27 indexed parentTransitionHash, bytes data);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

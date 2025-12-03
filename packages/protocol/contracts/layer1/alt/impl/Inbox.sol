@@ -301,7 +301,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 LibBonds.BondInstruction[] memory bondInstructions =
                     _calculateBondInstructions(inputs[i].proposal.id, inputs[i].proofMetadata);
-                    
+
                 Transition memory transition = Transition({
                     bondInstructionsHash: hashBondInstructionArray(bondInstructions),
                     checkpointHash: hashCheckpoint(inputs[i].checkpoint)
@@ -1042,12 +1042,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProvedEventPayload memory payload = ProvedEventPayload({
-            parentTransitionHash: _input.parentTransitionHash,
             finalizationDeadline: _finalizationDeadline,
             checkpoint: _input.checkpoint,
             bondInstructions: _bondInstructions
         });
-        emit Proved(_input.proposal.id, encodeProvedEventData(payload));
+        emit Proved(_input.proposal.id, _input.parentTransitionHash, encodeProvedEventData(payload));
     }
 
     // ---------------------------------------------------------------
