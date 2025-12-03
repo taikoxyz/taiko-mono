@@ -38,9 +38,9 @@ library LibProposeInputDecoder {
         ptr = P.packUint40(ptr, _input.coreState.nextProposalId);
         ptr = P.packUint40(ptr, _input.coreState.lastProposalBlockId);
         ptr = P.packUint40(ptr, _input.coreState.lastFinalizedProposalId);
-        ptr = P.packUint40(ptr, _input.coreState.lastSyncTimestamp);
+        ptr = P.packUint40(ptr, _input.coreState.lastSyncProposalId);
         ptr = P.packBytes27(ptr, _input.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
+        ptr = P.packBytes32(ptr, _input.coreState.aggregatedBondInstructionsHash);
 
         // 3. Encode head proposals array
         P.checkArrayLength(_input.headProposalAndProof.length);
@@ -92,9 +92,9 @@ library LibProposeInputDecoder {
         (input_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.lastSyncProposalId, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
-        (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.aggregatedBondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode head proposals array
         uint16 proposalsLength;

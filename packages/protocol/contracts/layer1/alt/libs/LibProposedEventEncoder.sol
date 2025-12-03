@@ -67,9 +67,9 @@ library LibProposedEventEncoder {
         ptr = P.packUint40(ptr, _payload.coreState.nextProposalId);
         ptr = P.packUint40(ptr, _payload.coreState.lastProposalBlockId);
         ptr = P.packUint40(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packUint40(ptr, _payload.coreState.lastSyncTimestamp);
+        ptr = P.packUint40(ptr, _payload.coreState.lastSyncProposalId);
         ptr = P.packBytes27(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
+        ptr = P.packBytes32(ptr,    _payload.coreState.aggregatedBondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
@@ -125,9 +125,9 @@ library LibProposedEventEncoder {
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
-        (payload_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.lastSyncProposalId, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
-        (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.aggregatedBondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
@@ -145,11 +145,11 @@ library LibProposedEventEncoder {
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) + parentProposalHash(32) = 96
             // CoreState: nextProposalId(5) + lastProposalBlockId(5) + lastFinalizedProposalId(5) +
-            //           lastSyncTimestamp(5) + lastFinalizedTransitionHash(27) +
-            //           bondInstructionsHashOld(32) + bondInstructionsHashNew(32) = 111
-            // Total fixed: 35 + 38 + 2 + 96 + 111 = 282
+            //           lastSyncProposalId(5) + lastFinalizedTransitionHash(27) +
+            //           bondInstructionsHash(32) = 79
+            // Total fixed: 35 + 38 + 2 + 96 + 79 = 250
 
-            size_ = 282;
+            size_ = 250;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {

@@ -40,8 +40,7 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice Queue size at which the fee doubles
         uint64 forcedInclusionFeeDoubleThreshold;
-        /// @notice The minimum delay between syncs in seconds
-        /// @dev Must be less than or equal to finalization grace period
+        /// @notice The minimum delay in proposals between two syncs
         uint16 minSyncDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
@@ -111,6 +110,15 @@ interface IInbox {
         address actualProver;
     }
 
+    struct BondInstructionHashMessage { 
+        /// @notice The start proposal ID when the change occurred.
+        uint40 startProposalId;
+        /// @notice The end proposal ID when the change occurred.
+        uint40 endProposalId;
+        /// @notice The hash of the bond instructions.
+        bytes32 bondInstructionsHash;
+    }
+
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
@@ -119,23 +127,12 @@ interface IInbox {
         uint40 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint40 lastFinalizedProposalId;
-        /// @notice The timestamp when the last sync occurred.
-        /// @dev In genesis block, this is set to 0 to allow the first sync.
-        uint40 lastSyncTimestamp;
+        /// @notice The proposal ID when the last sync occurred.
+        uint40 lastSyncProposalId;
         /// @notice The hash of the last finalized transition.
         bytes27 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
-    }
-
-    /// @notice Represents a change in bond instruction hashes for signaling.
-    struct BondInstructionHashChange {
-        /// @notice The last finalized proposal ID when the change occurred.
-        uint40 lastFinalizedProposalId;
-        /// @notice The previous bond instructions hash.
-        bytes32 bondInstructionsHashOld;
-        /// @notice The new bond instructions hash.
-        bytes32 bondInstructionsHashNew;
+        bytes32 aggregatedBondInstructionsHash;
     }
 
     /// @notice Input data for the propose function
@@ -173,6 +170,8 @@ interface IInbox {
         Derivation derivation;
         /// @notice The core state after the proposal.
         CoreState coreState;
+        bytes27 parentTransitionHash;
+         Transition[] transitions;
     }
 
     /// @notice Payload data emitted in the Proved event

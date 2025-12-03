@@ -47,9 +47,9 @@ library LibHashOptimized {
             bytes32(uint256(_coreState.nextProposalId)),
             bytes32(uint256(_coreState.lastProposalBlockId)),
             bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            bytes32(uint256(_coreState.lastSyncTimestamp)),
+            bytes32(uint256(_coreState.lastSyncProposalId)),
             _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
+            _coreState.aggregatedBondInstructionsHash
         );
     }
 
@@ -145,6 +145,38 @@ library LibHashOptimized {
             bytes32(uint256(uint160(_instruction.payer))),
             bytes32(uint256(uint160(_instruction.payee)))
         );
+    }
+
+    /// @notice Hashes a BondInstructionHashMessage struct for L2 signaling
+    /// @dev Used to signal bond instruction changes to L2 via the signal service
+    /// @param _change The bond instruction hash change to hash
+    /// @return The hash of the change
+    function hashBondInstructionHashMessage(IInbox.BondInstructionHashMessage memory _change)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return EfficientHashLib.hash(
+            bytes32(uint256(_change.startProposalId)),
+            bytes32(uint256(_change.endProposalId)),
+            _change.bondInstructionsHash
+        );
+    }
+
+    /// @notice Aggregates bond instruction hashes into a rolling hash
+    /// @dev Used to track all bond instructions across finalized proposals
+    /// @param _aggregatedBondInstructionsHash The current aggregated hash
+    /// @param _bondInstructionHash The new bond instruction hash to aggregate
+    /// @return The new aggregated hash
+    function hashAggregatedBondInstructionsHash(
+        bytes32 _aggregatedBondInstructionsHash,
+        bytes32 _bondInstructionHash
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return EfficientHashLib.hash(_aggregatedBondInstructionsHash, _bondInstructionHash);
     }
 
     // ---------------------------------------------------------------
