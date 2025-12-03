@@ -223,7 +223,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
             require(
-                block.number > input.coreState.proposalHeadContainerBlock, CannotProposeInCurrentBlock()
+                block.number > input.coreState.proposalHeadContainerBlock,
+                CannotProposeInCurrentBlock()
             );
 
             // Verify parentProposals[0] is the last proposal stored on-chain.
@@ -877,9 +878,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The prove input
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
-    function _calculateBondInstructions(
-        ProveInput memory _input
-    )
+    function _calculateBondInstructions(ProveInput memory _input)
         private
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
@@ -902,7 +901,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bondType: isWithinExtendedWindow
                 ? LibBonds.BondType.LIVENESS
                 : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow ? _input.metadata.designatedProver : _input.proposal.proposer,
+            payer: isWithinExtendedWindow
+                ? _input.metadata.designatedProver
+                : _input.proposal.proposer,
             payee: _input.metadata.actualProver
         });
     }
