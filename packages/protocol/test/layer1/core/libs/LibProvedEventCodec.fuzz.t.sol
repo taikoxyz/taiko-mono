@@ -31,7 +31,7 @@ contract LibProvedEventCodecFuzzTest is Test {
 
     /// @notice Fuzz test for checkpoint fields
     function testFuzz_encodeDecodeCheckpoint(
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot
     )
@@ -167,7 +167,7 @@ contract LibProvedEventCodecFuzzTest is Test {
     /// @notice Fuzz test for full payload with all fields randomized
     function testFuzz_fullPayload(
         uint40 finalizationDeadline,
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot,
         uint8 bondCount
@@ -245,7 +245,7 @@ contract LibProvedEventCodecFuzzTest is Test {
     /// @notice Fuzz test for encoding/decoding roundtrip consistency - all fields fuzzed
     function testFuzz_roundtripConsistency(
         uint40 finalizationDeadline,
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot,
         uint40 proposalId,

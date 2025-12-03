@@ -17,7 +17,7 @@ contract LibHashOptimizedFuzzTest is Test {
     // ---------------------------------------------------------------
 
     function testFuzz_hashCheckpoint_deterministic(
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot
     )
@@ -35,8 +35,8 @@ contract LibHashOptimizedFuzzTest is Test {
     }
 
     function testFuzz_hashCheckpoint_collision_resistant(
-        uint48 blockNumber1,
-        uint48 blockNumber2,
+        uint40 blockNumber1,
+        uint40 blockNumber2,
         bytes32 blockHash,
         bytes32 stateRoot
     )
@@ -445,7 +445,7 @@ contract LibHashOptimizedFuzzTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i),
+                    blockNumber: uint40(5000 + i),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),

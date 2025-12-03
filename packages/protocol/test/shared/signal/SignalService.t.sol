@@ -176,7 +176,7 @@ contract TestSignalService is CommonTest {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
-                blockNumber: uint48(blockNumber), blockHash: VALID_BLOCK_HASH, stateRoot: stateRoot
+                blockNumber: uint40(blockNumber), blockHash: VALID_BLOCK_HASH, stateRoot: stateRoot
             })
         );
     }

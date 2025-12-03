@@ -155,7 +155,7 @@ contract InboxFinalizeTest is InboxTestHelper {
                 _buildParentArray(payload.proposal),
                 _wrapSingleTransition(wrongTransition),
                 ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(block.number),
+                    blockNumber: uint40(block.number),
                     blockHash: bytes32(uint256(888)),
                     stateRoot: bytes32(uint256(999))
                 })
@@ -299,29 +299,19 @@ contract InboxFinalizeTest is InboxTestHelper {
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        // Get all logs and process them together
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 checkpointSavedTopic = keccak256("CheckpointSaved(uint48,bytes32,bytes32)");
-        bytes32 proposedTopic = keccak256("Proposed(uint40,bytes)");
 
-        bool checkpointSavedEmitted = false;
+        // Decode Proposed event from logs
         IInbox.ProposedEventPayload memory finalizedPayload;
-        bool foundProposed = false;
-
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length > 0) {
-                if (logs[i].topics[0] == checkpointSavedTopic) {
-                    checkpointSavedEmitted = true;
-                } else if (logs[i].topics[0] == proposedTopic) {
-                    bytes memory eventData = abi.decode(logs[i].data, (bytes));
-                    finalizedPayload = inbox.decodeProposedEventData(eventData);
-                    foundProposed = true;
-                }
+        for (uint256 i = logs.length; i > 0; --i) {
+            if (logs[i - 1].topics.length > 0 && logs[i - 1].topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
+                finalizedPayload = inbox.decodeProposedEventData(eventData);
+                break;
             }
         }
 
-        assertTrue(foundProposed, "Proposed event should be emitted");
-        assertFalse(checkpointSavedEmitted, "CheckpointSaved should NOT be emitted when below minSyncDelay");
+        assertFalse(_hasCheckpointSavedEvent(logs), "CheckpointSaved should NOT be emitted when below minSyncDelay");
 
         // Verify finalization did happen (finalizationHead was updated)
         assertEq(
@@ -353,7 +343,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         conflictInputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 100),
+                blockNumber: uint40(block.number + 100),
                 blockHash: bytes32(uint256(999)),
                 stateRoot: bytes32(uint256(888))
             }),
@@ -375,6 +365,76 @@ contract InboxFinalizeTest is InboxTestHelper {
             record.finalizationDeadline,
             type(uint40).max,
             "Conflicting transition should be unfinalizable"
+        );
+    }
+
+    /// @dev Tests that finalization breaks when encountering a conflicting transition (max deadline)
+    /// @notice Branch B16.3 - actually triggers the break when finalizationDeadline == max
+    function test_finalize_breaksAtConflictingTransition_duringFinalization() public {
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // Prove the proposal (we don't need the result, just need transition record stored)
+        _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Create a conflict by proving with different checkpoint
+        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
+        conflictInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number + 100),
+                blockHash: bytes32(uint256(999)),
+                stateRoot: bytes32(uint256(888))
+            }),
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver,
+                actualProver: currentProver
+            }),
+            parentTransitionHash: _getGenesisTransitionHash()
+        });
+
+        bytes memory proveData = inbox.encodeProveInput(conflictInputs);
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        // Verify record has max deadline (conflict occurred)
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertEq(record.finalizationDeadline, type(uint40).max, "Should have max deadline from conflict");
+
+        // Now try to finalize - this should break at the max deadline check (B16.3)
+        // and NOT finalize the proposal (finalizationHead should remain 0)
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        bytes memory proposeData = inbox.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                new IInbox.Transition[](0), // No transitions - finalization will break before checking
+                ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+            )
+        );
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        // Decode Proposed event from logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        IInbox.ProposedEventPayload memory finalizedPayload;
+        for (uint256 i = logs.length; i > 0; --i) {
+            if (logs[i - 1].topics.length > 0 && logs[i - 1].topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
+                finalizedPayload = inbox.decodeProposedEventData(eventData);
+                break;
+            }
+        }
+
+        // Finalization should NOT have occurred because it broke at max deadline
+        assertEq(
+            finalizedPayload.coreState.finalizationHead,
+            0,
+            "Finalization should have stopped at conflicting transition (max deadline)"
         );
     }
 
@@ -411,7 +471,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Prove with different actual prover than designated to trigger bond instruction
         IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(block.number),
+            blockNumber: uint40(block.number),
             blockHash: blockhash(block.number - 1),
             stateRoot: bytes32(uint256(200))
         });
@@ -498,7 +558,7 @@ contract InboxFinalizeTest is InboxTestHelper {
 
         // Set non-zero checkpoint values when nothing to finalize
         input.checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(block.number),
+            blockNumber: uint40(block.number),
             blockHash: bytes32(uint256(123)),
             stateRoot: bytes32(uint256(456))
         });

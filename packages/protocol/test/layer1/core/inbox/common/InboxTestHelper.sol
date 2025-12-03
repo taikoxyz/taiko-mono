@@ -384,7 +384,7 @@ abstract contract InboxTestHelper is CommonTest {
         inputs[0] = IInbox.ProveInput({
             proposal: _proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
+                blockNumber: uint40(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200))
             }),
@@ -411,7 +411,7 @@ abstract contract InboxTestHelper is CommonTest {
         inputs[0] = IInbox.ProveInput({
             proposal: _proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
+                blockNumber: uint40(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200))
             }),
@@ -438,7 +438,7 @@ abstract contract InboxTestHelper is CommonTest {
 
         for (uint256 i = 0; i < _proposals.length; i++) {
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + i),
+                blockNumber: uint40(block.number + i),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200 + i))
             });
@@ -630,6 +630,16 @@ abstract contract InboxTestHelper is CommonTest {
     function _hasConflictingTransitionEvent(Vm.Log[] memory logs) internal pure returns (bool) {
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length > 0 && logs[i].topics[0] == CONFLICTING_TRANSITION_TOPIC) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _hasCheckpointSavedEvent(Vm.Log[] memory logs) internal pure returns (bool) {
+        bytes32 checkpointSavedTopic = keccak256("CheckpointSaved(uint40,bytes32,bytes32)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == checkpointSavedTopic) {
                 return true;
             }
         }

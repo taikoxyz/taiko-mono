@@ -23,7 +23,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint8 version;
         uint24 blockNumber;
         uint40 timestamp;
-        uint48 deadline;
+        uint40 deadline;
         address operator;
         bool isActive;
     }
@@ -33,7 +33,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint16 chainId;
         uint24 epochNumber;
         uint40 proposalId;
-        uint48 blockHeight;
+        uint40 blockHeight;
         bytes27 transitionHash;
         bytes32 blockHash;
         address proposer;
@@ -93,7 +93,7 @@ contract LibPackUnpackFuzzTest is Test {
         newPos_ = LibPackUnpack.packUint8(_pos, _struct.version);
         newPos_ = LibPackUnpack.packUint24(newPos_, _struct.blockNumber);
         newPos_ = LibPackUnpack.packUint40(newPos_, _struct.timestamp);
-        newPos_ = LibPackUnpack.packUint48(newPos_, _struct.deadline);
+        newPos_ = LibPackUnpack.packUint40(newPos_, _struct.deadline);
         newPos_ = LibPackUnpack.packAddress(newPos_, _struct.operator);
         newPos_ = LibPackUnpack.packUint8(newPos_, _struct.isActive ? 1 : 0);
     }
@@ -107,7 +107,7 @@ contract LibPackUnpackFuzzTest is Test {
         (struct_.version, newPos_) = LibPackUnpack.unpackUint8(_pos);
         (struct_.blockNumber, newPos_) = LibPackUnpack.unpackUint24(newPos_);
         (struct_.timestamp, newPos_) = LibPackUnpack.unpackUint40(newPos_);
-        (struct_.deadline, newPos_) = LibPackUnpack.unpackUint48(newPos_);
+        (struct_.deadline, newPos_) = LibPackUnpack.unpackUint40(newPos_);
         (struct_.operator, newPos_) = LibPackUnpack.unpackAddress(newPos_);
         (isActiveByte, newPos_) = LibPackUnpack.unpackUint8(newPos_);
         struct_.isActive = isActiveByte == 1;
@@ -125,7 +125,7 @@ contract LibPackUnpackFuzzTest is Test {
         newPos_ = LibPackUnpack.packUint16(newPos_, _struct.chainId);
         newPos_ = LibPackUnpack.packUint24(newPos_, _struct.epochNumber);
         newPos_ = LibPackUnpack.packUint40(newPos_, _struct.proposalId);
-        newPos_ = LibPackUnpack.packUint48(newPos_, _struct.blockHeight);
+        newPos_ = LibPackUnpack.packUint40(newPos_, _struct.blockHeight);
         newPos_ = LibPackUnpack.packBytes27(newPos_, _struct.transitionHash);
         newPos_ = LibPackUnpack.packBytes32(newPos_, _struct.blockHash);
         newPos_ = LibPackUnpack.packAddress(newPos_, _struct.proposer);
@@ -144,7 +144,7 @@ contract LibPackUnpackFuzzTest is Test {
         (struct_.chainId, newPos_) = LibPackUnpack.unpackUint16(newPos_);
         (struct_.epochNumber, newPos_) = LibPackUnpack.unpackUint24(newPos_);
         (struct_.proposalId, newPos_) = LibPackUnpack.unpackUint40(newPos_);
-        (struct_.blockHeight, newPos_) = LibPackUnpack.unpackUint48(newPos_);
+        (struct_.blockHeight, newPos_) = LibPackUnpack.unpackUint40(newPos_);
         (struct_.transitionHash, newPos_) = LibPackUnpack.unpackBytes27(newPos_);
         (struct_.blockHash, newPos_) = LibPackUnpack.unpackBytes32(newPos_);
         (struct_.proposer, newPos_) = LibPackUnpack.unpackAddress(newPos_);
@@ -216,7 +216,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint8 version,
         uint24 blockNumber,
         uint40 timestamp,
-        uint48 deadline,
+        uint40 deadline,
         address operator,
         bool isActive
     )
@@ -251,7 +251,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint16 chainId,
         uint24 epochNumber,
         uint40 proposalId,
-        uint48 blockHeight,
+        uint40 blockHeight,
         bytes27 transitionHash,
         bytes32 blockHash,
         address proposer,
@@ -352,7 +352,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint8 version2,
         uint24 blockNumber2,
         uint40 timestamp2,
-        uint48 deadline2,
+        uint40 deadline2,
         address operator2,
         bool isActive2
     )
@@ -408,8 +408,8 @@ contract LibPackUnpackFuzzTest is Test {
         uint8 val8,
         uint16 val16,
         uint24 val24,
-        uint40 val40,
-        uint48 val48
+        uint40 val40_1,
+        uint40 val40_2
     )
         public
         pure
@@ -432,15 +432,15 @@ contract LibPackUnpackFuzzTest is Test {
         assertEq(nextPos, pos + 3);
         pos = nextPos;
 
-        nextPos = LibPackUnpack.packUint40(pos, val40);
+        nextPos = LibPackUnpack.packUint40(pos, val40_1);
         assertEq(nextPos, pos + 5);
         pos = nextPos;
 
-        nextPos = LibPackUnpack.packUint48(pos, val48);
-        assertEq(nextPos, pos + 6);
+        nextPos = LibPackUnpack.packUint40(pos, val40_2);
+        assertEq(nextPos, pos + 5);
 
-        // Total should be 1+2+3+5+6 = 17 bytes
-        assertEq(nextPos, ptr + 17);
+        // Total should be 1+2+3+5+5 = 16 bytes
+        assertEq(nextPos, ptr + 16);
     }
 
     function testFuzz_positionIncrements_largeTypes(
@@ -559,15 +559,6 @@ contract LibPackUnpackFuzzTest is Test {
 
         LibPackUnpack.packUint40(ptr, value);
         (uint40 unpacked,) = LibPackUnpack.unpackUint40(ptr);
-        assertEq(unpacked, value);
-    }
-
-    function testFuzz_packUnpackUint48(uint48 value) public pure {
-        bytes memory buffer = new bytes(10);
-        uint256 ptr = LibPackUnpack.dataPtr(buffer);
-
-        LibPackUnpack.packUint48(ptr, value);
-        (uint48 unpacked,) = LibPackUnpack.unpackUint48(ptr);
         assertEq(unpacked, value);
     }
 

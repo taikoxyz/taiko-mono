@@ -42,7 +42,7 @@ library LibProvedEventCodec {
         ptr = P.packUint40(ptr, _payload.finalizationDeadline);
 
         // Encode Checkpoint
-        ptr = P.packUint48(ptr, _payload.checkpoint.blockNumber);
+        ptr = P.packUint40(ptr, _payload.checkpoint.blockNumber);
         ptr = P.packBytes32(ptr, _payload.checkpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.checkpoint.stateRoot);
 
@@ -76,7 +76,7 @@ library LibProvedEventCodec {
         (payload_.finalizationDeadline, ptr) = P.unpackUint40(ptr);
 
         // Decode Checkpoint
-        (payload_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.checkpoint.blockNumber, ptr) = P.unpackUint40(ptr);
         (payload_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
 

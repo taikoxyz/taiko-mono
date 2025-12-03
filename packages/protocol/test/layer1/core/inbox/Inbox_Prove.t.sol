@@ -346,7 +346,7 @@ contract InboxProveTest is InboxTestHelper {
         conflictInputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 100), // Different block
+                blockNumber: uint40(block.number + 100), // Different block
                 blockHash: bytes32(uint256(999)),
                 stateRoot: bytes32(uint256(888))
             }),
@@ -379,7 +379,7 @@ contract InboxProveTest is InboxTestHelper {
         conflictInputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 100),
+                blockNumber: uint40(block.number + 100),
                 blockHash: bytes32(uint256(999)),
                 stateRoot: bytes32(uint256(888))
             }),
@@ -446,7 +446,7 @@ contract InboxProveTest is InboxTestHelper {
         inputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 1),
+                blockNumber: uint40(block.number + 1),
                 blockHash: bytes32(uint256(777)),
                 stateRoot: bytes32(uint256(666))
             }),
@@ -487,7 +487,7 @@ contract InboxProveTest is InboxTestHelper {
         inputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 1),
+                blockNumber: uint40(block.number + 1),
                 blockHash: bytes32(uint256(777)),
                 stateRoot: bytes32(uint256(666))
             }),
@@ -507,7 +507,7 @@ contract InboxProveTest is InboxTestHelper {
         conflictInputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number + 200), // Different checkpoint
+                blockNumber: uint40(block.number + 200), // Different checkpoint
                 blockHash: bytes32(uint256(888)),
                 stateRoot: bytes32(uint256(999))
             }),

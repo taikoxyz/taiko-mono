@@ -109,7 +109,7 @@
 | ------- | ------ | ------------------------------------------------------------ | -------- | -------------------------------------------------------------------- |
 | 820     | B16.1  | `proposalId > proposalHead` (break, no more)                 | YES      | test_finalize_stopsWhenProposalNotProven                             |
 | 826     | B16.2  | `record.transitionHash == 0` (break, not proven)             | YES      | test_finalize_stopsWhenProposalNotProven                             |
-| 827     | B16.3  | `record.finalizationDeadline == max` (break, conflicted)     | YES      | test_finalize_stopsAtConflictingTransition                           |
+| 827     | B16.3  | `record.finalizationDeadline == max` (break, conflicted)     | YES      | test_finalize_breaksAtConflictingTransition_duringFinalization       |
 | 829-831 | B16.4  | `i >= transitionCount && timestamp < deadline` (break, wait) | YES      | test_finalize_incrementalFinalization                                |
 | 830     | B16.5  | `i >= transitionCount && timestamp >= deadline` (revert)     | YES      | test_finalize_RevertWhen_TransitionNotProvided_afterGracePeriod      |
 | 834-836 | B16.6  | `hashTransition != stored` (revert)                          | YES      | test_finalize_RevertWhen_TransitionHashMismatch                      |
@@ -183,9 +183,21 @@
    - `test_propose_RevertWhen_NextProposalHashMismatch` - B3.7
    - `test_propose_wrapAround_withCorrectProof` - Success case for wrap-around
 
+4. **Inbox_Finalize.t.sol** (additional):
+   - `test_finalize_breaksAtConflictingTransition_duringFinalization` - B16.3 (actually triggers the break)
+
 ## Bug Fixes Applied
 
 1. **Inbox.sol line 931** (was line 929): Fixed `_calculateBondInstructions` window calculation
    - **Before**: `uint256 windowEnd = block.timestamp + _provingWindow;`
    - **After**: `uint256 windowEnd = _input.proposal.timestamp + _provingWindow;`
    - This bug caused bond instructions to never be generated because `block.timestamp <= block.timestamp + X` is always true.
+
+## Test Infrastructure Improvements
+
+1. **InboxTestHelper.sol**: Added `_hasCheckpointSavedEvent()` helper for consistent event checking
+2. **Inbox_Finalize.t.sol**: Refactored `test_finalize_skipsSync_whenBelowMinSyncDelay` to use the new helper
+
+## Dead Code Analysis
+
+1. **NotEnoughCapacity error**: Analyzed and confirmed as unreachable code. The `MissingProofProposal` error always fires first in wrap-around scenarios (the only way to reach 0 capacity).

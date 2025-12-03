@@ -11,9 +11,8 @@ interface ICheckpointStore {
 
     /// @notice Represents a synced checkpoint
     struct Checkpoint {
-        // TODO: change to uint40?
         /// @notice The block number associated with the checkpoint.
-        uint48 blockNumber;
+        uint40 blockNumber;
         /// @notice The block hash for the end (last) L2 block in this proposal.
         bytes32 blockHash;
         /// @notice The state root for the end (last) L2 block in this proposal.
@@ -28,7 +27,7 @@ interface ICheckpointStore {
     /// @param blockNumber The block number
     /// @param blockHash The block hash
     /// @param stateRoot The state root
-    event CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot);
+    event CheckpointSaved(uint40 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot);
 
     // ---------------------------------------------------------------
     // External Functions
@@ -41,5 +40,5 @@ interface ICheckpointStore {
     /// @notice Gets a checkpoint by its block number
     /// @param _blockNumber The block number associated with the checkpoint
     /// @return _ The checkpoint
-    function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory);
+    function getCheckpoint(uint40 _blockNumber) external view returns (Checkpoint memory);
 }

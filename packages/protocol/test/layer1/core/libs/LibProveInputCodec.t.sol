@@ -144,7 +144,7 @@ contract LibProveInputCodecTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i * 100),
+                    blockNumber: uint40(5000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),
@@ -172,7 +172,7 @@ contract LibProveInputCodecTest is Test {
             );
             assertEq(
                 decoded[i].checkpoint.blockNumber,
-                uint48(5000 + i * 100),
+                uint40(5000 + i * 100),
                 "Checkpoint block number mismatch"
             );
             assertEq(
@@ -198,7 +198,7 @@ contract LibProveInputCodecTest is Test {
                 parentProposalHash: bytes32(type(uint256).max)
             }),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: type(uint48).max,
+                blockNumber: type(uint40).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
             }),
@@ -220,7 +220,7 @@ contract LibProveInputCodecTest is Test {
         );
         assertEq(
             decoded[0].checkpoint.blockNumber,
-            type(uint48).max,
+            type(uint40).max,
             "Max block number should be preserved"
         );
         assertEq(
@@ -275,7 +275,7 @@ contract LibProveInputCodecTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i),
+                    blockNumber: uint40(5000 + i),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),

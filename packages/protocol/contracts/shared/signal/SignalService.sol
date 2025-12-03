@@ -55,7 +55,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps block number to checkpoint data
-    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
+    mapping(uint40 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
 
     uint256[46] private __gap;
 
@@ -161,7 +161,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _blockNumber)
+    function getCheckpoint(uint40 _blockNumber)
         external
         view
         override
@@ -177,7 +177,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
-    function _getCheckpoint(uint48 _blockNumber)
+    function _getCheckpoint(uint40 _blockNumber)
         private
         view
         returns (Checkpoint memory checkpoint_)
@@ -251,7 +251,7 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_EMPTY_PROOF();
         }
 
-        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
+        Checkpoint memory checkpoint = _getCheckpoint(uint40(proof.blockId));
         if (checkpoint.stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }

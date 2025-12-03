@@ -363,7 +363,7 @@ contract LibProposeInputCodecTest is Test {
             }),
             transitions: new IInbox.Transition[](0),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: type(uint48).max,
+                blockNumber: type(uint40).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
             }),

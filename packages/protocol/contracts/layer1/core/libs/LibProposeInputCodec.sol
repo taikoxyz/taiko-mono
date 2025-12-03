@@ -79,7 +79,7 @@ library LibProposeInputCodec {
         ptr = P.packUint8(ptr, isEmpty ? 0 : 1);
 
         if (!isEmpty) {
-            ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
+            ptr = P.packUint40(ptr, _input.checkpoint.blockNumber);
             ptr = P.packBytes32(ptr, _input.checkpoint.blockHash);
             ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
@@ -134,7 +134,7 @@ library LibProposeInputCodec {
         (headerFlag, ptr) = P.unpackUint8(ptr);
 
         if (headerFlag == 1) {
-            (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+            (input_.checkpoint.blockNumber, ptr) = P.unpackUint40(ptr);
             (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
             (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }

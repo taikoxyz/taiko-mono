@@ -88,7 +88,7 @@ library LibProveInputCodec {
         newPtr_ = _encodeProposal(_ptr, _input.proposal);
 
         // Encode checkpoint
-        newPtr_ = P.packUint48(newPtr_, _input.checkpoint.blockNumber);
+        newPtr_ = P.packUint40(newPtr_, _input.checkpoint.blockNumber);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.stateRoot);
 
@@ -153,7 +153,7 @@ library LibProveInputCodec {
         (input_.proposal, newPtr_) = _decodeProposal(_ptr);
 
         // Decode checkpoint
-        (input_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
+        (input_.checkpoint.blockNumber, newPtr_) = P.unpackUint40(newPtr_);
         (input_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 

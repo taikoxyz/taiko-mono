@@ -32,7 +32,7 @@ contract Anchor is EssentialContract {
     /// @notice Authentication data for prover designation.
     /// @dev Used to allow a proposer to designate another address as the prover.
     struct ProverAuth {
-        uint48 proposalId; // The proposal ID this auth is for
+        uint40 proposalId; // The proposal ID this auth is for
         address proposer; // The original proposer address
         uint256 provingFee; // Fee (Wei) that prover will receive
         bytes signature; // ECDSA signature from the designated prover
@@ -40,32 +40,29 @@ contract Anchor is EssentialContract {
 
     /// @notice Proposal-level data that applies to the entire batch of blocks.
     struct ProposalParams {
-        uint48 proposalId; // Unique identifier of the proposal
+        uint40 proposalId; // Unique identifier of the proposal
         address proposer; // Address of the entity that proposed this batch
         bytes proverAuth; // Encoded ProverAuth for prover designation
-        bytes32 bondInstructionsHash; // Expected hash of bond instructions
-        LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
     }
 
     /// @notice Block-level data specific to a single block within a proposal.
     struct BlockParams {
-        uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
+        uint40 anchorBlockNumber; // L1 block number to anchor (0 to skip)
         bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
         bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
     }
 
     /// @notice Stored proposal-level state for the ongoing batch.
     struct ProposalState {
-        bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
-        uint48 proposalId;
+        uint40 proposalId;
     }
 
     /// @notice Stored block-level state for the latest anchor.
     /// @dev 2 slots
     struct BlockState {
-        uint48 anchorBlockNumber;
+        uint40 anchorBlockNumber;
         bytes32 ancestorsHash;
     }
 
@@ -98,7 +95,7 @@ contract Anchor is EssentialContract {
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
-        keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
+        keccak256("ProverAuth(uint40 proposalId,address proposer,uint256 provingFee)");
     bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
     bytes32 private constant PROVER_AUTH_DOMAIN_VERSION_HASH = keccak256("1");
 
@@ -148,12 +145,11 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     event Anchored(
-        bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
         bool isNewProposal,
-        uint48 prevAnchorBlockNumber,
-        uint48 anchorBlockNumber,
+        uint40 prevAnchorBlockNumber,
+        uint40 anchorBlockNumber,
         bytes32 ancestorsHash
     );
 
@@ -227,7 +223,7 @@ contract Anchor is EssentialContract {
         onlyValidSender
         nonReentrant
     {
-        uint48 lastProposalId = _proposalState.proposalId;
+        uint40 lastProposalId = _proposalState.proposalId;
 
         if (_proposalParams.proposalId < lastProposalId) {
             // Proposal ID cannot go backward
@@ -239,14 +235,13 @@ contract Anchor is EssentialContract {
         if (isNewProposal) {
             _validateProposal(_proposalParams);
         }
-        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
+        uint40 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_blockParams);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
             isNewProposal,
@@ -288,7 +283,7 @@ contract Anchor is EssentialContract {
     /// @return provingFeeToTransfer_ The proving fee (Wei) to transfer from the proposer to the
     /// designated prover.
     function getDesignatedProver(
-        uint48 _proposalId,
+        uint40 _proposalId,
         address _proposer,
         bytes calldata _proverAuth,
         address _currentDesignatedProver
@@ -341,7 +336,7 @@ contract Anchor is EssentialContract {
     /// @return signer_ The recovered signer address (proposer if validation fails).
     /// @return provingFee_ The proving fee in Wei (0 if validation fails).
     function validateProverAuth(
-        uint48 _proposalId,
+        uint40 _proposalId,
         address _proposer,
         bytes calldata _proverAuth
     )
@@ -398,12 +393,6 @@ contract Anchor is EssentialContract {
             bondManager.creditBond(_proposalState.designatedProver, proverFee);
         }
 
-        _proposalState.bondInstructionsHash = _processBondInstructions(
-            _proposalState.bondInstructionsHash,
-            _proposalParams.bondInstructions,
-            _proposalParams.bondInstructionsHash
-        );
-
         _proposalState.proposalId = _proposalParams.proposalId;
     }
 
@@ -430,36 +419,7 @@ contract Anchor is EssentialContract {
         }
     }
 
-    /// @dev Processes bond instructions with cumulative hash verification.
-    /// @param _currentHash Current cumulative hash from storage.
-    /// @param _bondInstructions Bond instructions to process.
-    /// @param _expectedHash Expected cumulative hash after processing.
-    /// @return newHash_ The new cumulative hash.
-    function _processBondInstructions(
-        bytes32 _currentHash,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _expectedHash
-    )
-        private
-        returns (bytes32 newHash_)
-    {
-        newHash_ = _currentHash;
 
-        uint256 length = _bondInstructions.length;
-        for (uint256 i; i < length; ++i) {
-            LibBonds.BondInstruction calldata instruction = _bondInstructions[i];
-
-            uint256 bondAmount = _bondAmountFor(instruction.bondType);
-            if (bondAmount != 0) {
-                uint256 bondDebited = bondManager.debitBond(instruction.payer, bondAmount);
-                bondManager.creditBond(instruction.payee, bondDebited);
-            }
-
-            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
-        }
-
-        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
 
     /// @dev Maps a bond type to the configured bond amount in Wei.
     function _bondAmountFor(LibBonds.BondType _bondType) private view returns (uint256) {
@@ -518,7 +478,7 @@ contract Anchor is EssentialContract {
     /// @dev Checks whether a decoded `ProverAuth` payload targets the expected proposal context.
     function _isMatchingProverAuthContext(
         ProverAuth memory _auth,
-        uint48 _proposalId,
+        uint40 _proposalId,
         address _proposer
     )
         private

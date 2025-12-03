@@ -12,7 +12,7 @@ contract BondManagerTest is CommonTest {
 
     address authorized = vm.addr(0x100);
     uint256 minBond = 10 ether;
-    uint48 withdrawalDelay = 7 days;
+    uint40 withdrawalDelay = 7 days;
 
     function setUpOnEthereum() internal override {
         // Deploy bond token

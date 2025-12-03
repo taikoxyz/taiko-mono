@@ -421,7 +421,7 @@ contract LibProposeInputCodecFuzzTest is Test {
 
     /// @notice Fuzz test for checkpoint fields
     function testFuzz_encodeDecodeCheckpoint(
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot
     )

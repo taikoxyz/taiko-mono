@@ -98,24 +98,6 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
-    /// @dev Optimized to use mstore instead of 6 individual mstore8 operations.
-    /// Common use case: block numbers that exceed uint32 range.
-    /// @param _pos Absolute memory position to write at
-    /// @param _value The uint48 value to pack (0-281474976710655)
-    /// @return newPos_ Updated position after writing (pos + 6)
-    function packUint48(uint256 _pos, uint48 _value) internal pure returns (uint256 newPos_) {
-        assembly {
-            // Shift value left by 26 bytes (208 bits) to align at the start of a 32-byte word
-            let shifted := shl(208, _value)
-
-            // Store the shifted value at position
-            mstore(_pos, shifted)
-
-            newPos_ := add(_pos, 6)
-        }
-    }
-
     /// @notice Pack bytes27 at position
     /// @dev Writes 27 bytes, commonly used for truncated transition hashes.
     /// @param _pos Absolute memory position to write at
@@ -239,18 +221,6 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Unpack uint48 (6 bytes) from position using big-endian encoding
-    /// @dev Optimized to use 1 mload operation instead of 6 byte reads.
-    /// @param _pos Absolute memory position to read from
-    /// @return value_ The unpacked uint48 value
-    /// @return newPos_ Updated position after reading (pos + 6)
-    function unpackUint48(uint256 _pos) internal pure returns (uint48 value_, uint256 newPos_) {
-        assembly {
-            // Load full word and shift right by 208 bits (26 bytes) to get the 6 bytes we need
-            value_ := shr(208, mload(_pos))
-            newPos_ := add(_pos, 6)
-        }
-    }
 
     /// @notice Unpack bytes27 from position
     /// @dev Reads 27 bytes for truncated transition hashes.

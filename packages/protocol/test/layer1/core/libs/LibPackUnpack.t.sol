@@ -196,54 +196,6 @@ contract LibPackUnpackTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // Test packUint48 / unpackUint48
-    // ---------------------------------------------------------------
-
-    function test_packUnpackUint48_zero() public pure {
-        bytes memory buffer = new bytes(10);
-        uint256 ptr = LibPackUnpack.dataPtr(buffer);
-
-        uint48 value = 0;
-        uint256 newPtr = LibPackUnpack.packUint48(ptr, value);
-        assertEq(newPtr, ptr + 6);
-
-        (uint48 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint48(ptr);
-        assertEq(unpacked, value);
-        assertEq(readPtr, ptr + 6);
-    }
-
-    function test_packUnpackUint48_max() public pure {
-        bytes memory buffer = new bytes(10);
-        uint256 ptr = LibPackUnpack.dataPtr(buffer);
-
-        uint48 value = type(uint48).max;
-        uint256 newPtr = LibPackUnpack.packUint48(ptr, value);
-        assertEq(newPtr, ptr + 6);
-
-        (uint48 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint48(ptr);
-        assertEq(unpacked, value);
-        assertEq(readPtr, ptr + 6);
-    }
-
-    function test_packUnpackUint48_bigEndian() public pure {
-        bytes memory buffer = new bytes(10);
-        uint256 ptr = LibPackUnpack.dataPtr(buffer);
-
-        uint48 value = 0x123456789ABC;
-        LibPackUnpack.packUint48(ptr, value);
-
-        assertEq(uint8(buffer[0]), 0x12);
-        assertEq(uint8(buffer[1]), 0x34);
-        assertEq(uint8(buffer[2]), 0x56);
-        assertEq(uint8(buffer[3]), 0x78);
-        assertEq(uint8(buffer[4]), 0x9A);
-        assertEq(uint8(buffer[5]), 0xBC);
-
-        (uint48 unpacked,) = LibPackUnpack.unpackUint48(ptr);
-        assertEq(unpacked, value);
-    }
-
-    // ---------------------------------------------------------------
     // Test packBytes27 / unpackBytes27
     // ---------------------------------------------------------------
 
@@ -447,16 +399,16 @@ contract LibPackUnpackTest is Test {
         bytes memory buffer = new bytes(100);
         uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        // Test uint40 + uint48
+        // Test two uint40 values
         uint40 val4 = 1_234_567_890;
-        uint48 val5 = 999_999_999_999;
+        uint40 val5 = 999_999_999;
 
         uint256 writePtr = ptr;
         writePtr = LibPackUnpack.packUint40(writePtr, val4);
-        writePtr = LibPackUnpack.packUint48(writePtr, val5);
+        writePtr = LibPackUnpack.packUint40(writePtr, val5);
 
         (uint40 read4, uint256 nextPtr1) = LibPackUnpack.unpackUint40(ptr);
-        (uint48 read5, uint256 nextPtr2) = LibPackUnpack.unpackUint48(nextPtr1);
+        (uint40 read5, uint256 nextPtr2) = LibPackUnpack.unpackUint40(nextPtr1);
 
         assertEq(read4, val4);
         assertEq(read5, val5);

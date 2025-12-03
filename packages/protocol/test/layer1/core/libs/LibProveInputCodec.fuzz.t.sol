@@ -60,7 +60,7 @@ contract LibProveInputCodecFuzzTest is Test {
 
     /// @notice Fuzz test for checkpoint fields
     function testFuzz_encodeDecodeCheckpoint(
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot
     )
@@ -184,7 +184,7 @@ contract LibProveInputCodecFuzzTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i * 100),
+                    blockNumber: uint40(5000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),
@@ -210,7 +210,7 @@ contract LibProveInputCodecFuzzTest is Test {
             );
             assertEq(
                 decoded[i].checkpoint.blockNumber,
-                uint48(5000 + i * 100),
+                uint40(5000 + i * 100),
                 "Checkpoint block number mismatch"
             );
         }
@@ -221,7 +221,7 @@ contract LibProveInputCodecFuzzTest is Test {
         uint40 proposalId,
         uint40 timestamp,
         address proposer,
-        uint48 blockNumber,
+        uint40 blockNumber,
         bytes32 blockHash,
         address designatedProver,
         bytes27 parentTransitionHash
@@ -290,7 +290,7 @@ contract LibProveInputCodecFuzzTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i),
+                    blockNumber: uint40(5000 + i),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),
@@ -328,7 +328,7 @@ contract LibProveInputCodecFuzzTest is Test {
                     parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
                 }),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(5000 + i),
+                    blockNumber: uint40(5000 + i),
                     blockHash: keccak256(abi.encodePacked("blockHash", i)),
                     stateRoot: keccak256(abi.encodePacked("stateRoot", i))
                 }),

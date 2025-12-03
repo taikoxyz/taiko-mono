@@ -165,7 +165,7 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             finalizationDeadline: type(uint40).max,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: type(uint48).max,
+                blockNumber: type(uint40).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
             }),
@@ -181,7 +181,9 @@ contract LibProvedEventCodecTest is Test {
             "Max finalizationDeadline should be preserved"
         );
         assertEq(
-            decoded.checkpoint.blockNumber, type(uint48).max, "Max block number should be preserved"
+            decoded.checkpoint.blockNumber,
+            type(uint40).max,
+            "Max block number should be preserved"
         );
         // Note: proposalId is encoded as uint40 in LibProvedEventCodec, not uint48
         // So we expect truncation for max uint48 values
