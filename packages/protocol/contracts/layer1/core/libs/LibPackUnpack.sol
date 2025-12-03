@@ -152,6 +152,27 @@ library LibPackUnpack {
         }
     }
 
+    /// @notice Pack bytes27 at position
+    /// @dev Writes 27 bytes, commonly used for truncated transition hashes.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The bytes27 value to pack
+    /// @return newPos_ Updated position after writing (pos + 27)
+    function packBytes27(
+        uint256 _pos,
+        bytes27 _value
+    )
+        internal
+        pure
+        returns (uint256 newPos_)
+    {
+        assembly {
+            // bytes27 is stored in the high 216 bits of a bytes32
+            // We write 32 bytes starting at _pos, but only advance by 27
+            mstore(_pos, _value)
+            newPos_ := add(_pos, 27)
+        }
+    }
+
     /// @notice Pack bytes32 at position
     /// @dev Direct 32-byte write, commonly used for hashes and identifiers.
     /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
@@ -289,6 +310,21 @@ library LibPackUnpack {
         assembly {
             value_ := mload(_pos)
             newPos_ := add(_pos, 32)
+        }
+    }
+
+    /// @notice Unpack bytes27 from position
+    /// @dev Reads 27 bytes for truncated transition hashes.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked bytes27 value
+    /// @return newPos_ Updated position after reading (pos + 27)
+    function unpackBytes27(uint256 _pos) internal pure returns (bytes27 value_, uint256 newPos_) {
+        assembly {
+            // Load the full 32-byte word starting at _pos
+            // bytes27 uses the high 216 bits, so we mask out the low 40 bits (5 bytes)
+            let word := mload(_pos)
+            value_ := and(word, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000)
+            newPos_ := add(_pos, 27)
         }
     }
 

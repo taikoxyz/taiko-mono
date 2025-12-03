@@ -129,7 +129,7 @@ interface IInbox {
         /// @dev In genesis block, this is set to 0 to allow the first sync.
         uint40 lastSyncTimestamp;
         /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedTransitionHash;
+        bytes27 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 bondInstructionsHashOld;
         bytes32 bondInstructionsHashNew;
@@ -171,7 +171,7 @@ interface IInbox {
         Proposal proposal;
         ICheckpointStore.Checkpoint checkpoint;
         ProofMetadata proofMetadata;
-        bytes32 parentTransitionHash;
+        bytes27 parentTransitionHash;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -190,7 +190,7 @@ interface IInbox {
     struct ProvedEventPayload {
         /// @notice The proposal ID that was proven.
         uint40 proposalId;
-        bytes32 parentTransitionHash;
+        bytes27 parentTransitionHash;
         uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
         LibBonds.BondInstruction[] bondInstructions;
@@ -239,7 +239,7 @@ interface IInbox {
     /// @return record_ The transition record metadata.
     function getTransitionRecord(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         external
         view

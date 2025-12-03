@@ -78,7 +78,7 @@ library LibProveInputDecoder {
         newPtr_ = _encodeProofMetadata(newPtr_, _input.proofMetadata);
 
         // Encode parentTransitionHash
-        newPtr_ = P.packBytes32(newPtr_, _input.parentTransitionHash);
+        newPtr_ = P.packBytes27(newPtr_, _input.parentTransitionHash);
     }
 
     /// @notice Encode a single Proposal
@@ -132,7 +132,7 @@ library LibProveInputDecoder {
         (input_.proofMetadata, newPtr_) = _decodeProofMetadata(newPtr_);
 
         // Decode parentTransitionHash
-        (input_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (input_.parentTransitionHash, newPtr_) = P.unpackBytes27(newPtr_);
     }
 
     /// @notice Decode a single Proposal
@@ -182,10 +182,10 @@ library LibProveInputDecoder {
                 // ProofMetadata: proposer(20) + proposalTimestamp(5) + designatedProver(20) +
                 // actualProver(20) = 65
 
-                // parentTransitionHash: 32
+                // parentTransitionHash: 27
 
-                // Per ProveInput: 131 + 70 + 65 + 32 = 298
-                size_ += 298;
+                // Per ProveInput: 131 + 70 + 65 + 27 = 293
+                size_ += 293;
             }
         }
     }

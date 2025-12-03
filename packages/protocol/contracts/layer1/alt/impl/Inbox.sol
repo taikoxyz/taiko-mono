@@ -419,7 +419,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return record_ The transition record metadata.
     function getTransitionRecord(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         external
         view
@@ -932,23 +932,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _record The finalization metadata to persist
     function _storeTransitionRecord(
         uint40 _startProposalId,
-        bytes32 _parentTransitionHash,
+        bytes27 _parentTransitionHash,
         TransitionRecord memory _record
     )
         private
     {
         FirstTransitionRecord storage firstRecord =
             _firstTransitionRecords[_startProposalId % _ringBufferSize];
-        // Truncation keeps 216 bits of Keccak security; practical collision risk within the proving
-        // horizon is negligible.
-        bytes27 parentTransitionHash = bytes27(_parentTransitionHash);
 
         if (firstRecord.proposalId != _startProposalId) {
             // New proposal, overwrite slot
             firstRecord.proposalId = _startProposalId;
-            firstRecord.parentTransitionHash = parentTransitionHash;
+            firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
-        } else if (firstRecord.parentTransitionHash != parentTransitionHash) {
+        } else if (firstRecord.parentTransitionHash != _parentTransitionHash) {
             // Collision: fallback to composite key mapping
             TransitionRecord storage record =
                 _transitionRecordFor(_startProposalId, _parentTransitionHash);
@@ -975,14 +972,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      Lookup strategy (gas-optimized order):
     ///      1. Ring buffer slot lookup (single SLOAD).
     ///      2. Proposal ID verification (cached in memory).
-    ///      3. Partial parent hash comparison (single comparison).
+    ///      3. Parent hash comparison (single comparison).
     ///      4. Fallback to composite key mapping (most expensive).
     /// @param _proposalId The proposal ID to look up
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return record_ The transition record metadata.
     function _loadTransitionRecord(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         private
         view
@@ -993,7 +990,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (firstRecord.proposalId != _proposalId) {
             return TransitionRecord({ transitionHash: 0, finalizationDeadline: 0 });
-        } else if (firstRecord.parentTransitionHash == bytes27(_parentTransitionHash)) {
+        } else if (firstRecord.parentTransitionHash == _parentTransitionHash) {
             return firstRecord.record;
         } else {
             return _transitionRecordFor(_proposalId, _parentTransitionHash);
@@ -1016,7 +1013,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     function _transitionRecordFor(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         private
         view
@@ -1033,7 +1030,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return _ Keccak256 hash of encoded parameters
     function _composeTransitionKey(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         private
         pure

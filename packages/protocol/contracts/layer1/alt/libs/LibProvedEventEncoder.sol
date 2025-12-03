@@ -32,7 +32,7 @@ library LibProvedEventEncoder {
         ptr = P.packUint40(ptr, _payload.proposalId);
 
         // Encode parentTransitionHash
-        ptr = P.packBytes32(ptr, _payload.parentTransitionHash);
+        ptr = P.packBytes27(ptr, _payload.parentTransitionHash);
 
         // Encode finalizationDeadline (uint40)
         ptr = P.packUint40(ptr, _payload.finalizationDeadline);
@@ -70,7 +70,7 @@ library LibProvedEventEncoder {
         (payload_.proposalId, ptr) = P.unpackUint40(ptr);
 
         // Decode parentTransitionHash
-        (payload_.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.parentTransitionHash, ptr) = P.unpackBytes27(ptr);
 
         // Decode finalizationDeadline (uint40)
         (payload_.finalizationDeadline, ptr) = P.unpackUint40(ptr);
@@ -110,17 +110,17 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 115 bytes
+            // Fixed size: 109 bytes
             // startProposalId: 5
-            // parentTransitionHash: 32
+            // parentTransitionHash: 27
             // finalizationDeadline: 5
             // Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // bondInstructions array length: 2
-            // Total fixed: 5 + 32 + 5 + 70 + 2 = 114
+            // Total fixed: 5 + 27 + 5 + 70 + 2 = 109
 
             // Variable size: each bond instruction is 46 bytes
             // proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
-            size_ = 114 + (_bondInstructionsCount * 46);
+            size_ = 109 + (_bondInstructionsCount * 46);
         }
     }
 

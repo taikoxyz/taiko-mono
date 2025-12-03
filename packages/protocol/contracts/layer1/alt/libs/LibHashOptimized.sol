@@ -276,13 +276,13 @@ library LibHashOptimized {
     /// @return The composite key for storage mapping
     function composeTransitionKey(
         uint40 _proposalId,
-        bytes32 _parentTransitionHash
+        bytes27 _parentTransitionHash
     )
         internal
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), _parentTransitionHash);
+        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), bytes32(_parentTransitionHash));
     }
 
     // ---------------------------------------------------------------
@@ -323,7 +323,7 @@ library LibHashOptimized {
         bytes32 metadataHash = _hashProofMetadata(_input.proofMetadata);
 
         return EfficientHashLib.hash(
-            proposalHash, checkpointHash, metadataHash, _input.parentTransitionHash
+            proposalHash, checkpointHash, metadataHash, bytes32(_input.parentTransitionHash)
         );
     }
 
