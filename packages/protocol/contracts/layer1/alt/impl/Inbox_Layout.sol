@@ -20,7 +20,7 @@ pragma solidity ^0.8.24;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   activationTimestamp            | uint40                                             | Slot: 251  | Offset: 0    | Bytes: 5   
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _records                       | mapping(bytes32 => struct IInbox.TransitionRecord) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   _firstTransitionRecords        | mapping(uint256 => struct Inbox.FirstTransitionRecord) | Slot: 256  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[36]                                        | Slot: 257  | Offset: 0    | Bytes: 1152
+//   _firstTransitionRecords        | mapping(uint256 => struct Inbox.FirstTransitionRecord) | Slot: 253  | Offset: 0    | Bytes: 32  
+//   _transitionRecords             | mapping(bytes32 => struct IInbox.TransitionRecord) | Slot: 254  | Offset: 0    | Bytes: 32  
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
+//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408

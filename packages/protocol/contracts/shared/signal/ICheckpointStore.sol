@@ -11,6 +11,7 @@ interface ICheckpointStore {
 
     /// @notice Represents a synced checkpoint
     struct Checkpoint {
+        // TODO: change to uint40?
         /// @notice The block number associated with the checkpoint.
         uint48 blockNumber;
         /// @notice The block hash for the end (last) L2 block in this proposal.

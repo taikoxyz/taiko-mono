@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBlobs } from "./LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title LibForcedInclusion
@@ -15,7 +15,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
 library LibForcedInclusion {
-    using LibMath for uint48;
+    using LibMath for uint40;
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
@@ -28,13 +28,13 @@ library LibForcedInclusion {
         mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue;
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
         /// be dequeued.
-        uint48 head;
+        uint40 head;
         // TODO: change to uint40?
         /// @notice The index of the next free slot in the queue. This is where items will be
         /// enqueued.
-        uint48 tail;
+        uint40 tail;
         /// @notice The last time a forced inclusion was processed.
-        uint48 lastProcessedAt;
+        uint40 lastProcessedAt;
     }
 
     // ---------------------------------------------------------------
@@ -86,7 +86,7 @@ library LibForcedInclusion {
     {
         require(_feeDoubleThreshold > 0, InvalidFeeDoubleThreshold());
 
-        (uint48 head, uint48 tail) = ($.head, $.tail);
+        (uint40 head, uint40 tail) = ($.head, $.tail);
         uint256 numPending = uint256(tail - head);
 
         // Linear scaling formula: fee = baseFee × (threshold + numPending) / threshold
@@ -105,15 +105,15 @@ library LibForcedInclusion {
     ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(
         Storage storage $,
-        uint48 _start,
-        uint48 _maxCount
+        uint40 _start,
+        uint40 _maxCount
     )
         internal
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
-            (uint48 head, uint48 tail) = ($.head, $.tail);
+            (uint40 head, uint40 tail) = ($.head, $.tail);
 
             if (_start < head || _start >= tail || _maxCount == 0) {
                 return new IForcedInclusionStore.ForcedInclusion[](0);
@@ -137,7 +137,7 @@ library LibForcedInclusion {
     function getForcedInclusionState(Storage storage $)
         internal
         view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+        returns (uint40 head_, uint40 tail_, uint40 lastProcessedAt_)
     {
         (head_, tail_, lastProcessedAt_) = ($.head, $.tail, $.lastProcessedAt);
     }
@@ -155,9 +155,9 @@ library LibForcedInclusion {
     /// @return True if the oldest remaining inclusion is due for processing
     function isOldestForcedInclusionDue(
         Storage storage $,
-        uint48 _head,
-        uint48 _tail,
-        uint48 _lastProcessedAt,
+        uint40 _head,
+        uint40 _tail,
+        uint40 _lastProcessedAt,
         uint16 _forcedInclusionDelay
     )
         internal

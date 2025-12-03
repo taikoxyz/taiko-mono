@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibPackUnpack as P } from "src/layer1/core/libs/LibPackUnpack.sol";
+import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
@@ -28,14 +28,8 @@ library LibProvedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Encode startProposalId (uint40)
-        ptr = P.packUint48(ptr, _payload.proposalId);
-
-        // Encode parentTransitionHash
-        ptr = P.packBytes32(ptr, _payload.parentTransitionHash);
-
         // Encode finalizationDeadline (uint40)
-        ptr = P.packUint48(ptr, _payload.finalizationDeadline);
+        ptr = P.packUint40(ptr, _payload.finalizationDeadline);
 
         // Encode Checkpoint
         ptr = P.packUint48(ptr, _payload.checkpoint.blockNumber);
@@ -48,7 +42,7 @@ library LibProvedEventEncoder {
 
         // Encode each bond instruction
         for (uint256 i; i < _payload.bondInstructions.length; ++i) {
-            ptr = P.packUint48(ptr, _payload.bondInstructions[i].proposalId);
+            ptr = P.packUint40(ptr, uint40(_payload.bondInstructions[i].proposalId));
             ptr = P.packUint8(ptr, uint8(_payload.bondInstructions[i].bondType));
             ptr = P.packAddress(ptr, _payload.bondInstructions[i].payer);
             ptr = P.packAddress(ptr, _payload.bondInstructions[i].payee);
@@ -66,17 +60,8 @@ library LibProvedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
-        // Decode startProposalId (uint40)
-        uint48 temp;
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.proposalId = uint40(temp);
-
-        // Decode parentTransitionHash
-        (payload_.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
-
         // Decode finalizationDeadline (uint40)
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.finalizationDeadline = uint40(temp);
+        (payload_.finalizationDeadline, ptr) = P.unpackUint40(ptr);
 
         // Decode Checkpoint
         (payload_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
@@ -90,8 +75,9 @@ library LibProvedEventEncoder {
         // Decode bond instructions
         payload_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i; i < arrayLength; ++i) {
-            (temp, ptr) = P.unpackUint48(ptr);
-            payload_.bondInstructions[i].proposalId = uint40(temp);
+            uint40 temp;
+            (temp, ptr) = P.unpackUint40(ptr);
+            payload_.bondInstructions[i].proposalId = temp;
 
             uint8 bondTypeValue;
             (bondTypeValue, ptr) = P.unpackUint8(ptr);
@@ -112,18 +98,17 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 121 bytes
-            // startProposalId: 6
-            // parentTransitionHash: 32
-            // finalizationDeadline: 6
+            // Fixed size: 109 bytes
+            // startProposalId: 5
+            // parentTransitionHash: 27
+            // finalizationDeadline: 5
             // Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // bondInstructions array length: 2
-            // Total fixed: 6 + 32 + 1 + 6 + 70 + 2 = 117
-            // Correction: 6 + 32 + 1 + 6 + 70 + 2 = 117
+            // Total fixed: 5 + 27 + 5 + 70 + 2 = 109
 
-            // Variable size: each bond instruction is 47 bytes
-            // proposalId(6) + bondType(1) + payer(20) + payee(20) = 47
-            size_ = 117 + (_bondInstructionsCount * 47);
+            // Variable size: each bond instruction is 46 bytes
+            // proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
+            size_ = 82 + _bondInstructionsCount * 46;
         }
     }
 
