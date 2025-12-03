@@ -429,28 +429,23 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // External & Public Pure Functions - Codex 
+    // External & Public Pure Functions - Codex
     // ---------------------------------------------------------------
-
 
     function encodeProposeInput(ProposeInput memory _input) external pure returns (bytes memory) {
         return LibProposeInputCodec.encode(_input);
     }
 
-     /// @dev Decodes proposal input data
+    /// @dev Decodes proposal input data
     /// @param _data The encoded data
     /// @return The decoded ProposeInput struct containing all proposal data
     function decodeProposeInput(bytes calldata _data) public pure returns (ProposeInput memory) {
         return LibProposeInputCodec.decode(_data);
     }
 
-     function encodeProveInput(ProveInput[] memory _inputs) external pure returns (bytes memory) {
+    function encodeProveInput(ProveInput[] memory _inputs) external pure returns (bytes memory) {
         return LibProveInputCodec.encode(_inputs);
     }
-
-
-   
-
 
     /// @dev Decodes prove input data
     /// @param _data The encoded data
@@ -459,7 +454,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibProveInputCodec.decode(_data);
     }
 
-     /// @dev Encodes the proposed event data
+    /// @dev Encodes the proposed event data
     /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
     function encodeProposedEventData(ProposedEventPayload memory _payload)
@@ -470,7 +465,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibProposedEventCodec.encode(_payload);
     }
 
-    function decodeProposedEventData(bytes calldata _data) external pure returns (ProposedEventPayload memory) {
+    function decodeProposedEventData(bytes calldata _data)
+        external
+        pure
+        returns (ProposedEventPayload memory)
+    {
         return LibProposedEventCodec.decode(_data);
     }
 
@@ -485,7 +484,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibProvedEventCodec.encode(_payload);
     }
 
-    function decodeProvedEventData(bytes calldata _data) external pure returns (ProvedEventPayload memory) {
+    function decodeProvedEventData(bytes calldata _data)
+        external
+        pure
+        returns (ProvedEventPayload memory)
+    {
         return LibProvedEventCodec.decode(_data);
     }
 
