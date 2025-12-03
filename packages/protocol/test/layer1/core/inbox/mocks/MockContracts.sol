@@ -30,6 +30,15 @@ contract MockSignalService is ISignalService {
         emit SignalSent(msg.sender, _signal, slot_, _signal);
     }
 
+    function sendSignalFrom(uint64 _chainId, address _app, bytes32 _signal)
+        external
+        returns (bytes32 slot_)
+    {
+        slot_ = getSignalSlot(_chainId, _app, _signal);
+        sentSignals[slot_] = true;
+        emit SignalSent(_app, _signal, slot_, _signal);
+    }
+
     function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes calldata)
         external
         returns (uint256)

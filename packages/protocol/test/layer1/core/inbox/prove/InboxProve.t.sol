@@ -280,6 +280,71 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
+    function test_prove_acceptsProofWithFinalizedPrefix() public {
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p3 = _proposeOne();
+
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t2 = _transitionFor(p2, _hashTransition(t1), bytes32(uint256(2)), prover, prover);
+        IInbox.Transition memory t3 = _transitionFor(p3, _hashTransition(t2), bytes32(uint256(3)), prover, prover);
+
+        IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
+            proposals: _proposals(p1.proposal),
+            transitions: _transitions(t1),
+            checkpoint: t1.checkpoint
+        });
+        _proveAndDecode(prefixInput);
+
+        IInbox.ProveInput memory fullInput = IInbox.ProveInput({
+            proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
+            transitions: _transitions(t1, t2, t3),
+            checkpoint: t3.checkpoint
+        });
+
+        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(fullInput);
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
+        assertEq(state.lastFinalizedTransitionHash, _hashTransition(t3), "transition hash");
+        assertEq(provedPayload.proposalId, p2.proposal.id, "proved proposal id");
+        assertEq(provedPayload.transition.proposalHash, _hashProposal(p2.proposal), "proved proposal hash");
+        assertEq(provedPayload.transition.parentTransitionHash, _hashTransition(t1), "proved parent hash");
+    }
+
+    function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        IInbox.Transition memory t1 =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
+            proposals: _proposals(p1.proposal),
+            transitions: _transitions(t1),
+            checkpoint: t1.checkpoint
+        });
+        _proveAndDecode(prefixInput);
+
+        IInbox.Transition memory wrongPrefix =
+            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(999)), prover, prover);
+        IInbox.Transition memory t2 =
+            _transitionFor(p2, _hashTransition(wrongPrefix), bytes32(uint256(2)), prover, prover);
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: _proposals(p1.proposal, p2.proposal),
+            transitions: _transitions(wrongPrefix, t2),
+            checkpoint: t2.checkpoint
+        });
+
+        vm.prank(prover);
+        vm.expectRevert(Inbox.InvalidProposalId.selector);
+        inbox.prove(_encodeProveInput(proveInput), bytes(""));
+    }
+
     function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
         _setBlobHashes(3);
         payload_ = _proposeAndDecode(_defaultProposeInput());
