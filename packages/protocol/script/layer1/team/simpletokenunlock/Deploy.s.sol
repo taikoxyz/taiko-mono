@@ -8,8 +8,7 @@ contract DeploySimpleTokenUnlock is BaseScript {
     using stdJson for string;
 
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
-    // NOT YET DEPLOYED
-    // address public SIMPLE_TOKEN_UNLOCK_IMPL =
+    address public SIMPLE_TOKEN_UNLOCK_IMPL = 0x01228372cDDb72e6830B1CD8e3006ecfa0E2d99B;
 
     function run() external broadcast {
         require(SIMPLE_TOKEN_UNLOCK_IMPL != address(0), "SIMPLE_TOKEN_UNLOCK_IMPL not set");
