@@ -129,7 +129,7 @@ interface IInbox {
         uint40 finalizationHead;
         /// @notice The proposal ID when the last sync occurred.
         uint40 synchronizationHead;
-        /// @notice The hash of the last finalized transition.
+        /// @notice The hash of the finalization head transition.
         bytes27 finalizationHeadTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 aggregatedBondInstructionsHash;

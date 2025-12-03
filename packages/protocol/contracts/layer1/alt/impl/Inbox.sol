@@ -227,7 +227,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 CannotProposeInCurrentBlock()
             );
 
-            // Verify parentProposals[0] is the last proposal stored on-chain.
+            // Verify parentProposals[0] is the head proposal
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
 
             require(
@@ -237,8 +237,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
-
-            coreState.proposalHeadContainerBlock = uint40(block.number);
 
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
@@ -272,10 +270,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-            // Increment proposalHead (proposalHeadContainerBlock was already set above)
-            uint40 id = ++coreState.proposalHead;
+             coreState.proposalHeadContainerBlock = uint40(block.number);
+             coreState.proposalHead += 1;
+
             Proposal memory proposal = Proposal({
-                id: id,
+                id: coreState.proposalHead,
                 timestamp: uint40(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
