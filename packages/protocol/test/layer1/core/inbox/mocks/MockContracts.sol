@@ -1,25 +1,62 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "src/layer1/verifiers/IProofVerifier.sol";
-
-/// @title MockERC20
-/// @notice Mock ERC20 token for testing bond mechanics
-contract MockERC20 is ERC20 {
-    constructor() ERC20("Mock Token", "MOCK") {
-        _mint(msg.sender, 1_000_000 ether);
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 
 /// @title MockProofVerifier
 /// @notice Mock proof verifier that always accepts proofs
 contract MockProofVerifier is IProofVerifier {
-    function verifyProof(uint256, bytes32, bytes calldata) external pure {
-        // Always accept
+    bool public shouldRevert;
+
+    function setRevert(bool _shouldRevert) external {
+        shouldRevert = _shouldRevert;
+    }
+
+    function verifyProof(uint256, bytes32, bytes calldata) external view {
+        if (shouldRevert) {
+            revert("MockProofVerifier: invalid proof");
+        }
+    }
+}
+
+/// @title MockProposerChecker
+/// @notice Mock proposer checker for testing
+contract MockProposerChecker is IProposerChecker {
+    bool public shouldRevert;
+    uint40 public submissionWindowEnd;
+    mapping(address => bool) public allowedProposers;
+
+    function setRevert(bool _shouldRevert) external {
+        shouldRevert = _shouldRevert;
+    }
+
+    function setSubmissionWindowEnd(uint40 _end) external {
+        submissionWindowEnd = _end;
+    }
+
+    function allowProposer(address _proposer) external {
+        allowedProposers[_proposer] = true;
+    }
+
+    function disallowProposer(address _proposer) external {
+        allowedProposers[_proposer] = false;
+    }
+
+    function checkProposer(
+        address _proposer,
+        bytes calldata
+    )
+        external
+        view
+        returns (uint40 endOfSubmissionWindowTimestamp_)
+    {
+        if (shouldRevert) {
+            revert InvalidProposer();
+        }
+        if (!allowedProposers[_proposer]) {
+            revert InvalidProposer();
+        }
+        return submissionWindowEnd;
     }
 }

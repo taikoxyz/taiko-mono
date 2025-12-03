@@ -1,123 +1,226 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
-import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
-import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICodec } from "src/layer1/core/iface/ICodec.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Vm } from "forge-std/src/Vm.sol";
+
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { MockProofVerifier, MockProposerChecker } from "../mocks/MockContracts.sol";
 
 /// @title InboxTestHelper
-/// @notice Combined utility functions and setup logic for Inbox tests
+/// @notice Base test contract with reusable helper functions for Inbox testing
+/// @custom:security-contact security@taiko.xyz
 abstract contract InboxTestHelper is CommonTest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
-    address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
+    address internal constant MOCK_REMOTE_SIGNAL_SERVICE = address(1);
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
-    uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
+    uint48 internal constant INITIAL_TIMESTAMP = 1000;
     uint256 internal constant DEFAULT_TEST_BLOB_COUNT = 9;
 
+    // Default config values
+    uint40 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
+    uint40 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
+    uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
+    uint40 internal constant DEFAULT_FINALIZATION_GRACE_PERIOD = 30 minutes;
+    uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
+    uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
+    uint256 internal constant DEFAULT_MIN_FORCED_INCLUSION_COUNT = 1;
+    uint16 internal constant DEFAULT_FORCED_INCLUSION_DELAY = 300; // 5 min
+    uint64 internal constant DEFAULT_FORCED_INCLUSION_FEE_IN_GWEI = 10_000_000; // 0.01 ETH
+    uint64 internal constant DEFAULT_FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 100;
+    uint16 internal constant DEFAULT_MIN_SYNC_DELAY = 10;
+    uint8 internal constant DEFAULT_PERMISSIONLESS_INCLUSION_MULTIPLIER = 3;
+
+    // Event topics
+    bytes32 internal constant PROPOSED_EVENT_TOPIC = keccak256("Proposed(uint40,bytes)");
+    bytes32 internal constant PROVED_EVENT_TOPIC = keccak256("Proved(uint40,bytes27,bytes)");
+    bytes32 internal constant CONFLICTING_TRANSITION_TOPIC =
+        keccak256("ConflictingTransition(uint40,bytes27,(bytes27,uint40),(bytes27,uint40))");
+
     // ---------------------------------------------------------------
-    // Core Test Infrastructure
+    // Structs for test results
     // ---------------------------------------------------------------
 
-    /// @notice Name of the current inbox contract being tested
-    string public inboxContractName;
+    /// @notice Represents a proposal that has been proven
+    struct ProvenProposal {
+        IInbox.Proposal proposal;
+        IInbox.Transition transition;
+        ICheckpointStore.Checkpoint checkpoint;
+        bytes27 transitionHash;
+        uint40 finalizationDeadline;
+    }
+
+    /// @notice Result of filling the ring buffer
+    struct RingBufferFillResult {
+        IInbox.ProposedEventPayload first;
+        IInbox.ProposedEventPayload second;
+        IInbox.ProposedEventPayload last;
+        IInbox.Proposal[] proposals;
+    }
 
     // ---------------------------------------------------------------
-    // Test Environment State
+    // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice The inbox contract instance under test
-    Inbox internal inbox;
+    Inbox public inbox;
+    MockProofVerifier public proofVerifier;
+    MockProposerChecker public proposerChecker;
+    SignalService public signalService;
+    ICheckpointStore public checkpointStore;
 
-    /// @notice Test owner address for contract deployments
     address internal owner = Alice;
+    address internal currentProposer = Bob;
+    address internal currentProver = Carol;
 
-    /// @notice Mock bond token for testing
-    IERC20 internal bondToken;
-
-    /// @notice Signal service interface used for checkpoint management
-    ICheckpointStore internal checkpointManager;
-
-    /// @notice Signal service proxy used as checkpoint manager
-    SignalService internal signalService;
-
-    /// @notice Mock proof verifier for testing
-    IProofVerifier internal proofVerifier;
-
-    /// @notice Proposer checker contract for validation
-    IProposerChecker internal proposerChecker;
-
-    /// @notice Deployer instance for creating inbox contracts
-    IInboxDeployer internal inboxDeployer;
-
-    /// @notice Helper for proposer whitelist setup
-    PreconfWhitelistSetup internal proposerHelper;
-
-    /// @notice Initialize the contract name for testing
-    /// @param _contractName Name of the inbox contract being tested
-    function _initializeContractName(string memory _contractName) internal {
-        inboxContractName = _contractName;
-    }
-
-    /// @notice Helper function to get codec from inbox configuration
-    /// @return codec_ The ICodec instance from inbox config
-    function _codec() internal view returns (ICodec codec_) {
-        return ICodec(inbox.getConfig().codec);
-    }
+    // Config values cached from inbox
+    uint40 internal provingWindow;
+    uint40 internal extendedProvingWindow;
+    uint40 internal finalizationGracePeriod;
+    uint16 internal minSyncDelay;
+    uint256 internal maxFinalizationCount;
+    uint256 internal ringBufferSize;
 
     // ---------------------------------------------------------------
-    // Genesis State Builders
+    // Setup
     // ---------------------------------------------------------------
 
-    /// @notice Get the genesis core state for testing
-    /// @return Genesis CoreState with initial values
-    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
-        return IInbox.CoreState({
-            nextProposalId: 1,
-            lastProposalBlockId: 1, // Genesis value - last proposal was made at block 1
-            lastFinalizedProposalId: 0,
-            lastCheckpointTimestamp: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
+    function setUp() public virtual override {
+        super.setUp();
+
+        // Deploy dependencies
+        _deployDependencies();
+
+        // Deploy inbox with default config
+        inbox = _deployInbox(_createDefaultConfig());
+
+        // Upgrade signal service to use inbox as syncer and activate inbox
+        vm.startPrank(owner);
+        signalService.upgradeTo(
+            address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE))
+        );
+        inbox.activate(GENESIS_BLOCK_HASH);
+        vm.stopPrank();
+
+        // Setup proposer
+        proposerChecker.allowProposer(currentProposer);
+
+        // Cache config values
+        _cacheConfigValues();
+
+        // Advance to safe state
+        vm.roll(INITIAL_BLOCK_NUMBER);
+        vm.warp(INITIAL_TIMESTAMP);
+    }
+
+    function _deployDependencies() internal {
+        // Deploy mock proof verifier
+        proofVerifier = new MockProofVerifier();
+
+        // Deploy mock proposer checker
+        proposerChecker = new MockProposerChecker();
+        proposerChecker.setSubmissionWindowEnd(0);
+
+        // Deploy signal service
+        SignalService signalServiceImpl =
+            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
+        signalService = SignalService(
+            address(
+                new ERC1967Proxy(
+                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (owner))
+                )
+            )
+        );
+        checkpointStore = ICheckpointStore(address(signalService));
+    }
+
+    function _cacheConfigValues() internal {
+        IInbox.Config memory config = inbox.getConfig();
+        provingWindow = config.provingWindow;
+        extendedProvingWindow = config.extendedProvingWindow;
+        finalizationGracePeriod = config.finalizationGracePeriod;
+        minSyncDelay = config.minSyncDelay;
+        maxFinalizationCount = config.maxFinalizationCount;
+        ringBufferSize = config.ringBufferSize;
+    }
+
+    function _createDefaultConfig() internal view returns (IInbox.Config memory) {
+        return IInbox.Config({
+            proofVerifier: address(proofVerifier),
+            proposerChecker: address(proposerChecker),
+            checkpointStore: address(checkpointStore),
+            signalService: address(signalService),
+            provingWindow: DEFAULT_PROVING_WINDOW,
+            extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
+            maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
+            finalizationGracePeriod: DEFAULT_FINALIZATION_GRACE_PERIOD,
+            ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
+            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
+            minForcedInclusionCount: DEFAULT_MIN_FORCED_INCLUSION_COUNT,
+            forcedInclusionDelay: DEFAULT_FORCED_INCLUSION_DELAY,
+            forcedInclusionFeeInGwei: DEFAULT_FORCED_INCLUSION_FEE_IN_GWEI,
+            forcedInclusionFeeDoubleThreshold: DEFAULT_FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD,
+            minSyncDelay: DEFAULT_MIN_SYNC_DELAY,
+            permissionlessInclusionMultiplier: DEFAULT_PERMISSIONLESS_INCLUSION_MULTIPLIER
         });
     }
 
-    /// @notice Get the genesis transition hash
-    /// @return Hash of the genesis transition
-    function _getGenesisTransitionHash() internal view returns (bytes32) {
-        IInbox.Transition memory transition;
-        transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        return _codec().hashTransition(transition);
+    function _deployInbox(IInbox.Config memory _config) internal returns (Inbox) {
+        Inbox impl = new Inbox(_config);
+        Inbox proxy =
+            Inbox(address(new ERC1967Proxy(address(impl), abi.encodeCall(Inbox.init, (owner)))));
+        return proxy;
     }
 
-    /// @notice Create the genesis proposal for testing
-    /// @return Genesis Proposal with default values
+    // ---------------------------------------------------------------
+    // Genesis State Helpers
+    // ---------------------------------------------------------------
+
+    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
+        IInbox.Transition memory transition;
+        transition.checkpointHash = inbox.hashCheckpoint(
+            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+        );
+
+        return IInbox.CoreState({
+            proposalHead: 0,
+            proposalHeadContainerBlock: 1,
+            finalizationHead: 0,
+            synchronizationHead: 0,
+            finalizationHeadTransitionHash: inbox.hashTransition(transition),
+            aggregatedBondInstructionsHash: bytes32(0)
+        });
+    }
+
+    function _getGenesisTransitionHash() internal view returns (bytes27) {
+        IInbox.Transition memory transition;
+        transition.checkpointHash = inbox.hashCheckpoint(
+            ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0 })
+        );
+        return inbox.hashTransition(transition);
+    }
+
     function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Derivation memory derivation; // Empty derivation
+        IInbox.Derivation memory derivation;
 
         return IInbox.Proposal({
             id: 0,
-            proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _codec().hashCoreState(coreState),
-            derivationHash: _codec().hashDerivation(derivation),
+            proposer: address(0),
+            coreStateHash: inbox.hashCoreState(coreState),
+            derivationHash: inbox.hashDerivation(derivation),
             parentProposalHash: bytes32(0)
         });
     }
@@ -126,20 +229,14 @@ abstract contract InboxTestHelper is CommonTest {
     // Blob Helpers
     // ---------------------------------------------------------------
 
-    /// @notice Setup blob hashes with default count for testing
     function _setupBlobHashes() internal {
         _setupBlobHashes(DEFAULT_TEST_BLOB_COUNT);
     }
 
-    /// @notice Setup blob hashes with specified count
-    /// @param _numBlobs Number of blob hashes to generate
     function _setupBlobHashes(uint256 _numBlobs) internal {
         vm.blobhashes(_getBlobHashesForTest(_numBlobs));
     }
 
-    /// @notice Generate deterministic blob hashes for testing
-    /// @param _numBlobs Number of blob hashes to generate
-    /// @return Array of blob hashes
     function _getBlobHashesForTest(uint256 _numBlobs) internal pure returns (bytes32[] memory) {
         bytes32[] memory hashes = new bytes32[](_numBlobs);
         for (uint256 i = 0; i < _numBlobs; i++) {
@@ -148,11 +245,6 @@ abstract contract InboxTestHelper is CommonTest {
         return hashes;
     }
 
-    /// @notice Create a blob reference for testing
-    /// @param _blobStartIndex Starting index of the blob
-    /// @param _numBlobs Number of blobs to reference
-    /// @param _offset Offset within the blob data
-    /// @return BlobReference struct
     function _createBlobRef(
         uint8 _blobStartIndex,
         uint8 _numBlobs,
@@ -163,154 +255,42 @@ abstract contract InboxTestHelper is CommonTest {
         returns (LibBlobs.BlobReference memory)
     {
         return LibBlobs.BlobReference({
-            blobStartIndex: _blobStartIndex, numBlobs: _numBlobs, offset: _offset
+            blobStartIndex: _blobStartIndex,
+            numBlobs: _numBlobs,
+            offset: _offset
         });
     }
 
     // ---------------------------------------------------------------
-    // Expected Event Payload Builders
+    // ProposeInput Builders
     // ---------------------------------------------------------------
 
-    function _buildExpectedProposedPayload(
-        uint48 _proposalId,
-        uint8 _numBlobs,
-        uint24 _offset,
-        address _currentProposer
-    )
-        internal
-        view
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        // Build the expected core state after proposal
-        // Proposals set lastProposalBlockId to current block.number
-        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
-            nextProposalId: _proposalId + 1,
-            lastProposalBlockId: uint48(block.number), // current block.number
-            lastFinalizedProposalId: 0,
-            lastCheckpointTimestamp: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-
-        // Build the expected derivation with multi-source format
-        // Extract the correct subset of blob hashes from the full set setup by _setupBlobHashes
-        bytes32[] memory fullBlobHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
-        bytes32[] memory selectedBlobHashes = new bytes32[](_numBlobs);
-        for (uint256 i = 0; i < _numBlobs; i++) {
-            selectedBlobHashes[i] = fullBlobHashes[i]; // Start from index 0 as per _createBlobRef
-        }
-
-        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
-        sources[0] = IInbox.DerivationSource({
-            isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: selectedBlobHashes, offset: _offset, timestamp: uint48(block.timestamp)
-            })
-        });
-
-        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            basefeeSharingPctg: 0, // Matches suite's test inbox config (basefeeSharingPctg = 0)
-            sources: sources
-        });
-
-        // Build the expected proposal
-        // Get the parent proposal hash from the inbox (the proposal at id - 1)
-        bytes32 parentProposalHash = inbox.getProposalHash(_proposalId - 1);
-
-        IInbox.Proposal memory expectedProposal = IInbox.Proposal({
-            id: _proposalId,
-            proposer: _currentProposer,
-            timestamp: uint48(block.timestamp),
-            endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
-            // endOfSubmissionWindowTimestamp
-            coreStateHash: _codec().hashCoreState(expectedCoreState),
-            derivationHash: _codec().hashDerivation(expectedDerivation),
-            parentProposalHash: parentProposalHash
-        });
-
-        return IInbox.ProposedEventPayload({
-            proposal: expectedProposal,
-            derivation: expectedDerivation,
-            coreState: expectedCoreState,
-            bondInstructions: new LibBonds.BondInstruction[](0)
-        });
-    }
-
-    // ---------------------------------------------------------------
-    // ProposeInput Struct Builders
-    // ---------------------------------------------------------------
-
-    function _createProposeInputWithCustomParams(
-        uint48 _deadline,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.Proposal[] memory _parentProposals,
-        IInbox.CoreState memory _coreState
-    )
-        internal
-        view
-        returns (IInbox.ProposeInput memory)
-    {
-        return IInbox.ProposeInput({
-            deadline: _deadline,
-            coreState: _coreState,
-            parentProposals: _parentProposals,
-            blobReference: _blobRef,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: blockhash(block.number - 1),
-                stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0
-        });
-    }
-
-    /// @notice Create the first proposal input with default parameters
-    /// @return ProposeInput struct for the first proposal
     function _createFirstProposeInput() internal view returns (IInbox.ProposeInput memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
+        IInbox.Proposal[] memory headProposalAndProof = new IInbox.Proposal[](1);
+        headProposalAndProof[0] = _createGenesisProposal();
 
         return IInbox.ProposeInput({
             deadline: 0,
             coreState: coreState,
-            parentProposals: parentProposals,
-            blobReference: blobRef,
-            transitionRecords: new IInbox.TransitionRecord[](0),
-            numForcedInclusions: 0,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: blockhash(block.number - 1),
-                stateRoot: bytes32(uint256(100))
-            })
+            headProposalAndProof: headProposalAndProof,
+            blobReference: _createBlobRef(0, 1, 0),
+            transitions: new IInbox.Transition[](0),
+            checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 }),
+            numForcedInclusions: 0
         });
     }
 
-    /// @notice Create a proposal input with custom deadline
-    /// @param _deadline Proposal deadline timestamp
-    /// @return ProposeInput struct with specified deadline
-    function _createProposeInputWithDeadline(uint48 _deadline)
+    function _createProposeInputWithDeadline(uint40 _deadline)
         internal
         view
         returns (IInbox.ProposeInput memory)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-
-        return _createProposeInputWithCustomParams(
-            _deadline, _createBlobRef(0, 1, 0), parentProposals, coreState
-        );
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.deadline = _deadline;
+        return input;
     }
 
-    /// @notice Create a proposal input with custom blob configuration
-    /// @param _numBlobs Number of blobs to reference
-    /// @param _offset Offset within the blob data
-    /// @return ProposeInput struct with specified blob configuration
     function _createProposeInputWithBlobs(
         uint8 _numBlobs,
         uint24 _offset
@@ -319,145 +299,570 @@ abstract contract InboxTestHelper is CommonTest {
         view
         returns (IInbox.ProposeInput memory)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
-        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
+        IInbox.ProposeInput memory input = _createFirstProposeInput();
+        input.blobReference = _createBlobRef(0, _numBlobs, _offset);
+        return input;
+    }
 
-        return _createProposeInputWithCustomParams(0, blobRef, parentProposals, coreState);
+    function _createConsecutiveProposeInput(
+        IInbox.Proposal memory _parentProposal,
+        IInbox.CoreState memory _parentCoreState
+    )
+        internal
+        pure
+        returns (IInbox.ProposeInput memory)
+    {
+        IInbox.Proposal[] memory headProposalAndProof = new IInbox.Proposal[](1);
+        headProposalAndProof[0] = _parentProposal;
+
+        return IInbox.ProposeInput({
+            deadline: 0,
+            coreState: _parentCoreState,
+            headProposalAndProof: headProposalAndProof,
+            blobReference: _createBlobRef(0, 1, 0),
+            transitions: new IInbox.Transition[](0),
+            checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 }),
+            numForcedInclusions: 0
+        });
+    }
+
+    function _createProposeInputWithCustomParams(
+        uint40 _deadline,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.Proposal[] memory _headProposalAndProof,
+        IInbox.CoreState memory _coreState
+    )
+        internal
+        pure
+        returns (IInbox.ProposeInput memory)
+    {
+        return IInbox.ProposeInput({
+            deadline: _deadline,
+            coreState: _coreState,
+            headProposalAndProof: _headProposalAndProof,
+            blobReference: _blobRef,
+            transitions: new IInbox.Transition[](0),
+            checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 }),
+            numForcedInclusions: 0
+        });
+    }
+
+    function _buildFinalizeInput(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _headProposalAndProof,
+        IInbox.Transition[] memory _transitions,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
+        internal
+        pure
+        returns (IInbox.ProposeInput memory)
+    {
+        return IInbox.ProposeInput({
+            deadline: 0,
+            coreState: _coreState,
+            headProposalAndProof: _headProposalAndProof,
+            blobReference: _createBlobRef(0, 1, 0),
+            transitions: _transitions,
+            checkpoint: _checkpoint,
+            numForcedInclusions: 0
+        });
     }
 
     // ---------------------------------------------------------------
-    // Setup Functions (merged from InboxTestSetup)
+    // ProveInput Builders
     // ---------------------------------------------------------------
 
-    /// @notice Set the deployer to use for creating inbox instances
-    /// @param _deployer The inbox deployer contract
-    function setDeployer(IInboxDeployer _deployer) internal {
-        inboxDeployer = _deployer;
+    function _createProveInput(
+        IInbox.Proposal memory _proposal,
+        bytes27 _parentTransitionHash
+    )
+        internal
+        view
+        returns (IInbox.ProveInput[] memory)
+    {
+        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
+        inputs[0] = IInbox.ProveInput({
+            proposal: _proposal,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(200))
+            }),
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver,
+                actualProver: currentProver
+            }),
+            parentTransitionHash: _parentTransitionHash
+        });
+        return inputs;
     }
 
-    function setUp() public virtual override {
-        super.setUp();
-
-        // Create proposer helper
-        proposerHelper = new PreconfWhitelistSetup();
-
-        // Deploy dependencies
-        _setupDependencies();
-
-        // Setup mocks
-        _setupMocks();
-
-        // Deploy inbox using the deployer
-        require(address(inboxDeployer) != address(0), "Deployer not set");
-        inbox = inboxDeployer.deployInbox(
-            address(bondToken),
-            address(checkpointManager), // signalService
-            address(proofVerifier),
-            address(proposerChecker)
-        );
-
-        assertEq(SignalService(signalService).owner(), owner, "signal service owner mismatch");
-        vm.startPrank(owner);
-        SignalService(signalService)
-            .upgradeTo(address(new SignalService(address(inbox), MOCK_REMOTE_SIGNAL_SERVICE)));
-        vm.stopPrank();
-
-        _initializeContractName(inboxDeployer.getTestContractName());
-
-        // Advance block to ensure we have block history
-        vm.roll(INITIAL_BLOCK_NUMBER);
-        vm.warp(INITIAL_BLOCK_TIMESTAMP);
+    function _createProveInputWithMetadata(
+        IInbox.Proposal memory _proposal,
+        bytes27 _parentTransitionHash,
+        address _designatedProver,
+        address _actualProver
+    )
+        internal
+        view
+        returns (IInbox.ProveInput[] memory)
+    {
+        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
+        inputs[0] = IInbox.ProveInput({
+            proposal: _proposal,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(200))
+            }),
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: _designatedProver,
+                actualProver: _actualProver
+            }),
+            parentTransitionHash: _parentTransitionHash
+        });
+        return inputs;
     }
 
-    /// @notice Setup mock contracts for testing
-    /// @dev We use mocks only for dependencies that are not critical to the test logic
-    /// or are well-tested externally (e.g. ERC20 tokens)
-    function _setupMocks() internal {
-        bondToken = new MockERC20();
-        proofVerifier = new MockProofVerifier();
+    function _createProveInputForMultipleProposals(
+        IInbox.Proposal[] memory _proposals,
+        bytes27 _startingParentHash,
+        bool _consecutive
+    )
+        internal
+        view
+        returns (IInbox.ProveInput[] memory)
+    {
+        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](_proposals.length);
+        bytes27 parentHash = _startingParentHash;
+
+        for (uint256 i = 0; i < _proposals.length; i++) {
+            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number + i),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(200 + i))
+            });
+
+            inputs[i] = IInbox.ProveInput({
+                proposal: _proposals[i],
+                checkpoint: checkpoint,
+                metadata: IInbox.TransitionMetadata({
+                    designatedProver: currentProver,
+                    actualProver: currentProver
+                }),
+                parentTransitionHash: parentHash
+            });
+
+            if (_consecutive) {
+                // Chain transitions for consecutive proposals
+                IInbox.Transition memory transition = IInbox.Transition({
+                    bondInstructionHash: bytes32(0),
+                    checkpointHash: inbox.hashCheckpoint(checkpoint)
+                });
+                parentHash = inbox.hashTransition(transition);
+            }
+        }
+
+        return inputs;
     }
 
-    /// @notice Deploy real contracts that serve as inbox dependencies
-    /// @dev Override this function in derived test contracts for custom dependency setup
-    function _setupDependencies() internal virtual {
-        // Deploy PreconfWhitelist as the proposer checker
-        proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
-
-        SignalService signalServiceImpl =
-            new SignalService(address(this), MOCK_REMOTE_SIGNAL_SERVICE);
-        signalService = SignalService(
-            address(
-                new ERC1967Proxy(
-                    address(signalServiceImpl), abi.encodeCall(SignalService.init, (owner))
-                )
-            )
-        );
-
-        checkpointManager = ICheckpointStore(address(signalService));
-    }
-
-    /// @notice Helper function to select and whitelist a proposer
-    /// @param _proposer The address to whitelist as proposer
-    /// @return The whitelisted proposer address
-    function _selectProposer(address _proposer) internal returns (address) {
-        return proposerHelper._selectProposer(proposerChecker, _proposer);
+    function _createValidProof() internal pure returns (bytes memory) {
+        return abi.encode("valid_proof");
     }
 
     // ---------------------------------------------------------------
-    // Additional Utility Functions
+    // Propose and Get Result Helpers
     // ---------------------------------------------------------------
 
-    /// @notice Check if current contract name indicates an optimized implementation
-    /// @return True if using optimized implementation
-    function _isOptimizedImplementation() internal view returns (bool) {
-        bytes32 nameHash = keccak256(bytes(inboxContractName));
-        return nameHash == keccak256(bytes("InboxOptimized2"));
+    function _proposeAndGetPayload() internal returns (IInbox.ProposedEventPayload memory) {
+        _setupBlobHashes();
+        if (block.number < 2) {
+            vm.roll(2);
+        }
+
+        bytes memory proposeData = inbox.encodeProposeInput(_createFirstProposeInput());
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        return _decodeLastProposedEvent();
     }
 
-    /// @notice Get contract-specific gas snapshot name
-    /// @param _baseName Base name for the gas snapshot
-    /// @return Full snapshot name with contract suffix
-    function _getGasSnapshotName(string memory _baseName) internal view returns (string memory) {
-        return string.concat(_baseName, "_", inboxContractName);
+    function _proposeConsecutive(IInbox.ProposedEventPayload memory _prevPayload)
+        internal
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        _setupBlobHashes();
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input =
+            _createConsecutiveProposeInput(_prevPayload.proposal, _prevPayload.coreState);
+        bytes memory proposeData = inbox.encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        return _decodeLastProposedEvent();
     }
 
-    /// @notice Advance blockchain state to a safe testing position
-    /// @param _blockNumber Target block number (must be >= 2)
-    /// @param _timestamp Target timestamp
+    function _proposeConsecutiveWithTransitions(
+        IInbox.ProposedEventPayload memory _prevPayload,
+        IInbox.Transition memory _transition,
+        ICheckpointStore.Checkpoint memory _checkpoint
+    )
+        internal
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        _setupBlobHashes();
+        vm.roll(block.number + 1);
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = _transition;
+
+        IInbox.Proposal[] memory headProposalAndProof = new IInbox.Proposal[](1);
+        headProposalAndProof[0] = _prevPayload.proposal;
+
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 0,
+            coreState: _prevPayload.coreState,
+            headProposalAndProof: headProposalAndProof,
+            blobReference: _createBlobRef(0, 1, 0),
+            transitions: transitions,
+            checkpoint: _checkpoint,
+            numForcedInclusions: 0
+        });
+
+        bytes memory proposeData = inbox.encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        return _decodeLastProposedEvent();
+    }
+
+    function _createConsecutiveProposals(uint8 _count)
+        internal
+        returns (IInbox.ProposedEventPayload[] memory payloads)
+    {
+        payloads = new IInbox.ProposedEventPayload[](_count);
+
+        for (uint256 i = 0; i < _count; i++) {
+            if (i == 0) {
+                payloads[i] = _proposeAndGetPayload();
+            } else {
+                vm.warp(block.timestamp + 12);
+                payloads[i] = _proposeConsecutive(payloads[i - 1]);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Event Decoding Helpers
+    // ---------------------------------------------------------------
+
+    function _decodeLastProposedEvent()
+        internal
+        returns (IInbox.ProposedEventPayload memory payload)
+    {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint256 i = logs.length; i > 0; --i) {
+            Vm.Log memory entry = logs[i - 1];
+            if (entry.topics.length > 0 && entry.topics[0] == PROPOSED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(entry.data, (bytes));
+                return inbox.decodeProposedEventData(eventData);
+            }
+        }
+
+        revert("Proposed event not found");
+    }
+
+    function _decodeLastProvedEvent() internal returns (IInbox.ProvedEventPayload memory payload) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint256 i = logs.length; i > 0; --i) {
+            Vm.Log memory entry = logs[i - 1];
+            if (entry.topics.length > 0 && entry.topics[0] == PROVED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(entry.data, (bytes));
+                return inbox.decodeProvedEventData(eventData);
+            }
+        }
+
+        revert("Proved event not found");
+    }
+
+    function _decodeAllProvedEvents() internal returns (IInbox.ProvedEventPayload[] memory) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 eventCount = _countProvedEvents(logs);
+
+        IInbox.ProvedEventPayload[] memory payloads = new IInbox.ProvedEventPayload[](eventCount);
+        uint256 index;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == PROVED_EVENT_TOPIC) {
+                bytes memory eventData = abi.decode(logs[i].data, (bytes));
+                payloads[index++] = inbox.decodeProvedEventData(eventData);
+            }
+        }
+
+        return payloads;
+    }
+
+    function _countProposedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == PROPOSED_EVENT_TOPIC) {
+                count++;
+            }
+        }
+    }
+
+    function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == PROVED_EVENT_TOPIC) {
+                count++;
+            }
+        }
+    }
+
+    function _hasConflictingTransitionEvent(Vm.Log[] memory logs) internal pure returns (bool) {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == CONFLICTING_TRANSITION_TOPIC) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _hasCheckpointSavedEvent(Vm.Log[] memory logs) internal pure returns (bool) {
+        bytes32 checkpointSavedTopic = keccak256("CheckpointSaved(uint40,bytes32,bytes32)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == checkpointSavedTopic) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------
+    // Prove Helpers
+    // ---------------------------------------------------------------
+
+    function _proveProposal(
+        IInbox.Proposal memory _proposal,
+        bytes27 _parentTransitionHash
+    )
+        internal
+        returns (IInbox.ProvedEventPayload memory)
+    {
+        IInbox.ProveInput[] memory inputs = _createProveInput(_proposal, _parentTransitionHash);
+        bytes memory proveData = inbox.encodeProveInput(inputs);
+
+        vm.recordLogs();
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        return _decodeLastProvedEvent();
+    }
+
+    function _proveProposalWithMetadata(
+        IInbox.Proposal memory _proposal,
+        bytes27 _parentTransitionHash,
+        address _designatedProver,
+        address _actualProver
+    )
+        internal
+        returns (IInbox.ProvedEventPayload memory)
+    {
+        IInbox.ProveInput[] memory inputs =
+            _createProveInputWithMetadata(_proposal, _parentTransitionHash, _designatedProver, _actualProver);
+        bytes memory proveData = inbox.encodeProveInput(inputs);
+
+        vm.recordLogs();
+        vm.prank(_actualProver);
+        inbox.prove(proveData, _createValidProof());
+
+        return _decodeLastProvedEvent();
+    }
+
+    function _proveProposalAndGetResult(
+        IInbox.Proposal memory _proposal,
+        bytes27 _parentTransitionHash
+    )
+        internal
+        returns (ProvenProposal memory)
+    {
+        IInbox.ProveInput[] memory inputs = _createProveInput(_proposal, _parentTransitionHash);
+        bytes memory proveData = inbox.encodeProveInput(inputs);
+
+        vm.recordLogs();
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        IInbox.ProvedEventPayload memory provedPayload = _decodeLastProvedEvent();
+
+        IInbox.Transition memory transition = IInbox.Transition({
+            bondInstructionHash: bytes32(0),
+            checkpointHash: inbox.hashCheckpoint(provedPayload.checkpoint)
+        });
+
+        return ProvenProposal({
+            proposal: _proposal,
+            transition: transition,
+            checkpoint: provedPayload.checkpoint,
+            transitionHash: inbox.hashTransition(transition),
+            finalizationDeadline: provedPayload.finalizationDeadline
+        });
+    }
+
+    function _proveConsecutiveProposals(IInbox.ProposedEventPayload[] memory _payloads)
+        internal
+        returns (ProvenProposal[] memory proven)
+    {
+        proven = new ProvenProposal[](_payloads.length);
+        bytes27 parentHash = _getGenesisTransitionHash();
+
+        for (uint256 i = 0; i < _payloads.length; i++) {
+            proven[i] = _proveProposalAndGetResult(_payloads[i].proposal, parentHash);
+            parentHash = proven[i].transitionHash;
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Ring Buffer Helpers
+    // ---------------------------------------------------------------
+
+    function _fillRingBufferToCapacity() internal returns (RingBufferFillResult memory result) {
+        _setupBlobHashes();
+
+        if (block.number < 2) {
+            vm.roll(2);
+        }
+
+        vm.warp(block.timestamp + 1);
+
+        uint48 ringCapacity = uint48(ringBufferSize - 1);
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](ringCapacity);
+
+        IInbox.ProposedEventPayload memory firstPayload = _proposeAndGetPayload();
+        proposals[0] = firstPayload.proposal;
+
+        IInbox.ProposedEventPayload memory lastPayload = firstPayload;
+        IInbox.ProposedEventPayload memory secondPayload;
+
+        for (uint48 proposalId = 2; proposalId <= ringCapacity; ++proposalId) {
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 1);
+            _setupBlobHashes();
+
+            IInbox.ProposedEventPayload memory payload = _proposeConsecutive(lastPayload);
+            proposals[proposalId - 1] = payload.proposal;
+
+            if (proposalId == 2) {
+                secondPayload = payload;
+            }
+
+            lastPayload = payload;
+        }
+
+        result = RingBufferFillResult({
+            first: firstPayload,
+            second: secondPayload,
+            last: lastPayload,
+            proposals: proposals
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Forced Inclusion Helpers
+    // ---------------------------------------------------------------
+
+    function _enqueueForcedInclusion(
+        LibBlobs.BlobReference memory _ref,
+        address _payer
+    )
+        internal
+        returns (LibBlobs.BlobSlice memory)
+    {
+        uint40 timestampBefore = uint40(block.timestamp);
+        uint256 fee = uint256(inbox.getCurrentForcedInclusionFee()) * 1 gwei * 3;
+
+        vm.deal(_payer, fee);
+        vm.prank(_payer);
+        inbox.saveForcedInclusion{ value: fee }(_ref);
+
+        bytes32[] memory blobHashes = _getBlobHashesForForcedInclusion(_ref);
+
+        return LibBlobs.BlobSlice({
+            blobHashes: blobHashes,
+            offset: _ref.offset,
+            timestamp: timestampBefore
+        });
+    }
+
+    function _getBlobHashesForForcedInclusion(LibBlobs.BlobReference memory _ref)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory fullHashes = _getBlobHashesForTest(DEFAULT_TEST_BLOB_COUNT);
+        bytes32[] memory selected = new bytes32[](_ref.numBlobs);
+
+        for (uint256 i = 0; i < _ref.numBlobs; i++) {
+            selected[i] = fullHashes[_ref.blobStartIndex + i];
+        }
+
+        return selected;
+    }
+
+    function _getForcedInclusionDelay() internal view returns (uint64) {
+        return inbox.getConfig().forcedInclusionDelay;
+    }
+
+    function _getPermissionlessInclusionMultiplier() internal view returns (uint8) {
+        return inbox.getConfig().permissionlessInclusionMultiplier;
+    }
+
+    // ---------------------------------------------------------------
+    // Utility Helpers
+    // ---------------------------------------------------------------
+
     function _advanceToSafeState(uint48 _blockNumber, uint48 _timestamp) internal {
-        require(_blockNumber >= 2, "Block number must be >= 2 for safe blockhash access");
+        require(_blockNumber >= 2, "Block number must be >= 2");
         vm.roll(_blockNumber);
         vm.warp(_timestamp);
     }
 
-    /// @notice Create a proposal input for testing consecutive proposals
-    /// @param _parentProposal The parent proposal to build upon
-    /// @param _proposalId The ID for the new proposal
-    /// @return ProposeInput struct for consecutive proposal
-    function _createConsecutiveProposeInput(
-        IInbox.Proposal memory _parentProposal,
-        uint48 _proposalId
-    )
+    function _rollOneBlock() internal {
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 12);
+    }
+
+    function _buildParentArray(IInbox.Proposal memory _parent)
         internal
-        view
-        returns (IInbox.ProposeInput memory)
+        pure
+        returns (IInbox.Proposal[] memory parents)
     {
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: _proposalId,
-            lastProposalBlockId: uint48(block.number),
-            lastFinalizedProposalId: 0,
-            lastCheckpointTimestamp: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
+        parents = new IInbox.Proposal[](1);
+        parents[0] = _parent;
+    }
 
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _parentProposal;
+    function _wrapSingleTransition(IInbox.Transition memory _transition)
+        internal
+        pure
+        returns (IInbox.Transition[] memory transitions)
+    {
+        transitions = new IInbox.Transition[](1);
+        transitions[0] = _transition;
+    }
 
-        return _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), parentProposals, coreState
-        );
+    function _getGasSnapshotName(string memory _baseName) internal pure returns (string memory) {
+        return string.concat(_baseName, "_Inbox");
+    }
+
+    function _labelForCount(string memory _prefix, uint256 _count) internal pure returns (string memory) {
+        return string.concat(_prefix, "_", Strings.toString(_count));
     }
 }

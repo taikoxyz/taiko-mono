@@ -12,7 +12,7 @@ interface IBondManager {
     /// @notice Represents a bond for a given address.
     struct Bond {
         uint256 balance; // Bond balance
-        uint48 withdrawalRequestedAt; // 0 = active, >0 = withdrawal requested timestamp
+        uint40 withdrawalRequestedAt; // 0 = active, >0 = withdrawal requested timestamp
     }
 
     // ---------------------------------------------------------------

@@ -103,7 +103,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         external
         view
         override(IProposerChecker)
-        returns (uint48 endOfSubmissionWindowTimestamp_)
+        returns (uint40 endOfSubmissionWindowTimestamp_)
     {
         address operator = _getOperatorForEpoch(epochStartTimestamp(0));
         require(operator != address(0), InvalidProposer());

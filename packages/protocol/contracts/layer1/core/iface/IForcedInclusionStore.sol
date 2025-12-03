@@ -43,8 +43,8 @@ interface IForcedInclusionStore {
     /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
     ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(
-        uint48 _start,
-        uint48 _maxCount
+        uint40 _start,
+        uint40 _maxCount
     )
         external
         view
@@ -57,5 +57,5 @@ interface IForcedInclusionStore {
     function getForcedInclusionState()
         external
         view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
+        returns (uint40 head_, uint40 tail_, uint40 lastProcessedAt_);
 }

@@ -5,7 +5,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
@@ -27,7 +26,7 @@ contract AnchorTest is Test {
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
     bytes32 private constant PROVER_AUTH_TYPEHASH =
-        keccak256("ProverAuth(uint48 proposalId,address proposer,uint256 provingFee)");
+        keccak256("ProverAuth(uint40 proposalId,address proposer,uint256 provingFee)");
     bytes32 private constant PROVER_AUTH_DOMAIN_NAME_HASH = keccak256("TaikoAnchorProverAuth");
     bytes32 private constant PROVER_AUTH_DOMAIN_VERSION_HASH = keccak256("1");
 
@@ -116,18 +115,15 @@ contract AnchorTest is Test {
         assertEq(proposalState.designatedProver, proverCandidate);
         assertFalse(proposalState.isLowBondProposal);
         assertEq(proposalState.proposalId, proposalParams.proposalId);
-        assertEq(proposalState.bondInstructionsHash, proposalParams.bondInstructionsHash);
 
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
         assertEq(
             bondManager.getBondBalance(proposer),
-            INITIAL_PROPOSER_BOND - 1 ether - LIVENESS_BOND - PROVABILITY_BOND
+            INITIAL_PROPOSER_BOND - 1 ether
         );
         assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
-        assertEq(bondManager.getBondBalance(address(0xCA1)), LIVENESS_BOND);
-        assertEq(bondManager.getBondBalance(address(0xCA2)), PROVABILITY_BOND);
 
         ICheckpointStore.Checkpoint memory saved =
             checkpointStore.getCheckpoint(blockParams.anchorBlockNumber);
@@ -197,7 +193,6 @@ contract AnchorTest is Test {
         Anchor.ProposalState memory stateAfterFirstProposal = anchor.getProposalState();
         assertEq(stateAfterFirstProposal.proposalId, 1);
         assertEq(stateAfterFirstProposal.designatedProver, proverCandidate);
-        bytes32 previousBondHash = stateAfterFirstProposal.bondInstructionsHash;
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
@@ -209,36 +204,14 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT + 3);
 
-        uint48 proposalId2 = 2;
-        LibBonds.BondInstruction[] memory instructions2 = new LibBonds.BondInstruction[](2);
-
-        instructions2[0] = LibBonds.BondInstruction({
-            proposalId: proposalId2,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: address(0xCA1)
-        });
-
-        instructions2[1] = LibBonds.BondInstruction({
-            proposalId: proposalId2,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: proposer,
-            payee: address(0xCA2)
-        });
-
-        bytes32 expectedHash2 =
-            LibBonds.aggregateBondInstruction(previousBondHash, instructions2[0]);
-        expectedHash2 = LibBonds.aggregateBondInstruction(expectedHash2, instructions2[1]);
-
+        uint40 proposalId2 = 2;
         uint256 provingFee2 = 2 ether;
         bytes memory proverAuth2 = _buildProverAuth(proposalId2, provingFee2);
 
         Anchor.ProposalParams memory proposalParams2 = Anchor.ProposalParams({
             proposalId: proposalId2,
             proposer: proposer,
-            proverAuth: proverAuth2,
-            bondInstructionsHash: expectedHash2,
-            bondInstructions: instructions2
+            proverAuth: proverAuth2
         });
 
         Anchor.BlockParams memory blockParams2 = Anchor.BlockParams({
@@ -253,7 +226,6 @@ contract AnchorTest is Test {
         Anchor.ProposalState memory stateAfterSecondProposal = anchor.getProposalState();
         assertEq(stateAfterSecondProposal.proposalId, 2);
         assertEq(stateAfterSecondProposal.designatedProver, proverCandidate);
-        assertEq(stateAfterSecondProposal.bondInstructionsHash, expectedHash2);
         assertFalse(stateAfterSecondProposal.isLowBondProposal);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
@@ -279,7 +251,6 @@ contract AnchorTest is Test {
         Anchor.ProposalState memory stateAfterSecond = anchor.getProposalState();
         assertEq(stateAfterSecond.proposalId, stateAfterFirst.proposalId);
         assertEq(stateAfterSecond.designatedProver, stateAfterFirst.designatedProver);
-        assertEq(stateAfterSecond.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
         assertEq(
             bondManager.getBondBalance(proposer),
             proposerBalanceAfterFirst,
@@ -298,7 +269,6 @@ contract AnchorTest is Test {
         Anchor.ProposalState memory stateAfterThird = anchor.getProposalState();
         assertEq(stateAfterThird.proposalId, stateAfterFirst.proposalId);
         assertEq(stateAfterThird.designatedProver, stateAfterFirst.designatedProver);
-        assertEq(stateAfterThird.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
         assertEq(
             bondManager.getBondBalance(proposer),
             proposerBalanceAfterFirst,
@@ -312,9 +282,7 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_IgnoresProverAuthWithInvalidSignature() external {
-        uint48 proposalId = 1;
-        (LibBonds.BondInstruction[] memory instructions, bytes32 expectedHash) =
-            _buildBondInstructions(proposalId);
+        uint40 proposalId = 1;
 
         uint256 provingFee = 5 ether;
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
@@ -331,9 +299,7 @@ contract AnchorTest is Test {
         Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
             proposalId: proposalId,
             proposer: proposer,
-            proverAuth: abi.encode(invalidAuth),
-            bondInstructionsHash: expectedHash,
-            bondInstructions: instructions
+            proverAuth: abi.encode(invalidAuth)
         });
 
         Anchor.BlockParams memory blockParams = Anchor.BlockParams({
@@ -355,12 +321,12 @@ contract AnchorTest is Test {
             "Prover candidate should not receive fee with invalid signature"
         );
 
-        // Proposer should only pay liveness and provability bonds
+        // Proposer balance should not change (no bonds processed)
         uint256 proposerBalanceAfter = bondManager.getBondBalance(proposer);
         assertEq(
             proposerBalanceAfter,
-            proposerBalanceBefore - LIVENESS_BOND - PROVABILITY_BOND,
-            "Proposer should only pay liveness/provability bonds, not proving fee"
+            proposerBalanceBefore,
+            "Proposer balance should not change with invalid auth"
         );
 
         // Proposer should be designated as prover (fallback behavior)
@@ -405,7 +371,7 @@ contract AnchorTest is Test {
     }
 
     function test_validateProverAuth_AcceptsValidEIP712Signature() external view {
-        uint48 proposalId = 42;
+        uint40 proposalId = 42;
         uint256 provingFee = 3 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
@@ -416,7 +382,7 @@ contract AnchorTest is Test {
     }
 
     function test_validateProverAuth_RejectsSignatureFromWrongChain() external view {
-        uint48 proposalId = 42;
+        uint40 proposalId = 42;
         uint256 provingFee = 3 ether;
 
         // Create signature with wrong chain ID (simulating cross-chain replay attempt)
@@ -432,7 +398,7 @@ contract AnchorTest is Test {
     }
 
     function test_validateProverAuth_RejectsSignatureForWrongProposal() external view {
-        uint48 proposalId = 42;
+        uint40 proposalId = 42;
         uint256 provingFee = 3 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
@@ -445,7 +411,7 @@ contract AnchorTest is Test {
     }
 
     function test_validateProverAuth_RejectsSignatureForWrongProposer() external view {
-        uint48 proposalId = 42;
+        uint40 proposalId = 42;
         uint256 provingFee = 3 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
@@ -487,37 +453,12 @@ contract AnchorTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _buildBondInstructions(uint48 proposalId)
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory instructions, bytes32 expectedHash)
-    {
-        instructions = new LibBonds.BondInstruction[](2);
-
-        instructions[0] = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: address(0xCA1)
-        });
-
-        instructions[1] = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: proposer,
-            payee: address(0xCA2)
-        });
-
-        expectedHash = LibBonds.aggregateBondInstruction(bytes32(0), instructions[0]);
-        expectedHash = LibBonds.aggregateBondInstruction(expectedHash, instructions[1]);
-    }
-
     /// @dev Builds a properly signed ProverAuth using EIP-712 structured data signing.
     /// @param proposalId The proposal ID to authorize.
     /// @param provingFee The fee the prover will receive.
     /// @return Encoded ProverAuth with valid EIP-712 signature.
     function _buildProverAuth(
-        uint48 proposalId,
+        uint40 proposalId,
         uint256 provingFee
     )
         internal
@@ -533,7 +474,7 @@ contract AnchorTest is Test {
     /// @param chainId The chain ID to use in the domain separator.
     /// @return Encoded ProverAuth with signature for the specified chain.
     function _buildProverAuthWithChainId(
-        uint48 proposalId,
+        uint40 proposalId,
         uint256 provingFee,
         uint256 chainId
     )
@@ -576,19 +517,14 @@ contract AnchorTest is Test {
         view
         returns (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams)
     {
-        uint48 proposalId = 1;
-        (LibBonds.BondInstruction[] memory instructions, bytes32 expectedHash) =
-            _buildBondInstructions(proposalId);
-
+        uint40 proposalId = 1;
         uint256 provingFee = 1 ether;
         bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
 
         proposalParams = Anchor.ProposalParams({
             proposalId: proposalId,
             proposer: proposer,
-            proverAuth: proverAuth,
-            bondInstructionsHash: expectedHash,
-            bondInstructions: instructions
+            proverAuth: proverAuth
         });
 
         blockParams = Anchor.BlockParams({

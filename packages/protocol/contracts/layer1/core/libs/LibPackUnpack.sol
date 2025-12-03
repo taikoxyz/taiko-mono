@@ -25,7 +25,7 @@ pragma solidity ^0.8.24;
 /// ```solidity
 /// bytes memory buffer = new bytes(100);
 /// uint256 pos = LibPackUnpack.dataPtr(buffer);
-/// pos = LibPackUnpack.packUint32(pos, 12345);
+/// pos = LibPackUnpack.packUint40(pos, 12345);
 /// pos = LibPackUnpack.packAddress(pos, msg.sender);
 /// ```
 /// @custom:security-contact security@taiko.xyz
@@ -80,23 +80,6 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Pack uint32 (4 bytes) at position using big-endian encoding
-    /// @dev Optimized to use mstore instead of 4 individual mstore8 operations.
-    /// @param _pos Absolute memory position to write at
-    /// @param _value The uint32 value to pack (0-4294967295)
-    /// @return newPos_ Updated position after writing (pos + 4)
-    function packUint32(uint256 _pos, uint32 _value) internal pure returns (uint256 newPos_) {
-        assembly {
-            // Shift value left by 28 bytes (224 bits) to align at the start of a 32-byte word
-            let shifted := shl(224, _value)
-
-            // Store the shifted value at position
-            mstore(_pos, shifted)
-
-            newPos_ := add(_pos, 4)
-        }
-    }
-
     /// @notice Pack uint40 (5 bytes) at position using big-endian encoding
     /// @dev Optimized to use mstore instead of 5 individual mstore8 operations.
     /// Common use case: proposal IDs and timestamps.
@@ -112,43 +95,6 @@ library LibPackUnpack {
             mstore(_pos, shifted)
 
             newPos_ := add(_pos, 5)
-        }
-    }
-
-    /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
-    /// @dev Optimized to use mstore instead of 6 individual mstore8 operations.
-    /// Common use case: block numbers that exceed uint32 range.
-    /// @param _pos Absolute memory position to write at
-    /// @param _value The uint48 value to pack (0-281474976710655)
-    /// @return newPos_ Updated position after writing (pos + 6)
-    function packUint48(uint256 _pos, uint48 _value) internal pure returns (uint256 newPos_) {
-        assembly {
-            // Shift value left by 26 bytes (208 bits) to align at the start of a 32-byte word
-            let shifted := shl(208, _value)
-
-            // Store the shifted value at position
-            mstore(_pos, shifted)
-
-            newPos_ := add(_pos, 6)
-        }
-    }
-
-    /// @notice Pack uint256 (32 bytes) at position
-    /// @dev Uses single mstore for efficiency, writes full 32-byte word.
-    /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
-    /// @param _value The uint256 value to pack
-    /// @return newPos_ Updated position after writing (pos + 32)
-    function packUint256(
-        uint256 _pos,
-        uint256 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
-        assembly {
-            mstore(_pos, _value)
-            newPos_ := add(_pos, 32)
         }
     }
 
@@ -262,19 +208,6 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Unpack uint32 (4 bytes) from position using big-endian encoding
-    /// @dev Optimized to use 1 mload operation instead of 4 byte reads.
-    /// @param _pos Absolute memory position to read from
-    /// @return value_ The unpacked uint32 value
-    /// @return newPos_ Updated position after reading (pos + 4)
-    function unpackUint32(uint256 _pos) internal pure returns (uint32 value_, uint256 newPos_) {
-        assembly {
-            // Load full word and shift right by 224 bits (28 bytes) to get the 4 bytes we need
-            value_ := shr(224, mload(_pos))
-            newPos_ := add(_pos, 4)
-        }
-    }
-
     /// @notice Unpack uint40 (5 bytes) from position using big-endian encoding
     /// @dev Optimized to use 1 mload operation instead of 5 byte reads.
     /// @param _pos Absolute memory position to read from
@@ -288,30 +221,6 @@ library LibPackUnpack {
         }
     }
 
-    /// @notice Unpack uint48 (6 bytes) from position using big-endian encoding
-    /// @dev Optimized to use 1 mload operation instead of 6 byte reads.
-    /// @param _pos Absolute memory position to read from
-    /// @return value_ The unpacked uint48 value
-    /// @return newPos_ Updated position after reading (pos + 6)
-    function unpackUint48(uint256 _pos) internal pure returns (uint48 value_, uint256 newPos_) {
-        assembly {
-            // Load full word and shift right by 208 bits (26 bytes) to get the 6 bytes we need
-            value_ := shr(208, mload(_pos))
-            newPos_ := add(_pos, 6)
-        }
-    }
-
-    /// @notice Unpack uint256 (32 bytes) from position
-    /// @dev Single mload for efficiency. Reads full 32-byte word.
-    /// @param _pos Absolute memory position to read from (best if 32-byte aligned)
-    /// @return value_ The unpacked uint256 value
-    /// @return newPos_ Updated position after reading (pos + 32)
-    function unpackUint256(uint256 _pos) internal pure returns (uint256 value_, uint256 newPos_) {
-        assembly {
-            value_ := mload(_pos)
-            newPos_ := add(_pos, 32)
-        }
-    }
 
     /// @notice Unpack bytes27 from position
     /// @dev Reads 27 bytes for truncated transition hashes.
@@ -384,5 +293,6 @@ library LibPackUnpack {
     // Errors
     // ---------------------------------------------------------------
 
+    /// @notice Thrown when an array length exceeds the uint16 maximum (65535).
     error LengthExceedsUint16();
 }

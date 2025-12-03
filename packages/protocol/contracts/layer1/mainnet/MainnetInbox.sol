@@ -2,17 +2,17 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
 import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 
-/// @title ShastaMainnetInbox
+/// @title MainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
-/// with optimized reentrancy lock implementation and efficient hashing.
+/// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxOptimized2 {
+contract MainnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -32,16 +32,16 @@ contract MainnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _codec,
         address _proofVerifier,
-        address _proposerChecker
+        address _proposerChecker,
+        address _signalService
     )
-        InboxOptimized2(IInbox.Config({
-                bondToken: LibL1Addrs.TAIKO_TOKEN,
-                checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
-                codec: _codec,
+        Inbox(
+            IInbox.Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
+                signalService: _signalService,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
                 maxFinalizationCount: 16,
@@ -49,12 +49,13 @@ contract MainnetInbox is InboxOptimized2 {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 384, // 1 epoch
+                forcedInclusionDelay: 384, // 1 epoch in seconds
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
-                minCheckpointDelay: 384 seconds, // 1 epoch
+                minSyncDelay: 32, // minimum proposals between syncs
                 permissionlessInclusionMultiplier: 5
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------
@@ -68,10 +69,4 @@ contract MainnetInbox is InboxOptimized2 {
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCoreState();
 }

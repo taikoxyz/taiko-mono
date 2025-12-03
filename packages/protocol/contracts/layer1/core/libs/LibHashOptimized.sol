@@ -7,59 +7,35 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
-/// @notice Optimized hashing functions using Solady's EfficientHashLib
-/// @dev This library provides gas-optimized implementations of all hashing functions
-///      used in the Inbox contract, replacing standard keccak256(abi.encode(...)) calls
-///      with more efficient alternatives from Solady's EfficientHashLib.
+/// @notice Gas-optimized hashing functions for IInbox structs using Solady's EfficientHashLib.
+/// @dev Replaces standard `keccak256(abi.encode(...))` calls with more efficient alternatives
+/// that avoid memory expansion costs. All hash functions maintain deterministic ordering
+/// consistent with struct field definitions in IInbox.sol.
+///
+/// Key optimizations:
+/// - Uses EfficientHashLib for direct memory hashing without ABI encoding overhead
+/// - Packs small numeric fields into single bytes32 values before hashing
+/// - Pre-allocates hash buffers for variable-length arrays
+/// - Uses EMPTY_BYTES_HASH constant for empty array edge cases
+///
 /// @custom:security-contact security@taiko.xyz
 library LibHashOptimized {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice Precomputed hash of empty bytes for gas optimization
+    /// @notice Precomputed keccak256 hash of empty bytes for gas optimization.
+    /// @dev Used as a sentinel value when hashing empty arrays to avoid recomputation.
     bytes32 private constant EMPTY_BYTES_HASH = keccak256("");
 
     // ---------------------------------------------------------------
-    // Core Structure Hashing Functions
+    // Singular Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for blob hashes array
-    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        unchecked {
-            uint256 length = _blobHashes.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-
-            if (length == 1) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0]);
-            }
-
-            if (length == 2) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0], _blobHashes[1]);
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
-    }
-
-    /// @notice Optimized hashing for Checkpoint structs
-    /// @dev Efficiently hashes the 3 main fields of a checkpoint
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
+    /// @notice Computes a hash of a Checkpoint struct.
+    /// @dev Hashes blockNumber, blockHash, and stateRoot in order.
+    /// @param _checkpoint The checkpoint containing L2 block state to hash.
+    /// @return The keccak256 hash of the checkpoint fields.
     function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
@@ -70,34 +46,38 @@ library LibHashOptimized {
         );
     }
 
-    /// @notice Optimized hashing for CoreState structs
-    /// @dev Efficiently packs and hashes all core state fields
-    /// @param _coreState The core state to hash
-    /// @return The hash of the core state
+    /// @notice Computes a hash of a CoreState struct.
+    /// @dev Hashes all six fields in definition order: proposalHead, proposalHeadContainerBlock,
+    /// finalizationHead, synchronizationHead, finalizationHeadTransitionHash,
+    /// aggregatedBondInstructionsHash.
+    /// @param _coreState The core state tracking proposal and finalization progress.
+    /// @return The keccak256 hash of the core state fields.
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastProposalBlockId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            bytes32(uint256(_coreState.lastCheckpointTimestamp)),
-            _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
+            bytes32(uint256(_coreState.proposalHead)),
+            bytes32(uint256(_coreState.proposalHeadContainerBlock)),
+            bytes32(uint256(_coreState.finalizationHead)),
+            bytes32(uint256(_coreState.synchronizationHead)),
+            _coreState.finalizationHeadTransitionHash,
+            _coreState.aggregatedBondInstructionsHash
         );
     }
 
-    /// @notice Optimized hashing for Derivation structs
-    /// @dev Efficiently packs derivation fields before hashing
-    /// @param _derivation The derivation to hash
-    /// @return The hash of the derivation
+    /// @notice Computes a hash of a Derivation struct.
+    /// @dev Hashes originBlockNumber, basefeeSharingPctg, originBlockHash, and sources array.
+    /// Small numeric fields are bit-packed into a single bytes32 for efficiency.
+    /// The sources array is hashed recursively with length prefix to prevent collisions.
+    /// @param _derivation The derivation containing L1-anchored data for a proposal.
+    /// @return The keccak256 hash of the derivation fields.
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
-        // Pack origin block number and basefee sharing percentage
         unchecked {
+            // Pack origin block number (uint40 = 40 bits) and basefee sharing percentage (uint8 = 8 bits)
             bytes32 packedFields = bytes32(
-                (uint256(_derivation.originBlockNumber) << 208)
-                    | (uint256(_derivation.basefeeSharingPctg) << 192)
+                (uint256(_derivation.originBlockNumber) << 216)
+                    | (uint256(_derivation.basefeeSharingPctg) << 208)
             );
 
-            // Hash the sources array - each source contains isForcedInclusion flag and blobSlice
+            // Hash the sources array
             bytes32 sourcesHash;
             uint256 sourcesLength = _derivation.sources.length;
             if (sourcesLength == 0) {
@@ -130,22 +110,23 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Optimized hashing for Proposal structs
-    /// @dev Uses efficient multi-field hashing for all proposal fields
-    /// @param _proposal The proposal to hash
-    /// @return The hash of the proposal
+    /// @notice Computes a hash of a Proposal struct.
+    /// @dev Hashes all seven fields in definition order: id, timestamp, endOfSubmissionWindowTimestamp,
+    /// proposer, coreStateHash, derivationHash, parentProposalHash. The first three uint40 fields
+    /// are bit-packed into a single bytes32 for gas efficiency.
+    /// @param _proposal The proposal containing L2 block metadata.
+    /// @return The keccak256 hash of the proposal fields.
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        // Use separate field packing to avoid address truncation
-        // Pack numeric fields together
         unchecked {
+            // Pack numeric fields together (each uint40 = 40 bits)
             bytes32 packedFields = bytes32(
-                (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
+                (uint256(_proposal.id) << 216) | (uint256(_proposal.timestamp) << 176)
+                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 136)
             );
 
             return EfficientHashLib.hash(
                 packedFields,
-                bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
+                bytes32(uint256(uint160(_proposal.proposer))),
                 _proposal.coreStateHash,
                 _proposal.derivationHash,
                 _proposal.parentProposalHash
@@ -153,110 +134,139 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash transition fields
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint)
+    /// @notice Computes a truncated hash of a Transition struct.
+    /// @dev Hashes bondInstructionHash and checkpointHash in order. The result is truncated
+    /// to bytes27 (216 bits) to enable storage optimization where bytes27 + uint40 fits in
+    /// a single 32-byte storage slot (see TransitionRecord in IInbox).
+    /// @param _transition The transition containing state change commitments.
+    /// @return The keccak256 hash truncated to bytes27.
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes27) {
+        return bytes27(
+            EfficientHashLib.hash(_transition.bondInstructionHash, _transition.checkpointHash)
         );
     }
 
-    /// @notice Optimized hashing for TransitionRecord structs
-    /// @dev Efficiently hashes transition records with variable-length bond instructions
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
+    /// @notice Computes a hash of a BondInstruction struct.
+    /// @dev Hashes proposalId, bondType, payer, and payee in order. Used for aggregating
+    /// bond instructions across finalized proposals into a rolling hash.
+    /// @param _instruction The bond instruction specifying payment details.
+    /// @return The keccak256 hash of the bond instruction fields.
+    function hashBondInstruction(LibBonds.BondInstruction memory _instruction)
         internal
         pure
-        returns (bytes26)
+        returns (bytes32)
     {
-        unchecked {
-            // Hash bond instructions with explicit length prefix to avoid collisions
-            bytes32 bondInstructionsHash;
-            uint256 instructionsLength = _transitionRecord.bondInstructions.length;
-            if (instructionsLength == 0) {
-                bondInstructionsHash = EMPTY_BYTES_HASH;
-            } else if (instructionsLength == 1) {
-                bondInstructionsHash = EfficientHashLib.hash(
-                    bytes32(instructionsLength),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
-                );
-            } else if (instructionsLength == 2) {
-                bondInstructionsHash = EfficientHashLib.hash(
-                    bytes32(instructionsLength),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[0]),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[1])
-                );
-            } else {
-                bytes32[] memory buffer = EfficientHashLib.malloc(instructionsLength + 1);
-                EfficientHashLib.set(buffer, 0, bytes32(instructionsLength));
-
-                for (uint256 i; i < instructionsLength; ++i) {
-                    EfficientHashLib.set(
-                        buffer,
-                        i + 1,
-                        _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
-                    );
-                }
-
-                bondInstructionsHash = EfficientHashLib.hash(buffer);
-                EfficientHashLib.free(buffer);
-            }
-
-            bytes32 fullHash = EfficientHashLib.hash(
-                bondInstructionsHash,
-                _transitionRecord.transitionHash,
-                _transitionRecord.checkpointHash
-            );
-
-            return bytes26(fullHash);
-        }
+        return EfficientHashLib.hash(
+            bytes32(uint256(_instruction.proposalId)),
+            bytes32(uint256(uint8(_instruction.bondType))),
+            bytes32(uint256(uint160(_instruction.payer))),
+            bytes32(uint256(uint160(_instruction.payee)))
+        );
     }
 
-    /// @notice Memory-optimized hashing for arrays of Transitions with metadata
-    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
-    ///      Hashes each transition with its corresponding metadata first, then aggregates
-    /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
-    /// @return The hash of the transitions with metadata array
-    function hashTransitionsWithMetadata(
-        IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadata
+    /// @notice Computes a hash of a BondInstructionMessage struct for L2 signaling.
+    /// @dev Hashes firstProposalId, lastProposalId, and aggregatedBondInstructionsHash in order.
+    /// This hash is sent via the signal service to enable L2 bond settlement.
+    /// @param _change The message containing the range of finalized proposals and their bond hash.
+    /// @return The keccak256 hash of the message fields.
+    function hashBondInstructionMessage(IInbox.BondInstructionMessage memory _change)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return EfficientHashLib.hash(
+            bytes32(uint256(_change.firstProposalId)),
+            bytes32(uint256(_change.lastProposalId)),
+            _change.aggregatedBondInstructionsHash
+        );
+    }
+
+    /// @notice Computes a rolling hash by aggregating a new bond instruction hash.
+    /// @dev Chains bond instruction hashes together: hash(existing, new) to form a
+    /// Merkle-like commitment over all bond instructions from finalized proposals.
+    /// @param _aggregatedBondInstructionsHash The current rolling hash of all prior instructions.
+    /// @param _bondInstructionHash The new bond instruction hash to aggregate.
+    /// @return The updated aggregated hash.
+    function hashAggregatedBondInstructionsHash(
+        bytes32 _aggregatedBondInstructionsHash,
+        bytes32 _bondInstructionHash
     )
         internal
         pure
         returns (bytes32)
     {
-        require(_transitions.length == _metadata.length, InconsistentLengths());
+        return EfficientHashLib.hash(_aggregatedBondInstructionsHash, _bondInstructionHash);
+    }
+
+    // ---------------------------------------------------------------
+    // Array Hashing Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Computes a hash of an array of blob hashes.
+    /// @dev Includes array length as the first element to prevent length-extension attacks.
+    /// Optimized paths for 0, 1, and 2 elements avoid buffer allocation overhead.
+    /// @param _blobHashes Array of versioned blob hashes from EIP-4844 blobs.
+    /// @return The keccak256 hash of length-prefixed blob hashes.
+    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
         unchecked {
-            uint256 length = _transitions.length;
+            uint256 length = _blobHashes.length;
             if (length == 0) {
                 return EMPTY_BYTES_HASH;
             }
 
             if (length == 1) {
-                bytes32 transitionWithMetadataHash =
-                    _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
-                return EfficientHashLib.hash(bytes32(length), transitionWithMetadataHash);
+                return EfficientHashLib.hash(bytes32(length), _blobHashes[0]);
             }
 
             if (length == 2) {
-                bytes32 hash0 = _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
-                bytes32 hash1 = _hashTransitionWithMetadata(_transitions[1], _metadata[1]);
-                return EfficientHashLib.hash(bytes32(length), hash0, hash1);
+                return EfficientHashLib.hash(bytes32(length), _blobHashes[0], _blobHashes[1]);
             }
 
             bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
             EfficientHashLib.set(buffer, 0, bytes32(length));
 
             for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(
-                    buffer, i + 1, _hashTransitionWithMetadata(_transitions[i], _metadata[i])
+                EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
+    }
+
+    /// @notice Computes a hash of an array of ProveInput structs.
+    /// @dev Includes array length as the first element to prevent length-extension attacks.
+    /// Each ProveInput is recursively hashed via _hashProveInput. Optimized paths for
+    /// 0, 1, and 2 elements avoid buffer allocation overhead.
+    /// @param _inputs Array of prove inputs containing proposals and their proofs.
+    /// @return The keccak256 hash of length-prefixed prove input hashes.
+    function hashProveInputArray(IInbox.ProveInput[] memory _inputs)
+        internal
+        pure
+        returns (bytes32)
+    {
+        unchecked {
+            uint256 length = _inputs.length;
+            if (length == 0) {
+                return EMPTY_BYTES_HASH;
+            }
+
+            if (length == 1) {
+                return EfficientHashLib.hash(bytes32(length), _hashProveInput(_inputs[0]));
+            }
+
+            if (length == 2) {
+                return EfficientHashLib.hash(
+                    bytes32(length), _hashProveInput(_inputs[0]), _hashProveInput(_inputs[1])
                 );
+            }
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
+            EfficientHashLib.set(buffer, 0, bytes32(length));
+
+            for (uint256 i; i < length; ++i) {
+                EfficientHashLib.set(buffer, i + 1, _hashProveInput(_inputs[i]));
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);
@@ -269,30 +279,34 @@ library LibHashOptimized {
     // Utility Functions
     // ---------------------------------------------------------------
 
-    /// @notice Computes optimized composite key for transition record storage
-    /// @dev Creates unique identifier using efficient hashing
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
+    /// @notice Computes a composite storage key for transition records.
+    /// @dev Combines proposalId and parentTransitionHash into a unique bytes32 key
+    /// for the transitionRecords mapping. This enables efficient lookup of transition
+    /// proofs by their position in the proposal chain.
+    /// @param _proposalId The sequential ID of the proposal.
+    /// @param _parentTransitionHash The truncated hash of the parent transition (bytes27).
+    /// @return The keccak256 composite key for storage mapping lookup.
     function composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
+        uint40 _proposalId,
+        bytes27 _parentTransitionHash
     )
         internal
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), _parentTransitionHash);
+        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), bytes32(_parentTransitionHash));
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @notice Hashes a single derivation source efficiently
-    /// @dev Internal helper to hash DerivationSource struct with BlobSlice
-    /// @param _source The derivation source to hash
-    /// @return The hash of the derivation source
+    /// @notice Computes a hash of a DerivationSource struct.
+    /// @dev Hashes isForcedInclusion flag and the nested BlobSlice (blobHashes, offset, timestamp).
+    /// The BlobSlice is hashed hierarchically: blobHashes array first, then combined with offset
+    /// and timestamp.
+    /// @param _source The derivation source (regular submission or forced inclusion).
+    /// @return The keccak256 hash of the derivation source fields.
     function _hashDerivationSource(IInbox.DerivationSource memory _source)
         private
         pure
@@ -313,49 +327,33 @@ library LibHashOptimized {
             );
     }
 
-    /// @notice Safely hashes a single bond instruction to avoid collisions
-    /// @dev Internal helper to avoid code duplication and prevent hash collisions
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _hashSingleBondInstruction(LibBonds.BondInstruction memory _instruction)
-        private
-        pure
-        returns (bytes32)
-    {
-        // Use EfficientHashLib to safely hash all fields without collision risk
+    /// @notice Computes a hash of a ProveInput struct.
+    /// @dev Recursively hashes proposal, checkpoint, metadata, and parentTransitionHash.
+    /// Each nested struct is hashed using its corresponding hash function.
+    /// @param _input The prove input containing a proposal and its proof data.
+    /// @return The keccak256 hash of the prove input fields.
+    function _hashProveInput(IInbox.ProveInput memory _input) private pure returns (bytes32) {
+        bytes32 proposalHash = hashProposal(_input.proposal);
+        bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
+        bytes32 metadataHash = _hashTransitionMetadata(_input.metadata);
+
         return EfficientHashLib.hash(
-            bytes32(uint256(_instruction.proposalId)),
-            bytes32(uint256(uint8(_instruction.bondType))),
-            bytes32(uint256(uint160(_instruction.payer))),
-            bytes32(uint256(uint160(_instruction.payee)))
+            proposalHash, checkpointHash, metadataHash, bytes32(_input.parentTransitionHash)
         );
     }
 
-    /// @notice Gas-optimized hashing of a transition with its metadata
-    /// @dev Hashes transition first, then combines with metadata fields using packed encoding
-    /// @param _transition The transition to hash
-    /// @param _metadata The metadata to combine with the transition
-    /// @return The hash of the transition combined with metadata
-    function _hashTransitionWithMetadata(
-        IInbox.Transition memory _transition,
-        IInbox.TransitionMetadata memory _metadata
-    )
+    /// @notice Computes a hash of a TransitionMetadata struct.
+    /// @dev Hashes designatedProver and actualProver addresses in order.
+    /// @param _metadata The metadata containing prover information.
+    /// @return The keccak256 hash of the metadata fields.
+    function _hashTransitionMetadata(IInbox.TransitionMetadata memory _metadata)
         private
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint),
             bytes32(uint256(uint160(_metadata.designatedProver))),
             bytes32(uint256(uint160(_metadata.actualProver)))
         );
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InconsistentLengths();
 }
