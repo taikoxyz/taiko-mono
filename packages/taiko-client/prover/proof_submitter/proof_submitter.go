@@ -282,8 +282,6 @@ func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
 		return
 	}
 	for proofType, buffer := range s.proofBuffers {
-		proofType := proofType
-		buffer := buffer
 		go s.monitorProofBuffer(ctx, proofType, buffer)
 	}
 }
