@@ -35,11 +35,11 @@ library LibProposeInputDecoder {
         ptr = P.packUint40(ptr, _input.deadline);
 
         // 2. Encode CoreState
-        ptr = P.packUint40(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint40(ptr, _input.coreState.lastProposalBlockId);
-        ptr = P.packUint40(ptr, _input.coreState.lastFinalizedProposalId);
-        ptr = P.packUint40(ptr, _input.coreState.lastSyncProposalId);
-        ptr = P.packBytes27(ptr, _input.coreState.lastFinalizedTransitionHash);
+        ptr = P.packUint40(ptr, _input.coreState.proposalHead);
+        ptr = P.packUint40(ptr, _input.coreState.proposalHeadContainerBlock);
+        ptr = P.packUint40(ptr, _input.coreState.finalizationHead);
+        ptr = P.packUint40(ptr, _input.coreState.synchronizationHead);
+        ptr = P.packBytes27(ptr, _input.coreState.finalizationHeadTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.aggregatedBondInstructionsHash);
 
         // 3. Encode head proposals array
@@ -89,11 +89,11 @@ library LibProposeInputDecoder {
         (input_.deadline, ptr) = P.unpackUint40(ptr);
 
         // 2. Decode CoreState
-        (input_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastSyncProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
+        (input_.coreState.proposalHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.proposalHeadContainerBlock, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.finalizationHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.synchronizationHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.finalizationHeadTransitionHash, ptr) = P.unpackBytes27(ptr);
         (input_.coreState.aggregatedBondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode head proposals array

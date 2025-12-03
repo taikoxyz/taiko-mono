@@ -223,7 +223,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
             require(
-                block.number > input.coreState.lastProposalBlockId, CannotProposeInCurrentBlock()
+                block.number > input.coreState.proposalHeadContainerBlock, CannotProposeInCurrentBlock()
             );
 
             // Verify parentProposals[0] is the last proposal stored on-chain.
@@ -237,7 +237,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
 
-            coreState.lastProposalBlockId = uint40(block.number);
+            coreState.proposalHeadContainerBlock = uint40(block.number);
 
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NotEnoughCapacity());
@@ -271,8 +271,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-            // Increment nextProposalId (lastProposalBlockId was already set above)
-            uint40 id = coreState.nextProposalId++;
+            // Increment proposalHead (proposalHeadContainerBlock was already set above)
+            uint40 id = ++coreState.proposalHead;
             Proposal memory proposal = Proposal({
                 id: id,
                 timestamp: uint40(block.timestamp),
@@ -284,9 +284,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _proposalHashes[proposal.id % _ringBufferSize] = hashProposal(proposal);
-            _emitProposedEvent(
-                proposal, derivation, coreState, input.transitions
-            );
+            _emitProposedEvent(proposal, derivation, coreState, input.transitions);
         }
     }
 
@@ -580,14 +578,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         transition.checkpointHash = hashCheckpoint(checkpoint);
 
         CoreState memory coreState;
-        coreState.nextProposalId = 1;
+        coreState.proposalHead = 0;
 
-        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
+        // Set proposalHeadContainerBlock to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
-        coreState.lastProposalBlockId = 1;
-        coreState.lastFinalizedTransitionHash = hashTransition(transition);
+        coreState.proposalHeadContainerBlock = 1;
+        coreState.finalizationHeadTransitionHash = hashTransition(transition);
 
         Proposal memory proposal;
         proposal.coreStateHash = hashCoreState(coreState);
@@ -643,12 +641,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Calculates remaining ring buffer capacity for new proposals.
     ///      Ring buffer reserves one slot to distinguish full from empty state.
-    ///      Formula: capacity = ringBufferSize + lastFinalizedProposalId - nextProposalId
+    ///      Formula: capacity = ringBufferSize + finalizationHead - proposalHead
     /// @param _coreState Current state containing proposal counters
     /// @return _ Number of additional proposals that can be submitted before buffer is full
     function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
         unchecked {
-            return _ringBufferSize + _coreState.lastFinalizedProposalId - _coreState.nextProposalId;
+            return _ringBufferSize + _coreState.finalizationHead - _coreState.proposalHead;
         }
     }
 
@@ -773,18 +771,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _finalize(ProposeInput memory _input) private returns (CoreState memory coreState_) {
         unchecked {
             coreState_ = _input.coreState;
-            uint40 proposalId = coreState_.lastFinalizedProposalId + 1;
+            uint40 proposalId = coreState_.finalizationHead + 1;
             uint256 lastFinalizedIdx;
             uint256 finalizedCount;
             uint256 transitionCount = _input.transitions.length;
 
             for (uint256 i; i < _maxFinalizationCount; ++i) {
                 // Check if there are more proposals to finalize
-                if (proposalId >= coreState_.nextProposalId) break;
+                if (proposalId > coreState_.proposalHead) break;
 
                 // Try to finalize the current proposal
                 TransitionRecord memory record =
-                    _loadTransitionRecord(proposalId, coreState_.lastFinalizedTransitionHash);
+                    _loadTransitionRecord(proposalId, coreState_.finalizationHeadTransitionHash);
 
                 if (record.transitionHash == 0) break;
 
@@ -798,7 +796,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     TransitionHashMismatchWithStorage()
                 );
 
-                coreState_.lastFinalizedProposalId = proposalId;
+                coreState_.finalizationHead = proposalId;
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
@@ -832,7 +830,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. If bond instructions changed, sends signal to L2 via signal service
     /// @param _checkpoint The checkpoint data to persist
     /// @param _lastVerifiedCheckpointHash Expected hash for checkpoint validation
-    /// @param _coreState Core state to update (lastSyncProposalId, aggregatedBondInstructionsHash)
+    /// @param _coreState Core state to update (synchronizationHead, aggregatedBondInstructionsHash)
     function _syncToLayer2(
         ICheckpointStore.Checkpoint memory _checkpoint,
         bytes32 _lastVerifiedCheckpointHash,
@@ -841,7 +839,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         // Rate limit: skip if minimum delay hasn't elapsed since last sync
-        if (_coreState.lastSyncProposalId + _minSyncDelay < _coreState.lastFinalizedProposalId) {
+        if (_coreState.synchronizationHead + _minSyncDelay < _coreState.finalizationHead) {
             return;
         }
 
@@ -854,15 +852,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Signal bond instruction changes to L2 if any occurred
         if (_coreState.aggregatedBondInstructionsHash != 0) {
             BondInstructionHashMessage memory message = BondInstructionHashMessage({
-                startProposalId: _coreState.lastSyncProposalId + 1,
-                endProposalId: _coreState.lastFinalizedProposalId,
+                startProposalId: _coreState.synchronizationHead + 1,
+                endProposalId: _coreState.finalizationHead,
                 bondInstructionsHash: _coreState.aggregatedBondInstructionsHash
             });
             _signalService.sendSignal(hashBondInstructionHashMessage(message));
             _coreState.aggregatedBondInstructionsHash = bytes32(0);
         }
 
-        _coreState.lastSyncProposalId = _coreState.lastFinalizedProposalId;
+        _coreState.synchronizationHead = _coreState.finalizationHead;
     }
 
     // ---------------------------------------------------------------

@@ -64,11 +64,11 @@ library LibProposedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.proposal.parentProposalHash);
 
         // Encode core state
-        ptr = P.packUint40(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint40(ptr, _payload.coreState.lastProposalBlockId);
-        ptr = P.packUint40(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packUint40(ptr, _payload.coreState.lastSyncProposalId);
-        ptr = P.packBytes27(ptr, _payload.coreState.lastFinalizedTransitionHash);
+        ptr = P.packUint40(ptr, _payload.coreState.proposalHead);
+        ptr = P.packUint40(ptr, _payload.coreState.proposalHeadContainerBlock);
+        ptr = P.packUint40(ptr, _payload.coreState.finalizationHead);
+        ptr = P.packUint40(ptr, _payload.coreState.synchronizationHead);
+        ptr = P.packBytes27(ptr, _payload.coreState.finalizationHeadTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.aggregatedBondInstructionsHash);
     }
 
@@ -122,11 +122,11 @@ library LibProposedEventEncoder {
         (payload_.proposal.parentProposalHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode core state
-        (payload_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
-        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
-        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
-        (payload_.coreState.lastSyncProposalId, ptr) = P.unpackUint40(ptr);
-        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
+        (payload_.coreState.proposalHead, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.proposalHeadContainerBlock, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.finalizationHead, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.synchronizationHead, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.finalizationHeadTransitionHash, ptr) = P.unpackBytes27(ptr);
         (payload_.coreState.aggregatedBondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
@@ -139,14 +139,14 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 282 bytes (without blob data)
+            // Fixed size: 250 bytes (without blob data)
             // Proposal: id(5) + proposer(20) + timestamp(5) + endOfSubmissionWindowTimestamp(5) = 35
             // Derivation: originBlockNumber(5) + originBlockHash(32) + basefeeSharingPctg(1) = 38
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) + parentProposalHash(32) = 96
-            // CoreState: nextProposalId(5) + lastProposalBlockId(5) + lastFinalizedProposalId(5) +
-            //           lastSyncProposalId(5) + lastFinalizedTransitionHash(27) +
-            //           bondInstructionsHash(32) = 79
+            // CoreState: proposalHead(5) + proposalHeadContainerBlock(5) + finalizationHead(5) +
+            //           synchronizationHead(5) + finalizationHeadTransitionHash(27) +
+            //           aggregatedBondInstructionsHash(32) = 79
             // Total fixed: 35 + 38 + 2 + 96 + 79 = 250
 
             size_ = 250;

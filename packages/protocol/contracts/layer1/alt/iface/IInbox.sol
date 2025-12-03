@@ -121,16 +121,16 @@ interface IInbox {
 
     /// @notice Represents the core state of the inbox.
     struct CoreState {
-        /// @notice The next proposal ID to be assigned.
-        uint40 nextProposalId;
+        /// @notice The ID of the most recent proposal.
+        uint40 proposalHead;
         /// @notice The last L1 block ID where a proposal was made.
-        uint40 lastProposalBlockId;
+        uint40 proposalHeadContainerBlock;
         /// @notice The ID of the last finalized proposal.
-        uint40 lastFinalizedProposalId;
+        uint40 finalizationHead;
         /// @notice The proposal ID when the last sync occurred.
-        uint40 lastSyncProposalId;
+        uint40 synchronizationHead;
         /// @notice The hash of the last finalized transition.
-        bytes27 lastFinalizedTransitionHash;
+        bytes27 finalizationHeadTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 aggregatedBondInstructionsHash;
     }

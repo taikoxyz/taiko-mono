@@ -44,11 +44,11 @@ library LibHashOptimized {
     /// @return The hash of the core state
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastProposalBlockId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            bytes32(uint256(_coreState.lastSyncProposalId)),
-            _coreState.lastFinalizedTransitionHash,
+            bytes32(uint256(_coreState.proposalHead)),
+            bytes32(uint256(_coreState.proposalHeadContainerBlock)),
+            bytes32(uint256(_coreState.finalizationHead)),
+            bytes32(uint256(_coreState.synchronizationHead)),
+            _coreState.finalizationHeadTransitionHash,
             _coreState.aggregatedBondInstructionsHash
         );
     }
