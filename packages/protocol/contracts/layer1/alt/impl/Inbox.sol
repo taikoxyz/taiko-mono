@@ -49,7 +49,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
-        IInbox.DerivationSource[] sources;
+        DerivationSource[] sources;
         bool allowsPermissionless;
     }
 
@@ -155,7 +155,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config) {
+    constructor(Config memory _config) {
         require(_config.checkpointStore != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
@@ -301,7 +301,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _checkProposalHash(inputs[i].proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
-                    _calculateBondInstructions(inputs[i].proposal, inputs[i].metadata);
+                    _calculateBondInstructions(inputs[i]);
 
                 Transition memory transition = Transition({
                     bondInstructionHash: bondInstructions.length == 0
@@ -406,8 +406,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IInbox
-    function getConfig() external view returns (IInbox.Config memory config_) {
-        config_ = IInbox.Config({
+    function getConfig() external view returns (Config memory config_) {
+        config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             checkpointStore: address(_checkpointStore),
@@ -679,7 +679,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 toProcess = _numForcedInclusionsRequested.min(available);
 
             // Allocate array with extra slot for normal source
-            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
+            result_.sources = new DerivationSource[](toProcess + 1);
 
             // Process inclusions if any
             uint40 oldestTimestamp;
@@ -719,7 +719,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
         address _feeRecipient,
-        IInbox.DerivationSource[] memory _sources,
+        DerivationSource[] memory _sources,
         uint40 _head,
         uint40 _lastProcessedAt,
         uint256 _toProcess
@@ -733,7 +733,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             unchecked {
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
-                    _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                    _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
                 }
             }
@@ -876,13 +876,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///           designated
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     ///           differs from proposer
-    /// @param _proposal The proposal
-    /// @param _metadata The transition metadata containing timing and prover info
+    /// @param _input The prove input
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function _calculateBondInstructions(
-        IInbox.Proposal memory _proposal,
-        IInbox.TransitionMetadata memory _metadata
+        ProveInput memory _input
     )
         private
         view
@@ -891,23 +889,23 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint256 windowEnd = block.timestamp + _provingWindow;
         if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-        uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
+        uint256 extendedWindowEnd = _input.proposal.timestamp + _extendedProvingWindow;
         bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
         bool needsBondInstruction = isWithinExtendedWindow
-            ? (_metadata.actualProver != _metadata.designatedProver)
-            : (_metadata.actualProver != _proposal.proposer);
+            ? (_input.metadata.actualProver != _input.metadata.designatedProver)
+            : (_input.metadata.actualProver != _input.proposal.proposer);
 
         if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
         bondInstructions_ = new LibBonds.BondInstruction[](1);
         bondInstructions_[0] = LibBonds.BondInstruction({
-            proposalId: _proposal.id,
+            proposalId: _input.proposal.id,
             bondType: isWithinExtendedWindow
                 ? LibBonds.BondType.LIVENESS
                 : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow ? _metadata.designatedProver : _proposal.proposer,
-            payee: _metadata.actualProver
+            payer: isWithinExtendedWindow ? _input.metadata.designatedProver : _input.proposal.proposer,
+            payee: _input.metadata.actualProver
         });
     }
 
